@@ -71,6 +71,9 @@ namespace lyra
         bool (*create_bind_group)(GPUBindGroupHandle& layout, const GPUBindGroupDescriptor& descriptor);
         bool (*create_bind_group_layout)(GPUBindGroupLayoutHandle& layout, const GPUBindGroupLayoutDescriptor& descriptor);
         void (*delete_bind_group_layout)(GPUBindGroupLayoutHandle layout);
+        bool (*create_bind_group_heap)(GPUBindGroupHeapHandle& heap, const GPUBindGroupHeapDescriptor& descriptor);
+        void (*delete_bind_group_heap)(GPUBindGroupHeapHandle heap);
+        void (*reset_bind_group_heap)(GPUBindGroupHeapHandle heap);
 
         void (*new_frame)();
         void (*end_frame)();

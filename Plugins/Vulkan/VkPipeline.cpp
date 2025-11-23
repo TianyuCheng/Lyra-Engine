@@ -71,7 +71,7 @@ VulkanPipeline::VulkanPipeline(const GPURenderPipelineDescriptor& desc)
     // use dummy swapchain extent for non-windowed workload,
     // but also query from the first available swapchain
     VkExtent2D extent = {1920, 1080};
-    if (!rhi->swapchains.range_check(0))
+    if (rhi->swapchains.range_check(0))
         extent = rhi->swapchains.at(0).extent;
 
     // dummy viewport (supposed to be replaced by vkCmdSetViewport)

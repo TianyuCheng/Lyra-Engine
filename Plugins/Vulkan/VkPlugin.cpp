@@ -252,6 +252,26 @@ void api::delete_query_set(GPUQuerySetHandle query_set)
     get_rhi()->query_sets.remove(query_set.value);
 }
 
+bool api::create_bind_group_heap(GPUBindGroupHeapHandle& heap, const GPUBindGroupHeapDescriptor& desc)
+{
+    auto obj = VulkanDescriptorPool(desc);
+    auto rhi = get_rhi();
+    auto ind = rhi->descriptor_pools.add(obj);
+
+    heap = GPUBindGroupHeapHandle(ind);
+    return true;
+}
+
+void api::delete_bind_group_heap(GPUBindGroupHeapHandle heap)
+{
+    get_rhi()->descriptor_pools.remove(heap.value);
+}
+
+void api::reset_bind_group_heap(GPUBindGroupHeapHandle heap)
+{
+    get_rhi()->descriptor_pools.at(heap.value).reset();
+}
+
 bool api::create_bind_group_layout(GPUBindGroupLayoutHandle& layout, const GPUBindGroupLayoutDescriptor& desc)
 {
     auto obj = VulkanBindGroupLayout(desc);
@@ -439,6 +459,9 @@ LYRA_EXPORT auto create() -> RenderAPI
     api.create_bind_group                = api::create_bind_group;
     api.create_bind_group_layout         = api::create_bind_group_layout;
     api.delete_bind_group_layout         = api::delete_bind_group_layout;
+    api.create_bind_group_heap           = api::create_bind_group_heap;
+    api.delete_bind_group_heap           = api::delete_bind_group_heap;
+    api.reset_bind_group_heap            = api::reset_bind_group_heap;
     api.wait_idle                        = api::wait_idle;
     api.wait_fence                       = api::wait_fence;
     api.new_frame                        = api::new_frame;

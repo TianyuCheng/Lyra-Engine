@@ -139,8 +139,15 @@ namespace lyra
         GPUBVHUpdateMode update_mode   = GPUBVHUpdateMode::BUILD;
     };
 
+    // NOTE: Non-WebGPU standard API
+    struct GPUBindGroupHeapDescriptor : public GPUObjectDescriptorBase
+    {
+        uint page_size = 2048;
+    };
+
     struct GPUBindGroupDescriptor : public GPUObjectDescriptorBase
     {
+        GPUBindGroupHeapHandle   heap; // NOTE: Non-WebGPU standard API
         GPUBindGroupLayoutHandle layout;
         GPUBindGroupEntries      entries;
     };

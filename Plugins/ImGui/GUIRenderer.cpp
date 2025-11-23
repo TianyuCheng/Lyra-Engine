@@ -102,12 +102,6 @@ static void imgui_create_vertex_buffers(GUIPipelineData* pipeline_data, GUIRende
     vbuffer.unmap();
 }
 
-static void imgui_reset_texture_descriptors(GUIRendererData* renderer_data)
-{
-    for (auto& texinfo : renderer_data->textures)
-        texinfo.bindgroup.handle.reset();
-}
-
 static GPUBindGroup imgui_create_texture_descriptor(GUIPipelineData* pipeline_data, GUIRendererData* renderer_data, uint texid)
 {
     auto& device = RHI::get_current_device();
@@ -130,6 +124,7 @@ static GPUBindGroup imgui_create_texture_descriptor(GUIPipelineData* pipeline_da
 
     texinfo.bindgroup = execute([&]() {
         GPUBindGroupDescriptor desc{};
+        desc.heap    = renderer_data->heap;
         desc.layout  = pipeline_data->blayouts.at(0);
         desc.entries = entries;
         return device.create_bind_group(desc);
@@ -750,9 +745,6 @@ void GUIRenderer::reset()
 
     // update monitor state
     update_monitor_state();
-
-    // clear existing bind groups
-    imgui_reset_texture_descriptors(renderer_data.get());
 }
 
 void GUIRenderer::prepare(GPUCommandBuffer cmdbuffer)
@@ -1074,6 +1066,13 @@ void GUIRenderer::init_renderer_data(const GUIDescriptor& descriptor)
     auto& device = RHI::get_current_device();
 
     renderer_data.reset(imgui_make_renderer(pipeline_data->frame_count));
+
+    // heap
+    renderer_data->heap = execute([&]() {
+        GPUBindGroupHeapDescriptor desc{};
+        desc.page_size = 2048;
+        return device.create_bind_group_heap(desc);
+    });
 
     // sampler
     renderer_data->sampler = execute([&]() {

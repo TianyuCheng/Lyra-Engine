@@ -33,6 +33,7 @@ namespace lyra
         SHADER_MODULE,
         COMMAND_ENCODER,
         BIND_GROUP,
+        BIND_GROUP_HEAP,
         BIND_GROUP_LAYOUT,
         PIPELINE_LAYOUT,
         RENDER_PIPELINE,

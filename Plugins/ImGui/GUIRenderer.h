@@ -95,6 +95,7 @@ struct GUIRendererData
 {
     Vector<GPUBuffer>  vbuffers;
     Vector<GPUBuffer>  ibuffers;
+    GPUBindGroupHeap   heap;
     GPUSampler         sampler;
     GUITextureManager  textures;
     GUIGarbageBuffers  garbage_buffers;

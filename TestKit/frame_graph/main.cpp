@@ -205,6 +205,7 @@ struct FrameGraphApp : public TestApp
             entry.buffer.size   = 0;
 
             auto desc    = GPUBindGroupDescriptor{};
+            desc.heap    = bheap;
             desc.layout  = pipeline1.blayouts.at(0);
             desc.entries = entries;
             return device.create_bind_group(desc);
@@ -252,6 +253,7 @@ struct FrameGraphApp : public TestApp
             entry1.sampler = sampler;
 
             auto desc    = GPUBindGroupDescriptor{};
+            desc.heap    = bheap;
             desc.layout  = pipeline2.blayouts.at(0);
             desc.entries = entries;
             return device.create_bind_group(desc);

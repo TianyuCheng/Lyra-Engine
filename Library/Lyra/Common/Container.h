@@ -15,6 +15,7 @@
 #include <unordered_map>
 #include <initializer_list>
 #include <boost/circular_buffer.hpp>
+#include <Lyra/Common/Slotmap.h>
 
 namespace lyra
 {

@@ -256,6 +256,26 @@ void api::delete_query_set(GPUQuerySetHandle query_set)
     // get_rhi()->query_sets.remove(query_set.value);
 }
 
+bool api::create_bind_group_heap(GPUBindGroupHeapHandle& heap, const GPUBindGroupHeapDescriptor& desc)
+{
+    auto obj = D3D12BindGroupHeap(desc);
+    auto rhi = get_rhi();
+    auto ind = rhi->bind_group_heaps.add(obj);
+
+    heap = GPUBindGroupHeapHandle(ind);
+    return true;
+}
+
+void api::delete_bind_group_heap(GPUBindGroupHeapHandle heap)
+{
+    get_rhi()->bind_group_heaps.remove(heap.value);
+}
+
+void api::reset_bind_group_heap(GPUBindGroupHeapHandle heap)
+{
+    get_rhi()->bind_group_heaps.at(heap.value).reset();
+}
+
 bool api::create_bind_group_layout(GPUBindGroupLayoutHandle& layout, const GPUBindGroupLayoutDescriptor& desc)
 {
     auto obj = D3D12BindGroupLayout(desc);
@@ -333,9 +353,18 @@ void api::delete_raytracing_pipeline(GPURayTracingPipelineHandle pipeline)
 
 bool api::create_bind_group(GPUBindGroupHandle& bind_group, const GPUBindGroupDescriptor& desc)
 {
-    auto  rhi  = get_rhi();
-    auto& frm  = rhi->current_frame();
-    bind_group = frm.create(desc);
+    assert(desc.heap.valid() && "api::create_bind_group(...) requires a valid GPUBindGroupHeap handle!");
+
+    auto  rhi = get_rhi();
+    auto& lay = fetch_resource(rhi->bind_group_layouts, desc.layout);
+    auto  des = lay.create(desc.heap, desc);
+
+    // directly cast descriptor set to bind group handle for
+    // 1. faster access (avoid indirection to vector)
+    // 2. minimal storage (no need to store descriptors in RHI backend)
+    // once descriptor set is created, it is never changed for rest of its life
+    auto handle = astype<uint64_t>(des);
+    bind_group  = GPUBindGroupHandle(handle);
     return true;
 }
 
@@ -442,6 +471,9 @@ LYRA_EXPORT auto create() -> RenderAPI
     api.create_raytracing_pipeline       = api::create_raytracing_pipeline;
     api.delete_raytracing_pipeline       = api::delete_raytracing_pipeline;
     api.create_bind_group                = api::create_bind_group;
+    api.create_bind_group_heap           = api::create_bind_group_heap;
+    api.delete_bind_group_heap           = api::delete_bind_group_heap;
+    api.reset_bind_group_heap            = api::reset_bind_group_heap;
     api.create_bind_group_layout         = api::create_bind_group_layout;
     api.delete_bind_group_layout         = api::delete_bind_group_layout;
     api.wait_idle                        = api::wait_idle;

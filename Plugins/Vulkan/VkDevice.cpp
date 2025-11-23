@@ -471,6 +471,10 @@ void api::delete_device()
     for (auto& shader : rhi->shaders)
         shader.destroy();
 
+    // clean up remaining descriptor pools
+    for (auto& heap : rhi->descriptor_pools)
+        heap.destroy();
+
     // clean up remaining bind group layouts
     for (auto& layout : rhi->bind_group_layouts)
         layout.destroy();

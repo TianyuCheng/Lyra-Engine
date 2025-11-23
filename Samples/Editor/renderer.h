@@ -17,8 +17,11 @@ private:
     void destroy(Blackboard& blackboard);
     void init_pipeline(GPUDevice device, Compiler compiler);
     void init_buffers(GPUDevice device);
+    void init_bind_group(GPUDevice device);
 
 private:
+    GPUBindGroupHeap  heap;
+    GPUBindGroup      bind_group;
     GPURenderPipeline pipeline;
     GPUPipelineLayout playout;
     GPUShaderModule   vshader;

@@ -13,9 +13,11 @@ build preset:
     cmake --build --preset {{preset}}
 
 test preset:
+    cmake --build --preset {{preset}}
     cmake --build --preset {{preset}} --target testkit
 
 run preset target:
+    cmake --build --preset {{preset}}
     cmake --build --preset {{preset}} --target {{target}}
 
 [confirm("This will clean all build products! (y/n)")]

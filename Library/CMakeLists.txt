@@ -128,8 +128,8 @@ target_sources(lyra-engine PRIVATE
     Lyra/Engine/Editor/Inspector.cpp
     Lyra/Engine/Editor/SceneView.h
     Lyra/Engine/Editor/SceneView.cpp
-    Lyra/Engine/Helper/Canvas.h
-    Lyra/Engine/Helper/Canvas.cpp
+    Lyra/Engine/Common/Canvas.h
+    Lyra/Engine/Common/Canvas.cpp
 )
 
 # link dependencies

@@ -1,6 +1,6 @@
-#include "VkUtils.h"
+#include <Lyra/Common/Conversion.h>
 
-constexpr uint MAX_SETS = 2048;
+#include "VkUtils.h"
 
 struct DescriptorObjects
 {
@@ -13,13 +13,12 @@ void VulkanDescriptorPool::destroy()
     reset();
     for (auto& pool : pools)
         delete_descriptor_pool(pool);
+    pools.clear();
 }
 
 void VulkanDescriptorPool::reset()
 {
     poolindex = 0;
-
-    allocated.clear();
 
     for (auto& count : counts)
         count = 0;
@@ -28,7 +27,7 @@ void VulkanDescriptorPool::reset()
         reset_descriptor_pool(pool);
 }
 
-GPUBindGroupHandle VulkanDescriptorPool::allocate(VkDescriptorSet& descriptor, VkDescriptorSetLayout layout, uint set_count, uint bindless_count)
+VkDescriptorSet VulkanDescriptorPool::allocate(VkDescriptorSetLayout layout, uint set_count, uint bindless_count)
 {
     auto rhi = get_rhi();
 
@@ -49,12 +48,11 @@ GPUBindGroupHandle VulkanDescriptorPool::allocate(VkDescriptorSet& descriptor, V
         alloc_info.pNext              = &set_counts;
     }
 
-    vk_check(rhi->vtable.vkAllocateDescriptorSets(rhi->device, &alloc_info, &descriptor));
-    counts.at(poolindex)++;
+    counts.at(poolindex) += set_count;
 
-    uint handle = static_cast<uint>(allocated.size());
-    allocated.push_back(descriptor);
-    return GPUBindGroupHandle(handle);
+    VkDescriptorSet descriptor;
+    vk_check(rhi->vtable.vkAllocateDescriptorSets(rhi->device, &alloc_info, &descriptor));
+    return descriptor;
 }
 
 uint VulkanDescriptorPool::find_pool_index(uint index)
@@ -62,13 +60,13 @@ uint VulkanDescriptorPool::find_pool_index(uint index)
     // check if we need to allocate new pool
     if (index >= counts.size()) {
         // allocate a new descriptor pool
-        VkDescriptorPool pool = create_descriptor_pool();
+        VkDescriptorPool pool = create_descriptor_pool(desc.page_size);
         pools.push_back(pool);
         counts.push_back(0);
         return static_cast<uint>(pools.size() - 1);
     }
 
-    if (counts.at(index) < MAX_SETS)
+    if (counts.at(index) < desc.page_size)
         return index;
 
     return find_pool_index(index + 1);
@@ -139,13 +137,14 @@ void fill_descriptor_write(VkWriteDescriptorSet& write, DescriptorObjects& objec
 
 GPUBindGroupHandle create_bind_group(const GPUBindGroupDescriptor& desc)
 {
+    assert(desc.heap.valid() && "Failed to create bind group (because bind group heap is invalid!)");
+
     auto  rhi    = get_rhi();
-    auto& frame  = rhi->current_frame();
-    auto  layout = fetch_resource(rhi->bind_group_layouts, desc.layout);
+    auto& heap   = fetch_resource(rhi->descriptor_pools, desc.heap);
+    auto& layout = fetch_resource(rhi->bind_group_layouts, desc.layout);
 
     // allocate descriptor set
-    VkDescriptorSet    descriptor;
-    GPUBindGroupHandle handle = frame.descriptor_pool.allocate(descriptor, layout.layout, 1, 0);
+    auto descriptor = heap.allocate(layout.layout, 1, 0);
 
     // prepare descriptor writes
     DescriptorObjects            objects;
@@ -157,10 +156,16 @@ GPUBindGroupHandle create_bind_group(const GPUBindGroupDescriptor& desc)
 
     // update descriptor sets
     rhi->vtable.vkUpdateDescriptorSets(rhi->device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
-    return handle;
+
+    // directly cast descriptor set to bind group handle for
+    // 1. faster access (avoid indirection to vector)
+    // 2. minimal storage (no need to store descriptors in RHI backend)
+    // once descriptor set is created, it is never changed for rest of its life
+    auto handle = astype<uint64_t>(descriptor);
+    return GPUBindGroupHandle(handle);
 }
 
-VkDescriptorPool create_descriptor_pool()
+VkDescriptorPool create_descriptor_pool(uint max_sets)
 {
     auto rhi = get_rhi();
 
@@ -180,7 +185,7 @@ VkDescriptorPool create_descriptor_pool()
     for (const auto& kv : allocations) {
         auto pool_size            = VkDescriptorPoolSize{};
         pool_size.type            = kv.first;
-        pool_size.descriptorCount = static_cast<uint32_t>(MAX_SETS * kv.second);
+        pool_size.descriptorCount = static_cast<uint32_t>(max_sets * kv.second);
         pool_sizes.push_back(pool_size);
     }
 
@@ -189,7 +194,7 @@ VkDescriptorPool create_descriptor_pool()
     create_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     create_info.poolSizeCount = (uint)pool_sizes.size();
     create_info.pPoolSizes    = pool_sizes.data();
-    create_info.maxSets       = MAX_SETS;
+    create_info.maxSets       = max_sets;
     create_info.flags         = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
 
     VkDescriptorPool pool;

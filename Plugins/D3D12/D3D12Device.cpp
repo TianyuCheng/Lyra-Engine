@@ -39,11 +39,15 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
     rhi->idle_fence.init(false);
     rhi->idle_fence.fence->SetName(L"idle fence");
 
-    // create descriptor heaps
+    // create cpu descriptor heaps
     rhi->rtv_heap.init(32, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
     rhi->dsv_heap.init(32, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
     rhi->sampler_heap.init(32, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
     rhi->cbv_srv_uav_heap.init(512, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
+
+    // create gpu descriptor heap allocators
+    rhi->gpu_default_heap.init(4096, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+    rhi->gpu_sampler_heap.init(2048, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
 
     // create a default frame (for headless cases)
     rhi->frames.emplace_back();
@@ -107,6 +111,11 @@ void api::delete_device()
         if (shader.valid())
             shader.destroy();
 
+    // clean up remaining bind group heaps
+    for (auto& heap : rhi->bind_group_heaps)
+        if (heap.valid())
+            heap.destroy();
+
     // clean up remaining bind group layouts
     for (auto& layout : rhi->bind_group_layouts)
         if (layout.valid())
@@ -122,7 +131,11 @@ void api::delete_device()
         if (pipeline.valid())
             pipeline.destroy();
 
-    // clean up descriptor heaps
+    // clean up gpu descriptor heaps
+    rhi->gpu_default_heap.destroy();
+    rhi->gpu_sampler_heap.destroy();
+
+    // clean up cpu descriptor heaps
     rhi->rtv_heap.destroy();
     rhi->dsv_heap.destroy();
     rhi->sampler_heap.destroy();

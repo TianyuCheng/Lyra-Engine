@@ -62,23 +62,6 @@ void SampleCubeRenderer::bind(Application& app)
 
 void SampleCubeRenderer::render(const Backbuffer& backbuffer, GPUDevice device, GPUCommandBuffer command)
 {
-    // create bind group
-    auto bind_group = execute([&]() {
-        Array<GPUBindGroupEntry, 1> entries = {};
-
-        auto& entry         = entries.at(0);
-        entry.type          = GPUBindingResourceType::BUFFER;
-        entry.binding       = 0;
-        entry.buffer.buffer = ubuffer;
-        entry.buffer.offset = 0;
-        entry.buffer.size   = 0;
-
-        auto desc    = GPUBindGroupDescriptor{};
-        desc.layout  = blayouts.at(0);
-        desc.entries = entries;
-        return device.create_bind_group(desc);
-    });
-
     // color attachments
     auto color_attachment        = GPURenderPassColorAttachment{};
     color_attachment.clear_value = GPUColor{0.0f, 0.0f, 0.0f, 1.0f};
@@ -113,6 +96,7 @@ void SampleCubeRenderer::init(Blackboard& blackboard)
 
     init_pipeline(device, compiler);
     init_buffers(device);
+    init_bind_group(device);
 }
 
 void SampleCubeRenderer::destroy(Blackboard& blackboard)
@@ -325,5 +309,32 @@ void SampleCubeRenderer::init_pipeline(GPUDevice device, Compiler compiler)
         desc.vertex.buffers                        = layout;
         desc.fragment.targets                      = rstates;
         return device.create_render_pipeline(desc);
+    });
+}
+
+void SampleCubeRenderer::init_bind_group(GPUDevice device)
+{
+    heap = lyra::execute([&]() {
+        auto desc      = GPUBindGroupHeapDescriptor{};
+        desc.page_size = 2048;
+        return device.create_bind_group_heap(desc);
+    });
+
+    // create bind group
+    bind_group = execute([&]() {
+        Array<GPUBindGroupEntry, 1> entries = {};
+
+        auto& entry         = entries.at(0);
+        entry.type          = GPUBindingResourceType::BUFFER;
+        entry.binding       = 0;
+        entry.buffer.buffer = ubuffer;
+        entry.buffer.offset = 0;
+        entry.buffer.size   = 0;
+
+        auto desc    = GPUBindGroupDescriptor{};
+        desc.heap    = heap;
+        desc.layout  = blayouts.at(0);
+        desc.entries = entries;
+        return device.create_bind_group(desc);
     });
 }

@@ -224,6 +224,13 @@ GPUBindGroup GPUDevice::create_bind_group(const GPUBindGroupDescriptor& desc) co
     return bind_group;
 }
 
+GPUBindGroupHeap GPUDevice::create_bind_group_heap(const GPUBindGroupHeapDescriptor& desc) const
+{
+    GPUBindGroupHeap heap;
+    RHI::api()->create_bind_group_heap(heap.handle, desc);
+    return heap;
+}
+
 GPUBindGroupLayout GPUDevice::create_bind_group_layout(const GPUBindGroupLayoutDescriptor& desc) const
 {
     GPUBindGroupLayout layout;
@@ -420,6 +427,14 @@ void GPUShaderModule::destroy()
     handle.reset();
 }
 #pragma endregion GPUShaderModule
+
+#pragma region GPUBindGroupHeap
+void GPUBindGroupHeap::destroy()
+{
+    RHI::api()->delete_bind_group_heap(handle);
+    handle.reset();
+}
+#pragma endregion GPUBindGroupHeap
 
 #pragma region GPUBindGroupLayout
 void GPUBindGroupLayout::destroy()

@@ -196,6 +196,20 @@ namespace lyra
         FORCE_INLINE bool valid() const { return handle.valid(); }
     };
 
+    struct GPUBindGroupHeap : public GPUObjectBase
+    {
+        GPUBindGroupHeapHandle handle;
+
+        // implicit conversion
+        FORCE_INLINE GPUBindGroupHeap() : handle() {}
+        FORCE_INLINE GPUBindGroupHeap(GPUBindGroupHeapHandle handle) : handle(handle) {}
+        FORCE_INLINE operator GPUBindGroupHeapHandle() const { return handle; }
+
+        FORCE_INLINE bool valid() const { return handle.valid(); }
+
+        void destroy();
+    };
+
     struct GPUBindGroupLayout : public GPUObjectBase
     {
         GPUBindGroupLayoutHandle handle;
@@ -423,6 +437,8 @@ namespace lyra
         auto create_tlas(const GPUTlasDescriptor& descriptor) const -> GPUTlas;
 
         auto create_bind_group(const GPUBindGroupDescriptor& descriptor) const -> GPUBindGroup;
+
+        auto create_bind_group_heap(const GPUBindGroupHeapDescriptor& descriptor) const -> GPUBindGroupHeap;
 
         auto create_bind_group_layout(const GPUBindGroupLayoutDescriptor& descriptor) const -> GPUBindGroupLayout;
 

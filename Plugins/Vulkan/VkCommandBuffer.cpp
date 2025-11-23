@@ -91,13 +91,13 @@ void cmd::insert_debug_marker(GPUCommandEncoderHandle cmdbuffer, CString marker_
         auto  rhi = get_rhi();
         auto& cmd = rhi->current_frame().command(cmdbuffer);
 
-        auto label_info = VkDebugUtilsLabelEXT{};
-        label_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+        auto label_info       = VkDebugUtilsLabelEXT{};
+        label_info.sType      = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
         label_info.pLabelName = marker_label;
-        label_info.color[0] = 0.0f;
-        label_info.color[1] = 0.5f;
-        label_info.color[2] = 1.0f;
-        label_info.color[3] = 1.0f;
+        label_info.color[0]   = 0.0f;
+        label_info.color[1]   = 0.5f;
+        label_info.color[2]   = 1.0f;
+        label_info.color[3]   = 1.0f;
         vkCmdInsertDebugUtilsLabelEXT(cmd.command_buffer, &label_info);
     }
 }
@@ -108,13 +108,13 @@ void cmd::push_debug_group(GPUCommandEncoderHandle cmdbuffer, CString group_labe
         auto  rhi = get_rhi();
         auto& cmd = rhi->current_frame().command(cmdbuffer);
 
-        auto label_info = VkDebugUtilsLabelEXT{};
-        label_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+        auto label_info       = VkDebugUtilsLabelEXT{};
+        label_info.sType      = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
         label_info.pLabelName = group_label;
-        label_info.color[0] = 1.0f;
-        label_info.color[1] = 0.5f;
-        label_info.color[2] = 0.0f;
-        label_info.color[3] = 1.0f;
+        label_info.color[0]   = 1.0f;
+        label_info.color[1]   = 0.5f;
+        label_info.color[2]   = 0.0f;
+        label_info.color[3]   = 1.0f;
         vkCmdBeginDebugUtilsLabelEXT(cmd.command_buffer, &label_info);
     }
 }
@@ -293,7 +293,7 @@ void cmd::set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GP
 {
     auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
-    auto  des = rhi->current_frame().descriptor(bind_group);
+    auto  des = VkDescriptorSet(bind_group.value);
     rhi->vtable.vkCmdBindDescriptorSets(cmd.command_buffer, cmd.last_bound_point, cmd.last_bound_layout,
         index, 1, &des,
         static_cast<uint32_t>(dynamic_offsets.size()), dynamic_offsets.data());

@@ -6,6 +6,12 @@ void D3D12CommandBuffer::wait(const D3D12Fence& fence, GPUBarrierSyncFlags)
     // NOTE: D3D12 does not support fine-grain control at pipeline stage level,
     // therefore sync flags is not used.
 
+    // fence target value cannot never be smaller than 0,
+    // therefore waiting for fence target == 0 will always be satisfied.
+    // This is to avoid D3D12 debug layer warning.
+    if (fence.target == 0)
+        return;
+
     wait_fences.push_back(FenceOps{
         fence.fence,
         fence.target,
@@ -69,23 +75,29 @@ void D3D12CommandBuffer::end()
 
 void cmd::insert_debug_marker(GPUCommandEncoderHandle cmdbuffer, CString marker_label)
 {
+#if 0 // FIXME: Use PIXSetMarker instead
     auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
-    cmd.command_buffer->SetMarker(0, marker_label, sizeof(marker_label));
+    cmd.command_buffer->SetMarker(0x007fffff, marker_label, sizeof(marker_label));
+#endif
 }
 
 void cmd::push_debug_group(GPUCommandEncoderHandle cmdbuffer, CString group_label)
 {
+#if 0 // FIXME: Use PIXBeginEvent instead
     auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
-    cmd.command_buffer->BeginEvent(0, group_label, sizeof(group_label));
+    cmd.command_buffer->BeginEvent(0xff7f00ff, group_label, sizeof(group_label));
+#endif
 }
 
 void cmd::pop_debug_group(GPUCommandEncoderHandle cmdbuffer)
 {
+#if 0 // FIXME: Use PIXEndEvent instead
     auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
     cmd.command_buffer->EndEvent();
+#endif
 }
 
 void cmd::wait_fence(GPUCommandEncoderHandle cmdbuffer, GPUFenceHandle fence, GPUBarrierSyncFlags sync)
@@ -266,11 +278,11 @@ void cmd::set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GP
     auto  rhi = get_rhi();
     auto& frm = rhi->current_frame();
     auto& cmd = frm.command(cmdbuffer);
-    auto  des = frm.descriptor(bind_group);
+    auto  des = astype<D3D12BindGroup*>(bind_group);
 
     const auto& info = cmd.pso.layout->bindgroups.at(index);
     if (info.has_default_root_parameter()) {
-        auto handle = frm.default_heap.gpu(des.default_index);
+        auto handle = rhi->gpu_default_heap.gpu(des->default_index);
         if (cmd.pso.compute) {
             cmd.command_buffer->SetComputeRootDescriptorTable(info.default_root_parameter, handle);
         } else {
@@ -278,7 +290,7 @@ void cmd::set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GP
         }
     }
     if (info.has_sampler_root_parameter()) {
-        auto handle = frm.sampler_heap.gpu(des.sampler_index);
+        auto handle = rhi->gpu_sampler_heap.gpu(des->sampler_index);
         if (cmd.pso.compute) {
             cmd.command_buffer->SetComputeRootDescriptorTable(info.sampler_root_parameter, handle);
         } else {
@@ -287,10 +299,11 @@ void cmd::set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GP
     }
 
     if (dynamic_offsets.empty()) return;
-    assert(des.dynamic_index != -1);
+    assert(des->dynamic_index != std::numeric_limits<uint16_t>::max());
     assert(info.has_dynamic_root_parameter());
     for (uint i = 0; i < dynamic_offsets.size(); i++) {
-        auto& dynamic = frm.dynamic_heap.at(des.dynamic_index + i);
+        auto& heap    = fetch_resource(rhi->bind_group_heaps, GPUBindGroupHeapHandle(des->heap_index));
+        auto& dynamic = heap.dynamic_heap.at(des->dynamic_index + i);
         auto  address = dynamic.address + dynamic_offsets.at(i);
         if (dynamic.type == D3D12_ROOT_PARAMETER_TYPE_CBV) {
             if (cmd.pso.compute) {

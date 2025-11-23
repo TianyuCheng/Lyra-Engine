@@ -50,6 +50,13 @@ TestApp::TestApp(const TestAppDescriptor& app_desc) : desc(app_desc)
         desc.flags  = app_desc.compile_flags;
         return Compiler::init(desc);
     });
+
+    // initialize bind group heap
+    bheap = execute([&]() {
+        auto desc      = GPUBindGroupHeapDescriptor{};
+        desc.page_size = 32;
+        return device.create_bind_group_heap(desc);
+    });
 }
 
 void TestApp::run()
