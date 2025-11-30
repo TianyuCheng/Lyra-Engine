@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_FRAME_GRAPH_ALLOCATOR_H
-#define LYRA_LIBRARY_FRAME_GRAPH_ALLOCATOR_H
+#ifndef LYRA_LIBRARY_ENGINE_RENDER_FRAME_GRAPH_ALLOCATOR_H
+#define LYRA_LIBRARY_ENGINE_RENDER_FRAME_GRAPH_ALLOCATOR_H
 
 #include <Lyra/Common/Collections.h>
 #include <Lyra/Plugin/RHI/RHIHash.h>
@@ -39,4 +39,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_FRAME_GRAPH_ALLOCATOR_H
+#endif // LYRA_LIBRARY_ENGINE_RENDER_FRAME_GRAPH_ALLOCATOR_H

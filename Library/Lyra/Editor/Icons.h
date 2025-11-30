@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_ENGINE_EDITOR_ICONS_H
-#define LYRA_LIBRARY_ENGINE_EDITOR_ICONS_H
+#ifndef LYRA_LIBRARY_EDITOR_ICONS_H
+#define LYRA_LIBRARY_EDITOR_ICONS_H
 
 #include <Lyra/Editor/FontAwesome.h>
 
@@ -30,4 +30,4 @@
 #define LYRA_ICON_INFO       "\uea74"
 #define LYRA_ICON_DEBUG      "\uead8"
 
-#endif // LYRA_LIBRARY_ENGINE_EDITOR_ICONS_H
+#endif // LYRA_LIBRARY_EDITOR_ICONS_H

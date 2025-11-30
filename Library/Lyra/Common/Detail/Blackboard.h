@@ -1,8 +1,8 @@
 // Reference: https://github.com/skaarj1989/
 #pragma once
 
-#ifndef LYRA_LIBRARY_COMMON_BLAKBOARD_H
-#define LYRA_LIBRARY_COMMON_BLAKBOARD_H
+#ifndef LYRA_LIBRARY_COMMON_DETAIL_BLACKBOARD_H
+#define LYRA_LIBRARY_COMMON_DETAIL_BLACKBOARD_H
 
 #include <any>
 #include <cassert>
@@ -87,4 +87,4 @@ namespace lyra::detail
     }
 
 } // namespace lyra::detail
-#endif // LYRA_LIBRARY_COMMON_BLAKBOARD_H
+#endif // LYRA_LIBRARY_COMMON_DETAIL_BLACKBOARD_H

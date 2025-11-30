@@ -40,4 +40,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_ENGINE_ASSETS_TEXTURE_H
+#endif // LYRA_LIBRARY_ENGINE_ASSETS_TEXTURE_ASSET_H

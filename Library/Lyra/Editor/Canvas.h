@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_ENGINE_HELPER_CANVAS_H
-#define LYRA_LIBRARY_ENGINE_HELPER_CANVAS_H
+#ifndef LYRA_LIBRARY_EDITOR_CANVAS_H
+#define LYRA_LIBRARY_EDITOR_CANVAS_H
 
 #include <Lyra/Common/GUI.h>
 #include <Lyra/Plugin/GUI/GUITypes.h>
@@ -72,4 +72,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_ENGINE_SYSTEM_CANVAS_H
+#endif // LYRA_LIBRARY_EDITOR_CANVAS_H

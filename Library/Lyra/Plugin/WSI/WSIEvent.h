@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_WINDOW_EVENT_H
-#define LYRA_LIBRARY_WINDOW_EVENT_H
+#ifndef LYRA_LIBRARY_PLUGIN_WSI_WSIEVENT_H
+#define LYRA_LIBRARY_PLUGIN_WSI_WSIEVENT_H
 
 #include <Lyra/Common/String.h>
 #include <Lyra/Common/Collections.h>
@@ -120,4 +120,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_WINDOW_EVENT_H
+#endif // LYRA_LIBRARY_PLUGIN_WSI_WSIEVENT_H

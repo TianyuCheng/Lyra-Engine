@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_ENGINE_SYSTEM_IMGUI_LAYER_H
-#define LYRA_LIBRARY_ENGINE_SYSTEM_IMGUI_LAYER_H
+#ifndef LYRA_LIBRARY_ENGINE_LAYERS_IMGUI_LAYER_H
+#define LYRA_LIBRARY_ENGINE_LAYERS_IMGUI_LAYER_H
 
 #include <Lyra/Plugin/GUI/GUITypes.h>
 #include <Lyra/Engine/Applet/Application.h>
@@ -51,4 +51,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_ENGINE_SYSTEM_IMGUI_LAYER_H
+#endif // LYRA_LIBRARY_ENGINE_LAYERS_IMGUI_LAYER_H

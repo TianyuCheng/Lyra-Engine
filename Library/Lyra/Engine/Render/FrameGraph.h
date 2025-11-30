@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_FRAME_GRAPH_H
-#define LYRA_LIBRARY_FRAME_GRAPH_H
+#ifndef LYRA_LIBRARY_ENGINE_RENDER_FRAME_GRAPH_H
+#define LYRA_LIBRARY_ENGINE_RENDER_FRAME_GRAPH_H
 
 #include <Lyra/Common/Pointer.h>
 #include <Lyra/Common/Collections.h>
@@ -79,4 +79,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_FRAME_GRAPH_H
+#endif // LYRA_LIBRARY_ENGINE_RENDER_FRAME_GRAPH_H

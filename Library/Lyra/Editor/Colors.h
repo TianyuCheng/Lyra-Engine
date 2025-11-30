@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_ENGINE_EDITOR_COLORS_H
-#define LYRA_LIBRARY_ENGINE_EDITOR_COLORS_H
+#ifndef LYRA_LIBRARY_EDITOR_COLORS_H
+#define LYRA_LIBRARY_EDITOR_COLORS_H
 
 #define LYRA_COLOR_TRACE    ImVec4(0.6f, 0.6f, 0.6f, 1.0f)     // light gray
 #define LYRA_COLOR_DEBUG    ImVec4(0.3f, 0.7f, 1.0f, 1.0f)     // cyan-ish
@@ -13,4 +13,4 @@
 
 #define LYRA_COLOR_FOLDER   ImVec4(0.3f, 0.7f, 1.0f, 1.0f) // folder color
 
-#endif // LYRA_LIBRARY_ENGINE_EDITOR_COLOS_H
+#endif // LYRA_LIBRARY_EDITOR_COLORS_H

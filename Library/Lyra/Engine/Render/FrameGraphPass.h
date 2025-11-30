@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_FRAME_GRAPH_PASS_H
-#define LYRA_LIBRARY_FRAME_GRAPH_PASS_H
+#ifndef LYRA_LIBRARY_ENGINE_RENDER_FRAME_GRAPH_PASS_H
+#define LYRA_LIBRARY_ENGINE_RENDER_FRAME_GRAPH_PASS_H
 
 #include <functional>
 
@@ -70,4 +70,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_FRAME_GRAPH_PASS_H
+#endif // LYRA_LIBRARY_ENGINE_RENDER_FRAME_GRAPH_PASS_H

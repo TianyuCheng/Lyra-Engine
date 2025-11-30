@@ -1,9 +1,9 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_SCENES_LIGHT_H
-#define LYRA_LIBRARY_SCENES_LIGHT_H
+#ifndef LYRA_LIBRARY_ENGINE_SCENES_LIGHT_H
+#define LYRA_LIBRARY_ENGINE_SCENES_LIGHT_H
 
-#include <Lyra/Vendor/GLM.h>
+#include <Lyra/Common/Math.h>
 #include <Lyra/Common/Stdint.h>
 
 // reference: `https://google.github.io/filament/Filament.md.html
@@ -42,4 +42,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_SCENES_LIGHT_H
+#endif // LYRA_LIBRARY_ENGINE_SCENES_LIGHT_H

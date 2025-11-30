@@ -112,7 +112,7 @@ int main(int argc, const char* argv[])
         desc.with_title("Lyra Engine :: Editor");
         desc.with_window_extent(1920, 1080);
         desc.with_window_maximized();
-        desc.with_graphics_backend(RHIBackend::D3D12);
+        desc.with_graphics_backend(RHIBackend::VULKAN);
         desc.with_graphics_validation(true, true);
         return std::make_unique<Application>(desc);
     });

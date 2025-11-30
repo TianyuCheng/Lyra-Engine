@@ -1,10 +1,10 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_SCENES_SCENE_H
-#define LYRA_LIBRARY_SCENES_SCENE_H
+#ifndef LYRA_LIBRARY_ENGINE_SCENES_SCENE_H
+#define LYRA_LIBRARY_ENGINE_SCENES_SCENE_H
 
-#include <Lyra/Vendor/ECS.h>
-#include <Lyra/Scenes/Transform.h>
+#include <Lyra/Common/ECS.h>
+#include <Lyra/Engine/Scenes/Transform.h>
 
 namespace lyra
 {
@@ -99,4 +99,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_SCENES_SCENE_H
+#endif // LYRA_LIBRARY_ENGINE_SCENES_SCENE_H

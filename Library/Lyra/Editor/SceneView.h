@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_ENGINE_EDITOR_SCENE_VIEW_H
-#define LYRA_LIBRARY_ENGINE_EDITOR_SCENE_VIEW_H
+#ifndef LYRA_LIBRARY_EDITOR_SCENE_VIEW_H
+#define LYRA_LIBRARY_EDITOR_SCENE_VIEW_H
 
 #include <Lyra/Editor/Canvas.h>
 #include <Lyra/Engine/Applet/Application.h>
@@ -29,4 +29,4 @@ namespace lyra
     };
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_ENGINE_EDITOR_SCENE_VIEW_H
+#endif // LYRA_LIBRARY_EDITOR_SCENE_VIEW_H

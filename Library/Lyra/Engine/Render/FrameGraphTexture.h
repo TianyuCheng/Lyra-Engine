@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_FRAME_GRAPH_TEXTURE_H
-#define LYRA_LIBRARY_FRAME_GRAPH_TEXTURE_H
+#ifndef LYRA_LIBRARY_ENGINE_RENDER_FRAME_GRAPH_TEXTURE_H
+#define LYRA_LIBRARY_ENGINE_RENDER_FRAME_GRAPH_TEXTURE_H
 
 #include <Lyra/Common/Hash.h>
 #include <Lyra/Plugin/RHI/RHIDescs.h>
@@ -51,4 +51,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_FRAME_GRAPH_TEXTURE_H
+#endif // LYRA_LIBRARY_ENGINE_RENDER_FRAME_GRAPH_TEXTURE_H

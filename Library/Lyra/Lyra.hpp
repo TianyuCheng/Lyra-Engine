@@ -1,5 +1,5 @@
-#ifndef LYRA_LIBRARY_HPP
-#define LYRA_LIBRARY_HPP
+#ifndef LYRA_LIBRARY_LYRA_HPP
+#define LYRA_LIBRARY_LYRA_HPP
 
 // Common headers
 #include <Lyra/Common/ECS.h>
@@ -57,4 +57,4 @@
 #include <Lyra/Editor/SceneView.h>
 #include <Lyra/Editor/Inspector.h>
 
-#endif // LYRA_LIBRARY_HPP
+#endif // LYRA_LIBRARY_LYRA_HPP

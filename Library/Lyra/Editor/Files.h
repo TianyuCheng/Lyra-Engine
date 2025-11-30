@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_ENGINE_EDITOR_FILES_H
-#define LYRA_LIBRARY_ENGINE_EDITOR_FILES_H
+#ifndef LYRA_LIBRARY_EDITOR_FILES_H
+#define LYRA_LIBRARY_EDITOR_FILES_H
 
 #include <Lyra/Common/Path.h>
 #include <Lyra/Engine/Applet/Application.h>
@@ -46,4 +46,4 @@ namespace lyra
     };
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_ENGINE_EDITOR_FILES_H
+#endif // LYRA_LIBRARY_EDITOR_FILES_H

@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_VENDOR_MATH_H
-#define LYRA_LIBRARY_VENDOR_MATH_H
+#ifndef LYRA_LIBRARY_COMMON_MATH_H
+#define LYRA_LIBRARY_COMMON_MATH_H
 
 // THIS IS PURELY A HEADER WRAPPER FOR MATH, with specific macros defined.
 
@@ -45,4 +45,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_VENDOR_MATH_H
+#endif // LYRA_LIBRARY_COMMON_MATH_H
