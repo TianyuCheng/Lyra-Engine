@@ -3,7 +3,6 @@
 // global module headers
 #include <Lyra/Common/String.h>
 #include <Lyra/Common/Plugin.h>
-#include <Lyra/Window/WSIAPI.h>
 
 using namespace lyra;
 

@@ -10,7 +10,7 @@
 #include <Lyra/Common/Macros.h>
 #include <Lyra/Common/Stdint.h>
 #include <Lyra/Common/String.h>
-#include <Lyra/Common/Container.h>
+#include <Lyra/Common/Collections.h>
 
 namespace lyra
 {

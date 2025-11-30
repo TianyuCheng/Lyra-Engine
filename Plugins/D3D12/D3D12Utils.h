@@ -14,12 +14,11 @@ using Microsoft::WRL::ComPtr;
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Common/Msgbox.h>
 #include <Lyra/Common/Memory.h>
-#include <Lyra/Common/Slotmap.h>
-#include <Lyra/Common/Container.h>
 #include <Lyra/Common/Conversion.h>
+#include <Lyra/Common/Collections.h>
 #include <Lyra/Common/Compatibility.h>
-#include <Lyra/Render/RHI/RHIDescs.h>
-#include <Lyra/Render/RHI/RHIAPI.h>
+#include <Lyra/Plugin/RHI/RHIDescs.h>
+#include <Lyra/Plugin/RHI/RHIAPI.h>
 
 #include "SimpleHeap.h"
 #include "BlockAllocator.h"
@@ -341,7 +340,7 @@ struct D3D12BindGroupHeap
     Heap<D3D12BindGroupDynamic> dynamic_heap;
 
     // allocated memory descriptors will all come from here
-    Ref<LinearMemoryAllocator<D3D12BindGroup>> memory;
+    Ref<MemoryArena<D3D12BindGroup>> memory;
 
     explicit D3D12BindGroupHeap();
     explicit D3D12BindGroupHeap(const GPUBindGroupHeapDescriptor& desc);

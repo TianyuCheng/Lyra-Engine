@@ -1,5 +1,3 @@
-#include <Lyra/Common/Function.h>
-
 #include "VkUtils.h"
 
 VkPipelineShaderStageCreateInfo create_shader_stage(VulkanShader& shader, CString entry, VkShaderStageFlagBits stage)

@@ -1,5 +1,3 @@
-#include <Lyra/Common/Conversion.h>
-
 #include "VkUtils.h"
 
 struct DescriptorObjects

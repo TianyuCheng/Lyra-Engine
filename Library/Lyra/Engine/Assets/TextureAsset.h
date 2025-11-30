@@ -6,9 +6,9 @@
 #include <Lyra/Common/UUID.h>
 #include <Lyra/Common/Stdint.h>
 #include <Lyra/Common/String.h>
-#include <Lyra/Common/Container.h>
-#include <Lyra/Render/RHI/RHIEnums.h>
-#include <Lyra/Assets/AMSAPI.h>
+#include <Lyra/Common/Collections.h>
+#include <Lyra/Plugin/RHI/RHIEnums.h>
+#include <Lyra/Plugin/AMS/AMSAPI.h>
 
 namespace lyra
 {

@@ -1,5 +1,3 @@
-#include <Lyra/Window/WSIUtils.h>
-
 #include "VkUtils.h"
 
 #ifdef USE_PLATFORM_WINDOWS

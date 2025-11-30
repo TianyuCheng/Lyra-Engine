@@ -3,105 +3,98 @@ lyra_shared(engine)
 
 # library sources
 target_sources(lyra-engine PRIVATE
-    # vendor sources
-    Lyra/Vendor/GLM.h
-    Lyra/Vendor/ECS.h
-    Lyra/Vendor/JSON.h
-    Lyra/Vendor/TOML.h
-    Lyra/Vendor/IMGUI.h
-
     # common sources
     Lyra/Common/Assert.h
     Lyra/Common/BitFlags.h
-    Lyra/Common/Blackboard.h
+    Lyra/Common/Collections.h
     Lyra/Common/Compatibility.h
-    Lyra/Common/Container.h
+    Lyra/Common/Config.h
+    Lyra/Common/ECS.h
     Lyra/Common/Enums.h
     Lyra/Common/Function.h
+    Lyra/Common/GUI.h
     Lyra/Common/Hash.h
-    Lyra/Common/Logger.h
     Lyra/Common/Logger.cpp
-    Lyra/Common/Msgbox.h
+    Lyra/Common/Logger.h
+    Lyra/Common/Math.h
     Lyra/Common/Msgbox.cpp
+    Lyra/Common/Msgbox.h
     Lyra/Common/Path.h
     Lyra/Common/Plugin.h
     Lyra/Common/Pointer.h
-    Lyra/Common/Slotmap.h
     Lyra/Common/Stdint.h
     Lyra/Common/String.h
-    Lyra/Common/View.h
 
-    # window system sources
-    Lyra/Window/WSIAPI.h
-    Lyra/Window/WSIUtils.h
-    Lyra/Window/WSIDescs.h
-    Lyra/Window/WSIEnums.h
-    Lyra/Window/WSIState.h
-    Lyra/Window/WSIState.cpp
-    Lyra/Window/WSIEvent.h
-    Lyra/Window/WSITypes.h
-    Lyra/Window/WSITypes.cpp
+    # window system integration api sources
+    Lyra/Plugin/WSI/WSIAPI.h
+    Lyra/Plugin/WSI/WSIUtils.h
+    Lyra/Plugin/WSI/WSIDescs.h
+    Lyra/Plugin/WSI/WSIEnums.h
+    Lyra/Plugin/WSI/WSIState.h
+    Lyra/Plugin/WSI/WSIState.cpp
+    Lyra/Plugin/WSI/WSIEvent.h
+    Lyra/Plugin/WSI/WSITypes.h
+    Lyra/Plugin/WSI/WSITypes.cpp
 
-    # shader compiler sources
-    Lyra/Shader/SLCAPI.h
-    Lyra/Shader/SLCDescs.h
-    Lyra/Shader/SLCEnums.h
-    Lyra/Shader/SLCTypes.h
-    Lyra/Shader/SLCTypes.cpp
-    Lyra/Shader/SLCUtils.h
+    # shader language compiler api sources
+    Lyra/Plugin/SLC/SLCAPI.h
+    Lyra/Plugin/SLC/SLCDescs.h
+    Lyra/Plugin/SLC/SLCEnums.h
+    Lyra/Plugin/SLC/SLCTypes.h
+    Lyra/Plugin/SLC/SLCTypes.cpp
+    Lyra/Plugin/SLC/SLCUtils.h
 
-    # render sources
-    Lyra/Render/RHI/RHIAPI.h
-    Lyra/Render/RHI/RHIDescs.h
-    Lyra/Render/RHI/RHIEnums.h
-    Lyra/Render/RHI/RHIError.h
-    Lyra/Render/RHI/RHIHash.h
-    Lyra/Render/RHI/RHIInits.cpp
-    Lyra/Render/RHI/RHIInits.h
-    Lyra/Render/RHI/RHITypes.cpp
-    Lyra/Render/RHI/RHITypes.h
-    Lyra/Render/RHI/RHIUtils.h
-    Lyra/Render/RPI/FrameGraph.h
-    Lyra/Render/RPI/FrameGraph.cpp
-    Lyra/Render/RPI/FrameGraphAllocator.h
-    Lyra/Render/RPI/FrameGraphAllocator.cpp
-    Lyra/Render/RPI/FrameGraphBuffer.h
-    Lyra/Render/RPI/FrameGraphBuilder.h
-    Lyra/Render/RPI/FrameGraphBuilder.cpp
-    Lyra/Render/RPI/FrameGraphEnums.h
-    Lyra/Render/RPI/FrameGraphPass.h
-    Lyra/Render/RPI/FrameGraphResource.h
-    Lyra/Render/RPI/FrameGraphTexture.h
-    Lyra/Render/RPI/FrameGraphTexture.cpp
-    Lyra/Render/RPI/FrameGraphTraits.h
+    # render api sources
+    Lyra/Plugin/RHI/RHIAPI.h
+    Lyra/Plugin/RHI/RHIDescs.h
+    Lyra/Plugin/RHI/RHIEnums.h
+    Lyra/Plugin/RHI/RHIError.h
+    Lyra/Plugin/RHI/RHIHash.h
+    Lyra/Plugin/RHI/RHIInits.cpp
+    Lyra/Plugin/RHI/RHIInits.h
+    Lyra/Plugin/RHI/RHITypes.cpp
+    Lyra/Plugin/RHI/RHITypes.h
+    Lyra/Plugin/RHI/RHIUtils.h
 
-    # guikit sources
-    Lyra/GuiKit/GUIAPI.h
-    Lyra/GuiKit/GUITypes.h
-    Lyra/GuiKit/GUITypes.cpp
+    # graphics user interface api sources
+    Lyra/Plugin/GUI/GUIAPI.h
+    Lyra/Plugin/GUI/GUITypes.h
+    Lyra/Plugin/GUI/GUITypes.cpp
 
-    # fileio sources
-    Lyra/FileIO/FSAPI.h
-    Lyra/FileIO/FSEnums.h
-    Lyra/FileIO/FSTypes.h
-    Lyra/FileIO/FSTypes.cpp
-    Lyra/FileIO/FSUtils.h
+    # virtual file system api sources
+    Lyra/Plugin/VFS/VFSAPI.h
+    Lyra/Plugin/VFS/VFSEnums.h
+    Lyra/Plugin/VFS/VFSTypes.h
+    Lyra/Plugin/VFS/VFSTypes.cpp
+    Lyra/Plugin/VFS/VFSUtils.h
 
-    # assets sources
-    Lyra/Assets/AMSAPI.h
-    Lyra/Assets/AMSEnums.h
-    Lyra/Assets/AMSTypes.h
-    Lyra/Assets/AMSTypes.cpp
-    Lyra/Assets/AMSUtils.h
+    # asset manage system api sources
+    Lyra/Plugin/AMS/AMSAPI.h
+    Lyra/Plugin/AMS/AMSEnums.h
+    Lyra/Plugin/AMS/AMSTypes.h
+    Lyra/Plugin/AMS/AMSTypes.cpp
+    Lyra/Plugin/AMS/AMSUtils.h
 
-    # appkit sources
-    Lyra/AppKit/AppTypes.h
-    Lyra/AppKit/AppTypes.cpp
-    Lyra/AppKit/AppEnums.h
-    Lyra/AppKit/AppIcons.h
-    Lyra/AppKit/AppColors.h
+    # engine applet sources
+    Lyra/Engine/Applet/Application.h
+    Lyra/Engine/Applet/Application.cpp
 
-    # engine sources
+    # engine render sources
+    Lyra/Engine/Render/FrameGraph.h
+    Lyra/Engine/Render/FrameGraph.cpp
+    Lyra/Engine/Render/FrameGraphAllocator.h
+    Lyra/Engine/Render/FrameGraphAllocator.cpp
+    Lyra/Engine/Render/FrameGraphBuffer.h
+    Lyra/Engine/Render/FrameGraphBuilder.h
+    Lyra/Engine/Render/FrameGraphBuilder.cpp
+    Lyra/Engine/Render/FrameGraphEnums.h
+    Lyra/Engine/Render/FrameGraphPass.h
+    Lyra/Engine/Render/FrameGraphResource.h
+    Lyra/Engine/Render/FrameGraphTexture.h
+    Lyra/Engine/Render/FrameGraphTexture.cpp
+    Lyra/Engine/Render/FrameGraphTraits.h
+
+    # engine assets sources
     Lyra/Engine/Assets/TextAsset.h
     Lyra/Engine/Assets/TextAsset.cpp
     Lyra/Engine/Assets/JsonAsset.h
@@ -111,25 +104,30 @@ target_sources(lyra-engine PRIVATE
     Lyra/Engine/Assets/TextureAsset.h
     Lyra/Engine/Assets/TextureAsset.cpp
     Lyra/Engine/Assets/GenericAsset.h
-    Lyra/Engine/System/AssetManager.cpp
-    Lyra/Engine/System/ThemeManager.h
-    Lyra/Engine/System/ThemeManager.cpp
-    Lyra/Engine/System/LayoutManager.h
-    Lyra/Engine/System/LayoutManager.cpp
-    Lyra/Engine/System/ImGuiManager.h
-    Lyra/Engine/System/ImGuiManager.cpp
-    Lyra/Engine/Editor/Files.h
-    Lyra/Engine/Editor/Files.cpp
-    Lyra/Engine/Editor/Console.h
-    Lyra/Engine/Editor/Console.cpp
-    Lyra/Engine/Editor/Hierarchy.h
-    Lyra/Engine/Editor/Hierarchy.cpp
-    Lyra/Engine/Editor/Inspector.h
-    Lyra/Engine/Editor/Inspector.cpp
-    Lyra/Engine/Editor/SceneView.h
-    Lyra/Engine/Editor/SceneView.cpp
-    Lyra/Engine/Common/Canvas.h
-    Lyra/Engine/Common/Canvas.cpp
+
+    # engine layers sources
+    Lyra/Engine/Layers/AssetLayer.h
+    Lyra/Engine/Layers/AssetLayer.cpp
+    Lyra/Engine/Layers/ImGuiLayer.h
+    Lyra/Engine/Layers/ImGuiLayer.cpp
+
+    # editor sources
+    Lyra/Editor/Icons.h
+    Lyra/Editor/Colors.h
+    Lyra/Editor/Canvas.h
+    Lyra/Editor/Canvas.cpp
+    Lyra/Editor/Layout.h
+    Lyra/Editor/Layout.cpp
+    Lyra/Editor/Files.h
+    Lyra/Editor/Files.cpp
+    Lyra/Editor/Console.h
+    Lyra/Editor/Console.cpp
+    Lyra/Editor/Hierarchy.h
+    Lyra/Editor/Hierarchy.cpp
+    Lyra/Editor/Inspector.h
+    Lyra/Editor/Inspector.cpp
+    Lyra/Editor/SceneView.h
+    Lyra/Editor/SceneView.cpp
 )
 
 # link dependencies

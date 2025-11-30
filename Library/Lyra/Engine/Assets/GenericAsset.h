@@ -3,8 +3,8 @@
 #ifndef LYRA_LIBRARY_ENGINE_ASSETS_GENERIC_ASSET_H
 #define LYRA_LIBRARY_ENGINE_ASSETS_GENERIC_ASSET_H
 
-#include <Lyra/Vendor/JSON.h>
 #include <Lyra/Common/Path.h>
+#include <Lyra/Common/Config.h>
 
 namespace lyra
 {

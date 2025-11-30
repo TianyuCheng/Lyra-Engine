@@ -6,7 +6,7 @@
 // library headers
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Common/Plugin.h>
-#include <Lyra/FileIO/FSAPI.h>
+#include <Lyra/Plugin/VFS/VFSAPI.h>
 
 // plugin headers
 #include "NativeFSUtils.h"

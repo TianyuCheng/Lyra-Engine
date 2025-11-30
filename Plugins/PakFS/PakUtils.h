@@ -7,7 +7,7 @@
 #include <Lyra/Common/Stdint.h>
 #include <Lyra/Common/String.h>
 #include <Lyra/Common/Logger.h>
-#include <Lyra/Common/Container.h>
+#include <Lyra/Common/Collections.h>
 
 using namespace lyra;
 

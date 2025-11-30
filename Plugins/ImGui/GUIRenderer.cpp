@@ -3,8 +3,8 @@
 #include <Lyra/Common/Assert.h>
 #include <Lyra/Common/Pointer.h>
 #include <Lyra/Common/Function.h>
-#include <Lyra/Render/RHI/RHIInits.h>
-#include <Lyra/Render/RHI/RHITypes.h>
+#include <Lyra/Plugin/RHI/RHIInits.h>
+#include <Lyra/Plugin/RHI/RHITypes.h>
 
 // local headers
 #include "GUIRenderer.h"
@@ -1169,7 +1169,8 @@ void GUIRenderer::init_imgui_font(CString filename, float font_size)
     icon_cfg.MergeMode            = true;        // merge icons with regular font
     icon_cfg.PixelSnapH           = true;        // optional, can help with pixel alignment
     icon_cfg.GlyphRanges          = icon_ranges; // icons only
-    icon_cfg.GlyphOffset.y        = 3.0f;        // make icons align with text
+    icon_cfg.GlyphMinAdvanceX     = font_size * +1.5f;
+    icon_cfg.GlyphOffset.x        = font_size * -0.5f;
 
     // font source
     auto file = cmrc::imgui::get_filesystem().open(filename);
@@ -1185,7 +1186,7 @@ void GUIRenderer::init_imgui_font(CString filename, float font_size)
     io.Fonts->AddFontFromMemoryTTF(
         (void*)file.begin(),
         static_cast<int>(file.size()),
-        font_size * 2.0f,
+        font_size * 1.25f,
         &icon_cfg);
 
     io.Fonts->Build();

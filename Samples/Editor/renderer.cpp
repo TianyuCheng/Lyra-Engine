@@ -1,4 +1,4 @@
-#include <Lyra/Vendor/GLM.h>
+#include <Lyra/Common/Math.h>
 
 #include "renderer.h"
 

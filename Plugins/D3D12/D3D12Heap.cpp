@@ -268,7 +268,7 @@ D3D12BindGroupHeap::D3D12BindGroupHeap(const GPUBindGroupHeapDescriptor& desc)
     default_heap.init(&rhi->gpu_default_heap, desc.page_size);
     sampler_heap.init(&rhi->gpu_sampler_heap, desc.page_size);
 
-    memory = std::make_shared<LinearMemoryAllocator<D3D12BindGroup>>(4096);
+    memory = std::make_shared<MemoryArena<D3D12BindGroup>>(4096);
 }
 
 D3D12BindGroupHeap::~D3D12BindGroupHeap()

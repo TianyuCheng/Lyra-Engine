@@ -21,11 +21,15 @@
 
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Common/Msgbox.h>
-#include <Lyra/Common/Slotmap.h>
-#include <Lyra/Common/Container.h>
+#include <Lyra/Common/Function.h>
+#include <Lyra/Common/Conversion.h>
+#include <Lyra/Common/Collections.h>
 #include <Lyra/Common/Compatibility.h>
-#include <Lyra/Render/RHI/RHIAPI.h>
-#include <Lyra/Render/RHI/RHIDescs.h>
+#include <Lyra/Plugin/RHI/RHIAPI.h>
+#include <Lyra/Plugin/RHI/RHIDescs.h>
+#include <Lyra/Plugin/WSI/WSIAPI.h>
+#include <Lyra/Plugin/WSI/WSIUtils.h>
+#include <Lyra/Plugin/WSI/WSITypes.h>
 
 using namespace lyra;
 
