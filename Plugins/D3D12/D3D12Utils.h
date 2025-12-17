@@ -5,6 +5,7 @@
 
 #include <d3d12.h>
 #include <dxgi1_6.h>
+#include <limits>
 #include <exception>
 #include <wrl/client.h>
 using Microsoft::WRL::ComPtr;
@@ -12,11 +13,15 @@ using Microsoft::WRL::ComPtr;
 #include <Lyra/Common/Enums.h>
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Common/Msgbox.h>
-#include <Lyra/Common/Slotmap.h>
-#include <Lyra/Common/Container.h>
+#include <Lyra/Common/Memory.h>
+#include <Lyra/Common/Conversion.h>
+#include <Lyra/Common/Collections.h>
 #include <Lyra/Common/Compatibility.h>
-#include <Lyra/Render/RHI/RHIDescs.h>
-#include <Lyra/Render/RHI/RHIAPI.h>
+#include <Lyra/Plugin/RHI/RHIDescs.h>
+#include <Lyra/Plugin/RHI/RHIAPI.h>
+
+#include "SimpleHeap.h"
+#include "BlockAllocator.h"
 
 using namespace lyra;
 
@@ -58,38 +63,8 @@ struct D3D12CPUDescriptor
     }
 };
 
-// GPU descriptors are temporal (no need to recycle individual descriptor)
-struct D3D12GPUDescriptor
-{
-    D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle;
-    D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle;
-
-    bool valid() const { return gpu_handle.ptr != 0; }
-};
-
-template <typename T>
-struct Heap
-{
-    Vector<T> data = {};
-    uint      tail = 0;
-
-    uint allocate()
-    {
-        if (tail >= data.size())
-            data.resize(data.size() * 2 + 1);
-        return tail++;
-    }
-
-    void reset() { tail = 0; }
-
-    void free() { data.clear(); }
-
-    T& at(uint i) { return data.at(i); }
-
-    const T& at(uint i) const { return data.at(i); }
-};
-
-struct D3D12HeapCPUUtils
+// This is a helper class for non-growable d3d12 descriptor pool on CPU side.
+struct D3D12ObjectPool
 {
     ID3D12DescriptorHeap* heap      = nullptr;
     uint                  increment = 0;
@@ -104,9 +79,10 @@ struct D3D12HeapCPUUtils
     void recycle(uint index);
 };
 
-struct D3D12HeapCPU
+// This is a helper class for growable d3d12 descriptor pool on CPU side.
+struct D3D12ObjectHeap
 {
-    Vector<D3D12HeapCPUUtils>   heaps      = {};
+    Vector<D3D12ObjectPool>     heaps      = {};
     uint                        heap_index = 0;
     uint                        capacity   = 0;
     D3D12_DESCRIPTOR_HEAP_TYPE  heap_type  = D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES;
@@ -120,17 +96,54 @@ struct D3D12HeapCPU
     uint find_pool_index();
 };
 
-struct D3D12HeapGPU
+// This is a helper class for non-growable d3d12 descriptor pool on GPU side.
+struct D3D12BindGroupHeapAllocator;
+struct D3D12DescriptorPool
 {
-    ID3D12DescriptorHeap* heap      = nullptr;
-    uint                  increment = 0;
-    uint                  capacity  = 0;
-    uint                  count     = 0;
+    D3D12BindGroupHeapAllocator* allocator = nullptr;
+    AllocationHandle             allocation;
+    uint                         capacity = 0u;
+    uint                         count    = 0u;
+
+    void init(D3D12BindGroupHeapAllocator* allocator, uint capacity);
+    uint allocate(uint allocate_count = 1);
+    void reset();
+    void destroy();
+};
+
+// This is a helper class for growable d3d12 descriptor pool on GPU side.
+struct D3D12BindGroupHeapAllocator;
+struct D3D12DescriptorHeap
+{
+    D3D12BindGroupHeapAllocator* allocator = nullptr;
+    Vector<D3D12DescriptorPool>  pools;
+    uint                         page_size = 0ull;
+
+    void init(D3D12BindGroupHeapAllocator* allocator, uint page_size);
+    void reset();
+    void destroy();
+    uint allocate(uint allocate_count = 1);
+
+    auto create_new_pool(uint allocate_count) -> D3D12DescriptorPool&;
+    auto find_available_pool(uint allocate_count) -> D3D12DescriptorPool&;
+
+    // complaint with D3D12ResourceManager
+    bool valid() const { return true; }
+};
+
+// This is a helper to allocate a giant descriptor heap, and then sub-allocate.
+struct D3D12BindGroupHeapAllocator
+{
+    ID3D12DescriptorHeap*     heap = nullptr;
+    BlockAllocator<std::byte> allocator;
+    uint                      capacity  = 0;
+    uint                      increment = 0;
 
     void init(uint capacity, D3D12_DESCRIPTOR_HEAP_TYPE type, D3D12_DESCRIPTOR_HEAP_FLAGS flags);
     void reset();
     void destroy();
-    auto allocate(uint allocate_count = 1) -> uint;
+
+    void resize(); // resize (and copy the existing descriptors over)
 
     auto cpu(uint index) const -> D3D12_CPU_DESCRIPTOR_HANDLE;
     auto gpu(uint index) const -> D3D12_GPU_DESCRIPTOR_HANDLE;
@@ -280,16 +293,18 @@ struct D3D12BindGroup
     // NOTE: D3D12 requires an explicit separation of cbv_srv_uav vs sampler heap,
     // but a single bindgroup is allowed to contain both. We only need to record
     // the index into the heap though
-    uint default_index = -1;
-    uint sampler_index = -1;
-    uint dynamic_index = -1;
+    uint32_t default_index = std::numeric_limits<uint32_t>::max();
+    uint32_t sampler_index = std::numeric_limits<uint16_t>::max();
+    uint16_t dynamic_index = std::numeric_limits<uint16_t>::max();
+    uint16_t heap_index    = std::numeric_limits<uint16_t>::max();
 
     bool valid() const
     {
-        bool default_valid = default_index != static_cast<uint>(-1);
-        bool sampler_valid = sampler_index != static_cast<uint>(-1);
-        bool dynamic_valid = dynamic_index != static_cast<uint>(-1);
-        return default_valid || sampler_valid || dynamic_valid;
+        bool default_valid = default_index != std::numeric_limits<uint32_t>::max();
+        bool sampler_valid = sampler_index != std::numeric_limits<uint16_t>::max();
+        bool dynamic_valid = dynamic_index != std::numeric_limits<uint16_t>::max();
+        bool heap_valid    = heap_index != std::numeric_limits<uint16_t>::max();
+        return default_valid || sampler_valid || (dynamic_valid && heap_valid);
     }
 };
 
@@ -309,16 +324,50 @@ struct D3D12BindInfo
 
 struct D3D12BindGroupInfo
 {
-    uint default_root_parameter = -1;
-    uint sampler_root_parameter = -1;
-    uint dynamic_root_parameter = -1;
+    uint32_t default_root_parameter = std::numeric_limits<uint32_t>::max();
+    uint16_t sampler_root_parameter = std::numeric_limits<uint16_t>::max();
+    uint16_t dynamic_root_parameter = std::numeric_limits<uint16_t>::max();
 
-    bool has_default_root_parameter() const { return default_root_parameter != -1; }
-    bool has_sampler_root_parameter() const { return sampler_root_parameter != -1; }
-    bool has_dynamic_root_parameter() const { return dynamic_root_parameter != -1; }
+    bool has_default_root_parameter() const { return default_root_parameter != std::numeric_limits<uint32_t>::max(); }
+    bool has_sampler_root_parameter() const { return sampler_root_parameter != std::numeric_limits<uint16_t>::max(); }
+    bool has_dynamic_root_parameter() const { return dynamic_root_parameter != std::numeric_limits<uint16_t>::max(); }
 };
 
-struct D3D12Frame;
+struct D3D12BindGroupHeap
+{
+    D3D12DescriptorHeap         default_heap;
+    D3D12DescriptorHeap         sampler_heap;
+    Heap<D3D12BindGroupDynamic> dynamic_heap;
+
+    // allocated memory descriptors will all come from here
+    Ref<MemoryArena<D3D12BindGroup>> memory;
+
+    explicit D3D12BindGroupHeap();
+    explicit D3D12BindGroupHeap(const GPUBindGroupHeapDescriptor& desc);
+    virtual ~D3D12BindGroupHeap();
+
+    // complaint with D3D12ResourceManager
+    bool valid() const { return true; }
+
+    void reset()
+    {
+        default_heap.reset();
+        sampler_heap.reset();
+        dynamic_heap.reset();
+        if (memory)
+            memory->reset();
+    }
+
+    void destroy()
+    {
+        reset();
+        default_heap.destroy();
+        sampler_heap.destroy();
+        if (memory)
+            memory->destroy();
+    }
+};
+
 struct D3D12BindGroupLayout
 {
     Vector<D3D12_DESCRIPTOR_RANGE1> sampler_ranges = {};
@@ -337,17 +386,17 @@ struct D3D12BindGroupLayout
 
     void destroy();
 
-    auto create(D3D12Frame& frame, const GPUBindGroupDescriptor& desc) -> D3D12BindGroup;
+    auto create(GPUBindGroupHeapHandle heap, const GPUBindGroupDescriptor& desc) -> D3D12BindGroup*;
 
     bool valid() const { return num_defaults + num_samplers + num_dynamics != 0; }
 
     // helper methods
-    void copy_regular_descriptors(D3D12Frame& frame, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
-    void copy_sampler_descriptor(D3D12Frame& frame, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
-    void copy_texture_descriptor(D3D12Frame& frame, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
-    void create_buffer_descriptor(D3D12Frame& frame, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
-    void create_buffer_cbv_descriptor(D3D12Frame& frame, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
-    void create_buffer_uav_descriptor(D3D12Frame& frame, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
+    void copy_regular_descriptors(D3D12BindGroupHeap& heap, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
+    void copy_sampler_descriptor(D3D12BindGroupHeap& heap, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
+    void copy_texture_descriptor(D3D12BindGroupHeap& heap, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
+    void create_buffer_descriptor(D3D12BindGroupHeap& heap, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
+    void create_buffer_cbv_descriptor(D3D12BindGroupHeap& heap, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
+    void create_buffer_uav_descriptor(D3D12BindGroupHeap& heap, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
 };
 
 struct D3D12PipelineLayout
@@ -519,12 +568,6 @@ struct D3D12Frame
     D3D12CommandPool graphics_command_pool;
     D3D12CommandPool transfer_command_pool;
 
-    // descriptor heap for runtime bound descriptors
-    D3D12HeapGPU                default_heap;
-    D3D12HeapGPU                sampler_heap;
-    Heap<D3D12BindGroupDynamic> dynamic_heap;
-    Vector<D3D12BindGroup>      allocated_descriptors;
-
     // allocate command buffers
     Vector<CommandBuffer> allocated_command_buffers;
 
@@ -532,12 +575,6 @@ struct D3D12Frame
     auto& command(GPUCommandEncoderHandle handle)
     {
         return allocated_command_buffers.at(handle.value).cmd;
-    }
-
-    // shortcut for descriptor set
-    auto& descriptor(GPUBindGroupHandle handle)
-    {
-        return allocated_descriptors.at(handle.value);
     }
 
     // impementation in D3D12Frame.cpp
@@ -609,11 +646,15 @@ struct D3D12RHI
     // fence used to wait on queues for completion
     D3D12Fence idle_fence;
 
-    // heap objects
-    D3D12HeapCPU rtv_heap;
-    D3D12HeapCPU dsv_heap;
-    D3D12HeapCPU sampler_heap;
-    D3D12HeapCPU cbv_srv_uav_heap;
+    // cpu heap objects
+    D3D12ObjectHeap rtv_heap;
+    D3D12ObjectHeap dsv_heap;
+    D3D12ObjectHeap sampler_heap;
+    D3D12ObjectHeap cbv_srv_uav_heap;
+
+    // gpu heap objects
+    D3D12BindGroupHeapAllocator gpu_default_heap;
+    D3D12BindGroupHeapAllocator gpu_sampler_heap;
 
     // frame objects
     Vector<D3D12Frame> frames = {};
@@ -637,6 +678,7 @@ struct D3D12RHI
     D3D12ResourceManager<D3D12QuerySet>        query_sets;
     D3D12ResourceManager<D3D12Pipeline>        pipelines;
     D3D12ResourceManager<D3D12PipelineLayout>  pipeline_layouts;
+    D3D12ResourceManager<D3D12BindGroupHeap>   bind_group_heaps;
     D3D12ResourceManager<D3D12BindGroupLayout> bind_group_layouts;
     D3D12ResourceManager<D3D12Swapchain>       swapchains;
 
@@ -725,6 +767,11 @@ namespace api
     // bind group layout apis
     bool create_bind_group_layout(GPUBindGroupLayoutHandle& handle, const GPUBindGroupLayoutDescriptor& desc);
     void delete_bind_group_layout(GPUBindGroupLayoutHandle handle);
+
+    // bind group heap apis
+    bool create_bind_group_heap(GPUBindGroupHeapHandle& handle, const GPUBindGroupHeapDescriptor& desc);
+    void delete_bind_group_heap(GPUBindGroupHeapHandle handle);
+    void reset_bind_group_heap(GPUBindGroupHeapHandle handle);
 
     // pipeline layout apis
     bool create_pipeline_layout(GPUPipelineLayoutHandle& layout, const GPUPipelineLayoutDescriptor& desc);
@@ -847,12 +894,12 @@ T& fetch_resource(D3D12ResourceManager<T>& manager, Handle handle)
     }
 
     // check resource range
-    if (handle.value >= manager.data.size()) {
+    if (!manager.range_check(handle.value)) {
         get_logger()->error("Resource handle {} with value={} access out of range!", Handle::type_name(), handle.value);
         exit(1);
     }
 
-    T& resource = manager.data.at(handle.value);
+    T& resource = manager.at(handle.value);
     if (!resource.valid()) {
         get_logger()->error("Resource handle {} with value={} has invalid object!", Handle::type_name(), handle.value);
         exit(1);

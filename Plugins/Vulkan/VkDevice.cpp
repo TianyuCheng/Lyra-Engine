@@ -432,15 +432,15 @@ void api::delete_device()
 
     // clean up remaining swapchains
     // needs to be deleted first, because it contains other handles
-    for (auto& swapchain : rhi->swapchains.data)
+    for (auto& swapchain : rhi->swapchains)
         swapchain.destroy();
 
     // clean up remaining blases
-    for (auto& blas : rhi->blases.data)
+    for (auto& blas : rhi->blases)
         blas.destroy();
 
     // clean up remaining tlases
-    for (auto& tlas : rhi->tlases.data)
+    for (auto& tlas : rhi->tlases)
         tlas.destroy();
 
     // clean up remaining fences
@@ -448,46 +448,52 @@ void api::delete_device()
         frame.destroy();
 
     // clean up remaining fences
-    for (auto& fence : rhi->fences.data)
+    for (auto& fence : rhi->fences)
         fence.destroy();
 
     // clean up remaining buffers
-    for (auto& buffer : rhi->buffers.data)
+    for (auto& buffer : rhi->buffers)
         buffer.destroy();
 
     // clean up remaining texture views
-    for (auto& view : rhi->views.data)
+    for (auto& view : rhi->views)
         view.destroy();
 
     // clean up remaining textures
-    for (auto& texture : rhi->textures.data)
+    for (auto& texture : rhi->textures)
         texture.destroy();
 
     // clean up remaining samplers
-    for (auto& sampler : rhi->samplers.data)
+    for (auto& sampler : rhi->samplers)
         sampler.destroy();
 
     // clean up remaining shaders
-    for (auto& shader : rhi->shaders.data)
+    for (auto& shader : rhi->shaders)
         shader.destroy();
 
+    // clean up remaining descriptor pools
+    for (auto& heap : rhi->descriptor_pools)
+        heap.destroy();
+
     // clean up remaining bind group layouts
-    for (auto& layout : rhi->bind_group_layouts.data)
+    for (auto& layout : rhi->bind_group_layouts)
         layout.destroy();
 
     // clean up remaining pipeline layouts
-    for (auto& layout : rhi->pipeline_layouts.data)
+    for (auto& layout : rhi->pipeline_layouts)
         layout.destroy();
 
     // clean up remaining pipelines
-    for (auto& pipeline : rhi->pipelines.data)
+    for (auto& pipeline : rhi->pipelines)
         pipeline.destroy();
 
+    // destroy vma allocator
     if (rhi->alloc) {
         vmaDestroyAllocator(rhi->alloc);
         rhi->alloc = VK_NULL_HANDLE;
     }
 
+    // destroy device
     if (rhi->device) {
         rhi->vtable.vkDestroyDevice(rhi->device, nullptr);
         rhi->device = VK_NULL_HANDLE;

@@ -1,83 +1,60 @@
-#ifndef LYRA_LIBRARY_HPP
-#define LYRA_LIBRARY_HPP
+#ifndef LYRA_LIBRARY_LYRA_HPP
+#define LYRA_LIBRARY_LYRA_HPP
 
 // Common headers
+#include <Lyra/Common/ECS.h>
 #include <Lyra/Common/Hash.h>
 #include <Lyra/Common/Path.h>
-#include <Lyra/Common/View.h>
+#include <Lyra/Common/Math.h>
 #include <Lyra/Common/Enums.h>
 #include <Lyra/Common/Assert.h>
+#include <Lyra/Common/Config.h>
 #include <Lyra/Common/Logger.h>
+#include <Lyra/Common/Handle.h>
 #include <Lyra/Common/Msgbox.h>
 #include <Lyra/Common/String.h>
 #include <Lyra/Common/Stdint.h>
 #include <Lyra/Common/BitFlags.h>
 #include <Lyra/Common/Function.h>
-#include <Lyra/Common/Container.h>
-#include <Lyra/Common/Blackboard.h>
+#include <Lyra/Common/Collections.h>
 #include <Lyra/Common/Compatibility.h>
 
-// WSI (Window System Integration)
-#include <Lyra/Window/WSIAPI.h>
-#include <Lyra/Window/WSIEnums.h>
-#include <Lyra/Window/WSIDescs.h>
-#include <Lyra/Window/WSITypes.h>
+// Plugins headers
+#include <Lyra/Plugin/WSI/WSIDescs.h>
+#include <Lyra/Plugin/WSI/WSITypes.h>
+#include <Lyra/Plugin/SLC/SLCDescs.h>
+#include <Lyra/Plugin/SLC/SLCTypes.h>
+#include <Lyra/Plugin/RHI/RHIDescs.h>
+#include <Lyra/Plugin/RHI/RHITypes.h>
+#include <Lyra/Plugin/RHI/RHIInits.h>
+#include <Lyra/Plugin/GUI/GUITypes.h>
+#include <Lyra/Plugin/VFS/VFSEnums.h>
+#include <Lyra/Plugin/VFS/VFSTypes.h>
+#include <Lyra/Plugin/AMS/AMSUtils.h>
+#include <Lyra/Plugin/AMS/AMSTypes.h>
 
-// RHI (Render Hardware Interface)
-#include <Lyra/Render/RHI/RHIAPI.h>
-#include <Lyra/Render/RHI/RHIEnums.h>
-#include <Lyra/Render/RHI/RHIDescs.h>
-#include <Lyra/Render/RHI/RHITypes.h>
-#include <Lyra/Render/RHI/RHIInits.h>
-
-// RPI (Render Pass Interface)
-#include <Lyra/Render/RPI/FrameGraph.h>
-#include <Lyra/Render/RPI/FrameGraphPass.h>
-#include <Lyra/Render/RPI/FrameGraphEnums.h>
-#include <Lyra/Render/RPI/FrameGraphContext.h>
-#include <Lyra/Render/RPI/FrameGraphBuilder.h>
-#include <Lyra/Render/RPI/FrameGraphResource.h>
-
-// SLC (Shader Language Compiler)
-#include <Lyra/Shader/SLCAPI.h>
-#include <Lyra/Shader/SLCEnums.h>
-#include <Lyra/Shader/SLCDescs.h>
-#include <Lyra/Shader/SLCTypes.h>
-
-// GUI (Graphics User Interface)
-#include <Lyra/GuiKit/GUIAPI.h>
-#include <Lyra/GuiKit/GUITypes.h>
-
-// FileIO
-#include <Lyra/FileIO/FSAPI.h>
-#include <Lyra/FileIO/FSEnums.h>
-#include <Lyra/FileIO/FSTypes.h>
-
-// AMS (Asset Management System)
-#include <Lyra/Assets/AMSAPI.h>
-#include <Lyra/Assets/AMSEnums.h>
-#include <Lyra/Assets/AMSUtils.h>
-#include <Lyra/Assets/AMSTypes.h>
-
-// APP (Application)
-#include <Lyra/AppKit/AppTypes.h>
-#include <Lyra/AppKit/AppEnums.h>
-#include <Lyra/AppKit/AppIcons.h>
-#include <Lyra/AppKit/AppColors.h>
-
-// Engine files
-#include <Lyra/Engine/System/AssetManager.h>
-#include <Lyra/Engine/System/ThemeManager.h>
-#include <Lyra/Engine/System/LayoutManager.h>
-#include <Lyra/Engine/System/ImGuiManager.h>
+// Engine headers
+#include <Lyra/Engine/Applet/Application.h>
+#include <Lyra/Engine/Layers/AssetLayer.h>
+#include <Lyra/Engine/Layers/ImGuiLayer.h>
 #include <Lyra/Engine/Assets/TextAsset.h>
 #include <Lyra/Engine/Assets/JsonAsset.h>
 #include <Lyra/Engine/Assets/TomlAsset.h>
 #include <Lyra/Engine/Assets/TextureAsset.h>
-#include <Lyra/Engine/Editor/Files.h>
-#include <Lyra/Engine/Editor/Console.h>
-#include <Lyra/Engine/Editor/Hierarchy.h>
-#include <Lyra/Engine/Editor/SceneView.h>
-#include <Lyra/Engine/Editor/Inspector.h>
+#include <Lyra/Engine/Render/FrameGraph.h>
+#include <Lyra/Engine/Render/FrameGraphPass.h>
+#include <Lyra/Engine/Render/FrameGraphEnums.h>
+#include <Lyra/Engine/Render/FrameGraphContext.h>
+#include <Lyra/Engine/Render/FrameGraphBuilder.h>
+#include <Lyra/Engine/Render/FrameGraphResource.h>
 
-#endif // LYRA_LIBRARY_HPP
+// Editor files
+#include <Lyra/Editor/Canvas.h>
+#include <Lyra/Editor/Files.h>
+#include <Lyra/Editor/Layout.h>
+#include <Lyra/Editor/Console.h>
+#include <Lyra/Editor/Hierarchy.h>
+#include <Lyra/Editor/SceneView.h>
+#include <Lyra/Editor/Inspector.h>
+
+#endif // LYRA_LIBRARY_LYRA_HPP

@@ -39,11 +39,15 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
     rhi->idle_fence.init(false);
     rhi->idle_fence.fence->SetName(L"idle fence");
 
-    // create descriptor heaps
+    // create cpu descriptor heaps
     rhi->rtv_heap.init(32, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
     rhi->dsv_heap.init(32, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
     rhi->sampler_heap.init(32, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
     rhi->cbv_srv_uav_heap.init(512, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
+
+    // create gpu descriptor heap allocators
+    rhi->gpu_default_heap.init(4096, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+    rhi->gpu_sampler_heap.init(2048, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
 
     // create a default frame (for headless cases)
     rhi->frames.emplace_back();
@@ -63,66 +67,75 @@ void api::delete_device()
         frame.destroy();
 
     // clean up remaining swapchains
-    for (auto& swapchain : rhi->swapchains.data)
+    for (auto& swapchain : rhi->swapchains)
         if (swapchain.valid())
             swapchain.destroy();
 
     // clean up remaining blases
-    for (auto& blas : rhi->blases.data)
+    for (auto& blas : rhi->blases)
         if (blas.valid())
             blas.destroy();
 
     // clean up remaining tlases
-    for (auto& tlas : rhi->tlases.data)
+    for (auto& tlas : rhi->tlases)
         if (tlas.valid())
             tlas.destroy();
 
     // clean up remaining fences
-    for (auto& fence : rhi->fences.data)
+    for (auto& fence : rhi->fences)
         if (fence.valid())
             fence.destroy();
 
     // clean up remaining buffers
-    for (auto& buffer : rhi->buffers.data)
+    for (auto& buffer : rhi->buffers)
         if (buffer.valid())
             buffer.destroy();
 
     // clean up remaining texture views
-    for (auto& view : rhi->views.data)
+    for (auto& view : rhi->views)
         if (view.valid())
             view.destroy();
 
     // clean up remaining textures
-    for (auto& texture : rhi->textures.data)
+    for (auto& texture : rhi->textures)
         if (texture.valid())
             texture.destroy();
 
     // clean up remaining samplers
-    for (auto& sampler : rhi->samplers.data)
+    for (auto& sampler : rhi->samplers)
         if (sampler.valid())
             sampler.destroy();
 
     // clean up remaining shaders
-    for (auto& shader : rhi->shaders.data)
+    for (auto& shader : rhi->shaders)
         if (shader.valid())
             shader.destroy();
 
+    // clean up remaining bind group heaps
+    for (auto& heap : rhi->bind_group_heaps)
+        if (heap.valid())
+            heap.destroy();
+
     // clean up remaining bind group layouts
-    for (auto& layout : rhi->bind_group_layouts.data)
+    for (auto& layout : rhi->bind_group_layouts)
         if (layout.valid())
             layout.destroy();
 
     // clean up remaining pipeline layouts
-    for (auto& layout : rhi->pipeline_layouts.data)
+    for (auto& layout : rhi->pipeline_layouts)
         if (layout.valid())
             layout.destroy();
 
     // clean up remaining pipelines
-    for (auto& pipeline : rhi->pipelines.data)
+    for (auto& pipeline : rhi->pipelines)
         if (pipeline.valid())
             pipeline.destroy();
 
-    // clean up descriptor heaps
+    // clean up gpu descriptor heaps
+    rhi->gpu_default_heap.destroy();
+    rhi->gpu_sampler_heap.destroy();
+
+    // clean up cpu descriptor heaps
     rhi->rtv_heap.destroy();
     rhi->dsv_heap.destroy();
     rhi->sampler_heap.destroy();

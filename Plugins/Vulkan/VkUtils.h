@@ -21,11 +21,15 @@
 
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Common/Msgbox.h>
-#include <Lyra/Common/Slotmap.h>
-#include <Lyra/Common/Container.h>
+#include <Lyra/Common/Function.h>
+#include <Lyra/Common/Conversion.h>
+#include <Lyra/Common/Collections.h>
 #include <Lyra/Common/Compatibility.h>
-#include <Lyra/Render/RHI/RHIAPI.h>
-#include <Lyra/Render/RHI/RHIDescs.h>
+#include <Lyra/Plugin/RHI/RHIAPI.h>
+#include <Lyra/Plugin/RHI/RHIDescs.h>
+#include <Lyra/Plugin/WSI/WSIAPI.h>
+#include <Lyra/Plugin/WSI/WSIUtils.h>
+#include <Lyra/Plugin/WSI/WSITypes.h>
 
 using namespace lyra;
 
@@ -311,21 +315,26 @@ struct VulkanBlas
 
 struct VulkanDescriptorPool
 {
-    Vector<VkDescriptorPool> pools     = {};
-    Vector<uint32_t>         counts    = {};
-    uint32_t                 poolindex = 0;
-    Vector<VkDescriptorSet>  allocated = {};
+    GPUBindGroupHeapDescriptor desc      = {};
+    Vector<VkDescriptorPool>   pools     = {};
+    Vector<uint32_t>           counts    = {};
+    uint32_t                   poolindex = 0;
+
+    explicit VulkanDescriptorPool() : desc({}) {}
+    explicit VulkanDescriptorPool(const GPUBindGroupHeapDescriptor& desc) : desc(desc) {}
 
     // implementation in VkDescriptorPool.cpp
     void destroy();
 
+    // for compliance with in-house slotmap
+    bool valid() const { return true; }
+
     void reset();
 
     auto allocate(
-        VkDescriptorSet&      descriptor,
         VkDescriptorSetLayout layout,
         uint                  set_count      = 1,
-        uint                  bindless_count = 0) -> GPUBindGroupHandle;
+        uint                  bindless_count = 0) -> VkDescriptorSet;
 
     uint find_pool_index(uint index);
 };
@@ -409,8 +418,6 @@ struct VulkanFrame
     VulkanCommandPool graphics_command_pool;
     VulkanCommandPool transfer_command_pool;
 
-    VulkanDescriptorPool descriptor_pool{};
-
     // allocate command buffers
     Vector<VulkanCommandBuffer> allocated_command_buffers;
 
@@ -418,12 +425,6 @@ struct VulkanFrame
     auto& command(GPUCommandEncoderHandle handle)
     {
         return allocated_command_buffers.at(handle.value);
-    }
-
-    // shortcut for descriptor set
-    auto descriptor(GPUBindGroupHandle handle)
-    {
-        return descriptor_pool.allocated.at(handle.value);
     }
 
     // implementation in VkFrame.cpp
@@ -521,6 +522,7 @@ struct VulkanRHI
     VulkanResourceManager<VulkanQuerySet>        query_sets;
     VulkanResourceManager<VulkanPipeline>        pipelines;
     VulkanResourceManager<VulkanPipelineLayout>  pipeline_layouts;
+    VulkanResourceManager<VulkanDescriptorPool>  descriptor_pools;
     VulkanResourceManager<VulkanBindGroupLayout> bind_group_layouts;
 
     auto current_frame() -> VulkanFrame& { return frames.at(current_frame_index % frames.size()); }
@@ -607,6 +609,7 @@ namespace api
     // bind group layout apis
     bool create_bind_group_layout(GPUBindGroupLayoutHandle& handle, const GPUBindGroupLayoutDescriptor& desc);
     void delete_bind_group_layout(GPUBindGroupLayoutHandle handle);
+    void reset_bind_group_layout(GPUBindGroupLayoutHandle handle);
 
     // pipeline layout apis
     bool create_pipeline_layout(GPUPipelineLayoutHandle& layout, const GPUPipelineLayoutDescriptor& desc);
@@ -630,6 +633,9 @@ namespace api
 
     // vulkan desciprtor
     bool create_bind_group(GPUBindGroupHandle& bind_group, const GPUBindGroupDescriptor& desc);
+    bool create_bind_group_heap(GPUBindGroupHeapHandle& heap, const GPUBindGroupHeapDescriptor& desc);
+    void delete_bind_group_heap(GPUBindGroupHeapHandle heap);
+    void reset_bind_group_heap(GPUBindGroupHeapHandle heap);
 
     // command buffer
     bool create_command_buffer(GPUCommandEncoderHandle& cmdbuffer, const GPUCommandBufferDescriptor& descriptor);
@@ -743,7 +749,7 @@ auto get_buffer_device_address(VkBuffer buffer) -> VkDeviceAddress;
 
 // vulkan descriptor pool
 auto create_bind_group(const GPUBindGroupDescriptor& desc) -> GPUBindGroupHandle;
-auto create_descriptor_pool() -> VkDescriptorPool;
+auto create_descriptor_pool(uint max_sets) -> VkDescriptorPool;
 void reset_descriptor_pool(VkDescriptorPool pool);
 void delete_descriptor_pool(VkDescriptorPool pool);
 
@@ -773,12 +779,12 @@ T& fetch_resource(VulkanResourceManager<T>& manager, Handle handle)
     }
 
     // check resource range
-    if (handle.value >= manager.data.size()) {
+    if (!manager.range_check(handle.value)) {
         get_logger()->error("Resource handle {} with value={} access out of range!", Handle::type_name(), handle.value);
         exit(1);
     }
 
-    T& resource = manager.data.at(handle.value);
+    T& resource = manager.at(handle.value);
     if (!resource.valid()) {
         get_logger()->error("Resource handle {} with value={} has invalid object!", Handle::type_name(), handle.value);
         exit(1);

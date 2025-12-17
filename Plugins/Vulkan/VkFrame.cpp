@@ -38,7 +38,6 @@ void VulkanFrame::reset()
         rhi->vtable.vkResetFences(rhi->device, cnt, existing_fences.data());
     }
 
-    descriptor_pool.reset();
     compute_command_pool.reset();
     graphics_command_pool.reset();
     transfer_command_pool.reset();
@@ -50,11 +49,6 @@ void VulkanFrame::free()
     // release any resources that is owned by this command buffer
     for (auto& command_buffer : allocated_command_buffers)
         command_buffer.reset();
-
-    // NOTE: no need to reset descriptor pool,
-    // descriptor pools are already reset every frame,
-    // inserting extra resets will complicate the lifetime of descriptors.
-    // descriptor_pool.reset();
 
     // reset and free all commands
     compute_command_pool.reset(true);
@@ -92,7 +86,6 @@ GPUCommandEncoderHandle VulkanFrame::allocate(GPUQueueType type, bool primary)
 
 void VulkanFrame::destroy()
 {
-    descriptor_pool.destroy();
     compute_command_pool.destroy();
     graphics_command_pool.destroy();
     transfer_command_pool.destroy();

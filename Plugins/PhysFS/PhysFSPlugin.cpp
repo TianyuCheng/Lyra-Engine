@@ -6,14 +6,14 @@
 #include <filesystem>
 
 // library headers
-#include <Lyra/Common/Container.h>
 #include <Lyra/Common/Macros.h>
+#include <Lyra/Common/Stdint.h>
 #include <Lyra/Common/String.h>
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Common/Plugin.h>
-#include <Lyra/FileIO/FSAPI.h>
-#include <Lyra/Common/Stdint.h>
-#include <Lyra/FileIO/FSTypes.h>
+#include <Lyra/Common/Collections.h>
+#include <Lyra/Plugin/VFS/VFSAPI.h>
+#include <Lyra/Plugin/VFS/VFSTypes.h>
 
 // plugin headers
 #include "PhysFSUtils.h"

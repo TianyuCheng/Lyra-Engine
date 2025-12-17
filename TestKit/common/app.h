@@ -35,6 +35,7 @@ struct TestApp
     OwnedResource<RHI>      rhi;
     OwnedResource<Compiler> compiler;
     RenderTarget            render_target;
+    GPUBindGroupHeap        bheap;
 };
 
 #endif // LYRA_TESTLIB_HELPER_APP_H

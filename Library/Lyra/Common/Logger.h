@@ -12,7 +12,7 @@
 #include <Lyra/Common/Macros.h>
 #include <Lyra/Common/String.h>
 #include <Lyra/Common/Pointer.h>
-#include <Lyra/Common/Container.h>
+#include <Lyra/Common/Collections.h>
 #include <Lyra/Common/Compatibility.h>
 
 namespace lyra

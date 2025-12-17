@@ -52,6 +52,7 @@ struct TextureSamplingApp : public TestApp
     GPUTexture           texture;
     GPUTextureView       texview;
     GPUSampler           sampler;
+    GPUBindGroup         bind_group;
     SimpleRenderPipeline pipeline;
 
     explicit TextureSamplingApp(const TestAppDescriptor& desc) : TestApp(desc)
@@ -60,6 +61,7 @@ struct TextureSamplingApp : public TestApp
         setup_sampler();
         setup_texture();
         setup_pipeline();
+        setup_descriptors();
     }
 
     void setup_buffers()
@@ -132,19 +134,12 @@ struct TextureSamplingApp : public TestApp
         pipeline.init_pipeline(device, reflection.get());
     }
 
-    void render(const GPUSurfaceTexture& backbuffer) override
+    void setup_descriptors()
     {
-        auto& device = RHI::get_current_device();
-
-        // create command buffer
-        auto command = execute([&]() {
-            auto desc  = GPUCommandBufferDescriptor{};
-            desc.queue = GPUQueueType::DEFAULT;
-            return device.create_command_buffer(desc);
-        });
+        auto device = RHI::get_current_device();
 
         // create bind group
-        auto bind_group = execute([&]() {
+        bind_group = execute([&]() {
             Array<GPUBindGroupEntry, 3> entries;
 
             // camera
@@ -174,9 +169,22 @@ struct TextureSamplingApp : public TestApp
             }
 
             auto desc    = GPUBindGroupDescriptor{};
+            desc.heap    = bheap;
             desc.layout  = pipeline.blayouts.at(0);
             desc.entries = entries;
             return device.create_bind_group(desc);
+        });
+    }
+
+    void render(const GPUSurfaceTexture& backbuffer) override
+    {
+        auto& device = RHI::get_current_device();
+
+        // create command buffer
+        auto command = execute([&]() {
+            auto desc  = GPUCommandBufferDescriptor{};
+            desc.queue = GPUQueueType::DEFAULT;
+            return device.create_command_buffer(desc);
         });
 
         // color attachments

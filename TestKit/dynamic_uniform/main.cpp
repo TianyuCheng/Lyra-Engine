@@ -50,11 +50,13 @@ struct DynamicUniformApp : public TestApp
     Uniform              uniform;
     Geometry             geometry;
     SimpleRenderPipeline pipeline;
+    GPUBindGroup         bind_group;
 
     explicit DynamicUniformApp(const TestAppDescriptor& desc) : TestApp(desc)
     {
         setup_buffers();
         setup_pipeline();
+        setup_descriptors();
     }
 
     void setup_buffers()
@@ -115,19 +117,12 @@ struct DynamicUniformApp : public TestApp
         pipeline.init_pipeline(device, reflection.get());
     }
 
-    void render(const GPUSurfaceTexture& backbuffer) override
+    void setup_descriptors()
     {
         auto& device = RHI::get_current_device();
 
-        // create command buffer
-        auto command = execute([&]() {
-            auto desc  = GPUCommandBufferDescriptor{};
-            desc.queue = GPUQueueType::DEFAULT;
-            return device.create_command_buffer(desc);
-        });
-
         // create bind group
-        auto bind_group = execute([&]() {
+        bind_group = execute([&]() {
             Array<GPUBindGroupEntry, 1> entries = {};
 
             auto& entry         = entries.at(0);
@@ -138,9 +133,22 @@ struct DynamicUniformApp : public TestApp
             entry.buffer.size   = sizeof(DynamicUniform); // NOTE: THIS MUST NOT BE 0 WHEN DYNAMIC UNIFORM IS ENABLED
 
             auto desc    = GPUBindGroupDescriptor{};
+            desc.heap    = bheap;
             desc.layout  = pipeline.blayouts.at(0);
             desc.entries = entries;
             return device.create_bind_group(desc);
+        });
+    }
+
+    void render(const GPUSurfaceTexture& backbuffer) override
+    {
+        auto& device = RHI::get_current_device();
+
+        // create command buffer
+        auto command = execute([&]() {
+            auto desc  = GPUCommandBufferDescriptor{};
+            desc.queue = GPUQueueType::DEFAULT;
+            return device.create_command_buffer(desc);
         });
 
         // color attachments

@@ -44,6 +44,7 @@ struct StencilTestApp : public TestApp
     Geometry             geometry;
     GPUTexture           dsbuffer;
     GPUTextureView       dsview;
+    GPUBindGroup         bind_group;
     SimpleRenderPipeline pipeline_mask;
     SimpleRenderPipeline pipeline_draw;
 
@@ -52,6 +53,7 @@ struct StencilTestApp : public TestApp
         setup_stencil();
         setup_buffers();
         setup_pipeline();
+        setup_descriptors();
     }
 
     void setup_stencil()
@@ -122,6 +124,27 @@ struct StencilTestApp : public TestApp
         pipeline_draw.init_fshader(device, module.get(), "fsmain");
         pipeline_draw.init_playout(device, reflection.get());
         pipeline_draw.init_pipeline(device, reflection.get());
+    }
+
+    void setup_descriptors()
+    {
+        auto device = RHI::get_current_device();
+
+        // create bind group
+        bind_group = execute([&]() {
+            auto entry          = GPUBindGroupEntry{};
+            entry.type          = GPUBindingResourceType::BUFFER;
+            entry.binding       = 0;
+            entry.buffer.buffer = uniform.ubuffer;
+            entry.buffer.offset = 0;
+            entry.buffer.size   = 0;
+
+            auto desc    = GPUBindGroupDescriptor{};
+            desc.heap    = bheap;
+            desc.layout  = pipeline_mask.blayouts.at(0);
+            desc.entries = entry;
+            return device.create_bind_group(desc);
+        });
     }
 
     void render_mask(GPUCommandBuffer& command, const GPUSurfaceTexture& backbuffer, const GPUBindGroup& bind_group)
@@ -209,21 +232,6 @@ struct StencilTestApp : public TestApp
             auto desc  = GPUCommandBufferDescriptor{};
             desc.queue = GPUQueueType::DEFAULT;
             return device.create_command_buffer(desc);
-        });
-
-        // create bind group
-        auto bind_group = execute([&]() {
-            auto entry          = GPUBindGroupEntry{};
-            entry.type          = GPUBindingResourceType::BUFFER;
-            entry.binding       = 0;
-            entry.buffer.buffer = uniform.ubuffer;
-            entry.buffer.offset = 0;
-            entry.buffer.size   = 0;
-
-            auto desc    = GPUBindGroupDescriptor{};
-            desc.layout  = pipeline_mask.blayouts.at(0);
-            desc.entries = entry;
-            return device.create_bind_group(desc);
         });
 
         // synchronization when window is enabled

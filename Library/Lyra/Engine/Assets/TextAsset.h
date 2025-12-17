@@ -5,7 +5,7 @@
 
 #include <Lyra/Common/UUID.h>
 #include <Lyra/Common/String.h>
-#include <Lyra/Assets/AMSAPI.h>
+#include <Lyra/Plugin/AMS/AMSAPI.h>
 
 namespace lyra
 {

@@ -20,9 +20,9 @@
 #include <Lyra/Common/String.h>
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Common/Plugin.h>
-#include <Lyra/Window/WSIAPI.h>
-#include <Lyra/Window/WSITypes.h>
-#include <Lyra/Render/RHI/RHITypes.h>
+#include <Lyra/Plugin/WSI/WSIAPI.h>
+#include <Lyra/Plugin/WSI/WSITypes.h>
+#include <Lyra/Plugin/RHI/RHITypes.h>
 
 using namespace lyra;
 

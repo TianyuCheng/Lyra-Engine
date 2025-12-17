@@ -10,10 +10,6 @@ void D3D12Frame::init()
     compute_command_pool.init(D3D12_COMMAND_LIST_TYPE_COMPUTE);
     graphics_command_pool.init(D3D12_COMMAND_LIST_TYPE_DIRECT);
     transfer_command_pool.init(D3D12_COMMAND_LIST_TYPE_COPY);
-
-    // initialize descriptor heap
-    default_heap.init(MAX_CBV_SRV_UAV_HEAP_SIZE, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
-    sampler_heap.init(MAX_SAMPLERS_HEAP_SIZE, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
 }
 
 void D3D12Frame::wait()
@@ -38,12 +34,6 @@ void D3D12Frame::reset()
     compute_command_pool.reset();
     graphics_command_pool.reset();
     transfer_command_pool.reset();
-
-    // clean up descriptor heap
-    default_heap.reset();
-    sampler_heap.reset();
-    dynamic_heap.reset();
-    allocated_descriptors.clear();
 }
 
 void D3D12Frame::free()
@@ -83,10 +73,6 @@ void D3D12Frame::destroy()
     compute_command_pool.destroy();
     graphics_command_pool.destroy();
     transfer_command_pool.destroy();
-
-    // destroy descriptor heap
-    default_heap.destroy();
-    sampler_heap.destroy();
 }
 
 GPUCommandEncoderHandle D3D12Frame::allocate(GPUQueueType type, bool primary)
@@ -97,7 +83,7 @@ GPUCommandEncoderHandle D3D12Frame::allocate(GPUQueueType type, bool primary)
     auto set_descriptor_heap = [&](D3D12CommandBuffer& command_buffer) {
         // D3D12 COPY QUEUE does not support SetDescriptorHeaps
         if (type != GPUQueueType::TRANSFER) {
-            ID3D12DescriptorHeap* descriptor_heaps[] = {default_heap.heap, sampler_heap.heap};
+            ID3D12DescriptorHeap* descriptor_heaps[] = {rhi->gpu_default_heap.heap, rhi->gpu_sampler_heap.heap};
             command_buffer.command_buffer->SetDescriptorHeaps(2, descriptor_heaps);
         }
     };
@@ -153,15 +139,4 @@ GPUCommandEncoderHandle D3D12Frame::allocate(GPUQueueType type, bool primary)
 
     set_descriptor_heap(cmd.cmd);
     return GPUCommandEncoderHandle(handle);
-}
-
-GPUBindGroupHandle D3D12Frame::create(const GPUBindGroupDescriptor& desc)
-{
-    auto rhi        = get_rhi();
-    auto layout     = fetch_resource(rhi->bind_group_layouts, desc.layout);
-    auto descriptor = layout.create(*this, desc);
-
-    uint handle = static_cast<uint>(allocated_descriptors.size());
-    allocated_descriptors.push_back(descriptor);
-    return GPUBindGroupHandle(handle);
 }

@@ -3,10 +3,10 @@
 #ifndef LYRA_LIBRARY_ENGINE_ASSETS_TOML_ASSET_H
 #define LYRA_LIBRARY_ENGINE_ASSETS_TOML_ASSET_H
 
-#include <Lyra/Vendor/TOML.h>
 #include <Lyra/Common/UUID.h>
+#include <Lyra/Common/Config.h>
 #include <Lyra/Common/String.h>
-#include <Lyra/Assets/AMSAPI.h>
+#include <Lyra/Plugin/AMS/AMSAPI.h>
 
 namespace lyra
 {

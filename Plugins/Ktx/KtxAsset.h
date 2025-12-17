@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Lyra/Common/Logger.h>
-#include <Lyra/Assets/AMSAPI.h>
+#include <Lyra/Plugin/AMS/AMSAPI.h>
 
 using namespace lyra;
 
