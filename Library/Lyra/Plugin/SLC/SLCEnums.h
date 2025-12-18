@@ -17,6 +17,7 @@ namespace lyra
 
     enum struct CompileTarget : uint
     {
+        MSL,
         DXIL,
         SPIRV,
     };

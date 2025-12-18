@@ -97,6 +97,8 @@ struct ReflectResultInternal
     Vector<GPUPushConstantRange> push_constant_ranges;
     TraversalData                traversal_data;
     uint                         num_push_constant_buffers = 0;
+    uint                         msl_parameter_block_space = 0;
+    TreeMap<uint, uint>          msl_space_remap;
     bool                         has_error                 = false;
 
     bool get_vertex_attributes(ShaderAttributes attrs, GPUVertexAttribute* attributes) const;

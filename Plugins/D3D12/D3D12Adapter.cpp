@@ -53,8 +53,8 @@ void populate_adapter_properties(GPUSupportedLimits& limits, GPUProperties& prop
         static_cast<uint64_t>(UINT32_MAX),
         virtual_address_support.MaxGPUVirtualAddressBitsPerResource > 0 ? (1ULL << virtual_address_support.MaxGPUVirtualAddressBitsPerResource) : static_cast<uint64_t>(128 * 1024 * 1024) // 128mb fallback
         ));
-    limits.max_vertex_attributes        = D3D12_IA_VERTEX_INPUT_STRUCTURE_ELEMENT_COUNT; // 32
-    limits.max_vertex_bufferArrayStride = D3D12_SO_BUFFER_MAX_STRIDE_IN_BYTES;           // 2048
+    limits.max_vertex_attributes          = D3D12_IA_VERTEX_INPUT_STRUCTURE_ELEMENT_COUNT; // 32
+    limits.max_vertex_buffer_array_stride = D3D12_SO_BUFFER_MAX_STRIDE_IN_BYTES;           // 2048
 
     // inter-stage variables (input/output registers)
     limits.max_inter_stage_shader_variables = 32; // d3d12 supports 32 input/output registers

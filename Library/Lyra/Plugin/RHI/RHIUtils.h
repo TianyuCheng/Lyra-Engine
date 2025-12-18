@@ -240,7 +240,7 @@ namespace lyra
         uint max_vertex_buffers                              = 8;
         uint max_buffer_size                                 = 268435456;
         uint max_vertex_attributes                           = 16;
-        uint max_vertex_bufferArrayStride                    = 2048;
+        uint max_vertex_buffer_array_stride                  = 2048;
         uint max_inter_stage_shader_variables                = 16;
         uint max_color_attachments                           = 8;
         uint max_color_attachment_bytes_per_sample           = 32;
@@ -262,7 +262,7 @@ namespace lyra
     struct GPUAdapterInfo
     {
         String architecture = "";
-        String descrition   = "";
+        String description  = "";
         String device       = "";
         String vendor       = "";
     };
@@ -506,6 +506,7 @@ namespace lyra
             GPUBufferBinding     buffer = {};
             GPUSamplerHandle     sampler;
             GPUTextureViewHandle texture;
+            GPUTlasHandle        tlas;
         };
 
         // default trivial constructor / destructor

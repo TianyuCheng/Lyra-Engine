@@ -218,3 +218,19 @@ TEST_CASE("rhi::d3d12::depth_test" * doctest::description("Rendering a triangle 
     DepthTestApp(desc).run();
 }
 #endif
+
+#ifdef __APPLE__
+TEST_CASE("rhi::metal::depth_test" * doctest::description("Rendering a triangle with depth test enabled."))
+{
+    TestAppDescriptor desc{};
+    desc.name           = "metal";
+    desc.window         = false;
+    desc.backend        = RHIBackend::METAL;
+    desc.width          = 640;
+    desc.height         = 480;
+    desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
+    desc.compile_target = CompileTarget::MSL;
+    desc.compile_flags  = CompileFlag::DEBUG;
+    DepthTestApp(desc).run();
+}
+#endif

@@ -3,8 +3,8 @@ lyra_plugin(ktx)
 
 # plugin sources
 target_sources(lyra-ktx PRIVATE
-    KtxPlugin.cpp
-    KtxAsset.cpp
+  KtxPlugin.cpp
+  KtxAsset.cpp
 )
 
 find_package(ktx REQUIRED)

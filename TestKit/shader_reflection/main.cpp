@@ -139,3 +139,12 @@ TEST_CASE("slc::d3d12::shader_reflection" * doctest::description("shader vertex 
         CompileFlag::DEBUG | CompileFlag::REFLECT);
 }
 #endif
+
+#ifdef __APPLE__
+TEST_CASE("slc::metal::shader_reflection" * doctest::description("shader vertex attributes reflection"))
+{
+    test_shader_vertex_attribute_reflection(
+        CompileTarget::MSL,
+        CompileFlag::DEBUG | CompileFlag::REFLECT);
+}
+#endif

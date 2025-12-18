@@ -216,3 +216,19 @@ TEST_CASE("rhi::d3d12::dynamic_uniform" * doctest::description("Rendering multip
     DynamicUniformApp(desc).run();
 }
 #endif
+
+#ifdef __APPLE__
+TEST_CASE("rhi::d3d12::dynamic_uniform" * doctest::description("Rendering multiple triangles with the dynamic uniform buffer."))
+{
+    TestAppDescriptor desc{};
+    desc.name           = "d3d12";
+    desc.window         = false;
+    desc.backend        = RHIBackend::METAL;
+    desc.width          = 640;
+    desc.height         = 480;
+    desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
+    desc.compile_target = CompileTarget::MSL;
+    desc.compile_flags  = CompileFlag::DEBUG;
+    DynamicUniformApp(desc).run();
+}
+#endif

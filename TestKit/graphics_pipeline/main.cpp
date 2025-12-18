@@ -186,3 +186,19 @@ TEST_CASE("rhi::d3d12::graphics_pipeline" * doctest::description("Rendering a tr
     GraphicsPipelineApp(desc).run();
 }
 #endif
+
+#ifdef __APPLE__
+TEST_CASE("rhi::metal::graphics_pipeline" * doctest::description("Rendering a triangle with the most basic graphics pipeline."))
+{
+    TestAppDescriptor desc{};
+    desc.name           = "metal";
+    desc.window         = false;
+    desc.backend        = RHIBackend::METAL;
+    desc.width          = 640;
+    desc.height         = 480;
+    desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
+    desc.compile_target = CompileTarget::MSL;
+    desc.compile_flags  = CompileFlag::DEBUG;
+    GraphicsPipelineApp(desc).run();
+}
+#endif

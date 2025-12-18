@@ -250,3 +250,19 @@ TEST_CASE("rhi::d3d12::texture_sampling" * doctest::description("Rendering a tex
     TextureSamplingApp(desc).run();
 }
 #endif
+
+#ifdef __APPLE__
+TEST_CASE("rhi::metal::texture_sampling" * doctest::description("Rendering a textured triangle with the most basic graphics pipeline."))
+{
+    TestAppDescriptor desc{};
+    desc.name           = "metal";
+    desc.window         = false;
+    desc.backend        = RHIBackend::METAL;
+    desc.width          = 640;
+    desc.height         = 480;
+    desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
+    desc.compile_target = CompileTarget::MSL;
+    desc.compile_flags  = CompileFlag::DEBUG;
+    TextureSamplingApp(desc).run();
+}
+#endif

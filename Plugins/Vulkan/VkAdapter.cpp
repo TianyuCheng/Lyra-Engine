@@ -40,9 +40,9 @@ void populate_device_properties(GPUSupportedLimits& limits)
     limits.min_storage_buffer_offset_alignment = static_cast<uint>(vk_limits.minStorageBufferOffsetAlignment);
 
     // vertex attributes
-    limits.max_vertex_buffers           = vk_limits.maxVertexInputBindings;
-    limits.max_vertex_attributes        = vk_limits.maxVertexInputAttributes;
-    limits.max_vertex_bufferArrayStride = vk_limits.maxVertexInputBindingStride;
+    limits.max_vertex_buffers             = vk_limits.maxVertexInputBindings;
+    limits.max_vertex_attributes          = vk_limits.maxVertexInputAttributes;
+    limits.max_vertex_buffer_array_stride = vk_limits.maxVertexInputBindingStride;
 
     // general buffer size (use storage buffer range as approximation)
     limits.max_buffer_size = vk_limits.maxStorageBufferRange;

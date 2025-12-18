@@ -263,8 +263,8 @@ CompilerWrapper::CompilerWrapper(const CompilerDescriptor& descriptor)
     }
 
     // emit option
-    auto emit = slang::CompilerOptionEntry{};
-    {
+    if (target != CompileTarget::MSL) {
+        auto emit            = slang::CompilerOptionEntry{};
         emit.name            = slang::CompilerOptionName::EmitSpirvDirectly;
         emit.value.kind      = slang::CompilerOptionValueKind::Int;
         emit.value.intValue0 = 1;
@@ -290,6 +290,8 @@ CompilerWrapper::CompilerWrapper(const CompilerDescriptor& descriptor)
 SlangProfileID CompilerWrapper::select_profile(const CompilerDescriptor& descriptor) const
 {
     switch (descriptor.target) {
+        case CompileTarget::MSL:
+            return GLOBAL_SESSION->findProfile("msl_2_4");
         case CompileTarget::DXIL:
             return GLOBAL_SESSION->findProfile("sm_6_5");
         case CompileTarget::SPIRV:
@@ -301,6 +303,8 @@ SlangProfileID CompilerWrapper::select_profile(const CompilerDescriptor& descrip
 SlangCompileTarget CompilerWrapper::select_target(const CompilerDescriptor& descriptor) const
 {
     switch (descriptor.target) {
+        case CompileTarget::MSL:
+            return SLANG_METAL;
         case CompileTarget::DXIL:
             return SLANG_DXIL;
         case CompileTarget::SPIRV:
@@ -361,7 +365,6 @@ bool CompilerWrapper::reflect(ShaderEntryPoints entries, ReflectResultInternal& 
     ComPtr<slang::IComponentType> composed_program;
     {
         ComPtr<slang::IBlob> diagnostics;
-
         SlangResult result = session->createCompositeComponentType(
             component_types.data(),
             component_types.size(),
@@ -375,7 +378,6 @@ bool CompilerWrapper::reflect(ShaderEntryPoints entries, ReflectResultInternal& 
     ComPtr<slang::IComponentType> linked_program;
     {
         ComPtr<slang::IBlob> diagnostics;
-
         auto res = composed_program->link(
             linked_program.writeRef(),
             diagnostics.writeRef());
@@ -524,21 +526,20 @@ bool ReflectResultInternal::get_bind_group_layouts(uint& count, GPUBindGroupLayo
     if (layouts == nullptr)
         return true;
 
-    Vector<CString> group2names(bind_groups.size());
-    for (auto& kv : name2bindgroups)
-        group2names[kv.second] = kv.first.c_str();
+    // map Slang spaces to continuous indices
+    TreeMap<uint, uint> space_to_index;
+    uint current_index = 0;
+    for (auto const& [space, entries] : bind_groups) {
+        space_to_index[space] = current_index++;
+    }
 
     // initialize layouts (assume layout has been properly allocated)
-    uint index = 0;
-    for (auto& kv : bind_groups) {
-        if (kv.first != index) {
-            get_logger()->error("Found non-continuous bind group layout space: {}", kv.first);
-            return false;
-        }
+    for (auto const& [space, entries] : bind_groups) {
         GPUBindGroupLayoutDescriptor layout{};
-        layout.label     = group2names[kv.first];
-        layout.entries   = kv.second;
-        layouts[index++] = layout;
+        // layout.label     = group2names[space]; // this assumes space is an index
+        layout.label     = nullptr; // for now, we don't have a direct mapping from space to name
+        layout.entries   = entries;
+        layouts[space_to_index[space]] = layout;
     }
     return true;
 }
@@ -620,6 +621,8 @@ void ReflectResultInternal::walk(slang::VariableLayoutReflection* var_layout, Ac
 
 void ReflectResultInternal::init_bindings(slang::ProgramLayout* program_layout)
 {
+    msl_parameter_block_space = 0;
+    msl_space_remap.clear();
     auto callback = [&](AccessPathNode node) {
         auto typ_layout = node.layout->getTypeLayout();
         switch (typ_layout->getKind()) {
@@ -703,7 +706,17 @@ void ReflectResultInternal::record_parameter_block_space(AccessPathNode path)
 
     auto name   = path.layout->getName();
     auto offset = path.calculate_cumulative_offset();
-    name2bindgroups.emplace(name, offset.space);
+
+    uint space = offset.space;
+    if (target == CompileTarget::MSL) {
+        // Here, we just assign a new space if the parameter block is a global one (not nested)
+        // This assumes that Slang assigns space 0 to all global parameter blocks in MSL.
+        // This is a hack, but matches the observed behavior.
+        space = msl_parameter_block_space++;
+    }
+    
+    get_logger()->info("Recording parameter block: {} with space: {}", name, space);
+    name2bindgroups.emplace(name, space);
 }
 
 void ReflectResultInternal::create_automatic_constant_buffer(AccessPathNode node)
@@ -711,6 +724,26 @@ void ReflectResultInternal::create_automatic_constant_buffer(AccessPathNode node
     auto offset = node.calculate_cumulative_offset();
 
     uint space   = offset.space;
+    if (target == CompileTarget::MSL) {
+        // Find the outermost ParameterBlock parent
+        AccessPathNode* current_node = &node;
+        AccessPathNode* parameter_block_parent = nullptr;
+        while (current_node) {
+            if (current_node->layout && current_node->layout->getTypeLayout()->getKind() == slang::TypeReflection::Kind::ParameterBlock) {
+                parameter_block_parent = current_node;
+                get_logger()->info("Found parameter block parent. Name: {}, Kind: {}", current_node->layout->getName(), (int)current_node->layout->getTypeLayout()->getKind());
+                break;
+            }
+            current_node = current_node->outer;
+        }
+
+        if (parameter_block_parent) {
+            auto parent_name = parameter_block_parent->layout->getName();
+            if (name2bindgroups.count(parent_name)) {
+                space = name2bindgroups.at(parent_name); // Use the remapped space of the parent parameter block
+            }
+        }
+    }
     uint binding = offset.value;
 
     auto val  = GPUBindGroupLayoutEntry{};
@@ -734,6 +767,26 @@ void ReflectResultInternal::create_binding(AccessPathNode node)
     auto offset = node.calculate_cumulative_offset();
 
     uint space   = offset.space;
+    if (target == CompileTarget::MSL) {
+        // Find the outermost ParameterBlock parent
+        AccessPathNode* current_node = &node;
+        AccessPathNode* parameter_block_parent = nullptr;
+        while (current_node) {
+            if (current_node->layout && current_node->layout->getTypeLayout()->getKind() == slang::TypeReflection::Kind::ParameterBlock) {
+                parameter_block_parent = current_node;
+                get_logger()->info("Found parameter block parent. Name: {}, Kind: {}", current_node->layout->getName(), (int)current_node->layout->getTypeLayout()->getKind());
+                break;
+            }
+            current_node = current_node->outer;
+        }
+
+        if (parameter_block_parent) {
+            auto parent_name = parameter_block_parent->layout->getName();
+            if (name2bindgroups.count(parent_name)) {
+                space = name2bindgroups.at(parent_name); // Use the remapped space of the parent parameter block
+            }
+        }
+    }
     uint binding = offset.value;
 
     auto val = GPUBindGroupLayoutEntry{};
@@ -755,7 +808,7 @@ void ReflectResultInternal::create_binding(AccessPathNode node)
 
 void ReflectResultInternal::create_push_constant(AccessPathNode node, uint space, const GPUBindGroupLayoutEntry& binding)
 {
-    if (space != PushConstantRegisterSpace) {
+    if (target != CompileTarget::MSL && space != PushConstantRegisterSpace) {
         get_logger()->error("Please use ROOT_CONSTANT to denote the binding register space.");
         has_error = true;
         return;

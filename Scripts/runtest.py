@@ -1,6 +1,7 @@
 import os
 import shutil
 import argparse
+import platform
 import subprocess
 import webbrowser
 import xml.etree.ElementTree as ET
@@ -119,7 +120,14 @@ def run_unit_tests(args):
     subprocess.check_call([args.executable, f"-tce=rhi*"])
 
 def generate_html_report(args, results):
-    sequence = ["reference", "vulkan", "d3d12"]
+    sequence = ["reference", "vulkan"]
+
+    os_name = platorm.system()
+    match os_name:
+        case "Windows":
+            sequence.append("d3d12")
+        case "Darwin":
+            sequence.append("metal")
 
     html_content = []
     html_content.append('''
