@@ -348,7 +348,7 @@ static bool unmount(FileLoaderHandle loader, MountHandle handle)
 
 LYRA_EXPORT auto prepare() -> void
 {
-    // do nothing
+    get_logger()->set_level(parse_log_level_from_env("LYRA_NATIVEFS_VERBOSITY"));
 }
 
 LYRA_EXPORT auto cleanup() -> void

@@ -408,6 +408,8 @@ void api::wait_fence(GPUFenceHandle handle)
 
 LYRA_EXPORT auto prepare() -> void
 {
+    get_logger()->set_level(parse_log_level_from_env("LYRA_VULKAN_VERBOSITY"));
+
     vk_check(volkInitialize());
 }
 

@@ -145,7 +145,7 @@ struct TextureSamplingApp : public TestApp
             // camera
             {
                 auto& entry         = entries.at(0);
-                entry.type          = GPUBindingResourceType::BUFFER;
+                entry.type          = GPUResourceType::BUFFER;
                 entry.binding       = 0;
                 entry.buffer.buffer = uniform.ubuffer;
                 entry.buffer.offset = 0;
@@ -155,7 +155,7 @@ struct TextureSamplingApp : public TestApp
             // texture
             {
                 auto& entry   = entries.at(1);
-                entry.type    = GPUBindingResourceType::TEXTURE;
+                entry.type    = GPUResourceType::TEXTURE;
                 entry.binding = 1;
                 entry.texture = texview;
             }
@@ -163,7 +163,7 @@ struct TextureSamplingApp : public TestApp
             // sampler
             {
                 auto& entry   = entries.at(2);
-                entry.type    = GPUBindingResourceType::SAMPLER;
+                entry.type    = GPUResourceType::SAMPLER;
                 entry.binding = 2;
                 entry.sampler = sampler;
             }

@@ -114,12 +114,12 @@ static GPUBindGroup imgui_create_texture_descriptor(GUIPipelineData* pipeline_da
 
     entries.at(0).binding = 0;
     entries.at(0).index   = 0;
-    entries.at(0).type    = GPUBindingResourceType::TEXTURE;
+    entries.at(0).type    = GPUResourceType::TEXTURE;
     entries.at(0).texture = texinfo.view;
 
     entries.at(1).binding = 1;
     entries.at(1).index   = 0;
-    entries.at(1).type    = GPUBindingResourceType::SAMPLER;
+    entries.at(1).type    = GPUResourceType::SAMPLER;
     entries.at(1).sampler = renderer_data->sampler;
 
     texinfo.bindgroup = execute([&]() {

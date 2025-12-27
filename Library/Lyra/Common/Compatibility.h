@@ -16,10 +16,36 @@
 #undef GENERIC_READ // conflicts with RHI enum
 #undef OPAUE
 #undef DEBUG
+#else
 #endif
 
 #ifdef __APPLE__
 #undef DEBUG
 #endif
+
+#include <optional>    // for std::optional
+#include <string_view> // for std::string_view
+#include <string>      // for std::string
+#include <cstdlib>     // IWYU pragma: keep
+
+namespace lyra
+{
+    // Helper function to get environment variables safely and portably
+    inline std::optional<std::string> get_environment_variable(std::string_view key)
+    {
+#if defined(_WIN32)
+        // Max size for environment variable value is 32767 characters
+        char  buffer[32768];
+        DWORD len = GetEnvironmentVariableA(key.data(), buffer, sizeof(buffer));
+        if (len == 0 && GetLastError() == ERROR_ENVVAR_NOT_FOUND) return std::nullopt;
+        if (len == 0 || len >= sizeof(buffer)) return std::nullopt;
+        return std::string(buffer, len);
+#else
+        const char* v = std::getenv(key.data());
+        if (!v) return std::nullopt;
+        return std::string(v);
+#endif
+    }
+} // namespace lyra
 
 #endif // LYRA_LIBRARY_COMMON_COMPATIBILITY_H

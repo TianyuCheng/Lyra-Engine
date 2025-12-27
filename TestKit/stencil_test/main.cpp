@@ -133,7 +133,7 @@ struct StencilTestApp : public TestApp
         // create bind group
         bind_group = execute([&]() {
             auto entry          = GPUBindGroupEntry{};
-            entry.type          = GPUBindingResourceType::BUFFER;
+            entry.type          = GPUResourceType::BUFFER;
             entry.binding       = 0;
             entry.buffer.buffer = uniform.ubuffer;
             entry.buffer.offset = 0;

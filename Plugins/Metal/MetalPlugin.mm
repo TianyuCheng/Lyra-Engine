@@ -12,6 +12,8 @@ auto get_api_name() -> CString
 // Plugin entry points
 LYRA_EXPORT auto prepare() -> void
 {
+    get_logger()->set_level(parse_log_level_from_env("LYRA_METAL_VERBOSITY"));
+
     // Metal framework initialization if needed
     // Most initialization happens in create_instance()
 }

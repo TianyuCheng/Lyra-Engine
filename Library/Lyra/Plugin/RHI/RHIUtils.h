@@ -498,9 +498,9 @@ namespace lyra
 
     struct GPUBindGroupEntry
     {
-        GPUIndex32             binding = 0;
-        GPUIndex32             index   = 0; // NOTE: Non-WebGPU standard API
-        GPUBindingResourceType type    = GPUBindingResourceType::BUFFER;
+        GPUIndex32      binding = 0;
+        GPUIndex32      index   = 0; // NOTE: Non-WebGPU standard API
+        GPUResourceType type    = GPUResourceType::BUFFER;
         union
         {
             GPUBufferBinding     buffer = {};
@@ -516,10 +516,10 @@ namespace lyra
 
     struct GPUBindGroupLayoutEntry
     {
-        GPUBindingResourceType type       = GPUBindingResourceType::BUFFER;
-        GPUBindingIndex        binding    = {};
-        GPUShaderStageFlags    visibility = GPUShaderStage(0);
-        GPUIndex32             count      = 1; // NOTE: Non-WebGPU standard API
+        GPUResourceType     type       = GPUResourceType::BUFFER;
+        GPUBindingIndex     binding    = {};
+        GPUShaderStageFlags visibility = GPUShaderStage(0);
+        GPUIndex32          count      = 1; // NOTE: Non-WebGPU standard API
         union
         {
             GPUBufferBindingLayout         buffer = {};

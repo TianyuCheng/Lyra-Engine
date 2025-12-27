@@ -122,7 +122,7 @@ struct DepthTestApp : public TestApp
             Array<GPUBindGroupEntry, 1> entries = {};
 
             auto& entry         = entries.at(0);
-            entry.type          = GPUBindingResourceType::BUFFER;
+            entry.type          = GPUResourceType::BUFFER;
             entry.binding       = 0;
             entry.buffer.buffer = uniform.ubuffer;
             entry.buffer.offset = 0;

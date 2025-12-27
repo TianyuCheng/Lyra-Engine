@@ -198,7 +198,7 @@ struct FrameGraphApp : public TestApp
             Array<GPUBindGroupEntry, 1> entries = {};
 
             auto& entry         = entries.at(0);
-            entry.type          = GPUBindingResourceType::BUFFER;
+            entry.type          = GPUResourceType::BUFFER;
             entry.binding       = 0;
             entry.buffer.buffer = uniform.ubuffer;
             entry.buffer.offset = 0;
@@ -243,12 +243,12 @@ struct FrameGraphApp : public TestApp
             Array<GPUBindGroupEntry, 2> entries = {};
 
             auto& entry0   = entries.at(0);
-            entry0.type    = GPUBindingResourceType::TEXTURE;
+            entry0.type    = GPUResourceType::TEXTURE;
             entry0.binding = 0;
             entry0.texture = texview;
 
             auto& entry1   = entries.at(1);
-            entry1.type    = GPUBindingResourceType::SAMPLER;
+            entry1.type    = GPUResourceType::SAMPLER;
             entry1.binding = 1;
             entry1.sampler = sampler;
 

@@ -80,7 +80,7 @@ void print_slang_var_layout(slang::VariableLayoutReflection* var_layout, Travers
 {
     int  walk_depth  = traversal.current_walk_depth;
     auto print_depth = [&](CString prefix = "  ") -> std::ostream& {
-        for (uint i = 0; i < walk_depth; i++)
+        for (int i = 0; i < walk_depth; i++)
             std::cout << prefix;
         return std::cout;
     };
@@ -365,7 +365,7 @@ bool CompilerWrapper::reflect(ShaderEntryPoints entries, ReflectResultInternal& 
     ComPtr<slang::IComponentType> composed_program;
     {
         ComPtr<slang::IBlob> diagnostics;
-        SlangResult result = session->createCompositeComponentType(
+        SlangResult          result = session->createCompositeComponentType(
             component_types.data(),
             component_types.size(),
             composed_program.writeRef(),
@@ -378,7 +378,7 @@ bool CompilerWrapper::reflect(ShaderEntryPoints entries, ReflectResultInternal& 
     ComPtr<slang::IComponentType> linked_program;
     {
         ComPtr<slang::IBlob> diagnostics;
-        auto res = composed_program->link(
+        auto                 res = composed_program->link(
             linked_program.writeRef(),
             diagnostics.writeRef());
         diagnose_if_needed(diagnostics);
@@ -417,7 +417,7 @@ ComPtr<slang::IEntryPoint> CompileResultInternal::get_entry_point(CString entry)
     module->findEntryPointByName(entry, entry_point.writeRef());
 
     if (!entry_point) {
-        get_logger()->info("Failed to get entry point: {}", entry);
+        get_logger()->error("Failed to get entry point: {}", entry);
         return nullptr;
     }
     return entry_point;
@@ -439,7 +439,7 @@ ComPtr<slang::IComponentType> CompileResultInternal::get_linked_program(CString 
     diagnose_if_needed(diagnostics);
 
     if (SLANG_FAILED(result)) {
-        get_logger()->info("Failed to link program: {}", entry);
+        get_logger()->error("Failed to link program: {}", entry);
         return nullptr;
     }
     return linked_program;
@@ -464,7 +464,7 @@ ComPtr<slang::IComponentType> CompileResultInternal::get_composed_program(CStrin
     diagnose_if_needed(diagnostics);
 
     if (SLANG_FAILED(result)) {
-        get_logger()->info("Failed to compose program: {}", entry);
+        get_logger()->error("Failed to compose program: {}", entry);
         return nullptr;
     }
     return composed_program;
@@ -528,17 +528,17 @@ bool ReflectResultInternal::get_bind_group_layouts(uint& count, GPUBindGroupLayo
 
     // map Slang spaces to continuous indices
     TreeMap<uint, uint> space_to_index;
-    uint current_index = 0;
-    for (auto const& [space, entries] : bind_groups) {
+    uint                current_index = 0;
+    for (const auto& [space, entries] : bind_groups) {
         space_to_index[space] = current_index++;
     }
 
     // initialize layouts (assume layout has been properly allocated)
-    for (auto const& [space, entries] : bind_groups) {
+    for (const auto& [space, entries] : bind_groups) {
         GPUBindGroupLayoutDescriptor layout{};
         // layout.label     = group2names[space]; // this assumes space is an index
-        layout.label     = nullptr; // for now, we don't have a direct mapping from space to name
-        layout.entries   = entries;
+        layout.label                   = nullptr; // for now, we don't have a direct mapping from space to name
+        layout.entries                 = entries;
         layouts[space_to_index[space]] = layout;
     }
     return true;
@@ -674,7 +674,7 @@ void ReflectResultInternal::init_vertices(slang::ProgramLayout* program_layout)
                 auto semantic_name  = node.layout->getSemanticName();
                 uint semantic_index = static_cast<uint>(node.layout->getSemanticIndex());
                 uint binding_index  = static_cast<uint>(node.layout->getBindingIndex());
-                get_logger()->info("[VTX INPUT] NAME: {}\t LOCATION: {} SEMANTICS: {}{}", name, binding_index, semantic_name, semantic_index);
+                get_logger()->trace("[VTX INPUT] NAME: {}\t LOCATION: {} SEMANTICS: {}{}", name, binding_index, semantic_name, semantic_index);
 
                 semantic_names.push_front(semantic_name);
 
@@ -714,8 +714,8 @@ void ReflectResultInternal::record_parameter_block_space(AccessPathNode path)
         // This is a hack, but matches the observed behavior.
         space = msl_parameter_block_space++;
     }
-    
-    get_logger()->info("Recording parameter block: {} with space: {}", name, space);
+
+    get_logger()->trace("Recording parameter block: {} with space: {}", name, space);
     name2bindgroups.emplace(name, space);
 }
 
@@ -723,15 +723,15 @@ void ReflectResultInternal::create_automatic_constant_buffer(AccessPathNode node
 {
     auto offset = node.calculate_cumulative_offset();
 
-    uint space   = offset.space;
+    uint space = offset.space;
     if (target == CompileTarget::MSL) {
         // Find the outermost ParameterBlock parent
-        AccessPathNode* current_node = &node;
+        AccessPathNode* current_node           = &node;
         AccessPathNode* parameter_block_parent = nullptr;
         while (current_node) {
             if (current_node->layout && current_node->layout->getTypeLayout()->getKind() == slang::TypeReflection::Kind::ParameterBlock) {
                 parameter_block_parent = current_node;
-                get_logger()->info("Found parameter block parent. Name: {}, Kind: {}", current_node->layout->getName(), (int)current_node->layout->getTypeLayout()->getKind());
+                get_logger()->trace("Found parameter block parent. Name: {}, Kind: {}", current_node->layout->getName(), (int)current_node->layout->getTypeLayout()->getKind());
                 break;
             }
             current_node = current_node->outer;
@@ -747,7 +747,7 @@ void ReflectResultInternal::create_automatic_constant_buffer(AccessPathNode node
     uint binding = offset.value;
 
     auto val  = GPUBindGroupLayoutEntry{};
-    val.type  = GPUBindingResourceType::BUFFER;
+    val.type  = GPUResourceType::BUFFER;
     val.count = 1;
     fill_binding_index(val, offset);
     fill_binding_stages(val, node);
@@ -757,7 +757,7 @@ void ReflectResultInternal::create_automatic_constant_buffer(AccessPathNode node
         create_push_constant(node, space, val);
     } else {
         bind_groups[space].push_back(val);
-        get_logger()->info("[BINDGROUP] NAME:{}\t SPACE:{} BINDING:{} (AUTOMATIC)", node.layout->getName(), space, binding);
+        get_logger()->trace("[BINDGROUP] NAME:{}\t SPACE:{} BINDING:{} (AUTOMATIC)", node.layout->getName(), space, binding);
     }
 }
 
@@ -766,15 +766,15 @@ void ReflectResultInternal::create_binding(AccessPathNode node)
     auto type   = node.layout->getTypeLayout();
     auto offset = node.calculate_cumulative_offset();
 
-    uint space   = offset.space;
+    uint space = offset.space;
     if (target == CompileTarget::MSL) {
         // Find the outermost ParameterBlock parent
-        AccessPathNode* current_node = &node;
+        AccessPathNode* current_node           = &node;
         AccessPathNode* parameter_block_parent = nullptr;
         while (current_node) {
             if (current_node->layout && current_node->layout->getTypeLayout()->getKind() == slang::TypeReflection::Kind::ParameterBlock) {
                 parameter_block_parent = current_node;
-                get_logger()->info("Found parameter block parent. Name: {}, Kind: {}", current_node->layout->getName(), (int)current_node->layout->getTypeLayout()->getKind());
+                get_logger()->trace("Found parameter block parent. Name: {}, Kind: {}", current_node->layout->getName(), (int)current_node->layout->getTypeLayout()->getKind());
                 break;
             }
             current_node = current_node->outer;
@@ -802,7 +802,7 @@ void ReflectResultInternal::create_binding(AccessPathNode node)
     } else {
         // append to bindings
         bind_groups[space].push_back(val);
-        get_logger()->info("[BINDGROUP] NAME:{}\t SPACE:{} BINDING:{}", node.layout->getName(), space, binding);
+        get_logger()->trace("[BINDGROUP] NAME:{}\t SPACE:{} BINDING:{}", node.layout->getName(), space, binding);
     }
 }
 
@@ -837,7 +837,7 @@ void ReflectResultInternal::create_push_constant(AccessPathNode node, uint space
             static_cast<uint>(push_constant_size),
             binding.visibility,
         };
-        get_logger()->info("[PUSH CONSTANT] NAME:{}.{}\t OFFSET:{} SIZE:{}",
+        get_logger()->trace("[PUSH CONSTANT] NAME:{}.{}\t OFFSET:{} SIZE:{}",
             node.layout->getName(),
             push_constant_field->getName(),
             push_constant_range.offset,
@@ -852,7 +852,7 @@ void ReflectResultInternal::create_push_constant(AccessPathNode node, uint space
             static_cast<uint>(push_constant_type->getSize()),
             binding.visibility,
         };
-        get_logger()->info("[PUSH CONSTANT] NAME:{}\t OFFSET:{} SIZE:{}",
+        get_logger()->trace("[PUSH CONSTANT] NAME:{}\t OFFSET:{} SIZE:{}",
             node.layout->getName(),
             push_constant_range.offset,
             push_constant_range.size);
@@ -954,9 +954,9 @@ void ReflectResultInternal::fill_binding_type(GPUBindGroupLayoutEntry& entry, sl
                 case SLANG_TEXTURE_3D:
                 case SLANG_TEXTURE_CUBE:
                     entry.type = (access_permission != GPUStorageTextureAccess::READ_ONLY)
-                                     ? GPUBindingResourceType::STORAGE_TEXTURE
-                                     : GPUBindingResourceType::TEXTURE;
-                    if (entry.type == GPUBindingResourceType::STORAGE_TEXTURE) {
+                                     ? GPUResourceType::STORAGE_TEXTURE
+                                     : GPUResourceType::TEXTURE;
+                    if (entry.type == GPUResourceType::STORAGE_TEXTURE) {
                         entry.storage_texture.view_dimension = view_dimension;
                         entry.storage_texture.access         = access_permission;
                         entry.storage_texture.format         = infer_texture_format(type);
@@ -968,7 +968,7 @@ void ReflectResultInternal::fill_binding_type(GPUBindGroupLayoutEntry& entry, sl
                     return;
                 case SLANG_STRUCTURED_BUFFER:
                 case SLANG_BYTE_ADDRESS_BUFFER:
-                    entry.type                      = GPUBindingResourceType::BUFFER;
+                    entry.type                      = GPUResourceType::BUFFER;
                     entry.buffer.type               = (access_permission != GPUStorageTextureAccess::READ_ONLY)
                                                           ? GPUBufferBindingType::READ_ONLY_STORAGE
                                                           : GPUBufferBindingType::STORAGE;
@@ -976,28 +976,28 @@ void ReflectResultInternal::fill_binding_type(GPUBindGroupLayoutEntry& entry, sl
                     entry.buffer.min_binding_size   = type->getSize();
                     return;
                 case SLANG_ACCELERATION_STRUCTURE:
-                    entry.type              = GPUBindingResourceType::ACCELERATION_STRUCTURE;
+                    entry.type              = GPUResourceType::ACCELERATION_STRUCTURE;
                     entry.bvh.vertex_return = false;
                     return;
                 default:
-                    entry.type = GPUBindingResourceType::TEXTURE;
+                    entry.type = GPUResourceType::TEXTURE;
                     return;
             }
         }
 
         case slang::TypeReflection::Kind::SamplerState:
-            entry.type         = GPUBindingResourceType::SAMPLER;
+            entry.type         = GPUResourceType::SAMPLER;
             entry.sampler.type = GPUSamplerBindingType::FILTERING;
             return;
 
         case slang::TypeReflection::Kind::TextureBuffer:
         case slang::TypeReflection::Kind::ShaderStorageBuffer:
-            entry.type        = GPUBindingResourceType::BUFFER;
+            entry.type        = GPUResourceType::BUFFER;
             entry.buffer.type = GPUBufferBindingType::STORAGE;
             return;
         case slang::TypeReflection::Kind::ConstantBuffer:
         default:
-            entry.type                      = GPUBindingResourceType::BUFFER;
+            entry.type                      = GPUResourceType::BUFFER;
             entry.buffer.type               = GPUBufferBindingType::UNIFORM;
             entry.buffer.has_dynamic_offset = false;
             entry.buffer.min_binding_size   = 0;
@@ -1007,7 +1007,7 @@ void ReflectResultInternal::fill_binding_type(GPUBindGroupLayoutEntry& entry, sl
 
 void ReflectResultInternal::fill_dynamic_uniform_buffer(GPUBindGroupLayoutEntry& entry, slang::VariableLayoutReflection* var_layout)
 {
-    if (entry.type != GPUBindingResourceType::BUFFER)
+    if (entry.type != GPUResourceType::BUFFER)
         return;
 
     auto var = var_layout->getVariable();

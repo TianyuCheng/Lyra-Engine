@@ -82,7 +82,7 @@ static void render_side_viewports(GUIHandle gui)
 
 LYRA_EXPORT auto prepare() -> void
 {
-    // do nothing
+    get_logger()->set_level(parse_log_level_from_env("LYRA_IMGUI_VERBOSITY"));
 }
 
 LYRA_EXPORT auto cleanup() -> void

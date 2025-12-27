@@ -206,7 +206,7 @@ namespace lyra
         INTERSECT = 0x80,
     };
 
-    enum struct GPUBindingResourceType : uint
+    enum struct GPUResourceType : uint
     {
         BUFFER,
         SAMPLER,

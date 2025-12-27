@@ -9,7 +9,7 @@ uint round_up_to_multiple_of(uint size, uint align)
 
 bool is_dynamic_bind_group_entry(const GPUBindGroupLayoutEntry& entry)
 {
-    return entry.type == GPUBindingResourceType::BUFFER
+    return entry.type == GPUResourceType::BUFFER
                ? entry.buffer.has_dynamic_offset
                : false;
 }
@@ -50,15 +50,15 @@ D3D12_DESCRIPTOR_RANGE_TYPE infer_bvh_descriptor_type(const GPUBVHBindingLayout&
 D3D12_DESCRIPTOR_RANGE_TYPE infer_descriptor_type(const GPUBindGroupLayoutEntry& entry)
 {
     switch (entry.type) {
-        case GPUBindingResourceType::BUFFER:
+        case GPUResourceType::BUFFER:
             return infer_buffer_descriptor_type(entry.buffer);
-        case GPUBindingResourceType::SAMPLER:
+        case GPUResourceType::SAMPLER:
             return infer_sampler_descriptor_type(entry.sampler);
-        case GPUBindingResourceType::TEXTURE:
+        case GPUResourceType::TEXTURE:
             return infer_texture_descriptor_type(entry.texture);
-        case GPUBindingResourceType::STORAGE_TEXTURE:
+        case GPUResourceType::STORAGE_TEXTURE:
             return infer_storage_texture_descriptor_type(entry.storage_texture);
-        case GPUBindingResourceType::ACCELERATION_STRUCTURE:
+        case GPUResourceType::ACCELERATION_STRUCTURE:
             return infer_bvh_descriptor_type(entry.bvh);
         default:
             throw std::invalid_argument("Unsupported GPU binding resource type!");
@@ -285,7 +285,7 @@ D3D12BindGroupLayout::D3D12BindGroupLayout(const GPUBindGroupLayoutDescriptor& d
     uint dynamic_count = 0;
     for (const auto& entry : desc.entries) {
         binding_count = std::max(binding_count, (uint)entry.binding.index + 1);
-        if (entry.type == GPUBindingResourceType::SAMPLER)
+        if (entry.type == GPUResourceType::SAMPLER)
             sampler_count++;
         else if (is_dynamic_bind_group_entry(entry))
             dynamic_count++;
@@ -312,12 +312,12 @@ D3D12BindGroupLayout::D3D12BindGroupLayout(const GPUBindGroupLayoutDescriptor& d
         range.RangeType                         = infer_descriptor_type(entry);
 
         // additional flag for read-only buffer resources
-        if (entry.type == GPUBindingResourceType::BUFFER)
+        if (entry.type == GPUResourceType::BUFFER)
             if (entry.buffer.type == GPUBufferBindingType::READ_ONLY_STORAGE)
                 range.Flags |= D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE;
 
         // save this range into corresponding ranges
-        if (entry.type == GPUBindingResourceType::SAMPLER)
+        if (entry.type == GPUResourceType::SAMPLER)
             sampler_ranges.push_back(range);
         else if (is_dynamic_bind_group_entry(entry))
             dynamic_ranges.push_back(range);
@@ -411,21 +411,21 @@ D3D12BindGroup* D3D12BindGroupLayout::create(GPUBindGroupHeapHandle heap_handle,
 void D3D12BindGroupLayout::copy_regular_descriptors(D3D12BindGroupHeap& heap, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group)
 {
     switch (entry.type) {
-        case GPUBindingResourceType::SAMPLER:
+        case GPUResourceType::SAMPLER:
             copy_sampler_descriptor(heap, entry, bind_info, bind_group);
             break;
-        case GPUBindingResourceType::BUFFER:
+        case GPUResourceType::BUFFER:
             create_buffer_descriptor(heap, entry, bind_info, bind_group);
             break;
-        case GPUBindingResourceType::TEXTURE:
-        case GPUBindingResourceType::STORAGE_TEXTURE:
+        case GPUResourceType::TEXTURE:
+        case GPUResourceType::STORAGE_TEXTURE:
             copy_texture_descriptor(heap, entry, bind_info, bind_group);
             break;
-        case GPUBindingResourceType::ACCELERATION_STRUCTURE:
+        case GPUResourceType::ACCELERATION_STRUCTURE:
             assert(!!!"BVH is current not supported!");
             break;
         default:
-            assert(!!!"Invaid GPUBindingResourceType");
+            assert(!!!"Invaid GPUResourceType");
     }
 }
 
@@ -444,7 +444,7 @@ void D3D12BindGroupLayout::copy_texture_descriptor(D3D12BindGroupHeap& heap, con
     auto  rhi = get_rhi();
     auto& tex = fetch_resource(rhi->views, entry.texture);
 
-    D3D12_CPU_DESCRIPTOR_HANDLE src_handle = entry.type == GPUBindingResourceType::TEXTURE ? tex.srv_view.handle : tex.uav_view.handle;
+    D3D12_CPU_DESCRIPTOR_HANDLE src_handle = entry.type == GPUResourceType::TEXTURE ? tex.srv_view.handle : tex.uav_view.handle;
     D3D12_CPU_DESCRIPTOR_HANDLE dst_handle = rhi->gpu_default_heap.cpu(bind_group.default_index + bind_info.start);
     rhi->device->CopyDescriptorsSimple(1, dst_handle, src_handle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 }

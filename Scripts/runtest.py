@@ -122,7 +122,7 @@ def run_unit_tests(args):
 def generate_html_report(args, results):
     sequence = ["reference", "vulkan"]
 
-    os_name = platorm.system()
+    os_name = platform.system()
     match os_name:
         case "Windows":
             sequence.append("d3d12")

@@ -422,7 +422,7 @@ void api::wait_fence(GPUFenceHandle handle)
 
 LYRA_EXPORT auto prepare() -> void
 {
-    // do nothing
+    get_logger()->set_level(parse_log_level_from_env("LYRA_D3D12_VERBOSITY"));
 }
 
 LYRA_EXPORT auto cleanup() -> void
