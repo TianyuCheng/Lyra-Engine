@@ -196,6 +196,7 @@ namespace lyra
 
     enum struct GPUShaderStage : uint
     {
+        NONE      = 0x0,
         VERTEX    = 0x1,
         FRAGMENT  = 0x2,
         COMPUTE   = 0x4,

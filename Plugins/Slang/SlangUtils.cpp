@@ -527,19 +527,19 @@ bool ReflectResultInternal::get_bind_group_layouts(uint& count, GPUBindGroupLayo
         return true;
 
     // map Slang spaces to continuous indices
-    TreeMap<uint, uint> space_to_index;
+    TreeMap<uint, uint> space2index;
     uint                current_index = 0;
     for (const auto& [space, entries] : bind_groups) {
-        space_to_index[space] = current_index++;
+        space2index[space] = current_index++;
     }
 
     // initialize layouts (assume layout has been properly allocated)
     for (const auto& [space, entries] : bind_groups) {
-        GPUBindGroupLayoutDescriptor layout{};
-        // layout.label     = group2names[space]; // this assumes space is an index
-        layout.label                   = nullptr; // for now, we don't have a direct mapping from space to name
-        layout.entries                 = entries;
-        layouts[space_to_index[space]] = layout;
+        auto layout                 = GPUBindGroupLayoutDescriptor{};
+        auto it                     = bind_group_names.find(space);
+        layout.label                = (it != bind_group_names.end()) ? it->second.c_str() : nullptr;
+        layout.entries              = entries;
+        layouts[space2index[space]] = layout;
     }
     return true;
 }
@@ -717,6 +717,7 @@ void ReflectResultInternal::record_parameter_block_space(AccessPathNode path)
 
     get_logger()->trace("Recording parameter block: {} with space: {}", name, space);
     name2bindgroups.emplace(name, space);
+    bind_group_names.emplace(space, name);
 }
 
 void ReflectResultInternal::create_automatic_constant_buffer(AccessPathNode node)
@@ -740,7 +741,7 @@ void ReflectResultInternal::create_automatic_constant_buffer(AccessPathNode node
         if (parameter_block_parent) {
             auto parent_name = parameter_block_parent->layout->getName();
             if (name2bindgroups.count(parent_name)) {
-                space = name2bindgroups.at(parent_name); // Use the remapped space of the parent parameter block
+                space = name2bindgroups.at(parent_name); // use the remapped space of the parent parameter block
             }
         }
     }
@@ -830,12 +831,12 @@ void ReflectResultInternal::create_push_constant(AccessPathNode node, uint space
     auto push_constant_type = node.layout->getTypeLayout()->getElementTypeLayout();
     for (unsigned j = 0; j < push_constant_type->getFieldCount(); j++) {
         auto push_constant_field  = push_constant_type->getFieldByIndex(j);
-        auto push_constant_offset = push_constant_field->getOffset(SLANG_PARAMETER_CATEGORY_UNIFORM);
         auto push_constant_size   = push_constant_field->getTypeLayout()->getSize(SLANG_PARAMETER_CATEGORY_UNIFORM);
+        auto push_constant_offset = push_constant_field->getOffset(SLANG_PARAMETER_CATEGORY_UNIFORM);
         auto push_constant_range  = GPUPushConstantRange{
             static_cast<uint>(push_constant_offset),
             static_cast<uint>(push_constant_size),
-            binding.visibility,
+            binding.visibility, // TODO: This is a hack for now. We are populating the visibility of push constants at block level. This is not correct.
         };
         get_logger()->trace("[PUSH CONSTANT] NAME:{}.{}\t OFFSET:{} SIZE:{}",
             node.layout->getName(),
@@ -898,7 +899,7 @@ void ReflectResultInternal::fill_binding_count(GPUBindGroupLayoutEntry& entry, s
 void ReflectResultInternal::fill_binding_stages(GPUBindGroupLayoutEntry& entry, AccessPathNode path) const
 {
     // implement this using IMetadata (or ICompileRequests for older versions of Slang)
-    for (auto& metadata : metadata) {
+    for (auto& metadata : this->metadata) {
         uint count = path.layout->getCategoryCount();
         for (uint i = 0; i < count; i++) {
             auto unit   = path.layout->getCategoryByIndex(i);

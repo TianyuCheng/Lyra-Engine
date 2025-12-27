@@ -91,6 +91,7 @@ struct ReflectResultInternal
     Vector<EntryMetadata>        metadata;
     HashMap<String, uint>        name2attributes;
     HashMap<String, uint>        name2bindgroups;
+    HashMap<uint, String>        bind_group_names;
     List<String>                 semantic_names; // just a container to make sure const char* is not lost
     Bindings                     bind_groups;
     Vector<GPUVertexAttribute>   vertex_attributes;

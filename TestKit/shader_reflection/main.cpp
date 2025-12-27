@@ -52,6 +52,7 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
         VertexOutput output;
         output.color = input.color;
         output.position = float4(input.position, 1.0);
+        output.position = mul(output.position, xform1.mvp);
         output.position = mul(output.position, haha.cam.view);
         output.position = mul(output.position, hihi.cam.proj);
         return output;
@@ -86,8 +87,8 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
         {*module, "fsmain"},
     });
 
-    // Define a dummy Vertex struct for offsetof to work.
-    // This should match the struct used by the calling code.
+    // define a dummy Vertex struct for offsetof to work,
+    // this should match the struct used by the calling code.
     struct Vertex
     {
         float position[3];
@@ -104,14 +105,30 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
     auto pos_attrib_it = std::find_if(attributes.begin(), attributes.end(), [](const auto& a) { return strcmp(a.shader_semantic, "POSITION") == 0; });
     CHECK(pos_attrib_it != attributes.end());
     if (pos_attrib_it != attributes.end()) {
-        CHECK_EQ(pos_attrib_it->shader_location, 0);
+        switch (target) {
+            case CompileTarget::DXIL:
+                CHECK_EQ(String(pos_attrib_it->shader_semantic), "POSITION");
+                CHECK_EQ(pos_attrib_it->shader_location, 0);
+                break;
+            default:
+                CHECK_EQ(pos_attrib_it->shader_location, 0);
+                break;
+        }
         CHECK_EQ(pos_attrib_it->offset, offsetof(Vertex, position));
     }
 
     auto tex_attrib_it = std::find_if(attributes.begin(), attributes.end(), [](const auto& a) { return strcmp(a.shader_semantic, "TEXCOORD") == 0; });
     CHECK(tex_attrib_it != attributes.end());
     if (tex_attrib_it != attributes.end()) {
-        CHECK_EQ(tex_attrib_it->shader_location, 1);
+        switch (target) {
+            case CompileTarget::DXIL:
+                CHECK_EQ(String(tex_attrib_it->shader_semantic), "TEXCOORD");
+                CHECK_EQ(tex_attrib_it->shader_location, 0);
+                break;
+            default:
+                CHECK_EQ(tex_attrib_it->shader_location, 1);
+                break;
+        }
         CHECK_EQ(tex_attrib_it->offset, offsetof(Vertex, uv));
     }
 
@@ -122,43 +139,93 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
     auto haha_bindgroup_it = std::find_if(bindgroups.begin(), bindgroups.end(), [](const auto& a) { return strcmp(a.label, "haha") == 0; });
     CHECK(haha_bindgroup_it != bindgroups.end());
     if (haha_bindgroup_it != bindgroups.end()) {
-        CHECK_EQ(haha_bindgroup_it->entries.size(), 3);
+        CHECK_EQ(haha_bindgroup_it->entries.size(), 4);
+
+        // cam (used in vertex)
+        CHECK_EQ(haha_bindgroup_it->entries.at(0).type, GPUResourceType::BUFFER);
+        CHECK_EQ(haha_bindgroup_it->entries.at(0).buffer.type, GPUBufferBindingType::UNIFORM);
+        CHECK_EQ(haha_bindgroup_it->entries.at(0).binding.index, 0);
+        CHECK_EQ(haha_bindgroup_it->entries.at(0).count, 1);
+        CHECK(haha_bindgroup_it->entries.at(0).visibility.contains(GPUShaderStage::VERTEX));
+        CHECK(!haha_bindgroup_it->entries.at(0).visibility.contains(GPUShaderStage::FRAGMENT));
+
+        // tex (used in fragment)
+        CHECK_EQ(haha_bindgroup_it->entries.at(1).type, GPUResourceType::TEXTURE);
+        CHECK_EQ(haha_bindgroup_it->entries.at(1).binding.index, 1);
+        CHECK_EQ(haha_bindgroup_it->entries.at(1).count, 1);
+        CHECK(!haha_bindgroup_it->entries.at(1).visibility.contains(GPUShaderStage::VERTEX));
+        CHECK(haha_bindgroup_it->entries.at(1).visibility.contains(GPUShaderStage::FRAGMENT));
+
+        // tex2 (not used)
+        CHECK_EQ(haha_bindgroup_it->entries.at(2).type, GPUResourceType::TEXTURE);
+        CHECK_EQ(haha_bindgroup_it->entries.at(2).binding.index, 2);
+        CHECK_EQ(haha_bindgroup_it->entries.at(2).count, 1);
+        CHECK(!haha_bindgroup_it->entries.at(2).visibility.contains(GPUShaderStage::VERTEX));
+        CHECK(!haha_bindgroup_it->entries.at(2).visibility.contains(GPUShaderStage::FRAGMENT));
+
+        // smp (used in fragment)
+        CHECK_EQ(haha_bindgroup_it->entries.at(3).type, GPUResourceType::SAMPLER);
+        CHECK_EQ(haha_bindgroup_it->entries.at(3).binding.index, 3);
+        CHECK_EQ(haha_bindgroup_it->entries.at(3).count, 1);
+        CHECK(!haha_bindgroup_it->entries.at(3).visibility.contains(GPUShaderStage::VERTEX));
+        CHECK(haha_bindgroup_it->entries.at(3).visibility.contains(GPUShaderStage::FRAGMENT));
     }
 
-    // // hihi
-    // CHECK_EQ(strcmp(bindgroups[0].label, "hihi"), 0);
-    // CHECK_EQ(bindgroups[0].entries.size(), 1);
-    // CHECK_EQ(bindgroups[0].entries[0].type, GPUResourceType::BUFFER);
-    // CHECK_EQ(bindgroups[0].entries[0].buffer.type, GPUBufferBindingType::UNIFORM);
-    // CHECK_EQ(bindgroups[0].entries[0].binding.index, 0);
-    // CHECK_EQ(bindgroups[0].entries[0].count, 1);
-    // CHECK(bindgroups[0].entries[0].visibility.contains(GPUShaderStage::VERTEX));
-    // CHECK(!bindgroups[0].entries[0].visibility.contains(GPUShaderStage::FRAGMENT));
+    // hihi
+    auto hihi_bindgroup_it = std::find_if(bindgroups.begin(), bindgroups.end(), [](const auto& a) { return strcmp(a.label, "hihi") == 0; });
+    CHECK(hihi_bindgroup_it != bindgroups.end());
+    if (hihi_bindgroup_it != bindgroups.end()) {
+        CHECK_EQ(hihi_bindgroup_it->entries.size(), 4);
+
+        // cam (used in vertex)
+        CHECK_EQ(hihi_bindgroup_it->entries.at(0).type, GPUResourceType::BUFFER);
+        CHECK_EQ(hihi_bindgroup_it->entries.at(0).buffer.type, GPUBufferBindingType::UNIFORM);
+        CHECK_EQ(hihi_bindgroup_it->entries.at(0).binding.index, 0);
+        CHECK_EQ(hihi_bindgroup_it->entries.at(0).count, 1);
+        CHECK(hihi_bindgroup_it->entries.at(0).visibility.contains(GPUShaderStage::VERTEX));
+        CHECK(!hihi_bindgroup_it->entries.at(0).visibility.contains(GPUShaderStage::FRAGMENT));
+
+        // tex (not used)
+        CHECK_EQ(hihi_bindgroup_it->entries.at(1).type, GPUResourceType::TEXTURE);
+        CHECK_EQ(hihi_bindgroup_it->entries.at(1).binding.index, 1);
+        CHECK_EQ(hihi_bindgroup_it->entries.at(1).count, 1);
+        CHECK(!hihi_bindgroup_it->entries.at(1).visibility.contains(GPUShaderStage::VERTEX));
+        CHECK(!hihi_bindgroup_it->entries.at(1).visibility.contains(GPUShaderStage::FRAGMENT));
+
+        // tex2 (not used)
+        CHECK_EQ(hihi_bindgroup_it->entries.at(2).type, GPUResourceType::TEXTURE);
+        CHECK_EQ(hihi_bindgroup_it->entries.at(2).binding.index, 2);
+        CHECK_EQ(hihi_bindgroup_it->entries.at(2).count, 1);
+        CHECK(!hihi_bindgroup_it->entries.at(2).visibility.contains(GPUShaderStage::VERTEX));
+        CHECK(!hihi_bindgroup_it->entries.at(2).visibility.contains(GPUShaderStage::FRAGMENT));
+
+        // smp (not used)
+        CHECK_EQ(hihi_bindgroup_it->entries.at(3).type, GPUResourceType::SAMPLER);
+        CHECK_EQ(hihi_bindgroup_it->entries.at(3).binding.index, 3);
+        CHECK_EQ(hihi_bindgroup_it->entries.at(3).count, 1);
+        CHECK(!hihi_bindgroup_it->entries.at(3).visibility.contains(GPUShaderStage::VERTEX));
+        CHECK(!hihi_bindgroup_it->entries.at(3).visibility.contains(GPUShaderStage::FRAGMENT));
+    }
+
+    auto push_constants = reflection->get_push_constant_ranges();
+    CHECK_EQ(push_constants.size(), 2);
+
+    // TODO: We are currently populating the push constants at ParameterBlock level. This is not correct.
+    // if (push_constants.size() == 2) {
+    //     // data
+    //     CHECK_EQ(push_constants.at(0).offset, 0);
+    //     CHECK_EQ(push_constants.at(0).size, 12);
+    //     std::cerr << std::showbase << std::hex << push_constants.at(0).visibility.value << std::endl;
+    //     CHECK(!push_constants.at(0).visibility.contains(GPUShaderStage::VERTEX));
+    //     CHECK(!push_constants.at(0).visibility.contains(GPUShaderStage::FRAGMENT));
     //
-    // // cam
-    // CHECK_EQ(bindgroups[1].entries[0].type, GPUResourceType::BUFFER);
-    // CHECK_EQ(bindgroups[1].entries[0].buffer.type, GPUBufferBindingType::UNIFORM);
-    // CHECK_EQ(bindgroups[1].entries[0].binding.index, 0);
-    // CHECK_EQ(bindgroups[1].entries[0].count, 1);
-    // CHECK(bindgroups[1].entries[0].visibility.contains(GPUShaderStage::VERTEX));
-    // CHECK(!bindgroups[1].entries[0].visibility.contains(GPUShaderStage::FRAGMENT));
-    //
-    // // tex
-    // CHECK_EQ(bindgroups[1].entries[1].type, GPUResourceType::TEXTURE);
-    // CHECK_EQ(bindgroups[1].entries[1].binding.index, 1);
-    // CHECK_EQ(bindgroups[1].entries[1].count, 1);
-    // CHECK(!bindgroups[1].entries[1].visibility.contains(GPUShaderStage::VERTEX));
-    // CHECK(bindgroups[1].entries[1].visibility.contains(GPUShaderStage::FRAGMENT));
-    //
-    // // smp
-    // CHECK_EQ(bindgroups[1].entries[2].type, GPUResourceType::SAMPLER);
-    // CHECK_EQ(bindgroups[1].entries[2].binding.index, 2);
-    // CHECK_EQ(bindgroups[1].entries[2].count, 1);
-    // CHECK(!bindgroups[1].entries[2].visibility.contains(GPUShaderStage::VERTEX));
-    // CHECK(bindgroups[1].entries[2].visibility.contains(GPUShaderStage::FRAGMENT));
-    //
-    // auto push_constants = reflection->get_push_constant_ranges();
-    // CHECK_EQ(push_constants.size(), 0);
+    //     // mvp
+    //     CHECK_EQ(push_constants.at(1).offset, 16);
+    //     CHECK_EQ(push_constants.at(1).size, 64);
+    //     std::cerr << push_constants.at(1).visibility.value << std::endl;
+    //     CHECK(push_constants.at(1).visibility.contains(GPUShaderStage::VERTEX));
+    //     CHECK(!push_constants.at(1).visibility.contains(GPUShaderStage::FRAGMENT));
+    // }
 }
 
 TEST_CASE("slc::vulkan::shader_reflection" * doctest::description("shader vertex attributes reflection"))
