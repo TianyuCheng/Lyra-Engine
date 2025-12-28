@@ -171,8 +171,9 @@ static uint calculate_cumulative_space(CompileTarget target, const AccessPath& p
     uint space = 0;
     switch (target) {
         case CompileTarget::MSL:
-            space += calculate_cumulative_offset(slang::ParameterCategory::ConstantBuffer, path).space;
-            space += calculate_cumulative_offset(slang::ParameterCategory::SubElementRegisterSpace, path).space;
+            // In Metal, there is no descriptor table, so constant buffer is used to differentiate between bindings (argument buffer),
+            // since there is no notion of register spaces or descriptor set, it contributes to the value/offset, instead of space.
+            space += calculate_cumulative_offset(slang::ParameterCategory::ConstantBuffer, path).value;
             break;
         case CompileTarget::DXIL:
             space += calculate_cumulative_offset(slang::ParameterCategory::ConstantBuffer, path).space;
@@ -270,7 +271,7 @@ CompilerWrapper::CompilerWrapper(const CompilerDescriptor& descriptor)
 
     static String root_constant_key = "PUSH_CONSTANT";
     static String root_constant_val = "register(b0, space" + std::to_string(D3D12_PushConstantRegisterSpace) + ")";
-    static String root_constant_msl = "register(b" + std::to_string(METAL_PushConstantBufferIndex) + ")";
+    static String root_constant_msl = "register(b" + std::to_string(METAL_PushConstantBufferIndex) + ", space" + std::to_string(METAL_PushConstantBufferIndex) + ")";
 
     // special treatment for root constants
     {
@@ -804,7 +805,7 @@ void ReflectResultInternal::create_automatic_constant_buffer(const AccessPath& p
     fill_dynamic_uniform_buffer(val, node->var_layout);
 
     if (is_push_constant_buffer(path)) {
-        create_push_constant(path, offset.space, val);
+        create_push_constant(path, offset, val);
     } else {
         bind_groups[offset.space].push_back(val);
         get_logger()->trace("[BINDGROUP] NAME:{}\t SPACE:{} BINDING:{} (AUTOMATIC)", node->var_layout->getName(), offset.space, offset.value);
@@ -827,7 +828,7 @@ void ReflectResultInternal::create_binding(const AccessPath& path)
 
     // check for push constant vs constant buffer view binding
     if (is_push_constant_buffer(path)) {
-        create_push_constant(path, offset.space, val);
+        create_push_constant(path, offset, val);
     } else {
         // append to bindings
         bind_groups[offset.space].push_back(val);
@@ -835,17 +836,20 @@ void ReflectResultInternal::create_binding(const AccessPath& path)
     }
 }
 
-void ReflectResultInternal::create_push_constant(const AccessPath& path, uint space, const GPUBindGroupLayoutEntry& binding)
+void ReflectResultInternal::create_push_constant(const AccessPath& path, const CumulativeOffset& offset, const GPUBindGroupLayoutEntry& binding)
 {
     auto node = path.leaf;
 
     // enforce that we must use PUSH_CONSTANT macro to annotate the push constant constant buffer.
-    uint push_constant_slot = target == CompileTarget::MSL
-                                  ? METAL_PushConstantBufferIndex
-                                  : D3D12_PushConstantRegisterSpace;
+    if (target != CompileTarget::MSL && offset.space != D3D12_PushConstantRegisterSpace) {
+        get_logger()->error("Please use ROOT_CONSTANT to annotate the binding register space, found {}, expected {}", offset.space, D3D12_PushConstantRegisterSpace);
+        has_error = true;
+        return;
+    }
 
-    if (space != push_constant_slot) {
-        get_logger()->error("Please use ROOT_CONSTANT to annotate the binding register space, found {}, expected {}", space, push_constant_slot);
+    // enforce that we must use PUSH_CONSTANT macro to annotate the push constant constant buffer.
+    if (target == CompileTarget::MSL && offset.space != METAL_PushConstantBufferIndex) {
+        get_logger()->error("Please use ROOT_CONSTANT to annotate the binding register space, found {}, expected {}", offset.space, METAL_PushConstantBufferIndex);
         has_error = true;
         return;
     }

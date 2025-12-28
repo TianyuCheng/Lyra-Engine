@@ -34,8 +34,8 @@ namespace lyra
     // without explicitly annotation the push constant buffer could
     // be at any buffer index, causing additional difficulty to track
     // the buffer index for other regular buffers. For simplicity,
-    // we force that push constant always use buffer(31) (max)
-    static constexpr uint METAL_PushConstantBufferIndex = 31;
+    // we force that push constant always use buffer(30) (max)
+    static constexpr uint METAL_PushConstantBufferIndex = 30;
 
     using BufferSource = uint8_t*;
 

@@ -367,7 +367,7 @@ void cmd::set_push_constants(GPUCommandEncoderHandle cmdbuffer, GPUShaderStageFl
 
     // Metal uses setBytes for small data (< 4KB)
     // push constant slot is typically at index 0 or a reserved buffer index
-    uint buffer_index = PushConstantRegisterSpace; // Use high index for push constants
+    uint buffer_index = METAL_PushConstantBufferIndex; // use high index for push constants
 
     if (cmd.render_encoder && (visibility.contains(GPUShaderStage::VERTEX) || visibility.contains(GPUShaderStage::FRAGMENT))) {
         if (visibility.contains(GPUShaderStage::VERTEX)) {

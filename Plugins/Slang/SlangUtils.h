@@ -27,6 +27,13 @@ struct CumulativeOffset
 {
     int value = 0; // the actual offset
     int space = 0; // the associated space
+
+    CumulativeOffset& operator+=(const CumulativeOffset& other)
+    {
+        this->value += other.value;
+        this->space += other.space;
+        return *this;
+    }
 };
 
 struct EntryMetadata
@@ -143,7 +150,7 @@ struct ReflectResultInternal
     void record_parameter_block_space(const AccessPath& path);
     void create_binding(const AccessPath& path);
     void create_automatic_constant_buffer(const AccessPath& path);
-    void create_push_constant(const AccessPath& path, uint space, const GPUBindGroupLayoutEntry& binding);
+    void create_push_constant(const AccessPath& path, const CumulativeOffset& offset, const GPUBindGroupLayoutEntry& binding);
     void fill_binding_type(GPUBindGroupLayoutEntry& entry, slang::TypeLayoutReflection* type) const;
     void fill_binding_index(GPUBindGroupLayoutEntry& entry, CumulativeOffset offset) const;
     void fill_binding_count(GPUBindGroupLayoutEntry& entry, slang::TypeLayoutReflection* type) const;
