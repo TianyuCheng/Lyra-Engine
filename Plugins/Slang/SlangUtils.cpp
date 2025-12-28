@@ -304,10 +304,19 @@ CompilerWrapper::CompilerWrapper(const CompilerDescriptor& descriptor)
         options.push_back(entry);
     }
 
-    // emit option
-    if (target != CompileTarget::MSL) {
+    // emit option (SPIRV)
+    if (target == CompileTarget::SPIRV) {
         auto emit            = slang::CompilerOptionEntry{};
         emit.name            = slang::CompilerOptionName::EmitSpirvDirectly;
+        emit.value.kind      = slang::CompilerOptionValueKind::Int;
+        emit.value.intValue0 = 1;
+        options.push_back(emit);
+    }
+
+    // preserve entry name (SPIRV)
+    if (target == CompileTarget::SPIRV) {
+        auto emit            = slang::CompilerOptionEntry{};
+        emit.name            = slang::CompilerOptionName::VulkanUseEntryPointName;
         emit.value.kind      = slang::CompilerOptionValueKind::Int;
         emit.value.intValue0 = 1;
         options.push_back(emit);
@@ -346,7 +355,7 @@ SlangCompileTarget CompilerWrapper::select_target(const CompilerDescriptor& desc
 {
     switch (descriptor.target) {
         case CompileTarget::MSL:
-            return SLANG_METAL;
+            return SLANG_METAL_LIB;
         case CompileTarget::DXIL:
             return SLANG_DXIL;
         case CompileTarget::SPIRV:
@@ -522,7 +531,8 @@ bool CompileResultInternal::get_shader_blob(CString entry, ShaderBlob& blob)
     ComPtr<slang::IBlob> spirv_code;
     ComPtr<slang::IBlob> diagnostics;
 
-    SlangResult result = linked_program->getEntryPointCode(
+    SlangResult result;
+    result = linked_program->getEntryPointCode(
         0,
         0,
         spirv_code.writeRef(),
@@ -663,8 +673,6 @@ void ReflectResultInternal::walk(slang::VariableLayoutReflection* var_layout, Ac
 
 void ReflectResultInternal::init_bindings(slang::ProgramLayout* program_layout)
 {
-    msl_parameter_block_space = 0;
-    msl_space_remap.clear();
     auto callback = [&](AccessPathNode node) {
         auto typ_layout = node.layout->getTypeLayout();
         switch (typ_layout->getKind()) {
@@ -748,14 +756,7 @@ void ReflectResultInternal::record_parameter_block_space(AccessPathNode path)
 
     auto name   = path.layout->getName();
     auto offset = path.calculate_cumulative_offset();
-
-    uint space = offset.space;
-    if (target == CompileTarget::MSL) {
-        // Here, we just assign a new space if the parameter block is a global one (not nested)
-        // This assumes that Slang assigns space 0 to all global parameter blocks in MSL.
-        // This is a hack, but matches the observed behavior.
-        space = msl_parameter_block_space++;
-    }
+    uint space  = offset.space;
 
     get_logger()->trace("Recording parameter block: {} with space: {}", name, space);
     name2bindgroups.emplace(name, space);
@@ -766,27 +767,7 @@ void ReflectResultInternal::create_automatic_constant_buffer(AccessPathNode node
 {
     auto offset = node.calculate_cumulative_offset();
 
-    uint space = offset.space;
-    if (target == CompileTarget::MSL) {
-        // Find the outermost ParameterBlock parent
-        AccessPathNode* current_node           = &node;
-        AccessPathNode* parameter_block_parent = nullptr;
-        while (current_node) {
-            if (current_node->layout && current_node->layout->getTypeLayout()->getKind() == slang::TypeReflection::Kind::ParameterBlock) {
-                parameter_block_parent = current_node;
-                get_logger()->trace("Found parameter block parent. Name: {}, Kind: {}", current_node->layout->getName(), (int)current_node->layout->getTypeLayout()->getKind());
-                break;
-            }
-            current_node = current_node->outer;
-        }
-
-        if (parameter_block_parent) {
-            auto parent_name = parameter_block_parent->layout->getName();
-            if (name2bindgroups.count(parent_name)) {
-                space = name2bindgroups.at(parent_name); // use the remapped space of the parent parameter block
-            }
-        }
-    }
+    uint space   = offset.space;
     uint binding = offset.value;
 
     auto val  = GPUBindGroupLayoutEntry{};
@@ -809,27 +790,7 @@ void ReflectResultInternal::create_binding(AccessPathNode node)
     auto type   = node.layout->getTypeLayout();
     auto offset = node.calculate_cumulative_offset();
 
-    uint space = offset.space;
-    if (target == CompileTarget::MSL) {
-        // Find the outermost ParameterBlock parent
-        AccessPathNode* current_node           = &node;
-        AccessPathNode* parameter_block_parent = nullptr;
-        while (current_node) {
-            if (current_node->layout && current_node->layout->getTypeLayout()->getKind() == slang::TypeReflection::Kind::ParameterBlock) {
-                parameter_block_parent = current_node;
-                get_logger()->trace("Found parameter block parent. Name: {}, Kind: {}", current_node->layout->getName(), (int)current_node->layout->getTypeLayout()->getKind());
-                break;
-            }
-            current_node = current_node->outer;
-        }
-
-        if (parameter_block_parent) {
-            auto parent_name = parameter_block_parent->layout->getName();
-            if (name2bindgroups.count(parent_name)) {
-                space = name2bindgroups.at(parent_name); // Use the remapped space of the parent parameter block
-            }
-        }
-    }
+    uint space   = offset.space;
     uint binding = offset.value;
 
     auto val = GPUBindGroupLayoutEntry{};
@@ -851,7 +812,7 @@ void ReflectResultInternal::create_binding(AccessPathNode node)
 
 void ReflectResultInternal::create_push_constant(AccessPathNode node, uint space, const GPUBindGroupLayoutEntry& binding)
 {
-    if (target != CompileTarget::MSL && space != PushConstantRegisterSpace) {
+    if (space != PushConstantRegisterSpace) {
         get_logger()->error("Please use ROOT_CONSTANT to denote the binding register space.");
         has_error = true;
         return;

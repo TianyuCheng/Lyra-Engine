@@ -24,21 +24,31 @@ MetalPipeline::MetalPipeline(const GPURenderPipelineDescriptor& desc)
     // store layout handle
     layout = desc.layout;
 
-    // get shaders
-    auto& vshader = fetch_resource(rhi->shaders, desc.vertex.module);
-
     // create render pipeline descriptor
     MTLRenderPipelineDescriptor* mtl_desc = [MTLRenderPipelineDescriptor new];
 
     // vertex function
-    NSString* vs_entry      = [NSString stringWithUTF8String:desc.vertex.entry_point];
-    mtl_desc.vertexFunction = [vshader.library newFunctionWithName:vs_entry];
+    auto&     vshader       = fetch_resource(rhi->shaders, desc.vertex.module);
+    NSString* vs_entry_ns   = [NSString stringWithUTF8String:desc.vertex.entry_point];
+    mtl_desc.vertexFunction = [vshader.library newFunctionWithName:vs_entry_ns];
+
+    if (!mtl_desc.vertexFunction) {
+        get_logger()->error("FATAL: Vertex function with entry point '{}' not found in shader library.", desc.vertex.entry_point);
+        render_pso = nil; // mark pipeline as invalid
+        return;           // exit constructor early
+    }
 
     // fragment function (optional)
     if (desc.fragment.module.valid()) {
         auto&     fshader         = fetch_resource(rhi->shaders, desc.fragment.module);
-        NSString* fs_entry        = [NSString stringWithUTF8String:desc.fragment.entry_point];
-        mtl_desc.fragmentFunction = [fshader.library newFunctionWithName:fs_entry];
+        NSString* fs_entry_ns     = [NSString stringWithUTF8String:desc.fragment.entry_point];
+        mtl_desc.fragmentFunction = [fshader.library newFunctionWithName:fs_entry_ns];
+
+        if (!mtl_desc.fragmentFunction) {
+            get_logger()->error("FATAL: Fragment function with entry point '{}' not found in shader library.", desc.vertex.entry_point);
+            render_pso = nil; // mark pipeline as invalid
+            return;           // exit constructor early
+        }
     }
 
     // vertex descriptor for vertex attributes

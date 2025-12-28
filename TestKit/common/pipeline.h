@@ -5,7 +5,10 @@
 
 struct SimplePipeline
 {
-    uint                             vstride = 0; // vertex buffer stride
+    uint                             vstride       = 0; // vertex buffer stride
+    CString                          vshader_entry = "";
+    CString                          fshader_entry = "";
+    CString                          cshader_entry = "";
     GPUShaderModule                  vshader;
     GPUShaderModule                  fshader;
     GPUShaderModule                  cshader;
