@@ -28,7 +28,14 @@ namespace lyra
     // bind group layouts that requires both a register space, and
     // a base register. For simplicity, we force that push constant
     // always use space999 (max).
-    static constexpr uint PushConstantRegisterSpace = 999;
+    static constexpr uint D3D12_PushConstantRegisterSpace = 999;
+
+    // NOTE: Metal uses buffer to implement push constsants,
+    // without explicitly annotation the push constant buffer could
+    // be at any buffer index, causing additional difficulty to track
+    // the buffer index for other regular buffers. For simplicity,
+    // we force that push constant always use buffer(31) (max)
+    static constexpr uint METAL_PushConstantBufferIndex = 31;
 
     using BufferSource = uint8_t*;
 

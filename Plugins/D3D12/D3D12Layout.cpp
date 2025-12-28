@@ -152,7 +152,7 @@ D3D12PipelineLayout::D3D12PipelineLayout(const GPUPipelineLayoutDescriptor& desc
         root_param.ParameterType            = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
         root_param.ShaderVisibility         = d3d12enum(visibility);
         root_param.Constants.ShaderRegister = 0;
-        root_param.Constants.RegisterSpace  = PushConstantRegisterSpace;
+        root_param.Constants.RegisterSpace  = D3D12_PushConstantRegisterSpace;
         root_param.Constants.Num32BitValues = round_up_to_multiple_of(bytes, 4) / sizeof(uint32_t);
 
         this->push_constant_root_parameter = root_parameter_index++;
