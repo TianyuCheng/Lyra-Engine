@@ -1,4 +1,4 @@
-Language: Cpp
+# Language: Cpp
 IndentWidth: 4
 IndentCaseLabels: true
 AccessModifierOffset: -4

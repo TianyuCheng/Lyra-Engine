@@ -27,9 +27,9 @@ auto get_rhi() -> MetalRHI*
 // MetalRHI wait_idle implementation
 void MetalRHI::wait_idle()
 {
-    // Wait for all command queues to complete
+    // wait for all command queues to complete
     if (graphics_queue) {
-        // Create a temporary command buffer and wait for it to complete
+        // create a temporary command buffer and wait for it to complete
         id<MTLCommandBuffer> cmd = [graphics_queue commandBuffer];
         [cmd commit];
         [cmd waitUntilCompleted];

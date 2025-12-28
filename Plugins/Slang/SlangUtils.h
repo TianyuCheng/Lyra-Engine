@@ -26,6 +26,14 @@ struct CumulativeOffset
 {
     int value = 0; // the actual offset
     int space = 0; // the associated space
+
+    friend CumulativeOffset operator+(const CumulativeOffset& lhs, const CumulativeOffset& rhs)
+    {
+        CumulativeOffset res;
+        res.value = lhs.value + rhs.value;
+        res.space = lhs.space + rhs.space;
+        return res;
+    }
 };
 
 struct EntryMetadata
@@ -41,11 +49,7 @@ struct AccessPathNode
 
     auto calculate_cumulative_offset() const -> CumulativeOffset;
     auto calculate_cumulative_offset(slang::ParameterCategory category) const -> CumulativeOffset;
-
-    bool is_parameter_used(
-        slang::IMetadata*        metadata,
-        slang::ParameterCategory unit,
-        CumulativeOffset         offset) const;
+    bool is_parameter_used(slang::IMetadata* metadata, slang::ParameterCategory unit, CumulativeOffset offset) const;
 
     void print() const;
 };
@@ -100,7 +104,7 @@ struct ReflectResultInternal
     uint                         num_push_constant_buffers = 0;
     uint                         msl_parameter_block_space = 0;
     TreeMap<uint, uint>          msl_space_remap;
-    bool                         has_error                 = false;
+    bool                         has_error = false;
 
     bool get_vertex_attributes(ShaderAttributes attrs, GPUVertexAttribute* attributes) const;
     bool get_bind_group_layouts(uint& count, GPUBindGroupLayoutDescriptor* layouts) const;

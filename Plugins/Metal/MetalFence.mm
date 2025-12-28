@@ -1,36 +1,54 @@
 #include "MetalUtils.h"
 using namespace lyra;
 
-MetalFence::MetalFence() {}
+MetalFence::MetalFence()
+{
+    // do nothing
+}
+
 MetalFence::MetalFence(bool signaled)
 {
     auto rhi = get_rhi();
-    event = [rhi->device newSharedEvent];
-    target = signaled ? 1 : 0;
+    event    = [rhi->device newSharedEvent];
+    target   = signaled ? 1 : 0;
 }
+
 void MetalFence::wait(uint64_t timeout)
 {
     if (!event) return;
     // CPU wait for GPU signal using dispatch semaphore
-    dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
-    MTLSharedEventListener* listener = [[MTLSharedEventListener alloc] initWithDispatchQueue:dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0)];
+    dispatch_semaphore_t    semaphore = dispatch_semaphore_create(0);
+    MTLSharedEventListener* listener  = [[MTLSharedEventListener alloc] initWithDispatchQueue:dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0)];
     [event notifyListener:listener
                   atValue:target
                     block:^(id<MTLSharedEvent>, uint64_t) {
-        dispatch_semaphore_signal(semaphore);
-    }];
+                      dispatch_semaphore_signal(semaphore);
+                    }];
     dispatch_semaphore_wait(semaphore, timeout == UINT64_MAX ? DISPATCH_TIME_FOREVER : dispatch_time(DISPATCH_TIME_NOW, timeout));
 }
-void MetalFence::signal(uint64_t value) { target = value; }
-void MetalFence::signal(id<MTLCommandBuffer> cmdbuf, uint64_t value) { [cmdbuf encodeSignalEvent:event value:value]; target = value; }
-void MetalFence::destroy() { event = nil; }
+
+void MetalFence::signal(uint64_t value)
+{
+    target = value;
+}
+
+void MetalFence::signal(id<MTLCommandBuffer> cmdbuf, uint64_t value)
+{
+    [cmdbuf encodeSignalEvent:event value:value];
+    target = value;
+}
+
+void MetalFence::destroy()
+{
+    event = nil;
+}
 
 bool api::create_fence(GPUFenceHandle& handle)
 {
     auto rhi = get_rhi();
-    auto obj = MetalFence(false);  // Create with signaled=false
+    auto obj = MetalFence(false); // Create with signaled=false
     auto ind = rhi->fences.add(obj);
-    handle = GPUFenceHandle(ind);
+    handle   = GPUFenceHandle(ind);
     return obj.valid();
 }
 

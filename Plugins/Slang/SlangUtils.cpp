@@ -17,6 +17,18 @@ struct lyra_dynamicAttribute { };
 
 // #define SLANG_DEBUG
 #ifdef SLANG_DEBUG
+static CString to_string(GPUShaderStage stage)
+{
+    // clang-format off
+    switch (stage) {
+        case GPUShaderStage::COMPUTE:  return "compute";
+        case GPUShaderStage::VERTEX:   return "vertex";
+        case GPUShaderStage::FRAGMENT: return "fragment";
+        default:                       return "unknown";
+    }
+    // clang-format on
+}
+
 CString to_string(slang::TypeReflection::Kind kind)
 {
     // clang-format off
@@ -76,7 +88,7 @@ CString to_string(slang::ParameterCategory category)
     // clang-format on
 }
 
-void print_slang_var_layout(slang::VariableLayoutReflection* var_layout, TraversalData& traversal)
+void print_slang_var_layout(const Vector<EntryMetadata>& metadata, AccessPathNode* curr, slang::VariableLayoutReflection* var_layout, TraversalData& traversal)
 {
     int  walk_depth  = traversal.current_walk_depth;
     auto print_depth = [&](CString prefix = "  ") -> std::ostream& {
@@ -89,11 +101,40 @@ void print_slang_var_layout(slang::VariableLayoutReflection* var_layout, Travers
     else
         print_depth() << "# NAME: unknwon" << std::endl;
 
+    auto path       = AccessPathNode{var_layout, curr};
     auto typ_layout = var_layout->getTypeLayout();
     print_depth() << "= type layout: " << to_string(typ_layout->getKind()) << std::endl;
-    print_depth() << "= unit layout: " << to_string(typ_layout->getParameterCategory()) << std::endl;
-    print_depth() << "= space: " << var_layout->getBindingSpace((SlangParameterCategory)typ_layout->getParameterCategory()) << std::endl;
-    print_depth() << "= offset: " << var_layout->getOffset((SlangParameterCategory)typ_layout->getParameterCategory()) << std::endl;
+    print_depth() << "= type unit: " << to_string(typ_layout->getParameterCategory());
+    std::cout << " @space: " << var_layout->getBindingSpace((SlangParameterCategory)typ_layout->getParameterCategory());
+    std::cout << " @offset: " << var_layout->getOffset((SlangParameterCategory)typ_layout->getParameterCategory()) << std::endl;
+
+    // final binding
+    auto cumulative = path.calculate_cumulative_offset();
+    path.calculate_cumulative_offset();
+    print_depth() << "= binding: ";
+    std::cout << " @space: " << cumulative.space;
+    std::cout << " @offset: " << cumulative.value << std::endl;
+
+    // offset from each category
+    for (uint i = 0; i < var_layout->getCategoryCount(); i++) {
+        auto unit       = var_layout->getCategoryByIndex(i);
+        auto cumulative = path.calculate_cumulative_offset(unit);
+        print_depth() << "= var unit: " << to_string(unit);
+        std::cout << " @space: " << cumulative.space;
+        std::cout << " @offset: " << cumulative.value << std::endl;
+    }
+
+    // visibility
+    print_depth() << "= visibility: ";
+    for (auto& meta : metadata) {
+        for (uint i = 0; i < var_layout->getCategoryCount(); i++) {
+            auto unit = var_layout->getCategoryByIndex(i);
+            // auto cumulative = path.calculate_cumulative_offset(unit);
+            if (path.is_parameter_used(meta.metadata, unit, cumulative))
+                std::cout << to_string(meta.stage) << " ";
+        }
+    }
+    std::cout << std::endl;
 }
 #endif
 
@@ -108,7 +149,7 @@ uint round_up_to_next_multiple_of(T size, T align)
     return (size + align - 1) / align * align;
 }
 
-void diagnose_if_needed(slang::IBlob* diagnosticsBlob)
+static void diagnose_if_needed(slang::IBlob* diagnosticsBlob)
 {
     if (diagnosticsBlob != nullptr) {
         get_logger()->error("Slang diagnostics: {}", (const char*)diagnosticsBlob->getBufferPointer());
@@ -117,23 +158,16 @@ void diagnose_if_needed(slang::IBlob* diagnosticsBlob)
 
 static GPUShaderStage to_stage(SlangStage stage)
 {
+    // clang-format off
     switch (stage) {
-        case SLANG_STAGE_VERTEX:
-            return GPUShaderStage::VERTEX;
-        case SLANG_STAGE_FRAGMENT:
-            return GPUShaderStage::FRAGMENT;
-        case SLANG_STAGE_COMPUTE:
-            return GPUShaderStage::COMPUTE;
-        case SLANG_STAGE_RAY_GENERATION:
-            return GPUShaderStage::RAYGEN;
-        case SLANG_STAGE_INTERSECTION:
-            return GPUShaderStage::INTERSECT;
-        case SLANG_STAGE_ANY_HIT:
-            return GPUShaderStage::AHIT;
-        case SLANG_STAGE_CLOSEST_HIT:
-            return GPUShaderStage::CHIT;
-        case SLANG_STAGE_MISS:
-            return GPUShaderStage::MISS;
+        case SLANG_STAGE_VERTEX:         return GPUShaderStage::VERTEX;
+        case SLANG_STAGE_FRAGMENT:       return GPUShaderStage::FRAGMENT;
+        case SLANG_STAGE_COMPUTE:        return GPUShaderStage::COMPUTE;
+        case SLANG_STAGE_RAY_GENERATION: return GPUShaderStage::RAYGEN;
+        case SLANG_STAGE_INTERSECTION:   return GPUShaderStage::INTERSECT;
+        case SLANG_STAGE_ANY_HIT:        return GPUShaderStage::AHIT;
+        case SLANG_STAGE_CLOSEST_HIT:    return GPUShaderStage::CHIT;
+        case SLANG_STAGE_MISS:           return GPUShaderStage::MISS;
         case SLANG_STAGE_GEOMETRY:
         case SLANG_STAGE_HULL:
         case SLANG_STAGE_DOMAIN:
@@ -144,6 +178,7 @@ static GPUShaderStage to_stage(SlangStage stage)
             assert(!!!"Unsupported shader types!");
             return GPUShaderStage::COMPUTE;
     }
+    // clang-format on
 }
 
 static uint get_shader_entry_point_index(slang::ProgramLayout* layout, slang::EntryPointReflection* refl)
@@ -158,28 +193,36 @@ static uint get_shader_entry_point_index(slang::ProgramLayout* layout, slang::En
 
 CumulativeOffset AccessPathNode::calculate_cumulative_offset() const
 {
-    CumulativeOffset result{};
+    auto result = CumulativeOffset{};
 
-    uint count = layout->getCategoryCount();
-    for (uint i = 0; i < count; i++) {
-        auto offset = calculate_cumulative_offset(layout->getCategoryByIndex(i));
-        result.value += offset.value;
-        result.space += offset.space;
-    }
+    // calculate space
+    result = result + calculate_cumulative_offset(slang::ParameterCategory::SubElementRegisterSpace);
+    result = result + calculate_cumulative_offset(slang::ParameterCategory::DescriptorTableSlot);
+    result = result + calculate_cumulative_offset(slang::ParameterCategory::ConstantBuffer);
+
+    // calculate offset
+    auto category = layout->getTypeLayout()->getParameterCategory();
+    if (category != slang::ParameterCategory::SubElementRegisterSpace &&
+        category != slang::ParameterCategory::DescriptorTableSlot &&
+        category != slang::ParameterCategory::ConstantBuffer)
+        result = result + calculate_cumulative_offset(category);
+
     return result;
 }
 
 CumulativeOffset AccessPathNode::calculate_cumulative_offset(slang::ParameterCategory category) const
 {
-    CumulativeOffset result{};
-
-    auto unit = static_cast<SlangParameterCategory>(category);
+    auto result = CumulativeOffset{};
+    auto unit   = static_cast<SlangParameterCategory>(category);
     for (auto node = this; node != nullptr; node = node->outer) {
-        if (node->layout->getTypeLayout()->getParameterCategory() == slang::ParameterCategory::SubElementRegisterSpace) {
-            result.space += static_cast<int>(node->layout->getOffset(SLANG_PARAMETER_CATEGORY_SUB_ELEMENT_REGISTER_SPACE));
-        } else {
-            result.value += static_cast<int>(node->layout->getOffset(unit));
-            result.space += static_cast<int>(node->layout->getBindingSpace(unit));
+        switch (category) {
+            case slang::ParameterCategory::SubElementRegisterSpace:
+            case slang::ParameterCategory::ConstantBuffer: // support for MSL argument buffer
+                result.space += static_cast<int>(node->layout->getOffset(unit));
+                break;
+            default:
+                result.value += static_cast<int>(node->layout->getOffset(unit));
+                result.space += static_cast<int>(node->layout->getBindingSpace(unit));
         }
     }
     return result;
@@ -190,10 +233,9 @@ bool AccessPathNode::is_parameter_used(slang::IMetadata* metadata, slang::Parame
     bool used   = false;
     auto unit   = static_cast<SlangParameterCategory>(category);
     auto result = metadata->isParameterLocationUsed(unit, offset.space, offset.value, used);
-    if (used) return true;
     if (SLANG_FAILED(result))
         get_logger()->error("Failed to query if parameter is used for unit: {} space: {}, register: {}", (int)unit, offset.space, offset.value);
-    return false;
+    return used;
 }
 
 void AccessPathNode::print() const
@@ -594,7 +636,7 @@ void ReflectResultInternal::walk(slang::VariableLayoutReflection* var_layout, Ac
     auto typ_layout = var_layout->getTypeLayout();
 
 #ifdef SLANG_DEBUG
-    print_slang_var_layout(var_layout, traversal_data);
+    print_slang_var_layout(metadata, &path, var_layout, traversal_data);
 
     // a handle that automatically increment/decrement the traversal depth
     TraverseDepthHandle depth_walker(traversal_data);
@@ -683,7 +725,7 @@ void ReflectResultInternal::init_vertices(slang::ProgramLayout* program_layout)
                 attribute.offset          = 0; // host-provided, cannot be reflected from shader
                 attribute.format          = infer_vertex_format(typ_layout);
                 attribute.shader_semantic = semantic_names.front().c_str();
-                attribute.shader_location = target == CompileTarget::SPIRV ? binding_index : semantic_index;
+                attribute.shader_location = target == CompileTarget::DXIL ? semantic_index : binding_index;
 
                 name2attributes.emplace(name, static_cast<uint>(vertex_attributes.size() - 1));
             }
@@ -888,22 +930,25 @@ void ReflectResultInternal::fill_binding_count(GPUBindGroupLayoutEntry& entry, s
         return;
     }
 
-    // possibly unbound
+    // possibly unbound (when count = ~size_t(0))
     size_t count = type->getTotalArrayElementCount();
-    // if (count == ~size_t(0))
-    //     entry.bindless = true;
-
-    entry.count = static_cast<uint>(count);
+    entry.count  = static_cast<uint>(count);
 }
 
 void ReflectResultInternal::fill_binding_stages(GPUBindGroupLayoutEntry& entry, AccessPathNode path) const
 {
+    // for Metal shading language, the shader stage visibility is implicit from the shader entry arguments.
+    // MSL has a different binding model than SPIRV/DXIL, it uses argument buffer instead of descriptor table slot,
+    // or subelement register space. The visibility is operated at the argument buffer level.
+    if (target == CompileTarget::MSL)
+        return;
+
     // implement this using IMetadata (or ICompileRequests for older versions of Slang)
+    auto offset = path.calculate_cumulative_offset();
     for (auto& metadata : this->metadata) {
         uint count = path.layout->getCategoryCount();
         for (uint i = 0; i < count; i++) {
-            auto unit   = path.layout->getCategoryByIndex(i);
-            auto offset = path.calculate_cumulative_offset(unit);
+            auto unit = path.layout->getCategoryByIndex(i);
             if (path.is_parameter_used(metadata.metadata, unit, offset))
                 entry.visibility = entry.visibility | metadata.stage;
         }

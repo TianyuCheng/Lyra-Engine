@@ -30,6 +30,7 @@ auto mtlenum(GPUColorSpace space) -> uint32_t
 // blend operation
 auto mtlenum(GPUBlendOperation op) -> MTLBlendOperation
 {
+    // clang-format off
     switch (op) {
         case GPUBlendOperation::ADD:              return MTLBlendOperationAdd;
         case GPUBlendOperation::SUBTRACT:         return MTLBlendOperationSubtract;
@@ -39,11 +40,13 @@ auto mtlenum(GPUBlendOperation op) -> MTLBlendOperation
         default:
             throw std::runtime_error("Invalid GPUBlendOperation");
     }
+    // clang-format on
 }
 
 // blend factor
 auto mtlenum(GPUBlendFactor factor) -> MTLBlendFactor
 {
+    // clang-format off
     switch (factor) {
         case GPUBlendFactor::ZERO:                     return MTLBlendFactorZero;
         case GPUBlendFactor::ONE:                      return MTLBlendFactorOne;
@@ -65,28 +68,33 @@ auto mtlenum(GPUBlendFactor factor) -> MTLBlendFactor
         default:
             throw std::runtime_error("Invalid GPUBlendFactor");
     }
+    // clang-format on
 }
 
 // load operation
 auto mtlenum(GPULoadOp op) -> MTLLoadAction
 {
+    // clang-format off
     switch (op) {
         case GPULoadOp::LOAD:  return MTLLoadActionLoad;
         case GPULoadOp::CLEAR: return MTLLoadActionClear;
         default:
             throw std::runtime_error("Invalid GPULoadOp");
     }
+    // clang-format on
 }
 
 // store operation
 auto mtlenum(GPUStoreOp op) -> MTLStoreAction
 {
+    // clang-format off
     switch (op) {
         case GPUStoreOp::STORE:   return MTLStoreActionStore;
         case GPUStoreOp::DISCARD: return MTLStoreActionDontCare;
         default:
             throw std::runtime_error("Invalid GPUStoreOp");
     }
+    // clang-format on
 }
 
 // query type
@@ -99,6 +107,7 @@ auto mtlenum(GPUQueryType query) -> uint32_t
 // texture dimension
 auto mtlenum(GPUTextureDimension dim) -> MTLTextureType
 {
+    // clang-format off
     switch (dim) {
         case GPUTextureDimension::x1D: return MTLTextureType1D;
         case GPUTextureDimension::x2D: return MTLTextureType2D;
@@ -106,11 +115,13 @@ auto mtlenum(GPUTextureDimension dim) -> MTLTextureType
         default:
             throw std::runtime_error("Invalid GPUTextureDimension");
     }
+    // clang-format on
 }
 
 // texture view dimension
 auto mtlenum(GPUTextureViewDimension dim) -> MTLTextureType
 {
+    // clang-format off
     switch (dim) {
         case GPUTextureViewDimension::x1D:        return MTLTextureType1D;
         case GPUTextureViewDimension::x2D:        return MTLTextureType2D;
@@ -121,11 +132,13 @@ auto mtlenum(GPUTextureViewDimension dim) -> MTLTextureType
         default:
             throw std::runtime_error("Invalid GPUTextureViewDimension");
     }
+    // clang-format on
 }
 
 // sampler address mode
 auto mtlenum(GPUAddressMode mode) -> MTLSamplerAddressMode
 {
+    // clang-format off
     switch (mode) {
         case GPUAddressMode::REPEAT:          return MTLSamplerAddressModeRepeat;
         case GPUAddressMode::MIRROR_REPEAT:   return MTLSamplerAddressModeMirrorRepeat;
@@ -133,33 +146,39 @@ auto mtlenum(GPUAddressMode mode) -> MTLSamplerAddressMode
         default:
             throw std::runtime_error("Invalid GPUAddressMode");
     }
+    // clang-format on
 }
 
 // filter mode
 auto mtlenum(GPUFilterMode filter) -> MTLSamplerMinMagFilter
 {
+    // clang-format off
     switch (filter) {
         case GPUFilterMode::NEAREST: return MTLSamplerMinMagFilterNearest;
         case GPUFilterMode::LINEAR:  return MTLSamplerMinMagFilterLinear;
         default:
             throw std::runtime_error("Invalid GPUFilterMode");
     }
+    // clang-format on
 }
 
 // mipmap filter mode
 auto mtlenum(GPUMipmapFilterMode filter) -> MTLSamplerMipFilter
 {
+    // clang-format off
     switch (filter) {
         case GPUMipmapFilterMode::NEAREST: return MTLSamplerMipFilterNearest;
         case GPUMipmapFilterMode::LINEAR:  return MTLSamplerMipFilterLinear;
         default:
             throw std::runtime_error("Invalid GPUMipmapFilterMode");
     }
+    // clang-format on
 }
 
 // compare function
 auto mtlenum(GPUCompareFunction op) -> MTLCompareFunction
 {
+    // clang-format off
     switch (op) {
         case GPUCompareFunction::NEVER:         return MTLCompareFunctionNever;
         case GPUCompareFunction::LESS:          return MTLCompareFunctionLess;
@@ -172,11 +191,13 @@ auto mtlenum(GPUCompareFunction op) -> MTLCompareFunction
         default:
             throw std::runtime_error("Invalid GPUCompareFunction");
     }
+    // clang-format on
 }
 
 // stencil operation
 auto mtlenum(GPUStencilOperation op) -> MTLStencilOperation
 {
+    // clang-format off
     switch (op) {
         case GPUStencilOperation::KEEP:            return MTLStencilOperationKeep;
         case GPUStencilOperation::ZERO:            return MTLStencilOperationZero;
@@ -189,22 +210,26 @@ auto mtlenum(GPUStencilOperation op) -> MTLStencilOperation
         default:
             throw std::runtime_error("Invalid GPUStencilOperation");
     }
+    // clang-format on
 }
 
 // front face
 auto mtlenum(GPUFrontFace winding) -> MTLWinding
 {
+    // clang-format off
     switch (winding) {
         case GPUFrontFace::CCW: return MTLWindingCounterClockwise;
         case GPUFrontFace::CW:  return MTLWindingClockwise;
         default:
             throw std::runtime_error("Invalid GPUFrontFace");
     }
+    // clang-format on
 }
 
 // cull mode
 auto mtlenum(GPUCullMode culling) -> MTLCullMode
 {
+    // clang-format off
     switch (culling) {
         case GPUCullMode::NONE:  return MTLCullModeNone;
         case GPUCullMode::FRONT: return MTLCullModeFront;
@@ -212,11 +237,13 @@ auto mtlenum(GPUCullMode culling) -> MTLCullMode
         default:
             throw std::runtime_error("Invalid GPUCullMode");
     }
+    // clang-format on
 }
 
 // primitive topology
 auto mtlenum(GPUPrimitiveTopology topology) -> MTLPrimitiveType
 {
+    // clang-format off
     switch (topology) {
         case GPUPrimitiveTopology::POINT_LIST:     return MTLPrimitiveTypePoint;
         case GPUPrimitiveTopology::LINE_LIST:      return MTLPrimitiveTypeLine;
@@ -226,33 +253,39 @@ auto mtlenum(GPUPrimitiveTopology topology) -> MTLPrimitiveType
         default:
             throw std::runtime_error("Invalid GPUPrimitiveTopology");
     }
+    // clang-format on
 }
 
 // vertex step mode
 auto mtlenum(GPUVertexStepMode step) -> MTLVertexStepFunction
 {
+    // clang-format off
     switch (step) {
         case GPUVertexStepMode::VERTEX:   return MTLVertexStepFunctionPerVertex;
         case GPUVertexStepMode::INSTANCE: return MTLVertexStepFunctionPerInstance;
         default:
             throw std::runtime_error("Invalid GPUVertexStepMode");
     }
+    // clang-format on
 }
 
 // index format
 auto mtlenum(GPUIndexFormat format) -> MTLIndexType
 {
+    // clang-format off
     switch (format) {
         case GPUIndexFormat::UINT16: return MTLIndexTypeUInt16;
         case GPUIndexFormat::UINT32: return MTLIndexTypeUInt32;
         default:
             throw std::runtime_error("Invalid GPUIndexFormat");
     }
+    // clang-format on
 }
 
 // vertex format
 auto mtlenum(GPUVertexFormat format) -> MTLVertexFormat
 {
+    // clang-format off
     switch (format) {
         case GPUVertexFormat::UINT8x2:    return MTLVertexFormatUChar2;
         case GPUVertexFormat::UINT8x4:    return MTLVertexFormatUChar4;
@@ -287,11 +320,13 @@ auto mtlenum(GPUVertexFormat format) -> MTLVertexFormat
         default:
             throw std::runtime_error("Invalid or unsupported GPUVertexFormat");
     }
+    // clang-format on
 }
 
 // texture format (comprehensive mapping)
 auto mtlenum(GPUTextureFormat format) -> MTLPixelFormat
 {
+    // clang-format off
     switch (format) {
         // 8-bit formats
         case GPUTextureFormat::R8UNORM:               return MTLPixelFormatR8Unorm;
@@ -366,12 +401,13 @@ auto mtlenum(GPUTextureFormat format) -> MTLPixelFormat
         default:
             throw std::runtime_error("Invalid or unsupported GPUTextureFormat");
     }
+    // clang-format on
 }
 
 // barrier layout (Metal doesn't have explicit layouts)
 auto mtlenum(GPUBarrierLayout layout) -> uint32_t
 {
-    return 0;  // Metal handles layout transitions automatically
+    return 0; // Metal handles layout transitions automatically
 }
 
 // sample count
@@ -383,13 +419,13 @@ auto mtlenum(GPUIntegerCoordinate samples) -> NSUInteger
 // BLAS Type
 auto mtlenum(GPUBlasType type) -> uint32_t
 {
-    return 0;  // Handled in acceleration structure implementation
+    return 0; // Handled in acceleration structure implementation
 }
 
 // BVH update mode
 auto mtlenum(GPUBVHUpdateMode mode) -> uint32_t
 {
-    return 0;  // Handled in acceleration structure implementation
+    return 0; // Handled in acceleration structure implementation
 }
 
 // texture aspect
@@ -403,19 +439,21 @@ auto mtlenum(GPUTextureAspectFlags aspect) -> MTLTextureUsage
 // color write mask
 auto mtlenum(GPUColorWriteFlags color) -> MTLColorWriteMask
 {
+    // clang-format off
     MTLColorWriteMask mask = MTLColorWriteMaskNone;
     if (color.contains(GPUColorWrite::RED))   mask |= MTLColorWriteMaskRed;
     if (color.contains(GPUColorWrite::GREEN)) mask |= MTLColorWriteMaskGreen;
     if (color.contains(GPUColorWrite::BLUE))  mask |= MTLColorWriteMaskBlue;
     if (color.contains(GPUColorWrite::ALPHA)) mask |= MTLColorWriteMaskAlpha;
+    // clang-format on
     return mask;
 }
 
 // buffer usage flags
 auto mtlenum(GPUBufferUsageFlags usages) -> std::pair<MTLResourceOptions, MTLStorageMode>
 {
-    MTLResourceOptions options = MTLResourceStorageModeShared;
-    MTLStorageMode storage_mode = MTLStorageModeShared;
+    MTLResourceOptions options      = MTLResourceStorageModeShared;
+    MTLStorageMode     storage_mode = MTLStorageModeShared;
 
     // Determine storage mode based on usage
     bool cpu_visible = (usages.contains(GPUBufferUsage::MAP_READ)) || (usages.contains(GPUBufferUsage::MAP_WRITE));
@@ -423,11 +461,11 @@ auto mtlenum(GPUBufferUsageFlags usages) -> std::pair<MTLResourceOptions, MTLSto
     if (cpu_visible) {
         // CPU-visible buffers use Shared mode
         storage_mode = MTLStorageModeShared;
-        options = MTLResourceStorageModeShared;
+        options      = MTLResourceStorageModeShared;
     } else {
         // GPU-only buffers use Private mode (fastest)
         storage_mode = MTLStorageModePrivate;
-        options = MTLResourceStorageModePrivate;
+        options      = MTLResourceStorageModePrivate;
     }
 
     return std::make_pair(options, storage_mode);
@@ -438,11 +476,13 @@ auto mtlenum(GPUTextureUsageFlags usages) -> MTLTextureUsage
 {
     MTLTextureUsage usage = MTLTextureUsageUnknown;
 
+    // clang-format off
     if (usages.contains(GPUTextureUsage::COPY_SRC))          usage |= MTLTextureUsageShaderRead;
     if (usages.contains(GPUTextureUsage::COPY_DST))          usage |= MTLTextureUsageShaderWrite;
     if (usages.contains(GPUTextureUsage::TEXTURE_BINDING))   usage |= MTLTextureUsageShaderRead;
     if (usages.contains(GPUTextureUsage::STORAGE_BINDING))   usage |= MTLTextureUsageShaderWrite;
     if (usages.contains(GPUTextureUsage::RENDER_ATTACHMENT)) usage |= MTLTextureUsageRenderTarget;
+    // clang-format on
 
     return usage;
 }
@@ -462,14 +502,14 @@ auto mtlenum(GPUBarrierSyncFlags flags) -> MTLBarrierScope
 
     // map common sync points to Metal barrier scopes
     if (flags.contains(GPUBarrierSync::VERTEX_SHADING) ||
-	flags.contains(GPUBarrierSync::PIXEL_SHADING) ||
-	flags.contains(GPUBarrierSync::DRAW))
+        flags.contains(GPUBarrierSync::PIXEL_SHADING) ||
+        flags.contains(GPUBarrierSync::DRAW))
         scope |= MTLBarrierScopeRenderTargets;
     if (flags.contains(GPUBarrierSync::COMPUTE) ||
-	flags.contains(GPUBarrierSync::RAYTRACING))
+        flags.contains(GPUBarrierSync::RAYTRACING))
         scope |= MTLBarrierScopeBuffers | MTLBarrierScopeTextures;
     if (flags.contains(GPUBarrierSync::COPY) ||
-	flags.contains(GPUBarrierSync::RESOLVE))
+        flags.contains(GPUBarrierSync::RESOLVE))
         scope |= MTLBarrierScopeBuffers | MTLBarrierScopeTextures;
 
     return scope;

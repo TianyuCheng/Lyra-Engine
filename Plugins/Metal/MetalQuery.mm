@@ -11,7 +11,7 @@ MetalQuerySet::MetalQuerySet(const GPUQuerySetDescriptor& desc)
 {
     auto rhi = get_rhi();
 
-    type = desc.type;
+    type  = desc.type;
     count = desc.count;
 
     switch (desc.type) {
@@ -23,8 +23,8 @@ MetalQuerySet::MetalQuerySet(const GPUQuerySetDescriptor& desc)
             }
 
             // get timestamp counter set
-            NSArray<id<MTLCounterSet>>* counter_sets = [rhi->device counterSets];
-            id<MTLCounterSet> timestamp_counter_set = nil;
+            NSArray<id<MTLCounterSet>>* counter_sets          = [rhi->device counterSets];
+            id<MTLCounterSet>           timestamp_counter_set = nil;
 
             for (id<MTLCounterSet> counter_set in counter_sets) {
                 if ([[counter_set name] isEqualToString:MTLCommonCounterSetTimestamp]) {
@@ -40,13 +40,13 @@ MetalQuerySet::MetalQuerySet(const GPUQuerySetDescriptor& desc)
 
             // create counter sample buffer descriptor
             MTLCounterSampleBufferDescriptor* buffer_desc = [MTLCounterSampleBufferDescriptor new];
-            buffer_desc.counterSet = timestamp_counter_set;
-            buffer_desc.sampleCount = desc.count;
-            buffer_desc.storageMode = MTLStorageModeShared;
-            buffer_desc.label = @"Timestamp Query Set";
+            buffer_desc.counterSet                        = timestamp_counter_set;
+            buffer_desc.sampleCount                       = desc.count;
+            buffer_desc.storageMode                       = MTLStorageModeShared;
+            buffer_desc.label                             = @"Timestamp Query Set";
 
             NSError* error = nil;
-            sample_buffer = [rhi->device newCounterSampleBufferWithDescriptor:buffer_desc error:&error];
+            sample_buffer  = [rhi->device newCounterSampleBufferWithDescriptor:buffer_desc error:&error];
             if (error) {
                 get_logger()->error("Failed to create timestamp query set: {}", [[error localizedDescription] UTF8String]);
                 return;
@@ -59,7 +59,7 @@ MetalQuerySet::MetalQuerySet(const GPUQuerySetDescriptor& desc)
             // for occlusion queries, Metal uses visibility result buffer
             // create a buffer to store visibility results (8 bytes per query)
             NSUInteger buffer_size = desc.count * sizeof(uint64_t);
-            visibility_buffer = [rhi->device newBufferWithLength:buffer_size
+            visibility_buffer      = [rhi->device newBufferWithLength:buffer_size
                                                          options:MTLResourceStorageModeShared];
             if (!visibility_buffer) {
                 get_logger()->error("Failed to create occlusion query buffer");
@@ -72,7 +72,7 @@ MetalQuerySet::MetalQuerySet(const GPUQuerySetDescriptor& desc)
         {
             // BLAS properties queries - create buffer for acceleration structure sizes
             NSUInteger buffer_size = desc.count * sizeof(MTLAccelerationStructureSizes);
-            visibility_buffer = [rhi->device newBufferWithLength:buffer_size
+            visibility_buffer      = [rhi->device newBufferWithLength:buffer_size
                                                          options:MTLResourceStorageModeShared];
             if (!visibility_buffer) {
                 get_logger()->error("Failed to create BLAS properties query buffer");
@@ -92,9 +92,9 @@ MetalQuerySet::MetalQuerySet(const GPUQuerySetDescriptor& desc)
 
 void MetalQuerySet::destroy()
 {
-    sample_buffer = nil;
+    sample_buffer     = nil;
     visibility_buffer = nil;
-    count = 0;
+    count             = 0;
 }
 
 bool api::create_query_set(GPUQuerySetHandle& handle, const GPUQuerySetDescriptor& desc)
@@ -124,7 +124,7 @@ bool api::create_query_set(GPUQuerySetHandle& handle, const GPUQuerySetDescripto
     }
 
     auto ind = rhi->query_sets.add(obj);
-    handle = GPUQuerySetHandle(ind);
+    handle   = GPUQuerySetHandle(ind);
     return true;
 }
 

@@ -62,10 +62,10 @@ struct MetalRHI;
 // buffer
 struct MetalBuffer
 {
-    id<MTLBuffer> buffer = nil;
+    id<MTLBuffer>      buffer       = nil;
     MTLResourceOptions storage_mode = MTLResourceStorageModeShared;
-    uint8_t* mapped_data = nullptr;
-    uint64_t mapped_size = 0ull;
+    uint8_t*           mapped_data  = nullptr;
+    uint64_t           mapped_size  = 0ull;
 
     // implementation in MetalBuffer.mm
     explicit MetalBuffer();
@@ -88,8 +88,8 @@ struct MetalBuffer
 struct MetalTexture
 {
     id<MTLTexture> texture = nil;
-    MTLPixelFormat format = MTLPixelFormatInvalid;
-    MTLTextureType type = MTLTextureType2D;
+    MTLPixelFormat format  = MTLPixelFormatInvalid;
+    MTLTextureType type    = MTLTextureType2D;
 
     // implementation in MetalTexture.mm
     explicit MetalTexture();
@@ -102,9 +102,9 @@ struct MetalTexture
 // texture view
 struct MetalTextureView
 {
-    id<MTLTexture> texture = nil;  // View references the parent texture
-    MTLPixelFormat format = MTLPixelFormatInvalid;
-    MTLTextureType type = MTLTextureType2D;
+    id<MTLTexture> texture = nil; // View references the parent texture
+    MTLPixelFormat format  = MTLPixelFormatInvalid;
+    MTLTextureType type    = MTLTextureType2D;
 
     // implementation in MetalTexture.mm
     explicit MetalTextureView();
@@ -130,8 +130,8 @@ struct MetalSampler
 // fence/semaphore (using MTLSharedEvent for timeline semantics)
 struct MetalFence
 {
-    id<MTLSharedEvent> event = nil;
-    mutable uint64_t target = 0ull;
+    id<MTLSharedEvent> event  = nil;
+    mutable uint64_t   target = 0ull;
 
     // implementation in MetalFence.mm
     explicit MetalFence();
@@ -147,10 +147,10 @@ struct MetalFence
 // query set
 struct MetalQuerySet
 {
-    id<MTLCounterSampleBuffer> sample_buffer = nil;
-    id<MTLBuffer> visibility_buffer = nil;  // For occlusion queries
-    GPUQueryType type = GPUQueryType::TIMESTAMP;
-    uint32_t count = 0;
+    id<MTLCounterSampleBuffer> sample_buffer     = nil;
+    id<MTLBuffer>              visibility_buffer = nil; // For occlusion queries
+    GPUQueryType               type              = GPUQueryType::TIMESTAMP;
+    uint32_t                   count             = 0;
 
     // implementation in MetalQuery.mm
     explicit MetalQuerySet();
@@ -177,9 +177,9 @@ struct MetalShader
 struct MetalBindGroupLayout
 {
     NSArray<MTLArgumentDescriptor*>* argument_descriptors = nil;
-    id<MTLArgumentEncoder> encoder = nil;
-    NSUInteger encoded_length = 0;
-    bool bindless = false;
+    id<MTLArgumentEncoder>           encoder              = nil;
+    NSUInteger                       encoded_length       = 0;
+    bool                             bindless             = false;
 
     // implementation in MetalLayout.mm
     explicit MetalBindGroupLayout();
@@ -193,7 +193,7 @@ struct MetalBindGroupLayout
 struct MetalPipelineLayout
 {
     Vector<GPUBindGroupLayoutHandle> bind_group_layouts;
-    Vector<GPUPushConstantRange> push_constant_ranges;
+    Vector<GPUPushConstantRange>     push_constant_ranges;
 
     // implementation in MetalLayout.mm
     explicit MetalPipelineLayout();
@@ -206,22 +206,22 @@ struct MetalPipelineLayout
 // pipeline (Render, Compute, RayTracing)
 struct MetalPipeline
 {
-    id<MTLRenderPipelineState> render_pso = nil;
-    id<MTLComputePipelineState> compute_pso = nil;
-    id<MTLDepthStencilState> depth_stencil_state = nil;
+    id<MTLRenderPipelineState>  render_pso          = nil;
+    id<MTLComputePipelineState> compute_pso         = nil;
+    id<MTLDepthStencilState>    depth_stencil_state = nil;
 
     // Ray tracing specific (Metal uses visible/intersection function tables)
-    id<MTLVisibleFunctionTable> visible_function_table = nil;
+    id<MTLVisibleFunctionTable>      visible_function_table      = nil;
     id<MTLIntersectionFunctionTable> intersection_function_table = nil;
-    uint max_recursion_depth = 1;
+    uint                             max_recursion_depth         = 1;
 
     GPUPipelineLayoutHandle layout;
-    MTLPrimitiveType primitive_type = MTLPrimitiveTypeTriangle;
-    MTLCullMode cull_mode = MTLCullModeNone;
-    MTLWinding front_face = MTLWindingCounterClockwise;
+    MTLPrimitiveType        primitive_type = MTLPrimitiveTypeTriangle;
+    MTLCullMode             cull_mode      = MTLCullModeNone;
+    MTLWinding              front_face     = MTLWindingCounterClockwise;
 
     // Depth bias (not stored in PSO - must be set dynamically)
-    float depth_bias = 0.0f;
+    float depth_bias       = 0.0f;
     float depth_bias_slope = 0.0f;
     float depth_bias_clamp = 0.0f;
 
@@ -238,9 +238,9 @@ struct MetalPipeline
 // acceleration Structures (TLAS)
 struct MetalTlas
 {
-    id<MTLAccelerationStructure> tlas = nil;
+    id<MTLAccelerationStructure>        tlas       = nil;
     MTLAccelerationStructureDescriptor* descriptor = nil;
-    MTLAccelerationStructureSizes sizes = {};
+    MTLAccelerationStructureSizes       sizes      = {};
 
     // implementation in MetalTlas.mm
     explicit MetalTlas();
@@ -253,9 +253,9 @@ struct MetalTlas
 // acceleration Structures (BLAS)
 struct MetalBlas
 {
-    id<MTLAccelerationStructure> blas = nil;
+    id<MTLAccelerationStructure>        blas       = nil;
     MTLAccelerationStructureDescriptor* descriptor = nil;
-    MTLAccelerationStructureSizes sizes = {};
+    MTLAccelerationStructureSizes       sizes      = {};
 
     // implementation in MetalBlas.mm
     explicit MetalBlas();
@@ -268,10 +268,11 @@ struct MetalBlas
 // bind group heap (using MTLHeap for argument buffers)
 struct MetalBindGroupHeap
 {
-    id<MTLHeap> heap = nil;
-    MTLHeapDescriptor* descriptor = nil;
+    id<MTLHeap>           heap       = nil;
+    MTLHeapDescriptor*    descriptor = nil;
     Vector<id<MTLBuffer>> allocated_buffers;
-    size_t heap_offset = 0;
+    size_t                heap_offset        = 0;
+    bool                  has_unified_memory = false;
 
     // implementation in MetalArgumentBuffer.mm
     explicit MetalBindGroupHeap();
@@ -279,7 +280,7 @@ struct MetalBindGroupHeap
 
     void destroy();
     void reset();
-    bool valid() const { return heap != nil; }
+    bool valid() const { return heap != nil || !has_unified_memory; }
 
     auto allocate(GPUBindGroupLayoutHandle layout, const GPUBindGroupDescriptor& desc) -> id<MTLBuffer>;
 };
@@ -291,38 +292,45 @@ struct MetalCommandBuffer
     uint32_t frame_id = 0u;
 
     id<MTLCommandBuffer> command_buffer = nil;
-    id<MTLCommandQueue> command_queue = nil;
+    id<MTLCommandQueue>  command_queue  = nil;
 
     // encoder state machine (only ONE encoder can be active at a time)
-    id<MTLRenderCommandEncoder> render_encoder = nil;
-    id<MTLComputeCommandEncoder> compute_encoder = nil;
-    id<MTLBlitCommandEncoder> blit_encoder = nil;
-    id<MTLAccelerationStructureCommandEncoder> accel_encoder = nil;
+    id<MTLRenderCommandEncoder>                render_encoder  = nil;
+    id<MTLComputeCommandEncoder>               compute_encoder = nil;
+    id<MTLBlitCommandEncoder>                  blit_encoder    = nil;
+    id<MTLAccelerationStructureCommandEncoder> accel_encoder   = nil;
 
-    enum EncoderType { NONE, RENDER, COMPUTE, BLIT, ACCEL };
+    enum EncoderType
+    {
+        NONE,
+        RENDER,
+        COMPUTE,
+        BLIT,
+        ACCEL
+    };
     EncoderType active_encoder = NONE;
 
     // cached pipeline state
-    id<MTLRenderPipelineState> bound_render_pso = nil;
-    id<MTLComputePipelineState> bound_compute_pso = nil;
-    id<MTLDepthStencilState> bound_depth_stencil_state = nil;
-    GPUPipelineLayoutHandle bound_layout;
+    id<MTLRenderPipelineState>  bound_render_pso          = nil;
+    id<MTLComputePipelineState> bound_compute_pso         = nil;
+    id<MTLDepthStencilState>    bound_depth_stencil_state = nil;
+    GPUPipelineLayoutHandle     bound_layout;
 
     // cached buffer state
-    id<MTLBuffer> bound_index_buffer = nil;
-    GPUIndexFormat index_format = GPUIndexFormat::UINT16;
-    MTLIndexType index_type = MTLIndexTypeUInt16;
-    uint64_t index_buffer_offset = 0;
+    id<MTLBuffer>  bound_index_buffer  = nil;
+    GPUIndexFormat index_format        = GPUIndexFormat::UINT16;
+    MTLIndexType   index_type          = MTLIndexTypeUInt16;
+    uint64_t       index_buffer_offset = 0;
 
     // primitive type (cached from pipeline)
     MTLPrimitiveType primitive_type = MTLPrimitiveTypeTriangle;
 
     // synchronization
-    MetalFence fence;
+    MetalFence                 fence;
     Vector<id<MTLSharedEvent>> wait_events;
-    Vector<uint64_t> wait_values;
+    Vector<uint64_t>           wait_values;
     Vector<id<MTLSharedEvent>> signal_events;
-    Vector<uint64_t> signal_values;
+    Vector<uint64_t>           signal_values;
 
     // implementation in MetalCommandBuffer.mm
     void transition_encoder(EncoderType new_type);
@@ -349,21 +357,21 @@ struct MetalFrame
 {
     uint32_t frame_id = 0u;
 
-    // Synchronization (NOT owned by frame, just references)
-    MetalFence inflight_fence;
-    GPUFenceHandle image_available_semaphore;
-    GPUFenceHandle render_complete_semaphore;
+    // synchronization (NOT owned by frame, just references)
+    MetalFence         inflight_fence;
+    GPUFenceHandle     image_available_semaphore;
+    GPUFenceHandle     render_complete_semaphore;
     Vector<MetalFence> existing_fences;
 
-    // Command pools
+    // command pools
     MetalCommandPool compute_command_pool;
     MetalCommandPool graphics_command_pool;
     MetalCommandPool transfer_command_pool;
 
-    // Allocated command buffers
+    // allocated command buffers
     Vector<MetalCommandBuffer> allocated_command_buffers;
 
-    // Shortcut for cmd buffer access
+    // shortcut for cmd buffer access
     auto& command(GPUCommandEncoderHandle handle)
     {
         return allocated_command_buffers.at(handle.value);
@@ -383,8 +391,8 @@ struct MetalSwapchain
 {
     struct Frame
     {
-        id<CAMetalDrawable> drawable = nil;
-        GPUTextureHandle texture;
+        id<CAMetalDrawable>  drawable = nil;
+        GPUTextureHandle     texture;
         GPUTextureViewHandle view;
 
         // implementation in MetalSwapchain.mm
@@ -392,19 +400,19 @@ struct MetalSwapchain
         void destroy();
     };
 
-    CAMetalLayer* metal_layer = nil;
-    GPUSurfaceDescriptor desc = {};
+    CAMetalLayer*        metal_layer = nil;
+    GPUSurfaceDescriptor desc        = {};
 
     // swapchain state
-    GPUExtent2D extent;
-    MTLPixelFormat format;
+    GPUExtent2D      extent;
+    MTLPixelFormat   format;
     GPUTextureFormat rhi_format;
 
     // frames
     Vector<Frame> frames;
 
     // fence objects
-    Vector<MetalFence> inflight_fences;
+    Vector<MetalFence>     inflight_fences;
     Vector<GPUFenceHandle> image_available_semaphores;
     Vector<GPUFenceHandle> render_complete_semaphores;
 
@@ -423,31 +431,31 @@ struct MetalRHI
     RHIFlags rhiflags = 0;
 
     // Metal device and queues
-    id<MTLDevice> device = nil;
+    id<MTLDevice>       device         = nil;
     id<MTLCommandQueue> graphics_queue = nil;
-    id<MTLCommandQueue> compute_queue = nil;
+    id<MTLCommandQueue> compute_queue  = nil;
     id<MTLCommandQueue> transfer_queue = nil;
 
-    // Frame tracking
-    Vector<MetalFrame> frames = {};
-    uint current_frame_index = 0;
-    uint current_image_index = 0;
-    GPUSurfaceHandle surface_tracker;
+    // frame tracking
+    Vector<MetalFrame> frames              = {};
+    uint               current_frame_index = 0;
+    uint               current_image_index = 0;
+    GPUSurfaceHandle   surface_tracker;
 
-    // Resource managers (using Slotmap pattern)
-    MetalResourceManager<MetalSwapchain> swapchains;
-    MetalResourceManager<MetalFence> fences;
-    MetalResourceManager<MetalBuffer> buffers;
-    MetalResourceManager<MetalTexture> textures;
-    MetalResourceManager<MetalTextureView> views;
-    MetalResourceManager<MetalSampler> samplers;
-    MetalResourceManager<MetalShader> shaders;
-    MetalResourceManager<MetalTlas> tlases;
-    MetalResourceManager<MetalBlas> blases;
-    MetalResourceManager<MetalQuerySet> query_sets;
-    MetalResourceManager<MetalPipeline> pipelines;
-    MetalResourceManager<MetalPipelineLayout> pipeline_layouts;
-    MetalResourceManager<MetalBindGroupHeap> bind_group_heaps;
+    // resource managers (using Slotmap pattern)
+    MetalResourceManager<MetalSwapchain>       swapchains;
+    MetalResourceManager<MetalFence>           fences;
+    MetalResourceManager<MetalBuffer>          buffers;
+    MetalResourceManager<MetalTexture>         textures;
+    MetalResourceManager<MetalTextureView>     views;
+    MetalResourceManager<MetalSampler>         samplers;
+    MetalResourceManager<MetalShader>          shaders;
+    MetalResourceManager<MetalTlas>            tlases;
+    MetalResourceManager<MetalBlas>            blases;
+    MetalResourceManager<MetalQuerySet>        query_sets;
+    MetalResourceManager<MetalPipeline>        pipelines;
+    MetalResourceManager<MetalPipelineLayout>  pipeline_layouts;
+    MetalResourceManager<MetalBindGroupHeap>   bind_group_heaps;
     MetalResourceManager<MetalBindGroupLayout> bind_group_layouts;
 
     auto current_frame() -> MetalFrame&
@@ -458,12 +466,13 @@ struct MetalRHI
     void wait_idle();
 
     // debug label support (for MTLResource and other label-supporting objects)
-    template<typename T>
+    template <typename T>
     void set_debug_label(T object, CString name)
     {
         if (rhiflags.contains(RHIFlag::DEBUG)) {
             if ([object respondsToSelector:@selector(setLabel:)]) {
-                [object setLabel:[NSString stringWithUTF8String:name]];
+                [object performSelector:@selector(setLabel:)
+                             withObject:[NSString stringWithUTF8String:name]];
             }
         }
     }
@@ -553,7 +562,7 @@ namespace api
 
     // swapchain
     bool acquire_next_frame(GPUSurfaceHandle surface, GPUTextureHandle& texture, GPUTextureViewHandle& view,
-                           GPUFenceHandle& image_available_fence, GPUFenceHandle& render_complete_fence, bool& suboptimal);
+        GPUFenceHandle& image_available_fence, GPUFenceHandle& render_complete_fence, bool& suboptimal);
     bool present_curr_frame(GPUSurfaceHandle surface);
 
     // bind group APIs

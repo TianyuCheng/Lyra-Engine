@@ -44,11 +44,11 @@ void MetalCommandBuffer::end_current_encoder()
 void MetalCommandBuffer::reset()
 {
     end_current_encoder();
-    command_buffer = nil;
-    bound_render_pso = nil;
-    bound_compute_pso = nil;
+    command_buffer            = nil;
+    bound_render_pso          = nil;
+    bound_compute_pso         = nil;
     bound_depth_stencil_state = nil;
-    bound_index_buffer = nil;
+    bound_index_buffer        = nil;
     wait_events.clear();
     wait_values.clear();
     signal_events.clear();
@@ -59,12 +59,12 @@ void MetalCommandBuffer::submit()
 {
     end_current_encoder();
 
-    // Encode wait events
+    // encode wait events
     for (size_t i = 0; i < wait_events.size(); ++i) {
         [command_buffer encodeWaitForEvent:wait_events[i] value:wait_values[i]];
     }
 
-    // Encode signal events
+    // encode signal events
     for (size_t i = 0; i < signal_events.size(); ++i) {
         [command_buffer encodeSignalEvent:signal_events[i] value:signal_values[i]];
     }
@@ -74,7 +74,7 @@ void MetalCommandBuffer::submit()
 
 void MetalCommandBuffer::begin()
 {
-    // Command buffer should already be allocated by frame
+    // command buffer should already be allocated by frame
 }
 
 void MetalCommandBuffer::end()
@@ -84,25 +84,25 @@ void MetalCommandBuffer::end()
 
 bool api::create_command_buffer(GPUCommandEncoderHandle& handle, const GPUCommandBufferDescriptor& desc)
 {
-    auto rhi = get_rhi();
+    auto  rhi = get_rhi();
     auto& frm = rhi->current_frame();
-    handle = frm.allocate(desc.queue, true);
+    handle    = frm.allocate(desc.queue, true);
     frm.command(handle).begin();
     return true;
 }
 
 bool api::create_command_bundle(GPUCommandEncoderHandle& handle, const GPUCommandBundleDescriptor& desc)
 {
-    auto rhi = get_rhi();
+    auto  rhi = get_rhi();
     auto& frm = rhi->current_frame();
-    handle = frm.allocate(desc.queue, false);
+    handle    = frm.allocate(desc.queue, false);
     frm.command(handle).begin();
     return true;
 }
 
 bool api::submit_command_buffer(GPUCommandEncoderHandle handle)
 {
-    auto rhi = get_rhi();
+    auto  rhi = get_rhi();
     auto& frm = rhi->current_frame();
     auto& cmd = frm.command(handle);
     cmd.end();
@@ -110,12 +110,9 @@ bool api::submit_command_buffer(GPUCommandEncoderHandle handle)
     return true;
 }
 
-// All cmd:: namespace functions (implementations)
-namespace cmd {
-
-void insert_debug_marker(GPUCommandEncoderHandle cmdbuffer, CString marker_label)
+void cmd::insert_debug_marker(GPUCommandEncoderHandle cmdbuffer, CString marker_label)
 {
-    auto rhi = get_rhi();
+    auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
 
     NSString* label = [NSString stringWithUTF8String:marker_label];
@@ -128,9 +125,9 @@ void insert_debug_marker(GPUCommandEncoderHandle cmdbuffer, CString marker_label
     }
 }
 
-void push_debug_group(GPUCommandEncoderHandle cmdbuffer, CString group_label)
+void cmd::push_debug_group(GPUCommandEncoderHandle cmdbuffer, CString group_label)
 {
-    auto rhi = get_rhi();
+    auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
 
     NSString* label = [NSString stringWithUTF8String:group_label];
@@ -143,9 +140,9 @@ void push_debug_group(GPUCommandEncoderHandle cmdbuffer, CString group_label)
     }
 }
 
-void pop_debug_group(GPUCommandEncoderHandle cmdbuffer)
+void cmd::pop_debug_group(GPUCommandEncoderHandle cmdbuffer)
 {
-    auto rhi = get_rhi();
+    auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
 
     if (cmd.render_encoder) {
@@ -157,20 +154,20 @@ void pop_debug_group(GPUCommandEncoderHandle cmdbuffer)
     }
 }
 
-void wait_fence(GPUCommandEncoderHandle cmdbuffer, GPUFenceHandle fence_handle, GPUBarrierSyncFlags)
+void cmd::wait_fence(GPUCommandEncoderHandle cmdbuffer, GPUFenceHandle fence_handle, GPUBarrierSyncFlags)
 {
-    auto rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto  rhi   = get_rhi();
+    auto& cmd   = rhi->current_frame().command(cmdbuffer);
     auto& fence = fetch_resource(rhi->fences, fence_handle);
 
     cmd.wait_events.push_back(fence.event);
     cmd.wait_values.push_back(fence.target);
 }
 
-void signal_fence(GPUCommandEncoderHandle cmdbuffer, GPUFenceHandle fence_handle, GPUBarrierSyncFlags)
+void cmd::signal_fence(GPUCommandEncoderHandle cmdbuffer, GPUFenceHandle fence_handle, GPUBarrierSyncFlags)
 {
-    auto rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto  rhi   = get_rhi();
+    auto& cmd   = rhi->current_frame().command(cmdbuffer);
     auto& fence = fetch_resource(rhi->fences, fence_handle);
 
     fence.target++;
@@ -178,9 +175,9 @@ void signal_fence(GPUCommandEncoderHandle cmdbuffer, GPUFenceHandle fence_handle
     cmd.signal_values.push_back(fence.target);
 }
 
-void begin_render_pass(GPUCommandEncoderHandle cmdbuffer, const GPURenderPassDescriptor& desc)
+void cmd::begin_render_pass(GPUCommandEncoderHandle cmdbuffer, const GPURenderPassDescriptor& desc)
 {
-    auto rhi = get_rhi();
+    auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
 
     // end any existing encoder
@@ -194,19 +191,19 @@ void begin_render_pass(GPUCommandEncoderHandle cmdbuffer, const GPURenderPassDes
     for (auto& attachment : desc.color_attachments) {
         if (!attachment.view.valid()) continue;
 
-        auto& view = fetch_resource(rhi->views, attachment.view);
-        mtl_pass.colorAttachments[color_index].texture = view.texture;
-        mtl_pass.colorAttachments[color_index].loadAction = mtlenum(attachment.load_op);
+        auto& view                                         = fetch_resource(rhi->views, attachment.view);
+        mtl_pass.colorAttachments[color_index].texture     = view.texture;
+        mtl_pass.colorAttachments[color_index].loadAction  = mtlenum(attachment.load_op);
         mtl_pass.colorAttachments[color_index].storeAction = mtlenum(attachment.store_op);
-        mtl_pass.colorAttachments[color_index].clearColor = MTLClearColorMake(
+        mtl_pass.colorAttachments[color_index].clearColor  = MTLClearColorMake(
             attachment.clear_value.r, attachment.clear_value.g,
             attachment.clear_value.b, attachment.clear_value.a);
 
         // resolve target for MSAA
         if (attachment.resolve_target.valid()) {
-            auto& resolve_view = fetch_resource(rhi->views, attachment.resolve_target);
+            auto& resolve_view                                    = fetch_resource(rhi->views, attachment.resolve_target);
             mtl_pass.colorAttachments[color_index].resolveTexture = resolve_view.texture;
-            mtl_pass.colorAttachments[color_index].storeAction = MTLStoreActionMultisampleResolve;
+            mtl_pass.colorAttachments[color_index].storeAction    = MTLStoreActionMultisampleResolve;
         }
 
         color_index++;
@@ -214,16 +211,16 @@ void begin_render_pass(GPUCommandEncoderHandle cmdbuffer, const GPURenderPassDes
 
     // depth/stencil attachment
     if (desc.depth_stencil_attachment.view.valid()) {
-        auto& view = fetch_resource(rhi->views, desc.depth_stencil_attachment.view);
-        mtl_pass.depthAttachment.texture = view.texture;
-        mtl_pass.depthAttachment.loadAction = mtlenum(desc.depth_stencil_attachment.depth_load_op);
+        auto& view                           = fetch_resource(rhi->views, desc.depth_stencil_attachment.view);
+        mtl_pass.depthAttachment.texture     = view.texture;
+        mtl_pass.depthAttachment.loadAction  = mtlenum(desc.depth_stencil_attachment.depth_load_op);
         mtl_pass.depthAttachment.storeAction = mtlenum(desc.depth_stencil_attachment.depth_store_op);
-        mtl_pass.depthAttachment.clearDepth = desc.depth_stencil_attachment.depth_clear_value;
+        mtl_pass.depthAttachment.clearDepth  = desc.depth_stencil_attachment.depth_clear_value;
 
         // Stencil (if format supports it)
-        mtl_pass.stencilAttachment.texture = view.texture;
-        mtl_pass.stencilAttachment.loadAction = mtlenum(desc.depth_stencil_attachment.stencil_load_op);
-        mtl_pass.stencilAttachment.storeAction = mtlenum(desc.depth_stencil_attachment.stencil_store_op);
+        mtl_pass.stencilAttachment.texture      = view.texture;
+        mtl_pass.stencilAttachment.loadAction   = mtlenum(desc.depth_stencil_attachment.stencil_load_op);
+        mtl_pass.stencilAttachment.storeAction  = mtlenum(desc.depth_stencil_attachment.stencil_store_op);
         mtl_pass.stencilAttachment.clearStencil = desc.depth_stencil_attachment.stencil_clear_value;
     }
 
@@ -231,9 +228,9 @@ void begin_render_pass(GPUCommandEncoderHandle cmdbuffer, const GPURenderPassDes
     cmd.active_encoder = MetalCommandBuffer::RENDER;
 }
 
-void end_render_pass(GPUCommandEncoderHandle cmdbuffer)
+void cmd::end_render_pass(GPUCommandEncoderHandle cmdbuffer)
 {
-    auto rhi = get_rhi();
+    auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
 
     if (cmd.render_encoder) {
@@ -243,18 +240,18 @@ void end_render_pass(GPUCommandEncoderHandle cmdbuffer)
     cmd.active_encoder = MetalCommandBuffer::NONE;
 }
 
-void set_render_pipeline(GPUCommandEncoderHandle cmdbuffer, GPURenderPipelineHandle pipeline_handle)
+void cmd::set_render_pipeline(GPUCommandEncoderHandle cmdbuffer, GPURenderPipelineHandle pipeline_handle)
 {
-    auto rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto  rhi      = get_rhi();
+    auto& cmd      = rhi->current_frame().command(cmdbuffer);
     auto& pipeline = fetch_resource(rhi->pipelines, pipeline_handle);
 
     if (!cmd.render_encoder) return;
 
     [cmd.render_encoder setRenderPipelineState:pipeline.render_pso];
     cmd.bound_render_pso = pipeline.render_pso;
-    cmd.bound_layout = pipeline.layout;
-    cmd.primitive_type = pipeline.primitive_type;
+    cmd.bound_layout     = pipeline.layout;
+    cmd.primitive_type   = pipeline.primitive_type;
 
     // set depth stencil state if available
     if (pipeline.depth_stencil_state) {
@@ -270,14 +267,14 @@ void set_render_pipeline(GPUCommandEncoderHandle cmdbuffer, GPURenderPipelineHan
     if (pipeline.depth_bias != 0.0f || pipeline.depth_bias_slope != 0.0f) {
         [cmd.render_encoder setDepthBias:pipeline.depth_bias
                               slopeScale:pipeline.depth_bias_slope
-                              clamp:pipeline.depth_bias_clamp];
+                                   clamp:pipeline.depth_bias_clamp];
     }
 }
 
-void set_compute_pipeline(GPUCommandEncoderHandle cmdbuffer, GPUComputePipelineHandle pipeline_handle)
+void cmd::set_compute_pipeline(GPUCommandEncoderHandle cmdbuffer, GPUComputePipelineHandle pipeline_handle)
 {
-    auto rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto  rhi      = get_rhi();
+    auto& cmd      = rhi->current_frame().command(cmdbuffer);
     auto& pipeline = fetch_resource(rhi->pipelines, pipeline_handle);
 
     // transition to compute encoder if needed
@@ -288,10 +285,10 @@ void set_compute_pipeline(GPUCommandEncoderHandle cmdbuffer, GPUComputePipelineH
 
     [cmd.compute_encoder setComputePipelineState:pipeline.compute_pso];
     cmd.bound_compute_pso = pipeline.compute_pso;
-    cmd.bound_layout = pipeline.layout;
+    cmd.bound_layout      = pipeline.layout;
 }
 
-void set_raytracing_pipeline(GPUCommandEncoderHandle cmdbuffer, GPURayTracingPipelineHandle pipeline_handle)
+void cmd::set_raytracing_pipeline(GPUCommandEncoderHandle cmdbuffer, GPURayTracingPipelineHandle pipeline_handle)
 {
     auto rhi = get_rhi();
 
@@ -301,7 +298,7 @@ void set_raytracing_pipeline(GPUCommandEncoderHandle cmdbuffer, GPURayTracingPip
         return;
     }
 
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto& cmd      = rhi->current_frame().command(cmdbuffer);
     auto& pipeline = fetch_resource(rhi->pipelines, pipeline_handle);
 
     // NOTE: Metal ray tracing works through compute pipelines with visible/intersection function tables.
@@ -336,9 +333,9 @@ void set_raytracing_pipeline(GPUCommandEncoderHandle cmdbuffer, GPURayTracingPip
     get_logger()->debug("Ray tracing pipeline bound (max_recursion_depth={})", pipeline.max_recursion_depth);
 }
 
-void set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GPUBindGroupHandle bind_group, GPUBufferDynamicOffsets)
+void cmd::set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GPUBindGroupHandle bind_group, GPUBufferDynamicOffsets)
 {
-    auto rhi = get_rhi();
+    auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
 
     if (!bind_group.valid()) return;
@@ -349,7 +346,7 @@ void set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GPUBind
 
     // set argument buffer on the appropriate encoder
     // use buffer index based on bind group index (typically starting at index 0-3 for bind groups)
-    uint buffer_index = index;  // Bind group index maps to buffer index
+    uint buffer_index = index; // Bind group index maps to buffer index
 
     if (cmd.render_encoder) {
         [cmd.render_encoder setVertexBuffer:arg_buffer offset:0 atIndex:buffer_index];
@@ -363,14 +360,14 @@ void set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GPUBind
     }
 }
 
-void set_push_constants(GPUCommandEncoderHandle cmdbuffer, GPUShaderStageFlags visibility, uint offset, uint size, void* data)
+void cmd::set_push_constants(GPUCommandEncoderHandle cmdbuffer, GPUShaderStageFlags visibility, uint offset, uint size, void* data)
 {
-    auto rhi = get_rhi();
+    auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
 
     // Metal uses setBytes for small data (< 4KB)
     // push constant slot is typically at index 0 or a reserved buffer index
-    uint buffer_index = PushConstantRegisterSpace;  // Use high index for push constants
+    uint buffer_index = PushConstantRegisterSpace; // Use high index for push constants
 
     if (cmd.render_encoder && (visibility.contains(GPUShaderStage::VERTEX) || visibility.contains(GPUShaderStage::FRAGMENT))) {
         if (visibility.contains(GPUShaderStage::VERTEX)) {
@@ -384,22 +381,22 @@ void set_push_constants(GPUCommandEncoderHandle cmdbuffer, GPUShaderStageFlags v
     }
 }
 
-void set_index_buffer(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle buffer_handle, GPUIndexFormat format, GPUSize64 offset, GPUSize64)
+void cmd::set_index_buffer(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle buffer_handle, GPUIndexFormat format, GPUSize64 offset, GPUSize64)
 {
-    auto rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto  rhi    = get_rhi();
+    auto& cmd    = rhi->current_frame().command(cmdbuffer);
     auto& buffer = fetch_resource(rhi->buffers, buffer_handle);
 
-    cmd.bound_index_buffer = buffer.buffer;
-    cmd.index_format = format;
-    cmd.index_type = mtlenum(format);
+    cmd.bound_index_buffer  = buffer.buffer;
+    cmd.index_format        = format;
+    cmd.index_type          = mtlenum(format);
     cmd.index_buffer_offset = offset;
 }
 
-void set_vertex_buffer(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 slot, GPUBufferHandle buffer_handle, GPUSize64 offset, GPUSize64)
+void cmd::set_vertex_buffer(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 slot, GPUBufferHandle buffer_handle, GPUSize64 offset, GPUSize64)
 {
-    auto rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto  rhi    = get_rhi();
+    auto& cmd    = rhi->current_frame().command(cmdbuffer);
     auto& buffer = fetch_resource(rhi->buffers, buffer_handle);
 
     if (cmd.render_encoder) {
@@ -407,9 +404,9 @@ void set_vertex_buffer(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 slot, GPUBu
     }
 }
 
-void draw(GPUCommandEncoderHandle cmdbuffer, GPUSize32 vertex_count, GPUSize32 instance_count, GPUSize32 first_vertex, GPUSize32 first_instance)
+void cmd::draw(GPUCommandEncoderHandle cmdbuffer, GPUSize32 vertex_count, GPUSize32 instance_count, GPUSize32 first_vertex, GPUSize32 first_instance)
 {
-    auto rhi = get_rhi();
+    auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
 
     if (!cmd.render_encoder) return;
@@ -421,14 +418,14 @@ void draw(GPUCommandEncoderHandle cmdbuffer, GPUSize32 vertex_count, GPUSize32 i
                           baseInstance:first_instance];
 }
 
-void draw_indexed(GPUCommandEncoderHandle cmdbuffer, GPUSize32 index_count, GPUSize32 instance_count, GPUSize32 first_index, GPUSignedOffset32 base_vertex, GPUSize32 first_instance)
+void cmd::draw_indexed(GPUCommandEncoderHandle cmdbuffer, GPUSize32 index_count, GPUSize32 instance_count, GPUSize32 first_index, GPUSignedOffset32 base_vertex, GPUSize32 first_instance)
 {
-    auto rhi = get_rhi();
+    auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
 
     if (!cmd.render_encoder || !cmd.bound_index_buffer) return;
 
-    size_t index_size = (cmd.index_type == MTLIndexTypeUInt16) ? 2 : 4;
+    size_t index_size   = (cmd.index_type == MTLIndexTypeUInt16) ? 2 : 4;
     size_t index_offset = cmd.index_buffer_offset + first_index * index_size;
 
     [cmd.render_encoder drawIndexedPrimitives:cmd.primitive_type
@@ -441,10 +438,10 @@ void draw_indexed(GPUCommandEncoderHandle cmdbuffer, GPUSize32 index_count, GPUS
                                  baseInstance:first_instance];
 }
 
-void draw_indirect(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle indirect_buffer_handle, GPUSize64 indirect_offset, GPUSize32 draw_count)
+void cmd::draw_indirect(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle indirect_buffer_handle, GPUSize64 indirect_offset, GPUSize32 draw_count)
 {
-    auto rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto  rhi             = get_rhi();
+    auto& cmd             = rhi->current_frame().command(cmdbuffer);
     auto& indirect_buffer = fetch_resource(rhi->buffers, indirect_buffer_handle);
 
     if (!cmd.render_encoder) return;
@@ -456,10 +453,10 @@ void draw_indirect(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle indirect_b
     }
 }
 
-void draw_indexed_indirect(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle indirect_buffer_handle, GPUSize64 indirect_offset, GPUSize32 draw_count)
+void cmd::draw_indexed_indirect(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle indirect_buffer_handle, GPUSize64 indirect_offset, GPUSize32 draw_count)
 {
-    auto rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto  rhi             = get_rhi();
+    auto& cmd             = rhi->current_frame().command(cmdbuffer);
     auto& indirect_buffer = fetch_resource(rhi->buffers, indirect_buffer_handle);
 
     if (!cmd.render_encoder || !cmd.bound_index_buffer) return;
@@ -474,9 +471,9 @@ void draw_indexed_indirect(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle in
     }
 }
 
-void dispatch_workgroups(GPUCommandEncoderHandle cmdbuffer, GPUSize32 x, GPUSize32 y, GPUSize32 z)
+void cmd::dispatch_workgroups(GPUCommandEncoderHandle cmdbuffer, GPUSize32 x, GPUSize32 y, GPUSize32 z)
 {
-    auto rhi = get_rhi();
+    auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
 
     if (!cmd.compute_encoder || !cmd.bound_compute_pso) return;
@@ -484,37 +481,37 @@ void dispatch_workgroups(GPUCommandEncoderHandle cmdbuffer, GPUSize32 x, GPUSize
     MTLSize threadgroups = MTLSizeMake(x, y, z);
 
     // Get optimal threadgroup size from pipeline
-    NSUInteger width = [cmd.bound_compute_pso threadExecutionWidth];
-    NSUInteger height = [cmd.bound_compute_pso maxTotalThreadsPerThreadgroup] / width;
-    MTLSize threads_per_group = MTLSizeMake(width, height > 0 ? height : 1, 1);
+    NSUInteger width             = [cmd.bound_compute_pso threadExecutionWidth];
+    NSUInteger height            = [cmd.bound_compute_pso maxTotalThreadsPerThreadgroup] / width;
+    MTLSize    threads_per_group = MTLSizeMake(width, height > 0 ? height : 1, 1);
 
     [cmd.compute_encoder dispatchThreadgroups:threadgroups
                         threadsPerThreadgroup:threads_per_group];
 }
 
-void dispatch_workgroups_indirect(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle indirect_buffer_handle, GPUSize64 indirect_offset)
+void cmd::dispatch_workgroups_indirect(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle indirect_buffer_handle, GPUSize64 indirect_offset)
 {
-    auto rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto  rhi             = get_rhi();
+    auto& cmd             = rhi->current_frame().command(cmdbuffer);
     auto& indirect_buffer = fetch_resource(rhi->buffers, indirect_buffer_handle);
 
     if (!cmd.compute_encoder || !cmd.bound_compute_pso) return;
 
-    NSUInteger width = [cmd.bound_compute_pso threadExecutionWidth];
-    NSUInteger height = [cmd.bound_compute_pso maxTotalThreadsPerThreadgroup] / width;
-    MTLSize threads_per_group = MTLSizeMake(width, height > 0 ? height : 1, 1);
+    NSUInteger width             = [cmd.bound_compute_pso threadExecutionWidth];
+    NSUInteger height            = [cmd.bound_compute_pso maxTotalThreadsPerThreadgroup] / width;
+    MTLSize    threads_per_group = MTLSizeMake(width, height > 0 ? height : 1, 1);
 
     [cmd.compute_encoder dispatchThreadgroupsWithIndirectBuffer:indirect_buffer.buffer
                                            indirectBufferOffset:indirect_offset
                                           threadsPerThreadgroup:threads_per_group];
 }
 
-void copy_buffer_to_buffer(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle source_handle, GPUSize64 source_offset, GPUBufferHandle dest_handle, GPUSize64 dest_offset, GPUSize64 size)
+void cmd::copy_buffer_to_buffer(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle source_handle, GPUSize64 source_offset, GPUBufferHandle dest_handle, GPUSize64 dest_offset, GPUSize64 size)
 {
-    auto rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto  rhi    = get_rhi();
+    auto& cmd    = rhi->current_frame().command(cmdbuffer);
     auto& source = fetch_resource(rhi->buffers, source_handle);
-    auto& dest = fetch_resource(rhi->buffers, dest_handle);
+    auto& dest   = fetch_resource(rhi->buffers, dest_handle);
 
     cmd.transition_encoder(MetalCommandBuffer::BLIT);
     if (!cmd.blit_encoder) {
@@ -528,11 +525,11 @@ void copy_buffer_to_buffer(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle so
                                 size:size];
 }
 
-void copy_buffer_to_texture(GPUCommandEncoderHandle cmdbuffer, const GPUTexelCopyBufferInfo& source, const GPUTexelCopyTextureInfo& dest, GPUExtent3D copy_size)
+void cmd::copy_buffer_to_texture(GPUCommandEncoderHandle cmdbuffer, const GPUTexelCopyBufferInfo& source, const GPUTexelCopyTextureInfo& dest, GPUExtent3D copy_size)
 {
-    auto rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
-    auto& buffer = fetch_resource(rhi->buffers, source.buffer);
+    auto  rhi     = get_rhi();
+    auto& cmd     = rhi->current_frame().command(cmdbuffer);
+    auto& buffer  = fetch_resource(rhi->buffers, source.buffer);
     auto& texture = fetch_resource(rhi->textures, dest.texture);
 
     cmd.transition_encoder(MetalCommandBuffer::BLIT);
@@ -541,7 +538,7 @@ void copy_buffer_to_texture(GPUCommandEncoderHandle cmdbuffer, const GPUTexelCop
     }
 
     MTLOrigin origin = MTLOriginMake(dest.origin.x, dest.origin.y, dest.origin.z);
-    MTLSize size = MTLSizeMake(copy_size.width, copy_size.height, copy_size.depth);
+    MTLSize   size   = MTLSizeMake(copy_size.width, copy_size.height, copy_size.depth);
 
     [cmd.blit_encoder copyFromBuffer:buffer.buffer
                         sourceOffset:source.offset
@@ -554,12 +551,12 @@ void copy_buffer_to_texture(GPUCommandEncoderHandle cmdbuffer, const GPUTexelCop
                    destinationOrigin:origin];
 }
 
-void copy_texture_to_buffer(GPUCommandEncoderHandle cmdbuffer, const GPUTexelCopyTextureInfo& source, const GPUTexelCopyBufferInfo& dest, const GPUExtent3D& copy_size)
+void cmd::copy_texture_to_buffer(GPUCommandEncoderHandle cmdbuffer, const GPUTexelCopyTextureInfo& source, const GPUTexelCopyBufferInfo& dest, const GPUExtent3D& copy_size)
 {
-    auto rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto  rhi     = get_rhi();
+    auto& cmd     = rhi->current_frame().command(cmdbuffer);
     auto& texture = fetch_resource(rhi->textures, source.texture);
-    auto& buffer = fetch_resource(rhi->buffers, dest.buffer);
+    auto& buffer  = fetch_resource(rhi->buffers, dest.buffer);
 
     cmd.transition_encoder(MetalCommandBuffer::BLIT);
     if (!cmd.blit_encoder) {
@@ -567,7 +564,7 @@ void copy_texture_to_buffer(GPUCommandEncoderHandle cmdbuffer, const GPUTexelCop
     }
 
     MTLOrigin origin = MTLOriginMake(source.origin.x, source.origin.y, source.origin.z);
-    MTLSize size = MTLSizeMake(copy_size.width, copy_size.height, copy_size.depth);
+    MTLSize   size   = MTLSizeMake(copy_size.width, copy_size.height, copy_size.depth);
 
     [cmd.blit_encoder copyFromTexture:texture.texture
                           sourceSlice:0
@@ -580,10 +577,10 @@ void copy_texture_to_buffer(GPUCommandEncoderHandle cmdbuffer, const GPUTexelCop
              destinationBytesPerImage:dest.bytes_per_row * dest.rows_per_image];
 }
 
-void copy_texture_to_texture(GPUCommandEncoderHandle cmdbuffer, const GPUTexelCopyTextureInfo& source, const GPUTexelCopyTextureInfo& dest, const GPUExtent3D& copy_size)
+void cmd::copy_texture_to_texture(GPUCommandEncoderHandle cmdbuffer, const GPUTexelCopyTextureInfo& source, const GPUTexelCopyTextureInfo& dest, const GPUExtent3D& copy_size)
 {
-    auto rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto  rhi         = get_rhi();
+    auto& cmd         = rhi->current_frame().command(cmdbuffer);
     auto& src_texture = fetch_resource(rhi->textures, source.texture);
     auto& dst_texture = fetch_resource(rhi->textures, dest.texture);
 
@@ -594,7 +591,7 @@ void copy_texture_to_texture(GPUCommandEncoderHandle cmdbuffer, const GPUTexelCo
 
     MTLOrigin src_origin = MTLOriginMake(source.origin.x, source.origin.y, source.origin.z);
     MTLOrigin dst_origin = MTLOriginMake(dest.origin.x, dest.origin.y, dest.origin.z);
-    MTLSize size = MTLSizeMake(copy_size.width, copy_size.height, copy_size.depth);
+    MTLSize   size       = MTLSizeMake(copy_size.width, copy_size.height, copy_size.depth);
 
     [cmd.blit_encoder copyFromTexture:src_texture.texture
                           sourceSlice:0
@@ -607,10 +604,10 @@ void copy_texture_to_texture(GPUCommandEncoderHandle cmdbuffer, const GPUTexelCo
                     destinationOrigin:dst_origin];
 }
 
-void clear_buffer(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle buffer_handle, GPUSize64 offset, GPUSize64 size)
+void cmd::clear_buffer(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle buffer_handle, GPUSize64 offset, GPUSize64 size)
 {
-    auto rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto  rhi    = get_rhi();
+    auto& cmd    = rhi->current_frame().command(cmdbuffer);
     auto& buffer = fetch_resource(rhi->buffers, buffer_handle);
 
     cmd.transition_encoder(MetalCommandBuffer::BLIT);
@@ -622,15 +619,15 @@ void clear_buffer(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle buffer_hand
     [cmd.blit_encoder fillBuffer:buffer.buffer range:NSMakeRange(offset, clear_size) value:0];
 }
 
-void clear_texture(GPUCommandEncoderHandle, GPUTextureHandle, const GPUTextureSubresourceRange&)
+void cmd::clear_texture(GPUCommandEncoderHandle, GPUTextureHandle, const GPUTextureSubresourceRange&)
 {
     // Metal doesn't have a direct clear texture command
     // Would need to use a render pass with clear load action
 }
 
-void set_viewport(GPUCommandEncoderHandle cmdbuffer, float x, float y, float w, float h, float min_depth, float max_depth)
+void cmd::set_viewport(GPUCommandEncoderHandle cmdbuffer, float x, float y, float w, float h, float min_depth, float max_depth)
 {
-    auto rhi = get_rhi();
+    auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
 
     if (!cmd.render_encoder) return;
@@ -639,9 +636,9 @@ void set_viewport(GPUCommandEncoderHandle cmdbuffer, float x, float y, float w, 
     [cmd.render_encoder setViewport:viewport];
 }
 
-void set_scissor_rect(GPUCommandEncoderHandle cmdbuffer, GPUIntegerCoordinate x, GPUIntegerCoordinate y, GPUIntegerCoordinate w, GPUIntegerCoordinate h)
+void cmd::set_scissor_rect(GPUCommandEncoderHandle cmdbuffer, GPUIntegerCoordinate x, GPUIntegerCoordinate y, GPUIntegerCoordinate w, GPUIntegerCoordinate h)
 {
-    auto rhi = get_rhi();
+    auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
 
     if (!cmd.render_encoder) return;
@@ -650,9 +647,9 @@ void set_scissor_rect(GPUCommandEncoderHandle cmdbuffer, GPUIntegerCoordinate x,
     [cmd.render_encoder setScissorRect:scissor];
 }
 
-void set_blend_constant(GPUCommandEncoderHandle cmdbuffer, GPUColor color)
+void cmd::set_blend_constant(GPUCommandEncoderHandle cmdbuffer, GPUColor color)
 {
-    auto rhi = get_rhi();
+    auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
 
     if (!cmd.render_encoder) return;
@@ -660,9 +657,9 @@ void set_blend_constant(GPUCommandEncoderHandle cmdbuffer, GPUColor color)
     [cmd.render_encoder setBlendColorRed:color.r green:color.g blue:color.b alpha:color.a];
 }
 
-void set_stencil_reference(GPUCommandEncoderHandle cmdbuffer, GPUStencilValue reference)
+void cmd::set_stencil_reference(GPUCommandEncoderHandle cmdbuffer, GPUStencilValue reference)
 {
-    auto rhi = get_rhi();
+    auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
 
     if (!cmd.render_encoder) return;
@@ -670,9 +667,9 @@ void set_stencil_reference(GPUCommandEncoderHandle cmdbuffer, GPUStencilValue re
     [cmd.render_encoder setStencilReferenceValue:reference];
 }
 
-void begin_occlusion_query(GPUCommandEncoderHandle cmdbuffer, GPUSize32 query_index)
+void cmd::begin_occlusion_query(GPUCommandEncoderHandle cmdbuffer, GPUSize32 query_index)
 {
-    auto rhi = get_rhi();
+    auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
 
     if (!cmd.render_encoder) return;
@@ -680,9 +677,9 @@ void begin_occlusion_query(GPUCommandEncoderHandle cmdbuffer, GPUSize32 query_in
     [cmd.render_encoder setVisibilityResultMode:MTLVisibilityResultModeBoolean offset:query_index * sizeof(uint64_t)];
 }
 
-void end_occlusion_query(GPUCommandEncoderHandle cmdbuffer)
+void cmd::end_occlusion_query(GPUCommandEncoderHandle cmdbuffer)
 {
-    auto rhi = get_rhi();
+    auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
 
     if (!cmd.render_encoder) return;
@@ -690,10 +687,10 @@ void end_occlusion_query(GPUCommandEncoderHandle cmdbuffer)
     [cmd.render_encoder setVisibilityResultMode:MTLVisibilityResultModeDisabled offset:0];
 }
 
-void write_timestamp(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle query_set_handle, GPUSize32 query_index)
+void cmd::write_timestamp(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle query_set_handle, GPUSize32 query_index)
 {
-    auto rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto  rhi       = get_rhi();
+    auto& cmd       = rhi->current_frame().command(cmdbuffer);
     auto& query_set = fetch_resource(rhi->query_sets, query_set_handle);
 
     if (query_set.type != GPUQueryType::TIMESTAMP || !query_set.sample_buffer) {
@@ -713,12 +710,12 @@ void write_timestamp(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle query_
                                  withBarrier:YES];
 }
 
-void write_blas_properties(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle query_set_handle, GPUSize32 query_index, GPUBlasHandle blas_handle)
+void cmd::write_blas_properties(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle query_set_handle, GPUSize32 query_index, GPUBlasHandle blas_handle)
 {
-    auto rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto  rhi       = get_rhi();
+    auto& cmd       = rhi->current_frame().command(cmdbuffer);
     auto& query_set = fetch_resource(rhi->query_sets, query_set_handle);
-    auto& blas = fetch_resource(rhi->blases, blas_handle);
+    auto& blas      = fetch_resource(rhi->blases, blas_handle);
 
     if (query_set.type != GPUQueryType::BLAS_PROPERTIES || !query_set.visibility_buffer) {
         get_logger()->error("Invalid query set for BLAS properties write");
@@ -732,11 +729,11 @@ void write_blas_properties(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle 
     *sizes_ptr = blas.sizes;
 }
 
-void resolve_query_set(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle query_set_handle, GPUSize32 first_query, GPUSize32 query_count, GPUBufferHandle destination_handle, GPUSize64 destination_offset)
+void cmd::resolve_query_set(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle query_set_handle, GPUSize32 first_query, GPUSize32 query_count, GPUBufferHandle destination_handle, GPUSize64 destination_offset)
 {
-    auto rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
-    auto& query_set = fetch_resource(rhi->query_sets, query_set_handle);
+    auto  rhi         = get_rhi();
+    auto& cmd         = rhi->current_frame().command(cmdbuffer);
+    auto& query_set   = fetch_resource(rhi->query_sets, query_set_handle);
     auto& destination = fetch_resource(rhi->buffers, destination_handle);
 
     cmd.transition_encoder(MetalCommandBuffer::BLIT);
@@ -761,10 +758,10 @@ void resolve_query_set(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle quer
         {
             if (query_set.visibility_buffer) {
                 // Copy from visibility buffer to destination
-                size_t element_size = (query_set.type == GPUQueryType::OCCLUSION)
-                    ? sizeof(uint64_t)
-                    : sizeof(MTLAccelerationStructureSizes);
-                size_t copy_size = query_count * element_size;
+                size_t element_size  = (query_set.type == GPUQueryType::OCCLUSION)
+                                           ? sizeof(uint64_t)
+                                           : sizeof(MTLAccelerationStructureSizes);
+                size_t copy_size     = query_count * element_size;
                 size_t source_offset = first_query * element_size;
 
                 [cmd.blit_encoder copyFromBuffer:query_set.visibility_buffer
@@ -782,14 +779,14 @@ void resolve_query_set(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle quer
     }
 }
 
-void memory_barrier(GPUCommandEncoderHandle cmdbuffer, GPUMemoryBarriers barriers)
+void cmd::memory_barrier(GPUCommandEncoderHandle cmdbuffer, GPUMemoryBarriers barriers)
 {
-    auto rhi = get_rhi();
+    auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
 
     if (cmd.render_encoder) {
-        MTLBarrierScope scope = MTLBarrierScopeBuffers | MTLBarrierScopeTextures;
-        MTLRenderStages after = MTLRenderStageVertex | MTLRenderStageFragment;
+        MTLBarrierScope scope  = MTLBarrierScopeBuffers | MTLBarrierScopeTextures;
+        MTLRenderStages after  = MTLRenderStageVertex | MTLRenderStageFragment;
         MTLRenderStages before = MTLRenderStageVertex | MTLRenderStageFragment;
         [cmd.render_encoder memoryBarrierWithScope:scope afterStages:after beforeStages:before];
     } else if (cmd.compute_encoder) {
@@ -797,22 +794,22 @@ void memory_barrier(GPUCommandEncoderHandle cmdbuffer, GPUMemoryBarriers barrier
     }
 }
 
-void buffer_barrier(GPUCommandEncoderHandle cmdbuffer, GPUBufferBarriers barriers)
+void cmd::buffer_barrier(GPUCommandEncoderHandle cmdbuffer, GPUBufferBarriers barriers)
 {
     // buffer barriers handled through memory barrier
     memory_barrier(cmdbuffer, {});
 }
 
-void texture_barrier(GPUCommandEncoderHandle cmdbuffer, GPUTextureBarriers barriers)
+void cmd::texture_barrier(GPUCommandEncoderHandle cmdbuffer, GPUTextureBarriers barriers)
 {
     // texture barriers handled through memory barrier
     memory_barrier(cmdbuffer, {});
 }
 
-void build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratch_buffer_handle, GPUTlasBuildEntries entries)
+void cmd::build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratch_buffer_handle, GPUTlasBuildEntries entries)
 {
-    auto rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto  rhi            = get_rhi();
+    auto& cmd            = rhi->current_frame().command(cmdbuffer);
     auto& scratch_buffer = fetch_resource(rhi->buffers, scratch_buffer_handle);
 
     // check device support
@@ -842,7 +839,7 @@ void build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratch_buf
         // create instance buffer from GPUTlasInstances
         if (!entry.instances.empty()) {
             NSUInteger instance_count = entry.instances.size();
-            NSUInteger buffer_size = instance_count * sizeof(MTLAccelerationStructureUserIDInstanceDescriptor);
+            NSUInteger buffer_size    = instance_count * sizeof(MTLAccelerationStructureUserIDInstanceDescriptor);
 
             // allocate temporary buffer for instance descriptors
             id<MTLBuffer> instance_buffer = [rhi->device newBufferWithLength:buffer_size
@@ -852,7 +849,7 @@ void build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratch_buf
                 (MTLAccelerationStructureUserIDInstanceDescriptor*)[instance_buffer contents];
 
             for (NSUInteger i = 0; i < instance_count; ++i) {
-                auto& src_instance = entry.instances.at(i);
+                auto& src_instance   = entry.instances.at(i);
                 auto& dst_descriptor = descriptors[i];
 
                 // copy transform (3x4 matrix in row-major order)
@@ -862,20 +859,20 @@ void build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratch_buf
                     }
                 }
 
-                dst_descriptor.mask = src_instance.mask;
-                dst_descriptor.userID = src_instance.custom_data & 0xFFFFFF;  // 24-bit custom index
+                dst_descriptor.mask    = src_instance.mask;
+                dst_descriptor.userID  = src_instance.custom_data & 0xFFFFFF; // 24-bit custom index
                 dst_descriptor.options = MTLAccelerationStructureInstanceOptionNone;
 
                 // get BLAS reference
                 if (src_instance.blas.valid()) {
-                    auto& blas = fetch_resource(rhi->blases, src_instance.blas);
-                    dst_descriptor.accelerationStructureIndex = 0;  // Index in acceleration structure array
+                    auto& blas                                = fetch_resource(rhi->blases, src_instance.blas);
+                    dst_descriptor.accelerationStructureIndex = 0; // Index in acceleration structure array
                 }
             }
 
-            as_desc.instanceDescriptorBuffer = instance_buffer;
+            as_desc.instanceDescriptorBuffer       = instance_buffer;
             as_desc.instanceDescriptorBufferOffset = 0;
-            as_desc.instanceCount = instance_count;
+            as_desc.instanceCount                  = instance_count;
 
             // collect all referenced BLAS acceleration structures
             NSMutableArray<id<MTLAccelerationStructure>>* blas_array = [NSMutableArray new];
@@ -896,10 +893,10 @@ void build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratch_buf
     }
 }
 
-void build_blases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratch_buffer_handle, GPUBlasBuildEntries entries)
+void cmd::build_blases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratch_buffer_handle, GPUBlasBuildEntries entries)
 {
-    auto rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto  rhi            = get_rhi();
+    auto& cmd            = rhi->current_frame().command(cmdbuffer);
     auto& scratch_buffer = fetch_resource(rhi->buffers, scratch_buffer_handle);
 
     // check device support
@@ -933,25 +930,25 @@ void build_blases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratch_buf
         if (entry.geometries.type == GPUBlasType::TRIANGLE) {
             auto& triangles = entry.geometries.triangles;
             for (NSUInteger i = 0; i < triangles.size() && i < geom_descs.count; ++i) {
-                auto& triangle_geom = triangles.at(i);
-                MTLAccelerationStructureTriangleGeometryDescriptor* geom = geom_descs[i];
+                auto&                                               triangle_geom = triangles.at(i);
+                MTLAccelerationStructureTriangleGeometryDescriptor* geom          = geom_descs[i];
 
-                auto& vertex_buffer = fetch_resource(rhi->buffers, triangle_geom.vertex_buffer);
-                geom.vertexBuffer = vertex_buffer.buffer;
+                auto& vertex_buffer     = fetch_resource(rhi->buffers, triangle_geom.vertex_buffer);
+                geom.vertexBuffer       = vertex_buffer.buffer;
                 geom.vertexBufferOffset = triangle_geom.first_vertex * triangle_geom.vertex_stride;
-                geom.vertexStride = triangle_geom.vertex_stride;
+                geom.vertexStride       = triangle_geom.vertex_stride;
 
                 if (triangle_geom.index_buffer.valid()) {
                     auto& index_buffer = fetch_resource(rhi->buffers, triangle_geom.index_buffer);
-                    geom.indexBuffer = index_buffer.buffer;
+                    geom.indexBuffer   = index_buffer.buffer;
                     // Calculate index buffer offset based on index format
-                    NSUInteger index_size = (triangle_geom.size.index_format == GPUIndexFormat::UINT16) ? 2 : 4;
+                    NSUInteger index_size  = (triangle_geom.size.index_format == GPUIndexFormat::UINT16) ? 2 : 4;
                     geom.indexBufferOffset = triangle_geom.first_index * index_size;
                 }
 
                 if (triangle_geom.transform_buffer.valid()) {
-                    auto& transform_buffer = fetch_resource(rhi->buffers, triangle_geom.transform_buffer);
-                    geom.transformationMatrixBuffer = transform_buffer.buffer;
+                    auto& transform_buffer                = fetch_resource(rhi->buffers, triangle_geom.transform_buffer);
+                    geom.transformationMatrixBuffer       = transform_buffer.buffer;
                     geom.transformationMatrixBufferOffset = triangle_geom.transform_buffer_offset;
                 }
             }
@@ -965,10 +962,10 @@ void build_blases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratch_buf
     }
 }
 
-void copy_blas(GPUCommandEncoderHandle cmdbuffer, GPUBlasHandle src_blas_handle, GPUBlasHandle dst_blas_handle)
+void cmd::copy_blas(GPUCommandEncoderHandle cmdbuffer, GPUBlasHandle src_blas_handle, GPUBlasHandle dst_blas_handle)
 {
-    auto rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto  rhi      = get_rhi();
+    auto& cmd      = rhi->current_frame().command(cmdbuffer);
     auto& src_blas = fetch_resource(rhi->blases, src_blas_handle);
     auto& dst_blas = fetch_resource(rhi->blases, dst_blas_handle);
 
@@ -987,5 +984,3 @@ void copy_blas(GPUCommandEncoderHandle cmdbuffer, GPUBlasHandle src_blas_handle,
     [cmd.accel_encoder copyAccelerationStructure:src_blas.blas
                          toAccelerationStructure:dst_blas.blas];
 }
-
-} // namespace cmd

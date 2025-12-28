@@ -50,15 +50,15 @@ GPUCommandEncoderHandle MetalFrame::allocate(GPUQueueType type, bool primary)
     // select the appropriate command pool based on queue type
     switch (type) {
         case GPUQueueType::DEFAULT:
-            cmd.command_queue = graphics_command_pool.command_queue;
+            cmd.command_queue  = graphics_command_pool.command_queue;
             cmd.command_buffer = graphics_command_pool.allocate();
             break;
         case GPUQueueType::COMPUTE:
-            cmd.command_queue = compute_command_pool.command_queue;
+            cmd.command_queue  = compute_command_pool.command_queue;
             cmd.command_buffer = compute_command_pool.allocate();
             break;
         case GPUQueueType::TRANSFER:
-            cmd.command_queue = transfer_command_pool.command_queue;
+            cmd.command_queue  = transfer_command_pool.command_queue;
             cmd.command_buffer = transfer_command_pool.allocate();
             break;
     }

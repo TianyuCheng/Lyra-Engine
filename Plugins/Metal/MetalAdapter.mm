@@ -7,7 +7,7 @@ bool api::create_adapter(GPUAdapterProps& adapter, const GPUAdapterDescriptor& d
 {
     auto rhi = get_rhi();
 
-    // Get default Metal device
+    // get default Metal device
     rhi->device = MTLCreateSystemDefaultDevice();
 
     if (!rhi->device) {
@@ -15,13 +15,13 @@ bool api::create_adapter(GPUAdapterProps& adapter, const GPUAdapterDescriptor& d
         return false;
     }
 
-    // Populate adapter properties
+    // populate adapter properties
     adapter.info.description = [[rhi->device name] UTF8String];
     adapter.info.device = "Metal GPU";
     adapter.info.vendor = "Apple";
     adapter.info.architecture = "Metal";
 
-    // Set supported features
+    // set supported features
     adapter.features.depth_clip_control = true;
     adapter.features.depth32float_stencil8 = true;
     adapter.features.timestamp_query = true;
@@ -31,14 +31,14 @@ bool api::create_adapter(GPUAdapterProps& adapter, const GPUAdapterDescriptor& d
     adapter.features.bgra8unorm_storage = true;
     // adapter.features.pipeline_statistics_query = false;
 
-    // Check for raytracing support (Metal 3+)
+    // check for raytracing support (Metal 3+)
     if (@available(macOS 12.0, iOS 15.0, *)) {
         adapter.features.raytracing = [rhi->device supportsRaytracing];
     } else {
         adapter.features.raytracing = false;
     }
 
-    // Set limits
+    // set limits
     adapter.limits.max_texture_dimension_1d = 16384;
     adapter.limits.max_texture_dimension_2d = 16384;
     adapter.limits.max_texture_dimension_3d = 2048;
@@ -73,5 +73,5 @@ bool api::create_adapter(GPUAdapterProps& adapter, const GPUAdapterDescriptor& d
 void api::delete_adapter()
 {
     // Metal adapter (MTLDevice selection) does not need cleanup
-    // The device is released in delete_device
+    // the device is released in delete_device
 }

@@ -46,9 +46,9 @@ MetalTlas::MetalTlas(const GPUTlasDescriptor& desc)
 
 void MetalTlas::destroy()
 {
-    tlas = nil;
+    tlas       = nil;
     descriptor = nil;
-    sizes = {};
+    sizes      = {};
 }
 
 bool api::create_tlas(GPUTlasHandle& handle, const GPUTlasDescriptor& desc)
@@ -67,7 +67,7 @@ bool api::create_tlas(GPUTlasHandle& handle, const GPUTlasDescriptor& desc)
     }
 
     auto ind = rhi->tlases.add(obj);
-    handle = GPUTlasHandle(ind);
+    handle   = GPUTlasHandle(ind);
     return true;
 }
 
@@ -78,11 +78,11 @@ void api::delete_tlas(GPUTlasHandle handle)
 
 bool api::get_tlas_sizes(GPUTlasHandle handle, GPUBVHSizes& sizes)
 {
-    auto rhi = get_rhi();
+    auto  rhi  = get_rhi();
     auto& tlas = fetch_resource(rhi->tlases, handle);
 
-    sizes.bvh_size = static_cast<uint>(tlas.sizes.accelerationStructureSize);
-    sizes.build_size = static_cast<uint>(tlas.sizes.buildScratchBufferSize);
+    sizes.bvh_size    = static_cast<uint>(tlas.sizes.accelerationStructureSize);
+    sizes.build_size  = static_cast<uint>(tlas.sizes.buildScratchBufferSize);
     sizes.update_size = static_cast<uint>(tlas.sizes.refitScratchBufferSize);
 
     return true;

@@ -5,7 +5,7 @@ using namespace lyra;
 // Metal instance creation (minimal for Metal - mainly device enumeration)
 bool api::create_instance(const RHIDescriptor& desc)
 {
-    auto rhi = new MetalRHI();
+    auto rhi      = new MetalRHI();
     rhi->rhiflags = desc.flags;
     set_rhi(rhi);
 

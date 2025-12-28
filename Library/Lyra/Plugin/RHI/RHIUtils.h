@@ -519,7 +519,7 @@ namespace lyra
         GPUResourceType     type       = GPUResourceType::BUFFER;
         GPUBindingIndex     binding    = {};
         GPUShaderStageFlags visibility = GPUShaderStage(0);
-        GPUIndex32          count      = 1; // NOTE: Non-WebGPU standard API
+        GPUIndex32          count      = 1; // NOTE: Non-WebGPU standard API (bindless when count = ~size_t(0))
         union
         {
             GPUBufferBindingLayout         buffer = {};

@@ -7,21 +7,25 @@ MetalBindGroupHeap::MetalBindGroupHeap(const GPUBindGroupHeapDescriptor& desc)
 {
     auto rhi = get_rhi();
 
-    // Create heap descriptor for argument buffers
-    descriptor = [MTLHeapDescriptor new];
+    has_unified_memory = rhi->device.hasUnifiedMemory;
 
-    // Size based on page_size * typical argument buffer size (256 bytes each is a reasonable estimate)
-    NSUInteger heap_size = desc.page_size * 256;
-    descriptor.size = heap_size;
-    descriptor.storageMode = MTLStorageModeShared;  // CPU and GPU accessible
-    descriptor.cpuCacheMode = MTLCPUCacheModeWriteCombined;
-    descriptor.hazardTrackingMode = MTLHazardTrackingModeTracked;
-    descriptor.type = MTLHeapTypeAutomatic;
+    if (has_unified_memory) {
+        // create heap descriptor for argument buffers
+        descriptor = [MTLHeapDescriptor new];
 
-    heap = [rhi->device newHeapWithDescriptor:descriptor];
-    if (!heap) {
-        get_logger()->error("Failed to create bind group heap");
-        return;
+        // size based on page_size * typical argument buffer size (256 bytes each is a reasonable estimate)
+        NSUInteger heap_size          = desc.page_size * 256;
+        descriptor.size               = heap_size;
+        descriptor.storageMode        = MTLStorageModeShared; // CPU and GPU accessible
+        descriptor.cpuCacheMode       = MTLCPUCacheModeWriteCombined;
+        descriptor.hazardTrackingMode = MTLHazardTrackingModeTracked;
+        descriptor.type               = MTLHeapTypeAutomatic;
+
+        heap = [rhi->device newHeapWithDescriptor:descriptor];
+        if (!heap) {
+            get_logger()->error("Failed to create bind group heap");
+            return;
+        }
     }
 
     heap_offset = 0;
@@ -29,28 +33,28 @@ MetalBindGroupHeap::MetalBindGroupHeap(const GPUBindGroupHeapDescriptor& desc)
 
 void MetalBindGroupHeap::destroy()
 {
-    for (auto& buffer : allocated_buffers) {
+    for (auto& buffer : allocated_buffers)
         buffer = nil;
-    }
+
     allocated_buffers.clear();
-    heap = nil;
-    descriptor = nil;
+    heap        = nil;
+    descriptor  = nil;
     heap_offset = 0;
 }
 
 void MetalBindGroupHeap::reset()
 {
-    // Release allocated buffers but keep heap
-    for (auto& buffer : allocated_buffers) {
+    // release allocated buffers but keep heap
+    for (auto& buffer : allocated_buffers)
         buffer = nil;
-    }
+
     allocated_buffers.clear();
     heap_offset = 0;
 }
 
 id<MTLBuffer> MetalBindGroupHeap::allocate(GPUBindGroupLayoutHandle layout_handle, const GPUBindGroupDescriptor& desc)
 {
-    auto rhi = get_rhi();
+    auto  rhi    = get_rhi();
     auto& layout = fetch_resource(rhi->bind_group_layouts, layout_handle);
 
     if (!layout.encoder) {
@@ -58,29 +62,35 @@ id<MTLBuffer> MetalBindGroupHeap::allocate(GPUBindGroupLayoutHandle layout_handl
         return nil;
     }
 
-    // Get required size from layout encoder
+    // get required size from layout encoder
     NSUInteger required_size = layout.encoded_length;
     if (required_size == 0) {
-        required_size = 256;  // Minimum allocation
+        required_size = 256; // Minimum allocation
     }
 
-    // Align to 256 bytes (Metal requirement for argument buffers)
+    // align to 256 bytes (Metal requirement for argument buffers)
     required_size = (required_size + 255) & ~255;
 
-    // Allocate buffer from heap
-    id<MTLBuffer> arg_buffer = [heap newBufferWithLength:required_size
-                                                 options:MTLResourceStorageModeShared];
+    // allocate buffer from heap or device
+    id<MTLBuffer> arg_buffer;
+    if (heap) {
+        arg_buffer = [heap newBufferWithLength:required_size
+                                       options:MTLResourceStorageModeShared];
+    } else {
+        arg_buffer = [rhi->device newBufferWithLength:required_size
+                                              options:MTLResourceStorageModeManaged];
+    }
     if (!arg_buffer) {
         get_logger()->error("Failed to allocate argument buffer from heap");
         return nil;
     }
 
-    // Encode resources into argument buffer
+    // encode resources into argument buffer
     [layout.encoder setArgumentBuffer:arg_buffer offset:0];
 
     for (auto& entry : desc.entries) {
         switch (entry.type) {
-            case GPUBindingResourceType::BUFFER:
+            case GPUResourceType::BUFFER:
             {
                 auto& buffer = fetch_resource(rhi->buffers, entry.buffer.buffer);
                 [layout.encoder setBuffer:buffer.buffer
@@ -88,22 +98,22 @@ id<MTLBuffer> MetalBindGroupHeap::allocate(GPUBindGroupLayoutHandle layout_handl
                                   atIndex:entry.binding];
                 break;
             }
-            case GPUBindingResourceType::SAMPLER:
+            case GPUResourceType::SAMPLER:
             {
                 auto& sampler = fetch_resource(rhi->samplers, entry.sampler);
                 [layout.encoder setSamplerState:sampler.sampler
                                         atIndex:entry.binding];
                 break;
             }
-            case GPUBindingResourceType::TEXTURE:
-            case GPUBindingResourceType::STORAGE_TEXTURE:
+            case GPUResourceType::TEXTURE:
+            case GPUResourceType::STORAGE_TEXTURE:
             {
                 auto& texture_view = fetch_resource(rhi->views, entry.texture);
                 [layout.encoder setTexture:texture_view.texture
                                    atIndex:entry.binding];
                 break;
             }
-            case GPUBindingResourceType::ACCELERATION_STRUCTURE:
+            case GPUResourceType::ACCELERATION_STRUCTURE:
             {
                 // Metal 3+ acceleration structure binding
                 if (![rhi->device supportsRaytracing]) {
@@ -134,6 +144,11 @@ id<MTLBuffer> MetalBindGroupHeap::allocate(GPUBindGroupLayoutHandle layout_handl
         }
     }
 
+    // if memory is managed, notify the driver that the buffer was modified
+    if (arg_buffer.storageMode == MTLStorageModeManaged) {
+        [arg_buffer didModifyRange:NSMakeRange(0, [arg_buffer length])];
+    }
+
     allocated_buffers.push_back(arg_buffer);
     heap_offset += required_size;
 
@@ -147,7 +162,7 @@ bool api::create_bind_group(GPUBindGroupHandle& handle, const GPUBindGroupDescri
         return false;
     }
 
-    auto rhi = get_rhi();
+    auto  rhi  = get_rhi();
     auto& heap = fetch_resource(rhi->bind_group_heaps, desc.heap);
 
     // Allocate argument buffer from heap
@@ -156,9 +171,9 @@ bool api::create_bind_group(GPUBindGroupHandle& handle, const GPUBindGroupDescri
         return false;
     }
 
-    // Store the argument buffer pointer as the handle value
-    // This allows direct access without indirection through a resource manager
-    // The buffer is owned by the heap and will be cleaned up when heap is reset/destroyed
+    // store the argument buffer pointer as the handle value,
+    // this allows direct access without indirection through a resource manager,
+    // the buffer is owned by the heap and will be cleaned up when heap is reset/destroyed
     handle = GPUBindGroupHandle(reinterpret_cast<uint64_t>((__bridge void*)arg_buffer));
     return true;
 }
@@ -171,7 +186,7 @@ bool api::create_bind_group_heap(GPUBindGroupHeapHandle& handle, const GPUBindGr
         return false;
     }
     auto ind = rhi->bind_group_heaps.add(obj);
-    handle = GPUBindGroupHeapHandle(ind);
+    handle   = GPUBindGroupHeapHandle(ind);
     return true;
 }
 
@@ -182,7 +197,7 @@ void api::delete_bind_group_heap(GPUBindGroupHeapHandle handle)
 
 void api::reset_bind_group_heap(GPUBindGroupHeapHandle handle)
 {
-    auto rhi = get_rhi();
+    auto  rhi  = get_rhi();
     auto& heap = fetch_resource(rhi->bind_group_heaps, handle);
     heap.reset();
 }

@@ -2,7 +2,10 @@
 
 using namespace lyra;
 
-MetalPipeline::MetalPipeline() {}
+MetalPipeline::MetalPipeline()
+{
+    // do nothing
+}
 
 MetalPipeline::MetalPipeline(const GPURenderPipelineDescriptor& desc)
 {
@@ -28,13 +31,13 @@ MetalPipeline::MetalPipeline(const GPURenderPipelineDescriptor& desc)
     MTLRenderPipelineDescriptor* mtl_desc = [MTLRenderPipelineDescriptor new];
 
     // vertex function
-    NSString* vs_entry = [NSString stringWithUTF8String:desc.vertex.entry_point];
+    NSString* vs_entry      = [NSString stringWithUTF8String:desc.vertex.entry_point];
     mtl_desc.vertexFunction = [vshader.library newFunctionWithName:vs_entry];
 
     // fragment function (optional)
     if (desc.fragment.module.valid()) {
-        auto& fshader = fetch_resource(rhi->shaders, desc.fragment.module);
-        NSString* fs_entry = [NSString stringWithUTF8String:desc.fragment.entry_point];
+        auto&     fshader         = fetch_resource(rhi->shaders, desc.fragment.module);
+        NSString* fs_entry        = [NSString stringWithUTF8String:desc.fragment.entry_point];
         mtl_desc.fragmentFunction = [fshader.library newFunctionWithName:fs_entry];
     }
 
@@ -45,14 +48,14 @@ MetalPipeline::MetalPipeline(const GPURenderPipelineDescriptor& desc)
         uint binding = 0;
         for (auto& buffer_layout : desc.vertex.buffers) {
             // Buffer layout
-            vertex_desc.layouts[binding].stride = buffer_layout.array_stride;
-            vertex_desc.layouts[binding].stepRate = 1;
+            vertex_desc.layouts[binding].stride       = buffer_layout.array_stride;
+            vertex_desc.layouts[binding].stepRate     = 1;
             vertex_desc.layouts[binding].stepFunction = mtlenum(buffer_layout.step_mode);
 
             // Attributes
             for (auto& attrib : buffer_layout.attributes) {
-                vertex_desc.attributes[attrib.shader_location].format = mtlenum(attrib.format);
-                vertex_desc.attributes[attrib.shader_location].offset = attrib.offset;
+                vertex_desc.attributes[attrib.shader_location].format      = mtlenum(attrib.format);
+                vertex_desc.attributes[attrib.shader_location].offset      = attrib.offset;
                 vertex_desc.attributes[attrib.shader_location].bufferIndex = binding;
             }
             binding++;
@@ -64,15 +67,15 @@ MetalPipeline::MetalPipeline(const GPURenderPipelineDescriptor& desc)
     uint color_index = 0;
     for (auto& target : desc.fragment.targets) {
         mtl_desc.colorAttachments[color_index].pixelFormat = mtlenum(target.format);
-        mtl_desc.colorAttachments[color_index].writeMask = mtlenum(target.write_mask);
+        mtl_desc.colorAttachments[color_index].writeMask   = mtlenum(target.write_mask);
 
         if (target.blend_enable) {
-            mtl_desc.colorAttachments[color_index].blendingEnabled = YES;
-            mtl_desc.colorAttachments[color_index].rgbBlendOperation = mtlenum(target.blend.color.operation);
-            mtl_desc.colorAttachments[color_index].alphaBlendOperation = mtlenum(target.blend.alpha.operation);
-            mtl_desc.colorAttachments[color_index].sourceRGBBlendFactor = mtlenum(target.blend.color.src_factor);
-            mtl_desc.colorAttachments[color_index].destinationRGBBlendFactor = mtlenum(target.blend.color.dst_factor);
-            mtl_desc.colorAttachments[color_index].sourceAlphaBlendFactor = mtlenum(target.blend.alpha.src_factor);
+            mtl_desc.colorAttachments[color_index].blendingEnabled             = YES;
+            mtl_desc.colorAttachments[color_index].rgbBlendOperation           = mtlenum(target.blend.color.operation);
+            mtl_desc.colorAttachments[color_index].alphaBlendOperation         = mtlenum(target.blend.alpha.operation);
+            mtl_desc.colorAttachments[color_index].sourceRGBBlendFactor        = mtlenum(target.blend.color.src_factor);
+            mtl_desc.colorAttachments[color_index].destinationRGBBlendFactor   = mtlenum(target.blend.color.dst_factor);
+            mtl_desc.colorAttachments[color_index].sourceAlphaBlendFactor      = mtlenum(target.blend.alpha.src_factor);
             mtl_desc.colorAttachments[color_index].destinationAlphaBlendFactor = mtlenum(target.blend.alpha.dst_factor);
         }
         color_index++;
@@ -90,23 +93,23 @@ MetalPipeline::MetalPipeline(const GPURenderPipelineDescriptor& desc)
     }
 
     // multisample state
-    mtl_desc.rasterSampleCount = desc.multisample.count;
+    mtl_desc.rasterSampleCount      = desc.multisample.count;
     mtl_desc.alphaToCoverageEnabled = desc.multisample.alpha_to_coverage_enabled;
-    mtl_desc.alphaToOneEnabled = desc.multisample.alpha_to_one_enabled;
+    mtl_desc.alphaToOneEnabled      = desc.multisample.alpha_to_one_enabled;
 
     // store primitive state
     primitive_type = mtlenum(desc.primitive.topology);
-    cull_mode = mtlenum(desc.primitive.cull_mode);
-    front_face = mtlenum(desc.primitive.front_face);
+    cull_mode      = mtlenum(desc.primitive.cull_mode);
+    front_face     = mtlenum(desc.primitive.front_face);
 
     // store depth bias
-    depth_bias = desc.depth_stencil.depth_bias_constant;
+    depth_bias       = desc.depth_stencil.depth_bias_constant;
     depth_bias_slope = desc.depth_stencil.depth_bias_slope_scale;
     depth_bias_clamp = desc.depth_stencil.depth_bias_clamp;
 
     // create render pipeline state
     NSError* error = nil;
-    render_pso = [rhi->device newRenderPipelineStateWithDescriptor:mtl_desc error:&error];
+    render_pso     = [rhi->device newRenderPipelineStateWithDescriptor:mtl_desc error:&error];
     if (error) {
         get_logger()->error("Failed to create render pipeline: {}", [[error localizedDescription] UTF8String]);
         return;
@@ -120,26 +123,26 @@ MetalPipeline::MetalPipeline(const GPURenderPipelineDescriptor& desc)
                                   desc.depth_stencil.depth_write_enabled;
 
         ds_desc.depthCompareFunction = depth_test_enabled ? mtlenum(desc.depth_stencil.depth_compare) : MTLCompareFunctionAlways;
-        ds_desc.depthWriteEnabled = desc.depth_stencil.depth_write_enabled;
+        ds_desc.depthWriteEnabled    = desc.depth_stencil.depth_write_enabled;
 
         if (stencil_test_enabled) {
-            MTLStencilDescriptor* front_stencil = [MTLStencilDescriptor new];
-            front_stencil.stencilCompareFunction = mtlenum(desc.depth_stencil.stencil_front.compare);
-            front_stencil.stencilFailureOperation = mtlenum(desc.depth_stencil.stencil_front.fail_op);
-            front_stencil.depthFailureOperation = mtlenum(desc.depth_stencil.stencil_front.depth_fail_op);
+            MTLStencilDescriptor* front_stencil     = [MTLStencilDescriptor new];
+            front_stencil.stencilCompareFunction    = mtlenum(desc.depth_stencil.stencil_front.compare);
+            front_stencil.stencilFailureOperation   = mtlenum(desc.depth_stencil.stencil_front.fail_op);
+            front_stencil.depthFailureOperation     = mtlenum(desc.depth_stencil.stencil_front.depth_fail_op);
             front_stencil.depthStencilPassOperation = mtlenum(desc.depth_stencil.stencil_front.pass_op);
-            front_stencil.readMask = desc.depth_stencil.stencil_read_mask;
-            front_stencil.writeMask = desc.depth_stencil.stencil_write_mask;
-            ds_desc.frontFaceStencil = front_stencil;
+            front_stencil.readMask                  = desc.depth_stencil.stencil_read_mask;
+            front_stencil.writeMask                 = desc.depth_stencil.stencil_write_mask;
+            ds_desc.frontFaceStencil                = front_stencil;
 
-            MTLStencilDescriptor* back_stencil = [MTLStencilDescriptor new];
-            back_stencil.stencilCompareFunction = mtlenum(desc.depth_stencil.stencil_back.compare);
-            back_stencil.stencilFailureOperation = mtlenum(desc.depth_stencil.stencil_back.fail_op);
-            back_stencil.depthFailureOperation = mtlenum(desc.depth_stencil.stencil_back.depth_fail_op);
+            MTLStencilDescriptor* back_stencil     = [MTLStencilDescriptor new];
+            back_stencil.stencilCompareFunction    = mtlenum(desc.depth_stencil.stencil_back.compare);
+            back_stencil.stencilFailureOperation   = mtlenum(desc.depth_stencil.stencil_back.fail_op);
+            back_stencil.depthFailureOperation     = mtlenum(desc.depth_stencil.stencil_back.depth_fail_op);
             back_stencil.depthStencilPassOperation = mtlenum(desc.depth_stencil.stencil_back.pass_op);
-            back_stencil.readMask = desc.depth_stencil.stencil_read_mask;
-            back_stencil.writeMask = desc.depth_stencil.stencil_write_mask;
-            ds_desc.backFaceStencil = back_stencil;
+            back_stencil.readMask                  = desc.depth_stencil.stencil_read_mask;
+            back_stencil.writeMask                 = desc.depth_stencil.stencil_write_mask;
+            ds_desc.backFaceStencil                = back_stencil;
         }
 
         depth_stencil_state = [rhi->device newDepthStencilStateWithDescriptor:ds_desc];
@@ -162,7 +165,7 @@ MetalPipeline::MetalPipeline(const GPUComputePipelineDescriptor& desc)
     auto& shader = fetch_resource(rhi->shaders, desc.compute.module);
 
     // get compute function
-    NSString* entry = [NSString stringWithUTF8String:desc.compute.entry_point];
+    NSString*       entry    = [NSString stringWithUTF8String:desc.compute.entry_point];
     id<MTLFunction> function = [shader.library newFunctionWithName:entry];
     if (!function) {
         get_logger()->error("Failed to find compute function: {}", desc.compute.entry_point);
@@ -171,7 +174,7 @@ MetalPipeline::MetalPipeline(const GPUComputePipelineDescriptor& desc)
 
     // create compute pipeline state
     NSError* error = nil;
-    compute_pso = [rhi->device newComputePipelineStateWithFunction:function error:&error];
+    compute_pso    = [rhi->device newComputePipelineStateWithFunction:function error:&error];
     if (error) {
         get_logger()->error("Failed to create compute pipeline: {}", [[error localizedDescription] UTF8String]);
         return;
@@ -230,10 +233,10 @@ MetalPipeline::MetalPipeline(const GPURayTracingPipelineDescriptor& desc)
 
 void MetalPipeline::destroy()
 {
-    render_pso = nil;
-    compute_pso = nil;
-    depth_stencil_state = nil;
-    visible_function_table = nil;
+    render_pso                  = nil;
+    compute_pso                 = nil;
+    depth_stencil_state         = nil;
+    visible_function_table      = nil;
     intersection_function_table = nil;
 }
 
@@ -245,7 +248,7 @@ bool api::create_render_pipeline(GPURenderPipelineHandle& handle, const GPURende
         return false;
     }
     auto ind = rhi->pipelines.add(obj);
-    handle = GPURenderPipelineHandle(ind);
+    handle   = GPURenderPipelineHandle(ind);
     return true;
 }
 
@@ -262,7 +265,7 @@ bool api::create_compute_pipeline(GPUComputePipelineHandle& handle, const GPUCom
         return false;
     }
     auto ind = rhi->pipelines.add(obj);
-    handle = GPUComputePipelineHandle(ind);
+    handle   = GPUComputePipelineHandle(ind);
     return true;
 }
 
@@ -285,7 +288,7 @@ bool api::create_raytracing_pipeline(GPURayTracingPipelineHandle& handle, const 
     // Note: valid() check will pass even with just max_recursion_depth set
     // since the current implementation is a placeholder
     auto ind = rhi->pipelines.add(obj);
-    handle = GPURayTracingPipelineHandle(ind);
+    handle   = GPURayTracingPipelineHandle(ind);
     return true;
 }
 

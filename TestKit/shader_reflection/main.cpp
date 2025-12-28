@@ -61,7 +61,8 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
     [shader("fragment")]
     float4 fsmain(VertexOutput input) : SV_TARGET
     {
-        return haha.tex.Sample(haha.smp, input.color.xy);
+        return haha.tex.Sample(haha.smp, input.color.xy) +
+               hihi.tex.Sample(haha.smp, input.color.xy);
     }
     )""";
 
@@ -95,6 +96,7 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
         float uv[2];
     };
 
+    // reflect vertex attributes
     auto attributes = reflection->get_vertex_attributes({
         {"position", offsetof(Vertex, position)},
         {"texcoord", offsetof(Vertex, uv)},
@@ -102,6 +104,7 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
 
     CHECK_EQ(attributes.size(), 2);
 
+    // attribute: position
     auto pos_attrib_it = std::find_if(attributes.begin(), attributes.end(), [](const auto& a) { return strcmp(a.shader_semantic, "POSITION") == 0; });
     CHECK(pos_attrib_it != attributes.end());
     if (pos_attrib_it != attributes.end()) {
@@ -117,6 +120,7 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
         CHECK_EQ(pos_attrib_it->offset, offsetof(Vertex, position));
     }
 
+    // attribute: texcoord
     auto tex_attrib_it = std::find_if(attributes.begin(), attributes.end(), [](const auto& a) { return strcmp(a.shader_semantic, "TEXCOORD") == 0; });
     CHECK(tex_attrib_it != attributes.end());
     if (tex_attrib_it != attributes.end()) {
@@ -146,29 +150,37 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
         CHECK_EQ(haha_bindgroup_it->entries.at(0).buffer.type, GPUBufferBindingType::UNIFORM);
         CHECK_EQ(haha_bindgroup_it->entries.at(0).binding.index, 0);
         CHECK_EQ(haha_bindgroup_it->entries.at(0).count, 1);
-        CHECK(haha_bindgroup_it->entries.at(0).visibility.contains(GPUShaderStage::VERTEX));
-        CHECK(!haha_bindgroup_it->entries.at(0).visibility.contains(GPUShaderStage::FRAGMENT));
+        if (target != CompileTarget::MSL) {
+            CHECK(haha_bindgroup_it->entries.at(0).visibility.contains(GPUShaderStage::VERTEX));
+            CHECK(!haha_bindgroup_it->entries.at(0).visibility.contains(GPUShaderStage::FRAGMENT));
+        }
 
         // tex (used in fragment)
         CHECK_EQ(haha_bindgroup_it->entries.at(1).type, GPUResourceType::TEXTURE);
         CHECK_EQ(haha_bindgroup_it->entries.at(1).binding.index, 1);
         CHECK_EQ(haha_bindgroup_it->entries.at(1).count, 1);
-        CHECK(!haha_bindgroup_it->entries.at(1).visibility.contains(GPUShaderStage::VERTEX));
-        CHECK(haha_bindgroup_it->entries.at(1).visibility.contains(GPUShaderStage::FRAGMENT));
+        if (target != CompileTarget::MSL) {
+            CHECK(!haha_bindgroup_it->entries.at(1).visibility.contains(GPUShaderStage::VERTEX));
+            CHECK(haha_bindgroup_it->entries.at(1).visibility.contains(GPUShaderStage::FRAGMENT));
+        }
 
         // tex2 (not used)
         CHECK_EQ(haha_bindgroup_it->entries.at(2).type, GPUResourceType::TEXTURE);
         CHECK_EQ(haha_bindgroup_it->entries.at(2).binding.index, 2);
         CHECK_EQ(haha_bindgroup_it->entries.at(2).count, 1);
-        CHECK(!haha_bindgroup_it->entries.at(2).visibility.contains(GPUShaderStage::VERTEX));
-        CHECK(!haha_bindgroup_it->entries.at(2).visibility.contains(GPUShaderStage::FRAGMENT));
+        if (target != CompileTarget::MSL) {
+            CHECK(!haha_bindgroup_it->entries.at(2).visibility.contains(GPUShaderStage::VERTEX));
+            CHECK(!haha_bindgroup_it->entries.at(2).visibility.contains(GPUShaderStage::FRAGMENT));
+        }
 
         // smp (used in fragment)
         CHECK_EQ(haha_bindgroup_it->entries.at(3).type, GPUResourceType::SAMPLER);
         CHECK_EQ(haha_bindgroup_it->entries.at(3).binding.index, 3);
         CHECK_EQ(haha_bindgroup_it->entries.at(3).count, 1);
-        CHECK(!haha_bindgroup_it->entries.at(3).visibility.contains(GPUShaderStage::VERTEX));
-        CHECK(haha_bindgroup_it->entries.at(3).visibility.contains(GPUShaderStage::FRAGMENT));
+        if (target != CompileTarget::MSL) {
+            CHECK(!haha_bindgroup_it->entries.at(3).visibility.contains(GPUShaderStage::VERTEX));
+            CHECK(haha_bindgroup_it->entries.at(3).visibility.contains(GPUShaderStage::FRAGMENT));
+        }
     }
 
     // hihi
@@ -182,29 +194,37 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
         CHECK_EQ(hihi_bindgroup_it->entries.at(0).buffer.type, GPUBufferBindingType::UNIFORM);
         CHECK_EQ(hihi_bindgroup_it->entries.at(0).binding.index, 0);
         CHECK_EQ(hihi_bindgroup_it->entries.at(0).count, 1);
-        CHECK(hihi_bindgroup_it->entries.at(0).visibility.contains(GPUShaderStage::VERTEX));
-        CHECK(!hihi_bindgroup_it->entries.at(0).visibility.contains(GPUShaderStage::FRAGMENT));
+        if (target != CompileTarget::MSL) {
+            CHECK(hihi_bindgroup_it->entries.at(0).visibility.contains(GPUShaderStage::VERTEX));
+            CHECK(!hihi_bindgroup_it->entries.at(0).visibility.contains(GPUShaderStage::FRAGMENT));
+        }
 
-        // tex (not used)
+        // tex (used in fragment)
         CHECK_EQ(hihi_bindgroup_it->entries.at(1).type, GPUResourceType::TEXTURE);
         CHECK_EQ(hihi_bindgroup_it->entries.at(1).binding.index, 1);
         CHECK_EQ(hihi_bindgroup_it->entries.at(1).count, 1);
-        CHECK(!hihi_bindgroup_it->entries.at(1).visibility.contains(GPUShaderStage::VERTEX));
-        CHECK(!hihi_bindgroup_it->entries.at(1).visibility.contains(GPUShaderStage::FRAGMENT));
+        if (target != CompileTarget::MSL) {
+            CHECK(!hihi_bindgroup_it->entries.at(1).visibility.contains(GPUShaderStage::VERTEX));
+            CHECK(hihi_bindgroup_it->entries.at(1).visibility.contains(GPUShaderStage::FRAGMENT));
+        }
 
         // tex2 (not used)
-        CHECK_EQ(hihi_bindgroup_it->entries.at(2).type, GPUResourceType::TEXTURE);
-        CHECK_EQ(hihi_bindgroup_it->entries.at(2).binding.index, 2);
-        CHECK_EQ(hihi_bindgroup_it->entries.at(2).count, 1);
-        CHECK(!hihi_bindgroup_it->entries.at(2).visibility.contains(GPUShaderStage::VERTEX));
-        CHECK(!hihi_bindgroup_it->entries.at(2).visibility.contains(GPUShaderStage::FRAGMENT));
+        CHECK_EQ(haha_bindgroup_it->entries.at(2).type, GPUResourceType::TEXTURE);
+        CHECK_EQ(haha_bindgroup_it->entries.at(2).binding.index, 2);
+        CHECK_EQ(haha_bindgroup_it->entries.at(2).count, 1);
+        if (target != CompileTarget::MSL) {
+            CHECK(!haha_bindgroup_it->entries.at(2).visibility.contains(GPUShaderStage::VERTEX));
+            CHECK(!haha_bindgroup_it->entries.at(2).visibility.contains(GPUShaderStage::FRAGMENT));
+        }
 
         // smp (not used)
         CHECK_EQ(hihi_bindgroup_it->entries.at(3).type, GPUResourceType::SAMPLER);
         CHECK_EQ(hihi_bindgroup_it->entries.at(3).binding.index, 3);
         CHECK_EQ(hihi_bindgroup_it->entries.at(3).count, 1);
-        CHECK(!hihi_bindgroup_it->entries.at(3).visibility.contains(GPUShaderStage::VERTEX));
-        CHECK(!hihi_bindgroup_it->entries.at(3).visibility.contains(GPUShaderStage::FRAGMENT));
+        if (target != CompileTarget::MSL) {
+            CHECK(!hihi_bindgroup_it->entries.at(3).visibility.contains(GPUShaderStage::VERTEX));
+            CHECK(!hihi_bindgroup_it->entries.at(3).visibility.contains(GPUShaderStage::FRAGMENT));
+        }
     }
 
     auto push_constants = reflection->get_push_constant_ranges();

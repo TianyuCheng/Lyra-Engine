@@ -7,13 +7,13 @@ MetalBlas::MetalBlas(const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescripto
 {
     auto rhi = get_rhi();
 
-    // Check if device supports ray tracing
+    // check if device supports ray tracing
     if (![rhi->device supportsRaytracing]) {
         get_logger()->error("Metal ray tracing is not supported on this device");
         return;
     }
 
-    // Create primitive acceleration structure descriptor
+    // create primitive acceleration structure descriptor
     MTLPrimitiveAccelerationStructureDescriptor* as_desc =
         [MTLPrimitiveAccelerationStructureDescriptor new];
 
@@ -34,8 +34,8 @@ MetalBlas::MetalBlas(const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescripto
             }
             triangle_geom.triangleCount = triangle_count;
 
-            // Set vertex stride based on vertex format
-            NSUInteger vertex_stride = sizeof(float) * 3;  // Default float3 stride
+            // set vertex stride based on vertex format
+            NSUInteger vertex_stride = sizeof(float) * 3; // Default float3 stride
             switch (size_desc.triangles.vertex_format) {
                 case GPUVertexFormat::FLOAT32x2:
                     vertex_stride = sizeof(float) * 2;
@@ -52,7 +52,7 @@ MetalBlas::MetalBlas(const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescripto
             }
             triangle_geom.vertexStride = vertex_stride;
 
-            // Set index type based on index format
+            // set index type based on index format
             if (size_desc.triangles.index_count > 0) {
                 if (size_desc.triangles.index_format == GPUIndexFormat::UINT16) {
                     triangle_geom.indexType = MTLIndexTypeUInt16;
@@ -61,7 +61,7 @@ MetalBlas::MetalBlas(const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescripto
                 }
             }
 
-            // Set geometry flags based on BVH geometry flags
+            // set geometry flags based on BVH geometry flags
             if (size_desc.triangles.flags.contains(GPUBVHGeometryFlag::BVH_OPAQUE)) {
                 triangle_geom.opaque = YES;
             }
@@ -78,17 +78,17 @@ MetalBlas::MetalBlas(const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescripto
 
     as_desc.geometryDescriptors = geometry_descriptors;
 
-    // Set acceleration structure flags
+    // set acceleration structure flags
     if (desc.flags.contains(GPUBVHFlag::ALLOW_UPDATE)) {
         as_desc.usage = MTLAccelerationStructureUsageRefit;
     } else if (desc.flags.contains(GPUBVHFlag::PREFER_FAST_TRACE)) {
         as_desc.usage = MTLAccelerationStructureUsagePreferFastBuild;
     }
 
-    // Get acceleration structure sizes
+    // get acceleration structure sizes
     sizes = [rhi->device accelerationStructureSizesWithDescriptor:as_desc];
 
-    // Allocate acceleration structure
+    // allocate acceleration structure
     blas = [rhi->device newAccelerationStructureWithSize:sizes.accelerationStructureSize];
     if (!blas) {
         get_logger()->error("Failed to allocate BLAS acceleration structure");
@@ -101,16 +101,16 @@ MetalBlas::MetalBlas(const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescripto
 
 void MetalBlas::destroy()
 {
-    blas = nil;
+    blas       = nil;
     descriptor = nil;
-    sizes = {};
+    sizes      = {};
 }
 
 bool api::create_blas(GPUBlasHandle& handle, const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescriptors sizes)
 {
     auto rhi = get_rhi();
 
-    // Check device support
+    // check device support
     if (![rhi->device supportsRaytracing]) {
         get_logger()->error("Metal ray tracing is not supported on this device");
         return false;
@@ -122,7 +122,7 @@ bool api::create_blas(GPUBlasHandle& handle, const GPUBlasDescriptor& desc, GPUB
     }
 
     auto ind = rhi->blases.add(obj);
-    handle = GPUBlasHandle(ind);
+    handle   = GPUBlasHandle(ind);
     return true;
 }
 
@@ -133,11 +133,11 @@ void api::delete_blas(GPUBlasHandle handle)
 
 bool api::get_blas_sizes(GPUBlasHandle handle, GPUBVHSizes& sizes)
 {
-    auto rhi = get_rhi();
+    auto  rhi  = get_rhi();
     auto& blas = fetch_resource(rhi->blases, handle);
 
-    sizes.bvh_size = static_cast<uint>(blas.sizes.accelerationStructureSize);
-    sizes.build_size = static_cast<uint>(blas.sizes.buildScratchBufferSize);
+    sizes.bvh_size    = static_cast<uint>(blas.sizes.accelerationStructureSize);
+    sizes.build_size  = static_cast<uint>(blas.sizes.buildScratchBufferSize);
     sizes.update_size = static_cast<uint>(blas.sizes.refitScratchBufferSize);
 
     return true;
