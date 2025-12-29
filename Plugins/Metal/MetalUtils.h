@@ -396,7 +396,7 @@ struct MetalSwapchain
         GPUTextureViewHandle view;
 
         // implementation in MetalSwapchain.mm
-        void init(id<MTLTexture> texture);
+        void init(id<CAMetalDrawable> drawable);
         void destroy();
     };
 

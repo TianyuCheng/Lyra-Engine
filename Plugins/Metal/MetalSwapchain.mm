@@ -113,26 +113,29 @@ void MetalSwapchain::destroy()
     metal_layer = nil;
 }
 
-void MetalSwapchain::Frame::init(id<MTLTexture> tex)
+void MetalSwapchain::Frame::init(id<CAMetalDrawable> drawable)
 {
     auto rhi = get_rhi();
 
     destroy();
 
-    if (!tex) return;
+    if (!drawable.texture) return;
+
+    // store the drawable for the lifetime of the frame
+    this->drawable = drawable;
 
     // create texture wrapper (swapchain textures are not owned by us)
     auto texture_obj    = MetalTexture{};
-    texture_obj.texture = tex;
-    texture_obj.format  = tex.pixelFormat;
-    texture_obj.type    = tex.textureType;
+    texture_obj.texture = drawable.texture;
+    texture_obj.format  = drawable.texture.pixelFormat;
+    texture_obj.type    = drawable.texture.textureType;
     this->texture       = GPUTextureHandle(rhi->textures.add(texture_obj));
 
     // create texture view
     auto view_obj    = MetalTextureView{};
-    view_obj.texture = tex;
-    view_obj.format  = tex.pixelFormat;
-    view_obj.type    = tex.textureType;
+    view_obj.texture = drawable.texture;
+    view_obj.format  = drawable.texture.pixelFormat;
+    view_obj.type    = drawable.texture.textureType;
     this->view       = GPUTextureViewHandle(rhi->views.add(view_obj));
 }
 
@@ -204,8 +207,7 @@ bool api::acquire_next_frame(GPUSurfaceHandle surface, GPUTextureHandle& texture
         // store drawable in frame
         rhi->current_image_index = ind;
         auto& swap_frame         = swp.frames.at(ind);
-        swap_frame.drawable      = drawable;
-        swap_frame.init(drawable.texture);
+        swap_frame.init(drawable);
 
         // update output handles
         texture = swap_frame.texture;
