@@ -142,7 +142,7 @@ void MetalSwapchain::Frame::destroy()
 
     // clean up texture if already created
     if (this->texture.valid()) {
-        // Don't destroy the underlying MTLTexture - it's owned by the drawable
+        // don't destroy the underlying MTLTexture - it's owned by the drawable
         rhi->textures.remove(texture.value);
         this->texture.reset();
     }
@@ -201,21 +201,20 @@ bool api::acquire_next_frame(GPUSurfaceHandle surface, GPUTextureHandle& texture
             return false;
         }
 
-        // Store drawable in frame
+        // store drawable in frame
         rhi->current_image_index = ind;
         auto& swap_frame         = swp.frames.at(ind);
         swap_frame.drawable      = drawable;
         swap_frame.init(drawable.texture);
 
-        // Update output handles
+        // update output handles
         texture = swap_frame.texture;
         view    = swap_frame.view;
     }
 
-    // Update fence handles
+    // update fence handles
     image_available_fence = frame.image_available_semaphore;
     render_complete_fence = frame.render_complete_semaphore;
-
     return true;
 }
 

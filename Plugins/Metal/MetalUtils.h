@@ -436,13 +436,17 @@ struct MetalRHI
     id<MTLCommandQueue> compute_queue  = nil;
     id<MTLCommandQueue> transfer_queue = nil;
 
-    // frame tracking
-    Vector<MetalFrame> frames              = {};
-    uint               current_frame_index = 0;
-    uint               current_image_index = 0;
-    GPUSurfaceHandle   surface_tracker;
+    // frame objects
+    Vector<MetalFrame> frames = {};
 
-    // resource managers (using Slotmap pattern)
+    // frame tracker
+    uint current_frame_index = 0;
+    uint current_image_index = 0;
+
+    // swapchain tracker
+    GPUSurfaceHandle surface_tracker;
+
+    // resource managers
     MetalResourceManager<MetalSwapchain>       swapchains;
     MetalResourceManager<MetalFence>           fences;
     MetalResourceManager<MetalBuffer>          buffers;

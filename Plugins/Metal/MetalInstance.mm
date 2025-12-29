@@ -16,9 +16,15 @@ bool api::create_instance(const RHIDescriptor& desc)
 void api::delete_instance()
 {
     auto rhi = get_rhi();
-    if (rhi) {
-        delete rhi;
-        set_rhi(nullptr);
+    if (!rhi) return;
+
+    if (rhi->device) {
+        api::delete_device();
+        rhi->device = nil;
     }
+
+    delete rhi;
+    set_rhi(nullptr);
+
     get_logger()->info("Metal RHI instance deleted");
 }

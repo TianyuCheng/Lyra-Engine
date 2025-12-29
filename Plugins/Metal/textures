@@ -1,0 +1,199 @@
+MetalSurface.mm:16:    handle = GPUSurfaceHandle(rhi->swapchains.add(obj));
+MetalSurface.mm:29:    auto& swp     = fetch_resource(rhi->swapchains, surface);
+MetalSurface.mm:38:    auto& swp = fetch_resource(rhi->swapchains, surface);
+MetalSurface.mm:46:    auto& swp = fetch_resource(rhi->swapchains, surface);
+MetalDevice.mm:10:    if (!rhi->device) {
+MetalDevice.mm:16:    rhi->graphics_queue = [rhi->device newCommandQueue];
+MetalDevice.mm:17:    rhi->compute_queue  = [rhi->device newCommandQueue];
+MetalDevice.mm:20:    rhi->transfer_queue = rhi->graphics_queue;
+MetalDevice.mm:22:    if (!rhi->graphics_queue || !rhi->compute_queue) {
+MetalDevice.mm:28:    rhi->graphics_queue.label = @"Graphics Queue";
+MetalDevice.mm:29:    rhi->compute_queue.label  = @"Compute Queue";
+MetalDevice.mm:32:    rhi->frames.resize(3);
+MetalDevice.mm:33:    for (uint i = 0; i < rhi->frames.size(); ++i) {
+MetalDevice.mm:34:        rhi->frames[i].frame_id = i;
+MetalDevice.mm:35:        rhi->frames[i].init(rhi->graphics_queue, rhi->compute_queue, rhi->transfer_queue);
+MetalDevice.mm:38:    rhi->current_frame_index = 0;
+MetalDevice.mm:39:    rhi->current_image_index = 0;
+MetalDevice.mm:41:    get_logger()->info("Metal device created with {} frames", rhi->frames.size());
+MetalDevice.mm:52:    rhi->wait_idle();
+MetalDevice.mm:55:    for (auto& frame : rhi->frames) {
+MetalDevice.mm:58:    rhi->frames.clear();
+MetalDevice.mm:61:    rhi->graphics_queue = nil;
+MetalDevice.mm:62:    rhi->compute_queue  = nil;
+MetalDevice.mm:63:    rhi->transfer_queue = nil;
+MetalDevice.mm:66:    rhi->device = nil;
+MetalDevice.mm:76:        rhi->wait_idle();
+MetalDevice.mm:84:    auto& fence = fetch_resource(rhi->fences, handle);
+MetalQuery.mm:21:            if (![rhi->device supportsCounterSampling:MTLCounterSamplingPointAtStageBoundary]) {
+MetalQuery.mm:26:            NSArray<id<MTLCounterSet>>* counter_sets          = [rhi->device counterSets];
+MetalQuery.mm:49:            sample_buffer  = [rhi->device newCounterSampleBufferWithDescriptor:buffer_desc error:&error];
+MetalQuery.mm:62:            visibility_buffer      = [rhi->device newBufferWithLength:buffer_size
+MetalQuery.mm:75:            visibility_buffer      = [rhi->device newBufferWithLength:buffer_size
+MetalQuery.mm:126:    auto ind = rhi->query_sets.add(obj);
+MetalLayout.mm:91:        encoder        = [rhi->device newArgumentEncoderWithArguments:args];
+MetalLayout.mm:128:    auto ind = rhi->bind_group_layouts.add(obj);
+MetalLayout.mm:142:    auto ind = rhi->pipeline_layouts.add(obj);
+MetalTexture.mm:26:    texture = [rhi->device newTextureWithDescriptor:mtl_desc];
+MetalTexture.mm:32:        rhi->set_debug_label(texture, desc.label);
+MetalTexture.mm:69:    auto ind = rhi->textures.add(obj);
+MetalTexture.mm:82:    auto& tex = fetch_resource(rhi->textures, texture);
+MetalTexture.mm:84:    auto  ind = rhi->views.add(obj);
+MetalFence.mm:12:    event    = [rhi->device newSharedEvent];
+MetalFence.mm:50:    auto ind = rhi->fences.add(obj);
+MetalTlas.mm:15:    if (![rhi->device supportsRaytracing]) {
+MetalTlas.mm:34:    sizes = [rhi->device accelerationStructureSizesWithDescriptor:as_desc];
+MetalTlas.mm:37:    tlas = [rhi->device newAccelerationStructureWithSize:sizes.accelerationStructureSize];
+MetalTlas.mm:59:    if (![rhi->device supportsRaytracing]) {
+MetalTlas.mm:69:    auto ind = rhi->tlases.add(obj);
+MetalTlas.mm:82:    auto& tlas = fetch_resource(rhi->tlases, handle);
+MetalShader.mm:18:    library              = [rhi->device newLibraryWithData:data error:&error];
+MetalShader.mm:34:    auto ind = rhi->shaders.add(obj);
+MetalInstance.mm:9:    rhi->rhiflags = desc.flags;
+MetalArgumentBuffer.mm:10:    has_unified_memory = rhi->device.hasUnifiedMemory;
+MetalArgumentBuffer.mm:24:        heap = [rhi->device newHeapWithDescriptor:descriptor];
+MetalArgumentBuffer.mm:58:    auto& layout = fetch_resource(rhi->bind_group_layouts, layout_handle);
+MetalArgumentBuffer.mm:80:        arg_buffer = [rhi->device newBufferWithLength:required_size
+MetalArgumentBuffer.mm:95:                auto& buffer = fetch_resource(rhi->buffers, entry.buffer.buffer);
+MetalArgumentBuffer.mm:103:                auto& sampler = fetch_resource(rhi->samplers, entry.sampler);
+MetalArgumentBuffer.mm:111:                auto& texture_view = fetch_resource(rhi->views, entry.texture);
+MetalArgumentBuffer.mm:119:                if (![rhi->device supportsRaytracing]) {
+MetalArgumentBuffer.mm:129:                auto& tlas = fetch_resource(rhi->tlases, entry.tlas);
+MetalArgumentBuffer.mm:166:    auto& heap = fetch_resource(rhi->bind_group_heaps, desc.heap);
+MetalArgumentBuffer.mm:188:    auto ind = rhi->bind_group_heaps.add(obj);
+MetalArgumentBuffer.mm:201:    auto& heap = fetch_resource(rhi->bind_group_heaps, handle);
+MetalSampler.mm:27:    sampler = [rhi->device newSamplerStateWithDescriptor:mtl_desc];
+MetalSampler.mm:39:    auto ind = rhi->samplers.add(obj);
+MetalBlas.mm:11:    if (![rhi->device supportsRaytracing]) {
+MetalBlas.mm:89:    sizes = [rhi->device accelerationStructureSizesWithDescriptor:as_desc];
+MetalBlas.mm:92:    blas = [rhi->device newAccelerationStructureWithSize:sizes.accelerationStructureSize];
+MetalBlas.mm:114:    if (![rhi->device supportsRaytracing]) {
+MetalBlas.mm:124:    auto ind = rhi->blases.add(obj);
+MetalBlas.mm:137:    auto& blas = fetch_resource(rhi->blases, handle);
+MetalAdapter.mm:11:    rhi->device = MTLCreateSystemDefaultDevice();
+MetalAdapter.mm:13:    if (!rhi->device) {
+MetalAdapter.mm:19:    adapter.info.description = [[rhi->device name] UTF8String];
+MetalAdapter.mm:36:        adapter.features.raytracing = [rhi->device supportsRaytracing];
+MetalSwapchain.mm:22:    metal_layer.device          = rhi->device;
+MetalSwapchain.mm:59:    uint existing_frames_count = static_cast<uint>(rhi->frames.size());
+MetalSwapchain.mm:61:        rhi->frames.resize(desc.frames);
+MetalSwapchain.mm:63:            rhi->frames.at(i).init(rhi->graphics_queue, rhi->compute_queue, rhi->transfer_queue);
+MetalSwapchain.mm:129:    this->texture       = GPUTextureHandle(rhi->textures.add(texture_obj));
+MetalSwapchain.mm:136:    this->view       = GPUTextureViewHandle(rhi->views.add(view_obj));
+MetalSwapchain.mm:146:        rhi->textures.remove(texture.value);
+MetalSwapchain.mm:152:        rhi->views.remove(view.value);
+MetalSwapchain.mm:165:    if (rhi->surface_tracker.valid()) {
+MetalSwapchain.mm:166:        assert(rhi->surface_tracker == surface && "Caller must call present_curr_frame() prior to calling acquire_next_frame() again!");
+MetalSwapchain.mm:168:    rhi->surface_tracker = surface;
+MetalSwapchain.mm:171:    auto& swp = fetch_resource(rhi->swapchains, surface);
+MetalSwapchain.mm:172:    auto  ind = rhi->current_frame_index % swp.desc.frames;
+MetalSwapchain.mm:188:    auto& frame                     = rhi->current_frame();
+MetalSwapchain.mm:189:    frame.frame_id                  = rhi->current_frame_index;
+MetalSwapchain.mm:205:        rhi->current_image_index = ind;
+MetalSwapchain.mm:226:    if (rhi->surface_tracker.valid()) {
+MetalSwapchain.mm:227:        assert(rhi->surface_tracker == surface && "Caller must call acquire_next_frame() prior to calling present_curr_frame()!");
+MetalSwapchain.mm:228:        rhi->surface_tracker.reset();
+MetalSwapchain.mm:232:    auto& swp = fetch_resource(rhi->swapchains, surface);
+MetalSwapchain.mm:238:    auto  ind        = rhi->current_image_index;
+MetalBuffer.mm:14:    buffer             = [rhi->device newBufferWithLength:desc.size options:options];
+MetalBuffer.mm:27:        rhi->set_debug_label(buffer, desc.label);
+MetalBuffer.mm:56:    auto ind = rhi->buffers.add(obj);
+MetalFrame.mm:74:    rhi->current_frame_index++;
+MetalFrame.mm:75:    rhi->current_frame().reset();
+MetalPipeline.mm:31:    auto&     vshader       = fetch_resource(rhi->shaders, desc.vertex.module);
+MetalPipeline.mm:43:        auto&     fshader         = fetch_resource(rhi->shaders, desc.fragment.module);
+MetalPipeline.mm:122:    render_pso     = [rhi->device newRenderPipelineStateWithDescriptor:mtl_desc error:&error];
+MetalPipeline.mm:158:        depth_stencil_state = [rhi->device newDepthStencilStateWithDescriptor:ds_desc];
+MetalPipeline.mm:163:        rhi->set_debug_label(render_pso, desc.label);
+MetalPipeline.mm:175:    auto& shader = fetch_resource(rhi->shaders, desc.compute.module);
+MetalPipeline.mm:187:    compute_pso    = [rhi->device newComputePipelineStateWithFunction:function error:&error];
+MetalPipeline.mm:195:        rhi->set_debug_label(compute_pso, desc.label);
+MetalPipeline.mm:204:    if (![rhi->device supportsRaytracing]) {
+MetalPipeline.mm:260:    auto ind = rhi->pipelines.add(obj);
+MetalPipeline.mm:277:    auto ind = rhi->pipelines.add(obj);
+MetalPipeline.mm:292:    if (![rhi->device supportsRaytracing]) {
+MetalPipeline.mm:300:    auto ind = rhi->pipelines.add(obj);
+MetalCommandBuffer.mm:88:    auto& frm = rhi->current_frame();
+MetalCommandBuffer.mm:97:    auto& frm = rhi->current_frame();
+MetalCommandBuffer.mm:106:    auto& frm = rhi->current_frame();
+MetalCommandBuffer.mm:116:    auto& cmd = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:131:    auto& cmd = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:146:    auto& cmd = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:160:    auto& cmd   = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:161:    auto& fence = fetch_resource(rhi->fences, fence_handle);
+MetalCommandBuffer.mm:170:    auto& cmd   = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:171:    auto& fence = fetch_resource(rhi->fences, fence_handle);
+MetalCommandBuffer.mm:181:    auto& cmd = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:194:        auto& view                                         = fetch_resource(rhi->views, attachment.view);
+MetalCommandBuffer.mm:204:            auto& resolve_view                                    = fetch_resource(rhi->views, attachment.resolve_target);
+MetalCommandBuffer.mm:214:        auto& view                           = fetch_resource(rhi->views, desc.depth_stencil_attachment.view);
+MetalCommandBuffer.mm:234:    auto& cmd = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:246:    auto& cmd      = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:247:    auto& pipeline = fetch_resource(rhi->pipelines, pipeline_handle);
+MetalCommandBuffer.mm:277:    auto& cmd      = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:278:    auto& pipeline = fetch_resource(rhi->pipelines, pipeline_handle);
+MetalCommandBuffer.mm:296:    if (![rhi->device supportsRaytracing]) {
+MetalCommandBuffer.mm:301:    auto& cmd      = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:302:    auto& pipeline = fetch_resource(rhi->pipelines, pipeline_handle);
+MetalCommandBuffer.mm:339:    auto& cmd = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:366:    auto& cmd = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:387:    auto& cmd    = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:388:    auto& buffer = fetch_resource(rhi->buffers, buffer_handle);
+MetalCommandBuffer.mm:399:    auto& cmd    = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:400:    auto& buffer = fetch_resource(rhi->buffers, buffer_handle);
+MetalCommandBuffer.mm:410:    auto& cmd = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:424:    auto& cmd = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:444:    auto& cmd             = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:445:    auto& indirect_buffer = fetch_resource(rhi->buffers, indirect_buffer_handle);
+MetalCommandBuffer.mm:459:    auto& cmd             = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:460:    auto& indirect_buffer = fetch_resource(rhi->buffers, indirect_buffer_handle);
+MetalCommandBuffer.mm:477:    auto& cmd = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:495:    auto& cmd             = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:496:    auto& indirect_buffer = fetch_resource(rhi->buffers, indirect_buffer_handle);
+MetalCommandBuffer.mm:512:    auto& cmd    = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:513:    auto& source = fetch_resource(rhi->buffers, source_handle);
+MetalCommandBuffer.mm:514:    auto& dest   = fetch_resource(rhi->buffers, dest_handle);
+MetalCommandBuffer.mm:531:    auto& cmd     = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:532:    auto& buffer  = fetch_resource(rhi->buffers, source.buffer);
+MetalCommandBuffer.mm:533:    auto& texture = fetch_resource(rhi->textures, dest.texture);
+MetalCommandBuffer.mm:557:    auto& cmd     = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:558:    auto& texture = fetch_resource(rhi->textures, source.texture);
+MetalCommandBuffer.mm:559:    auto& buffer  = fetch_resource(rhi->buffers, dest.buffer);
+MetalCommandBuffer.mm:583:    auto& cmd         = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:584:    auto& src_texture = fetch_resource(rhi->textures, source.texture);
+MetalCommandBuffer.mm:585:    auto& dst_texture = fetch_resource(rhi->textures, dest.texture);
+MetalCommandBuffer.mm:610:    auto& cmd    = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:611:    auto& buffer = fetch_resource(rhi->buffers, buffer_handle);
+MetalCommandBuffer.mm:631:    auto& cmd = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:642:    auto& cmd = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:653:    auto& cmd = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:663:    auto& cmd = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:673:    auto& cmd = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:683:    auto& cmd = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:693:    auto& cmd       = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:694:    auto& query_set = fetch_resource(rhi->query_sets, query_set_handle);
+MetalCommandBuffer.mm:716:    auto& cmd       = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:717:    auto& query_set = fetch_resource(rhi->query_sets, query_set_handle);
+MetalCommandBuffer.mm:718:    auto& blas      = fetch_resource(rhi->blases, blas_handle);
+MetalCommandBuffer.mm:735:    auto& cmd         = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:736:    auto& query_set   = fetch_resource(rhi->query_sets, query_set_handle);
+MetalCommandBuffer.mm:737:    auto& destination = fetch_resource(rhi->buffers, destination_handle);
+MetalCommandBuffer.mm:785:    auto& cmd = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:812:    auto& cmd            = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:813:    auto& scratch_buffer = fetch_resource(rhi->buffers, scratch_buffer_handle);
+MetalCommandBuffer.mm:816:    if (![rhi->device supportsRaytracing]) {
+MetalCommandBuffer.mm:828:        auto& tlas = fetch_resource(rhi->tlases, entry.tlas);
+MetalCommandBuffer.mm:845:            id<MTLBuffer> instance_buffer = [rhi->device newBufferWithLength:buffer_size
+MetalCommandBuffer.mm:868:                    auto& blas                                = fetch_resource(rhi->blases, src_instance.blas);
+MetalCommandBuffer.mm:881:                    auto& blas = fetch_resource(rhi->blases, src_instance.blas);
+MetalCommandBuffer.mm:899:    auto& cmd            = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:900:    auto& scratch_buffer = fetch_resource(rhi->buffers, scratch_buffer_handle);
+MetalCommandBuffer.mm:903:    if (![rhi->device supportsRaytracing]) {
+MetalCommandBuffer.mm:915:        auto& blas = fetch_resource(rhi->blases, entry.blas);
+MetalCommandBuffer.mm:936:                auto& vertex_buffer     = fetch_resource(rhi->buffers, triangle_geom.vertex_buffer);
+MetalCommandBuffer.mm:942:                    auto& index_buffer = fetch_resource(rhi->buffers, triangle_geom.index_buffer);
+MetalCommandBuffer.mm:950:                    auto& transform_buffer                = fetch_resource(rhi->buffers, triangle_geom.transform_buffer);
+MetalCommandBuffer.mm:968:    auto& cmd      = rhi->current_frame().command(cmdbuffer);
+MetalCommandBuffer.mm:969:    auto& src_blas = fetch_resource(rhi->blases, src_blas_handle);
+MetalCommandBuffer.mm:970:    auto& dst_blas = fetch_resource(rhi->blases, dst_blas_handle);
+MetalCommandBuffer.mm:973:    if (![rhi->device supportsRaytracing]) {

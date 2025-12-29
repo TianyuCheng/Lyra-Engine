@@ -45,24 +45,74 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
 void api::delete_device()
 {
     auto rhi = get_rhi();
-
     if (!rhi) return;
 
-    // wait for all work to complete
+    // wait for all GPU work to complete before starting cleanup.
     rhi->wait_idle();
 
-    // destroy frames
-    for (auto& frame : rhi->frames) {
-        frame.destroy();
-    }
-    rhi->frames.clear();
+    // clean up remaining swapchains
+    // needs to be deleted first, because it contains other handles
+    for (auto& swapchain : rhi->swapchains)
+        swapchain.destroy();
 
-    // release queues (ARC handles this)
+    // clean up remaining blases
+    for (auto& blas : rhi->blases)
+        blas.destroy();
+
+    // clean up remaining tlases
+    for (auto& tlas : rhi->tlases)
+        tlas.destroy();
+
+    // clean up remaining fences
+    for (auto& frame : rhi->frames)
+        frame.destroy();
+
+    // clean up remaining fences
+    for (auto& fence : rhi->fences)
+        fence.destroy();
+
+    // clean up remaining buffers
+    for (auto& buffer : rhi->buffers)
+        buffer.destroy();
+
+    // clean up remaining texture views
+    for (auto& view : rhi->views)
+        view.destroy();
+
+    // clean up remaining textures
+    for (auto& texture : rhi->textures)
+        texture.destroy();
+
+    // clean up remaining samplers
+    for (auto& sampler : rhi->samplers)
+        sampler.destroy();
+
+    // clean up remaining shaders
+    for (auto& shader : rhi->shaders)
+        shader.destroy();
+
+    // clean up remaining bind group heaps
+    for (auto& heap : rhi->bind_group_heaps)
+        heap.destroy();
+
+    // clean up remaining bind group layouts
+    for (auto& layout : rhi->bind_group_layouts)
+        layout.destroy();
+
+    // clean up remaining pipeline layouts
+    for (auto& layout : rhi->pipeline_layouts)
+        layout.destroy();
+
+    // clean up remaining pipelines
+    for (auto& pipeline : rhi->pipelines)
+        pipeline.destroy();
+
+    // release queues (ARC handles this automatically).
     rhi->graphics_queue = nil;
     rhi->compute_queue  = nil;
     rhi->transfer_queue = nil;
 
-    // release device
+    // finally, release the device itself.
     rhi->device = nil;
 
     get_logger()->info("Metal device deleted");
