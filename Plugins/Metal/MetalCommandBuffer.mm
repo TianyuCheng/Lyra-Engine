@@ -10,49 +10,53 @@ void MetalCommandBuffer::transition_encoder(EncoderType new_type)
 
 void MetalCommandBuffer::end_current_encoder()
 {
-    switch (active_encoder) {
-        case RENDER:
-            if (render_encoder) {
-                [render_encoder endEncoding];
-                render_encoder = nil;
-            }
-            break;
-        case COMPUTE:
-            if (compute_encoder) {
-                [compute_encoder endEncoding];
-                compute_encoder = nil;
-            }
-            break;
-        case BLIT:
-            if (blit_encoder) {
-                [blit_encoder endEncoding];
-                blit_encoder = nil;
-            }
-            break;
-        case ACCEL:
-            if (accel_encoder) {
-                [accel_encoder endEncoding];
-                accel_encoder = nil;
-            }
-            break;
-        case NONE:
-            break;
+    @autoreleasepool {
+        switch (active_encoder) {
+            case RENDER:
+                if (render_encoder) {
+                    [render_encoder endEncoding];
+                    render_encoder = nil;
+                }
+                break;
+            case COMPUTE:
+                if (compute_encoder) {
+                    [compute_encoder endEncoding];
+                    compute_encoder = nil;
+                }
+                break;
+            case BLIT:
+                if (blit_encoder) {
+                    [blit_encoder endEncoding];
+                    blit_encoder = nil;
+                }
+                break;
+            case ACCEL:
+                if (accel_encoder) {
+                    [accel_encoder endEncoding];
+                    accel_encoder = nil;
+                }
+                break;
+            case NONE:
+                break;
+        }
+        active_encoder = NONE;
     }
-    active_encoder = NONE;
 }
 
 void MetalCommandBuffer::reset()
 {
     end_current_encoder();
-    command_buffer            = nil;
-    bound_render_pso          = nil;
-    bound_compute_pso         = nil;
-    bound_depth_stencil_state = nil;
-    bound_index_buffer        = nil;
-    wait_events.clear();
-    wait_values.clear();
-    signal_events.clear();
-    signal_values.clear();
+    @autoreleasepool {
+        command_buffer            = nil;
+        bound_render_pso          = nil;
+        bound_compute_pso         = nil;
+        bound_depth_stencil_state = nil;
+        bound_index_buffer        = nil;
+        wait_events.clear();
+        wait_values.clear();
+        signal_events.clear();
+        signal_values.clear();
+    }
 }
 
 void MetalCommandBuffer::submit()
@@ -112,45 +116,51 @@ bool api::submit_command_buffer(GPUCommandEncoderHandle handle)
 
 void cmd::insert_debug_marker(GPUCommandEncoderHandle cmdbuffer, CString marker_label)
 {
-    auto  rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    @autoreleasepool {
+        auto  rhi = get_rhi();
+        auto& cmd = rhi->current_frame().command(cmdbuffer);
 
-    NSString* label = [NSString stringWithUTF8String:marker_label];
-    if (cmd.render_encoder) {
-        [cmd.render_encoder insertDebugSignpost:label];
-    } else if (cmd.compute_encoder) {
-        [cmd.compute_encoder insertDebugSignpost:label];
-    } else if (cmd.blit_encoder) {
-        [cmd.blit_encoder insertDebugSignpost:label];
+        NSString* label = [NSString stringWithUTF8String:marker_label];
+        if (cmd.render_encoder) {
+            [cmd.render_encoder insertDebugSignpost:label];
+        } else if (cmd.compute_encoder) {
+            [cmd.compute_encoder insertDebugSignpost:label];
+        } else if (cmd.blit_encoder) {
+            [cmd.blit_encoder insertDebugSignpost:label];
+        }
     }
 }
 
 void cmd::push_debug_group(GPUCommandEncoderHandle cmdbuffer, CString group_label)
 {
-    auto  rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    @autoreleasepool {
+        auto  rhi = get_rhi();
+        auto& cmd = rhi->current_frame().command(cmdbuffer);
 
-    NSString* label = [NSString stringWithUTF8String:group_label];
-    if (cmd.render_encoder) {
-        [cmd.render_encoder pushDebugGroup:label];
-    } else if (cmd.compute_encoder) {
-        [cmd.compute_encoder pushDebugGroup:label];
-    } else if (cmd.blit_encoder) {
-        [cmd.blit_encoder pushDebugGroup:label];
+        NSString* label = [NSString stringWithUTF8String:group_label];
+        if (cmd.render_encoder) {
+            [cmd.render_encoder pushDebugGroup:label];
+        } else if (cmd.compute_encoder) {
+            [cmd.compute_encoder pushDebugGroup:label];
+        } else if (cmd.blit_encoder) {
+            [cmd.blit_encoder pushDebugGroup:label];
+        }
     }
 }
 
 void cmd::pop_debug_group(GPUCommandEncoderHandle cmdbuffer)
 {
-    auto  rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    @autoreleasepool {
+        auto  rhi = get_rhi();
+        auto& cmd = rhi->current_frame().command(cmdbuffer);
 
-    if (cmd.render_encoder) {
-        [cmd.render_encoder popDebugGroup];
-    } else if (cmd.compute_encoder) {
-        [cmd.compute_encoder popDebugGroup];
-    } else if (cmd.blit_encoder) {
-        [cmd.blit_encoder popDebugGroup];
+        if (cmd.render_encoder) {
+            [cmd.render_encoder popDebugGroup];
+        } else if (cmd.compute_encoder) {
+            [cmd.compute_encoder popDebugGroup];
+        } else if (cmd.blit_encoder) {
+            [cmd.blit_encoder popDebugGroup];
+        }
     }
 }
 
@@ -177,67 +187,71 @@ void cmd::signal_fence(GPUCommandEncoderHandle cmdbuffer, GPUFenceHandle fence_h
 
 void cmd::begin_render_pass(GPUCommandEncoderHandle cmdbuffer, const GPURenderPassDescriptor& desc)
 {
-    auto  rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    @autoreleasepool {
+        auto  rhi = get_rhi();
+        auto& cmd = rhi->current_frame().command(cmdbuffer);
 
-    // end any existing encoder
-    cmd.end_current_encoder();
+        // end any existing encoder
+        cmd.end_current_encoder();
 
-    // build MTLRenderPassDescriptor
-    MTLRenderPassDescriptor* mtl_pass = [MTLRenderPassDescriptor new];
+        // build MTLRenderPassDescriptor
+        MTLRenderPassDescriptor* mtl_pass = [MTLRenderPassDescriptor new];
 
-    // color Attachments
-    uint color_index = 0;
-    for (auto& attachment : desc.color_attachments) {
-        if (!attachment.view.valid()) continue;
+        // color Attachments
+        uint color_index = 0;
+        for (auto& attachment : desc.color_attachments) {
+            if (!attachment.view.valid()) continue;
 
-        auto& view                                         = fetch_resource(rhi->views, attachment.view);
-        mtl_pass.colorAttachments[color_index].texture     = view.texture;
-        mtl_pass.colorAttachments[color_index].loadAction  = mtlenum(attachment.load_op);
-        mtl_pass.colorAttachments[color_index].storeAction = mtlenum(attachment.store_op);
-        mtl_pass.colorAttachments[color_index].clearColor  = MTLClearColorMake(
-            attachment.clear_value.r, attachment.clear_value.g,
-            attachment.clear_value.b, attachment.clear_value.a);
+            auto& view                                         = fetch_resource(rhi->views, attachment.view);
+            mtl_pass.colorAttachments[color_index].texture     = view.texture;
+            mtl_pass.colorAttachments[color_index].loadAction  = mtlenum(attachment.load_op);
+            mtl_pass.colorAttachments[color_index].storeAction = mtlenum(attachment.store_op);
+            mtl_pass.colorAttachments[color_index].clearColor  = MTLClearColorMake(
+                attachment.clear_value.r, attachment.clear_value.g,
+                attachment.clear_value.b, attachment.clear_value.a);
 
-        // resolve target for MSAA
-        if (attachment.resolve_target.valid()) {
-            auto& resolve_view                                    = fetch_resource(rhi->views, attachment.resolve_target);
-            mtl_pass.colorAttachments[color_index].resolveTexture = resolve_view.texture;
-            mtl_pass.colorAttachments[color_index].storeAction    = MTLStoreActionMultisampleResolve;
+            // resolve target for MSAA
+            if (attachment.resolve_target.valid()) {
+                auto& resolve_view                                    = fetch_resource(rhi->views, attachment.resolve_target);
+                mtl_pass.colorAttachments[color_index].resolveTexture = resolve_view.texture;
+                mtl_pass.colorAttachments[color_index].storeAction    = MTLStoreActionMultisampleResolve;
+            }
+
+            color_index++;
         }
 
-        color_index++;
+        // depth/stencil attachment
+        if (desc.depth_stencil_attachment.view.valid()) {
+            auto& view                           = fetch_resource(rhi->views, desc.depth_stencil_attachment.view);
+            mtl_pass.depthAttachment.texture     = view.texture;
+            mtl_pass.depthAttachment.loadAction  = mtlenum(desc.depth_stencil_attachment.depth_load_op);
+            mtl_pass.depthAttachment.storeAction = mtlenum(desc.depth_stencil_attachment.depth_store_op);
+            mtl_pass.depthAttachment.clearDepth  = desc.depth_stencil_attachment.depth_clear_value;
+
+            // Stencil (if format supports it)
+            mtl_pass.stencilAttachment.texture      = view.texture;
+            mtl_pass.stencilAttachment.loadAction   = mtlenum(desc.depth_stencil_attachment.stencil_load_op);
+            mtl_pass.stencilAttachment.storeAction  = mtlenum(desc.depth_stencil_attachment.stencil_store_op);
+            mtl_pass.stencilAttachment.clearStencil = desc.depth_stencil_attachment.stencil_clear_value;
+        }
+
+        cmd.render_encoder = [cmd.command_buffer renderCommandEncoderWithDescriptor:mtl_pass];
+        cmd.active_encoder = MetalCommandBuffer::RENDER;
     }
-
-    // depth/stencil attachment
-    if (desc.depth_stencil_attachment.view.valid()) {
-        auto& view                           = fetch_resource(rhi->views, desc.depth_stencil_attachment.view);
-        mtl_pass.depthAttachment.texture     = view.texture;
-        mtl_pass.depthAttachment.loadAction  = mtlenum(desc.depth_stencil_attachment.depth_load_op);
-        mtl_pass.depthAttachment.storeAction = mtlenum(desc.depth_stencil_attachment.depth_store_op);
-        mtl_pass.depthAttachment.clearDepth  = desc.depth_stencil_attachment.depth_clear_value;
-
-        // Stencil (if format supports it)
-        mtl_pass.stencilAttachment.texture      = view.texture;
-        mtl_pass.stencilAttachment.loadAction   = mtlenum(desc.depth_stencil_attachment.stencil_load_op);
-        mtl_pass.stencilAttachment.storeAction  = mtlenum(desc.depth_stencil_attachment.stencil_store_op);
-        mtl_pass.stencilAttachment.clearStencil = desc.depth_stencil_attachment.stencil_clear_value;
-    }
-
-    cmd.render_encoder = [cmd.command_buffer renderCommandEncoderWithDescriptor:mtl_pass];
-    cmd.active_encoder = MetalCommandBuffer::RENDER;
 }
 
 void cmd::end_render_pass(GPUCommandEncoderHandle cmdbuffer)
 {
-    auto  rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    @autoreleasepool {
+        auto  rhi = get_rhi();
+        auto& cmd = rhi->current_frame().command(cmdbuffer);
 
-    if (cmd.render_encoder) {
-        [cmd.render_encoder endEncoding];
-        cmd.render_encoder = nil;
+        if (cmd.render_encoder) {
+            [cmd.render_encoder endEncoding];
+            cmd.render_encoder = nil;
+        }
+        cmd.active_encoder = MetalCommandBuffer::NONE;
     }
-    cmd.active_encoder = MetalCommandBuffer::NONE;
 }
 
 void cmd::set_render_pipeline(GPUCommandEncoderHandle cmdbuffer, GPURenderPipelineHandle pipeline_handle)

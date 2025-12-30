@@ -19,9 +19,6 @@ void MetalFrame::reset()
 {
     // reset any resources owned by command buffers
     for (auto& command_buffer : allocated_command_buffers) {
-        [command_buffer.command_buffer waitUntilCompleted];
-        NSLog(@"[After Commit] Reference count is %ld", CFGetRetainCount((__bridge CFTypeRef)command_buffer.command_buffer));
-
         command_buffer.reset();
     }
     allocated_command_buffers.clear();

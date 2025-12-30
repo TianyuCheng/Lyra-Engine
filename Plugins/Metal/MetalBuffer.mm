@@ -7,24 +7,26 @@ MetalBuffer::MetalBuffer() {}
 
 MetalBuffer::MetalBuffer(const GPUBufferDescriptor& desc)
 {
-    auto rhi = get_rhi();
+    @autoreleasepool {
+        auto rhi = get_rhi();
 
-    auto [options, storage_mode] = mtlenum(desc.usage);
+        auto [options, storage_mode] = mtlenum(desc.usage);
 
-    buffer             = [rhi->device newBufferWithLength:desc.size options:options];
-    this->storage_mode = options;
+        buffer             = [rhi->device newBufferWithLength:desc.size options:options];
+        this->storage_mode = options;
 
-    // for CPU-visible buffers, get the contents pointer
-    if (storage_mode == MTLStorageModeShared || storage_mode == MTLStorageModeManaged) {
-        if (desc.mapped_at_creation) {
-            mapped_data = static_cast<uint8_t*>([buffer contents]);
-            mapped_size = desc.size;
+        // for CPU-visible buffers, get the contents pointer
+        if (storage_mode == MTLStorageModeShared || storage_mode == MTLStorageModeManaged) {
+            if (desc.mapped_at_creation) {
+                mapped_data = static_cast<uint8_t*>([buffer contents]);
+                mapped_size = desc.size;
+            }
         }
-    }
 
-    // set debug label if provided
-    if (desc.label && buffer) {
-        rhi->set_debug_label(buffer, desc.label);
+        // set debug label if provided
+        if (desc.label && buffer) {
+            rhi->set_debug_label(buffer, desc.label);
+        }
     }
 }
 

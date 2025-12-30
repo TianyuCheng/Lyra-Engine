@@ -27,23 +27,28 @@ auto get_rhi() -> MetalRHI*
 // MetalRHI wait_idle implementation
 void MetalRHI::wait_idle()
 {
-    // wait for all command queues to complete
-    if (graphics_queue) {
-        // create a temporary command buffer and wait for it to complete
-        id<MTLCommandBuffer> cmd = [graphics_queue commandBuffer];
-        [cmd commit];
-        [cmd waitUntilCompleted];
-    }
+    @autoreleasepool {
 
-    if (compute_queue && compute_queue != graphics_queue) {
-        id<MTLCommandBuffer> cmd = [compute_queue commandBuffer];
-        [cmd commit];
-        [cmd waitUntilCompleted];
-    }
+        // wait for graphics queues to complete
+        if (graphics_queue) {
+            // create a temporary command buffer and wait for it to complete
+            id<MTLCommandBuffer> cmd = [graphics_queue commandBuffer];
+            [cmd commit];
+            [cmd waitUntilCompleted];
+        }
 
-    if (transfer_queue && transfer_queue != graphics_queue && transfer_queue != compute_queue) {
-        id<MTLCommandBuffer> cmd = [transfer_queue commandBuffer];
-        [cmd commit];
-        [cmd waitUntilCompleted];
+        // wait for compute queues to complete
+        if (compute_queue && compute_queue != graphics_queue) {
+            id<MTLCommandBuffer> cmd = [compute_queue commandBuffer];
+            [cmd commit];
+            [cmd waitUntilCompleted];
+        }
+
+        // wait for transfer queues to complete
+        if (transfer_queue && transfer_queue != graphics_queue && transfer_queue != compute_queue) {
+            id<MTLCommandBuffer> cmd = [transfer_queue commandBuffer];
+            [cmd commit];
+            [cmd waitUntilCompleted];
+        }
     }
 }

@@ -43,7 +43,9 @@ void MetalFence::signal(id<MTLCommandBuffer> cmdbuf, uint64_t value)
 
 void MetalFence::destroy()
 {
-    event = nil;
+    @autoreleasepool {
+        event = nil;
+    }
 }
 
 bool api::create_fence(GPUFenceHandle& handle)

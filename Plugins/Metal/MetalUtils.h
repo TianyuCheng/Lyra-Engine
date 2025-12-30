@@ -475,8 +475,10 @@ struct MetalRHI
     {
         if (rhiflags.contains(RHIFlag::DEBUG)) {
             if ([object respondsToSelector:@selector(setLabel:)]) {
-                [object performSelector:@selector(setLabel:)
-                             withObject:[NSString stringWithUTF8String:name]];
+                @autoreleasepool {
+                    [object performSelector:@selector(setLabel:)
+                                 withObject:[NSString stringWithUTF8String:name]];
+                }
             }
         }
     }
