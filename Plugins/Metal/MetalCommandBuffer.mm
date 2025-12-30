@@ -414,7 +414,8 @@ void cmd::set_vertex_buffer(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 slot, 
     auto& buffer = fetch_resource(rhi->buffers, buffer_handle);
 
     if (cmd.render_encoder) {
-        [cmd.render_encoder setVertexBuffer:buffer.buffer offset:offset atIndex:slot];
+        uint32_t metal_slot = (METAL_PushConstantBufferIndex - 1) - slot;
+        [cmd.render_encoder setVertexBuffer:buffer.buffer offset:offset atIndex:metal_slot];
     }
 }
 

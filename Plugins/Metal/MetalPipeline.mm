@@ -57,16 +57,18 @@ MetalPipeline::MetalPipeline(const GPURenderPipelineDescriptor& desc)
 
         uint binding = 0;
         for (auto& buffer_layout : desc.vertex.buffers) {
+            uint32_t metal_binding = (METAL_PushConstantBufferIndex - 1) - binding;
+
             // Buffer layout
-            vertex_desc.layouts[binding].stride       = buffer_layout.array_stride;
-            vertex_desc.layouts[binding].stepRate     = 1;
-            vertex_desc.layouts[binding].stepFunction = mtlenum(buffer_layout.step_mode);
+            vertex_desc.layouts[metal_binding].stride       = buffer_layout.array_stride;
+            vertex_desc.layouts[metal_binding].stepRate     = 1;
+            vertex_desc.layouts[metal_binding].stepFunction = mtlenum(buffer_layout.step_mode);
 
             // Attributes
             for (auto& attrib : buffer_layout.attributes) {
                 vertex_desc.attributes[attrib.shader_location].format      = mtlenum(attrib.format);
                 vertex_desc.attributes[attrib.shader_location].offset      = attrib.offset;
-                vertex_desc.attributes[attrib.shader_location].bufferIndex = binding;
+                vertex_desc.attributes[attrib.shader_location].bufferIndex = metal_binding;
             }
             binding++;
         }

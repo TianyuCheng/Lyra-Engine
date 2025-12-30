@@ -165,7 +165,7 @@ bool api::create_bind_group(GPUBindGroupHandle& handle, const GPUBindGroupDescri
     auto  rhi  = get_rhi();
     auto& heap = fetch_resource(rhi->bind_group_heaps, desc.heap);
 
-    // Allocate argument buffer from heap
+    // allocate argument buffer from heap
     id<MTLBuffer> arg_buffer = heap.allocate(desc.layout, desc);
     if (!arg_buffer) {
         return false;
