@@ -10,26 +10,28 @@ MetalTexture::MetalTexture()
 
 MetalTexture::MetalTexture(const GPUTextureDescriptor& desc)
 {
-    auto rhi = get_rhi();
+    @autoreleasepool {
+        auto rhi = get_rhi();
 
-    MTLTextureDescriptor* mtl_desc = [MTLTextureDescriptor new];
-    mtl_desc.textureType           = mtlenum(desc.dimension);
-    mtl_desc.pixelFormat           = mtlenum(desc.format);
-    mtl_desc.width                 = desc.size.width;
-    mtl_desc.height                = desc.size.height;
-    mtl_desc.depth                 = desc.size.depth;
-    mtl_desc.mipmapLevelCount      = desc.mip_level_count;
-    mtl_desc.arrayLength           = desc.array_layers;
-    mtl_desc.sampleCount           = desc.sample_count;
-    mtl_desc.usage                 = mtlenum(desc.usage);
+        MTLTextureDescriptor* mtl_desc = [MTLTextureDescriptor new];
+        mtl_desc.textureType           = mtlenum(desc.dimension);
+        mtl_desc.pixelFormat           = mtlenum(desc.format);
+        mtl_desc.width                 = desc.size.width;
+        mtl_desc.height                = desc.size.height;
+        mtl_desc.depth                 = desc.size.depth;
+        mtl_desc.mipmapLevelCount      = desc.mip_level_count;
+        mtl_desc.arrayLength           = desc.array_layers;
+        mtl_desc.sampleCount           = desc.sample_count;
+        mtl_desc.usage                 = mtlenum(desc.usage);
 
-    texture = [rhi->device newTextureWithDescriptor:mtl_desc];
-    format  = mtl_desc.pixelFormat;
-    type    = mtl_desc.textureType;
+        texture = [rhi->device newTextureWithDescriptor:mtl_desc];
+        format  = mtl_desc.pixelFormat;
+        type    = mtl_desc.textureType;
 
-    // Set debug label if provided
-    if (desc.label && texture) {
-        rhi->set_debug_label(texture, desc.label);
+        // set debug label if provided
+        if (desc.label && texture) {
+            rhi->set_debug_label(texture, desc.label);
+        }
     }
 }
 
@@ -46,15 +48,17 @@ MetalTextureView::MetalTextureView()
 
 MetalTextureView::MetalTextureView(const MetalTexture& parent, const GPUTextureViewDescriptor& desc)
 {
-    NSRange levels = NSMakeRange(desc.base_mip_level, desc.mip_level_count);
-    NSRange slices = NSMakeRange(desc.base_array_layer, desc.array_layer_count);
+    @autoreleasepool {
+        NSRange levels = NSMakeRange(desc.base_mip_level, desc.mip_level_count);
+        NSRange slices = NSMakeRange(desc.base_array_layer, desc.array_layer_count);
 
-    texture = [parent.texture newTextureViewWithPixelFormat:mtlenum(desc.format)
-                                                textureType:mtlenum(desc.dimension)
-                                                     levels:levels
-                                                     slices:slices];
-    format  = mtlenum(desc.format);
-    type    = mtlenum(desc.dimension);
+        texture = [parent.texture newTextureViewWithPixelFormat:mtlenum(desc.format)
+                                                    textureType:mtlenum(desc.dimension)
+                                                         levels:levels
+                                                         slices:slices];
+        format  = mtlenum(desc.format);
+        type    = mtlenum(desc.dimension);
+    }
 }
 
 void MetalTextureView::destroy()

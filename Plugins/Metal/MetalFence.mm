@@ -16,15 +16,18 @@ MetalFence::MetalFence(bool signaled)
 void MetalFence::wait(uint64_t timeout)
 {
     if (!event) return;
-    // CPU wait for GPU signal using dispatch semaphore
-    dispatch_semaphore_t    semaphore = dispatch_semaphore_create(0);
-    MTLSharedEventListener* listener  = [[MTLSharedEventListener alloc] initWithDispatchQueue:dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0)];
-    [event notifyListener:listener
-                  atValue:target
-                    block:^(id<MTLSharedEvent>, uint64_t) {
-                      dispatch_semaphore_signal(semaphore);
-                    }];
-    dispatch_semaphore_wait(semaphore, timeout == UINT64_MAX ? DISPATCH_TIME_FOREVER : dispatch_time(DISPATCH_TIME_NOW, timeout));
+
+    @autoreleasepool {
+        // CPU wait for GPU signal using dispatch semaphore
+        dispatch_semaphore_t    semaphore = dispatch_semaphore_create(0);
+        MTLSharedEventListener* listener  = [[MTLSharedEventListener alloc] initWithDispatchQueue:dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0)];
+        [event notifyListener:listener
+                      atValue:target
+                        block:^(id<MTLSharedEvent>, uint64_t) {
+                          dispatch_semaphore_signal(semaphore);
+                        }];
+        dispatch_semaphore_wait(semaphore, timeout == UINT64_MAX ? DISPATCH_TIME_FOREVER : dispatch_time(DISPATCH_TIME_NOW, timeout));
+    }
 }
 
 void MetalFence::signal(uint64_t value)
@@ -52,4 +55,7 @@ bool api::create_fence(GPUFenceHandle& handle)
     return obj.valid();
 }
 
-void api::delete_fence(GPUFenceHandle handle) { get_rhi()->fences.remove(handle.value); }
+void api::delete_fence(GPUFenceHandle handle)
+{
+    get_rhi()->fences.remove(handle.value);
+}

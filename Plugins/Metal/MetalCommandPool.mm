@@ -13,5 +13,7 @@ void MetalCommandPool::destroy()
 
 id<MTLCommandBuffer> MetalCommandPool::allocate()
 {
-    return command_queue ? [command_queue commandBuffer] : nil;
+    @autoreleasepool {
+        return command_queue ? [command_queue commandBuffer] : nil;
+    }
 }
