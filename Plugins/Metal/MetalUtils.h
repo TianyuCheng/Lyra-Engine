@@ -13,6 +13,7 @@
 #endif
 
 #include <Lyra/Common/Logger.h>
+#include <Lyra/Common/Memory.h>
 #include <Lyra/Common/Function.h>
 #include <Lyra/Common/Conversion.h>
 #include <Lyra/Common/Collections.h>
@@ -209,7 +210,7 @@ struct MetalBindGroup
 
     // implementation in MetalBindGroup.mm
     explicit MetalBindGroup();
-    explicit MetalBindGroup(const GPUBindGroupDescriptor& desc);
+    void init(const GPUBindGroupDescriptor& desc);
 
     void destroy() {} // No-op for O(1) reset
     bool valid() const { return entries != nullptr; }
@@ -226,6 +227,22 @@ struct MetalBindGroupLayout
 
     void destroy();
     bool valid() const { return !entries.empty(); }
+};
+
+// bind group heap
+struct MetalBindGroupHeap
+{
+    Ref<lyra::MemoryArena> arena;
+
+    // implementation in MetalBindGroup.mm
+    explicit MetalBindGroupHeap();
+    explicit MetalBindGroupHeap(const GPUBindGroupHeapDescriptor& desc);
+
+    void* allocate(size_t size, size_t alignment);
+    auto  create_bind_group(const GPUBindGroupDescriptor& desc) -> GPUBindGroupHandle;
+    void  reset();
+    void  destroy();
+    bool  valid() const { return true; }
 };
 
 // pipeline layout
@@ -312,23 +329,6 @@ struct MetalBlas
 
     void destroy();
     bool valid() const { return blas != nil; }
-};
-
-#include <Lyra/Common/Memory.h>
-
-// bind group heap
-struct MetalBindGroupHeap
-{
-    Ref<lyra::MemoryArena> arena;
-
-    // implementation in MetalBindGroup.mm
-    explicit MetalBindGroupHeap();
-    explicit MetalBindGroupHeap(const GPUBindGroupHeapDescriptor& desc);
-
-    void* allocate(size_t size, size_t alignment);
-    void  reset();
-    void  destroy();
-    bool  valid() const { return true; }
 };
 
 // command buffer

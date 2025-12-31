@@ -221,6 +221,13 @@ void api::delete_query_set(GPUQuerySetHandle handle)
     get_rhi()->query_sets.remove(handle.value);
 }
 
+bool api::create_bind_group(GPUBindGroupHandle& handle, const GPUBindGroupDescriptor& desc)
+{
+    auto& heap = fetch_resource(get_rhi()->bind_group_heaps, desc.heap);
+    handle = heap.create_bind_group(desc);
+    return handle.valid();
+}
+
 auto get_api_name() -> CString
 {
     return "Metal";
