@@ -52,6 +52,7 @@ struct MetalPipelineLayout;
 struct MetalPipeline;
 struct MetalTlas;
 struct MetalBlas;
+struct MetalBindGroup;
 struct MetalBindGroupHeap;
 struct MetalCommandBuffer;
 struct MetalCommandPool;
@@ -173,20 +174,56 @@ struct MetalShader
     bool valid() const { return library != nil; }
 };
 
-// bind group layout (using argument buffers)
+// bind group (replaces argument buffer implementation)
+struct MetalBindGroup
+{
+    struct Entry
+    {
+        uint32_t        binding;
+        GPUResourceType type;
+        union
+        {
+            struct
+            {
+                __unsafe_unretained id<MTLBuffer> buffer;
+                NSUInteger                        offset;
+            } buffer;
+            struct
+            {
+                __unsafe_unretained id<MTLTexture> texture;
+            } texture;
+            struct
+            {
+                __unsafe_unretained id<MTLSamplerState> sampler;
+            } sampler;
+            struct
+            {
+                __unsafe_unretained id<MTLAccelerationStructure> tlas;
+            } tlas;
+        };
+    };
+
+    Vector<Entry> entries;
+
+    // implementation in MetalBindGroup.mm
+    explicit MetalBindGroup();
+    explicit MetalBindGroup(const GPUBindGroupDescriptor& desc);
+
+    void destroy() { entries.clear(); }
+    bool valid() const { return !entries.empty(); }
+};
+
+// bind group layout
 struct MetalBindGroupLayout
 {
-    NSArray<MTLArgumentDescriptor*>* argument_descriptors = nil;
-    id<MTLArgumentEncoder>           encoder              = nil;
-    NSUInteger                       encoded_length       = 0;
-    bool                             bindless             = false;
+    Vector<GPUBindGroupLayoutEntry> entries;
 
     // implementation in MetalLayout.mm
     explicit MetalBindGroupLayout();
     explicit MetalBindGroupLayout(const GPUBindGroupLayoutDescriptor& desc);
 
     void destroy();
-    bool valid() const { return argument_descriptors != nil; }
+    bool valid() const { return !entries.empty(); }
 };
 
 // pipeline layout
@@ -194,6 +231,16 @@ struct MetalPipelineLayout
 {
     Vector<GPUBindGroupLayoutHandle> bind_group_layouts;
     Vector<GPUPushConstantRange>     push_constant_ranges;
+
+    // Flat index mappings: (set << 16 | binding) -> metal_index
+    std::unordered_map<uint32_t, uint32_t> buffer_indices;
+    std::unordered_map<uint32_t, uint32_t> texture_indices;
+    std::unordered_map<uint32_t, uint32_t> sampler_indices;
+
+    // Max indices used (for collision detection)
+    uint32_t max_buffer_index  = 0;
+    uint32_t max_texture_index = 0;
+    uint32_t max_sampler_index = 0;
 
     // implementation in MetalLayout.mm
     explicit MetalPipelineLayout();
@@ -265,24 +312,19 @@ struct MetalBlas
     bool valid() const { return blas != nil; }
 };
 
-// bind group heap (using MTLHeap for argument buffers)
+// bind group heap
 struct MetalBindGroupHeap
 {
-    id<MTLHeap>           heap       = nil;
-    MTLHeapDescriptor*    descriptor = nil;
-    Vector<id<MTLBuffer>> allocated_buffers;
-    size_t                heap_offset        = 0;
-    bool                  has_unified_memory = false;
+    Vector<MetalBindGroup> groups;
 
-    // implementation in MetalArgumentBuffer.mm
+    // implementation in MetalBindGroup.mm
     explicit MetalBindGroupHeap();
     explicit MetalBindGroupHeap(const GPUBindGroupHeapDescriptor& desc);
 
-    void destroy();
-    void reset();
-    bool valid() const { return heap != nil || !has_unified_memory; }
-
-    auto allocate(GPUBindGroupLayoutHandle layout, const GPUBindGroupDescriptor& desc) -> id<MTLBuffer>;
+    uint32_t allocate(const GPUBindGroupDescriptor& desc);
+    void     reset();
+    void     destroy();
+    bool     valid() const { return true; }
 };
 
 // command buffer
@@ -566,7 +608,7 @@ namespace api
     void new_frame();
     void end_frame();
 
-    // swapchain
+    // swapchain API
     bool acquire_next_frame(GPUSurfaceHandle surface, GPUTextureHandle& texture, GPUTextureViewHandle& view,
         GPUFenceHandle& image_available_fence, GPUFenceHandle& render_complete_fence, bool& suboptimal);
     bool present_curr_frame(GPUSurfaceHandle surface);
@@ -577,12 +619,12 @@ namespace api
     void delete_bind_group_heap(GPUBindGroupHeapHandle heap);
     void reset_bind_group_heap(GPUBindGroupHeapHandle heap);
 
-    // command buffer
+    // command buffer APIS
     bool create_command_buffer(GPUCommandEncoderHandle& cmdbuffer, const GPUCommandBufferDescriptor& descriptor);
     bool create_command_bundle(GPUCommandEncoderHandle& cmdbuffer, const GPUCommandBundleDescriptor& descriptor);
     bool submit_command_buffer(GPUCommandEncoderHandle cmdbuffer);
 
-    // device/queue Related
+    // device/queue related APIs
     void wait_idle();
     void wait_fence(GPUFenceHandle handle);
 

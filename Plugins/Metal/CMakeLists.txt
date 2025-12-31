@@ -28,7 +28,7 @@ target_sources(lyra-metal PRIVATE
   MetalLayout.mm
   MetalCommandBuffer.mm
   MetalCommandPool.mm
-  MetalArgumentBuffer.mm
+  MetalBindGroup.mm
   MetalQuery.mm
   MetalBlas.mm
   MetalTlas.mm

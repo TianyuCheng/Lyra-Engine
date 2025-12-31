@@ -347,30 +347,99 @@ void cmd::set_raytracing_pipeline(GPUCommandEncoderHandle cmdbuffer, GPURayTraci
     get_logger()->debug("Ray tracing pipeline bound (max_recursion_depth={})", pipeline.max_recursion_depth);
 }
 
-void cmd::set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GPUBindGroupHandle bind_group, GPUBufferDynamicOffsets)
+void cmd::set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GPUBindGroupHandle bind_group_handle, GPUBufferDynamicOffsets)
 {
     auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
 
-    if (!bind_group.valid()) return;
+    if (!bind_group_handle.valid()) return;
 
-    // the bind group handle stores the argument buffer pointer directly
-    id<MTLBuffer> arg_buffer = (__bridge id<MTLBuffer>)(void*)bind_group.value;
-    if (!arg_buffer) return;
+    if (!cmd.bound_layout.valid()) {
+        get_logger()->error("No valid pipeline layout bound when setting bind group");
+        return;
+    }
 
-    // set argument buffer on the appropriate encoder
-    // use buffer index based on bind group index (typically starting at index 0-3 for bind groups)
-    uint buffer_index = index; // Bind group index maps to buffer index
+    // decode handle: (HeapID << 32) | GroupIndex
+    // HeapID is the lower 32-bits of the original heap handle (the index part)
+    uint32_t heap_index  = static_cast<uint32_t>((bind_group_handle.value >> 32) & 0xFFFFFFFF);
+    uint32_t group_index = static_cast<uint32_t>(bind_group_handle.value & 0xFFFFFFFF);
 
-    if (cmd.render_encoder) {
-        [cmd.render_encoder setVertexBuffer:arg_buffer offset:0 atIndex:buffer_index];
-        [cmd.render_encoder setFragmentBuffer:arg_buffer offset:0 atIndex:buffer_index];
+    // we only have the index part of the heap handle. We lose generation safety here
+    GPUBindGroupHeapHandle heap_handle(heap_index);
+    if (!rhi->bind_group_heaps.range_check(heap_index)) {
+        get_logger()->error("Bind group heap index out of range!");
+        return;
+    }
 
-        // Use resources from argument buffer (required for Metal argument buffers)
-        [cmd.render_encoder useResource:arg_buffer usage:MTLResourceUsageRead stages:MTLRenderStageVertex | MTLRenderStageFragment];
-    } else if (cmd.compute_encoder) {
-        [cmd.compute_encoder setBuffer:arg_buffer offset:0 atIndex:buffer_index];
-        [cmd.compute_encoder useResource:arg_buffer usage:MTLResourceUsageRead];
+    auto& heap = rhi->bind_group_heaps.at(heap_index);
+
+    if (group_index >= heap.groups.size()) {
+        get_logger()->error("Bind group index out of range in heap");
+        return;
+    }
+
+    const auto& bind_group      = heap.groups[group_index];
+    const auto& pipeline_layout = fetch_resource(rhi->pipeline_layouts, cmd.bound_layout);
+    for (const auto& entry : bind_group.entries) {
+        uint32_t key = (index << 16) | entry.binding;
+
+        switch (entry.type) {
+            case GPUResourceType::BUFFER:
+            {
+                if (pipeline_layout.buffer_indices.find(key) != pipeline_layout.buffer_indices.end()) {
+                    uint32_t slot = pipeline_layout.buffer_indices.at(key);
+                    if (cmd.render_encoder) {
+                        [cmd.render_encoder setVertexBuffer:entry.buffer.buffer offset:entry.buffer.offset atIndex:slot];
+                        [cmd.render_encoder setFragmentBuffer:entry.buffer.buffer offset:entry.buffer.offset atIndex:slot];
+                    } else if (cmd.compute_encoder) {
+                        [cmd.compute_encoder setBuffer:entry.buffer.buffer offset:entry.buffer.offset atIndex:slot];
+                    }
+                }
+                break;
+            }
+            case GPUResourceType::TEXTURE:
+            case GPUResourceType::STORAGE_TEXTURE:
+            {
+                if (pipeline_layout.texture_indices.find(key) != pipeline_layout.texture_indices.end()) {
+                    uint32_t slot = pipeline_layout.texture_indices.at(key);
+                    if (cmd.render_encoder) {
+                        [cmd.render_encoder setVertexTexture:entry.texture.texture atIndex:slot];
+                        [cmd.render_encoder setFragmentTexture:entry.texture.texture atIndex:slot];
+                    } else if (cmd.compute_encoder) {
+                        [cmd.compute_encoder setTexture:entry.texture.texture atIndex:slot];
+                    }
+                }
+                break;
+            }
+            case GPUResourceType::SAMPLER:
+            {
+                if (pipeline_layout.sampler_indices.find(key) != pipeline_layout.sampler_indices.end()) {
+                    uint32_t slot = pipeline_layout.sampler_indices.at(key);
+                    if (cmd.render_encoder) {
+                        [cmd.render_encoder setVertexSamplerState:entry.sampler.sampler atIndex:slot];
+                        [cmd.render_encoder setFragmentSamplerState:entry.sampler.sampler atIndex:slot];
+                    } else if (cmd.compute_encoder) {
+                        [cmd.compute_encoder setSamplerState:entry.sampler.sampler atIndex:slot];
+                    }
+                }
+                break;
+            }
+            case GPUResourceType::ACCELERATION_STRUCTURE:
+            {
+                if (@available(macOS 13.0, iOS 16.0, *)) {
+                    if (pipeline_layout.buffer_indices.find(key) != pipeline_layout.buffer_indices.end()) {
+                        uint32_t slot = pipeline_layout.buffer_indices.at(key);
+                        if (cmd.render_encoder) {
+                            [cmd.render_encoder setVertexAccelerationStructure:entry.tlas.tlas atBufferIndex:slot];
+                            [cmd.render_encoder setFragmentAccelerationStructure:entry.tlas.tlas atBufferIndex:slot];
+                        } else if (cmd.compute_encoder) {
+                            [cmd.compute_encoder setAccelerationStructure:entry.tlas.tlas atBufferIndex:slot];
+                        }
+                    }
+                }
+                break;
+            }
+        }
     }
 }
 

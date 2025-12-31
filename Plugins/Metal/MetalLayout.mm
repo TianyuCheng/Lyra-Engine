@@ -1,117 +1,72 @@
 #include "MetalUtils.h"
+#include <unordered_map>
+
 using namespace lyra;
-
-// helper function to infer MTLArgumentType from binding layout entry
-static MTLDataType infer_buffer_data_type(const GPUBufferBindingLayout& entry)
-{
-    // for buffers, we use MTLDataTypePointer
-    return MTLDataTypePointer;
-}
-
-static MTLArgumentAccess infer_buffer_access(const GPUBufferBindingLayout& entry)
-{
-    switch (entry.type) {
-        case GPUBufferBindingType::UNIFORM:
-            return MTLArgumentAccessReadOnly;
-        case GPUBufferBindingType::STORAGE:
-            return MTLArgumentAccessReadWrite;
-        case GPUBufferBindingType::READ_ONLY_STORAGE:
-            return MTLArgumentAccessReadOnly;
-        default:
-            return MTLArgumentAccessReadOnly;
-    }
-}
-
-static MTLArgumentAccess infer_storage_texture_access(const GPUStorageTextureBindingLayout& entry)
-{
-    switch (entry.access) {
-        case GPUStorageTextureAccess::WRITE_ONLY:
-            return MTLArgumentAccessWriteOnly;
-        case GPUStorageTextureAccess::READ_ONLY:
-            return MTLArgumentAccessReadOnly;
-        case GPUStorageTextureAccess::READ_WRITE:
-            return MTLArgumentAccessReadWrite;
-        default:
-            return MTLArgumentAccessReadWrite;
-    }
-}
 
 MetalBindGroupLayout::MetalBindGroupLayout() {}
 
 MetalBindGroupLayout::MetalBindGroupLayout(const GPUBindGroupLayoutDescriptor& desc)
 {
-    auto rhi = get_rhi();
-
-    NSMutableArray<MTLArgumentDescriptor*>* args = [NSMutableArray new];
-
+    // Store entries for pipeline layout mapping
     for (auto& entry : desc.entries) {
-        MTLArgumentDescriptor* arg = [MTLArgumentDescriptor new];
-        arg.index                  = entry.binding.index;
-        arg.arrayLength            = entry.count;
-
-        switch (entry.type) {
-            case GPUResourceType::BUFFER:
-                arg.dataType = infer_buffer_data_type(entry.buffer);
-                arg.access   = infer_buffer_access(entry.buffer);
-                break;
-
-            case GPUResourceType::SAMPLER:
-                arg.dataType = MTLDataTypeSampler;
-                arg.access   = MTLArgumentAccessReadOnly;
-                break;
-
-            case GPUResourceType::TEXTURE:
-                arg.dataType = MTLDataTypeTexture;
-                arg.access   = MTLArgumentAccessReadOnly;
-                break;
-
-            case GPUResourceType::STORAGE_TEXTURE:
-                arg.dataType = MTLDataTypeTexture;
-                arg.access   = infer_storage_texture_access(entry.storage_texture);
-                break;
-
-            case GPUResourceType::ACCELERATION_STRUCTURE:
-                // Metal 3+ acceleration structure support
-                arg.dataType = MTLDataTypePointer;
-                arg.access   = MTLArgumentAccessReadOnly;
-                break;
-
-            default:
-                get_logger()->error("Unsupported binding resource type in bind group layout");
-                continue;
-        }
-
-        [args addObject:arg];
-    }
-
-    argument_descriptors = args;
-
-    // create encoder to determine encoded length
-    if ([args count] > 0) {
-        encoder        = [rhi->device newArgumentEncoderWithArguments:args];
-        encoded_length = [encoder encodedLength];
+        entries.push_back(entry);
     }
 }
 
 void MetalBindGroupLayout::destroy()
 {
-    argument_descriptors = nil;
-    encoder              = nil;
-    encoded_length       = 0;
+    entries.clear();
 }
 
 MetalPipelineLayout::MetalPipelineLayout() {}
 
 MetalPipelineLayout::MetalPipelineLayout(const GPUPipelineLayoutDescriptor& desc)
 {
-    // store bind group layout handles
-    for (const auto& handle : desc.bind_group_layouts) {
-        bind_group_layouts.push_back(handle);
-    }
+    auto rhi = get_rhi();
 
     // store push constant ranges
     for (const auto& range : desc.push_constant_ranges) {
         push_constant_ranges.push_back(range);
+    }
+
+    // Generate flat mapping
+    uint32_t current_buffer_index  = 0;
+    uint32_t current_texture_index = 0;
+    uint32_t current_sampler_index = 0;
+
+    for (uint32_t set = 0; set < desc.bind_group_layouts.size(); ++set) {
+        GPUBindGroupLayoutHandle handle = desc.bind_group_layouts[set];
+        bind_group_layouts.push_back(handle);
+
+        auto& layout = fetch_resource(rhi->bind_group_layouts, handle);
+
+        for (const auto& entry : layout.entries) {
+            uint32_t key = (set << 16) | entry.binding.index;
+
+            switch (entry.type) {
+                case GPUResourceType::BUFFER:
+                case GPUResourceType::ACCELERATION_STRUCTURE:
+                    buffer_indices[key] = current_buffer_index++;
+                    break;
+                case GPUResourceType::TEXTURE:
+                case GPUResourceType::STORAGE_TEXTURE:
+                    texture_indices[key] = current_texture_index++;
+                    break;
+                case GPUResourceType::SAMPLER:
+                    sampler_indices[key] = current_sampler_index++;
+                    break;
+            }
+        }
+    }
+
+    max_buffer_index  = current_buffer_index;
+    max_texture_index = current_texture_index;
+    max_sampler_index = current_sampler_index;
+
+    // Bounds checking
+    if (max_buffer_index >= METAL_PushConstantBufferIndex) {
+        get_logger()->error("Pipeline layout exceeds available Metal buffer slots! Used: {}, Available: <{}", 
+            max_buffer_index, METAL_PushConstantBufferIndex);
     }
 }
 
@@ -119,6 +74,9 @@ void MetalPipelineLayout::destroy()
 {
     bind_group_layouts.clear();
     push_constant_ranges.clear();
+    buffer_indices.clear();
+    texture_indices.clear();
+    sampler_indices.clear();
 }
 
 bool api::create_bind_group_layout(GPUBindGroupLayoutHandle& handle, const GPUBindGroupLayoutDescriptor& desc)
@@ -148,3 +106,4 @@ void api::delete_pipeline_layout(GPUPipelineLayoutHandle handle)
 {
     get_rhi()->pipeline_layouts.remove(handle.value);
 }
+
