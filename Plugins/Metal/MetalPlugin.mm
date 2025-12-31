@@ -4,6 +4,223 @@
 
 using namespace lyra;
 
+bool api::create_buffer(GPUBufferHandle& handle, const GPUBufferDescriptor& desc)
+{
+    auto rhi = get_rhi();
+    auto obj = MetalBuffer(desc);
+    auto ind = rhi->buffers.add(obj);
+    handle   = GPUBufferHandle(ind);
+    return obj.valid();
+}
+
+void api::delete_buffer(GPUBufferHandle handle)
+{
+    get_rhi()->buffers.remove(handle.value);
+}
+
+void api::map_buffer(GPUBufferHandle buffer, GPUMapMode, GPUSize64 offset, GPUSize64 size)
+{
+    auto& buf = fetch_resource(get_rhi()->buffers, buffer);
+    buf.map(offset, size);
+}
+
+void api::unmap_buffer(GPUBufferHandle buffer)
+{
+    auto& buf = fetch_resource(get_rhi()->buffers, buffer);
+    buf.unmap();
+}
+
+void api::get_mapped_state(GPUBufferHandle buffer, GPUMapState& state)
+{
+    auto& buf = fetch_resource(get_rhi()->buffers, buffer);
+    state     = buf.mapped() ? GPUMapState::MAPPED : GPUMapState::UNMAPPED;
+}
+
+void api::get_mapped_range(GPUBufferHandle buffer, MappedBufferRange& range)
+{
+    auto& buf  = fetch_resource(get_rhi()->buffers, buffer);
+    range.data = buf.mapped_data;
+    range.size = buf.mapped_size;
+}
+
+bool api::create_sampler(GPUSamplerHandle& handle, const GPUSamplerDescriptor& desc)
+{
+    auto rhi = get_rhi();
+    auto obj = MetalSampler(desc);
+    auto ind = rhi->samplers.add(obj);
+    handle   = GPUSamplerHandle(ind);
+    return obj.valid();
+}
+
+void api::delete_sampler(GPUSamplerHandle handle)
+{
+    get_rhi()->samplers.remove(handle.value);
+}
+
+bool api::create_texture(GPUTextureHandle& handle, const GPUTextureDescriptor& desc)
+{
+    auto rhi = get_rhi();
+    auto obj = MetalTexture(desc);
+    auto ind = rhi->textures.add(obj);
+    handle   = GPUTextureHandle(ind);
+    return obj.valid();
+}
+
+void api::delete_texture(GPUTextureHandle handle)
+{
+    get_rhi()->textures.remove(handle.value);
+}
+
+bool api::create_texture_view(GPUTextureViewHandle& handle, GPUTextureHandle texture, const GPUTextureViewDescriptor& desc)
+{
+    auto  rhi = get_rhi();
+    auto& tex = fetch_resource(rhi->textures, texture);
+    auto  obj = MetalTextureView(tex, desc);
+    auto  ind = rhi->views.add(obj);
+    handle    = GPUTextureViewHandle(ind);
+    return obj.valid();
+}
+
+void api::delete_texture_view(GPUTextureViewHandle handle)
+{
+    get_rhi()->views.remove(handle.value);
+}
+
+bool api::create_shader_module(GPUShaderModuleHandle& handle, const GPUShaderModuleDescriptor& desc)
+{
+    auto rhi = get_rhi();
+    auto obj = MetalShader(desc);
+    auto ind = rhi->shaders.add(obj);
+    handle   = GPUShaderModuleHandle(ind);
+    return obj.valid();
+}
+
+void api::delete_shader_module(GPUShaderModuleHandle handle)
+{
+    get_rhi()->shaders.remove(handle.value);
+}
+
+bool api::create_fence(GPUFenceHandle& handle)
+{
+    auto rhi = get_rhi();
+    auto obj = MetalFence(false); // Create with signaled=false
+    auto ind = rhi->fences.add(obj);
+    handle   = GPUFenceHandle(ind);
+    return obj.valid();
+}
+
+void api::delete_fence(GPUFenceHandle handle)
+{
+    get_rhi()->fences.remove(handle.value);
+}
+
+bool api::create_blas(GPUBlasHandle& handle, const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescriptors sizes)
+{
+    auto rhi = get_rhi();
+
+    // check device support
+    if (![rhi->device supportsRaytracing]) {
+        get_logger()->error("Metal ray tracing is not supported on this device");
+        return false;
+    }
+
+    auto obj = MetalBlas(desc, sizes);
+    if (!obj.valid()) {
+        return false;
+    }
+
+    auto ind = rhi->blases.add(obj);
+    handle   = GPUBlasHandle(ind);
+    return true;
+}
+
+void api::delete_blas(GPUBlasHandle handle)
+{
+    get_rhi()->blases.remove(handle.value);
+}
+
+bool api::create_tlas(GPUTlasHandle& handle, const GPUTlasDescriptor& desc)
+{
+    auto rhi = get_rhi();
+
+    // check device support
+    if (![rhi->device supportsRaytracing]) {
+        get_logger()->error("Metal ray tracing is not supported on this device");
+        return false;
+    }
+
+    auto obj = MetalTlas(desc);
+    if (!obj.valid()) {
+        return false;
+    }
+
+    auto ind = rhi->tlases.add(obj);
+    handle   = GPUTlasHandle(ind);
+    return true;
+}
+
+void api::delete_tlas(GPUTlasHandle handle)
+{
+    get_rhi()->tlases.remove(handle.value);
+}
+
+bool api::get_blas_sizes(GPUBlasHandle handle, GPUBVHSizes& sizes)
+{
+    auto  rhi  = get_rhi();
+    auto& blas = fetch_resource(rhi->blases, handle);
+
+    sizes.bvh_size    = static_cast<uint>(blas.sizes.accelerationStructureSize);
+    sizes.build_size  = static_cast<uint>(blas.sizes.buildScratchBufferSize);
+    sizes.update_size = static_cast<uint>(blas.sizes.refitScratchBufferSize);
+    return true;
+}
+
+bool api::get_tlas_sizes(GPUTlasHandle handle, GPUBVHSizes& sizes)
+{
+    auto  rhi  = get_rhi();
+    auto& tlas = fetch_resource(rhi->tlases, handle);
+
+    sizes.bvh_size    = static_cast<uint>(tlas.sizes.accelerationStructureSize);
+    sizes.build_size  = static_cast<uint>(tlas.sizes.buildScratchBufferSize);
+    sizes.update_size = static_cast<uint>(tlas.sizes.refitScratchBufferSize);
+    return true;
+}
+
+bool api::create_query_set(GPUQuerySetHandle& handle, const GPUQuerySetDescriptor& desc)
+{
+    auto rhi = get_rhi();
+    auto obj = MetalQuerySet(desc);
+
+    // for timestamp queries, check sample_buffer
+    // for occlusion queries, check visibility_buffer
+    bool is_valid = false;
+    switch (desc.type) {
+        case GPUQueryType::TIMESTAMP:
+            is_valid = (obj.sample_buffer != nil);
+            break;
+        case GPUQueryType::OCCLUSION:
+        case GPUQueryType::BLAS_PROPERTIES:
+            is_valid = (obj.visibility_buffer != nil);
+            break;
+        case GPUQueryType::PIPELINE_STATISTICS:
+            // Pipeline statistics have limited support, allow creation
+            is_valid = true;
+            break;
+    }
+
+    if (!is_valid)
+        return false;
+
+    auto ind = rhi->query_sets.add(obj);
+    handle   = GPUQuerySetHandle(ind);
+    return true;
+}
+
+void api::delete_query_set(GPUQuerySetHandle handle)
+{
+    get_rhi()->query_sets.remove(handle.value);
+}
+
 auto get_api_name() -> CString
 {
     return "Metal";

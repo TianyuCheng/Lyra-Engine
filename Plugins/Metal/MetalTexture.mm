@@ -23,8 +23,16 @@ MetalTexture::MetalTexture(const GPUTextureDescriptor& desc)
         mtl_desc.arrayLength           = desc.array_layers;
         mtl_desc.sampleCount           = desc.sample_count;
         mtl_desc.usage                 = mtlenum(desc.usage);
+        mtl_desc.storageMode           = determine_texture_storage_mode(desc.format);
 
         texture = [rhi->device newTextureWithDescriptor:mtl_desc];
+
+        if (!texture) {
+            get_logger()->error("Failed to create Metal texture: {}x{}x{}, format={}", 
+                desc.size.width, desc.size.height, desc.size.depth, (uint32_t)desc.format);
+            return;
+        }
+
         format  = mtl_desc.pixelFormat;
         type    = mtl_desc.textureType;
 
@@ -56,6 +64,12 @@ MetalTextureView::MetalTextureView(const MetalTexture& parent, const GPUTextureV
                                                     textureType:mtlenum(desc.dimension)
                                                          levels:levels
                                                          slices:slices];
+
+        if (!texture) {
+            get_logger()->error("Failed to create Metal texture view");
+            return;
+        }
+
         format  = mtlenum(desc.format);
         type    = mtlenum(desc.dimension);
     }
@@ -64,33 +78,4 @@ MetalTextureView::MetalTextureView(const MetalTexture& parent, const GPUTextureV
 void MetalTextureView::destroy()
 {
     texture = nil;
-}
-
-bool api::create_texture(GPUTextureHandle& handle, const GPUTextureDescriptor& desc)
-{
-    auto rhi = get_rhi();
-    auto obj = MetalTexture(desc);
-    auto ind = rhi->textures.add(obj);
-    handle   = GPUTextureHandle(ind);
-    return obj.valid();
-}
-
-void api::delete_texture(GPUTextureHandle handle)
-{
-    get_rhi()->textures.remove(handle.value);
-}
-
-bool api::create_texture_view(GPUTextureViewHandle& handle, GPUTextureHandle texture, const GPUTextureViewDescriptor& desc)
-{
-    auto  rhi = get_rhi();
-    auto& tex = fetch_resource(rhi->textures, texture);
-    auto  obj = MetalTextureView(tex, desc);
-    auto  ind = rhi->views.add(obj);
-    handle    = GPUTextureViewHandle(ind);
-    return obj.valid();
-}
-
-void api::delete_texture_view(GPUTextureViewHandle handle)
-{
-    get_rhi()->views.remove(handle.value);
 }

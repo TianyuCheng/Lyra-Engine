@@ -775,19 +775,19 @@ T& fetch_resource(VulkanResourceManager<T>& manager, Handle handle)
     // check handle validity
     if (!handle.valid()) {
         get_logger()->error("Resource handle {} is invalid!", typeid(Handle).name());
-        exit(1);
+        throw std::runtime_error("Resource handle is invalid!");
     }
 
     // check resource range
     if (!manager.range_check(handle.value)) {
         get_logger()->error("Resource handle {} with value={} access out of range!", Handle::type_name(), handle.value);
-        exit(1);
+        throw std::runtime_error("Resource handle is accessing out of range!");
     }
 
     T& resource = manager.at(handle.value);
     if (!resource.valid()) {
         get_logger()->error("Resource handle {} with value={} has invalid object!", Handle::type_name(), handle.value);
-        exit(1);
+        throw std::runtime_error("Resource handle references an invalid object!");
     }
     return resource;
 }

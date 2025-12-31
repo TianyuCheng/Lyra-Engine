@@ -218,10 +218,10 @@ TEST_CASE("rhi::d3d12::dynamic_uniform" * doctest::description("Rendering multip
 #endif
 
 #ifdef __APPLE__
-TEST_CASE("rhi::d3d12::dynamic_uniform" * doctest::description("Rendering multiple triangles with the dynamic uniform buffer."))
+TEST_CASE("rhi::metal::dynamic_uniform" * doctest::description("Rendering multiple triangles with the dynamic uniform buffer."))
 {
     TestAppDescriptor desc{};
-    desc.name           = "d3d12";
+    desc.name           = "metal";
     desc.window         = false;
     desc.backend        = RHIBackend::METAL;
     desc.width          = 640;

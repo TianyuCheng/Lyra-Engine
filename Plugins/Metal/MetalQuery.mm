@@ -47,8 +47,12 @@ MetalQuerySet::MetalQuerySet(const GPUQuerySetDescriptor& desc)
 
             NSError* error = nil;
             sample_buffer  = [rhi->device newCounterSampleBufferWithDescriptor:buffer_desc error:&error];
-            if (error) {
-                get_logger()->error("Failed to create timestamp query set: {}", [[error localizedDescription] UTF8String]);
+            if (!sample_buffer || error) {
+                if (error) {
+                    get_logger()->error("Failed to create timestamp query set: {}", [[error localizedDescription] UTF8String]);
+                } else {
+                    get_logger()->error("Failed to create timestamp query set (unknown error)");
+                }
                 return;
             }
             break;
@@ -95,40 +99,4 @@ void MetalQuerySet::destroy()
     sample_buffer     = nil;
     visibility_buffer = nil;
     count             = 0;
-}
-
-bool api::create_query_set(GPUQuerySetHandle& handle, const GPUQuerySetDescriptor& desc)
-{
-    auto rhi = get_rhi();
-    auto obj = MetalQuerySet(desc);
-
-    // for timestamp queries, check sample_buffer
-    // for occlusion queries, check visibility_buffer
-    bool is_valid = false;
-    switch (desc.type) {
-        case GPUQueryType::TIMESTAMP:
-            is_valid = (obj.sample_buffer != nil);
-            break;
-        case GPUQueryType::OCCLUSION:
-        case GPUQueryType::BLAS_PROPERTIES:
-            is_valid = (obj.visibility_buffer != nil);
-            break;
-        case GPUQueryType::PIPELINE_STATISTICS:
-            // Pipeline statistics have limited support, allow creation
-            is_valid = true;
-            break;
-    }
-
-    if (!is_valid) {
-        return false;
-    }
-
-    auto ind = rhi->query_sets.add(obj);
-    handle   = GPUQuerySetHandle(ind);
-    return true;
-}
-
-void api::delete_query_set(GPUQuerySetHandle handle)
-{
-    get_rhi()->query_sets.remove(handle.value);
 }

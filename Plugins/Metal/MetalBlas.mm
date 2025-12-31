@@ -91,7 +91,7 @@ MetalBlas::MetalBlas(const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescripto
     // allocate acceleration structure
     blas = [rhi->device newAccelerationStructureWithSize:sizes.accelerationStructureSize];
     if (!blas) {
-        get_logger()->error("Failed to allocate BLAS acceleration structure");
+        get_logger()->error("Failed to allocate BLAS acceleration structure of size {}", (uint64_t)sizes.accelerationStructureSize);
         return;
     }
 
@@ -104,41 +104,4 @@ void MetalBlas::destroy()
     blas       = nil;
     descriptor = nil;
     sizes      = {};
-}
-
-bool api::create_blas(GPUBlasHandle& handle, const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescriptors sizes)
-{
-    auto rhi = get_rhi();
-
-    // check device support
-    if (![rhi->device supportsRaytracing]) {
-        get_logger()->error("Metal ray tracing is not supported on this device");
-        return false;
-    }
-
-    auto obj = MetalBlas(desc, sizes);
-    if (!obj.valid()) {
-        return false;
-    }
-
-    auto ind = rhi->blases.add(obj);
-    handle   = GPUBlasHandle(ind);
-    return true;
-}
-
-void api::delete_blas(GPUBlasHandle handle)
-{
-    get_rhi()->blases.remove(handle.value);
-}
-
-bool api::get_blas_sizes(GPUBlasHandle handle, GPUBVHSizes& sizes)
-{
-    auto  rhi  = get_rhi();
-    auto& blas = fetch_resource(rhi->blases, handle);
-
-    sizes.bvh_size    = static_cast<uint>(blas.sizes.accelerationStructureSize);
-    sizes.build_size  = static_cast<uint>(blas.sizes.buildScratchBufferSize);
-    sizes.update_size = static_cast<uint>(blas.sizes.refitScratchBufferSize);
-
-    return true;
 }

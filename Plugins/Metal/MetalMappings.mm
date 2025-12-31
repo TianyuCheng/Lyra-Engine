@@ -375,7 +375,8 @@ auto mtlenum(GPUTextureFormat format) -> MTLPixelFormat
         case GPUTextureFormat::RGBA32SINT:            return MTLPixelFormatRGBA32Sint;
         case GPUTextureFormat::RGBA32FLOAT:           return MTLPixelFormatRGBA32Float;
 
-        // Depth/stencil formats
+        // depth/stencil formats
+        case GPUTextureFormat::DEPTH16UNORM:          return MTLPixelFormatDepth16Unorm;
         case GPUTextureFormat::DEPTH32FLOAT:          return MTLPixelFormatDepth32Float;
         case GPUTextureFormat::DEPTH24PLUS:           return MTLPixelFormatDepth32Float;  // Metal doesn't have 24-bit
         case GPUTextureFormat::DEPTH24PLUS_STENCIL8:  return MTLPixelFormatDepth32Float_Stencil8;
@@ -534,4 +535,16 @@ auto mtlenum(GPUBVHGeometryFlags flags) -> uint32_t
 {
     // handled in acceleration structure implementation
     return 0;
+}
+
+MTLStorageMode determine_texture_storage_mode(GPUTextureFormat format)
+{
+    // depth/stencil textures must be private on all macOS hardware
+    if (is_depth_stencil_format(format)) {
+        return MTLStorageModePrivate;
+    }
+
+    // for other textures, use shared memory on Apple Silicon and managed on Intel
+    auto rhi = get_rhi();
+    return rhi->has_unified_memory ? MTLStorageModeShared : MTLStorageModeManaged;
 }

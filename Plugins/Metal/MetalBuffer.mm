@@ -15,6 +15,11 @@ MetalBuffer::MetalBuffer(const GPUBufferDescriptor& desc)
         buffer             = [rhi->device newBufferWithLength:desc.size options:options];
         this->storage_mode = options;
 
+        if (!buffer) {
+            get_logger()->error("Failed to create Metal buffer of size {}", desc.size);
+            return;
+        }
+
         // for CPU-visible buffers, get the contents pointer
         if (storage_mode == MTLStorageModeShared || storage_mode == MTLStorageModeManaged) {
             if (desc.mapped_at_creation) {
@@ -49,43 +54,4 @@ void MetalBuffer::destroy()
     buffer      = nil;
     mapped_data = nullptr;
     mapped_size = 0;
-}
-
-bool api::create_buffer(GPUBufferHandle& handle, const GPUBufferDescriptor& desc)
-{
-    auto rhi = get_rhi();
-    auto obj = MetalBuffer(desc);
-    auto ind = rhi->buffers.add(obj);
-    handle   = GPUBufferHandle(ind);
-    return obj.valid();
-}
-
-void api::delete_buffer(GPUBufferHandle handle)
-{
-    get_rhi()->buffers.remove(handle.value);
-}
-
-void api::map_buffer(GPUBufferHandle buffer, GPUMapMode, GPUSize64 offset, GPUSize64 size)
-{
-    auto& buf = fetch_resource(get_rhi()->buffers, buffer);
-    buf.map(offset, size);
-}
-
-void api::unmap_buffer(GPUBufferHandle buffer)
-{
-    auto& buf = fetch_resource(get_rhi()->buffers, buffer);
-    buf.unmap();
-}
-
-void api::get_mapped_state(GPUBufferHandle buffer, GPUMapState& state)
-{
-    auto& buf = fetch_resource(get_rhi()->buffers, buffer);
-    state     = buf.mapped() ? GPUMapState::MAPPED : GPUMapState::UNMAPPED;
-}
-
-void api::get_mapped_range(GPUBufferHandle buffer, MappedBufferRange& range)
-{
-    auto& buf  = fetch_resource(get_rhi()->buffers, buffer);
-    range.data = buf.mapped_data;
-    range.size = buf.mapped_size;
 }

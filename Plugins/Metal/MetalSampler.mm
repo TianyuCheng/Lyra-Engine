@@ -25,23 +25,13 @@ MetalSampler::MetalSampler(const GPUSamplerDescriptor& desc)
         mtl_desc.compareFunction = mtlenum(desc.compare);
 
     sampler = [rhi->device newSamplerStateWithDescriptor:mtl_desc];
+
+    if (!sampler) {
+        get_logger()->error("Failed to create Metal sampler state");
+    }
 }
 
 void MetalSampler::destroy()
 {
     sampler = nil;
-}
-
-bool api::create_sampler(GPUSamplerHandle& handle, const GPUSamplerDescriptor& desc)
-{
-    auto rhi = get_rhi();
-    auto obj = MetalSampler(desc);
-    auto ind = rhi->samplers.add(obj);
-    handle   = GPUSamplerHandle(ind);
-    return obj.valid();
-}
-
-void api::delete_sampler(GPUSamplerHandle handle)
-{
-    get_rhi()->samplers.remove(handle.value);
 }

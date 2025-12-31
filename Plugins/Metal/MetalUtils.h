@@ -492,6 +492,9 @@ struct MetalRHI
     // swapchain tracker
     GPUSurfaceHandle surface_tracker;
 
+    // device properties
+    bool has_unified_memory = false;
+
     // resource managers
     MetalResourceManager<MetalSwapchain>       swapchains;
     MetalResourceManager<MetalFence>           fences;
@@ -721,6 +724,8 @@ auto mtlenum(GPUBarrierAccessFlags flags) -> uint32_t;
 auto mtlenum(GPUBVHFlags flags) -> uint32_t;
 auto mtlenum(GPUBVHGeometryFlags flags) -> uint32_t;
 
+auto determine_texture_storage_mode(GPUTextureFormat format) -> MTLStorageMode;
+
 // Metal RHI getters/setters
 void set_rhi(MetalRHI* instance);
 auto get_rhi() -> MetalRHI*;
@@ -732,21 +737,20 @@ T& fetch_resource(MetalResourceManager<T>& manager, Handle handle)
     // check handle validity
     if (!handle.valid()) {
         get_logger()->error("Resource handle {} is invalid!", typeid(Handle).name());
-        exit(1);
+        throw std::runtime_error("Resource handle is invalid!");
     }
 
     // check resource range
     if (!manager.range_check(handle.value)) {
         get_logger()->error("Resource handle {} with value={} access out of range!", Handle::type_name(), handle.value);
-        exit(1);
+        throw std::runtime_error("Resource handle is accessing out of range!");
     }
 
     T& resource = manager.at(handle.value);
     if (!resource.valid()) {
         get_logger()->error("Resource handle {} with value={} has invalid object!", Handle::type_name(), handle.value);
-        exit(1);
+        throw std::runtime_error("Resource handle references an invalid object!");
     }
-
     return resource;
 }
 

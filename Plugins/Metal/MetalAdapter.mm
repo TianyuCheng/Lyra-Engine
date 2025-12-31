@@ -15,6 +15,8 @@ bool api::create_adapter(GPUAdapterProps& adapter, const GPUAdapterDescriptor& d
         return false;
     }
 
+    rhi->has_unified_memory = [rhi->device hasUnifiedMemory];
+
     // populate adapter properties
     adapter.info.description = [[rhi->device name] UTF8String];
     adapter.info.device = "Metal GPU";
@@ -65,6 +67,13 @@ bool api::create_adapter(GPUAdapterProps& adapter, const GPUAdapterDescriptor& d
     adapter.limits.max_compute_workgroup_size_z = 1024;
     adapter.limits.max_compute_invocations_per_workgroup = 1024;
     adapter.limits.max_compute_workgroups_per_dimension = 65535;
+
+    // set properties
+    uint32_t alignment = 1;
+    alignment = std::max(alignment, (uint32_t)[rhi->device minimumLinearTextureAlignmentForPixelFormat:MTLPixelFormatRGBA8Unorm]);
+    alignment = std::max(alignment, (uint32_t)[rhi->device minimumLinearTextureAlignmentForPixelFormat:MTLPixelFormatRGBA32Float]);
+    alignment = std::max(alignment, (uint32_t)[rhi->device minimumLinearTextureAlignmentForPixelFormat:MTLPixelFormatR8Unorm]);
+    adapter.properties.texture_row_pitch_alignment = alignment;
 
     get_logger()->info("Metal adapter created: {}", adapter.info.description);
     return true;

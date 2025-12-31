@@ -47,17 +47,3 @@ void MetalFence::destroy()
         event = nil;
     }
 }
-
-bool api::create_fence(GPUFenceHandle& handle)
-{
-    auto rhi = get_rhi();
-    auto obj = MetalFence(false); // Create with signaled=false
-    auto ind = rhi->fences.add(obj);
-    handle   = GPUFenceHandle(ind);
-    return obj.valid();
-}
-
-void api::delete_fence(GPUFenceHandle handle)
-{
-    get_rhi()->fences.remove(handle.value);
-}

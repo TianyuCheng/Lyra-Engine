@@ -122,8 +122,12 @@ MetalPipeline::MetalPipeline(const GPURenderPipelineDescriptor& desc)
     // create render pipeline state
     NSError* error = nil;
     render_pso     = [rhi->device newRenderPipelineStateWithDescriptor:mtl_desc error:&error];
-    if (error) {
-        get_logger()->error("Failed to create render pipeline: {}", [[error localizedDescription] UTF8String]);
+    if (!render_pso || error) {
+        if (error) {
+            get_logger()->error("Failed to create render pipeline: {}", [[error localizedDescription] UTF8String]);
+        } else {
+            get_logger()->error("Failed to create render pipeline (unknown error)");
+        }
         return;
     }
 
@@ -158,6 +162,9 @@ MetalPipeline::MetalPipeline(const GPURenderPipelineDescriptor& desc)
         }
 
         depth_stencil_state = [rhi->device newDepthStencilStateWithDescriptor:ds_desc];
+        if (!depth_stencil_state) {
+            get_logger()->error("Failed to create depth stencil state");
+        }
     }
 
     // debug label
@@ -187,8 +194,12 @@ MetalPipeline::MetalPipeline(const GPUComputePipelineDescriptor& desc)
     // create compute pipeline state
     NSError* error = nil;
     compute_pso    = [rhi->device newComputePipelineStateWithFunction:function error:&error];
-    if (error) {
-        get_logger()->error("Failed to create compute pipeline: {}", [[error localizedDescription] UTF8String]);
+    if (!compute_pso || error) {
+        if (error) {
+            get_logger()->error("Failed to create compute pipeline: {}", [[error localizedDescription] UTF8String]);
+        } else {
+            get_logger()->error("Failed to create compute pipeline (unknown error)");
+        }
         return;
     }
 
