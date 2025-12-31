@@ -228,7 +228,7 @@ void cmd::begin_render_pass(GPUCommandEncoderHandle cmdbuffer, const GPURenderPa
             mtl_pass.depthAttachment.storeAction = mtlenum(desc.depth_stencil_attachment.depth_store_op);
             mtl_pass.depthAttachment.clearDepth  = desc.depth_stencil_attachment.depth_clear_value;
 
-            // Stencil (if format supports it)
+            // stencil (if format supports it)
             mtl_pass.stencilAttachment.texture      = view.texture;
             mtl_pass.stencilAttachment.loadAction   = mtlenum(desc.depth_stencil_attachment.stencil_load_op);
             mtl_pass.stencilAttachment.storeAction  = mtlenum(desc.depth_stencil_attachment.stencil_store_op);
@@ -359,29 +359,18 @@ void cmd::set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GP
         return;
     }
 
-    // decode handle: (HeapID << 32) | GroupIndex
-    // HeapID is the lower 32-bits of the original heap handle (the index part)
-    uint32_t heap_index  = static_cast<uint32_t>((bind_group_handle.value >> 32) & 0xFFFFFFFF);
-    uint32_t group_index = static_cast<uint32_t>(bind_group_handle.value & 0xFFFFFFFF);
-
-    // we only have the index part of the heap handle. We lose generation safety here
-    GPUBindGroupHeapHandle heap_handle(heap_index);
-    if (!rhi->bind_group_heaps.range_check(heap_index)) {
-        get_logger()->error("Bind group heap index out of range!");
+    // cast handle value directly to pointer
+    auto* bind_group = reinterpret_cast<MetalBindGroup*>(bind_group_handle.value);
+    if (!bind_group) {
+        get_logger()->error("bind group is invalid!");
         return;
     }
 
-    auto& heap = rhi->bind_group_heaps.at(heap_index);
-
-    if (group_index >= heap.groups.size()) {
-        get_logger()->error("Bind group index out of range in heap");
-        return;
-    }
-
-    const auto& bind_group      = heap.groups[group_index];
-    const auto& pipeline_layout = fetch_resource(rhi->pipeline_layouts, cmd.bound_layout);
-    for (const auto& entry : bind_group.entries) {
-        uint32_t key = (index << 16) | entry.binding;
+    // retrieve pipeline layout for remapped resource slots
+    auto& pipeline_layout = fetch_resource(rhi->pipeline_layouts, cmd.bound_layout);
+    for (uint32_t i = 0; i < bind_group->entry_count; ++i) {
+        const auto& entry = bind_group->entries[i];
+        uint32_t    key   = (index << 16) | entry.binding;
 
         switch (entry.type) {
             case GPUResourceType::BUFFER:

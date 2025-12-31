@@ -203,14 +203,16 @@ struct MetalBindGroup
         };
     };
 
-    Vector<Entry> entries;
+    Entry*                 entries     = nullptr;
+    uint32_t               entry_count = 0;
+    GPUBindGroupHeapHandle heap;
 
     // implementation in MetalBindGroup.mm
     explicit MetalBindGroup();
     explicit MetalBindGroup(const GPUBindGroupDescriptor& desc);
 
-    void destroy() { entries.clear(); }
-    bool valid() const { return !entries.empty(); }
+    void destroy() {} // No-op for O(1) reset
+    bool valid() const { return entries != nullptr; }
 };
 
 // bind group layout
@@ -312,19 +314,21 @@ struct MetalBlas
     bool valid() const { return blas != nil; }
 };
 
+#include <Lyra/Common/Memory.h>
+
 // bind group heap
 struct MetalBindGroupHeap
 {
-    Vector<MetalBindGroup> groups;
+    Ref<lyra::MemoryArena> arena;
 
     // implementation in MetalBindGroup.mm
     explicit MetalBindGroupHeap();
     explicit MetalBindGroupHeap(const GPUBindGroupHeapDescriptor& desc);
 
-    uint32_t allocate(const GPUBindGroupDescriptor& desc);
-    void     reset();
-    void     destroy();
-    bool     valid() const { return true; }
+    void* allocate(size_t size, size_t alignment);
+    void  reset();
+    void  destroy();
+    bool  valid() const { return true; }
 };
 
 // command buffer

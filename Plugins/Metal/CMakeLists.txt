@@ -44,9 +44,9 @@ target_link_libraries(lyra-metal PRIVATE
 # platform-specific settings for macOS
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   target_compile_definitions(lyra-metal PRIVATE METAL_MACOS=1)
-  set_target_properties(lyra-metal PROPERTIES
-    XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
-  )
+
+  # enable ARC for Objective-C code
+  target_compile_options(lyra-metal PRIVATE -fobjc-arc)
 endif()
 
 # suppress Apple Clang warnings

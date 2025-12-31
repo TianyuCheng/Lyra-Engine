@@ -384,7 +384,7 @@ D3D12BindGroup* D3D12BindGroupLayout::create(GPUBindGroupHeapHandle heap_handle,
 
     // allocate descriptors
     auto& heap       = fetch_resource(rhi->bind_group_heaps, heap_handle);
-    auto  bind_group = heap.memory->allocate();
+    auto  bind_group = heap.memory->allocate<D3D12BindGroup>();
 
     bind_group->default_index = std::numeric_limits<uint32_t>::max();
     bind_group->sampler_index = std::numeric_limits<uint16_t>::max();

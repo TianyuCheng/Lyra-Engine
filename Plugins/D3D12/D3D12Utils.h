@@ -340,7 +340,7 @@ struct D3D12BindGroupHeap
     Heap<D3D12BindGroupDynamic> dynamic_heap;
 
     // allocated memory descriptors will all come from here
-    Ref<MemoryArena<D3D12BindGroup>> memory;
+    Ref<MemoryArena> memory;
 
     explicit D3D12BindGroupHeap();
     explicit D3D12BindGroupHeap(const GPUBindGroupHeapDescriptor& desc);
