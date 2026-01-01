@@ -410,7 +410,11 @@ LYRA_EXPORT auto prepare() -> void
 {
     get_logger()->set_level(parse_log_level_from_env("LYRA_VULKAN_VERBOSITY"));
 
-    vk_check(volkInitialize());
+    try {
+        vk_check(volkInitialize());
+    } catch (...) {
+        get_logger()->error("Failed to initialize Vulkan!");
+    }
 }
 
 LYRA_EXPORT auto cleanup() -> void
