@@ -610,18 +610,46 @@ void cmd::copy_buffer_to_texture(GPUCommandEncoderHandle cmdbuffer, const GPUTex
         cmd.blit_encoder = [cmd.command_buffer blitCommandEncoder];
     }
 
-    MTLOrigin origin = MTLOriginMake(dest.origin.x, dest.origin.y, dest.origin.z);
-    MTLSize   size   = MTLSizeMake(copy_size.width, copy_size.height, copy_size.depth);
+    MTLOrigin mtl_origin = MTLOriginMake(dest.origin.x, dest.origin.y, dest.origin.z);
+    MTLSize   size       = MTLSizeMake(copy_size.width, copy_size.height, copy_size.depth);
+
+    uint32_t bytes_per_row  = source.bytes_per_row;
+    uint32_t rows_per_image = source.rows_per_image;
+
+    // tightly packed texture (infer bytes per row)
+    if (bytes_per_row == 0 || rows_per_image == 0) {
+        uint32_t bw = block_width(texture.format);
+        uint32_t bh = block_height(texture.format);
+        uint32_t bs = size_of(texture.format);
+        if (bytes_per_row == 0) {
+            uint32_t pitch = ((copy_size.width + bw - 1) / bw) * bs;
+            bytes_per_row  = (pitch + rhi->texture_row_pitch_alignment - 1) & ~(rhi->texture_row_pitch_alignment - 1);
+        }
+        if (rows_per_image == 0) {
+            rows_per_image = (copy_size.height + bh - 1) / bh;
+        }
+    }
+
+    NSUInteger destination_slice = 0;
+    if (texture.type == MTLTextureType2DArray || texture.type == MTLTextureTypeCube || texture.type == MTLTextureTypeCubeArray) {
+        destination_slice = mtl_origin.z;
+        mtl_origin.z      = 0;
+    }
+
+    NSUInteger source_bytes_per_image = 0;
+    if (texture.type == MTLTextureType3D || texture.type == MTLTextureType2DArray || texture.type == MTLTextureTypeCube || texture.type == MTLTextureTypeCubeArray) {
+        source_bytes_per_image = (NSUInteger)bytes_per_row * rows_per_image;
+    }
 
     [cmd.blit_encoder copyFromBuffer:buffer.buffer
                         sourceOffset:source.offset
-                   sourceBytesPerRow:source.bytes_per_row
-                 sourceBytesPerImage:source.bytes_per_row * source.rows_per_image
+                   sourceBytesPerRow:bytes_per_row
+                 sourceBytesPerImage:source_bytes_per_image
                           sourceSize:size
                            toTexture:texture.texture
-                    destinationSlice:0
+                    destinationSlice:destination_slice
                     destinationLevel:dest.mip_level
-                   destinationOrigin:origin];
+                   destinationOrigin:mtl_origin];
 }
 
 void cmd::copy_texture_to_buffer(GPUCommandEncoderHandle cmdbuffer, const GPUTexelCopyTextureInfo& source, const GPUTexelCopyBufferInfo& dest, const GPUExtent3D& copy_size)
@@ -636,18 +664,46 @@ void cmd::copy_texture_to_buffer(GPUCommandEncoderHandle cmdbuffer, const GPUTex
         cmd.blit_encoder = [cmd.command_buffer blitCommandEncoder];
     }
 
-    MTLOrigin origin = MTLOriginMake(source.origin.x, source.origin.y, source.origin.z);
-    MTLSize   size   = MTLSizeMake(copy_size.width, copy_size.height, copy_size.depth);
+    MTLOrigin mtl_origin = MTLOriginMake(source.origin.x, source.origin.y, source.origin.z);
+    MTLSize   size       = MTLSizeMake(copy_size.width, copy_size.height, copy_size.depth);
+
+    uint32_t bytes_per_row  = dest.bytes_per_row;
+    uint32_t rows_per_image = dest.rows_per_image;
+
+    // tightly packed texture (infer bytes per row)
+    if (bytes_per_row == 0 || rows_per_image == 0) {
+        uint32_t bw = block_width(texture.format);
+        uint32_t bh = block_height(texture.format);
+        uint32_t bs = size_of(texture.format);
+        if (bytes_per_row == 0) {
+            uint32_t pitch = ((copy_size.width + bw - 1) / bw) * bs;
+            bytes_per_row  = (pitch + rhi->texture_row_pitch_alignment - 1) & ~(rhi->texture_row_pitch_alignment - 1);
+        }
+        if (rows_per_image == 0) {
+            rows_per_image = (copy_size.height + bh - 1) / bh;
+        }
+    }
+
+    NSUInteger source_slice = 0;
+    if (texture.type == MTLTextureType2DArray || texture.type == MTLTextureTypeCube || texture.type == MTLTextureTypeCubeArray) {
+        source_slice = mtl_origin.z;
+        mtl_origin.z = 0;
+    }
+
+    NSUInteger dest_bytes_per_image = 0;
+    if (texture.type == MTLTextureType3D || texture.type == MTLTextureType2DArray || texture.type == MTLTextureTypeCube || texture.type == MTLTextureTypeCubeArray) {
+        dest_bytes_per_image = (NSUInteger)bytes_per_row * rows_per_image;
+    }
 
     [cmd.blit_encoder copyFromTexture:texture.texture
-                          sourceSlice:0
+                          sourceSlice:source_slice
                           sourceLevel:source.mip_level
-                         sourceOrigin:origin
+                         sourceOrigin:mtl_origin
                            sourceSize:size
                              toBuffer:buffer.buffer
                     destinationOffset:dest.offset
-               destinationBytesPerRow:dest.bytes_per_row
-             destinationBytesPerImage:dest.bytes_per_row * dest.rows_per_image];
+               destinationBytesPerRow:bytes_per_row
+             destinationBytesPerImage:dest_bytes_per_image];
 }
 
 void cmd::copy_texture_to_texture(GPUCommandEncoderHandle cmdbuffer, const GPUTexelCopyTextureInfo& source, const GPUTexelCopyTextureInfo& dest, const GPUExtent3D& copy_size)
@@ -662,19 +718,31 @@ void cmd::copy_texture_to_texture(GPUCommandEncoderHandle cmdbuffer, const GPUTe
         cmd.blit_encoder = [cmd.command_buffer blitCommandEncoder];
     }
 
-    MTLOrigin src_origin = MTLOriginMake(source.origin.x, source.origin.y, source.origin.z);
-    MTLOrigin dst_origin = MTLOriginMake(dest.origin.x, dest.origin.y, dest.origin.z);
-    MTLSize   size       = MTLSizeMake(copy_size.width, copy_size.height, copy_size.depth);
+    MTLOrigin src_mtl_origin = MTLOriginMake(source.origin.x, source.origin.y, source.origin.z);
+    MTLOrigin dst_mtl_origin = MTLOriginMake(dest.origin.x, dest.origin.y, dest.origin.z);
+    MTLSize   size           = MTLSizeMake(copy_size.width, copy_size.height, copy_size.depth);
+
+    NSUInteger source_slice = 0;
+    if (src_texture.type == MTLTextureType2DArray || src_texture.type == MTLTextureTypeCube || src_texture.type == MTLTextureTypeCubeArray) {
+        source_slice       = src_mtl_origin.z;
+        src_mtl_origin.z = 0;
+    }
+
+    NSUInteger destination_slice = 0;
+    if (dst_texture.type == MTLTextureType2DArray || dst_texture.type == MTLTextureTypeCube || dst_texture.type == MTLTextureTypeCubeArray) {
+        destination_slice = dst_mtl_origin.z;
+        dst_mtl_origin.z  = 0;
+    }
 
     [cmd.blit_encoder copyFromTexture:src_texture.texture
-                          sourceSlice:0
+                          sourceSlice:source_slice
                           sourceLevel:source.mip_level
-                         sourceOrigin:src_origin
+                         sourceOrigin:src_mtl_origin
                            sourceSize:size
                             toTexture:dst_texture.texture
-                     destinationSlice:0
+                     destinationSlice:destination_slice
                      destinationLevel:dest.mip_level
-                    destinationOrigin:dst_origin];
+                    destinationOrigin:dst_mtl_origin];
 }
 
 void cmd::clear_buffer(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle buffer_handle, GPUSize64 offset, GPUSize64 size)
@@ -818,7 +886,7 @@ void cmd::resolve_query_set(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle
         case GPUQueryType::TIMESTAMP:
         {
             if (query_set.sample_buffer) {
-                // Resolve counter sample buffer to destination buffer
+                // resolve counter sample buffer to destination buffer
                 [cmd.blit_encoder resolveCounters:query_set.sample_buffer
                                           inRange:NSMakeRange(first_query, query_count)
                                 destinationBuffer:destination.buffer
@@ -830,7 +898,7 @@ void cmd::resolve_query_set(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle
         case GPUQueryType::BLAS_PROPERTIES:
         {
             if (query_set.visibility_buffer) {
-                // Copy from visibility buffer to destination
+                // copy from visibility buffer to destination
                 size_t element_size  = (query_set.type == GPUQueryType::OCCLUSION)
                                            ? sizeof(uint64_t)
                                            : sizeof(MTLAccelerationStructureSizes);

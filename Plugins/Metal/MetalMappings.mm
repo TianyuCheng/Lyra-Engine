@@ -548,3 +548,143 @@ MTLStorageMode determine_texture_storage_mode(GPUTextureFormat format)
     auto rhi = get_rhi();
     return rhi->has_unified_memory ? MTLStorageModeShared : MTLStorageModeManaged;
 }
+
+uint size_of(MTLPixelFormat format)
+{
+    switch (format) {
+        // 8-bit formats
+        case MTLPixelFormatR8Unorm:
+        case MTLPixelFormatR8Unorm_sRGB:
+        case MTLPixelFormatR8Snorm:
+        case MTLPixelFormatR8Uint:
+        case MTLPixelFormatR8Sint:
+        case MTLPixelFormatStencil8:
+            return 1;
+
+        // 16-bit formats
+        case MTLPixelFormatR16Unorm:
+        case MTLPixelFormatR16Snorm:
+        case MTLPixelFormatR16Uint:
+        case MTLPixelFormatR16Sint:
+        case MTLPixelFormatR16Float:
+        case MTLPixelFormatRG8Unorm:
+        case MTLPixelFormatRG8Unorm_sRGB:
+        case MTLPixelFormatRG8Snorm:
+        case MTLPixelFormatRG8Uint:
+        case MTLPixelFormatRG8Sint:
+        case MTLPixelFormatDepth16Unorm:
+            return 2;
+
+        // 32-bit formats
+        case MTLPixelFormatR32Uint:
+        case MTLPixelFormatR32Sint:
+        case MTLPixelFormatR32Float:
+        case MTLPixelFormatRG16Unorm:
+        case MTLPixelFormatRG16Snorm:
+        case MTLPixelFormatRG16Uint:
+        case MTLPixelFormatRG16Sint:
+        case MTLPixelFormatRG16Float:
+        case MTLPixelFormatRGBA8Unorm:
+        case MTLPixelFormatRGBA8Unorm_sRGB:
+        case MTLPixelFormatRGBA8Snorm:
+        case MTLPixelFormatRGBA8Uint:
+        case MTLPixelFormatRGBA8Sint:
+        case MTLPixelFormatBGRA8Unorm:
+        case MTLPixelFormatBGRA8Unorm_sRGB:
+        case MTLPixelFormatRGB10A2Unorm:
+        case MTLPixelFormatRGB10A2Uint:
+        case MTLPixelFormatRG11B10Float:
+        case MTLPixelFormatRGB9E5Float:
+        case MTLPixelFormatDepth32Float:
+            return 4;
+
+        // 64-bit formats
+        case MTLPixelFormatRG32Uint:
+        case MTLPixelFormatRG32Sint:
+        case MTLPixelFormatRG32Float:
+        case MTLPixelFormatRGBA16Unorm:
+        case MTLPixelFormatRGBA16Snorm:
+        case MTLPixelFormatRGBA16Uint:
+        case MTLPixelFormatRGBA16Sint:
+        case MTLPixelFormatRGBA16Float:
+            return 8;
+
+        // 128-bit formats
+        case MTLPixelFormatRGBA32Uint:
+        case MTLPixelFormatRGBA32Sint:
+        case MTLPixelFormatRGBA32Float:
+            return 16;
+
+        // depth/stencil (Depth32Float_Stencil8 is 5 bytes, but usually 8 or padded)
+        case MTLPixelFormatDepth32Float_Stencil8:
+            return 8; // Metal uses 8 bytes for this format in buffer copies
+
+        // BC compressed formats (all 4x4 blocks)
+        case MTLPixelFormatBC1_RGBA:
+        case MTLPixelFormatBC1_RGBA_sRGB:
+        case MTLPixelFormatBC4_RUnorm:
+        case MTLPixelFormatBC4_RSnorm:
+            return 8; // 8 bytes per 4x4 block
+
+        case MTLPixelFormatBC2_RGBA:
+        case MTLPixelFormatBC2_RGBA_sRGB:
+        case MTLPixelFormatBC3_RGBA:
+        case MTLPixelFormatBC3_RGBA_sRGB:
+        case MTLPixelFormatBC5_RGUnorm:
+        case MTLPixelFormatBC5_RGSnorm:
+        case MTLPixelFormatBC6H_RGBUfloat:
+        case MTLPixelFormatBC6H_RGBFloat:
+        case MTLPixelFormatBC7_RGBAUnorm:
+        case MTLPixelFormatBC7_RGBAUnorm_sRGB:
+            return 16; // 16 bytes per 4x4 block
+
+        default:
+            return 0;
+    }
+}
+
+uint block_width(MTLPixelFormat format)
+{
+    switch (format) {
+        case MTLPixelFormatBC1_RGBA:
+        case MTLPixelFormatBC1_RGBA_sRGB:
+        case MTLPixelFormatBC2_RGBA:
+        case MTLPixelFormatBC2_RGBA_sRGB:
+        case MTLPixelFormatBC3_RGBA:
+        case MTLPixelFormatBC3_RGBA_sRGB:
+        case MTLPixelFormatBC4_RUnorm:
+        case MTLPixelFormatBC4_RSnorm:
+        case MTLPixelFormatBC5_RGUnorm:
+        case MTLPixelFormatBC5_RGSnorm:
+        case MTLPixelFormatBC6H_RGBUfloat:
+        case MTLPixelFormatBC6H_RGBFloat:
+        case MTLPixelFormatBC7_RGBAUnorm:
+        case MTLPixelFormatBC7_RGBAUnorm_sRGB:
+            return 4;
+        default:
+            return 1;
+    }
+}
+
+uint block_height(MTLPixelFormat format)
+{
+    switch (format) {
+        case MTLPixelFormatBC1_RGBA:
+        case MTLPixelFormatBC1_RGBA_sRGB:
+        case MTLPixelFormatBC2_RGBA:
+        case MTLPixelFormatBC2_RGBA_sRGB:
+        case MTLPixelFormatBC3_RGBA:
+        case MTLPixelFormatBC3_RGBA_sRGB:
+        case MTLPixelFormatBC4_RUnorm:
+        case MTLPixelFormatBC4_RSnorm:
+        case MTLPixelFormatBC5_RGUnorm:
+        case MTLPixelFormatBC5_RGSnorm:
+        case MTLPixelFormatBC6H_RGBUfloat:
+        case MTLPixelFormatBC6H_RGBFloat:
+        case MTLPixelFormatBC7_RGBAUnorm:
+        case MTLPixelFormatBC7_RGBAUnorm_sRGB:
+            return 4;
+        default:
+            return 1;
+    }
+}

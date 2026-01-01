@@ -93,15 +93,12 @@ MetalPipeline::MetalPipeline(const GPURenderPipelineDescriptor& desc)
         color_index++;
     }
 
-    // depth attachment format
-    if (depth_enabled) {
+    // depth/stencil attachment formats
+    if (is_depth_format(desc.depth_stencil.format)) {
         mtl_desc.depthAttachmentPixelFormat = mtlenum(desc.depth_stencil.format);
-
-        // check if format has stencil component
-        if (desc.depth_stencil.format == GPUTextureFormat::DEPTH24PLUS_STENCIL8 ||
-            desc.depth_stencil.format == GPUTextureFormat::DEPTH32FLOAT_STENCIL8) {
-            mtl_desc.stencilAttachmentPixelFormat = mtlenum(desc.depth_stencil.format);
-        }
+    }
+    if (is_stencil_format(desc.depth_stencil.format)) {
+        mtl_desc.stencilAttachmentPixelFormat = mtlenum(desc.depth_stencil.format);
     }
 
     // multisample state
@@ -132,13 +129,10 @@ MetalPipeline::MetalPipeline(const GPURenderPipelineDescriptor& desc)
     }
 
     // create depth stencil state (separate from pipeline in Metal)
-    if (depth_enabled) {
+    if (depth_enabled || stencil_test_enabled) {
         MTLDepthStencilDescriptor* ds_desc = [MTLDepthStencilDescriptor new];
 
-        bool depth_test_enabled = desc.depth_stencil.depth_compare != GPUCompareFunction::ALWAYS ||
-                                  desc.depth_stencil.depth_write_enabled;
-
-        ds_desc.depthCompareFunction = depth_test_enabled ? mtlenum(desc.depth_stencil.depth_compare) : MTLCompareFunctionAlways;
+        ds_desc.depthCompareFunction = mtlenum(desc.depth_stencil.depth_compare);
         ds_desc.depthWriteEnabled    = desc.depth_stencil.depth_write_enabled;
 
         if (stencil_test_enabled) {

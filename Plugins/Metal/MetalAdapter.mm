@@ -15,8 +15,6 @@ bool api::create_adapter(GPUAdapterProps& adapter, const GPUAdapterDescriptor& d
         return false;
     }
 
-    rhi->has_unified_memory = [rhi->device hasUnifiedMemory];
-
     // populate adapter properties
     adapter.info.description  = [[rhi->device name] UTF8String];
     adapter.info.device       = "Metal GPU";
@@ -80,6 +78,10 @@ bool api::create_adapter(GPUAdapterProps& adapter, const GPUAdapterDescriptor& d
 
     // (push constant is not a native concept in Metal, our current implementation does not have this requirement)
     adapter.properties.min_push_constant_alignment = 0;
+
+    // update rhi properties
+    rhi->has_unified_memory          = [rhi->device hasUnifiedMemory];
+    rhi->texture_row_pitch_alignment = adapter.properties.texture_row_pitch_alignment;
 
     get_logger()->info("Metal adapter created: {}", adapter.info.description);
     return true;

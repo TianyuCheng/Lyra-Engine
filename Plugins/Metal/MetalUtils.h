@@ -14,6 +14,7 @@
 
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Common/Memory.h>
+#include <Lyra/Common/Stdint.h>
 #include <Lyra/Common/Function.h>
 #include <Lyra/Common/Conversion.h>
 #include <Lyra/Common/Collections.h>
@@ -104,7 +105,7 @@ struct MetalTexture
 // texture view
 struct MetalTextureView
 {
-    id<MTLTexture> texture = nil; // View references the parent texture
+    id<MTLTexture> texture = nil; // view references the parent texture
     MTLPixelFormat format  = MTLPixelFormatInvalid;
     MTLTextureType type    = MTLTextureType2D;
 
@@ -493,7 +494,8 @@ struct MetalRHI
     GPUSurfaceHandle surface_tracker;
 
     // device properties
-    bool has_unified_memory = false;
+    bool     has_unified_memory           = false;
+    uint32_t texture_row_pitch_alignment = 1;
 
     // resource managers
     MetalResourceManager<MetalSwapchain>       swapchains;
@@ -723,6 +725,11 @@ auto mtlenum(GPUBarrierSyncFlags flags) -> MTLBarrierScope;
 auto mtlenum(GPUBarrierAccessFlags flags) -> uint32_t;
 auto mtlenum(GPUBVHFlags flags) -> uint32_t;
 auto mtlenum(GPUBVHGeometryFlags flags) -> uint32_t;
+
+// format utilities
+uint size_of(MTLPixelFormat format);
+uint block_width(MTLPixelFormat format);
+uint block_height(MTLPixelFormat format);
 
 auto determine_texture_storage_mode(GPUTextureFormat format) -> MTLStorageMode;
 
