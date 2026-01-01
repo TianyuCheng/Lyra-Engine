@@ -35,7 +35,7 @@ MetalQuerySet::MetalQuerySet(const GPUQuerySetDescriptor& desc)
 
             if (!timestamp_counter_set) {
                 get_logger()->error("Timestamp counter set not available on this device");
-                return;
+                throw GPUValidationError("Timestamp counter set not available on this device");
             }
 
             // create counter sample buffer descriptor
@@ -48,12 +48,9 @@ MetalQuerySet::MetalQuerySet(const GPUQuerySetDescriptor& desc)
             NSError* error = nil;
             sample_buffer  = [rhi->device newCounterSampleBufferWithDescriptor:buffer_desc error:&error];
             if (!sample_buffer || error) {
-                if (error) {
-                    get_logger()->error("Failed to create timestamp query set: {}", [[error localizedDescription] UTF8String]);
-                } else {
-                    get_logger()->error("Failed to create timestamp query set (unknown error)");
-                }
-                return;
+                NSString* error_str = error ? [error localizedDescription] : @"unknown error";
+                get_logger()->error("Failed to create timestamp query set: {}", [error_str UTF8String]);
+                throw GPUInternalError([NSString stringWithFormat:@"Failed to create timestamp query set: %@", error_str].UTF8String);
             }
             break;
         }
@@ -67,7 +64,7 @@ MetalQuerySet::MetalQuerySet(const GPUQuerySetDescriptor& desc)
                                                          options:MTLResourceStorageModeShared];
             if (!visibility_buffer) {
                 get_logger()->error("Failed to create occlusion query buffer");
-                return;
+                throw GPUOutOfMemoryError("Failed to create occlusion query buffer");
             }
             break;
         }
@@ -80,7 +77,7 @@ MetalQuerySet::MetalQuerySet(const GPUQuerySetDescriptor& desc)
                                                          options:MTLResourceStorageModeShared];
             if (!visibility_buffer) {
                 get_logger()->error("Failed to create BLAS properties query buffer");
-                return;
+                throw GPUOutOfMemoryError("Failed to create BLAS properties query buffer");
             }
             break;
         }

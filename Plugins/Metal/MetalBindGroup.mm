@@ -42,7 +42,7 @@ void MetalBindGroup::init(const GPUBindGroupDescriptor& desc)
             {
                 if (!src.tlas.valid()) {
                     get_logger()->error("Invalid TLAS handle for acceleration structure binding");
-                    break;
+                    throw GPUValidationError("Invalid TLAS handle for acceleration structure binding");
                 }
                 auto& tlas    = fetch_resource(rhi->tlases, src.tlas);
                 dst.tlas.tlas = tlas.tlas;
@@ -75,7 +75,7 @@ GPUBindGroupHandle MetalBindGroupHeap::create_bind_group(const GPUBindGroupDescr
     void* memory = allocate(total_size, alignof(MetalBindGroup));
     if (!memory) {
         get_logger()->error("Failed to allocate memory for bind group from arena");
-        return GPUBindGroupHandle(0);
+        throw GPUOutOfMemoryError("Failed to allocate memory for bind group from arena");
     }
 
     // construct and initialize

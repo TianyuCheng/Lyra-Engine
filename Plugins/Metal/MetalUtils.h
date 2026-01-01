@@ -21,6 +21,7 @@
 #include <Lyra/Common/Compatibility.h>
 #include <Lyra/Plugin/RHI/RHIAPI.h>
 #include <Lyra/Plugin/RHI/RHIDescs.h>
+#include <Lyra/Plugin/RHI/RHIError.h>
 #include <Lyra/Plugin/WSI/WSIAPI.h>
 #include <Lyra/Plugin/WSI/WSIUtils.h>
 #include <Lyra/Plugin/WSI/WSITypes.h>

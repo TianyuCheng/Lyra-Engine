@@ -16,7 +16,7 @@ MetalSwapchain::MetalSwapchain(const GPUSurfaceDescriptor& in_desc) : desc(in_de
         metal_layer = (__bridge CAMetalLayer*)desc.window.native;
         if (!metal_layer) {
             get_logger()->error("Failed to get CAMetalLayer from window handle");
-            return;
+            throw GPUInternalError("Failed to get CAMetalLayer from window handle");
         }
 
         // configure the metal layer

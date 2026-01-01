@@ -10,7 +10,7 @@ MetalBlas::MetalBlas(const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescripto
     // check if device supports ray tracing
     if (![rhi->device supportsRaytracing]) {
         get_logger()->error("Metal ray tracing is not supported on this device");
-        return;
+        throw GPUValidationError("Metal ray tracing is not supported on this device");
     }
 
     // create primitive acceleration structure descriptor
@@ -92,7 +92,7 @@ MetalBlas::MetalBlas(const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescripto
     blas = [rhi->device newAccelerationStructureWithSize:sizes.accelerationStructureSize];
     if (!blas) {
         get_logger()->error("Failed to allocate BLAS acceleration structure of size {}", (uint64_t)sizes.accelerationStructureSize);
-        return;
+        throw GPUOutOfMemoryError("Failed to allocate BLAS acceleration structure");
     }
 
     // Store descriptor for building

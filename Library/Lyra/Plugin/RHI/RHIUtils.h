@@ -5,6 +5,7 @@
 
 #include <Lyra/Common/Assert.h>
 #include <Lyra/Common/String.h>
+#include <Lyra/Common/Stdint.h>
 #include <Lyra/Common/Handle.h>
 #include <Lyra/Common/BitFlags.h>
 #include <Lyra/Common/Collections.h>

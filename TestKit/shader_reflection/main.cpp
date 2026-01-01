@@ -136,6 +136,20 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
         CHECK_EQ(tex_attrib_it->offset, offsetof(Vertex, uv));
     }
 
+    auto check_binding_index = [&](const GPUBindingIndex& binding, uint vulkan_index, uint metal_index, uint d3d_index) {
+        switch (target) {
+            case CompileTarget::MSL:
+                CHECK_EQ(binding.index, metal_index);
+                break;
+            case CompileTarget::DXIL:
+                CHECK_EQ(binding.index, d3d_index);
+                break;
+            case CompileTarget::SPIRV:
+                CHECK_EQ(binding.index, vulkan_index);
+                break;
+        }
+    };
+
     auto bindgroups = reflection->get_bind_group_layouts();
     CHECK_EQ(bindgroups.size(), 2);
 
@@ -148,38 +162,46 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
         // cam (used in vertex)
         CHECK_EQ(haha_bindgroup_it->entries.at(0).type, GPUResourceType::BUFFER);
         CHECK_EQ(haha_bindgroup_it->entries.at(0).buffer.type, GPUBufferBindingType::UNIFORM);
-        CHECK_EQ(haha_bindgroup_it->entries.at(0).binding.index, 0);
         CHECK_EQ(haha_bindgroup_it->entries.at(0).count, 1);
+        check_binding_index(haha_bindgroup_it->entries.at(0).binding, 0, 0, 0);
         if (target != CompileTarget::MSL) {
             CHECK(haha_bindgroup_it->entries.at(0).visibility.contains(GPUShaderStage::VERTEX));
             CHECK(!haha_bindgroup_it->entries.at(0).visibility.contains(GPUShaderStage::FRAGMENT));
+        } else {
+            CHECK(haha_bindgroup_it->entries.at(0).binding.from_argument_buffer);
         }
 
         // tex (used in fragment)
         CHECK_EQ(haha_bindgroup_it->entries.at(1).type, GPUResourceType::TEXTURE);
-        CHECK_EQ(haha_bindgroup_it->entries.at(1).binding.index, 1);
         CHECK_EQ(haha_bindgroup_it->entries.at(1).count, 1);
+        check_binding_index(haha_bindgroup_it->entries.at(1).binding, 1, 1, 0);
         if (target != CompileTarget::MSL) {
             CHECK(!haha_bindgroup_it->entries.at(1).visibility.contains(GPUShaderStage::VERTEX));
             CHECK(haha_bindgroup_it->entries.at(1).visibility.contains(GPUShaderStage::FRAGMENT));
+        } else {
+            CHECK(haha_bindgroup_it->entries.at(0).binding.from_argument_buffer);
         }
 
         // tex2 (not used)
         CHECK_EQ(haha_bindgroup_it->entries.at(2).type, GPUResourceType::TEXTURE);
-        CHECK_EQ(haha_bindgroup_it->entries.at(2).binding.index, 2);
         CHECK_EQ(haha_bindgroup_it->entries.at(2).count, 1);
+        check_binding_index(haha_bindgroup_it->entries.at(2).binding, 2, 2, 1);
         if (target != CompileTarget::MSL) {
             CHECK(!haha_bindgroup_it->entries.at(2).visibility.contains(GPUShaderStage::VERTEX));
             CHECK(!haha_bindgroup_it->entries.at(2).visibility.contains(GPUShaderStage::FRAGMENT));
+        } else {
+            CHECK(haha_bindgroup_it->entries.at(0).binding.from_argument_buffer);
         }
 
         // smp (used in fragment)
         CHECK_EQ(haha_bindgroup_it->entries.at(3).type, GPUResourceType::SAMPLER);
-        CHECK_EQ(haha_bindgroup_it->entries.at(3).binding.index, 3);
         CHECK_EQ(haha_bindgroup_it->entries.at(3).count, 1);
+        check_binding_index(haha_bindgroup_it->entries.at(3).binding, 3, 3, 0);
         if (target != CompileTarget::MSL) {
             CHECK(!haha_bindgroup_it->entries.at(3).visibility.contains(GPUShaderStage::VERTEX));
             CHECK(haha_bindgroup_it->entries.at(3).visibility.contains(GPUShaderStage::FRAGMENT));
+        } else {
+            CHECK(haha_bindgroup_it->entries.at(0).binding.from_argument_buffer);
         }
     }
 
@@ -192,38 +214,47 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
         // cam (used in vertex)
         CHECK_EQ(hihi_bindgroup_it->entries.at(0).type, GPUResourceType::BUFFER);
         CHECK_EQ(hihi_bindgroup_it->entries.at(0).buffer.type, GPUBufferBindingType::UNIFORM);
-        CHECK_EQ(hihi_bindgroup_it->entries.at(0).binding.index, 0);
         CHECK_EQ(hihi_bindgroup_it->entries.at(0).count, 1);
+        check_binding_index(haha_bindgroup_it->entries.at(0).binding, 0, 0, 0);
         if (target != CompileTarget::MSL) {
             CHECK(hihi_bindgroup_it->entries.at(0).visibility.contains(GPUShaderStage::VERTEX));
             CHECK(!hihi_bindgroup_it->entries.at(0).visibility.contains(GPUShaderStage::FRAGMENT));
+        } else {
+            CHECK(hihi_bindgroup_it->entries.at(0).binding.from_argument_buffer);
         }
 
         // tex (used in fragment)
         CHECK_EQ(hihi_bindgroup_it->entries.at(1).type, GPUResourceType::TEXTURE);
         CHECK_EQ(hihi_bindgroup_it->entries.at(1).binding.index, 1);
         CHECK_EQ(hihi_bindgroup_it->entries.at(1).count, 1);
+        check_binding_index(haha_bindgroup_it->entries.at(1).binding, 1, 1, 0);
         if (target != CompileTarget::MSL) {
             CHECK(!hihi_bindgroup_it->entries.at(1).visibility.contains(GPUShaderStage::VERTEX));
             CHECK(hihi_bindgroup_it->entries.at(1).visibility.contains(GPUShaderStage::FRAGMENT));
+        } else {
+            CHECK(hihi_bindgroup_it->entries.at(0).binding.from_argument_buffer);
         }
 
         // tex2 (not used)
         CHECK_EQ(haha_bindgroup_it->entries.at(2).type, GPUResourceType::TEXTURE);
-        CHECK_EQ(haha_bindgroup_it->entries.at(2).binding.index, 2);
         CHECK_EQ(haha_bindgroup_it->entries.at(2).count, 1);
+        check_binding_index(haha_bindgroup_it->entries.at(2).binding, 2, 2, 1);
         if (target != CompileTarget::MSL) {
             CHECK(!haha_bindgroup_it->entries.at(2).visibility.contains(GPUShaderStage::VERTEX));
             CHECK(!haha_bindgroup_it->entries.at(2).visibility.contains(GPUShaderStage::FRAGMENT));
+        } else {
+            CHECK(hihi_bindgroup_it->entries.at(0).binding.from_argument_buffer);
         }
 
         // smp (not used)
         CHECK_EQ(hihi_bindgroup_it->entries.at(3).type, GPUResourceType::SAMPLER);
-        CHECK_EQ(hihi_bindgroup_it->entries.at(3).binding.index, 3);
         CHECK_EQ(hihi_bindgroup_it->entries.at(3).count, 1);
+        check_binding_index(haha_bindgroup_it->entries.at(3).binding, 3, 3, 0);
         if (target != CompileTarget::MSL) {
             CHECK(!hihi_bindgroup_it->entries.at(3).visibility.contains(GPUShaderStage::VERTEX));
             CHECK(!hihi_bindgroup_it->entries.at(3).visibility.contains(GPUShaderStage::FRAGMENT));
+        } else {
+            CHECK(hihi_bindgroup_it->entries.at(0).binding.from_argument_buffer);
         }
     }
 

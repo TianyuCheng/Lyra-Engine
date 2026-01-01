@@ -27,6 +27,7 @@
 #include <Lyra/Common/Compatibility.h>
 #include <Lyra/Plugin/RHI/RHIAPI.h>
 #include <Lyra/Plugin/RHI/RHIDescs.h>
+#include <Lyra/Plugin/RHI/RHIError.h>
 #include <Lyra/Plugin/WSI/WSIAPI.h>
 #include <Lyra/Plugin/WSI/WSIUtils.h>
 #include <Lyra/Plugin/WSI/WSITypes.h>
@@ -809,13 +810,20 @@ inline VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(
 }
 
 // helper macro to check vulkan object creation result
-#define vk_check(result)                                      \
-    {                                                         \
-        if (result != VK_SUCCESS) {                           \
-            get_logger()->error("{}:{}", __FILE__, __LINE__); \
-            get_logger()->error("{}", to_string(result));     \
-            std::exit(1);                                     \
-        }                                                     \
+#define vk_check(result)                                                                    \
+    {                                                                                       \
+        VkResult res = (result);                                                            \
+        if (res != VK_SUCCESS) {                                                            \
+            get_logger()->error("{}:{}", __FILE__, __LINE__);                               \
+            auto msg = std::string(to_string(res));                                         \
+            get_logger()->error("{}", msg);                                                 \
+            if (res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY) \
+                throw GPUOutOfMemoryError(msg);                                             \
+            else if (res == VK_ERROR_DEVICE_LOST)                                           \
+                throw GPUDeviceLostInfo(msg);                                               \
+            else                                                                            \
+                throw GPUInternalError(msg);                                                \
+        }                                                                                   \
     }
 
 #endif // LYRA_PLUGIN_VULKAN_VKUTILS_H

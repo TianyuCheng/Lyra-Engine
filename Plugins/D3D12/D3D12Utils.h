@@ -19,6 +19,7 @@ using Microsoft::WRL::ComPtr;
 #include <Lyra/Common/Compatibility.h>
 #include <Lyra/Plugin/RHI/RHIDescs.h>
 #include <Lyra/Plugin/RHI/RHIAPI.h>
+#include <Lyra/Plugin/RHI/RHIError.h>
 
 #include "SimpleHeap.h"
 #include "BlockAllocator.h"
@@ -929,7 +930,16 @@ inline void ThrowIfFailed(HRESULT hr)
         auto err = get_hresult_message(hr);
         if (err.c_str())
             get_logger()->error("error: {}\n", err.c_str());
-        throw std::exception();
+
+        switch (hr) {
+            case E_OUTOFMEMORY:
+                throw GPUOutOfMemoryError(err);
+            case DXGI_ERROR_DEVICE_REMOVED:
+            case DXGI_ERROR_DEVICE_RESET:
+                throw GPUDeviceLostInfo(err);
+            default:
+                throw GPUInternalError(err);
+        }
     }
 }
 

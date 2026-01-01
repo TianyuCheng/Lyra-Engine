@@ -33,9 +33,9 @@ MetalPipeline::MetalPipeline(const GPURenderPipelineDescriptor& desc)
     mtl_desc.vertexFunction = [vshader.library newFunctionWithName:vs_entry_ns];
 
     if (!mtl_desc.vertexFunction) {
-        get_logger()->error("FATAL: Vertex function with entry point '{}' not found in shader library.", desc.vertex.entry_point);
-        render_pso = nil; // mark pipeline as invalid
-        return;           // exit constructor early
+        NSString* error_msg = [NSString stringWithFormat:@"Vertex function with entry point '%s' not found in shader library.", desc.vertex.entry_point];
+        get_logger()->error("FATAL: {}", [error_msg UTF8String]);
+        throw GPUValidationError([error_msg UTF8String]);
     }
 
     // fragment function (optional)
@@ -45,9 +45,9 @@ MetalPipeline::MetalPipeline(const GPURenderPipelineDescriptor& desc)
         mtl_desc.fragmentFunction = [fshader.library newFunctionWithName:fs_entry_ns];
 
         if (!mtl_desc.fragmentFunction) {
-            get_logger()->error("FATAL: Fragment function with entry point '{}' not found in shader library.", desc.vertex.entry_point);
-            render_pso = nil; // mark pipeline as invalid
-            return;           // exit constructor early
+            NSString* error_msg = [NSString stringWithFormat:@"Fragment function with entry point '%s' not found in shader library.", desc.fragment.entry_point];
+            get_logger()->error("FATAL: {}", [error_msg UTF8String]);
+            throw GPUValidationError([error_msg UTF8String]);
         }
     }
 
@@ -120,12 +120,9 @@ MetalPipeline::MetalPipeline(const GPURenderPipelineDescriptor& desc)
     NSError* error = nil;
     render_pso     = [rhi->device newRenderPipelineStateWithDescriptor:mtl_desc error:&error];
     if (!render_pso || error) {
-        if (error) {
-            get_logger()->error("Failed to create render pipeline: {}", [[error localizedDescription] UTF8String]);
-        } else {
-            get_logger()->error("Failed to create render pipeline (unknown error)");
-        }
-        return;
+        NSString* error_str = error ? [error localizedDescription] : @"unknown error";
+        get_logger()->error("Failed to create render pipeline: {}", [error_str UTF8String]);
+        throw GPUPipelineError([NSString stringWithFormat:@"Failed to create render pipeline: %@", error_str].UTF8String);
     }
 
     // create depth stencil state (separate from pipeline in Metal)
@@ -181,20 +178,18 @@ MetalPipeline::MetalPipeline(const GPUComputePipelineDescriptor& desc)
     NSString*       entry    = [NSString stringWithUTF8String:desc.compute.entry_point];
     id<MTLFunction> function = [shader.library newFunctionWithName:entry];
     if (!function) {
-        get_logger()->error("Failed to find compute function: {}", desc.compute.entry_point);
-        return;
+        NSString* error_msg = [NSString stringWithFormat:@"Failed to find compute function: %s", desc.compute.entry_point];
+        get_logger()->error("{}", [error_msg UTF8String]);
+        throw GPUValidationError([error_msg UTF8String]);
     }
 
     // create compute pipeline state
     NSError* error = nil;
     compute_pso    = [rhi->device newComputePipelineStateWithFunction:function error:&error];
     if (!compute_pso || error) {
-        if (error) {
-            get_logger()->error("Failed to create compute pipeline: {}", [[error localizedDescription] UTF8String]);
-        } else {
-            get_logger()->error("Failed to create compute pipeline (unknown error)");
-        }
-        return;
+        NSString* error_str = error ? [error localizedDescription] : @"unknown error";
+        get_logger()->error("Failed to create compute pipeline: {}", [error_str UTF8String]);
+        throw GPUPipelineError([NSString stringWithFormat:@"Failed to create compute pipeline: %@", error_str].UTF8String);
     }
 
     // debug label
@@ -209,8 +204,9 @@ MetalPipeline::MetalPipeline(const GPURayTracingPipelineDescriptor& desc)
 
     // check if device supports ray tracing
     if (![rhi->device supportsRaytracing]) {
-        get_logger()->error("Metal ray tracing is not supported on this device");
-        return;
+        NSString* error_msg = @"Metal ray tracing is not supported on this device";
+        get_logger()->error("{}", [error_msg UTF8String]);
+        throw GPUValidationError([error_msg UTF8String]);
     }
 
     // store layout handle

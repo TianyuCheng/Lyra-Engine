@@ -18,11 +18,9 @@ MetalShader::MetalShader(const GPUShaderModuleDescriptor& desc)
     library              = [rhi->device newLibraryWithData:data error:&error];
 
     if (!library || error) {
-        if (error) {
-            get_logger()->error("Failed to load Metal shader: {}", [[error localizedDescription] UTF8String]);
-        } else {
-            get_logger()->error("Failed to load Metal shader (unknown error)");
-        }
+        NSString* error_str = error ? [error localizedDescription] : @"unknown error";
+        get_logger()->error("Failed to load Metal shader: {}", [error_str UTF8String]);
+        throw GPUCompilationInfo([NSString stringWithFormat:@"Failed to load Metal shader: %@", error_str].UTF8String);
     }
 }
 

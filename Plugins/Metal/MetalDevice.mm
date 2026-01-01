@@ -10,7 +10,7 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
 
         if (!rhi->device) {
             get_logger()->error("Metal device not initialized. Call create_adapter first.");
-            return false;
+            throw GPUInternalError("Metal device not initialized. Call create_adapter first.");
         }
 
         // create command queues
@@ -22,7 +22,7 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
 
         if (!rhi->graphics_queue || !rhi->compute_queue) {
             get_logger()->error("Failed to create Metal command queues");
-            return false;
+            throw GPUInternalError("Failed to create Metal command queues");
         }
 
         // set queue labels for debugging

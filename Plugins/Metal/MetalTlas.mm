@@ -14,7 +14,7 @@ MetalTlas::MetalTlas(const GPUTlasDescriptor& desc)
     // check if device supports ray tracing
     if (![rhi->device supportsRaytracing]) {
         get_logger()->error("Metal ray tracing is not supported on this device");
-        return;
+        throw GPUValidationError("Metal ray tracing is not supported on this device");
     }
 
     // create instance acceleration structure descriptor
@@ -37,7 +37,7 @@ MetalTlas::MetalTlas(const GPUTlasDescriptor& desc)
     tlas = [rhi->device newAccelerationStructureWithSize:sizes.accelerationStructureSize];
     if (!tlas) {
         get_logger()->error("Failed to allocate TLAS acceleration structure of size {}", (uint64_t)sizes.accelerationStructureSize);
-        return;
+        throw GPUOutOfMemoryError("Failed to allocate TLAS acceleration structure");
     }
 
     // store descriptor for building

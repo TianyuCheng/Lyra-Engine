@@ -13,6 +13,21 @@ MetalTexture::MetalTexture(const GPUTextureDescriptor& desc)
     @autoreleasepool {
         auto rhi = get_rhi();
 
+        if (desc.size.width * desc.size.height * desc.size.depth == 0) {
+            get_logger()->error("Failed to create Metal texture with zero dimension!");
+            throw GPUValidationError("Failed to create Metal texture with zero dimension!");
+        }
+
+        if (desc.mip_level_count == 0) {
+            get_logger()->error("Failed to create Metal texture with mip level count == 0!");
+            throw GPUValidationError("Failed to create Metal texture with mip level count == 0!");
+        }
+
+        if (desc.array_layers == 0) {
+            get_logger()->error("Failed to create Metal texture with array layers == 0!");
+            throw GPUValidationError("Failed to create Metal texture with array layers == 0!");
+        }
+
         MTLTextureDescriptor* mtl_desc = [MTLTextureDescriptor new];
         mtl_desc.textureType           = mtlenum(desc.dimension);
         mtl_desc.pixelFormat           = mtlenum(desc.format);
@@ -26,15 +41,14 @@ MetalTexture::MetalTexture(const GPUTextureDescriptor& desc)
         mtl_desc.storageMode           = determine_texture_storage_mode(desc.format);
 
         texture = [rhi->device newTextureWithDescriptor:mtl_desc];
-
         if (!texture) {
-            get_logger()->error("Failed to create Metal texture: {}x{}x{}, format={}", 
+            get_logger()->error("Failed to create Metal texture: {}x{}x{}, format={}",
                 desc.size.width, desc.size.height, desc.size.depth, (uint32_t)desc.format);
-            return;
+            throw GPUOutOfMemoryError("Failed to create Metal texture");
         }
 
-        format  = mtl_desc.pixelFormat;
-        type    = mtl_desc.textureType;
+        format = mtl_desc.pixelFormat;
+        type   = mtl_desc.textureType;
 
         // set debug label if provided
         if (desc.label && texture) {
@@ -67,11 +81,11 @@ MetalTextureView::MetalTextureView(const MetalTexture& parent, const GPUTextureV
 
         if (!texture) {
             get_logger()->error("Failed to create Metal texture view");
-            return;
+            throw GPUOutOfMemoryError("Failed to create Metal texture view");
         }
 
-        format  = mtlenum(desc.format);
-        type    = mtlenum(desc.dimension);
+        format = mtlenum(desc.format);
+        type   = mtlenum(desc.dimension);
     }
 }
 

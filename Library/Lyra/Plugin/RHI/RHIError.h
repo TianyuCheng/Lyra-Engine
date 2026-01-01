@@ -3,42 +3,54 @@
 #ifndef LYRA_LIBRARY_PLUGIN_RHI_ERROR_H
 #define LYRA_LIBRARY_PLUGIN_RHI_ERROR_H
 
+#include <stdexcept>
+#include <string>
+
 namespace lyra
 {
-    struct GPUError
+    struct GPUError : public std::runtime_error
     {
+        using std::runtime_error::runtime_error;
     };
 
-    struct GPUInternalError
+    struct GPUInternalError : public GPUError
     {
+        using GPUError::GPUError;
     };
 
-    struct GPUOutOfMemoryError
+    struct GPUOutOfMemoryError : public GPUError
     {
+        using GPUError::GPUError;
     };
 
-    struct GPUPipelineError
+    struct GPUPipelineError : public GPUError
     {
+        using GPUError::GPUError;
     };
 
-    struct GPUDeviceLostInfo
+    struct GPUDeviceLostInfo : public GPUError
     {
+        using GPUError::GPUError;
     };
 
-    struct GPUUncapturedErrorEvent
+    struct GPUUncapturedErrorEvent : public GPUError
     {
+        using GPUError::GPUError;
     };
 
-    struct GPUValidationError
+    struct GPUValidationError : public GPUError
     {
+        using GPUError::GPUError;
     };
 
-    struct GPUCompilationInfo
+    struct GPUCompilationInfo : public GPUError
     {
+        using GPUError::GPUError;
     };
 
-    struct GPUCompilationMessage
+    struct GPUCompilationMessage : public GPUError
     {
+        using GPUError::GPUError;
     };
 
 } // namespace lyra

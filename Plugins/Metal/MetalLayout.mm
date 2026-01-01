@@ -70,6 +70,7 @@ MetalPipelineLayout::MetalPipelineLayout(const GPUPipelineLayoutDescriptor& desc
     if (max_buffer_index >= METAL_PushConstantBufferIndex) {
         get_logger()->error("Pipeline layout exceeds available Metal buffer slots! Used: {}, Available: <{}",
             max_buffer_index, METAL_PushConstantBufferIndex);
+        throw GPUValidationError("Pipeline layout exceeds available Metal buffer slots");
     }
 }
 

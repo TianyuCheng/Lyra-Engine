@@ -29,6 +29,7 @@ MetalSampler::MetalSampler(const GPUSamplerDescriptor& desc)
 
         if (!sampler) {
             get_logger()->error("Failed to create Metal sampler state");
+            throw GPUInternalError("Failed to create Metal sampler state");
         }
     }
 }

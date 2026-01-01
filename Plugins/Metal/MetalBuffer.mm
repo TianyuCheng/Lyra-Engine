@@ -11,14 +11,18 @@ MetalBuffer::MetalBuffer(const GPUBufferDescriptor& desc)
         auto rhi = get_rhi();
 
         auto [options, storage_mode] = mtlenum(desc.usage);
+        if (desc.size == 0) {
+            get_logger()->error("Failed to create Metal buffer of size 0!");
+            throw GPUValidationError("Failed to create Metal buffer of size 0!");
+        }
 
-        buffer             = [rhi->device newBufferWithLength:desc.size options:options];
-        this->storage_mode = options;
-
+        buffer = [rhi->device newBufferWithLength:desc.size options:options];
         if (!buffer) {
             get_logger()->error("Failed to create Metal buffer of size {}", desc.size);
-            return;
+            throw GPUOutOfMemoryError("Failed to create Metal buffer!");
         }
+
+        this->storage_mode = options;
 
         // for CPU-visible buffers, get the contents pointer
         if (storage_mode == MTLStorageModeShared || storage_mode == MTLStorageModeManaged) {
