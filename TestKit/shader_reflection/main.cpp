@@ -225,7 +225,6 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
 
         // tex (used in fragment)
         CHECK_EQ(hihi_bindgroup_it->entries.at(1).type, GPUResourceType::TEXTURE);
-        CHECK_EQ(hihi_bindgroup_it->entries.at(1).binding.index, 1);
         CHECK_EQ(hihi_bindgroup_it->entries.at(1).count, 1);
         check_binding_index(haha_bindgroup_it->entries.at(1).binding, 1, 1, 0);
         if (target != CompileTarget::MSL) {

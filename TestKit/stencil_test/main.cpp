@@ -62,7 +62,7 @@ struct StencilTestApp : public TestApp
 
         dsbuffer = execute([&]() {
             auto desc            = GPUTextureDescriptor{};
-            desc.format          = GPUTextureFormat::DEPTH24PLUS_STENCIL8;
+            desc.format          = GPUTextureFormat::DEPTH32FLOAT_STENCIL8;
             desc.size.width      = this->desc.width;
             desc.size.height     = this->desc.height;
             desc.size.depth      = 1;
@@ -109,7 +109,7 @@ struct StencilTestApp : public TestApp
         pipeline_mask.attributes.push_back({"position", offsetof(Vertex, position)});
         pipeline_mask.attributes.push_back({"color", offsetof(Vertex, color)});
         pipeline_mask.init_color_state(get_backbuffer_format(), false);
-        pipeline_mask.init_stencil_state(GPUTextureFormat::DEPTH24PLUS_STENCIL8);
+        pipeline_mask.init_stencil_state(GPUTextureFormat::DEPTH32FLOAT_STENCIL8);
         pipeline_mask.init_vshader(device, module.get(), "vsmain");
         pipeline_mask.init_fshader(device, module.get(), "fsmain");
         pipeline_mask.init_playout(device, reflection.get());
@@ -119,7 +119,7 @@ struct StencilTestApp : public TestApp
         pipeline_draw.attributes.push_back({"position", offsetof(Vertex, position)});
         pipeline_draw.attributes.push_back({"color", offsetof(Vertex, color)});
         pipeline_draw.init_color_state(get_backbuffer_format());
-        pipeline_draw.init_depth_stencil_state(GPUTextureFormat::DEPTH24PLUS_STENCIL8);
+        pipeline_draw.init_depth_stencil_state(GPUTextureFormat::DEPTH32FLOAT_STENCIL8);
         pipeline_draw.init_vshader(device, module.get(), "vsmain");
         pipeline_draw.init_fshader(device, module.get(), "fsmain");
         pipeline_draw.init_playout(device, reflection.get());

@@ -1,6 +1,91 @@
 #include "VkUtils.h"
+#include <map>
+#include <set>
 
-void populate_device_properties(GPUSupportedLimits& limits)
+static bool is_device_suitable(VkPhysicalDevice device, const std::vector<const char*>& requiredExtensions)
+{
+    auto               rhi     = get_rhi();
+    QueueFamilyIndices indices = find_queue_family_indices(device, rhi->surface);
+
+    if (!indices.graphics.has_value() || (rhi->surface && !indices.present.has_value())) {
+        return false;
+    }
+
+    uint32_t extensionCount;
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+    std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
+
+    std::set<std::string> required(requiredExtensions.begin(), requiredExtensions.end());
+
+    for (const auto& extension : availableExtensions) {
+        required.erase(extension.extensionName);
+    }
+
+    return required.empty();
+}
+
+static int calculate_device_score(VkPhysicalDevice device)
+{
+    VkPhysicalDeviceProperties properties;
+    vkGetPhysicalDeviceProperties(device, &properties);
+
+    VkPhysicalDeviceFeatures features;
+    vkGetPhysicalDeviceFeatures(device, &features);
+
+    int score = 0;
+
+    // Feature richness is more important
+    uint32_t extensionCount;
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+    std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
+
+    auto has_extension = [&](const char* ext_name) {
+        for (const auto& ext : availableExtensions) {
+            if (strcmp(ext.extensionName, ext_name) == 0) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    if (has_extension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME)) {
+        score += 2000;
+    }
+    if (has_extension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) && has_extension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME)) {
+        score += 5000;
+    }
+    if (features.samplerAnisotropy) {
+        score += 500;
+    }
+    if (features.wideLines) {
+        score += 100;
+    }
+
+    // Power/Performance
+    if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+        score += 10000;
+    } else if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) {
+        score += 1000;
+    }
+
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(device, &memProperties);
+    VkDeviceSize local_memory = 0;
+    for (uint32_t i = 0; i < memProperties.memoryHeapCount; i++) {
+        if (memProperties.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
+            local_memory += memProperties.memoryHeaps[i].size;
+        }
+    }
+    score += local_memory / (1024 * 1024); // Score per MB
+
+    score += properties.limits.maxImageDimension2D / 100;
+
+    return score;
+}
+
+static void populate_device_properties(GPUSupportedLimits& limits)
 {
     auto rhi = get_rhi();
 
@@ -67,15 +152,17 @@ void populate_device_properties(GPUSupportedLimits& limits)
     limits.max_compute_workgroups_per_dimension  = vk_limits.maxComputeWorkGroupCount[0];
 }
 
-void populate_device_properties(GPUProperties& properties)
+static void populate_device_properties(GPUProperties& properties)
 {
     auto rhi = get_rhi();
+
+    const VkPhysicalDeviceLimits& vk_limits = rhi->props.limits;
 
     // texture row pitch alignment (buffer image properties)
     properties.texture_row_pitch_alignment = 4; // common minimum, may need device-specific query
 
     // push constant alignment
-    properties.min_push_constant_alignment = 128;
+    properties.min_uniform_buffer_alignment = vk_limits.minUniformBufferOffsetAlignment;
 
     // subgroup properties (requires VK_KHR_shader_subgroup_extended_types or Vulkan 1.1+)
     if (rhi->props2.pNext) {
@@ -107,8 +194,30 @@ bool api::create_adapter(GPUAdapterProps& adapter, const GPUAdapterDescriptor& d
     Vector<VkPhysicalDevice> devices(count);
     vk_check(vkEnumeratePhysicalDevices(rhi->instance, &count, devices.data()));
 
-    // TODO: actually pick the most suitable adapter.
-    rhi->adapter = devices.at(0);
+    std::vector<const char*> requiredExtensions;
+    if (rhi->surface) {
+        requiredExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    }
+    // Essential extensions for a modern renderer
+    requiredExtensions.push_back(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
+    requiredExtensions.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
+    requiredExtensions.push_back(VK_KHR_MAINTENANCE1_EXTENSION_NAME);
+    requiredExtensions.push_back(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
+    requiredExtensions.push_back(VK_KHR_IMAGELESS_FRAMEBUFFER_EXTENSION_NAME);
+
+    std::multimap<int, VkPhysicalDevice> candidates;
+    for (const auto& device : devices) {
+        if (is_device_suitable(device, requiredExtensions)) {
+            int score = calculate_device_score(device);
+            candidates.insert(std::make_pair(score, device));
+        }
+    }
+
+    if (candidates.empty()) {
+        throw GPUInternalError("Failed to find a suitable GPU!");
+    }
+
+    rhi->adapter = candidates.rbegin()->second;
 
     rhi->props2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
     rhi->props2.pNext = nullptr;

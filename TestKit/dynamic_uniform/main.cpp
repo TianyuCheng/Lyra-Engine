@@ -40,7 +40,8 @@ float4 fsmain(VertexOutput input) : SV_Target
 }
 )""";
 
-struct DynamicUniform
+// needs to satisfy minimal uniform buffer alignment requirement
+struct alignas(256) DynamicUniform
 {
     glm::mat4x4 mvp;
 };

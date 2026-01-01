@@ -273,10 +273,10 @@ namespace lyra
 
     struct GPUProperties
     {
-        uint subgroup_max_size           = 0;
-        uint subgroup_min_size           = 0;
-        uint texture_row_pitch_alignment = 0;
-        uint min_push_constant_alignment = 0;
+        uint subgroup_max_size            = 0;
+        uint subgroup_min_size            = 0;
+        uint texture_row_pitch_alignment  = 0;
+        uint min_uniform_buffer_alignment = 0;
     };
 
     struct GPUAdapterInfo

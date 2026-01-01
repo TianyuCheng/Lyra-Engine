@@ -77,7 +77,7 @@ bool api::create_adapter(GPUAdapterProps& adapter, const GPUAdapterDescriptor& d
     });
 
     // (push constant is not a native concept in Metal, our current implementation does not have this requirement)
-    adapter.properties.min_push_constant_alignment = 0;
+    adapter.properties.min_uniform_buffer_alignment = 32;
 
     // update rhi properties
     rhi->has_unified_memory          = [rhi->device hasUnifiedMemory];

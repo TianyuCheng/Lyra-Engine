@@ -42,7 +42,7 @@ void SimplePipeline::init_depth_stencil_state(GPUTextureFormat format)
     if (!dsstate.has_value()) dsstate = GPUDepthStencilState{};
 
     auto& state                       = dsstate.value();
-    state.format                      = GPUTextureFormat::DEPTH24PLUS_STENCIL8;
+    state.format                      = format;
     state.depth_compare               = GPUCompareFunction::ALWAYS;
     state.depth_write_enabled         = true;
     state.stencil_read_mask           = 0x1;

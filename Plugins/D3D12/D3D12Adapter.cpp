@@ -87,7 +87,7 @@ void populate_adapter_properties(GPUSupportedLimits& limits, GPUProperties& prop
 
     // push constant alignment
     // (push constant is not a native concept in D3D12, our current implementation does not have this requirement)
-    properties.min_push_constant_alignment = 0;
+    adapter.properties.min_uniform_buffer_alignment = 32;
 
     // wave/subgroup properties (requires shader model 6.0+)
     if (shader_model.HighestShaderModel >= D3D_SHADER_MODEL_6_0) {
