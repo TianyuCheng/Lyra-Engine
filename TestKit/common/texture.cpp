@@ -12,7 +12,7 @@ void SimpleTexture2D::upload()
 
     auto copy_src           = GPUTexelCopyBufferInfo{};
     copy_src.buffer         = buffer;
-    copy_src.bytes_per_row  = 0;
+    copy_src.bytes_per_row  = 0; // expect texture to be tightly packed
     copy_src.offset         = 0;
     copy_src.rows_per_image = height;
 

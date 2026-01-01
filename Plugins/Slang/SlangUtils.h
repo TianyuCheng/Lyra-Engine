@@ -152,13 +152,14 @@ struct ReflectResultInternal
     void create_automatic_constant_buffer(const AccessPath& path);
     void create_push_constant(const AccessPath& path, const CumulativeOffset& offset, const GPUBindGroupLayoutEntry& binding);
     void fill_binding_type(GPUBindGroupLayoutEntry& entry, slang::TypeLayoutReflection* type) const;
-    void fill_binding_index(GPUBindGroupLayoutEntry& entry, CumulativeOffset offset) const;
+    void fill_binding_index(GPUBindGroupLayoutEntry& entry, CumulativeOffset offset, const AccessPath& path) const;
     void fill_binding_count(GPUBindGroupLayoutEntry& entry, slang::TypeLayoutReflection* type) const;
     void fill_binding_stages(GPUBindGroupLayoutEntry& entry, const AccessPath& path) const;
     void fill_dynamic_uniform_buffer(GPUBindGroupLayoutEntry& entry, slang::VariableLayoutReflection* var_layout);
     auto infer_texture_format(slang::TypeLayoutReflection* type) const -> GPUTextureFormat;
     auto infer_vertex_format(slang::TypeLayoutReflection* type) const -> GPUVertexFormat;
     bool is_push_constant_buffer(const AccessPath& node) const;
+    bool is_under_parameter_block(const AccessPath& node) const;
 };
 
 struct CompilerWrapper

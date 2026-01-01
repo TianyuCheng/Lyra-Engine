@@ -37,6 +37,12 @@ namespace lyra
     // we force that push constant always use buffer(30) (max)
     static constexpr uint METAL_PushConstantBufferIndex = 30;
 
+    // NOTE: Metal binds vertex attributes in the same space as
+    // regular buffers. Therefore as a workaround, we bind the vertex
+    // buffers in the high buffer slots backwardly to avoid slot collision
+    // with other buffer bindings.
+    static constexpr uint METAL_VertexBufferSlotIndex = 29;
+
     using BufferSource = uint8_t*;
 
     using GPUBufferDynamicOffset   = uint32_t;
@@ -186,20 +192,25 @@ namespace lyra
         }
     };
 
-    // NOTE: Non-WebGPU standard
+    // NOTE: Non-WebGPU standard because we support multiple RHI backends,
+    // not all RHI backends support the binding model in the same way as WebGPU.
     struct GPUBindingIndex
     {
-        // index is the same as Vulkan style flattened binding,
-        // expected to be unique within the bind group.
-        uint16_t index = 0;
+        // NOTE: common property shared among all RHI backends.
+        // for Vulkan: flattened binding index (unique across the bind groupgroupgroup)
+        // for D3D12: space-based register index (different spaces might have same index binding)
+        // for Metal: space-based binding index
+        // While this become cumbersome for users to maintain across different platforms,
+        // it is recommended to use the reflection API to populate it.
+        ushort index = 0;
 
-        // register_type and register_index are D3D12 specific fields,
-        // because D3D12 uses spaced registers instead of flattened indexed bindings.
-        // Therefore, for robust bind group layout creation, it is necessary to specify
-        // both binding index and register* info.
-        // Users are expected to use the reflection or serialization/deserialization API
-        // to automatically populate these.
-        uint16_t register_index = 0;
+        // NOTE: Metal differs from Vulkan/D3D12 that it has support for both
+        // 1. directly bound resources via resource slot
+        // 2. indirectly bound resources via argument buffer.
+        // since a resource can be bound in either way, simply using the binding index
+        // does not suffice to differentiate between the binding mode. We need this extra
+        // bit of information to tell how we can bind it.
+        bool from_argument_buffer = false;
     };
 
     struct GPUSupportedFeatures
@@ -319,9 +330,9 @@ namespace lyra
 
     struct GPUTexelCopyBufferLayout
     {
-        GPUSize64 offset = 0;
-        GPUSize32 bytes_per_row;
-        GPUSize32 rows_per_image;
+        GPUSize64 offset         = 0;
+        GPUSize32 bytes_per_row  = 0; // bytes_per_row = 0 indicates tightly packed texture
+        GPUSize32 rows_per_image = 0;
     };
 
     struct GPUTexelCopyBufferInfo : GPUTexelCopyBufferLayout
@@ -363,11 +374,13 @@ namespace lyra
         GPUTextureViewDimension view_dimension = GPUTextureViewDimension::x2D;
     };
 
+    // NOTE: Non-WebGPU standard because WebGPU does not support raytracing.
     struct GPUBVHBindingLayout
     {
         bool vertex_return = false;
     };
 
+    // NOTE: Non-WebGPU standard because WebGPU does not support raytracing.
     struct GPUBVHSizes
     {
         uint bvh_size;
@@ -375,6 +388,7 @@ namespace lyra
         uint update_size;
     };
 
+    // NOTE: Non-WebGPU standard because WebGPU does not support raytracing.
     struct GPUBlasTriangleGeometrySizeDescriptor
     {
         GPUVertexFormat     vertex_format;
@@ -384,6 +398,7 @@ namespace lyra
         GPUBVHGeometryFlags flags;
     };
 
+    // NOTE: Non-WebGPU standard because WebGPU does not support raytracing.
     struct GPUBlasGeometrySizeDescriptor
     {
         GPUBlasType type = GPUBlasType::TRIANGLE;
@@ -397,7 +412,8 @@ namespace lyra
         ~GPUBlasGeometrySizeDescriptor() {}
     };
 
-    // NOTE: index is optional
+    // NOTE: Non-WebGPU standard because WebGPU does not support raytracing.
+    // NOTE: index buffer is optional
     struct GPUBlasTriangleGeometry
     {
         GPUBlasTriangleGeometrySizeDescriptor size;
@@ -410,6 +426,7 @@ namespace lyra
         GPUBufferAddress                      transform_buffer_offset;
     };
 
+    // NOTE: Non-WebGPU standard because WebGPU does not support raytracing.
     struct GPUBlasGeometries
     {
         GPUBlasType type = GPUBlasType::TRIANGLE;
@@ -423,12 +440,14 @@ namespace lyra
         ~GPUBlasGeometries() {}
     };
 
+    // NOTE: Non-WebGPU standard because WebGPU does not support raytracing.
     struct GPUBlasBuildEntry
     {
         GPUBlasHandle     blas;
         GPUBlasGeometries geometries;
     };
 
+    // NOTE: Non-WebGPU standard because WebGPU does not support raytracing.
     struct GPUTlasInstance
     {
         float         transform[4][3];
@@ -437,12 +456,14 @@ namespace lyra
         GPUBlasHandle blas;
     };
 
+    // NOTE: Non-WebGPU standard because WebGPU does not support raytracing.
     struct GPUTlasBuildEntry
     {
         GPUTlasHandle    tlas;
         GPUTlasInstances instances;
     };
 
+    // NOTE: Non-WebGPU standard because WebGPU does not support raytracing.
     struct GPUBlendComponent
     {
         GPUBlendOperation operation  = GPUBlendOperation::ADD;
@@ -457,8 +478,7 @@ namespace lyra
     };
 
     // NOTE: shader_semantic is non-WebGPU standard, and only applicable to D3D12.
-    // Users are expected to use the reflection or serialization/deserialization API
-    // to automatically populate these.
+    // Users are expected to use the reflection or serialization/deserialization API to automatically populate these.
     struct GPUVertexAttribute
     {
         GPUVertexFormat format;
@@ -504,10 +524,14 @@ namespace lyra
         GPUSize64       size   = 0;
     };
 
+    // NOTE: index is non-WebGPU standard, because WebGPU does not support binding an array of resources.
+    // When index = 0, it is the same as standard WebGPU's binding model.
+    // When index > 0, this indicate binding to the specific index of the array of resources.
+    // https://github.com/gpuweb/gpuweb/issues/822
     struct GPUBindGroupEntry
     {
         GPUIndex32      binding = 0;
-        GPUIndex32      index   = 0; // NOTE: Non-WebGPU standard API
+        GPUIndex32      index   = 0;
         GPUResourceType type    = GPUResourceType::BUFFER;
         union
         {
@@ -522,12 +546,17 @@ namespace lyra
         ~GPUBindGroupEntry() {}
     };
 
+    // NOTE: count is non-WebGPU standard, because WebGPU does not support binding an array of resources.
+    // When count = 1, we treat this the same way WebGPU handles binding.
+    // When count > 0, we treat this as an array of resources.
+    // When count = ~size_t(0), we treat this bind group layout to be bindless.
+    // https://github.com/gpuweb/gpuweb/issues/822
     struct GPUBindGroupLayoutEntry
     {
         GPUResourceType     type       = GPUResourceType::BUFFER;
         GPUBindingIndex     binding    = {};
         GPUShaderStageFlags visibility = GPUShaderStage(0);
-        GPUIndex32          count      = 1; // NOTE: Non-WebGPU standard API (bindless when count = ~size_t(0))
+        GPUIndex32          count      = 1;
         union
         {
             GPUBufferBindingLayout         buffer = {};
@@ -617,7 +646,8 @@ namespace lyra
         GPUSize32 array_layers     = 1;
     };
 
-    // NOTE: Non-WebGPU standard API
+    // NOTE: This is Non-WebGPU standard API, because WebGPU does not support push constants.
+    // https://github.com/gpuweb/gpuweb/issues/75
     struct GPUPushConstantRange
     {
         uint                offset;
@@ -625,7 +655,8 @@ namespace lyra
         GPUShaderStageFlags visibility;
     };
 
-    // NOTE: Non-WebGPU standard API
+    // NOTE: Non-WebGPU standard API because WebGPU chooses to handle barriers implicitly.
+    // https://github.com/gpuweb/gpuweb/issues/27
     struct GPUMemoryBarrier
     {
         GPUBarrierSync   src_sync;
@@ -634,7 +665,8 @@ namespace lyra
         GPUBarrierAccess dst_access;
     };
 
-    // NOTE: Non-WebGPU standard API
+    // NOTE: Non-WebGPU standard API because WebGPU chooses to handle barriers implicitly.
+    // https://github.com/gpuweb/gpuweb/issues/27
     struct GPUBufferBarrier
     {
         GPUBarrierSync   src_sync;
@@ -646,7 +678,8 @@ namespace lyra
         GPUSize64        size;
     };
 
-    // NOTE: Non-WebGPU standard API
+    // NOTE: Non-WebGPU standard API because WebGPU chooses to handle barriers implicitly.
+    // https://github.com/gpuweb/gpuweb/issues/27
     struct GPUTextureBarrier
     {
         GPUBarrierSync             src_sync;

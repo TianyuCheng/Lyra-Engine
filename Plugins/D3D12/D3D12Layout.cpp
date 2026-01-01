@@ -279,12 +279,11 @@ D3D12BindGroupLayout::D3D12BindGroupLayout(const GPUBindGroupLayoutDescriptor& d
     GPUShaderStageFlags stages = 0;
 
     // check binding type (D3D12 has requirement that sampler cannot be mixed with others)
-    uint binding_count = 0;
+    uint binding_count = static_cast<uint>(desc.entries.size());
     uint sampler_count = 0;
     uint default_count = 0;
     uint dynamic_count = 0;
     for (const auto& entry : desc.entries) {
-        binding_count = std::max(binding_count, (uint)entry.binding.index + 1);
         if (entry.type == GPUResourceType::SAMPLER)
             sampler_count++;
         else if (is_dynamic_bind_group_entry(entry))
@@ -297,14 +296,14 @@ D3D12BindGroupLayout::D3D12BindGroupLayout(const GPUBindGroupLayoutDescriptor& d
     sampler_ranges.reserve(sampler_count);
     default_ranges.reserve(default_count);
     dynamic_ranges.reserve(dynamic_count);
-    bindings.resize(binding_count);
+    bindings.reserve(binding_count);
 
     // initialize ranges vector based on descriptor entries
     for (const auto& entry : desc.entries) {
         D3D12_DESCRIPTOR_RANGE1 range{};
 
         // range info
-        range.BaseShaderRegister                = entry.binding.register_index;
+        range.BaseShaderRegister                = entry.binding.index;
         range.NumDescriptors                    = entry.count;
         range.RegisterSpace                     = 0; // NOTE: need to be changed later in the pipeline layout
         range.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
@@ -324,14 +323,15 @@ D3D12BindGroupLayout::D3D12BindGroupLayout(const GPUBindGroupLayoutDescriptor& d
         else
             default_ranges.push_back(range);
 
-        // shader visibility
+        // update shader visibility
         stages = stages | entry.visibility;
 
-        // binding info
-        auto& binding   = bindings.at(entry.binding.index);
+        // populate binding info
+        auto binding   = D3D12BindInfo{};
         binding.type    = range.RangeType;
         binding.count   = entry.count;
         binding.dynamic = is_dynamic_bind_group_entry(entry);
+        bindings.push_back(binding);
     }
 
     // populate default descriptor counts

@@ -800,7 +800,7 @@ void ReflectResultInternal::create_automatic_constant_buffer(const AccessPath& p
     auto val  = GPUBindGroupLayoutEntry{};
     val.type  = GPUResourceType::BUFFER;
     val.count = 1;
-    fill_binding_index(val, offset);
+    fill_binding_index(val, offset, path);
     fill_binding_stages(val, path);
     fill_dynamic_uniform_buffer(val, node->var_layout);
 
@@ -821,7 +821,7 @@ void ReflectResultInternal::create_binding(const AccessPath& path)
 
     auto val = GPUBindGroupLayoutEntry{};
     fill_binding_type(val, type);
-    fill_binding_index(val, offset);
+    fill_binding_index(val, offset, path);
     fill_binding_count(val, type);
     fill_binding_stages(val, path);
     fill_dynamic_uniform_buffer(val, node->var_layout);
@@ -900,21 +900,15 @@ void ReflectResultInternal::create_push_constant(const AccessPath& path, const C
     }
 }
 
-void ReflectResultInternal::fill_binding_index(GPUBindGroupLayoutEntry& entry, CumulativeOffset offset) const
+void ReflectResultInternal::fill_binding_index(GPUBindGroupLayoutEntry& entry, CumulativeOffset offset, const AccessPath& path) const
 {
-    uint existing_binding_count = 0;
+    entry.binding.index = offset.value;
 
-    auto it = bind_groups.find((uint)offset.space);
-    if (it != bind_groups.end())
-        existing_binding_count = static_cast<uint>(it->second.size());
-
-    if (target != CompileTarget::DXIL) {
-        entry.binding.index          = offset.value;
-        entry.binding.register_index = 0; // only DXIL has register space
-        return;
-    } else {
-        entry.binding.index          = existing_binding_count;
-        entry.binding.register_index = offset.value;
+    // Metal support binding the resource directly, or indirectly via argument buffer.
+    // This cannot be derived from later code path, so we must record it now.
+    if (target == CompileTarget::MSL) {
+        // when a binding is placed inside a parameter block
+        entry.binding.from_argument_buffer = is_under_parameter_block(path);
     }
 }
 
@@ -1237,5 +1231,16 @@ bool ReflectResultInternal::is_push_constant_buffer(const AccessPath& path) cons
 
     auto var = node->var_layout->getVariable();
     return var->findUserAttributeByName(GLOBAL_SESSION, "vk_push_constant");
+}
+
+bool ReflectResultInternal::is_under_parameter_block(const AccessPath& node) const
+{
+    auto leaf = node.leaf;
+    for (auto leaf = node.leaf; leaf != nullptr; leaf = leaf->outer) {
+        auto typ_layout = leaf->var_layout->getTypeLayout();
+        if (typ_layout->getKind() == slang::TypeReflection::Kind::ParameterBlock)
+            return true;
+    }
+    return false;
 }
 #pragma endregion ReflectResultInternal
