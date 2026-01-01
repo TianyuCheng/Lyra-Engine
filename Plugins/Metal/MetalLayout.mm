@@ -7,7 +7,7 @@ MetalBindGroupLayout::MetalBindGroupLayout() {}
 
 MetalBindGroupLayout::MetalBindGroupLayout(const GPUBindGroupLayoutDescriptor& desc)
 {
-    // Store entries for pipeline layout mapping
+    // store entries for pipeline layout mapping
     for (auto& entry : desc.entries) {
         entries.push_back(entry);
     }
@@ -18,7 +18,10 @@ void MetalBindGroupLayout::destroy()
     entries.clear();
 }
 
-MetalPipelineLayout::MetalPipelineLayout() {}
+MetalPipelineLayout::MetalPipelineLayout()
+{
+    // do nothing
+}
 
 MetalPipelineLayout::MetalPipelineLayout(const GPUPipelineLayoutDescriptor& desc)
 {
@@ -29,7 +32,7 @@ MetalPipelineLayout::MetalPipelineLayout(const GPUPipelineLayoutDescriptor& desc
         push_constant_ranges.push_back(range);
     }
 
-    // Generate flat mapping
+    // generate flat mapping
     uint32_t current_buffer_index  = 0;
     uint32_t current_texture_index = 0;
     uint32_t current_sampler_index = 0;
@@ -63,9 +66,9 @@ MetalPipelineLayout::MetalPipelineLayout(const GPUPipelineLayoutDescriptor& desc
     max_texture_index = current_texture_index;
     max_sampler_index = current_sampler_index;
 
-    // Bounds checking
+    // bounds checking
     if (max_buffer_index >= METAL_PushConstantBufferIndex) {
-        get_logger()->error("Pipeline layout exceeds available Metal buffer slots! Used: {}, Available: <{}", 
+        get_logger()->error("Pipeline layout exceeds available Metal buffer slots! Used: {}, Available: <{}",
             max_buffer_index, METAL_PushConstantBufferIndex);
     }
 }
@@ -106,4 +109,3 @@ void api::delete_pipeline_layout(GPUPipelineLayoutHandle handle)
 {
     get_rhi()->pipeline_layouts.remove(handle.value);
 }
-

@@ -17,29 +17,35 @@ void MetalFrame::wait()
 
 void MetalFrame::reset()
 {
-    // reset any resources owned by command buffers
-    for (auto& command_buffer : allocated_command_buffers) {
-        command_buffer.reset();
+    @autoreleasepool {
+        // reset any resources owned by command buffers
+        for (auto& command_buffer : allocated_command_buffers) {
+            command_buffer.reset();
+        }
+        allocated_command_buffers.clear();
+        existing_fences.clear();
     }
-    allocated_command_buffers.clear();
-    existing_fences.clear();
 }
 
 void MetalFrame::free()
 {
-    // reset any resources owned by command buffers
-    for (auto& command_buffer : allocated_command_buffers) {
-        command_buffer.reset();
+    @autoreleasepool {
+        // reset any resources owned by command buffers
+        for (auto& command_buffer : allocated_command_buffers) {
+            command_buffer.reset();
+        }
+        allocated_command_buffers.clear();
     }
-    allocated_command_buffers.clear();
 }
 
 void MetalFrame::destroy()
 {
-    graphics_command_pool.destroy();
-    compute_command_pool.destroy();
-    transfer_command_pool.destroy();
-    allocated_command_buffers.clear();
+    @autoreleasepool {
+        graphics_command_pool.destroy();
+        compute_command_pool.destroy();
+        transfer_command_pool.destroy();
+        allocated_command_buffers.clear();
+    }
 }
 
 GPUCommandEncoderHandle MetalFrame::allocate(GPUQueueType type, bool primary)
@@ -77,4 +83,7 @@ void api::new_frame()
     rhi->current_frame().reset();
 }
 
-void api::end_frame() {}
+void api::end_frame()
+{
+    // do nothing
+}

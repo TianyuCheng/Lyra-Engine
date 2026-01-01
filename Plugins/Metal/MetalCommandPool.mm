@@ -3,12 +3,16 @@ using namespace lyra;
 
 void MetalCommandPool::init(id<MTLCommandQueue> queue)
 {
-    command_queue = queue;
+    @autoreleasepool {
+        command_queue = queue;
+    }
 }
 
 void MetalCommandPool::destroy()
 {
-    command_queue = nil;
+    @autoreleasepool {
+        command_queue = nil;
+    }
 }
 
 id<MTLCommandBuffer> MetalCommandPool::allocate()

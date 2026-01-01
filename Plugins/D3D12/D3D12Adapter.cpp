@@ -48,8 +48,8 @@ void populate_adapter_properties(GPUSupportedLimits& limits, GPUProperties& prop
     limits.min_storage_buffer_offset_alignment = D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT;               // 16
 
     // vertex input limits
-    limits.max_vertex_buffers           = D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT; // 32
-    limits.max_buffer_size              = static_cast<uint32_t>(std::min(
+    limits.max_vertex_buffers             = D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT; // 32
+    limits.max_buffer_size                = static_cast<uint32_t>(std::min(
         static_cast<uint64_t>(UINT32_MAX),
         virtual_address_support.MaxGPUVirtualAddressBitsPerResource > 0 ? (1ULL << virtual_address_support.MaxGPUVirtualAddressBitsPerResource) : static_cast<uint64_t>(128 * 1024 * 1024) // 128mb fallback
         ));
@@ -84,6 +84,10 @@ void populate_adapter_properties(GPUSupportedLimits& limits, GPUProperties& prop
 
     // texture row pitch alignment
     properties.texture_row_pitch_alignment = D3D12_TEXTURE_DATA_PITCH_ALIGNMENT; // 256
+
+    // push constant alignment
+    // (push constant is not a native concept in D3D12, our current implementation does not have this requirement)
+    properties.min_push_constant_alignment = 0;
 
     // wave/subgroup properties (requires shader model 6.0+)
     if (shader_model.HighestShaderModel >= D3D_SHADER_MODEL_6_0) {

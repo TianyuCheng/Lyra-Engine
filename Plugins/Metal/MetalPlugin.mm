@@ -224,7 +224,7 @@ void api::delete_query_set(GPUQuerySetHandle handle)
 bool api::create_bind_group(GPUBindGroupHandle& handle, const GPUBindGroupDescriptor& desc)
 {
     auto& heap = fetch_resource(get_rhi()->bind_group_heaps, desc.heap);
-    handle = heap.create_bind_group(desc);
+    handle     = heap.create_bind_group(desc);
     return handle.valid();
 }
 

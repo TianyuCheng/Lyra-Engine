@@ -74,6 +74,9 @@ void populate_device_properties(GPUProperties& properties)
     // texture row pitch alignment (buffer image properties)
     properties.texture_row_pitch_alignment = 4; // common minimum, may need device-specific query
 
+    // push constant alignment
+    properties.min_push_constant_alignment = 128;
+
     // subgroup properties (requires VK_KHR_shader_subgroup_extended_types or Vulkan 1.1+)
     if (rhi->props2.pNext) {
         // look for VkPhysicalDeviceSubgroupProperties in the pNext chain
