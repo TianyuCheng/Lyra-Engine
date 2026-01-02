@@ -2,15 +2,19 @@
 #import <Metal/MTLArgument.h>
 #include <unordered_map>
 
+#ifndef MTLDataTypeAccelerationStructure
+#define MTLDataTypeAccelerationStructure ((MTLDataType)73)
+#endif
+
 namespace {
 MTLDataType get_mtl_data_type(GPUResourceType type) {
     switch (type) {
-        case GPUResourceType::BUFFER: return (MTLDataType)30; // MTLDataTypePointer
+        case GPUResourceType::BUFFER: return MTLDataTypePointer;
         case GPUResourceType::TEXTURE:
-        case GPUResourceType::STORAGE_TEXTURE: return (MTLDataType)26; // MTLDataTypeTexture
-        case GPUResourceType::SAMPLER: return (MTLDataType)27; // MTLDataTypeSampler
-        case GPUResourceType::ACCELERATION_STRUCTURE: return (MTLDataType)32; // MTLDataTypeAccelerationStructure
-        default: return (MTLDataType)0; // MTLDataTypeNone
+        case GPUResourceType::STORAGE_TEXTURE: return MTLDataTypeTexture;
+        case GPUResourceType::SAMPLER: return MTLDataTypeSampler;
+        case GPUResourceType::ACCELERATION_STRUCTURE: return MTLDataTypeAccelerationStructure;
+        default: return MTLDataTypeNone;
     }
 }
 } // namespace
@@ -42,6 +46,8 @@ MetalBindGroupLayout::MetalBindGroupLayout(const GPUBindGroupLayoutDescriptor& d
             arg.index = entry.binding.index;
             arg.dataType = get_mtl_data_type(entry.type);
             arg.arrayLength = entry.count;
+            arg.access = MTLBindingAccessReadOnly;
+
             if (arg.dataType == MTLDataTypeTexture) {
                 arg.textureType = mtlenum(entry.texture.view_dimension);
             }

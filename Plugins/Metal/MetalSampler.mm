@@ -25,6 +25,8 @@ MetalSampler::MetalSampler(const GPUSamplerDescriptor& desc)
         if (desc.compare_enable)
             mtl_desc.compareFunction = mtlenum(desc.compare);
 
+        mtl_desc.supportArgumentBuffers = YES;
+
         sampler = [rhi->device newSamplerStateWithDescriptor:mtl_desc];
 
         if (!sampler) {
