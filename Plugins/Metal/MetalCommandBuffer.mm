@@ -309,7 +309,7 @@ void cmd::set_raytracing_pipeline(GPUCommandEncoderHandle cmdbuffer, GPURayTraci
     // check device support
     if (![rhi->device supportsRaytracing]) {
         get_logger()->error("Metal ray tracing is not supported on this device");
-        return;
+        throw GPUValidationError("Metal ray tracing is not supported on this device");
     }
 
     auto& cmd      = rhi->current_frame().command(cmdbuffer);
@@ -356,77 +356,98 @@ void cmd::set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GP
 
     if (!cmd.bound_layout.valid()) {
         get_logger()->error("No valid pipeline layout bound when setting bind group");
-        return;
+        throw GPUValidationError("No valid pipeline layout bound when setting bind group");
     }
 
     // cast handle value directly to pointer
     auto* bind_group = reinterpret_cast<MetalBindGroup*>(bind_group_handle.value);
     if (!bind_group) {
         get_logger()->error("bind group is invalid!");
-        return;
+        throw GPUValidationError("Invalid bind group handle");
     }
 
-    // retrieve pipeline layout for remapped resource slots
+    auto& layout = fetch_resource(rhi->bind_group_layouts, bind_group->layout_handle);
     auto& pipeline_layout = fetch_resource(rhi->pipeline_layouts, cmd.bound_layout);
-    for (uint32_t i = 0; i < bind_group->entry_count; ++i) {
-        const auto& entry = bind_group->entries[i];
-        uint32_t    key   = (index << 16) | entry.binding;
+    
+    if (layout.is_argument_buffer) {
+        uint32_t key = (index << 16) | 0;
+        if (pipeline_layout.buffer_indices.find(key) != pipeline_layout.buffer_indices.end()) {
+            uint32_t slot = pipeline_layout.buffer_indices.at(key);
+            if (cmd.render_encoder) {
+                [cmd.render_encoder setVertexBuffer:bind_group->argument_buffer offset:0 atIndex:slot];
+                [cmd.render_encoder setFragmentBuffer:bind_group->argument_buffer offset:0 atIndex:slot];
+                for(const auto& res : bind_group->used_resources) {
+                    [cmd.render_encoder useResource:res.first usage:res.second];
+                }
+            } else if (cmd.compute_encoder) {
+                [cmd.compute_encoder setBuffer:bind_group->argument_buffer offset:0 atIndex:slot];
+                for(const auto& res : bind_group->used_resources) {
+                    [cmd.compute_encoder useResource:res.first usage:res.second];
+                }
+            }
+        }
+    } else {
+        // retrieve pipeline layout for remapped resource slots
+        for (uint32_t i = 0; i < bind_group->entry_count; ++i) {
+            const auto& entry = bind_group->entries[i];
+            uint32_t    key   = (index << 16) | entry.binding;
 
-        switch (entry.type) {
-            case GPUResourceType::BUFFER:
-            {
-                if (pipeline_layout.buffer_indices.find(key) != pipeline_layout.buffer_indices.end()) {
-                    uint32_t slot = pipeline_layout.buffer_indices.at(key);
-                    if (cmd.render_encoder) {
-                        [cmd.render_encoder setVertexBuffer:entry.buffer.buffer offset:entry.buffer.offset atIndex:slot];
-                        [cmd.render_encoder setFragmentBuffer:entry.buffer.buffer offset:entry.buffer.offset atIndex:slot];
-                    } else if (cmd.compute_encoder) {
-                        [cmd.compute_encoder setBuffer:entry.buffer.buffer offset:entry.buffer.offset atIndex:slot];
-                    }
-                }
-                break;
-            }
-            case GPUResourceType::TEXTURE:
-            case GPUResourceType::STORAGE_TEXTURE:
-            {
-                if (pipeline_layout.texture_indices.find(key) != pipeline_layout.texture_indices.end()) {
-                    uint32_t slot = pipeline_layout.texture_indices.at(key);
-                    if (cmd.render_encoder) {
-                        [cmd.render_encoder setVertexTexture:entry.texture.texture atIndex:slot];
-                        [cmd.render_encoder setFragmentTexture:entry.texture.texture atIndex:slot];
-                    } else if (cmd.compute_encoder) {
-                        [cmd.compute_encoder setTexture:entry.texture.texture atIndex:slot];
-                    }
-                }
-                break;
-            }
-            case GPUResourceType::SAMPLER:
-            {
-                if (pipeline_layout.sampler_indices.find(key) != pipeline_layout.sampler_indices.end()) {
-                    uint32_t slot = pipeline_layout.sampler_indices.at(key);
-                    if (cmd.render_encoder) {
-                        [cmd.render_encoder setVertexSamplerState:entry.sampler.sampler atIndex:slot];
-                        [cmd.render_encoder setFragmentSamplerState:entry.sampler.sampler atIndex:slot];
-                    } else if (cmd.compute_encoder) {
-                        [cmd.compute_encoder setSamplerState:entry.sampler.sampler atIndex:slot];
-                    }
-                }
-                break;
-            }
-            case GPUResourceType::ACCELERATION_STRUCTURE:
-            {
-                if (@available(macOS 13.0, iOS 16.0, *)) {
+            switch (entry.type) {
+                case GPUResourceType::BUFFER:
+                {
                     if (pipeline_layout.buffer_indices.find(key) != pipeline_layout.buffer_indices.end()) {
                         uint32_t slot = pipeline_layout.buffer_indices.at(key);
                         if (cmd.render_encoder) {
-                            [cmd.render_encoder setVertexAccelerationStructure:entry.tlas.tlas atBufferIndex:slot];
-                            [cmd.render_encoder setFragmentAccelerationStructure:entry.tlas.tlas atBufferIndex:slot];
+                            [cmd.render_encoder setVertexBuffer:entry.buffer.buffer offset:entry.buffer.offset atIndex:slot];
+                            [cmd.render_encoder setFragmentBuffer:entry.buffer.buffer offset:entry.buffer.offset atIndex:slot];
                         } else if (cmd.compute_encoder) {
-                            [cmd.compute_encoder setAccelerationStructure:entry.tlas.tlas atBufferIndex:slot];
+                            [cmd.compute_encoder setBuffer:entry.buffer.buffer offset:entry.buffer.offset atIndex:slot];
                         }
                     }
+                    break;
                 }
-                break;
+                case GPUResourceType::TEXTURE:
+                case GPUResourceType::STORAGE_TEXTURE:
+                {
+                    if (pipeline_layout.texture_indices.find(key) != pipeline_layout.texture_indices.end()) {
+                        uint32_t slot = pipeline_layout.texture_indices.at(key);
+                        if (cmd.render_encoder) {
+                            [cmd.render_encoder setVertexTexture:entry.texture.texture atIndex:slot];
+                            [cmd.render_encoder setFragmentTexture:entry.texture.texture atIndex:slot];
+                        } else if (cmd.compute_encoder) {
+                            [cmd.compute_encoder setTexture:entry.texture.texture atIndex:slot];
+                        }
+                    }
+                    break;
+                }
+                case GPUResourceType::SAMPLER:
+                {
+                    if (pipeline_layout.sampler_indices.find(key) != pipeline_layout.sampler_indices.end()) {
+                        uint32_t slot = pipeline_layout.sampler_indices.at(key);
+                        if (cmd.render_encoder) {
+                            [cmd.render_encoder setVertexSamplerState:entry.sampler.sampler atIndex:slot];
+                            [cmd.render_encoder setFragmentSamplerState:entry.sampler.sampler atIndex:slot];
+                        } else if (cmd.compute_encoder) {
+                            [cmd.compute_encoder setSamplerState:entry.sampler.sampler atIndex:slot];
+                        }
+                    }
+                    break;
+                }
+                case GPUResourceType::ACCELERATION_STRUCTURE:
+                {
+                    if (@available(macOS 13.0, iOS 16.0, *)) {
+                        if (pipeline_layout.buffer_indices.find(key) != pipeline_layout.buffer_indices.end()) {
+                            uint32_t slot = pipeline_layout.buffer_indices.at(key);
+                            if (cmd.render_encoder) {
+                                [cmd.render_encoder setVertexAccelerationStructure:entry.tlas.tlas atBufferIndex:slot];
+                                [cmd.render_encoder setFragmentAccelerationStructure:entry.tlas.tlas atBufferIndex:slot];
+                            } else if (cmd.compute_encoder) {
+                                [cmd.compute_encoder setAccelerationStructure:entry.tlas.tlas atBufferIndex:slot];
+                            }
+                        }
+                    }
+                    break;
+                }
             }
         }
     }
@@ -836,7 +857,7 @@ void cmd::write_timestamp(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle q
 
     if (query_set.type != GPUQueryType::TIMESTAMP || !query_set.sample_buffer) {
         get_logger()->error("Invalid query set for timestamp write");
-        return;
+        throw GPUValidationError("Invalid query set for timestamp write");
     }
 
     // Metal requires sampling timestamps at specific points using MTLCounterSampleBuffer
@@ -860,7 +881,7 @@ void cmd::write_blas_properties(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHa
 
     if (query_set.type != GPUQueryType::BLAS_PROPERTIES || !query_set.visibility_buffer) {
         get_logger()->error("Invalid query set for BLAS properties write");
-        return;
+        throw GPUValidationError("Invalid query set for BLAS properties write");
     }
 
     // for BLAS properties, we write the acceleration structure sizes to the buffer
@@ -956,7 +977,7 @@ void cmd::build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
     // check device support
     if (![rhi->device supportsRaytracing]) {
         get_logger()->error("Metal ray tracing is not supported on this device");
-        return;
+        throw GPUValidationError("Metal ray tracing is not supported on this device");
     }
 
     // transition to acceleration structure encoder
@@ -970,7 +991,7 @@ void cmd::build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
 
         if (!tlas.descriptor || !tlas.tlas) {
             get_logger()->error("Invalid TLAS for building");
-            continue;
+            throw GPUValidationError("Invalid TLAS for building");
         }
 
         // get instance descriptor from entry
@@ -1043,7 +1064,7 @@ void cmd::build_blases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
     // check device support
     if (![rhi->device supportsRaytracing]) {
         get_logger()->error("Metal ray tracing is not supported on this device");
-        return;
+        throw GPUValidationError("Metal ray tracing is not supported on this device");
     }
 
     // transition to acceleration structure encoder
@@ -1057,7 +1078,7 @@ void cmd::build_blases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
 
         if (!blas.descriptor || !blas.blas) {
             get_logger()->error("Invalid BLAS for building");
-            continue;
+            throw GPUValidationError("Invalid BLAS for building");
         }
 
         MTLPrimitiveAccelerationStructureDescriptor* as_desc =
@@ -1113,7 +1134,7 @@ void cmd::copy_blas(GPUCommandEncoderHandle cmdbuffer, GPUBlasHandle src_blas_ha
     // check device support
     if (![rhi->device supportsRaytracing]) {
         get_logger()->error("Metal ray tracing is not supported on this device");
-        return;
+        throw GPUValidationError("Metal ray tracing is not supported on this device");
     }
 
     // transition to acceleration structure encoder

@@ -206,29 +206,33 @@ struct MetalBindGroup
         };
     };
 
-    Entry*                 entries     = nullptr;
-    uint32_t               entry_count = 0;
-    GPUBindGroupHeapHandle heap;
+    Entry*                   entries         = nullptr;
+    uint32_t                 entry_count     = 0;
+    GPUBindGroupHeapHandle   heap;
+    GPUBindGroupLayoutHandle layout_handle;
+    id<MTLBuffer>            argument_buffer = nil;
+    Vector<std::pair<id<MTLResource>, MTLResourceUsage>> used_resources;
 
     // implementation in MetalBindGroup.mm
     explicit MetalBindGroup();
-    void init(const GPUBindGroupDescriptor& desc);
 
-    void destroy() {} // No-op for O(1) reset
-    bool valid() const { return entries != nullptr; }
+    void destroy();
+    bool valid() const { return entries != nullptr || argument_buffer != nil; }
 };
 
 // bind group layout
 struct MetalBindGroupLayout
 {
     Vector<GPUBindGroupLayoutEntry> entries;
+    bool is_argument_buffer = false;
+    id<MTLArgumentEncoder> arg_encoder = nil;
 
     // implementation in MetalLayout.mm
     explicit MetalBindGroupLayout();
     explicit MetalBindGroupLayout(const GPUBindGroupLayoutDescriptor& desc);
 
     void destroy();
-    bool valid() const { return !entries.empty(); }
+    bool valid() const { return !entries.empty() || is_argument_buffer; }
 };
 
 // bind group heap

@@ -1,5 +1,19 @@
 #include "MetalUtils.h"
+#import <Metal/MTLArgument.h>
 #include <unordered_map>
+
+namespace {
+MTLDataType get_mtl_data_type(GPUResourceType type) {
+    switch (type) {
+        case GPUResourceType::BUFFER: return (MTLDataType)30; // MTLDataTypePointer
+        case GPUResourceType::TEXTURE:
+        case GPUResourceType::STORAGE_TEXTURE: return (MTLDataType)26; // MTLDataTypeTexture
+        case GPUResourceType::SAMPLER: return (MTLDataType)27; // MTLDataTypeSampler
+        case GPUResourceType::ACCELERATION_STRUCTURE: return (MTLDataType)32; // MTLDataTypeAccelerationStructure
+        default: return (MTLDataType)0; // MTLDataTypeNone
+    }
+}
+} // namespace
 
 using namespace lyra;
 
@@ -11,11 +25,36 @@ MetalBindGroupLayout::MetalBindGroupLayout(const GPUBindGroupLayoutDescriptor& d
     for (auto& entry : desc.entries) {
         entries.push_back(entry);
     }
+    if (entries.empty()) {
+        return;
+    }
+
+    is_argument_buffer = entries[0].binding.from_argument_buffer;
+    
+    if (is_argument_buffer) {
+        auto rhi = get_rhi();
+        NSMutableArray* arguments = [NSMutableArray new];
+        for (const auto& entry : entries) {
+            if (entry.binding.from_argument_buffer != is_argument_buffer) {
+                 throw GPUValidationError("Mixing argument buffer and direct bindings in one bind group layout is not supported.");
+            }
+            MTLArgumentDescriptor* arg = [MTLArgumentDescriptor new];
+            arg.index = entry.binding.index;
+            arg.dataType = get_mtl_data_type(entry.type);
+            arg.arrayLength = entry.count;
+            if (arg.dataType == MTLDataTypeTexture) {
+                arg.textureType = mtlenum(entry.texture.view_dimension);
+            }
+            [arguments addObject:arg];
+        }
+        arg_encoder = [rhi->device newArgumentEncoderWithArguments:arguments];
+    }
 }
 
 void MetalBindGroupLayout::destroy()
 {
     entries.clear();
+    arg_encoder = nil;
 }
 
 MetalPipelineLayout::MetalPipelineLayout()
@@ -43,21 +82,26 @@ MetalPipelineLayout::MetalPipelineLayout(const GPUPipelineLayoutDescriptor& desc
 
         auto& layout = fetch_resource(rhi->bind_group_layouts, handle);
 
-        for (const auto& entry : layout.entries) {
-            uint32_t key = (set << 16) | entry.binding.index;
+        if (layout.is_argument_buffer) {
+            uint32_t key = (set << 16) | 0; // Use binding 0 as representative for the set
+            buffer_indices[key] = current_buffer_index++;
+        } else {
+            for (const auto& entry : layout.entries) {
+                uint32_t key = (set << 16) | entry.binding.index;
 
-            switch (entry.type) {
-                case GPUResourceType::BUFFER:
-                case GPUResourceType::ACCELERATION_STRUCTURE:
-                    buffer_indices[key] = current_buffer_index++;
-                    break;
-                case GPUResourceType::TEXTURE:
-                case GPUResourceType::STORAGE_TEXTURE:
-                    texture_indices[key] = current_texture_index++;
-                    break;
-                case GPUResourceType::SAMPLER:
-                    sampler_indices[key] = current_sampler_index++;
-                    break;
+                switch (entry.type) {
+                    case GPUResourceType::BUFFER:
+                    case GPUResourceType::ACCELERATION_STRUCTURE:
+                        buffer_indices[key] = current_buffer_index++;
+                        break;
+                    case GPUResourceType::TEXTURE:
+                    case GPUResourceType::STORAGE_TEXTURE:
+                        texture_indices[key] = current_texture_index++;
+                        break;
+                    case GPUResourceType::SAMPLER:
+                        sampler_indices[key] = current_sampler_index++;
+                        break;
+                }
             }
         }
     }
