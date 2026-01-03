@@ -37,6 +37,15 @@ def find_git_root(start_path=None):
 
         current_path = parent_path
 
+def is_vulkan_sdk_installed_env():
+    vulkan_sdk_path = os.environ.get('VULKAN_SDK')
+    if vulkan_sdk_path:
+        print(f"Vulkan SDK found at: {vulkan_sdk_path}")
+        return True
+    else:
+        print("Vulkan SDK environment variable (VULKAN_SDK) not found.")
+        return False
+
 def prepare_run(args):
     os.makedirs(args.directory, exist_ok=True)
     for filename in os.listdir(args.directory):
@@ -121,14 +130,15 @@ def run_unit_tests(args):
 
 def generate_html_report(args, results):
     import pathlib
-    sequence = ["reference", "vulkan"]
+    sequence = ["reference"]
 
     os_name = platform.system()
-    match os_name:
-        case "Windows":
-            sequence.append("d3d12")
-        case "Darwin":
-            sequence.append("metal")
+    if os_name == "Windows":
+        sequence.append("d3d12")
+    if os_name == "Darwin":
+        sequence.append("metal")
+    if is_vulkan_sdk_installed_env():
+        sequence.append("vulkan")
 
     html_content = []
     html_content.append('''

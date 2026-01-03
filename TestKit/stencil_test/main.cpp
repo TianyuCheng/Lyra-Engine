@@ -250,6 +250,7 @@ struct StencilTestApp : public TestApp
     }
 };
 
+#ifdef LYRA_VULKAN_SUPPORT
 TEST_CASE("rhi::vulkan::stencil_test" * doctest::description("Rendering a triangle with stencil test enabled."))
 {
     TestAppDescriptor desc{};
@@ -263,6 +264,7 @@ TEST_CASE("rhi::vulkan::stencil_test" * doctest::description("Rendering a triang
     desc.compile_flags  = CompileFlag::DEBUG;
     StencilTestApp(desc).run();
 }
+#endif
 
 #ifdef WIN32
 TEST_CASE("rhi::d3d12::stencil_test" * doctest::description("Rendering a triangle with stencil test enabled."))

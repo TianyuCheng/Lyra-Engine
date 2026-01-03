@@ -157,6 +157,7 @@ struct GraphicsPipelineApp : public TestApp
     }
 };
 
+#ifdef LYRA_VULKAN_SUPPORT
 TEST_CASE("rhi::vulkan::graphics_pipeline" * doctest::description("Rendering a triangle with the most basic graphics pipeline."))
 {
     TestAppDescriptor desc{};
@@ -170,6 +171,7 @@ TEST_CASE("rhi::vulkan::graphics_pipeline" * doctest::description("Rendering a t
     desc.compile_flags  = CompileFlag::DEBUG;
     GraphicsPipelineApp(desc).run();
 }
+#endif
 
 #ifdef WIN32
 TEST_CASE("rhi::d3d12::graphics_pipeline" * doctest::description("Rendering a triangle with the most basic graphics pipeline."))

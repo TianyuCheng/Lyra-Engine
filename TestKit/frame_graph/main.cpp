@@ -364,6 +364,7 @@ struct FrameGraphApp : public TestApp
     }
 };
 
+#ifdef LYRA_VULKAN_SUPPORT
 TEST_CASE("rhi::vulkan::frame_graph" * doctest::description("Rendering triangles with frame graph"))
 {
     TestAppDescriptor desc{};
@@ -377,6 +378,7 @@ TEST_CASE("rhi::vulkan::frame_graph" * doctest::description("Rendering triangles
     desc.compile_flags  = CompileFlag::DEBUG;
     FrameGraphApp(desc).run();
 }
+#endif
 
 #ifdef WIN32
 TEST_CASE("rhi::d3d12::frame_graph" * doctest::description("Rendering triangles with frame graph."))

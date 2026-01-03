@@ -188,6 +188,7 @@ struct DynamicUniformApp : public TestApp
     }
 };
 
+#ifdef LYRA_VULKAN_SUPPORT
 TEST_CASE("rhi::vulkan::dynamic_uniform" * doctest::description("Rendering multiple triangles with the dynamic uniform buffer."))
 {
     TestAppDescriptor desc{};
@@ -201,6 +202,7 @@ TEST_CASE("rhi::vulkan::dynamic_uniform" * doctest::description("Rendering multi
     desc.compile_flags  = CompileFlag::DEBUG;
     DynamicUniformApp(desc).run();
 }
+#endif
 
 #ifdef WIN32
 TEST_CASE("rhi::d3d12::dynamic_uniform" * doctest::description("Rendering multiple triangles with the dynamic uniform buffer."))

@@ -221,6 +221,7 @@ struct TextureSamplingApp : public TestApp
     }
 };
 
+#ifdef LYRA_VULKAN_SUPPORT
 TEST_CASE("rhi::vulkan::texture_sampling" * doctest::description("Rendering a textured triangle with the most basic graphics pipeline."))
 {
     TestAppDescriptor desc{};
@@ -234,6 +235,7 @@ TEST_CASE("rhi::vulkan::texture_sampling" * doctest::description("Rendering a te
     desc.compile_flags  = CompileFlag::DEBUG;
     TextureSamplingApp(desc).run();
 }
+#endif
 
 #ifdef WIN32
 TEST_CASE("rhi::d3d12::texture_sampling" * doctest::description("Rendering a textured triangle with the most basic graphics pipeline."))
