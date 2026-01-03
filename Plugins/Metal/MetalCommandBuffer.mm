@@ -366,91 +366,8 @@ void cmd::set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GP
         throw GPUValidationError("Invalid bind group handle");
     }
 
-    auto& layout = fetch_resource(rhi->bind_group_layouts, bind_group->layout_handle);
     auto& pipeline_layout = fetch_resource(rhi->pipeline_layouts, cmd.bound_layout);
-    
-    if (layout.is_argument_buffer) {
-        uint32_t key = (index << 16) | 0;
-        if (pipeline_layout.buffer_indices.find(key) != pipeline_layout.buffer_indices.end()) {
-            uint32_t slot = pipeline_layout.buffer_indices.at(key);
-            if (cmd.render_encoder) {
-                [cmd.render_encoder setVertexBuffer:bind_group->argument_buffer offset:0 atIndex:slot];
-                [cmd.render_encoder setFragmentBuffer:bind_group->argument_buffer offset:0 atIndex:slot];
-                for(const auto& res : bind_group->used_resources) {
-                    [cmd.render_encoder useResource:res.first usage:res.second];
-                }
-            } else if (cmd.compute_encoder) {
-                [cmd.compute_encoder setBuffer:bind_group->argument_buffer offset:0 atIndex:slot];
-                for(const auto& res : bind_group->used_resources) {
-                    [cmd.compute_encoder useResource:res.first usage:res.second];
-                }
-            }
-        }
-    } else {
-        // retrieve pipeline layout for remapped resource slots
-        for (uint32_t i = 0; i < bind_group->entry_count; ++i) {
-            const auto& entry = bind_group->entries[i];
-            uint32_t    key   = (index << 16) | entry.binding;
-
-            switch (entry.type) {
-                case GPUResourceType::BUFFER:
-                {
-                    if (pipeline_layout.buffer_indices.find(key) != pipeline_layout.buffer_indices.end()) {
-                        uint32_t slot = pipeline_layout.buffer_indices.at(key);
-                        if (cmd.render_encoder) {
-                            [cmd.render_encoder setVertexBuffer:entry.buffer.buffer offset:entry.buffer.offset atIndex:slot];
-                            [cmd.render_encoder setFragmentBuffer:entry.buffer.buffer offset:entry.buffer.offset atIndex:slot];
-                        } else if (cmd.compute_encoder) {
-                            [cmd.compute_encoder setBuffer:entry.buffer.buffer offset:entry.buffer.offset atIndex:slot];
-                        }
-                    }
-                    break;
-                }
-                case GPUResourceType::TEXTURE:
-                case GPUResourceType::STORAGE_TEXTURE:
-                {
-                    if (pipeline_layout.texture_indices.find(key) != pipeline_layout.texture_indices.end()) {
-                        uint32_t slot = pipeline_layout.texture_indices.at(key);
-                        if (cmd.render_encoder) {
-                            [cmd.render_encoder setVertexTexture:entry.texture.texture atIndex:slot];
-                            [cmd.render_encoder setFragmentTexture:entry.texture.texture atIndex:slot];
-                        } else if (cmd.compute_encoder) {
-                            [cmd.compute_encoder setTexture:entry.texture.texture atIndex:slot];
-                        }
-                    }
-                    break;
-                }
-                case GPUResourceType::SAMPLER:
-                {
-                    if (pipeline_layout.sampler_indices.find(key) != pipeline_layout.sampler_indices.end()) {
-                        uint32_t slot = pipeline_layout.sampler_indices.at(key);
-                        if (cmd.render_encoder) {
-                            [cmd.render_encoder setVertexSamplerState:entry.sampler.sampler atIndex:slot];
-                            [cmd.render_encoder setFragmentSamplerState:entry.sampler.sampler atIndex:slot];
-                        } else if (cmd.compute_encoder) {
-                            [cmd.compute_encoder setSamplerState:entry.sampler.sampler atIndex:slot];
-                        }
-                    }
-                    break;
-                }
-                case GPUResourceType::ACCELERATION_STRUCTURE:
-                {
-                    if (@available(macOS 13.0, iOS 16.0, *)) {
-                        if (pipeline_layout.buffer_indices.find(key) != pipeline_layout.buffer_indices.end()) {
-                            uint32_t slot = pipeline_layout.buffer_indices.at(key);
-                            if (cmd.render_encoder) {
-                                [cmd.render_encoder setVertexAccelerationStructure:entry.tlas.tlas atBufferIndex:slot];
-                                [cmd.render_encoder setFragmentAccelerationStructure:entry.tlas.tlas atBufferIndex:slot];
-                            } else if (cmd.compute_encoder) {
-                                [cmd.compute_encoder setAccelerationStructure:entry.tlas.tlas atBufferIndex:slot];
-                            }
-                        }
-                    }
-                    break;
-                }
-            }
-        }
-    }
+    bind_group->bind(cmd, pipeline_layout, index);
 }
 
 void cmd::set_push_constants(GPUCommandEncoderHandle cmdbuffer, GPUShaderStageFlags visibility, uint offset, uint size, void* data)
@@ -745,7 +662,7 @@ void cmd::copy_texture_to_texture(GPUCommandEncoderHandle cmdbuffer, const GPUTe
 
     NSUInteger source_slice = 0;
     if (src_texture.type == MTLTextureType2DArray || src_texture.type == MTLTextureTypeCube || src_texture.type == MTLTextureTypeCubeArray) {
-        source_slice       = src_mtl_origin.z;
+        source_slice     = src_mtl_origin.z;
         src_mtl_origin.z = 0;
     }
 

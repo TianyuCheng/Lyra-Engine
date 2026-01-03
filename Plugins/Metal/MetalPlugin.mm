@@ -4,6 +4,51 @@
 
 using namespace lyra;
 
+bool api::create_surface(GPUSurfaceHandle& handle, const GPUSurfaceDescriptor& desc)
+{
+    auto rhi = get_rhi();
+
+    // create the swapchain (which wraps CAMetalLayer)
+    auto obj = MetalSwapchain(desc);
+    if (!obj.valid()) {
+        get_logger()->error("Failed to create Metal surface/swapchain");
+        return false;
+    }
+
+    handle = GPUSurfaceHandle(rhi->swapchains.add(obj));
+    get_logger()->info("Metal surface created: {}x{}", obj.extent.width, obj.extent.height);
+    return true;
+}
+
+void api::delete_surface(GPUSurfaceHandle handle)
+{
+    get_rhi()->swapchains.remove(handle.value);
+}
+
+bool api::get_surface_extent(GPUSurfaceHandle surface, GPUExtent2D& extent)
+{
+    auto  rhi     = get_rhi();
+    auto& swp     = fetch_resource(rhi->swapchains, surface);
+    extent.width  = swp.extent.width;
+    extent.height = swp.extent.height;
+    return true;
+}
+
+bool api::get_surface_format(GPUSurfaceHandle surface, GPUTextureFormat& format)
+{
+    auto  rhi = get_rhi();
+    auto& swp = fetch_resource(rhi->swapchains, surface);
+    format    = swp.rhi_format;
+    return true;
+}
+
+uint api::get_surface_frames(GPUSurfaceHandle surface)
+{
+    auto  rhi = get_rhi();
+    auto& swp = fetch_resource(rhi->swapchains, surface);
+    return static_cast<uint>(swp.frames.size());
+}
+
 bool api::create_buffer(GPUBufferHandle& handle, const GPUBufferDescriptor& desc)
 {
     auto rhi = get_rhi();
@@ -224,8 +269,113 @@ void api::delete_query_set(GPUQuerySetHandle handle)
 bool api::create_bind_group(GPUBindGroupHandle& handle, const GPUBindGroupDescriptor& desc)
 {
     auto& heap = fetch_resource(get_rhi()->bind_group_heaps, desc.heap);
-    handle     = heap.create_bind_group(desc);
+    handle     = heap.allocate(desc);
     return handle.valid();
+}
+
+bool api::create_bind_group_heap(GPUBindGroupHeapHandle& handle, const GPUBindGroupHeapDescriptor& desc)
+{
+    auto rhi = get_rhi();
+    auto ind = rhi->bind_group_heaps.add(MetalBindGroupHeap(desc));
+    handle   = GPUBindGroupHeapHandle(ind);
+    return true;
+}
+
+void api::delete_bind_group_heap(GPUBindGroupHeapHandle handle)
+{
+    get_rhi()->bind_group_heaps.remove(handle.value);
+}
+
+void api::reset_bind_group_heap(GPUBindGroupHeapHandle handle)
+{
+    auto  rhi  = get_rhi();
+    auto& heap = fetch_resource(rhi->bind_group_heaps, handle);
+    heap.reset();
+}
+
+bool api::create_bind_group_layout(GPUBindGroupLayoutHandle& handle, const GPUBindGroupLayoutDescriptor& desc)
+{
+    auto rhi = get_rhi();
+    auto obj = MetalBindGroupLayout(desc);
+    auto ind = rhi->bind_group_layouts.add(obj);
+    handle   = GPUBindGroupLayoutHandle(ind);
+    return obj.valid();
+}
+
+void api::delete_bind_group_layout(GPUBindGroupLayoutHandle handle)
+{
+    get_rhi()->bind_group_layouts.remove(handle.value);
+}
+
+bool api::create_pipeline_layout(GPUPipelineLayoutHandle& handle, const GPUPipelineLayoutDescriptor& desc)
+{
+    auto rhi = get_rhi();
+    auto obj = MetalPipelineLayout(desc);
+    auto ind = rhi->pipeline_layouts.add(obj);
+    handle   = GPUPipelineLayoutHandle(ind);
+    return obj.valid();
+}
+
+void api::delete_pipeline_layout(GPUPipelineLayoutHandle handle)
+{
+    get_rhi()->pipeline_layouts.remove(handle.value);
+}
+
+bool api::create_render_pipeline(GPURenderPipelineHandle& handle, const GPURenderPipelineDescriptor& desc)
+{
+    auto rhi = get_rhi();
+    auto obj = MetalPipeline(desc);
+    if (!obj.valid()) {
+        return false;
+    }
+    auto ind = rhi->pipelines.add(obj);
+    handle   = GPURenderPipelineHandle(ind);
+    return true;
+}
+
+void api::delete_render_pipeline(GPURenderPipelineHandle handle)
+{
+    get_rhi()->pipelines.remove(handle.value);
+}
+
+bool api::create_compute_pipeline(GPUComputePipelineHandle& handle, const GPUComputePipelineDescriptor& desc)
+{
+    auto rhi = get_rhi();
+    auto obj = MetalPipeline(desc);
+    if (!obj.valid()) {
+        return false;
+    }
+    auto ind = rhi->pipelines.add(obj);
+    handle   = GPUComputePipelineHandle(ind);
+    return true;
+}
+
+void api::delete_compute_pipeline(GPUComputePipelineHandle handle)
+{
+    get_rhi()->pipelines.remove(handle.value);
+}
+
+bool api::create_raytracing_pipeline(GPURayTracingPipelineHandle& handle, const GPURayTracingPipelineDescriptor& desc)
+{
+    auto rhi = get_rhi();
+
+    // check device support
+    if (![rhi->device supportsRaytracing]) {
+        get_logger()->error("Metal ray tracing is not supported on this device");
+        return false;
+    }
+
+    auto obj = MetalPipeline(desc);
+    // Note: valid() check will pass even with just max_recursion_depth set
+    // since the current implementation is a placeholder
+    auto ind = rhi->pipelines.add(obj);
+    handle   = GPURayTracingPipelineHandle(ind);
+    return true;
+}
+
+void api::delete_raytracing_pipeline(GPURayTracingPipelineHandle handle)
+{
+    get_rhi()->pipelines.remove(handle.value);
 }
 
 auto get_api_name() -> CString

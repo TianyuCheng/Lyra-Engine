@@ -1,74 +1,86 @@
 #include "MetalUtils.h"
 #import <Metal/MTLArgument.h>
-#include <unordered_map>
-
-#ifndef MTLDataTypeAccelerationStructure
-#define MTLDataTypeAccelerationStructure ((MTLDataType)73)
-#endif
-
-namespace {
-MTLDataType get_mtl_data_type(GPUResourceType type) {
-    switch (type) {
-        case GPUResourceType::BUFFER: return MTLDataTypePointer;
-        case GPUResourceType::TEXTURE:
-        case GPUResourceType::STORAGE_TEXTURE: return MTLDataTypeTexture;
-        case GPUResourceType::SAMPLER: return MTLDataTypeSampler;
-        case GPUResourceType::ACCELERATION_STRUCTURE: return MTLDataTypeAccelerationStructure;
-        default: return MTLDataTypeNone;
-    }
-}
-} // namespace
 
 using namespace lyra;
 
-MetalBindGroupLayout::MetalBindGroupLayout() {}
+MTLDataType get_mtl_data_type(GPUResourceType type)
+{
+    switch (type) {
+        case GPUResourceType::BUFFER:
+            return MTLDataTypePointer;
+        case GPUResourceType::TEXTURE:
+        case GPUResourceType::STORAGE_TEXTURE:
+            return MTLDataTypeTexture;
+        case GPUResourceType::SAMPLER:
+            return MTLDataTypeSampler;
+        case GPUResourceType::ACCELERATION_STRUCTURE:
+            return MTLDataTypeInstanceAccelerationStructure;
+        default:
+            return MTLDataTypeNone;
+    }
+}
+
+#pragma region MetalBindGroupLayout
+MetalBindGroupLayout::MetalBindGroupLayout()
+{
+    // do nothing
+}
 
 MetalBindGroupLayout::MetalBindGroupLayout(const GPUBindGroupLayoutDescriptor& desc)
 {
-    // store entries for pipeline layout mapping
-    for (auto& entry : desc.entries) {
-        entries.push_back(entry);
-    }
-    if (entries.empty()) {
-        return;
-    }
-
-    is_argument_buffer = entries[0].binding.from_argument_buffer;
-    
-    if (is_argument_buffer) {
-        auto rhi = get_rhi();
-        NSMutableArray* arguments = [NSMutableArray new];
-        for (const auto& entry : entries) {
-            if (entry.binding.from_argument_buffer != is_argument_buffer) {
-                 throw GPUValidationError("Mixing argument buffer and direct bindings in one bind group layout is not supported.");
-            }
-            MTLArgumentDescriptor* arg = [MTLArgumentDescriptor new];
-            arg.index = entry.binding.index;
-            arg.dataType = get_mtl_data_type(entry.type);
-            arg.arrayLength = entry.count;
-            arg.access = MTLBindingAccessReadOnly;
-
-            if (arg.dataType == MTLDataTypeTexture) {
-                arg.textureType = mtlenum(entry.texture.view_dimension);
-            }
-            [arguments addObject:arg];
+    @autoreleasepool {
+        // store entries for pipeline layout mapping
+        for (auto& entry : desc.entries) {
+            entries.push_back(entry);
         }
-        arg_encoder = [rhi->device newArgumentEncoderWithArguments:arguments];
+        if (entries.empty()) {
+            return;
+        }
+
+        if (entries[0].binding.from_argument_buffer) {
+            auto            rhi       = get_rhi();
+            NSMutableArray* arguments = [NSMutableArray new];
+            for (const auto& entry : entries) {
+                if (!entry.binding.from_argument_buffer) {
+                    throw GPUValidationError("Mixing argument buffer and direct bindings in one bind group layout is not supported.");
+                }
+                MTLArgumentDescriptor* arg = [MTLArgumentDescriptor new];
+                arg.index                  = entry.binding.index;
+                arg.dataType               = get_mtl_data_type(entry.type);
+                arg.arrayLength            = entry.count;
+                arg.access                 = MTLBindingAccessReadOnly;
+
+                if (arg.dataType == MTLDataTypeTexture) {
+                    arg.textureType = mtlenum(entry.texture.view_dimension);
+                }
+                [arguments addObject:arg];
+            }
+            encoder = [rhi->device newArgumentEncoderWithArguments:arguments];
+        }
     }
 }
 
 void MetalBindGroupLayout::destroy()
 {
-    entries.clear();
-    arg_encoder = nil;
+    @autoreleasepool {
+        entries.clear();
+        encoder = nil;
+    }
 }
+#pragma endregion MetalBindGroupLayout
 
+#pragma region MetalPipelineLayout
 MetalPipelineLayout::MetalPipelineLayout()
 {
     // do nothing
 }
 
 MetalPipelineLayout::MetalPipelineLayout(const GPUPipelineLayoutDescriptor& desc)
+{
+    init(desc);
+}
+
+void MetalPipelineLayout::init(const GPUPipelineLayoutDescriptor& desc)
 {
     auto rhi = get_rhi();
 
@@ -88,8 +100,8 @@ MetalPipelineLayout::MetalPipelineLayout(const GPUPipelineLayoutDescriptor& desc
 
         auto& layout = fetch_resource(rhi->bind_group_layouts, handle);
 
-        if (layout.is_argument_buffer) {
-            uint32_t key = (set << 16) | 0; // Use binding 0 as representative for the set
+        if (layout.encoder) {
+            uint32_t key        = (set << 16) | 0; // Use binding 0 as representative for the set
             buffer_indices[key] = current_buffer_index++;
         } else {
             for (const auto& entry : layout.entries) {
@@ -132,31 +144,4 @@ void MetalPipelineLayout::destroy()
     texture_indices.clear();
     sampler_indices.clear();
 }
-
-bool api::create_bind_group_layout(GPUBindGroupLayoutHandle& handle, const GPUBindGroupLayoutDescriptor& desc)
-{
-    auto rhi = get_rhi();
-    auto obj = MetalBindGroupLayout(desc);
-    auto ind = rhi->bind_group_layouts.add(obj);
-    handle   = GPUBindGroupLayoutHandle(ind);
-    return obj.valid();
-}
-
-void api::delete_bind_group_layout(GPUBindGroupLayoutHandle handle)
-{
-    get_rhi()->bind_group_layouts.remove(handle.value);
-}
-
-bool api::create_pipeline_layout(GPUPipelineLayoutHandle& handle, const GPUPipelineLayoutDescriptor& desc)
-{
-    auto rhi = get_rhi();
-    auto obj = MetalPipelineLayout(desc);
-    auto ind = rhi->pipeline_layouts.add(obj);
-    handle   = GPUPipelineLayoutHandle(ind);
-    return obj.valid();
-}
-
-void api::delete_pipeline_layout(GPUPipelineLayoutHandle handle)
-{
-    get_rhi()->pipeline_layouts.remove(handle.value);
-}
+#pragma endregion MetalPipelineLayout

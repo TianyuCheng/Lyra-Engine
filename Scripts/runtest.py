@@ -37,14 +37,16 @@ def find_git_root(start_path=None):
 
         current_path = parent_path
 
-def is_vulkan_sdk_installed_env():
-    vulkan_sdk_path = os.environ.get('VULKAN_SDK')
-    if vulkan_sdk_path:
-        print(f"Vulkan SDK found at: {vulkan_sdk_path}")
-        return True
-    else:
-        print("Vulkan SDK environment variable (VULKAN_SDK) not found.")
-        return False
+def check_vulkan_info():
+    try:
+        subprocess.check_output(["vulkaninfo", "--summary"], stderr=subprocess.STDOUT)
+        return True#, "vulkaninfo command ran successfully."
+    except FileNotFoundError:
+        return False#, "vulkaninfo executable not found. The Vulkan SDK or tools package may not be installed."
+    except subprocess.CalledProcessError as e:
+        return False#, f"vulkaninfo command failed to run: {e.output.decode().strip()}. This often indicates no drivers were found."
+    except Exception as e:
+        return False#, f"An unexpected error occurred: {e}"
 
 def prepare_run(args):
     os.makedirs(args.directory, exist_ok=True)
@@ -137,7 +139,7 @@ def generate_html_report(args, results):
         sequence.append("d3d12")
     if os_name == "Darwin":
         sequence.append("metal")
-    if is_vulkan_sdk_installed_env():
+    if check_vulkan_info():
         sequence.append("vulkan")
 
     html_content = []
@@ -158,8 +160,8 @@ def generate_html_report(args, results):
                 --table-border-color: #454a54;
                 --table-row-even-bg: #31363f;
                 --image-border-color: #454a54;
-                --image-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-                --image-hover-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.4);
+                --image-shadow: 0 3px 5px 0 rgba(0, 0, 0, 0.2);
+                --image-hover-shadow: 0 5px 11px 0 rgba(0, 0, 0, 0.4);
                 --link-color: #61afef;
                 --link-hover-color: #c678dd;
             }
@@ -168,45 +170,46 @@ def generate_html_report(args, results):
                 color: var(--text-color);
                 font-family: 'Roboto', sans-serif;
                 margin: 0;
-                padding: 2em;
+                padding: 1.33em;
             }
             .container {
-                max-width: 95%;
+                max-width: 70%;
+                min-width: 500px;
                 margin: 0 auto;
             }
             h1 {
                 color: var(--header-color);
                 text-align: center;
-                margin-bottom: 2rem;
+                margin-bottom: 1.33rem;
             }
             table {
                 width: 100%;
                 border-collapse: collapse;
-                margin-top: 2rem;
+                margin-top: 1.33rem;
             }
             th, td {
                 text-align: center;
-                padding: 1rem;
+                padding: 0.66rem;
                 border: 1px solid var(--table-border-color);
             }
             th {
                 background-color: var(--table-header-bg);
                 text-transform: capitalize;
-                font-size: 1.1em;
+                font-size: 0.73em;
             }
             tr:nth-child(even) {
                 background-color: var(--table-row-even-bg);
             }
             td.test-name {
                 font-weight: bold;
-                font-size: 1.1em;
+                font-size: 0.73em;
                 word-break: break-all;
             }
             td img {
-                max-width: 400px;
+                max-width: 266px;
                 height: auto;
-                border: 2px solid var(--image-border-color);
-                border-radius: 8px;
+                border: 1px solid var(--image-border-color);
+                border-radius: 5px;
                 box-shadow: var(--image-shadow);
                 transition: transform 0.2s, box-shadow 0.2s;
                 cursor: pointer;
@@ -240,10 +243,10 @@ def generate_html_report(args, results):
             }
             .close {
                 position: absolute;
-                top: 15px;
-                right: 35px;
+                top: 10px;
+                right: 23px;
                 color: #f1f1f1;
-                font-size: 40px;
+                font-size: 27px;
                 font-weight: bold;
                 transition: 0.3s;
                 cursor: pointer;

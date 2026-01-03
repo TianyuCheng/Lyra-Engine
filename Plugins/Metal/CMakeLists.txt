@@ -16,7 +16,6 @@ target_sources(lyra-metal PRIVATE
   MetalInstance.mm
   MetalAdapter.mm
   MetalDevice.mm
-  MetalSurface.mm
   MetalSwapchain.mm
   MetalFrame.mm
   MetalFence.mm

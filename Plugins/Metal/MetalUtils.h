@@ -177,13 +177,15 @@ struct MetalShader
     bool valid() const { return library != nil; }
 };
 
-// bind group (replaces argument buffer implementation)
+// bind group
 struct MetalBindGroup
 {
     struct Entry
     {
-        uint32_t        binding;
-        GPUResourceType type;
+        uint32_t         binding;
+        GPUResourceType  type;
+        MTLResourceUsage usage;
+
         union
         {
             struct
@@ -191,48 +193,66 @@ struct MetalBindGroup
                 __unsafe_unretained id<MTLBuffer> buffer;
                 NSUInteger                        offset;
             } buffer;
-            struct
-            {
-                __unsafe_unretained id<MTLTexture> texture;
-            } texture;
-            struct
-            {
-                __unsafe_unretained id<MTLSamplerState> sampler;
-            } sampler;
-            struct
-            {
-                __unsafe_unretained id<MTLAccelerationStructure> tlas;
-            } tlas;
+
+            __unsafe_unretained id<MTLTexture> texture;
+            __unsafe_unretained id<MTLSamplerState> sampler;
+            __unsafe_unretained id<MTLAccelerationStructure> tlas;
         };
     };
 
-    Entry*                   entries         = nullptr;
-    uint32_t                 entry_count     = 0;
-    GPUBindGroupHeapHandle   heap;
-    GPUBindGroupLayoutHandle layout_handle;
-    id<MTLBuffer>            argument_buffer = nil;
-    Vector<std::pair<id<MTLResource>, MTLResourceUsage>> used_resources;
+    Entry*        entries         = nullptr;
+    uint32_t      entry_count     = 0;
+    id<MTLBuffer> argument_buffer = nil;
 
     // implementation in MetalBindGroup.mm
     explicit MetalBindGroup();
 
+    void init(const GPUBindGroupDescriptor& desc);
+    void bind(MetalCommandBuffer& cmd, const MetalPipelineLayout& pipeline_layout, GPUIndex32 index);
     void destroy();
-    bool valid() const { return entries != nullptr || argument_buffer != nil; }
+    bool valid() const { return entries != nullptr; }
+
+    void init_direct_binding(const GPUBindGroupDescriptor& desc);
+    void init_argument_buffer(const GPUBindGroupDescriptor& desc, const MetalBindGroupLayout& layout);
+    void bind_direct(MetalCommandBuffer& cmd, const MetalPipelineLayout& pipeline_layout, GPUIndex32 index);
+    void bind_argument_buffer(MetalCommandBuffer& cmd, const MetalPipelineLayout& pipeline_layout, GPUIndex32 index);
+
+    template <typename TEncoder>
+    void declare_resource_usages(TEncoder encoder)
+    {
+        for (uint32_t i = 0; i < this->entry_count; ++i) {
+            const auto& entry = this->entries[i];
+            switch (entry.type) {
+                case GPUResourceType::BUFFER:
+                    [encoder useResource:entry.buffer.buffer usage:entry.usage];
+                    break;
+                case GPUResourceType::TEXTURE:
+                case GPUResourceType::STORAGE_TEXTURE:
+                    [encoder useResource:entry.texture usage:entry.usage];
+                    break;
+                case GPUResourceType::ACCELERATION_STRUCTURE:
+                    [encoder useResource:entry.tlas usage:entry.usage];
+                    break;
+                default:
+                    // samplers are not MTLResource and don't need useResource
+                    break;
+            }
+        }
+    }
 };
 
 // bind group layout
 struct MetalBindGroupLayout
 {
     Vector<GPUBindGroupLayoutEntry> entries;
-    bool is_argument_buffer = false;
-    id<MTLArgumentEncoder> arg_encoder = nil;
+    id<MTLArgumentEncoder>          encoder = nil;
 
     // implementation in MetalLayout.mm
     explicit MetalBindGroupLayout();
     explicit MetalBindGroupLayout(const GPUBindGroupLayoutDescriptor& desc);
 
     void destroy();
-    bool valid() const { return !entries.empty() || is_argument_buffer; }
+    bool valid() const { return !entries.empty() || encoder != nil; }
 };
 
 // bind group heap
@@ -245,7 +265,7 @@ struct MetalBindGroupHeap
     explicit MetalBindGroupHeap(const GPUBindGroupHeapDescriptor& desc);
 
     void* allocate(size_t size, size_t alignment);
-    auto  create_bind_group(const GPUBindGroupDescriptor& desc) -> GPUBindGroupHandle;
+    auto  allocate(const GPUBindGroupDescriptor& desc) -> GPUBindGroupHandle;
     void  reset();
     void  destroy();
     bool  valid() const { return true; }
@@ -257,12 +277,12 @@ struct MetalPipelineLayout
     Vector<GPUBindGroupLayoutHandle> bind_group_layouts;
     Vector<GPUPushConstantRange>     push_constant_ranges;
 
-    // Flat index mappings: (set << 16 | binding) -> metal_index
-    std::unordered_map<uint32_t, uint32_t> buffer_indices;
-    std::unordered_map<uint32_t, uint32_t> texture_indices;
-    std::unordered_map<uint32_t, uint32_t> sampler_indices;
+    // flat index mappings: (set << 16 | binding) -> metal_index
+    HashMap<uint32_t, uint32_t> buffer_indices;
+    HashMap<uint32_t, uint32_t> texture_indices;
+    HashMap<uint32_t, uint32_t> sampler_indices;
 
-    // Max indices used (for collision detection)
+    // max indices used (for collision detection)
     uint32_t max_buffer_index  = 0;
     uint32_t max_texture_index = 0;
     uint32_t max_sampler_index = 0;
@@ -271,6 +291,7 @@ struct MetalPipelineLayout
     explicit MetalPipelineLayout();
     explicit MetalPipelineLayout(const GPUPipelineLayoutDescriptor& desc);
 
+    void init(const GPUPipelineLayoutDescriptor& desc);
     void destroy();
     bool valid() const { return !bind_group_layouts.empty(); }
 };
@@ -499,7 +520,7 @@ struct MetalRHI
     GPUSurfaceHandle surface_tracker;
 
     // device properties
-    bool     has_unified_memory           = false;
+    bool     has_unified_memory          = false;
     uint32_t texture_row_pitch_alignment = 1;
 
     // resource managers
