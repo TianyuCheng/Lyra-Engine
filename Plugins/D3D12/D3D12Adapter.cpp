@@ -1,7 +1,7 @@
 // reference: https://alain.xyz/blog/raw-directx12
 #include "D3D12Utils.h"
 
-void populate_adapter_properties(GPUSupportedLimits& limits, GPUProperties& properties)
+void populate_adapter_properties(GPUSupportedLimits& limits, GPUProperties& properties, GPUSupportedFeatures& features)
 {
     ComPtr<ID3D12Device> device;
     ThrowIfFailed(D3D12CreateDevice(get_rhi()->adapter, D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&device)));
@@ -16,6 +16,14 @@ void populate_adapter_properties(GPUSupportedLimits& limits, GPUProperties& prop
     D3D12_FEATURE_DATA_SHADER_MODEL shader_model = {};
     shader_model.HighestShaderModel              = D3D_SHADER_MODEL_6_6;
     device->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL, &shader_model, sizeof(shader_model));
+
+    // check ray tracing support
+    D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5 = {};
+    if (SUCCEEDED(device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &options5, sizeof(options5)))) {
+        if (options5.RaytracingTier >= D3D12_RAYTRACING_TIER_1_0) {
+            features.raytracing = true;
+        }
+    }
 
     // texture dimension limits (d3d12 hardware limits)
     limits.max_texture_dimension_1d = D3D12_REQ_TEXTURE1D_U_DIMENSION;          // 16384
@@ -134,7 +142,7 @@ bool api::create_adapter(GPUAdapterProps& adapter, const GPUAdapterDescriptor& d
         current_adapter->Release();
     }
 
-    populate_adapter_properties(adapter.limits, adapter.properties);
+    populate_adapter_properties(adapter.limits, adapter.properties, adapter.features);
     return rhi->adapter != nullptr;
 }
 

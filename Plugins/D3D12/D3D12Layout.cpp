@@ -327,7 +327,7 @@ D3D12BindGroupLayout::D3D12BindGroupLayout(const GPUBindGroupLayoutDescriptor& d
         stages = stages | entry.visibility;
 
         // populate binding info
-        auto binding   = D3D12BindInfo{};
+        auto binding    = D3D12BindInfo{};
         binding.type    = range.RangeType;
         binding.count   = entry.count;
         binding.dynamic = is_dynamic_bind_group_entry(entry);

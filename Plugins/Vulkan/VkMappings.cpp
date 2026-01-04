@@ -888,11 +888,11 @@ VkBuildAccelerationStructureFlagsKHR vkenum(GPUBVHFlags flags)
 {
     VkBuildAccelerationStructureFlagsKHR result = 0;
     // clang-format off
-    if (flags.contains(GPUBVHFlag::ALLOW_COMPACTION))  result = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
-    if (flags.contains(GPUBVHFlag::ALLOW_UPDATE))      result = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
-    if (flags.contains(GPUBVHFlag::PREFER_FAST_BUILD)) result = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR;
-    if (flags.contains(GPUBVHFlag::PREFER_FAST_TRACE)) result = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
-    if (flags.contains(GPUBVHFlag::LOW_MEMORY))        result = VK_BUILD_ACCELERATION_STRUCTURE_LOW_MEMORY_BIT_KHR;
+    if (flags.contains(GPUBVHFlag::ALLOW_COMPACTION))  result |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
+    if (flags.contains(GPUBVHFlag::ALLOW_UPDATE))      result |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
+    if (flags.contains(GPUBVHFlag::PREFER_FAST_BUILD)) result |= VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR;
+    if (flags.contains(GPUBVHFlag::PREFER_FAST_TRACE)) result |= VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+    if (flags.contains(GPUBVHFlag::LOW_MEMORY))        result |= VK_BUILD_ACCELERATION_STRUCTURE_LOW_MEMORY_BIT_KHR;
     // clang-format on
     return result;
 }

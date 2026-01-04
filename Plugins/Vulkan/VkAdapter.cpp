@@ -35,53 +35,44 @@ static int calculate_device_score(VkPhysicalDevice device)
 
     int score = 0;
 
-    // Feature richness is more important
-    uint32_t extensionCount;
-    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
-    std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
+    // feature richness is more important
+    uint32_t extension_count;
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, nullptr);
+    std::vector<VkExtensionProperties> available_extensions(extension_count);
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, available_extensions.data());
 
     auto has_extension = [&](const char* ext_name) {
-        for (const auto& ext : availableExtensions) {
-            if (strcmp(ext.extensionName, ext_name) == 0) {
+        for (const auto& ext : available_extensions)
+            if (strcmp(ext.extensionName, ext_name) == 0)
                 return true;
-            }
-        }
         return false;
     };
 
-    if (has_extension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME)) {
+    if (has_extension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME))
         score += 2000;
-    }
-    if (has_extension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) && has_extension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME)) {
+    if (has_extension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) && has_extension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME))
         score += 5000;
-    }
-    if (features.samplerAnisotropy) {
+    if (features.samplerAnisotropy)
         score += 500;
-    }
-    if (features.wideLines) {
+    if (features.wideLines)
         score += 100;
-    }
 
-    // Power/Performance
-    if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+    // power/performance
+    if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
         score += 10000;
-    } else if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) {
+    else if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU)
         score += 1000;
-    }
 
-    VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(device, &memProperties);
+    VkPhysicalDeviceMemoryProperties mem_properties;
+    vkGetPhysicalDeviceMemoryProperties(device, &mem_properties);
     VkDeviceSize local_memory = 0;
-    for (uint32_t i = 0; i < memProperties.memoryHeapCount; i++) {
-        if (memProperties.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
-            local_memory += memProperties.memoryHeaps[i].size;
+    for (uint32_t i = 0; i < mem_properties.memoryHeapCount; i++) {
+        if (mem_properties.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
+            local_memory += mem_properties.memoryHeaps[i].size;
         }
     }
-    score += local_memory / (1024 * 1024); // Score per MB
-
+    score += static_cast<int>(local_memory / (1024 * 1024)); // score per MB
     score += properties.limits.maxImageDimension2D / 100;
-
     return score;
 }
 
@@ -162,7 +153,7 @@ static void populate_device_properties(GPUProperties& properties)
     properties.texture_row_pitch_alignment = 4; // common minimum, may need device-specific query
 
     // push constant alignment
-    properties.min_uniform_buffer_alignment = vk_limits.minUniformBufferOffsetAlignment;
+    properties.min_uniform_buffer_alignment = static_cast<int>(vk_limits.minUniformBufferOffsetAlignment);
 
     // subgroup properties (requires VK_KHR_shader_subgroup_extended_types or Vulkan 1.1+)
     if (rhi->props2.pNext) {

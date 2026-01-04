@@ -210,6 +210,10 @@ void cmd::begin_render_pass(GPUCommandEncoderHandle cmdbuffer, const GPURenderPa
     // D3D12_RENDER_PASS_FLAG_RESUMING_PASS - for resuming suspended passes
     D3D12_RENDER_PASS_FLAGS flags = D3D12_RENDER_PASS_FLAG_NONE;
 
+    if (descriptor.occlusion_query_set.valid()) {
+        cmd.query_set = fetch_resource(rhi->query_sets, descriptor.occlusion_query_set);
+    }
+
     ID3D12GraphicsCommandList4* command_list = static_cast<ID3D12GraphicsCommandList4*>(cmd.command_buffer);
     command_list->BeginRenderPass(
         num_render_targets,
@@ -651,32 +655,64 @@ void cmd::set_stencil_reference(GPUCommandEncoderHandle cmdbuffer, GPUStencilVal
 
 void cmd::begin_occlusion_query(GPUCommandEncoderHandle cmdbuffer, GPUSize32 query_index)
 {
-    // NOTE: No obvious way to support it now.
-    assert(!!!"cmd::begin_occlusion_query(...) is currently not implemented!");
+    auto  rhi = get_rhi();
+    auto& cmd = rhi->current_frame().command(cmdbuffer);
+
+    assert(cmd.query_set.valid());
+
+    cmd.query_index = query_index;
+    cmd.command_buffer->BeginQuery(cmd.query_set.pool, D3D12_QUERY_TYPE_OCCLUSION, query_index);
 }
 
 void cmd::end_occlusion_query(GPUCommandEncoderHandle cmdbuffer)
 {
-    // NOTE: No obvious way to support it now.
-    assert(!!!"cmd::end_occlusion_query(...) is currently not implemented!");
+    auto  rhi = get_rhi();
+    auto& cmd = rhi->current_frame().command(cmdbuffer);
+
+    assert(cmd.query_set.valid());
+    assert(cmd.query_index.has_value());
+
+    cmd.command_buffer->EndQuery(cmd.query_set.pool, D3D12_QUERY_TYPE_OCCLUSION, cmd.query_index.value());
+
+    // reset query status
+    cmd.query_set.pool = nullptr;
+    cmd.query_index.reset();
 }
 
 void cmd::write_timestamp(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle query_set, GPUSize32 query_index)
 {
-    // NOTE: No obvious way to support it now.
-    assert(!!!"cmd::write_timestamp(...) is currently not implemented!");
+    auto  rhi = get_rhi();
+    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto& qry = fetch_resource(rhi->query_sets, query_set);
+
+    cmd.command_buffer->EndQuery(qry.pool, D3D12_QUERY_TYPE_TIMESTAMP, query_index);
 }
 
 void cmd::write_blas_properties(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle query_set, GPUSize32 query_index, GPUBlasHandle blas)
 {
-    // NOTE: No obvious way to support it now.
-    assert(!!!"cmd::write_blas_properties(...) is currently not implemented!");
+    assert(!!!"cmd::write_blas_properties is not implemented!");
 }
 
 void cmd::resolve_query_set(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle query_set, GPUSize32 first_query, GPUSize32 query_count, GPUBufferHandle destination, GPUSize64 destination_offset)
 {
-    // NOTE: No obvious way to support it now.
-    assert(!!!"cmd::resolve_query_set(...) is currently not implemented!");
+    auto  rhi = get_rhi();
+    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto& qry = fetch_resource(rhi->query_sets, query_set);
+    auto& dst = fetch_resource(rhi->buffers, destination);
+
+    D3D12_QUERY_TYPE type;
+    switch (qry.type) {
+        case GPUQueryType::OCCLUSION:
+            type = D3D12_QUERY_TYPE_OCCLUSION;
+            break;
+        case GPUQueryType::TIMESTAMP:
+            type = D3D12_QUERY_TYPE_TIMESTAMP;
+            break;
+        default:
+            assert(!"unsupported query type for resolve!");
+            return;
+    }
+    cmd.command_buffer->ResolveQueryData(qry.pool, type, first_query, query_count, dst.buffer, destination_offset);
 }
 
 void cmd::memory_barrier(GPUCommandEncoderHandle cmdbuffer, GPUMemoryBarriers barriers)
@@ -779,10 +815,144 @@ void cmd::texture_barrier(GPUCommandEncoderHandle cmdbuffer, GPUTextureBarriers 
 
 void cmd::build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratch_buffer, GPUTlasBuildEntries entries)
 {
-    assert(!!!"cmd::build_tlases(...) is currently not implemented!");
+    auto  rhi = get_rhi();
+    auto& frm = rhi->current_frame();
+    auto& cmd = frm.command(cmdbuffer);
+
+    ID3D12GraphicsCommandList4* cmd4 = nullptr;
+    if (FAILED(cmd.command_buffer->QueryInterface(IID_PPV_ARGS(&cmd4)))) {
+        get_logger()->error("command buffer does not support ray tracing (id3d12graphicscommandlist4)!");
+        return;
+    }
+
+    auto&                     scratch      = fetch_resource(rhi->buffers, scratch_buffer);
+    D3D12_GPU_VIRTUAL_ADDRESS scratch_base = scratch.buffer->GetGPUVirtualAddress();
+
+    uint64_t current_scratch_offset = 0;
+
+    for (const auto& entry : entries) {
+        auto& tlas = fetch_resource(rhi->tlases, entry.tlas);
+
+        // map staging buffer and copy instance data
+        D3D12_RAYTRACING_INSTANCE_DESC* instance_descs = tlas.staging.map<D3D12_RAYTRACING_INSTANCE_DESC>();
+
+        for (size_t i = 0; i < entry.instances.size(); ++i) {
+            auto& src = entry.instances[i];
+            auto& dst = instance_descs[i];
+
+            memcpy(dst.Transform, src.transform, sizeof(float) * 12);
+            dst.InstanceID                          = src.custom_data;
+            dst.InstanceMask                        = src.mask;
+            dst.InstanceContributionToHitGroupIndex = 0;                                   // not supported for now
+            dst.Flags                               = D3D12_RAYTRACING_INSTANCE_FLAG_NONE; // not supported for now
+
+            auto& blas                = fetch_resource(rhi->blases, src.blas);
+            dst.AccelerationStructure = blas.blas->GetGPUVirtualAddress();
+        }
+
+        tlas.staging.unmap();
+
+        // copy from staging buffer to instance buffer (gpu only)
+        cmd.command_buffer->CopyBufferRegion(tlas.instances.buffer, 0, tlas.staging.buffer, 0, entry.instances.size() * sizeof(D3D12_RAYTRACING_INSTANCE_DESC));
+
+        // transition instances buffer to build input
+        D3D12_RESOURCE_BARRIER instance_barrier = {};
+        instance_barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+        instance_barrier.UAV.pResource          = tlas.instances.buffer;
+        cmd4->ResourceBarrier(1, &instance_barrier);
+
+        // setup build desc
+        D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC build_desc = {};
+        build_desc.DestAccelerationStructureData                      = tlas.storage.buffer->GetGPUVirtualAddress();
+        build_desc.Inputs                                             = tlas.build;
+        build_desc.Inputs.InstanceDescs                               = tlas.instances.buffer->GetGPUVirtualAddress();
+        build_desc.Inputs.NumDescs                                    = static_cast<UINT>(entry.instances.size());
+
+        build_desc.ScratchAccelerationStructureData = scratch_base + current_scratch_offset;
+
+        // ensure alignment
+        current_scratch_offset += (tlas.sizes.ScratchDataSizeInBytes + 255) & ~255;
+
+        cmd4->BuildRaytracingAccelerationStructure(&build_desc, 0, nullptr);
+
+        // uav barrier for tlas
+        D3D12_RESOURCE_BARRIER tlas_barrier = {};
+        tlas_barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+        tlas_barrier.UAV.pResource          = tlas.tlas;
+        cmd4->ResourceBarrier(1, &tlas_barrier);
+    }
+    cmd4->Release();
 }
 
 void cmd::build_blases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratch_buffer, GPUBlasBuildEntries entries)
 {
-    assert(!!!"cmd::build_blases(...) is currently not implemented!");
+    auto  rhi = get_rhi();
+    auto& frm = rhi->current_frame();
+    auto& cmd = frm.command(cmdbuffer);
+
+    ID3D12GraphicsCommandList4* cmd4 = nullptr;
+    if (FAILED(cmd.command_buffer->QueryInterface(IID_PPV_ARGS(&cmd4)))) {
+        get_logger()->error("command buffer does not support ray tracing!");
+        return;
+    }
+
+    auto&                     scratch                = fetch_resource(rhi->buffers, scratch_buffer);
+    D3D12_GPU_VIRTUAL_ADDRESS scratch_base           = scratch.buffer->GetGPUVirtualAddress();
+    uint64_t                  current_scratch_offset = 0;
+
+    for (const auto& entry : entries) {
+        auto& blas = fetch_resource(rhi->blases, entry.blas);
+
+        // update geometries and ranges (only for triangles for now)
+        if (entry.geometries.type == GPUBlasType::TRIANGLE) {
+            // geometry count check
+            if (entry.geometries.triangles.size() > blas.geometries.size()) {
+                get_logger()->error("trying to build more geometries than bvh could hold!");
+            }
+
+            uint geometry_count = static_cast<uint>(std::min((size_t)entry.geometries.triangles.size(), blas.geometries.size()));
+            for (uint k = 0; k < geometry_count; k++) {
+                auto& src = entry.geometries.triangles.at(k);
+                auto& dst = blas.geometries.at(k);
+
+                dst.Triangles.VertexCount  = src.size.vertex_count;
+                dst.Triangles.VertexFormat = d3d12enum(src.size.vertex_format);
+
+                auto& vb                                 = fetch_resource(rhi->buffers, src.vertex_buffer);
+                dst.Triangles.VertexBuffer.StartAddress  = vb.buffer->GetGPUVirtualAddress() + (src.first_vertex * src.vertex_stride);
+                dst.Triangles.VertexBuffer.StrideInBytes = src.vertex_stride;
+
+                if (src.index_buffer.valid()) {
+                    auto& ib                  = fetch_resource(rhi->buffers, src.index_buffer);
+                    dst.Triangles.IndexBuffer = ib.buffer->GetGPUVirtualAddress() + (src.first_index * (src.size.index_format == GPUIndexFormat::UINT16 ? 2 : 4));
+                    dst.Triangles.IndexCount  = src.size.index_count;
+                    dst.Triangles.IndexFormat = d3d12enum(src.size.index_format);
+                }
+
+                if (src.transform_buffer.valid()) {
+                    auto& tb                   = fetch_resource(rhi->buffers, src.transform_buffer);
+                    dst.Triangles.Transform3x4 = tb.buffer->GetGPUVirtualAddress() + src.transform_buffer_offset;
+                }
+            }
+        }
+
+        // setup build desc
+        D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC build_desc = {};
+        build_desc.DestAccelerationStructureData                      = blas.storage.buffer->GetGPUVirtualAddress();
+        build_desc.Inputs                                             = blas.build;
+
+        build_desc.ScratchAccelerationStructureData = scratch_base + current_scratch_offset;
+
+        // ensure alignment
+        current_scratch_offset += (blas.sizes.ScratchDataSizeInBytes + 255) & ~255;
+
+        cmd4->BuildRaytracingAccelerationStructure(&build_desc, 0, nullptr);
+
+        // uav barrier for blas
+        D3D12_RESOURCE_BARRIER blas_barrier = {};
+        blas_barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+        blas_barrier.UAV.pResource          = blas.blas;
+        cmd4->ResourceBarrier(1, &blas_barrier);
+    }
+    cmd4->Release();
 }

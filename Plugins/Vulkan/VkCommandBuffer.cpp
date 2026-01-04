@@ -565,6 +565,10 @@ void cmd::end_occlusion_query(GPUCommandEncoderHandle cmdbuffer)
     assert(cmd.query_index.has_value());
 
     rhi->vtable.vkCmdEndQuery(cmd.command_buffer, cmd.query_set.pool, cmd.query_index.value());
+
+    // reset query status
+    cmd.query_set.pool = VK_NULL_HANDLE;
+    cmd.query_index.reset();
 }
 
 void cmd::write_timestamp(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle query_set, GPUSize32 query_index)
@@ -593,7 +597,7 @@ void cmd::resolve_query_set(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle
     auto& qry = fetch_resource(rhi->query_sets, query_set);
     auto& buf = fetch_resource(rhi->buffers, destination);
 
-    auto stride = sizeof(uint64_t); // NOTE: This might not be good enough. We might determine the stride based on query type.
+    auto stride = sizeof(uint64_t);
     rhi->vtable.vkCmdCopyQueryPoolResults(cmd.command_buffer, qry.pool, first_query, query_count, buf.buffer, destination_offset, stride, 0);
 }
 

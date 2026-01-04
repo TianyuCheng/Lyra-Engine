@@ -6,7 +6,6 @@
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <limits>
-#include <exception>
 #include <wrl/client.h>
 using Microsoft::WRL::ComPtr;
 
@@ -456,7 +455,19 @@ struct D3D12Pipeline
 
 struct D3D12Tlas
 {
-    ID3D12Resource* tlas = nullptr;
+    ID3D12Resource*                                       tlas       = nullptr;
+    D3D12MA::Allocation*                                  allocation = nullptr;
+    D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO sizes      = {};
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS  build      = {};
+
+    // used to build content of instances in memory
+    D3D12Buffer storage;
+    D3D12Buffer staging;
+    D3D12Buffer instances;
+
+    // other info
+    uint             max_instance_count = 0;
+    GPUBVHUpdateMode update_mode        = GPUBVHUpdateMode::BUILD;
 
     // implementation in D3D12Tlas.cpp
     explicit D3D12Tlas();
@@ -469,7 +480,17 @@ struct D3D12Tlas
 
 struct D3D12Blas
 {
-    ID3D12Resource* blas = nullptr;
+    uint64_t                                              reference  = 0ull;
+    ID3D12Resource*                                       blas       = nullptr;
+    D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO sizes      = {};
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS  build      = {};
+    Vector<D3D12_RAYTRACING_GEOMETRY_DESC>                geometries = {};
+
+    // underlying storage for blas
+    D3D12Buffer storage;
+
+    // other info
+    GPUBVHUpdateMode update_mode = GPUBVHUpdateMode::BUILD;
 
     // implementation in D3D12Blas.cpp
     explicit D3D12Blas();
@@ -483,6 +504,7 @@ struct D3D12Blas
 struct D3D12QuerySet
 {
     ID3D12QueryHeap* pool = nullptr;
+    GPUQueryType     type = GPUQueryType::TIMESTAMP;
 
     // implementation in D3D12QuerySet.cpp
     explicit D3D12QuerySet();
@@ -498,6 +520,9 @@ struct D3D12CommandBuffer
     ID3D12GraphicsCommandList* command_buffer    = nullptr;
     ID3D12CommandAllocator*    command_allocator = nullptr;
     ID3D12CommandQueue*        command_queue     = nullptr;
+
+    D3D12QuerySet      query_set;
+    Optional<uint32_t> query_index;
 
     struct PSOStatus
     {
@@ -546,6 +571,11 @@ struct D3D12Frame
         bool               primary = true;
         bool               used    = false;
         D3D12CommandBuffer cmd;
+
+        CommandBuffer()
+        {
+            // do nothing
+        }
 
         void reset()
         {
@@ -883,6 +913,8 @@ auto d3d12enum(GPUIndexFormat format) -> DXGI_FORMAT;
 auto d3d12enum(GPUBarrierLayout layout) -> D3D12_BARRIER_LAYOUT;
 auto d3d12enum(GPUBarrierSyncFlags sync) -> D3D12_BARRIER_SYNC;
 auto d3d12enum(GPUBarrierAccessFlags access) -> D3D12_BARRIER_ACCESS;
+auto d3d12enum(GPUBVHFlags flags) -> D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS;
+auto d3d12enum(GPUBVHGeometryFlags flags) -> D3D12_RAYTRACING_GEOMETRY_FLAGS;
 uint size_of(DXGI_FORMAT format);
 
 template <typename T, typename Handle>

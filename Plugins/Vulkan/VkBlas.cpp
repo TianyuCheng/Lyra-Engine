@@ -29,7 +29,7 @@ VulkanBlas::VulkanBlas(const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescrip
         // triangle geometry data
         geometry.geometry.triangles.sType                  = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
         geometry.geometry.triangles.vertexData.hostAddress = nullptr;
-        geometry.geometry.triangles.vertexStride           = sizeof(float) * 3; // TODO: assuming float3 vertices
+        geometry.geometry.triangles.vertexStride           = size_of(vkenum(size.triangles.vertex_format));
         geometry.geometry.triangles.vertexFormat           = vkenum(size.triangles.vertex_format);
         geometry.geometry.triangles.maxVertex              = size.triangles.vertex_count - 1;
         geometry.geometry.triangles.indexData.hostAddress  = nullptr;
