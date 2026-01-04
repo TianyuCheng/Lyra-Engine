@@ -208,14 +208,14 @@ struct MetalBindGroup
     explicit MetalBindGroup();
 
     void init(const GPUBindGroupDescriptor& desc);
-    void bind(MetalCommandBuffer& cmd, const MetalPipelineLayout& pipeline_layout, GPUIndex32 index);
+    void bind(MetalCommandBuffer& cmd, const MetalPipelineLayout& pipeline_layout, GPUIndex32 index, GPUBufferDynamicOffsets dynamic_offsets);
     void destroy();
     bool valid() const { return entries != nullptr; }
 
-    void init_direct_binding(const GPUBindGroupDescriptor& desc);
     void init_argument_buffer(const GPUBindGroupDescriptor& desc, const MetalBindGroupLayout& layout);
-    void bind_direct(MetalCommandBuffer& cmd, const MetalPipelineLayout& pipeline_layout, GPUIndex32 index);
+    void init_direct_binding(const GPUBindGroupDescriptor& desc);
     void bind_argument_buffer(MetalCommandBuffer& cmd, const MetalPipelineLayout& pipeline_layout, GPUIndex32 index);
+    void bind_direct(MetalCommandBuffer& cmd, const MetalPipelineLayout& pipeline_layout, GPUIndex32 index, GPUBufferDynamicOffsets dynamic_offsets);
 
     template <typename TEncoder>
     void declare_resource_usages(TEncoder encoder)
@@ -281,6 +281,7 @@ struct MetalPipelineLayout
     HashMap<uint32_t, uint32_t> buffer_indices;
     HashMap<uint32_t, uint32_t> texture_indices;
     HashMap<uint32_t, uint32_t> sampler_indices;
+    HashMap<uint32_t, uint32_t> dynamic_binding_to_offset_index;
 
     // max indices used (for collision detection)
     uint32_t max_buffer_index  = 0;

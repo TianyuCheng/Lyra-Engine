@@ -347,7 +347,7 @@ void cmd::set_raytracing_pipeline(GPUCommandEncoderHandle cmdbuffer, GPURayTraci
     get_logger()->debug("Ray tracing pipeline bound (max_recursion_depth={})", pipeline.max_recursion_depth);
 }
 
-void cmd::set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GPUBindGroupHandle bind_group_handle, GPUBufferDynamicOffsets)
+void cmd::set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GPUBindGroupHandle bind_group_handle, GPUBufferDynamicOffsets offsets)
 {
     auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
@@ -367,7 +367,7 @@ void cmd::set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GP
     }
 
     auto& pipeline_layout = fetch_resource(rhi->pipeline_layouts, cmd.bound_layout);
-    bind_group->bind(cmd, pipeline_layout, index);
+    bind_group->bind(cmd, pipeline_layout, index, offsets);
 }
 
 void cmd::set_push_constants(GPUCommandEncoderHandle cmdbuffer, GPUShaderStageFlags visibility, uint offset, uint size, void* data)

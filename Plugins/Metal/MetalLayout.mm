@@ -90,9 +90,10 @@ void MetalPipelineLayout::init(const GPUPipelineLayoutDescriptor& desc)
     }
 
     // generate flat mapping
-    uint32_t current_buffer_index  = 0;
-    uint32_t current_texture_index = 0;
-    uint32_t current_sampler_index = 0;
+    uint current_buffer_index         = 0;
+    uint current_texture_index        = 0;
+    uint current_sampler_index        = 0;
+    uint current_dynamic_offset_index = 0;
 
     for (uint32_t set = 0; set < desc.bind_group_layouts.size(); ++set) {
         GPUBindGroupLayoutHandle handle = desc.bind_group_layouts[set];
@@ -109,7 +110,9 @@ void MetalPipelineLayout::init(const GPUPipelineLayoutDescriptor& desc)
 
                 switch (entry.type) {
                     case GPUResourceType::BUFFER:
-                    case GPUResourceType::ACCELERATION_STRUCTURE:
+                        if (entry.buffer.has_dynamic_offset) { // assuming this field exists
+                            dynamic_binding_to_offset_index[key] = current_dynamic_offset_index++;
+                        }
                         buffer_indices[key] = current_buffer_index++;
                         break;
                     case GPUResourceType::TEXTURE:
@@ -118,6 +121,9 @@ void MetalPipelineLayout::init(const GPUPipelineLayoutDescriptor& desc)
                         break;
                     case GPUResourceType::SAMPLER:
                         sampler_indices[key] = current_sampler_index++;
+                        break;
+                    case GPUResourceType::ACCELERATION_STRUCTURE:
+                        buffer_indices[key] = current_buffer_index++;
                         break;
                 }
             }

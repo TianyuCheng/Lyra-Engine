@@ -162,16 +162,16 @@ void MetalBindGroup::init_direct_binding(const GPUBindGroupDescriptor& desc)
     }
 }
 
-void MetalBindGroup::bind(MetalCommandBuffer& cmd, const MetalPipelineLayout& pipeline_layout, GPUIndex32 index)
+void MetalBindGroup::bind(MetalCommandBuffer& cmd, const MetalPipelineLayout& pipeline_layout, GPUIndex32 index, GPUBufferDynamicOffsets dynamic_offsets)
 {
-    auto                     rhi           = get_rhi();
-    GPUBindGroupLayoutHandle layout_handle = pipeline_layout.bind_group_layouts[index];
-    auto&                    layout        = fetch_resource(rhi->bind_group_layouts, layout_handle);
+    auto  rhi           = get_rhi();
+    auto  layout_handle = pipeline_layout.bind_group_layouts.at(index);
+    auto& layout        = fetch_resource(rhi->bind_group_layouts, layout_handle);
 
     if (layout.encoder) {
         bind_argument_buffer(cmd, pipeline_layout, index);
     } else {
-        bind_direct(cmd, pipeline_layout, index);
+        bind_direct(cmd, pipeline_layout, index, dynamic_offsets);
     }
 }
 
@@ -191,7 +191,7 @@ void MetalBindGroup::bind_argument_buffer(MetalCommandBuffer& cmd, const MetalPi
     }
 }
 
-void MetalBindGroup::bind_direct(MetalCommandBuffer& cmd, const MetalPipelineLayout& pipeline_layout, GPUIndex32 index)
+void MetalBindGroup::bind_direct(MetalCommandBuffer& cmd, const MetalPipelineLayout& pipeline_layout, GPUIndex32 index, GPUBufferDynamicOffsets dynamic_offsets)
 {
     for (uint32_t i = 0; i < this->entry_count; ++i) {
         const auto& entry = this->entries[i];
@@ -200,13 +200,22 @@ void MetalBindGroup::bind_direct(MetalCommandBuffer& cmd, const MetalPipelineLay
         switch (entry.type) {
             case GPUResourceType::BUFFER:
             {
+                uint64_t final_offset = entry.buffer.offset;
+                auto     it           = pipeline_layout.dynamic_binding_to_offset_index.find(key);
+                if (it != pipeline_layout.dynamic_binding_to_offset_index.end()) {
+                    uint32_t dynamic_offset_index = it->second;
+                    if (dynamic_offset_index < dynamic_offsets.size()) {
+                        final_offset += dynamic_offsets[dynamic_offset_index];
+                    }
+                }
+
                 if (pipeline_layout.buffer_indices.find(key) != pipeline_layout.buffer_indices.end()) {
                     uint32_t slot = pipeline_layout.buffer_indices.at(key);
                     if (cmd.render_encoder) {
-                        [cmd.render_encoder setVertexBuffer:entry.buffer.buffer offset:entry.buffer.offset atIndex:slot];
-                        [cmd.render_encoder setFragmentBuffer:entry.buffer.buffer offset:entry.buffer.offset atIndex:slot];
+                        [cmd.render_encoder setVertexBuffer:entry.buffer.buffer offset:final_offset atIndex:slot];
+                        [cmd.render_encoder setFragmentBuffer:entry.buffer.buffer offset:final_offset atIndex:slot];
                     } else if (cmd.compute_encoder) {
-                        [cmd.compute_encoder setBuffer:entry.buffer.buffer offset:entry.buffer.offset atIndex:slot];
+                        [cmd.compute_encoder setBuffer:entry.buffer.buffer offset:final_offset atIndex:slot];
                     }
                 }
                 break;
