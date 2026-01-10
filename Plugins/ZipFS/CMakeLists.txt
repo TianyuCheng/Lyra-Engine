@@ -3,9 +3,9 @@ lyra_plugin(zip)
 
 # plugin sources
 target_sources(lyra-zip PRIVATE
-    ZipUtils.h
-    ZipUtils.cpp
-    ZipPlugin.cpp
+  ZipUtils.h
+  ZipUtils.cpp
+  ZipPlugin.cpp
 )
 
 find_package(miniz REQUIRED)

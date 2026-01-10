@@ -14,20 +14,17 @@ namespace lyra::detail
      *
      * This allocator is designed for fast, sequential allocations. It allocates memory in pages and can grow by adding new pages as needed.
      * It is not thread-safe.
-     *
-     * @tparam T The type of object to allocate.
      */
-    template <typename T>
     class MemoryArena
     {
     public:
         /**
          * @brief Constructs a MemoryArena.
          *
-         * @param page_size The number of objects of type T to allocate per page.
+         * @param page_size The size of each page in bytes.
          * @param upstream The upstream memory resource to use for allocations. Defaults to std::pmr::get_default_resource().
          */
-        explicit MemoryArena(size_t page_size, std::pmr::memory_resource* upstream = std::pmr::get_default_resource());
+        explicit MemoryArena(size_t page_size_bytes, std::pmr::memory_resource* upstream = std::pmr::get_default_resource());
 
         /**
          * @brief Destroys the MemoryArena, freeing all allocated memory.
@@ -40,26 +37,34 @@ namespace lyra::detail
         MemoryArena& operator=(MemoryArena&&) noexcept;
 
         /**
-         * @brief Allocates memory for a single object of type T.
+         * @brief Allocates a block of memory from the arena.
          *
-         * This function returns a pointer to uninitialized memory.
-         *
-         * @return A pointer to the allocated memory.
+         * @param size The size of the memory block in bytes.
+         * @param alignment The required alignment of the memory block.
+         * @return A pointer to the allocated memory, or nullptr if allocation fails.
          */
-        T* allocate();
+        void* allocate(size_t size, size_t alignment);
+
+        /**
+         * @brief Allocates and constructs an object of type T.
+         */
+        template <typename T, typename... Args>
+        T* allocate(Args&&... args)
+        {
+            void* memory = allocate(sizeof(T), alignof(T));
+            if (!memory) {
+                return nullptr;
+            }
+            return new (memory) T(std::forward<Args>(args)...);
+        }
 
         /**
          * @brief Resets the allocator, reclaiming all allocated memory without deallocating the pages.
-         *
-         * After a reset, new allocations will start from the beginning of the first page.
-         * This does not call destructors on any objects that may have been constructed in the allocated memory.
          */
         void reset();
 
         /**
          * @brief Frees all allocated memory, including all pages.
-         *
-         * This does not call destructors on any objects that may have been constructed in the allocated memory.
          */
         void destroy();
 
@@ -70,102 +75,109 @@ namespace lyra::detail
             size_t capacity; // capacity in bytes
         };
 
-        void new_page();
+        void new_page(size_t required_size);
 
         std::pmr::memory_resource* _upstream;
         std::vector<Page>          _pages;
-        size_t                     _page_size;
+        size_t                     _page_size_bytes;
         size_t                     _current_page_index = 0;
         size_t                     _current_offset     = 0;
     };
 
-    template <typename T>
-    MemoryArena<T>::MemoryArena(size_t page_size, std::pmr::memory_resource* upstream)
-        : _upstream(upstream), _page_size(page_size)
+    inline MemoryArena::MemoryArena(size_t page_size_bytes, std::pmr::memory_resource* upstream)
+        : _upstream(upstream), _page_size_bytes(page_size_bytes)
     {
-        new_page();
+        new_page(_page_size_bytes);
     }
 
-    template <typename T>
-    MemoryArena<T>::~MemoryArena()
+    inline MemoryArena::~MemoryArena()
     {
         destroy();
     }
 
-    template <typename T>
-    MemoryArena<T>::MemoryArena(MemoryArena&& other) noexcept
+    inline MemoryArena::MemoryArena(MemoryArena&& other) noexcept
         : _upstream(other._upstream),
           _pages(std::move(other._pages)),
-          _page_size(other._page_size),
+          _page_size_bytes(other._page_size_bytes),
           _current_page_index(other._current_page_index),
           _current_offset(other._current_offset)
     {
         other._pages.clear();
-        other._page_size          = 0;
+        other._page_size_bytes    = 0;
         other._current_page_index = 0;
         other._current_offset     = 0;
     }
 
-    template <typename T>
-    MemoryArena<T>& MemoryArena<T>::operator=(MemoryArena&& other) noexcept
+    inline MemoryArena& MemoryArena::operator=(MemoryArena&& other) noexcept
     {
         if (this != &other) {
             destroy();
             _upstream           = other._upstream;
             _pages              = std::move(other._pages);
-            _page_size          = other._page_size;
+            _page_size_bytes    = other._page_size_bytes;
             _current_page_index = other._current_page_index;
             _current_offset     = other._current_offset;
 
             other._pages.clear();
-            other._page_size          = 0;
+            other._page_size_bytes    = 0;
             other._current_page_index = 0;
             other._current_offset     = 0;
         }
         return *this;
     }
 
-    template <typename T>
-    T* MemoryArena<T>::allocate()
+    inline void* MemoryArena::allocate(size_t size, size_t alignment)
     {
-        if (_current_offset + sizeof(T) > _pages[_current_page_index].capacity) {
-            _current_page_index++;
-            _current_offset = 0;
-            if (_current_page_index >= _pages.size()) {
-                new_page();
-            }
+        if (_pages.empty()) {
+            new_page(size > _page_size_bytes ? size : _page_size_bytes);
         }
 
-        char* ptr = static_cast<char*>(_pages[_current_page_index].memory) + _current_offset;
-        _current_offset += sizeof(T);
+        uintptr_t current_ptr    = reinterpret_cast<uintptr_t>(_pages[_current_page_index].memory) + _current_offset;
+        uintptr_t aligned_ptr    = (current_ptr + (alignment - 1)) & ~(alignment - 1);
+        size_t    aligned_offset = aligned_ptr - reinterpret_cast<uintptr_t>(_pages[_current_page_index].memory);
 
-        return reinterpret_cast<T*>(ptr);
+        if (aligned_offset + size > _pages[_current_page_index].capacity) {
+            _current_page_index++;
+            if (_current_page_index >= _pages.size()) {
+                new_page(size > _page_size_bytes ? size : _page_size_bytes);
+            }
+            _current_offset = 0;
+            aligned_offset  = 0;
+        }
+
+        void* ptr       = static_cast<char*>(_pages[_current_page_index].memory) + aligned_offset;
+        _current_offset = aligned_offset + size;
+
+        return ptr;
     }
 
-    template <typename T>
-    void MemoryArena<T>::reset()
+    inline void MemoryArena::reset()
     {
         _current_page_index = 0;
         _current_offset     = 0;
     }
 
-    template <typename T>
-    void MemoryArena<T>::destroy()
+    inline void MemoryArena::destroy()
     {
         for (const auto& page : _pages) {
-            _upstream->deallocate(page.memory, page.capacity, alignof(T));
+            // This is problematic. We need to know the alignment used for allocation.
+            // PMR requires the same alignment for deallocation. Let's assume a max alignment.
+            constexpr size_t max_alignment = 16;
+            _upstream->deallocate(page.memory, page.capacity, max_alignment);
         }
         _pages.clear();
         _current_page_index = 0;
         _current_offset     = 0;
     }
 
-    template <typename T>
-    void MemoryArena<T>::new_page()
+    inline void MemoryArena::new_page(size_t required_size)
     {
-        const size_t capacity = _page_size * sizeof(T);
-        void*        memory   = _upstream->allocate(capacity, alignof(T));
-        _pages.push_back({memory, capacity});
+        constexpr size_t max_alignment = 16;
+        size_t           capacity      = required_size > _page_size_bytes ? required_size : _page_size_bytes;
+        void*            memory        = _upstream->allocate(capacity, max_alignment);
+        if (memory) {
+            _pages.push_back({memory, capacity});
+        }
     }
 
 } // namespace lyra::detail

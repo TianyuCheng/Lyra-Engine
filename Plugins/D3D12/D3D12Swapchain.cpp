@@ -1,6 +1,6 @@
 // reference: https://alain.xyz/blog/raw-directx12
-#include <Lyra/Window/WSIAPI.h>
-#include <Lyra/Window/WSITypes.h>
+#include <Lyra/Plugin/WSI/WSIAPI.h>
+#include <Lyra/Plugin/WSI/WSITypes.h>
 
 #include "D3D12Utils.h"
 

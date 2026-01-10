@@ -7,10 +7,7 @@
 
 namespace lyra
 {
-
-    template <typename... T>
-    using MemoryArena = detail::MemoryArena<T...>;
-
+    using detail::MemoryArena;
 } // end of namespace lyra
 
 #endif // LYRA_LIBRARY_COMMON_MEMORY_H

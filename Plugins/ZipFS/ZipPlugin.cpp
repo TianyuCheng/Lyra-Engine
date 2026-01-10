@@ -125,7 +125,7 @@ static bool write(FilePackerHandle packer, FSPath path, void* buffer, size_t siz
 
 LYRA_EXPORT auto prepare() -> void
 {
-    // do nothing
+    get_logger()->set_level(parse_log_level_from_env("LYRA_ZIPFS_VERBOSITY"));
 }
 
 LYRA_EXPORT auto cleanup() -> void

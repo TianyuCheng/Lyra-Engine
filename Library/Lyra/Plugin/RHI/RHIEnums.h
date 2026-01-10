@@ -196,6 +196,7 @@ namespace lyra
 
     enum struct GPUShaderStage : uint
     {
+        NONE      = 0x0,
         VERTEX    = 0x1,
         FRAGMENT  = 0x2,
         COMPUTE   = 0x4,
@@ -206,7 +207,7 @@ namespace lyra
         INTERSECT = 0x80,
     };
 
-    enum struct GPUBindingResourceType : uint
+    enum struct GPUResourceType : uint
     {
         BUFFER,
         SAMPLER,

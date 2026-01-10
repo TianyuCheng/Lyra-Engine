@@ -1,7 +1,7 @@
 // reference: https://alain.xyz/blog/raw-directx12
 #include "D3D12Utils.h"
 
-void populate_adapter_properties(GPUSupportedLimits& limits, GPUProperties& properties)
+void populate_adapter_properties(GPUSupportedLimits& limits, GPUProperties& properties, GPUSupportedFeatures& features)
 {
     ComPtr<ID3D12Device> device;
     ThrowIfFailed(D3D12CreateDevice(get_rhi()->adapter, D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&device)));
@@ -16,6 +16,14 @@ void populate_adapter_properties(GPUSupportedLimits& limits, GPUProperties& prop
     D3D12_FEATURE_DATA_SHADER_MODEL shader_model = {};
     shader_model.HighestShaderModel              = D3D_SHADER_MODEL_6_6;
     device->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL, &shader_model, sizeof(shader_model));
+
+    // check ray tracing support
+    D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5 = {};
+    if (SUCCEEDED(device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &options5, sizeof(options5)))) {
+        if (options5.RaytracingTier >= D3D12_RAYTRACING_TIER_1_0) {
+            features.raytracing = true;
+        }
+    }
 
     // texture dimension limits (d3d12 hardware limits)
     limits.max_texture_dimension_1d = D3D12_REQ_TEXTURE1D_U_DIMENSION;          // 16384
@@ -48,13 +56,13 @@ void populate_adapter_properties(GPUSupportedLimits& limits, GPUProperties& prop
     limits.min_storage_buffer_offset_alignment = D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT;               // 16
 
     // vertex input limits
-    limits.max_vertex_buffers           = D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT; // 32
-    limits.max_buffer_size              = static_cast<uint32_t>(std::min(
+    limits.max_vertex_buffers             = D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT; // 32
+    limits.max_buffer_size                = static_cast<uint32_t>(std::min(
         static_cast<uint64_t>(UINT32_MAX),
         virtual_address_support.MaxGPUVirtualAddressBitsPerResource > 0 ? (1ULL << virtual_address_support.MaxGPUVirtualAddressBitsPerResource) : static_cast<uint64_t>(128 * 1024 * 1024) // 128mb fallback
         ));
-    limits.max_vertex_attributes        = D3D12_IA_VERTEX_INPUT_STRUCTURE_ELEMENT_COUNT; // 32
-    limits.max_vertex_bufferArrayStride = D3D12_SO_BUFFER_MAX_STRIDE_IN_BYTES;           // 2048
+    limits.max_vertex_attributes          = D3D12_IA_VERTEX_INPUT_STRUCTURE_ELEMENT_COUNT; // 32
+    limits.max_vertex_buffer_array_stride = D3D12_SO_BUFFER_MAX_STRIDE_IN_BYTES;           // 2048
 
     // inter-stage variables (input/output registers)
     limits.max_inter_stage_shader_variables = 32; // d3d12 supports 32 input/output registers
@@ -84,6 +92,10 @@ void populate_adapter_properties(GPUSupportedLimits& limits, GPUProperties& prop
 
     // texture row pitch alignment
     properties.texture_row_pitch_alignment = D3D12_TEXTURE_DATA_PITCH_ALIGNMENT; // 256
+
+    // push constant alignment
+    // (push constant is not a native concept in D3D12, our current implementation does not have this requirement)
+    properties.min_uniform_buffer_alignment = 32;
 
     // wave/subgroup properties (requires shader model 6.0+)
     if (shader_model.HighestShaderModel >= D3D_SHADER_MODEL_6_0) {
@@ -130,7 +142,7 @@ bool api::create_adapter(GPUAdapterProps& adapter, const GPUAdapterDescriptor& d
         current_adapter->Release();
     }
 
-    populate_adapter_properties(adapter.limits, adapter.properties);
+    populate_adapter_properties(adapter.limits, adapter.properties, adapter.features);
     return rhi->adapter != nullptr;
 }
 

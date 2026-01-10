@@ -27,6 +27,7 @@
 #include <Lyra/Common/Compatibility.h>
 #include <Lyra/Plugin/RHI/RHIAPI.h>
 #include <Lyra/Plugin/RHI/RHIDescs.h>
+#include <Lyra/Plugin/RHI/RHIError.h>
 #include <Lyra/Plugin/WSI/WSIAPI.h>
 #include <Lyra/Plugin/WSI/WSIUtils.h>
 #include <Lyra/Plugin/WSI/WSITypes.h>
@@ -775,19 +776,19 @@ T& fetch_resource(VulkanResourceManager<T>& manager, Handle handle)
     // check handle validity
     if (!handle.valid()) {
         get_logger()->error("Resource handle {} is invalid!", typeid(Handle).name());
-        exit(1);
+        throw std::runtime_error("Resource handle is invalid!");
     }
 
     // check resource range
     if (!manager.range_check(handle.value)) {
         get_logger()->error("Resource handle {} with value={} access out of range!", Handle::type_name(), handle.value);
-        exit(1);
+        throw std::runtime_error("Resource handle is accessing out of range!");
     }
 
     T& resource = manager.at(handle.value);
     if (!resource.valid()) {
         get_logger()->error("Resource handle {} with value={} has invalid object!", Handle::type_name(), handle.value);
-        exit(1);
+        throw std::runtime_error("Resource handle references an invalid object!");
     }
     return resource;
 }
@@ -809,13 +810,20 @@ inline VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(
 }
 
 // helper macro to check vulkan object creation result
-#define vk_check(result)                                      \
-    {                                                         \
-        if (result != VK_SUCCESS) {                           \
-            get_logger()->error("{}:{}", __FILE__, __LINE__); \
-            get_logger()->error("{}", to_string(result));     \
-            std::exit(1);                                     \
-        }                                                     \
+#define vk_check(result)                                                                    \
+    {                                                                                       \
+        VkResult res = (result);                                                            \
+        if (res != VK_SUCCESS) {                                                            \
+            get_logger()->error("{}:{}", __FILE__, __LINE__);                               \
+            auto msg = std::string(to_string(res));                                         \
+            get_logger()->error("{}", msg);                                                 \
+            if (res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY) \
+                throw GPUOutOfMemoryError(msg);                                             \
+            else if (res == VK_ERROR_DEVICE_LOST)                                           \
+                throw GPUDeviceLostInfo(msg);                                               \
+            else                                                                            \
+                throw GPUInternalError(msg);                                                \
+        }                                                                                   \
     }
 
 #endif // LYRA_PLUGIN_VULKAN_VKUTILS_H

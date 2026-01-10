@@ -12,9 +12,9 @@ bool api::get_surface_extent(GPUSurfaceHandle surface, GPUExtent2D& extent)
 {
     auto rhi = get_rhi();
 
-    auto& swapchain = fetch_resource(rhi->swapchains, surface);
-    extent.width    = swapchain.extent.width;
-    extent.height   = swapchain.extent.height;
+    auto& swp     = fetch_resource(rhi->swapchains, surface);
+    extent.width  = swp.extent.width;
+    extent.height = swp.extent.height;
     return true;
 }
 
@@ -22,8 +22,8 @@ bool api::get_surface_format(GPUSurfaceHandle surface, GPUTextureFormat& format)
 {
     auto rhi = get_rhi();
 
-    auto& swapchain = fetch_resource(rhi->swapchains, surface);
-    format          = swapchain.format;
+    auto& swp = fetch_resource(rhi->swapchains, surface);
+    format    = swp.format;
     return true;
 }
 
@@ -31,8 +31,8 @@ uint api::get_surface_frames(GPUSurfaceHandle surface)
 {
     auto rhi = get_rhi();
 
-    auto& swapchain = fetch_resource(rhi->swapchains, surface);
-    return static_cast<uint>(swapchain.frames.size());
+    auto& swp = fetch_resource(rhi->swapchains, surface);
+    return static_cast<uint>(swp.frames.size());
 }
 
 bool api::create_surface(GPUSurfaceHandle& surface, const GPUSurfaceDescriptor& desc)
@@ -422,7 +422,7 @@ void api::wait_fence(GPUFenceHandle handle)
 
 LYRA_EXPORT auto prepare() -> void
 {
-    // do nothing
+    get_logger()->set_level(parse_log_level_from_env("LYRA_D3D12_VERBOSITY"));
 }
 
 LYRA_EXPORT auto cleanup() -> void

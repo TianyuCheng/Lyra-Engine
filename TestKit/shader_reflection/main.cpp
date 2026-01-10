@@ -1,4 +1,6 @@
 #include "helper.h"
+#include <algorithm>
+#include <cstring>
 
 void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags flags)
 {
@@ -42,7 +44,7 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
     ConstantBuffer<Xform> xform1 : PUSH_CONSTANT;
 
     ParameterBlock<Hello> haha;
-    ParameterBlock<Hello> bibi;
+    ParameterBlock<Hello> hihi;
 
     [shader("vertex")]
     VertexOutput vsmain(VertexInput input)
@@ -50,15 +52,17 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
         VertexOutput output;
         output.color = input.color;
         output.position = float4(input.position, 1.0);
+        output.position = mul(output.position, xform1.mvp);
         output.position = mul(output.position, haha.cam.view);
-        output.position = mul(output.position, bibi.cam.proj);
+        output.position = mul(output.position, hihi.cam.proj);
         return output;
     }
 
     [shader("fragment")]
     float4 fsmain(VertexOutput input) : SV_TARGET
     {
-        return haha.tex.Sample(haha.smp, input.color.xy);
+        return haha.tex.Sample(haha.smp, input.color.xy) +
+               hihi.tex.Sample(haha.smp, input.color.xy);
     }
     )""";
 
@@ -84,58 +88,219 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
         {*module, "fsmain"},
     });
 
+    // define a dummy Vertex struct for offsetof to work,
+    // this should match the struct used by the calling code.
+    struct Vertex
+    {
+        float position[3];
+        float uv[2];
+    };
+
+    // reflect vertex attributes
     auto attributes = reflection->get_vertex_attributes({
         {"position", offsetof(Vertex, position)},
         {"texcoord", offsetof(Vertex, uv)},
     });
 
-    std::cout << "attributes.size() = " << attributes.size() << std::endl;
-    for (auto& attrib : attributes) {
-        std::cout << "- attrib[" << attrib.shader_location << "].offset = " << attrib.offset << std::endl;
-        std::cout << "- attrib[" << attrib.shader_location << "].location = " << attrib.shader_location << std::endl;
-        std::cout << "- attrib[" << attrib.shader_location << "].semantic = " << attrib.shader_semantic << std::endl;
+    CHECK_EQ(attributes.size(), 2);
+
+    // attribute: position
+    auto pos_attrib_it = std::find_if(attributes.begin(), attributes.end(), [](const auto& a) { return strcmp(a.shader_semantic, "POSITION") == 0; });
+    CHECK(pos_attrib_it != attributes.end());
+    if (pos_attrib_it != attributes.end()) {
+        switch (target) {
+            case CompileTarget::DXIL:
+                CHECK_EQ(String(pos_attrib_it->shader_semantic), "POSITION");
+                CHECK_EQ(pos_attrib_it->shader_location, 0);
+                break;
+            default:
+                CHECK_EQ(pos_attrib_it->shader_location, 0);
+                break;
+        }
+        CHECK_EQ(pos_attrib_it->offset, offsetof(Vertex, position));
     }
 
+    // attribute: texcoord
+    auto tex_attrib_it = std::find_if(attributes.begin(), attributes.end(), [](const auto& a) { return strcmp(a.shader_semantic, "TEXCOORD") == 0; });
+    CHECK(tex_attrib_it != attributes.end());
+    if (tex_attrib_it != attributes.end()) {
+        switch (target) {
+            case CompileTarget::DXIL:
+                CHECK_EQ(String(tex_attrib_it->shader_semantic), "TEXCOORD");
+                CHECK_EQ(tex_attrib_it->shader_location, 0);
+                break;
+            default:
+                CHECK_EQ(tex_attrib_it->shader_location, 1);
+                break;
+        }
+        CHECK_EQ(tex_attrib_it->offset, offsetof(Vertex, uv));
+    }
+
+    auto check_binding_index = [&](const GPUBindingIndex& binding, uint vulkan_index, uint metal_index, uint d3d_index) {
+        switch (target) {
+            case CompileTarget::MSL:
+                CHECK_EQ(binding.index, metal_index);
+                break;
+            case CompileTarget::DXIL:
+                CHECK_EQ(binding.index, d3d_index);
+                break;
+            case CompileTarget::SPIRV:
+                CHECK_EQ(binding.index, vulkan_index);
+                break;
+        }
+    };
+
     auto bindgroups = reflection->get_bind_group_layouts();
-    std::cout << "bindgroups.size() = " << bindgroups.size() << std::endl;
-    for (auto& bindgroup : bindgroups) {
-        std::cout << "bindgroup: " << (bindgroup.label ? bindgroup.label : "unnamed") << std::endl;
-        for (auto& entry : bindgroup.entries) {
-            std::cout << "- entries[" << entry.binding.index << "].type       = " << (int)entry.type << std::endl;
-            std::cout << "- entries[" << entry.binding.index << "].binding    = " << entry.binding.index << std::endl;
-            std::cout << "- entries[" << entry.binding.index << "].count      = " << entry.count << std::endl;
-            std::cout << "- entries[" << entry.binding.index << "].visibility =";
-            if (entry.visibility.contains(GPUShaderStage::VERTEX)) std::cout << " VERTEX";
-            if (entry.visibility.contains(GPUShaderStage::FRAGMENT)) std::cout << " FRAGMENT";
-            if (entry.visibility.contains(GPUShaderStage::COMPUTE)) std::cout << " COMPUTE";
-            std::cout << std::endl;
+    CHECK_EQ(bindgroups.size(), 2);
+
+    // haha
+    auto haha_bindgroup_it = std::find_if(bindgroups.begin(), bindgroups.end(), [](const auto& a) { return strcmp(a.label, "haha") == 0; });
+    CHECK(haha_bindgroup_it != bindgroups.end());
+    if (haha_bindgroup_it != bindgroups.end()) {
+        CHECK_EQ(haha_bindgroup_it->entries.size(), 4);
+
+        // cam (used in vertex)
+        CHECK_EQ(haha_bindgroup_it->entries.at(0).type, GPUResourceType::BUFFER);
+        CHECK_EQ(haha_bindgroup_it->entries.at(0).buffer.type, GPUBufferBindingType::UNIFORM);
+        CHECK_EQ(haha_bindgroup_it->entries.at(0).count, 1);
+        check_binding_index(haha_bindgroup_it->entries.at(0).binding, 0, 0, 0);
+        if (target != CompileTarget::MSL) {
+            CHECK(haha_bindgroup_it->entries.at(0).visibility.contains(GPUShaderStage::VERTEX));
+            CHECK(!haha_bindgroup_it->entries.at(0).visibility.contains(GPUShaderStage::FRAGMENT));
+        } else {
+            CHECK(haha_bindgroup_it->entries.at(0).binding.from_argument_buffer);
+        }
+
+        // tex (used in fragment)
+        CHECK_EQ(haha_bindgroup_it->entries.at(1).type, GPUResourceType::TEXTURE);
+        CHECK_EQ(haha_bindgroup_it->entries.at(1).count, 1);
+        check_binding_index(haha_bindgroup_it->entries.at(1).binding, 1, 1, 0);
+        if (target != CompileTarget::MSL) {
+            CHECK(!haha_bindgroup_it->entries.at(1).visibility.contains(GPUShaderStage::VERTEX));
+            CHECK(haha_bindgroup_it->entries.at(1).visibility.contains(GPUShaderStage::FRAGMENT));
+        } else {
+            CHECK(haha_bindgroup_it->entries.at(0).binding.from_argument_buffer);
+        }
+
+        // tex2 (not used)
+        CHECK_EQ(haha_bindgroup_it->entries.at(2).type, GPUResourceType::TEXTURE);
+        CHECK_EQ(haha_bindgroup_it->entries.at(2).count, 1);
+        check_binding_index(haha_bindgroup_it->entries.at(2).binding, 2, 2, 1);
+        if (target != CompileTarget::MSL) {
+            CHECK(!haha_bindgroup_it->entries.at(2).visibility.contains(GPUShaderStage::VERTEX));
+            CHECK(!haha_bindgroup_it->entries.at(2).visibility.contains(GPUShaderStage::FRAGMENT));
+        } else {
+            CHECK(haha_bindgroup_it->entries.at(0).binding.from_argument_buffer);
+        }
+
+        // smp (used in fragment)
+        CHECK_EQ(haha_bindgroup_it->entries.at(3).type, GPUResourceType::SAMPLER);
+        CHECK_EQ(haha_bindgroup_it->entries.at(3).count, 1);
+        check_binding_index(haha_bindgroup_it->entries.at(3).binding, 3, 3, 0);
+        if (target != CompileTarget::MSL) {
+            CHECK(!haha_bindgroup_it->entries.at(3).visibility.contains(GPUShaderStage::VERTEX));
+            CHECK(haha_bindgroup_it->entries.at(3).visibility.contains(GPUShaderStage::FRAGMENT));
+        } else {
+            CHECK(haha_bindgroup_it->entries.at(0).binding.from_argument_buffer);
+        }
+    }
+
+    // hihi
+    auto hihi_bindgroup_it = std::find_if(bindgroups.begin(), bindgroups.end(), [](const auto& a) { return strcmp(a.label, "hihi") == 0; });
+    CHECK(hihi_bindgroup_it != bindgroups.end());
+    if (hihi_bindgroup_it != bindgroups.end()) {
+        CHECK_EQ(hihi_bindgroup_it->entries.size(), 4);
+
+        // cam (used in vertex)
+        CHECK_EQ(hihi_bindgroup_it->entries.at(0).type, GPUResourceType::BUFFER);
+        CHECK_EQ(hihi_bindgroup_it->entries.at(0).buffer.type, GPUBufferBindingType::UNIFORM);
+        CHECK_EQ(hihi_bindgroup_it->entries.at(0).count, 1);
+        check_binding_index(haha_bindgroup_it->entries.at(0).binding, 0, 0, 0);
+        if (target != CompileTarget::MSL) {
+            CHECK(hihi_bindgroup_it->entries.at(0).visibility.contains(GPUShaderStage::VERTEX));
+            CHECK(!hihi_bindgroup_it->entries.at(0).visibility.contains(GPUShaderStage::FRAGMENT));
+        } else {
+            CHECK(hihi_bindgroup_it->entries.at(0).binding.from_argument_buffer);
+        }
+
+        // tex (used in fragment)
+        CHECK_EQ(hihi_bindgroup_it->entries.at(1).type, GPUResourceType::TEXTURE);
+        CHECK_EQ(hihi_bindgroup_it->entries.at(1).count, 1);
+        check_binding_index(haha_bindgroup_it->entries.at(1).binding, 1, 1, 0);
+        if (target != CompileTarget::MSL) {
+            CHECK(!hihi_bindgroup_it->entries.at(1).visibility.contains(GPUShaderStage::VERTEX));
+            CHECK(hihi_bindgroup_it->entries.at(1).visibility.contains(GPUShaderStage::FRAGMENT));
+        } else {
+            CHECK(hihi_bindgroup_it->entries.at(0).binding.from_argument_buffer);
+        }
+
+        // tex2 (not used)
+        CHECK_EQ(haha_bindgroup_it->entries.at(2).type, GPUResourceType::TEXTURE);
+        CHECK_EQ(haha_bindgroup_it->entries.at(2).count, 1);
+        check_binding_index(haha_bindgroup_it->entries.at(2).binding, 2, 2, 1);
+        if (target != CompileTarget::MSL) {
+            CHECK(!haha_bindgroup_it->entries.at(2).visibility.contains(GPUShaderStage::VERTEX));
+            CHECK(!haha_bindgroup_it->entries.at(2).visibility.contains(GPUShaderStage::FRAGMENT));
+        } else {
+            CHECK(hihi_bindgroup_it->entries.at(0).binding.from_argument_buffer);
+        }
+
+        // smp (not used)
+        CHECK_EQ(hihi_bindgroup_it->entries.at(3).type, GPUResourceType::SAMPLER);
+        CHECK_EQ(hihi_bindgroup_it->entries.at(3).count, 1);
+        check_binding_index(haha_bindgroup_it->entries.at(3).binding, 3, 3, 0);
+        if (target != CompileTarget::MSL) {
+            CHECK(!hihi_bindgroup_it->entries.at(3).visibility.contains(GPUShaderStage::VERTEX));
+            CHECK(!hihi_bindgroup_it->entries.at(3).visibility.contains(GPUShaderStage::FRAGMENT));
+        } else {
+            CHECK(hihi_bindgroup_it->entries.at(0).binding.from_argument_buffer);
         }
     }
 
     auto push_constants = reflection->get_push_constant_ranges();
-    std::cout << "push_contants.size() = " << push_constants.size() << std::endl;
-    for (auto& push_constant : push_constants) {
-        std::cout << "- push_constant.offset = " << push_constant.offset << std::endl;
-        std::cout << "- push_constant.size   = " << push_constant.size << std::endl;
-        std::cout << "- push_constant.visibility = " << std::endl;
-        if (push_constant.visibility.contains(GPUShaderStage::VERTEX)) std::cout << " VERTEX";
-        if (push_constant.visibility.contains(GPUShaderStage::FRAGMENT)) std::cout << " FRAGMENT";
-        if (push_constant.visibility.contains(GPUShaderStage::COMPUTE)) std::cout << " COMPUTE";
-    }
+    CHECK_EQ(push_constants.size(), 2);
+
+    // TODO: We are currently populating the push constants at ParameterBlock level. This is not correct.
+    // if (push_constants.size() == 2) {
+    //     // data
+    //     CHECK_EQ(push_constants.at(0).offset, 0);
+    //     CHECK_EQ(push_constants.at(0).size, 12);
+    //     std::cerr << std::showbase << std::hex << push_constants.at(0).visibility.value << std::endl;
+    //     CHECK(!push_constants.at(0).visibility.contains(GPUShaderStage::VERTEX));
+    //     CHECK(!push_constants.at(0).visibility.contains(GPUShaderStage::FRAGMENT));
+    //
+    //     // mvp
+    //     CHECK_EQ(push_constants.at(1).offset, 16);
+    //     CHECK_EQ(push_constants.at(1).size, 64);
+    //     std::cerr << push_constants.at(1).visibility.value << std::endl;
+    //     CHECK(push_constants.at(1).visibility.contains(GPUShaderStage::VERTEX));
+    //     CHECK(!push_constants.at(1).visibility.contains(GPUShaderStage::FRAGMENT));
+    // }
 }
 
+#ifdef LYRA_VULKAN_SUPPORT
 TEST_CASE("slc::vulkan::shader_reflection" * doctest::description("shader vertex attributes reflection"))
 {
     test_shader_vertex_attribute_reflection(
         CompileTarget::SPIRV,
         CompileFlag::DEBUG | CompileFlag::REFLECT);
 }
+#endif
 
 #ifdef WIN32
 TEST_CASE("slc::d3d12::shader_reflection" * doctest::description("shader vertex attributes reflection"))
 {
     test_shader_vertex_attribute_reflection(
         CompileTarget::DXIL,
+        CompileFlag::DEBUG | CompileFlag::REFLECT);
+}
+#endif
+
+#ifdef __APPLE__
+TEST_CASE("slc::metal::shader_reflection" * doctest::description("shader vertex attributes reflection"))
+{
+    test_shader_vertex_attribute_reflection(
+        CompileTarget::MSL,
         CompileFlag::DEBUG | CompileFlag::REFLECT);
 }
 #endif

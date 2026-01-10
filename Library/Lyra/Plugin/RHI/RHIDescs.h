@@ -31,6 +31,10 @@ namespace lyra
         GPUFeatureNames required_features = {};
     };
 
+    // NOTE: Non-WebGPU standard API
+    // WebGPU does not need to directly operating with GPU surface,
+    // it should directly work with <canvas> element in web context.
+    // This API is inspired by wgpu.
     struct GPUSurfaceDescriptor : public GPUObjectDescriptorBase
     {
         WindowHandle window = {};
@@ -125,6 +129,7 @@ namespace lyra
     };
 
     // NOTE: Non-WebGPU standard API
+    // WebGPU does not support raytracing.
     struct GPUBlasDescriptor : public GPUObjectDescriptorBase
     {
         GPUBVHFlags      flags       = 0;
@@ -132,6 +137,7 @@ namespace lyra
     };
 
     // NOTE: Non-WebGPU standard API
+    // WebGPU does not support raytracing.
     struct GPUTlasDescriptor : public GPUObjectDescriptorBase
     {
         uint             max_instances = 0;
@@ -140,14 +146,19 @@ namespace lyra
     };
 
     // NOTE: Non-WebGPU standard API
+    // WebGPU does not support heap based bind group allocation.
+    // WebGPU uses implicit lifetime tracking for bind groups.
     struct GPUBindGroupHeapDescriptor : public GPUObjectDescriptorBase
     {
         uint page_size = 2048;
     };
 
+    // NOTE: heap is Non-WebGPU standard API
+    // WebGPU does not support heap based bind group allocation.
+    // WebGPU uses implicit lifetime tracking for bind groups.
     struct GPUBindGroupDescriptor : public GPUObjectDescriptorBase
     {
-        GPUBindGroupHeapHandle   heap; // NOTE: Non-WebGPU standard API
+        GPUBindGroupHeapHandle   heap;
         GPUBindGroupLayoutHandle layout;
         GPUBindGroupEntries      entries;
     };

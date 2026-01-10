@@ -13,13 +13,41 @@
 #include <Lyra/Common/String.h>
 #include <Lyra/Common/Pointer.h>
 #include <Lyra/Common/Collections.h>
-#include <Lyra/Common/Compatibility.h>
+#include <Lyra/Common/Compatibility.h> // Now includes get_environment_variable
 
 namespace lyra
 {
     using Logger   = Ref<spdlog::logger>;
     using LogView  = fmt::string_view;
     using LogLevel = spdlog::level::level_enum;
+
+    inline LogLevel parse_log_level(const std::string& level)
+    {
+        if (level == "trace")
+            return LogLevel::trace;
+        if (level == "debug")
+            return LogLevel::debug;
+        if (level == "info")
+            return LogLevel::info;
+        if (level == "warn")
+            return LogLevel::warn;
+        if (level == "error")
+            return LogLevel::err;
+        if (level == "critical")
+            return LogLevel::critical;
+        if (level == "off")
+            return LogLevel::off;
+        return LogLevel::info; // default to info if no match
+    }
+
+    inline LogLevel parse_log_level_from_env(CString env)
+    {
+        auto env_value = get_environment_variable(env);
+        if (env_value) {
+            return parse_log_level(env_value.value().c_str());
+        }
+        return LogLevel::info; // Default to info if environment variable is not set or empty
+    }
 
     struct ConsoleLog
     {

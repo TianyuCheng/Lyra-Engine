@@ -770,6 +770,8 @@ static void list_monitors(uint& count, MonitorInfo* monitor_infos)
 
 LYRA_EXPORT auto prepare() -> void
 {
+    get_logger()->set_level(parse_log_level_from_env("LYRA_GLFW_VERBOSITY"));
+
     if (!glfwInit()) {
         exit(EXIT_FAILURE);
     }

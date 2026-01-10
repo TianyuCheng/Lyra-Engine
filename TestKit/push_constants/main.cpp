@@ -150,6 +150,7 @@ struct PushConstantsApp : public TestApp
     }
 };
 
+#ifdef LYRA_VULKAN_SUPPORT
 TEST_CASE("rhi::vulkan::push_constants" * doctest::description("Rendering multiple triangles with the dynamic uniform buffer."))
 {
     TestAppDescriptor desc{};
@@ -163,6 +164,7 @@ TEST_CASE("rhi::vulkan::push_constants" * doctest::description("Rendering multip
     desc.compile_flags  = CompileFlag::DEBUG;
     PushConstantsApp(desc).run();
 }
+#endif
 
 #ifdef WIN32
 TEST_CASE("rhi::d3d12::push_constants" * doctest::description("Rendering multiple triangles with the dynamic uniform buffer."))
@@ -175,6 +177,22 @@ TEST_CASE("rhi::d3d12::push_constants" * doctest::description("Rendering multipl
     desc.height         = 480;
     desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
     desc.compile_target = CompileTarget::DXIL;
+    desc.compile_flags  = CompileFlag::DEBUG;
+    PushConstantsApp(desc).run();
+}
+#endif
+
+#ifdef __APPLE__
+TEST_CASE("rhi::metal::push_constants" * doctest::description("Rendering multiple triangles with the dynamic uniform buffer."))
+{
+    TestAppDescriptor desc{};
+    desc.name           = "metal";
+    desc.window         = false;
+    desc.backend        = RHIBackend::METAL;
+    desc.width          = 640;
+    desc.height         = 480;
+    desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
+    desc.compile_target = CompileTarget::MSL;
     desc.compile_flags  = CompileFlag::DEBUG;
     PushConstantsApp(desc).run();
 }

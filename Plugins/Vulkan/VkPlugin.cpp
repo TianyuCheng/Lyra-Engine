@@ -408,7 +408,13 @@ void api::wait_fence(GPUFenceHandle handle)
 
 LYRA_EXPORT auto prepare() -> void
 {
-    vk_check(volkInitialize());
+    get_logger()->set_level(parse_log_level_from_env("LYRA_VULKAN_VERBOSITY"));
+
+    try {
+        vk_check(volkInitialize());
+    } catch (...) {
+        get_logger()->error("Failed to initialize Vulkan!");
+    }
 }
 
 LYRA_EXPORT auto cleanup() -> void

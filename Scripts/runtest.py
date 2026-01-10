@@ -1,6 +1,7 @@
 import os
 import shutil
 import argparse
+import platform
 import subprocess
 import webbrowser
 import xml.etree.ElementTree as ET
@@ -35,6 +36,17 @@ def find_git_root(start_path=None):
             return None
 
         current_path = parent_path
+
+def check_vulkan_info():
+    try:
+        subprocess.check_output(["vulkaninfo", "--summary"], stderr=subprocess.STDOUT)
+        return True#, "vulkaninfo command ran successfully."
+    except FileNotFoundError:
+        return False#, "vulkaninfo executable not found. The Vulkan SDK or tools package may not be installed."
+    except subprocess.CalledProcessError as e:
+        return False#, f"vulkaninfo command failed to run: {e.output.decode().strip()}. This often indicates no drivers were found."
+    except Exception as e:
+        return False#, f"An unexpected error occurred: {e}"
 
 def prepare_run(args):
     os.makedirs(args.directory, exist_ok=True)
@@ -119,35 +131,141 @@ def run_unit_tests(args):
     subprocess.check_call([args.executable, f"-tce=rhi*"])
 
 def generate_html_report(args, results):
-    sequence = ["reference", "vulkan", "d3d12"]
+    import pathlib
+    sequence = ["reference"]
+
+    os_name = platform.system()
+    if os_name == "Windows":
+        sequence.append("d3d12")
+    if os_name == "Darwin":
+        sequence.append("metal")
+    if check_vulkan_info():
+        sequence.append("vulkan")
 
     html_content = []
     html_content.append('''
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
-        <title>Test Results</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Lyra TestKit Report</title>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
         <style>
+            :root {
+                --background-color: #282c34;
+                --text-color: #abb2bf;
+                --header-color: #61afef;
+                --table-header-bg: #3c4048;
+                --table-border-color: #454a54;
+                --table-row-even-bg: #31363f;
+                --image-border-color: #454a54;
+                --image-shadow: 0 3px 5px 0 rgba(0, 0, 0, 0.2);
+                --image-hover-shadow: 0 5px 11px 0 rgba(0, 0, 0, 0.4);
+                --link-color: #61afef;
+                --link-hover-color: #c678dd;
+            }
+            body {
+                background-color: var(--background-color);
+                color: var(--text-color);
+                font-family: 'Roboto', sans-serif;
+                margin: 0;
+                padding: 1.33em;
+            }
+            .container {
+                max-width: 70%;
+                min-width: 500px;
+                margin: 0 auto;
+            }
+            h1 {
+                color: var(--header-color);
+                text-align: center;
+                margin-bottom: 1.33rem;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 1.33rem;
+            }
+            th, td {
+                text-align: center;
+                padding: 0.66rem;
+                border: 1px solid var(--table-border-color);
+            }
+            th {
+                background-color: var(--table-header-bg);
+                text-transform: capitalize;
+                font-size: 0.73em;
+            }
+            tr:nth-child(even) {
+                background-color: var(--table-row-even-bg);
+            }
+            td.test-name {
+                font-weight: bold;
+                font-size: 0.73em;
+                word-break: break-all;
+            }
             td img {
-                max-width: 100%;
+                max-width: 266px;
                 height: auto;
-                border: 1px solid black;
+                border: 1px solid var(--image-border-color);
+                border-radius: 5px;
+                box-shadow: var(--image-shadow);
+                transition: transform 0.2s, box-shadow 0.2s;
+                cursor: pointer;
+            }
+            td img:hover {
+                transform: scale(1.05);
+                box-shadow: var(--image-hover-shadow);
+            }
+            /* Lightbox styles */
+            .lightbox {
+                display: none;
+                position: fixed;
+                z-index: 1000;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                overflow: auto;
+                background-color: rgba(0,0,0,0.9);
+                justify-content: center;
+                align-items: center;
+            }
+            .lightbox-content {
+                max-width: 90vw;
+                max-height: 90vh;
+                animation: zoom 0.3s;
+            }
+            @keyframes zoom {
+                from {transform:scale(0)}
+                to {transform:scale(1)}
+            }
+            .close {
+                position: absolute;
+                top: 10px;
+                right: 23px;
+                color: #f1f1f1;
+                font-size: 27px;
+                font-weight: bold;
+                transition: 0.3s;
+                cursor: pointer;
+            }
+            .close:hover,
+            .close:focus {
+                color: #bbb;
             }
         </style>
-
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css">
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css">
     </head>
     ''')
     html_content.append('<body>')
     html_content.append('<div class="container">')
-    html_content.append('<h1>Test Result</h1>')
+    html_content.append('<h1>Lyra TestKit Report</h1>')
 
     html_content.append("<table>")
     html_content.append("<thead>")
     html_content.append('<tr>')
-    html_content.append(f'<th>name</th>')
+    html_content.append(f'<th>Test Case</th>')
     for key in sequence:
         html_content.append(f'<th>{key}</th>')
     html_content.append('</tr>')
@@ -155,18 +273,55 @@ def generate_html_report(args, results):
     html_content.append("<tbody>")
     for test_name, buckets in results.items():
         html_content.append('<tr>')
-        html_content.append(f'<td>{test_name}</td>')
+        html_content.append(f'<td class="test-name">{test_name}</td>')
         for key in sequence:
             html_content.append('<td>')
             if key in buckets:
                 image = buckets[key]
-                html_content.append(f'<img src="{image}"/>')
+                image_uri = pathlib.Path(os.path.abspath(image)).as_uri()
+                html_content.append(f'<img src="{image_uri}" onclick="openLightbox(this.src)"/>')
             html_content.append('</td>')
         html_content.append('</tr>')
     html_content.append("</tbody>")
     html_content.append("</table>")
 
+    html_content.append('''
+        <div id="myLightbox" class="lightbox">
+            <span class="close" onclick="closeLightbox()">&times;</span>
+            <img class="lightbox-content" id="lightboxImage">
+        </div>
+    ''')
+
     html_content.append('</div>')
+
+    html_content.append('''
+    <script>
+        const lightbox = document.getElementById('myLightbox');
+        const lightboxImg = document.getElementById('lightboxImage');
+
+        function openLightbox(src) {
+            lightbox.style.display = 'flex';
+            lightboxImg.src = src;
+        }
+
+        function closeLightbox() {
+            lightbox.style.display = 'none';
+        }
+
+        lightbox.addEventListener('click', function(event) {
+            if (event.target === lightbox) {
+                closeLightbox();
+            }
+        });
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeLightbox();
+            }
+        });
+    </script>
+    ''')
+
     html_content.append('</body>')
     html_content.append('</html>')
 

@@ -95,11 +95,14 @@ bool get_bind_group_location(ShaderReflectionHandle handle, CString name, uint& 
 
 LYRA_EXPORT auto prepare() -> void
 {
+    get_logger()->set_level(parse_log_level_from_env("LYRA_SLANG_VERBOSITY"));
+
     CompilerWrapper::init();
 }
 
 LYRA_EXPORT auto cleanup() -> void
 {
+    // do nothing
 }
 
 LYRA_EXPORT auto create() -> ShaderAPI

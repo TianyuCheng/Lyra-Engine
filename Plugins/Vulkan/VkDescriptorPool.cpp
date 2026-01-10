@@ -87,7 +87,7 @@ void fill_descriptor_write(VkWriteDescriptorSet& write, DescriptorObjects& objec
     write.pNext            = nullptr;
 
     switch (entry.type) {
-        case GPUBindingResourceType::BUFFER:
+        case GPUResourceType::BUFFER:
         {
             objects.buffers.emplace_front();
             auto& buffer      = objects.buffers.front();
@@ -97,7 +97,7 @@ void fill_descriptor_write(VkWriteDescriptorSet& write, DescriptorObjects& objec
             write.pBufferInfo = &buffer;
             break;
         }
-        case GPUBindingResourceType::SAMPLER:
+        case GPUResourceType::SAMPLER:
         {
             objects.images.emplace_front();
             auto& sampler       = objects.images.front();
@@ -107,7 +107,7 @@ void fill_descriptor_write(VkWriteDescriptorSet& write, DescriptorObjects& objec
             write.pImageInfo    = &sampler;
             break;
         }
-        case GPUBindingResourceType::TEXTURE:
+        case GPUResourceType::TEXTURE:
         {
             objects.images.emplace_front();
             auto& image       = objects.images.front();
@@ -117,7 +117,7 @@ void fill_descriptor_write(VkWriteDescriptorSet& write, DescriptorObjects& objec
             write.pImageInfo  = &image;
             break;
         }
-        case GPUBindingResourceType::STORAGE_TEXTURE:
+        case GPUResourceType::STORAGE_TEXTURE:
         {
             objects.images.emplace_front();
             auto& image       = objects.images.front();
@@ -127,7 +127,7 @@ void fill_descriptor_write(VkWriteDescriptorSet& write, DescriptorObjects& objec
             write.pImageInfo  = &image;
             break;
         }
-        case GPUBindingResourceType::ACCELERATION_STRUCTURE:
+        case GPUResourceType::ACCELERATION_STRUCTURE:
             assert(!!!"BVH not supported yet!");
             break;
     }

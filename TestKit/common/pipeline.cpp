@@ -42,7 +42,7 @@ void SimplePipeline::init_depth_stencil_state(GPUTextureFormat format)
     if (!dsstate.has_value()) dsstate = GPUDepthStencilState{};
 
     auto& state                       = dsstate.value();
-    state.format                      = GPUTextureFormat::DEPTH24PLUS_STENCIL8;
+    state.format                      = format;
     state.depth_compare               = GPUCompareFunction::ALWAYS;
     state.depth_write_enabled         = true;
     state.stencil_read_mask           = 0x1;
@@ -56,32 +56,35 @@ void SimplePipeline::init_depth_stencil_state(GPUTextureFormat format)
 
 void SimplePipeline::init_vshader(GPUDevice& device, ShaderModule* module, CString entry)
 {
-    auto code  = module->get_shader_blob(entry);
-    auto desc  = GPUShaderModuleDescriptor{};
-    desc.label = "vertex_shader";
-    desc.data  = code->data;
-    desc.size  = code->size;
-    vshader    = device.create_shader_module(desc);
+    auto code     = module->get_shader_blob(entry);
+    auto desc     = GPUShaderModuleDescriptor{};
+    desc.label    = "vertex_shader";
+    desc.data     = code->data;
+    desc.size     = code->size;
+    vshader       = device.create_shader_module(desc);
+    vshader_entry = entry;
 }
 
 void SimplePipeline::init_fshader(GPUDevice& device, ShaderModule* module, CString entry)
 {
-    auto code  = module->get_shader_blob(entry);
-    auto desc  = GPUShaderModuleDescriptor{};
-    desc.label = "fragment_shader";
-    desc.data  = code->data;
-    desc.size  = code->size;
-    fshader    = device.create_shader_module(desc);
+    auto code     = module->get_shader_blob(entry);
+    auto desc     = GPUShaderModuleDescriptor{};
+    desc.label    = "fragment_shader";
+    desc.data     = code->data;
+    desc.size     = code->size;
+    fshader       = device.create_shader_module(desc);
+    fshader_entry = entry;
 }
 
 void SimplePipeline::init_cshader(GPUDevice& device, ShaderModule* module, CString entry)
 {
-    auto code  = module->get_shader_blob(entry);
-    auto desc  = GPUShaderModuleDescriptor{};
-    desc.label = "compute_shader";
-    desc.data  = code->data;
-    desc.size  = code->size;
-    cshader    = device.create_shader_module(desc);
+    auto code     = module->get_shader_blob(entry);
+    auto desc     = GPUShaderModuleDescriptor{};
+    desc.label    = "compute_shader";
+    desc.data     = code->data;
+    desc.size     = code->size;
+    cshader       = device.create_shader_module(desc);
+    cshader_entry = entry;
 }
 
 void SimplePipeline::init_playout(GPUDevice& device, ShaderReflection* reflection)
@@ -126,7 +129,9 @@ void SimpleRenderPipeline::init_pipeline(GPUDevice& device, ShaderReflection* re
     desc.multisample.alpha_to_coverage_enabled = false;
     desc.multisample.count                     = 1;
     desc.vertex.module                         = vshader;
+    desc.vertex.entry_point                    = vshader_entry;
     desc.fragment.module                       = fshader;
+    desc.fragment.entry_point                  = fshader_entry;
     desc.vertex.buffers                        = layout;
     desc.fragment.targets                      = rstates;
     if (dsstate.has_value()) desc.depth_stencil = dsstate.value();

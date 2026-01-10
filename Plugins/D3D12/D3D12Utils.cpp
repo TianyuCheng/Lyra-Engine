@@ -723,7 +723,7 @@ D3D12_BARRIER_SYNC d3d12enum(GPUBarrierSyncFlags sync)
     return result;
 }
 
-D3D12_BARRIER_ACCESS d3d12enum(GPUBarrierAccessFlags access)
+auto d3d12enum(GPUBarrierAccessFlags access) -> D3D12_BARRIER_ACCESS
 {
     D3D12_BARRIER_ACCESS result = D3D12_BARRIER_ACCESS_COMMON;
 
@@ -753,6 +753,29 @@ D3D12_BARRIER_ACCESS d3d12enum(GPUBarrierAccessFlags access)
     if (access.contains(GPUBarrierAccess::NO_ACCESS))                    result |= D3D12_BARRIER_ACCESS_NO_ACCESS;
     // clang-format on
 
+    return result;
+}
+
+auto d3d12enum(GPUBVHFlags flags) -> D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS
+{
+    D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS result = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_NONE;
+    // clang-format off
+    if (flags.contains(GPUBVHFlag::ALLOW_UPDATE))      result |= D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE;
+    if (flags.contains(GPUBVHFlag::ALLOW_COMPACTION))  result |= D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_COMPACTION;
+    if (flags.contains(GPUBVHFlag::PREFER_FAST_BUILD)) result |= D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
+    if (flags.contains(GPUBVHFlag::PREFER_FAST_TRACE)) result |= D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
+    if (flags.contains(GPUBVHFlag::LOW_MEMORY))        result |= D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_MINIMIZE_MEMORY;
+    // clang-format on
+    return result;
+}
+
+auto d3d12enum(GPUBVHGeometryFlags flags) -> D3D12_RAYTRACING_GEOMETRY_FLAGS
+{
+    D3D12_RAYTRACING_GEOMETRY_FLAGS result = D3D12_RAYTRACING_GEOMETRY_FLAG_NONE;
+    // clang-format off
+    if (flags.contains(GPUBVHGeometryFlag::BVH_OPAQUE))                      result |= D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
+    if (flags.contains(GPUBVHGeometryFlag::NO_DUPLICATE_ANY_HIT_INVOCATION)) result |= D3D12_RAYTRACING_GEOMETRY_FLAG_NO_DUPLICATE_ANYHIT_INVOCATION;
+    // clang-format on
     return result;
 }
 

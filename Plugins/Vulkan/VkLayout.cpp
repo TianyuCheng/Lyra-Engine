@@ -36,15 +36,15 @@ VkDescriptorType infer_bvh_descriptor_type(const GPUBVHBindingLayout&)
 VkDescriptorType infer_descriptor_type(const GPUBindGroupLayoutEntry& entry)
 {
     switch (entry.type) {
-        case GPUBindingResourceType::BUFFER:
+        case GPUResourceType::BUFFER:
             return infer_buffer_descriptor_type(entry.buffer);
-        case GPUBindingResourceType::SAMPLER:
+        case GPUResourceType::SAMPLER:
             return infer_sampler_descriptor_type(entry.sampler);
-        case GPUBindingResourceType::TEXTURE:
+        case GPUResourceType::TEXTURE:
             return infer_texture_descriptor_type(entry.texture);
-        case GPUBindingResourceType::STORAGE_TEXTURE:
+        case GPUResourceType::STORAGE_TEXTURE:
             return infer_storage_texture_descriptor_type(entry.storage_texture);
-        case GPUBindingResourceType::ACCELERATION_STRUCTURE:
+        case GPUResourceType::ACCELERATION_STRUCTURE:
             return infer_bvh_descriptor_type(entry.bvh);
         default:
             throw std::invalid_argument("Unsupported GPU binding resource type!");

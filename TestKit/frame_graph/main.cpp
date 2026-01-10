@@ -198,7 +198,7 @@ struct FrameGraphApp : public TestApp
             Array<GPUBindGroupEntry, 1> entries = {};
 
             auto& entry         = entries.at(0);
-            entry.type          = GPUBindingResourceType::BUFFER;
+            entry.type          = GPUResourceType::BUFFER;
             entry.binding       = 0;
             entry.buffer.buffer = uniform.ubuffer;
             entry.buffer.offset = 0;
@@ -243,12 +243,12 @@ struct FrameGraphApp : public TestApp
             Array<GPUBindGroupEntry, 2> entries = {};
 
             auto& entry0   = entries.at(0);
-            entry0.type    = GPUBindingResourceType::TEXTURE;
+            entry0.type    = GPUResourceType::TEXTURE;
             entry0.binding = 0;
             entry0.texture = texview;
 
             auto& entry1   = entries.at(1);
-            entry1.type    = GPUBindingResourceType::SAMPLER;
+            entry1.type    = GPUResourceType::SAMPLER;
             entry1.binding = 1;
             entry1.sampler = sampler;
 
@@ -364,6 +364,7 @@ struct FrameGraphApp : public TestApp
     }
 };
 
+#ifdef LYRA_VULKAN_SUPPORT
 TEST_CASE("rhi::vulkan::frame_graph" * doctest::description("Rendering triangles with frame graph"))
 {
     TestAppDescriptor desc{};
@@ -377,6 +378,7 @@ TEST_CASE("rhi::vulkan::frame_graph" * doctest::description("Rendering triangles
     desc.compile_flags  = CompileFlag::DEBUG;
     FrameGraphApp(desc).run();
 }
+#endif
 
 #ifdef WIN32
 TEST_CASE("rhi::d3d12::frame_graph" * doctest::description("Rendering triangles with frame graph."))
@@ -389,6 +391,22 @@ TEST_CASE("rhi::d3d12::frame_graph" * doctest::description("Rendering triangles 
     desc.height         = 480;
     desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
     desc.compile_target = CompileTarget::DXIL;
+    desc.compile_flags  = CompileFlag::DEBUG;
+    FrameGraphApp(desc).run();
+}
+#endif
+
+#ifdef __APPLE__
+TEST_CASE("rhi::metal::frame_graph" * doctest::description("Rendering triangles with frame graph."))
+{
+    TestAppDescriptor desc{};
+    desc.name           = "metal";
+    desc.window         = false;
+    desc.backend        = RHIBackend::METAL;
+    desc.width          = 640;
+    desc.height         = 480;
+    desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
+    desc.compile_target = CompileTarget::MSL;
     desc.compile_flags  = CompileFlag::DEBUG;
     FrameGraphApp(desc).run();
 }

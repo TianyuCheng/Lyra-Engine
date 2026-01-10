@@ -62,7 +62,7 @@ struct StencilTestApp : public TestApp
 
         dsbuffer = execute([&]() {
             auto desc            = GPUTextureDescriptor{};
-            desc.format          = GPUTextureFormat::DEPTH24PLUS_STENCIL8;
+            desc.format          = GPUTextureFormat::DEPTH32FLOAT_STENCIL8;
             desc.size.width      = this->desc.width;
             desc.size.height     = this->desc.height;
             desc.size.depth      = 1;
@@ -109,7 +109,7 @@ struct StencilTestApp : public TestApp
         pipeline_mask.attributes.push_back({"position", offsetof(Vertex, position)});
         pipeline_mask.attributes.push_back({"color", offsetof(Vertex, color)});
         pipeline_mask.init_color_state(get_backbuffer_format(), false);
-        pipeline_mask.init_stencil_state(GPUTextureFormat::DEPTH24PLUS_STENCIL8);
+        pipeline_mask.init_stencil_state(GPUTextureFormat::DEPTH32FLOAT_STENCIL8);
         pipeline_mask.init_vshader(device, module.get(), "vsmain");
         pipeline_mask.init_fshader(device, module.get(), "fsmain");
         pipeline_mask.init_playout(device, reflection.get());
@@ -119,7 +119,7 @@ struct StencilTestApp : public TestApp
         pipeline_draw.attributes.push_back({"position", offsetof(Vertex, position)});
         pipeline_draw.attributes.push_back({"color", offsetof(Vertex, color)});
         pipeline_draw.init_color_state(get_backbuffer_format());
-        pipeline_draw.init_depth_stencil_state(GPUTextureFormat::DEPTH24PLUS_STENCIL8);
+        pipeline_draw.init_depth_stencil_state(GPUTextureFormat::DEPTH32FLOAT_STENCIL8);
         pipeline_draw.init_vshader(device, module.get(), "vsmain");
         pipeline_draw.init_fshader(device, module.get(), "fsmain");
         pipeline_draw.init_playout(device, reflection.get());
@@ -133,7 +133,7 @@ struct StencilTestApp : public TestApp
         // create bind group
         bind_group = execute([&]() {
             auto entry          = GPUBindGroupEntry{};
-            entry.type          = GPUBindingResourceType::BUFFER;
+            entry.type          = GPUResourceType::BUFFER;
             entry.binding       = 0;
             entry.buffer.buffer = uniform.ubuffer;
             entry.buffer.offset = 0;
@@ -250,6 +250,7 @@ struct StencilTestApp : public TestApp
     }
 };
 
+#ifdef LYRA_VULKAN_SUPPORT
 TEST_CASE("rhi::vulkan::stencil_test" * doctest::description("Rendering a triangle with stencil test enabled."))
 {
     TestAppDescriptor desc{};
@@ -263,6 +264,7 @@ TEST_CASE("rhi::vulkan::stencil_test" * doctest::description("Rendering a triang
     desc.compile_flags  = CompileFlag::DEBUG;
     StencilTestApp(desc).run();
 }
+#endif
 
 #ifdef WIN32
 TEST_CASE("rhi::d3d12::stencil_test" * doctest::description("Rendering a triangle with stencil test enabled."))
@@ -275,6 +277,22 @@ TEST_CASE("rhi::d3d12::stencil_test" * doctest::description("Rendering a triangl
     desc.height         = 480;
     desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
     desc.compile_target = CompileTarget::DXIL;
+    desc.compile_flags  = CompileFlag::DEBUG;
+    StencilTestApp(desc).run();
+}
+#endif
+
+#ifdef __APPLE__
+TEST_CASE("rhi::metal::stencil_test" * doctest::description("Rendering a triangle with stencil test enabled."))
+{
+    TestAppDescriptor desc{};
+    desc.name           = "metal";
+    desc.window         = false;
+    desc.backend        = RHIBackend::METAL;
+    desc.width          = 640;
+    desc.height         = 480;
+    desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
+    desc.compile_target = CompileTarget::MSL;
     desc.compile_flags  = CompileFlag::DEBUG;
     StencilTestApp(desc).run();
 }

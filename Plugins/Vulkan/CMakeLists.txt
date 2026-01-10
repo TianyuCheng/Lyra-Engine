@@ -3,30 +3,30 @@ lyra_plugin(vulkan)
 
 # plugin sources
 target_sources(lyra-vulkan PRIVATE
-    VkPlugin.cpp
-    VkUtils.h
-    VkUtils.cpp
-    VkMappings.cpp
-    VkInstance.cpp
-    VkSurface.cpp
-    VkAdapter.cpp
-    VkDevice.cpp
-    VkFrame.cpp
-    VkSwapchain.cpp
-    VkFence.cpp
-    VkSemaphore.cpp
-    VkShader.cpp
-    VkBuffer.cpp
-    VkImage.cpp
-    VkSampler.cpp
-    VkTlas.cpp
-    VkBlas.cpp
-    VkQuery.cpp
-    VkLayout.cpp
-    VkPipeline.cpp
-    VkCommandPool.cpp
-    VkCommandBuffer.cpp
-    VkDescriptorPool.cpp
+  VkPlugin.cpp
+  VkUtils.h
+  VkUtils.cpp
+  VkMappings.cpp
+  VkInstance.cpp
+  VkSurface.cpp
+  VkAdapter.cpp
+  VkDevice.cpp
+  VkFrame.cpp
+  VkSwapchain.cpp
+  VkFence.cpp
+  VkSemaphore.cpp
+  VkShader.cpp
+  VkBuffer.cpp
+  VkImage.cpp
+  VkSampler.cpp
+  VkTlas.cpp
+  VkBlas.cpp
+  VkQuery.cpp
+  VkLayout.cpp
+  VkPipeline.cpp
+  VkCommandPool.cpp
+  VkCommandBuffer.cpp
+  VkDescriptorPool.cpp
 )
 
 # link dependencies
