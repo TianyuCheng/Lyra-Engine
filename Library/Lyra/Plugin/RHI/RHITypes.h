@@ -337,6 +337,10 @@ namespace lyra
 
         void end_render_pass() const;
 
+        void build_tlases(const GPUBuffer& scratch_buffer, GPUTlasBuildEntries entries) const;
+
+        void build_blases(const GPUBuffer& scratch_buffer, GPUBlasBuildEntries entries) const;
+
         void copy_buffer_to_buffer(const GPUBuffer& source, const GPUBuffer& destination, GPUSize64 size) const;
 
         void copy_buffer_to_buffer(const GPUBuffer& source, GPUSize64 source_offset, const GPUBuffer& destination, GPUSize64 destination_offset, GPUSize64 size) const;

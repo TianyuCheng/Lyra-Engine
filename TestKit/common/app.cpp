@@ -29,8 +29,9 @@ TestApp::TestApp(const TestAppDescriptor& app_desc) : desc(app_desc)
 
     // initialize GPU device
     auto device = execute([&]() {
-        auto desc  = GPUDeviceDescriptor{};
-        desc.label = "main_device";
+        auto desc              = GPUDeviceDescriptor{};
+        desc.label             = "main_device";
+        desc.required_features = app_desc.required_features;
         return adapter.request_device(desc);
     });
 

@@ -1,7 +1,6 @@
 #ifndef LYRA_TESTLIB_HELPER_APP_H
 #define LYRA_TESTLIB_HELPER_APP_H
 
-#include "./common.h"
 #include "./render.h"
 
 struct TestAppDescriptor
@@ -14,6 +13,8 @@ struct TestAppDescriptor
     RHIFlags      rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
     CompileTarget compile_target = CompileTarget::SPIRV;
     CompileFlags  compile_flags  = CompileFlag::DEBUG;
+
+    Vector<GPUFeatureName> required_features = {};
 };
 
 struct TestApp

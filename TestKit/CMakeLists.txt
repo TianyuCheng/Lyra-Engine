@@ -28,6 +28,7 @@ add_subdirectory(push_constants)
 add_subdirectory(dynamic_uniform)
 add_subdirectory(texture_sampling)
 add_subdirectory(graphics_pipeline)
+add_subdirectory(ray_tracing)
 add_subdirectory(shader_reflection)
 
 # add custom target to run test kit

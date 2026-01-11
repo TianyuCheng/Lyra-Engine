@@ -577,6 +577,16 @@ void GPUCommandEncoder::end_render_pass() const
     RHI::api()->cmd_end_render_pass(handle);
 }
 
+void GPUCommandEncoder::build_tlases(const GPUBuffer& scratch_buffer, GPUTlasBuildEntries entries) const
+{
+    RHI::api()->cmd_build_tlases(handle, scratch_buffer.handle, entries);
+}
+
+void GPUCommandEncoder::build_blases(const GPUBuffer& scratch_buffer, GPUBlasBuildEntries entries) const
+{
+    RHI::api()->cmd_build_blases(handle, scratch_buffer.handle, entries);
+}
+
 void GPUCommandEncoder::copy_buffer_to_buffer(const GPUBuffer& source, const GPUBuffer& destination, GPUSize64 size) const
 {
     RHI::api()->cmd_copy_buffer_to_buffer(handle, source, 0u, destination, 0u, size);

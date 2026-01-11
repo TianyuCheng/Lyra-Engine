@@ -102,9 +102,10 @@ void SimplePipeline::init_playout(GPUDevice& device, ShaderReflection* reflectio
 
 void SimpleComputePipeline::init_pipeline(GPUDevice& device, ShaderReflection* reflection)
 {
-    auto desc           = GPUComputePipelineDescriptor{};
-    desc.layout         = playout;
-    desc.compute.module = cshader;
+    auto desc                = GPUComputePipelineDescriptor{};
+    desc.layout              = playout;
+    desc.compute.module      = cshader;
+    desc.compute.entry_point = cshader_entry;
 
     pipeline = device.create_compute_pipeline(desc);
 }

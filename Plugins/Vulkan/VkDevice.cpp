@@ -208,8 +208,8 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
         buffer_device_address.pNext               = nullptr;
         buffer_device_address.bufferDeviceAddress = VK_TRUE;
         append_feature((VulkanBase*)&buffer_device_address);
-        if (!is_supported(device_extensions, VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME)) {
-            get_logger()->error("Device extension {} is not supported!", VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
+        if (!is_supported(device_extensions, VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME)) {
+            get_logger()->error("Device extension {} is not supported!", VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
             exit(1);
         }
     }
@@ -217,6 +217,7 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
     // optional: used for host query reset in raytracing
     auto host_query_reset = VkPhysicalDeviceHostQueryResetFeatures{};
     if (required_features.raytracing) {
+        device_extensions.push_back(VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME);
         host_query_reset.sType          = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES;
         host_query_reset.pNext          = nullptr;
         host_query_reset.hostQueryReset = VK_TRUE;

@@ -629,10 +629,10 @@ namespace lyra
         ALLOW_UPDATE                = 0x0001,
         ALLOW_COMPACTION            = 0x0002,
         PREFER_FAST_TRACE           = 0x0004,
-        PREFER_FAST_BUILD           = 0x0004,
-        LOW_MEMORY                  = 0x0008,
-        USE_TRANSFORM               = 0x0010,
-        ALLOW_RAY_HIT_VERTEX_RETURN = 0x0020,
+        PREFER_FAST_BUILD           = 0x0008,
+        LOW_MEMORY                  = 0x0010,
+        USE_TRANSFORM               = 0x0020,
+        ALLOW_RAY_HIT_VERTEX_RETURN = 0x0040,
     };
 
     enum struct GPUBVHUpdateMode : uint

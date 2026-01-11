@@ -1,5 +1,5 @@
 // NOTE: This controls whether to dump verbose shader reflection debugging log.
-// #define SLANG_DEBUG
+#define SLANG_DEBUG
 
 #include <iostream>
 #include "SlangUtils.h"
@@ -997,10 +997,11 @@ void ReflectResultInternal::fill_binding_type(GPUBindGroupLayoutEntry& entry, sl
                     return;
                 case SLANG_STRUCTURED_BUFFER:
                 case SLANG_BYTE_ADDRESS_BUFFER:
-                    entry.type                      = GPUResourceType::BUFFER;
-                    entry.buffer.type               = (access_permission != GPUStorageTextureAccess::READ_ONLY)
-                                                          ? GPUBufferBindingType::READ_ONLY_STORAGE
-                                                          : GPUBufferBindingType::STORAGE;
+                    entry.type        = GPUResourceType::BUFFER;
+                    entry.buffer.type = (access_permission != GPUStorageTextureAccess::READ_ONLY)
+                                            ? GPUBufferBindingType::READ_ONLY_STORAGE
+                                            : GPUBufferBindingType::STORAGE;
+
                     entry.buffer.has_dynamic_offset = false;
                     entry.buffer.min_binding_size   = type->getSize();
                     return;
@@ -1054,16 +1055,16 @@ GPUTextureFormat ReflectResultInternal::infer_texture_format(slang::TypeLayoutRe
         return GPUTextureFormat::RGBA32FLOAT;
     }
 
-    // get the element type of the resource
-    auto element_type = type->getElementTypeLayout();
-    if (!element_type) {
+    // get the result type of the resource
+    auto result_type = type->getResourceResultType();
+    if (!result_type) {
         assert(!!!"Failed to infer texture format!");
         return GPUTextureFormat::RGBA32FLOAT;
     }
 
     // check the scalar type and component count
-    auto scalar_type     = element_type->getScalarType();
-    auto component_count = element_type->getElementCount();
+    auto scalar_type     = result_type->getScalarType();
+    auto component_count = result_type->getElementCount();
 
     // map to common formats
     // clang-format off
@@ -1235,7 +1236,6 @@ bool ReflectResultInternal::is_push_constant_buffer(const AccessPath& path) cons
 
 bool ReflectResultInternal::is_under_parameter_block(const AccessPath& node) const
 {
-    auto leaf = node.leaf;
     for (auto leaf = node.leaf; leaf != nullptr; leaf = leaf->outer) {
         auto typ_layout = leaf->var_layout->getTypeLayout();
         if (typ_layout->getKind() == slang::TypeReflection::Kind::ParameterBlock)
