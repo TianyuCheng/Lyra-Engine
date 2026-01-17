@@ -1,25 +1,23 @@
 set shell := ["sh", "-cu"]
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 
-BUILD := "Scratch"
+PYTHON := if os() == "windows" { "python" } else { "python3" }
 
 list:
     @cmake --list-presets=all
 
-configure preset:
-    cmake --preset {{preset}}
+config generator preset:
+    @{{PYTHON}} Scripts/build.py config {{generator}} {{preset}}
 
-build preset:
-    cmake --build --preset {{preset}}
+build target="all":
+    @{{PYTHON}} Scripts/build.py build --target {{target}}
 
-test preset:
-    cmake --build --preset {{preset}}
-    cmake --build --preset {{preset}} --target testkit
+run target="all":
+    @{{PYTHON}} Scripts/build.py run --target {{target}}
 
-run preset target:
-    cmake --build --preset {{preset}}
-    cmake --build --preset {{preset}} --target {{target}}
+test target="all":
+    @{{PYTHON}} Scripts/build.py test --target {{target}}
 
 [confirm("This will clean all build products! (y/n)")]
 clean preset:
-    cmake --build --preset {{preset}} --target clean
+    @{{PYTHON}} Scripts/build.py run --target clean

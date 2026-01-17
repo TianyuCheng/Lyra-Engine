@@ -1,0 +1,124 @@
+import os
+import sys
+import json
+import shlex
+import argparse
+import subprocess
+from copy import deepcopy
+from contextlib import contextmanager
+from dataclasses import dataclass, asdict
+
+BUILDROOT = "Scratch"
+
+@dataclass
+class BuildConfig:
+    generator: str
+    preset: str
+
+@contextmanager
+def config_file(mode):
+    build_root = os.getcwd()
+    build_root = os.path.join(build_root, BUILDROOT)
+    build_root = os.path.abspath(build_root)
+    os.makedirs(build_root, exist_ok=True)
+    filename = os.path.join(build_root, "config.json")
+
+    # make sure the config file exists
+    if mode =="r":
+        if not os.path.exists(filename):
+            with open(filename, "w") as f:
+                print("{}", file=f)
+
+    # open the file in requested mode
+    with open(filename, mode) as f:
+        yield f
+
+def load_config():
+    with config_file("r") as f:
+        data = json.load(f)
+        return BuildConfig(**data)
+
+def save_config(config: BuildConfig):
+    with config_file("w") as f:
+        json.dump(asdict(config), f, indent=2)
+
+def execute(args, env_vars={}):
+    print(f">>> {shlex.join(args)}")
+    environ = deepcopy(os.environ)
+    environ.update(env_vars)
+    subprocess.run(args, shell=True, check=True, env=environ)
+
+def do_config(args: argparse.Namespace):
+    config = BuildConfig(generator=args.generator, preset=args.preset)
+    save_config(config)
+    command = ["cmake", "--preset", config.generator]
+    execute(command)
+
+def do_build(args: argparse.Namespace):
+    config = load_config()
+    preset = f"{config.generator}-{config.preset}"
+    command = ["cmake", "--build", "--preset", preset]
+    if args.target and args.target != "all":
+        command.extend(["--target", f"lyra-{args.target}"])
+    execute(command)
+
+def do_run(args: argparse.Namespace):
+    config = load_config()
+    preset = f"{config.generator}-{config.preset}"
+    command = ["cmake", "--build", "--preset", preset, "--target", args.target]
+    execute(command)
+
+def do_test(args: argparse.Namespace):
+    config = load_config()
+    preset = f"{config.generator}-{config.preset}"
+    command = ["cmake", "--build", "--preset", preset, "--target", "testkit"]
+    env_vars = {}
+    if args.target and args.target != "all":
+        env_vars["LYRA_TESTKIT_FILTER"] = args.target
+        print("SETTING LYRA_TESTKIT_FILTER", args.target)
+    execute(command, env_vars)
+
+def parse_args():
+    parser = argparse.ArgumentParser("Lyra Build Helper")
+    subparsers = parser.add_subparsers(dest="mode")
+
+    # just use preset
+    config_parser = subparsers.add_parser("config")
+    config_parser.add_argument("generator")
+    config_parser.add_argument("preset")
+
+    # just build target
+    build_parser = subparsers.add_parser("build")
+    build_parser.add_argument("--target", default=None)
+
+    # just run target
+    test_parser = subparsers.add_parser("run")
+    test_parser.add_argument("--target")
+
+    # just test target
+    test_parser = subparsers.add_parser("test")
+    test_parser.add_argument("--target", default=None)
+
+    return parser.parse_args()
+
+def main():
+    args = parse_args()
+
+    try:
+        if args.mode == "config":
+            do_config(args)
+
+        elif args.mode == "build":
+            do_build(args)
+
+        elif args.mode == "run":
+            do_run(args)
+
+        elif args.mode == "test":
+            do_test(args)
+    except subprocess.SubprocessError:
+        print(">>> Build Recipe Failed!")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

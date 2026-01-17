@@ -337,10 +337,11 @@ def main():
     run_unit_tests(args)
     tests = list_tests(args)
     tests = filter_rhi_tests(tests)
-    buckets = bucketize_tests(tests)
-    results = run_rhi_tests(args, buckets)
-    report = generate_html_report(args, results)
-    webbrowser.open(report)
+    if tests:
+        buckets = bucketize_tests(tests)
+        results = run_rhi_tests(args, buckets)
+        report = generate_html_report(args, results)
+        webbrowser.open(report)
 
 if __name__ == "__main__":
     main()
