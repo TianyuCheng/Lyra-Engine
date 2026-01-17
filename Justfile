@@ -19,5 +19,5 @@ test target="all":
     @{{PYTHON}} Scripts/build.py test --target {{target}}
 
 [confirm("This will clean all build products! (y/n)")]
-clean preset:
+clean:
     @{{PYTHON}} Scripts/build.py run --target clean

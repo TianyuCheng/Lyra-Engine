@@ -6,6 +6,13 @@ NOTE: This project is still a work in progress, some of the features might be de
 This is a project develop and maintained by single person. Feedbacks and contributons are welcome, but I
 have limited time for this project after work, so please do expect slower response time and development speed.
 
+## Design
+
+For more details in project design and development, please refer to `Devlogs` directory.
+
+* [Overview](Devlogs/Overview.md)
+* [RHI Design & Implementation](Devlogs/RHI.md)
+
 ## Build
 
 **Lyra-Engine** uses [CMake](https://cmake.org/) with [vckpkg](https://vcpkg.io/en/) to
@@ -17,25 +24,49 @@ Prior to build, user must specify environment variable **VCPKG_ROOT**.
 User can specify one of the presets from **CMakePresets.json**.
 User can also create **CMakeUserPresets.json** to overwrite the default configuration.
 
+Prior to configure, user could run `just list` to query the available build presets.
+For example, this is the output from my development machine.
+
+```
+Available configure presets:
+
+  "ninja" - Ninja
+  "msvc"  - Visual Studio
+  "xcode" - Xcode
+
+Available build presets:
+
+  "msvc-debug"    - Visual Studio Debug Build
+  "msvc-release"  - Visual Studio Release Build
+  "xcode-debug"   - Xcode Debug Build
+  "xcode-release" - Xcode Release Build
+  "ninja-debug"   - Ninja Debug Build
+  "ninja-release" - Ninja Release Build
+```
+
+Selecting from one of the build presets above, user could run one of the following
+command to configure cmake. This build reciple contains two parts: generator and build mode.
+The generator is from one of the configure presets, and the build mode is either "debug" or "release".
+
 ```bash
-just configure msvc     # use MSVC, recommended on Windows
-just configure xcode    # use Xcode, recommended on MacOS
-just configure ninja    # use Ninja multi-config
+just config msvc  debug  # use MSVC, recommended on Windows
+just config xcode debug  # use Xcode, recommended on MacOS
+just config ninja debug  # use Ninja multi-config, recommended on Linux
 ```
 
 Once the configure command is invoked, vcpkg will automatically install the required
 dependencies defined by **vcpkg.json**. Some of the dependencies might take a while
 to compile.
 
+The above configure command also caches the user specified preset into `Scratch/config.json`.
+This is used for all following `build/test/run` commands. Users can run `config` command again
+to update this selected build config.
+
 To build the project, users can use the following command:
 
 ```bash
-just build msvc-debug     # MSVC Debug build
-just build msvc-release   # MSVC Release build
-just build xcode-debug
-just build xcode-release
-just build ninja-debug
-just build ninja-release
+just build              # build everything
+just build vulkan       # build specific lyra component (target in `lyra-*` form)
 ```
 
 ## Test
@@ -47,12 +78,8 @@ Currently there is no automatic checking for graphics result, so manual check is
 still required.
 
 ```bash
-just test msvc-debug
-just test msvc-release
-just test xcode-debug
-just test xcode-release
-just test ninja-debug
-just test ninja-release
+just test                   # run all tests and generate report
+just test graphics_pipeline # only run tests with "graphics_pipeline" in the test name
 ```
 
 ## Samples
@@ -61,12 +88,7 @@ just test ninja-release
 To run the editor/player, user can run the following command:
 
 ```bash
-just run msvc-debug    editor
-just run msvc-release  editor
-just run xcode-debug   editor
-just run xcode-release editor
-just run ninja-debug   editor
-just run ninja-release editor
+just run editor
 ```
 
 ## Install
@@ -78,33 +100,6 @@ use it from other projects.
 ```bash
 cmake --install Scratch  # copy the built libraries and headers into system directory
 ```
-
-## Components
-
-**Lyra Engine** consists of the following parts:
-
-* Library: The core shared library for the rendering engine (to be linked by user application).
-* Plugins: Shared libraries loaded at runtime by library (not directly linked).
-* Samples: Primary editor/player applications for this engine.
-
-**Lyra Engine**'s design is largely inspired by **The Machinery** (currently removed from internet).
-We adopt a plugin-based design philosophy so that the underlying implementation could be swapped
-out with ease. For example, **Library/Render/RHI/API.h** defines a set of API for rendering,
-**Plugins/Vulkan" implements this rendering API. However, we could also implement other graphics
-APIs like D3D12 and swap out Vulkan with a single line of change.
-
-However, **Lyra Engine**'s plugin APIs do not strictly follow C ABI, meaning that plugins for
-non-compliant APIs must be compiled using the same C++ compiler, otherwise we run at the risk
-of mis-interpreting C++ structure. The reason for not directly using C ABI is due to the
-complexity of the API. For example, some graphics APIs would require multi-level descriptor
-objects, and the descriptor would store a vector of objects at some level. Since the user-level
-descriptor follows C++ interface, it would require extra work to transform the descriptor into
-C ABI form. Given that **Lyra Engine** is a small project that users would often compile the
-project as a whole, this wouldn't be a prominent issue.
-
-While **Lyra Engine** is not explicitly requiring C ABI compliant. The only exception being
-the modding system. If user mods should be supported, the modding API must strictly follow
-C ABI for maximum DLL portability.
 
 ## Author(s)
 
