@@ -159,6 +159,9 @@ target_link_libraries(lyra-engine PUBLIC
     $<BUILD_INTERFACE:absl::cleanup>
     $<BUILD_INTERFACE:absl::debugging>
     $<BUILD_INTERFACE:absl::algorithm>
+    $<BUILD_INTERFACE:absl::flat_hash_map>
+    $<BUILD_INTERFACE:absl::flat_hash_set>
+    $<BUILD_INTERFACE:absl::btree>
     $<BUILD_INTERFACE:absl::synchronization>
 
     # math libraries

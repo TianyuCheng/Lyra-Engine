@@ -3,7 +3,6 @@
 #ifndef LYRA_LIBRARY_COMMON_COLLECTIONS_H
 #define LYRA_LIBRARY_COMMON_COLLECTIONS_H
 
-#include <map>
 #include <list>
 #include <array>
 #include <deque>
@@ -11,9 +10,10 @@
 #include <vector>
 #include <optional>
 #include <forward_list>
-#include <unordered_set>
-#include <unordered_map>
 #include <initializer_list>
+#include <absl/container/btree_map.h>
+#include <absl/container/flat_hash_map.h>
+#include <absl/container/flat_hash_set.h>
 #include <boost/circular_buffer.hpp>
 #include <Lyra/Common/Detail/View.h>
 #include <Lyra/Common/Detail/Slotmap.h>
@@ -40,13 +40,13 @@ namespace lyra
     using Vector = std::vector<T...>;
 
     template <typename... T>
-    using HashSet = std::unordered_set<T...>;
+    using HashSet = absl::flat_hash_set<T...>;
 
     template <typename... T>
-    using HashMap = std::unordered_map<T...>;
+    using HashMap = absl::flat_hash_map<T...>;
 
     template <typename... T>
-    using TreeMap = std::map<T...>;
+    using TreeMap = absl::btree_map<T...>;
 
     template <typename... T>
     using Optional = std::optional<T...>;

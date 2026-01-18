@@ -7,7 +7,7 @@
 #include <any>
 #include <cassert>
 #include <typeindex>
-#include <unordered_map>
+#include <absl/container/flat_hash_map.h>
 
 namespace lyra::detail
 {
@@ -40,7 +40,7 @@ namespace lyra::detail
         [[nodiscard]] bool has() const;
 
     private:
-        std::unordered_map<std::type_index, std::any> m_storage;
+        absl::flat_hash_map<std::type_index, std::any> m_storage;
     };
 
     template <typename T, typename... Args>
