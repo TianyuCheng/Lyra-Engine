@@ -46,7 +46,7 @@ def execute(args, env_vars={}):
     print(f">>> {shlex.join(args)}")
     environ = deepcopy(os.environ)
     environ.update(env_vars)
-    subprocess.run(args, shell=True, check=True, env=environ)
+    subprocess.run(args, check=True, env=environ)
 
 def do_config(args: argparse.Namespace):
     config = BuildConfig(generator=args.generator, preset=args.preset)

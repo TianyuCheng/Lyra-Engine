@@ -43,7 +43,7 @@ namespace lyra
 
         bool (*get_window_minimized)(WindowHandle window);
 
-        void (*bind_window_callback)(WindowHandle window, WindowCallback&& callback);
+        void (*bind_window_callback)(WindowHandle window, WindowCallback callback);
 
         void (*query_input_events)(WindowHandle window, WindowInputQuery& query);
 

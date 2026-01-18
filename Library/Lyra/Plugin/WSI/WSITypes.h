@@ -110,6 +110,9 @@ namespace lyra
         }
 
     private:
+        void dispatch(WindowEvent event);
+
+    private:
         WindowCallbacks callbacks;
         WindowInput     inputs;
         WindowHandle    handle;

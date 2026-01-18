@@ -5,6 +5,7 @@
 
 #include <utility>
 #include <cstddef>
+#include <etl/delegate.h>
 #include <absl/functional/function_ref.h>
 #include <absl/functional/any_invocable.h>
 
@@ -29,6 +30,9 @@ namespace lyra
 
     template <typename... Args>
     using Function = absl::AnyInvocable<Args...>;
+
+    template <typename... Args>
+    using Delegate = etl::delegate<Args...>;
 
     // primary template for non-function types (default case)
     template <typename T>

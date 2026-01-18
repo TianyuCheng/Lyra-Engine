@@ -407,9 +407,6 @@ static void platform_create_window(ImGuiViewport* viewport)
 
     WindowHandle window;
     WSI::api()->create_window(desc, window);
-    WSI::api()->bind_window_callback(window, [](WindowEvent) {
-        // dummy callback, do nothing
-    });
 
     // used to propagate the shared renderer data
     auto main_viewport = ImGui::GetMainViewport();

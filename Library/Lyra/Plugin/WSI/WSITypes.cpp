@@ -58,38 +58,42 @@ void Window::get_framebuffer_scale(float& xscale, float& yscale) const
     Window::api()->get_framebuffer_scale(this->handle, xscale, yscale);
 }
 
+void Window::dispatch(WindowEvent event)
+{
+    switch (event) {
+        case WindowEvent::START:
+            for (auto& cb : callbacks.start)
+                cb(*this);
+            break;
+        case WindowEvent::CLOSE:
+            // invoke callbacks in reverse order
+            for (auto it = callbacks.close.rbegin(); it != callbacks.close.rend(); it++)
+                (*it)(*this);
+            break;
+        case WindowEvent::TIMER:
+            for (auto& cb : callbacks.timer)
+                cb(*this);
+            break;
+        case WindowEvent::UPDATE:
+            inputs.update(handle);
+            for (auto& cb : callbacks.update)
+                cb(*this);
+            break;
+        case WindowEvent::RENDER:
+            for (auto& cb : callbacks.render)
+                cb(*this);
+            break;
+        case WindowEvent::RESIZE:
+            for (auto& cb : callbacks.resize)
+                cb(*this);
+            break;
+    }
+}
+
 void EventLoop::bind(Window& window)
 {
-    Window::api()->bind_window_callback(window.handle, [=](WindowEvent event) mutable {
-        switch (event) {
-            case WindowEvent::START:
-                for (auto& cb : window.callbacks.start)
-                    cb(window);
-                break;
-            case WindowEvent::CLOSE:
-                // invoke callbacks in reverse order
-                for (auto it = window.callbacks.close.rbegin(); it != window.callbacks.close.rend(); it++)
-                    (*it)(window);
-                break;
-            case WindowEvent::TIMER:
-                for (auto& cb : window.callbacks.timer)
-                    cb(window);
-                break;
-            case WindowEvent::UPDATE:
-                window.inputs.update(window.handle);
-                for (auto& cb : window.callbacks.update)
-                    cb(window);
-                break;
-            case WindowEvent::RENDER:
-                for (auto& cb : window.callbacks.render)
-                    cb(window);
-                break;
-            case WindowEvent::RESIZE:
-                for (auto& cb : window.callbacks.resize)
-                    cb(window);
-                break;
-        }
-    });
+    auto callback = WindowCallback::create<Window, &Window::dispatch>(window);
+    Window::api()->bind_window_callback(window.handle, callback);
 }
 
 void EventLoop::run()

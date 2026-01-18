@@ -11,7 +11,7 @@ namespace lyra
 {
     using WindowFlags = BitFlags<WindowFlag>;
 
-    using WindowCallback = std::function<void(WindowEvent)>;
+    using WindowCallback = Delegate<void(WindowEvent)>;
 
     struct MonitorInfo
     {

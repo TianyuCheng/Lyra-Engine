@@ -245,7 +245,8 @@ struct EventLoopInternal
             glfwDestroyWindow(handle);
 
             // call user close event
-            user->callback(WindowEvent::CLOSE);
+            if (user->callback.is_valid())
+                user->callback(WindowEvent::CLOSE);
 
             // delete window user pointer
             delete user;
@@ -486,7 +487,8 @@ static void window_resize_callback(GLFWwindow* window, int width, int height)
     user->add_win_resize_event(width, height);
 
     // call user callback function
-    std::invoke(user->callback, WindowEvent::RESIZE);
+    if (user->callback.is_valid())
+        std::invoke(user->callback, WindowEvent::RESIZE);
 }
 
 static void bind_window_events(WindowHandle window)
@@ -665,11 +667,11 @@ static void show_window(WindowHandle window)
     glfwShowWindow(reinterpret_cast<GLFWwindow*>(window.window));
 }
 
-static void bind_window_callback(WindowHandle window, WindowCallback&& callback)
+static void bind_window_callback(WindowHandle window, WindowCallback callback)
 {
     auto  handle  = reinterpret_cast<GLFWwindow*>(window.window);
     auto& user    = *static_cast<UserState*>(glfwGetWindowUserPointer(handle));
-    user.callback = std::move(callback);
+    user.callback = callback;
 }
 
 static void run_in_loop()
@@ -679,9 +681,10 @@ static void run_in_loop()
 
     // START
     for (auto& window : global_event_loop.windows) {
-        auto  handle = reinterpret_cast<GLFWwindow*>(window.window);
-        auto& user   = *static_cast<UserState*>(glfwGetWindowUserPointer(handle));
-        std::invoke(user.callback, WindowEvent::START);
+        auto handle = reinterpret_cast<GLFWwindow*>(window.window);
+        auto user   = static_cast<UserState*>(glfwGetWindowUserPointer(handle));
+        if (user->callback.is_valid())
+            std::invoke(user->callback, WindowEvent::START);
     }
 
     // glfw main loop
@@ -694,7 +697,8 @@ static void run_in_loop()
         for (auto& window : global_event_loop.windows) {
             auto handle = reinterpret_cast<GLFWwindow*>(window.window);
             auto user   = static_cast<UserState*>(glfwGetWindowUserPointer(handle));
-            std::invoke(user->callback, WindowEvent::UPDATE);
+            if (user->callback.is_valid())
+                std::invoke(user->callback, WindowEvent::UPDATE);
         }
 
         // RENDER
@@ -702,7 +706,8 @@ static void run_in_loop()
         for (auto& window : global_event_loop.windows) {
             auto handle = reinterpret_cast<GLFWwindow*>(window.window);
             auto user   = static_cast<UserState*>(glfwGetWindowUserPointer(handle));
-            std::invoke(user->callback, WindowEvent::RENDER);
+            if (user->callback.is_valid())
+                std::invoke(user->callback, WindowEvent::RENDER);
         }
         RHI::end_frame(); // post frame end
 
