@@ -5,7 +5,8 @@
 
 #include <utility>
 #include <cstddef>
-#include <functional>
+#include <absl/functional/function_ref.h>
+#include <absl/functional/any_invocable.h>
 
 namespace lyra
 {
@@ -27,7 +28,7 @@ namespace lyra
     }
 
     template <typename... Args>
-    using Function = std::function<Args...>;
+    using Function = absl::AnyInvocable<Args...>;
 
     // primary template for non-function types (default case)
     template <typename T>

@@ -2,6 +2,8 @@
   "name": "lyra-engine",
   "version": "0.0.1",
   "dependencies": [
+    "abseil",
+    "boost-circular-buffer",
     "cxxopts",
     {
       "name": "d3d12-memory-allocator",
@@ -26,6 +28,6 @@
     "volk",
     "vulkan-headers",
     "vulkan-memory-allocator",
-    "boost-circular-buffer"
+    "etl"
   ]
 }

@@ -6,7 +6,7 @@ PYTHON := if os() == "windows" { "python" } else { "python3" }
 list:
     @cmake --list-presets=all
 
-config generator preset:
+config generator preset="debug":
     @{{PYTHON}} Scripts/build.py config {{generator}} {{preset}}
 
 switch preset:

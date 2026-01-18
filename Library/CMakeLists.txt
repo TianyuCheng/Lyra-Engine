@@ -131,8 +131,10 @@ target_sources(lyra-engine PRIVATE
 )
 
 # link dependencies
+find_package(etl REQUIRED)
 find_package(glm REQUIRED)
 find_package(fmt REQUIRED)
+find_package(absl REQUIRED)
 find_package(entt REQUIRED)
 find_package(json REQUIRED)
 find_package(toml REQUIRED)
@@ -145,6 +147,20 @@ find_package(Boost REQUIRED COMPONENTS circular_buffer)
 
 # directly exposed to user (with include headers)
 target_link_libraries(lyra-engine PUBLIC
+    # utility libraries
+    $<BUILD_INTERFACE:etl::etl>
+    $<BUILD_INTERFACE:absl::base>
+    $<BUILD_INTERFACE:absl::hash>
+    $<BUILD_INTERFACE:absl::meta>
+    $<BUILD_INTERFACE:absl::time>
+    $<BUILD_INTERFACE:absl::memory>
+    $<BUILD_INTERFACE:absl::utility>
+    $<BUILD_INTERFACE:absl::strings>
+    $<BUILD_INTERFACE:absl::cleanup>
+    $<BUILD_INTERFACE:absl::debugging>
+    $<BUILD_INTERFACE:absl::algorithm>
+    $<BUILD_INTERFACE:absl::synchronization>
+
     # math libraries
     $<BUILD_INTERFACE:glm::glm>
 
@@ -169,7 +185,7 @@ target_link_libraries(lyra-engine PUBLIC
 )
 
 # not directly exposed to user
-target_link_libraries(lyra-engine PRIVATE boxer::boxer fmt::fmt-header-only)
+target_link_libraries(lyra-engine PRIVATE boxer::boxer)
 
 # include directories
 # cmake install target requires relative path.
