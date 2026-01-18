@@ -52,7 +52,7 @@ D3D12Tlas::D3D12Tlas(const GPUTlasDescriptor& desc)
     storage_buffer_desc.size            = this->sizes.ResultDataMaxSizeInBytes;
     storage_buffer_desc.usage           = GPUBufferUsage::STORAGE;
     storage_buffer_desc.virtual_address = true;
-    storage                             = D3D12Buffer(storage_buffer_desc);
+    storage                             = D3D12Buffer(storage_buffer_desc, D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE);
     tlas                                = storage.buffer;
 
     if (desc.label)

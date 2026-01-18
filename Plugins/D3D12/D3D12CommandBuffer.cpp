@@ -690,7 +690,25 @@ void cmd::write_timestamp(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle q
 
 void cmd::write_blas_properties(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle query_set, GPUSize32 query_index, GPUBlasHandle blas)
 {
-    assert(!!!"cmd::write_blas_properties is not implemented!");
+    auto  rhi = get_rhi();
+    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto& qry = fetch_resource(rhi->query_sets, query_set);
+    auto& b   = fetch_resource(rhi->blases, blas);
+
+    ID3D12GraphicsCommandList4* cmd4 = nullptr;
+    if (FAILED(cmd.command_buffer->QueryInterface(IID_PPV_ARGS(&cmd4)))) {
+        get_logger()->error("command buffer does not support ray tracing!");
+        return;
+    }
+
+    D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC postbuild_info = {};
+    postbuild_info.DestBuffer                                                  = qry.buffer.buffer->GetGPUVirtualAddress() + query_index * sizeof(uint64_t);
+    postbuild_info.InfoType                                                    = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_COMPACTED_SIZE;
+
+    D3D12_GPU_VIRTUAL_ADDRESS src_blas_address = b.blas->GetGPUVirtualAddress();
+    cmd4->EmitRaytracingAccelerationStructurePostbuildInfo(&postbuild_info, 1, &src_blas_address);
+
+    cmd4->Release();
 }
 
 void cmd::resolve_query_set(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle query_set, GPUSize32 first_query, GPUSize32 query_count, GPUBufferHandle destination, GPUSize64 destination_offset)
@@ -699,6 +717,11 @@ void cmd::resolve_query_set(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle
     auto& cmd = rhi->current_frame().command(cmdbuffer);
     auto& qry = fetch_resource(rhi->query_sets, query_set);
     auto& dst = fetch_resource(rhi->buffers, destination);
+
+    if (qry.type == GPUQueryType::BLAS_PROPERTIES) {
+        cmd.command_buffer->CopyBufferRegion(dst.buffer, destination_offset, qry.buffer.buffer, first_query * sizeof(uint64_t), query_count * sizeof(uint64_t));
+        return;
+    }
 
     D3D12_QUERY_TYPE type;
     switch (qry.type) {
@@ -751,13 +774,40 @@ void cmd::buffer_barrier(GPUCommandEncoderHandle cmdbuffer, GPUBufferBarriers ba
         d3d12_barriers.emplace_back();
 
         auto& d3d12_barrier = d3d12_barriers.back();
+        auto& buf           = fetch_resource(rhi->buffers, barrier.buffer);
+
+        auto access_before = d3d12enum(barrier.src_access);
+        auto access_after  = d3d12enum(barrier.dst_access);
+
+        // fixup for scratch buffers (not AS)
+        // scratch buffers are standard UAV buffers, but validation layer treats them strictly.
+        // if the user requests AS_READ/WRITE on a non-AS buffer, we map it to UAV access.
+        auto desc = buf.buffer->GetDesc();
+        if ((desc.Flags & D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE) == 0) {
+            if (access_before & D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_WRITE) {
+                access_before &= ~D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_WRITE;
+                access_before |= D3D12_BARRIER_ACCESS_UNORDERED_ACCESS;
+            }
+            if (access_before & D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_READ) {
+                access_before &= ~D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_READ;
+                access_before |= D3D12_BARRIER_ACCESS_UNORDERED_ACCESS;
+            }
+            if (access_after & D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_WRITE) {
+                access_after &= ~D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_WRITE;
+                access_after |= D3D12_BARRIER_ACCESS_UNORDERED_ACCESS;
+            }
+            if (access_after & D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_READ) {
+                access_after &= ~D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_READ;
+                access_after |= D3D12_BARRIER_ACCESS_UNORDERED_ACCESS;
+            }
+        }
 
         // setup enhanced buffer barrier
         d3d12_barrier.SyncBefore   = d3d12enum(barrier.src_sync);
         d3d12_barrier.SyncAfter    = d3d12enum(barrier.dst_sync);
-        d3d12_barrier.AccessBefore = d3d12enum(barrier.src_access);
-        d3d12_barrier.AccessAfter  = d3d12enum(barrier.dst_access);
-        d3d12_barrier.pResource    = fetch_resource(rhi->buffers, barrier.buffer).buffer;
+        d3d12_barrier.AccessBefore = access_before;
+        d3d12_barrier.AccessAfter  = access_after;
+        d3d12_barrier.pResource    = buf.buffer;
         d3d12_barrier.Offset       = barrier.offset;
         d3d12_barrier.Size         = barrier.size;
     }
@@ -825,11 +875,10 @@ void cmd::build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
         return;
     }
 
-    auto&                     scratch      = fetch_resource(rhi->buffers, scratch_buffer);
-    D3D12_GPU_VIRTUAL_ADDRESS scratch_base = scratch.buffer->GetGPUVirtualAddress();
+    auto& scratch      = fetch_resource(rhi->buffers, scratch_buffer);
+    auto  scratch_base = scratch.buffer->GetGPUVirtualAddress();
 
     uint64_t current_scratch_offset = 0;
-
     for (const auto& entry : entries) {
         auto& tlas = fetch_resource(rhi->tlases, entry.tlas);
 
@@ -840,11 +889,14 @@ void cmd::build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
             auto& src = entry.instances[i];
             auto& dst = instance_descs[i];
 
-            memcpy(dst.Transform, src.transform, sizeof(float) * 12);
             dst.InstanceID                          = src.custom_data;
             dst.InstanceMask                        = src.mask;
             dst.InstanceContributionToHitGroupIndex = 0;                                   // not supported for now
             dst.Flags                               = D3D12_RAYTRACING_INSTANCE_FLAG_NONE; // not supported for now
+
+            // D3D12 uses 3x4 row major transform matrix
+            // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ns-d3d12-d3d12_raytracing_instance_desc
+            memcpy(dst.Transform, src.transform, sizeof(float) * 12);
 
             auto& blas                = fetch_resource(rhi->blases, src.blas);
             dst.AccelerationStructure = blas.blas->GetGPUVirtualAddress();
@@ -857,8 +909,11 @@ void cmd::build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
 
         // transition instances buffer to build input
         D3D12_RESOURCE_BARRIER instance_barrier = {};
-        instance_barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-        instance_barrier.UAV.pResource          = tlas.instances.buffer;
+        instance_barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        instance_barrier.Transition.pResource   = tlas.instances.buffer;
+        instance_barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+        instance_barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+        instance_barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
         cmd4->ResourceBarrier(1, &instance_barrier);
 
         // setup build desc
@@ -896,10 +951,10 @@ void cmd::build_blases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
         return;
     }
 
-    auto&                     scratch                = fetch_resource(rhi->buffers, scratch_buffer);
-    D3D12_GPU_VIRTUAL_ADDRESS scratch_base           = scratch.buffer->GetGPUVirtualAddress();
-    uint64_t                  current_scratch_offset = 0;
+    auto& scratch      = fetch_resource(rhi->buffers, scratch_buffer);
+    auto  scratch_base = scratch.buffer->GetGPUVirtualAddress();
 
+    uint64_t current_scratch_offset = 0;
     for (const auto& entry : entries) {
         auto& blas = fetch_resource(rhi->blases, entry.blas);
 
@@ -940,8 +995,8 @@ void cmd::build_blases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
         D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC build_desc = {};
         build_desc.DestAccelerationStructureData                      = blas.storage.buffer->GetGPUVirtualAddress();
         build_desc.Inputs                                             = blas.build;
-
-        build_desc.ScratchAccelerationStructureData = scratch_base + current_scratch_offset;
+        build_desc.Inputs.pGeometryDescs                              = blas.geometries.data();
+        build_desc.ScratchAccelerationStructureData                   = scratch_base + current_scratch_offset;
 
         // ensure alignment
         current_scratch_offset += (blas.sizes.ScratchDataSizeInBytes + 255) & ~255;

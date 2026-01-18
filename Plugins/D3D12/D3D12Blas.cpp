@@ -8,7 +8,7 @@ D3D12Blas::D3D12Blas()
     // do nothing
 }
 
-D3D12Blas::D3D12Blas(const GPUBlasDescriptor& desc, const Vector<GPUBlasGeometrySizeDescriptor>& sizes)
+D3D12Blas::D3D12Blas(const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescriptors sizes)
 {
     auto rhi = get_rhi();
 
@@ -48,11 +48,12 @@ D3D12Blas::D3D12Blas(const GPUBlasDescriptor& desc, const Vector<GPUBlasGeometry
     device5->GetRaytracingAccelerationStructurePrebuildInfo(&build, &this->sizes);
 
     // create buffer to store blas
+    auto additional             = D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE;
     auto buffer_desc            = GPUBufferDescriptor{};
     buffer_desc.usage           = GPUBufferUsage::STORAGE;
     buffer_desc.size            = this->sizes.ResultDataMaxSizeInBytes;
     buffer_desc.virtual_address = true;
-    storage                     = D3D12Buffer(buffer_desc);
+    storage                     = D3D12Buffer(buffer_desc, additional);
     blas                        = storage.buffer;
 
     // get resource device address

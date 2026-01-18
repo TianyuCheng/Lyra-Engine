@@ -739,11 +739,7 @@ void cmd::build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
             // copy transform matrix over
             // Vulkan uses 3x4 row-major transformation matrix
             // https://docs.vulkan.org/refpages/latest/refpages/source/VkTransformMatrixKHR.html
-            // but our API uses 4x3 column major transform matrix (aligns with glm::mat4).
-            // Therefore we need to transpose it while copying.
-            for (int r = 0; r < 3; r++)
-                for (int c = 0; c < 4; c++)
-                    address->transform.matrix[r][c] = instance.transform[c][r];
+            memcpy(address->transform.matrix, instance.transform, sizeof(float) * 12);
 
             address++;
         }

@@ -183,7 +183,7 @@ struct D3D12Buffer
 
     // implementation in D3D12Buffer.cpp
     explicit D3D12Buffer();
-    explicit D3D12Buffer(const GPUBufferDescriptor& desc);
+    explicit D3D12Buffer(const GPUBufferDescriptor& desc, D3D12_RESOURCE_FLAGS additional_flags = D3D12_RESOURCE_FLAG_NONE);
 
     void map(GPUSize64 offset = 0, GPUSize64 size = 0);
     void unmap();
@@ -397,6 +397,7 @@ struct D3D12BindGroupLayout
     void create_buffer_descriptor(D3D12BindGroupHeap& heap, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
     void create_buffer_cbv_descriptor(D3D12BindGroupHeap& heap, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
     void create_buffer_uav_descriptor(D3D12BindGroupHeap& heap, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
+    void create_bvh_descriptor(D3D12BindGroupHeap& heap, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
 };
 
 struct D3D12PipelineLayout
@@ -494,7 +495,7 @@ struct D3D12Blas
 
     // implementation in D3D12Blas.cpp
     explicit D3D12Blas();
-    explicit D3D12Blas(const GPUBlasDescriptor& desc, const Vector<GPUBlasGeometrySizeDescriptor>& sizes);
+    explicit D3D12Blas(const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescriptors sizes);
 
     void destroy();
 
@@ -506,13 +507,15 @@ struct D3D12QuerySet
     ID3D12QueryHeap* pool = nullptr;
     GPUQueryType     type = GPUQueryType::TIMESTAMP;
 
+    D3D12Buffer buffer;
+
     // implementation in D3D12QuerySet.cpp
     explicit D3D12QuerySet();
     explicit D3D12QuerySet(const GPUQuerySetDescriptor& desc);
 
     void destroy();
 
-    bool valid() const { return pool != nullptr; }
+    bool valid() const { return pool != nullptr || buffer.valid(); }
 };
 
 struct D3D12CommandBuffer

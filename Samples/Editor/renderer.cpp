@@ -305,9 +305,11 @@ void SampleCubeRenderer::init_pipeline(GPUDevice device, Compiler compiler)
         desc.multisample.alpha_to_coverage_enabled = false;
         desc.multisample.count                     = 1;
         desc.vertex.module                         = vshader;
-        desc.fragment.module                       = fshader;
         desc.vertex.buffers                        = layout;
+        desc.vertex.entry_point                    = "vsmain";
+        desc.fragment.module                       = fshader;
         desc.fragment.targets                      = rstates;
+        desc.fragment.entry_point                  = "fsmain";
         return device.create_render_pipeline(desc);
     });
 }

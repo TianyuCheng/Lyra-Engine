@@ -422,7 +422,7 @@ void D3D12BindGroupLayout::copy_regular_descriptors(D3D12BindGroupHeap& heap, co
             copy_texture_descriptor(heap, entry, bind_info, bind_group);
             break;
         case GPUResourceType::ACCELERATION_STRUCTURE:
-            assert(!!!"BVH is current not supported!");
+            create_bvh_descriptor(heap, entry, bind_info, bind_group);
             break;
         default:
             assert(!!!"Invaid GPUResourceType");
@@ -512,5 +512,20 @@ void D3D12BindGroupLayout::create_buffer_uav_descriptor(D3D12BindGroupHeap& heap
         D3D12_CPU_DESCRIPTOR_HANDLE descriptor = rhi->gpu_default_heap.cpu(bind_group.default_index + bind_info.start);
         rhi->device->CreateUnorderedAccessView(buf.buffer, nullptr, &uav_desc, descriptor);
     }
+}
+
+void D3D12BindGroupLayout::create_bvh_descriptor(D3D12BindGroupHeap& heap, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group)
+{
+    auto  rhi = get_rhi();
+    auto& acc = fetch_resource(rhi->tlases, entry.tlas);
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc          = {};
+    srv_desc.Format                                   = DXGI_FORMAT_UNKNOWN;
+    srv_desc.ViewDimension                            = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+    srv_desc.Shader4ComponentMapping                  = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srv_desc.RaytracingAccelerationStructure.Location = acc.tlas->GetGPUVirtualAddress();
+
+    D3D12_CPU_DESCRIPTOR_HANDLE descriptor = rhi->gpu_default_heap.cpu(bind_group.default_index + bind_info.start);
+    rhi->device->CreateShaderResourceView(nullptr, &srv_desc, descriptor);
 }
 #pragma endregion D3D12BindGroupLayout

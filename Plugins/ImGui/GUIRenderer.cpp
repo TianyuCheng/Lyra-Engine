@@ -1044,8 +1044,10 @@ void GUIRenderer::init_pipeline_data(const GUIDescriptor& descriptor)
         GPURenderPipelineDescriptor desc{};
         desc.label                = "imgui_pipeline";
         desc.layout               = pipeline_data->playout;
+        desc.vertex.entry_point   = "vsmain";
         desc.vertex.buffers       = buffer;
         desc.vertex.module        = pipeline_data->vshader;
+        desc.fragment.entry_point = "fsmain";
         desc.fragment.module      = pipeline_data->fshader;
         desc.fragment.targets     = color_state;
         desc.multisample.count    = 1;

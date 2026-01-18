@@ -20,6 +20,14 @@ D3D12QuerySet::D3D12QuerySet(const GPUQuerySetDescriptor& desc)
         case GPUQueryType::TIMESTAMP:
             heap_desc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
             break;
+        case GPUQueryType::BLAS_PROPERTIES: {
+            auto buffer_desc            = GPUBufferDescriptor{};
+            buffer_desc.size            = desc.count * sizeof(uint64_t);
+            buffer_desc.usage           = GPUBufferUsage::STORAGE | GPUBufferUsage::COPY_SRC;
+            buffer_desc.virtual_address = true;
+            buffer                      = D3D12Buffer(buffer_desc);
+            return;
+        }
         default:
             assert(!"unsupported query type!");
             return;
@@ -35,5 +43,9 @@ void D3D12QuerySet::destroy()
     if (pool != nullptr) {
         pool->Release();
         pool = nullptr;
+    }
+
+    if (buffer.valid()) {
+        buffer.destroy();
     }
 }

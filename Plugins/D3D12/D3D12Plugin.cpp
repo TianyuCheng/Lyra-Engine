@@ -10,8 +10,7 @@ auto get_api_name() -> CString { return "D3D12"; }
 
 bool api::get_surface_extent(GPUSurfaceHandle surface, GPUExtent2D& extent)
 {
-    auto rhi = get_rhi();
-
+    auto  rhi     = get_rhi();
     auto& swp     = fetch_resource(rhi->swapchains, surface);
     extent.width  = swp.extent.width;
     extent.height = swp.extent.height;
@@ -20,8 +19,7 @@ bool api::get_surface_extent(GPUSurfaceHandle surface, GPUExtent2D& extent)
 
 bool api::get_surface_format(GPUSurfaceHandle surface, GPUTextureFormat& format)
 {
-    auto rhi = get_rhi();
-
+    auto  rhi = get_rhi();
     auto& swp = fetch_resource(rhi->swapchains, surface);
     format    = swp.format;
     return true;
@@ -29,8 +27,7 @@ bool api::get_surface_format(GPUSurfaceHandle surface, GPUTextureFormat& format)
 
 uint api::get_surface_frames(GPUSurfaceHandle surface)
 {
-    auto rhi = get_rhi();
-
+    auto  rhi = get_rhi();
     auto& swp = fetch_resource(rhi->swapchains, surface);
     return static_cast<uint>(swp.frames.size());
 }
@@ -97,8 +94,8 @@ void api::get_mapped_range(GPUBufferHandle buffer, MappedBufferRange& range)
 
 bool api::create_sampler(GPUSamplerHandle& sampler, const GPUSamplerDescriptor& desc)
 {
-    auto obj = D3D12Sampler(desc);
     auto rhi = get_rhi();
+    auto obj = D3D12Sampler(desc);
     auto ind = rhi->samplers.add(obj);
 
     sampler = GPUSamplerHandle(ind);
@@ -112,8 +109,8 @@ void api::delete_sampler(GPUSamplerHandle sampler)
 
 bool api::create_texture(GPUTextureHandle& texture, const GPUTextureDescriptor& desc)
 {
-    auto obj = D3D12Texture(desc);
     auto rhi = get_rhi();
+    auto obj = D3D12Texture(desc);
     auto ind = rhi->textures.add(obj);
 
     texture = GPUTextureHandle(ind);
@@ -143,8 +140,8 @@ void api::delete_texture_view(GPUTextureViewHandle handle)
 
 bool api::create_shader_module(GPUShaderModuleHandle& shader, const GPUShaderModuleDescriptor& desc)
 {
-    auto obj = D3D12Shader(desc);
     auto rhi = get_rhi();
+    auto obj = D3D12Shader(desc);
     auto ind = rhi->shaders.add(obj);
 
     shader = GPUShaderModuleHandle(ind);
@@ -158,8 +155,8 @@ void api::delete_shader_module(GPUShaderModuleHandle shader)
 
 bool api::create_fence(GPUFenceHandle& fence)
 {
-    auto obj = D3D12Fence(false);
     auto rhi = get_rhi();
+    auto obj = D3D12Fence(false);
     auto ind = rhi->fences.add(obj);
 
     fence = GPUFenceHandle(ind);
@@ -173,86 +170,64 @@ void api::delete_fence(GPUFenceHandle fence)
 
 bool api::create_blas(GPUBlasHandle& blas, const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescriptors sizes)
 {
-    assert(!!!"api::create_blas(...) is not implemented!");
-    return false;
+    auto rhi = get_rhi();
+    auto obj = D3D12Blas(desc, sizes);
+    auto ind = rhi->blases.add(obj);
 
-    // auto obj = D3D12Blas(desc, sizes);
-    // auto rhi = get_rhi();
-    // auto ind = rhi->blases.add(obj);
-    //
-    // blas = GPUBlasHandle(ind);
-    // return true;
+    blas = GPUBlasHandle(ind);
+    return true;
 }
 
 void api::delete_blas(GPUBlasHandle blas)
 {
-    assert(!!!"api::delete_blas(...) is not implemented!");
-
-    // get_rhi()->blases.remove(blas.value);
+    get_rhi()->blases.remove(blas.value);
 }
 
 bool api::create_tlas(GPUTlasHandle& tlas, const GPUTlasDescriptor& desc)
 {
-    assert(!!!"api::create_tlas(...) is not implemented!");
-    return false;
+    auto rhi = get_rhi();
+    auto obj = D3D12Tlas(desc);
+    auto ind = rhi->tlases.add(obj);
 
-    // auto obj = D3D12Tlas(desc);
-    // auto rhi = get_rhi();
-    // auto ind = rhi->tlases.add(obj);
-    //
-    // tlas = GPUTlasHandle(ind);
-    // return true;
+    tlas = GPUTlasHandle(ind);
+    return true;
 }
 
 void api::delete_tlas(GPUTlasHandle tlas)
 {
-    assert(!!!"api::delete_tlas(...) is not implemented!");
-
-    // get_rhi()->tlases.remove(tlas.value);
+    get_rhi()->tlases.remove(tlas.value);
 }
 
 bool api::get_blas_sizes(GPUBlasHandle blas, GPUBVHSizes& sizes)
 {
-    assert(!!!"api::get_blas_sizes(...) is not implemented!");
-    return false;
-
-    // auto& size_info   = fetch_resource(get_rhi()->blases, blas).sizes;
-    // sizes.bvh_size    = size_info.accelerationStructureSize;
-    // sizes.build_size  = size_info.buildScratchSize;
-    // sizes.update_size = size_info.updateScratchSize;
-    // return true;
+    auto& size_info   = fetch_resource(get_rhi()->blases, blas).sizes;
+    sizes.bvh_size    = static_cast<uint>(size_info.ResultDataMaxSizeInBytes);
+    sizes.build_size  = static_cast<uint>(size_info.ScratchDataSizeInBytes);
+    sizes.update_size = static_cast<uint>(size_info.UpdateScratchDataSizeInBytes);
+    return true;
 }
 
 bool api::get_tlas_sizes(GPUTlasHandle tlas, GPUBVHSizes& sizes)
 {
-    assert(!!!"api::get_tlas_sizes(...) is not implemented!");
-    return false;
-
-    // auto& size_info   = fetch_resource(get_rhi()->tlases, tlas).sizes;
-    // sizes.bvh_size    = size_info.accelerationStructureSize;
-    // sizes.build_size  = size_info.buildScratchSize;
-    // sizes.update_size = size_info.updateScratchSize;
-    // return true;
+    auto& size_info   = fetch_resource(get_rhi()->tlases, tlas).sizes;
+    sizes.bvh_size    = static_cast<uint>(size_info.ResultDataMaxSizeInBytes);
+    sizes.build_size  = static_cast<uint>(size_info.ScratchDataSizeInBytes);
+    sizes.update_size = static_cast<uint>(size_info.UpdateScratchDataSizeInBytes);
+    return true;
 }
 
 bool api::create_query_set(GPUQuerySetHandle& query_set, const GPUQuerySetDescriptor& desc)
 {
-    assert(!!!"api::create_query_set(...) is not implemented!");
-    return false;
+    auto rhi = get_rhi();
+    auto ind = rhi->query_sets.add(D3D12QuerySet(desc));
 
-    // auto obj = D3D12QuerySet(desc);
-    // auto rhi = get_rhi();
-    // auto ind = rhi->query_sets.add(obj);
-    //
-    // query_set = GPUQuerySetHandle(ind);
-    // return true;
+    query_set = GPUQuerySetHandle(ind);
+    return true;
 }
 
 void api::delete_query_set(GPUQuerySetHandle query_set)
 {
-    assert(!!!"api::delete_query_set(...) is not implemented!");
-
-    // get_rhi()->query_sets.remove(query_set.value);
+    get_rhi()->query_sets.remove(query_set.value);
 }
 
 bool api::create_bind_group_heap(GPUBindGroupHeapHandle& heap, const GPUBindGroupHeapDescriptor& desc)
@@ -527,5 +502,7 @@ LYRA_EXPORT auto create() -> RenderAPI
     api.cmd_memory_barrier               = cmd::memory_barrier;
     api.cmd_buffer_barrier               = cmd::buffer_barrier;
     api.cmd_texture_barrier              = cmd::texture_barrier;
+    api.cmd_build_blases                 = cmd::build_blases;
+    api.cmd_build_tlases                 = cmd::build_tlases;
     return api;
 }

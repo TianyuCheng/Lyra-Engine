@@ -157,53 +157,8 @@ D3D12Pipeline::D3D12Pipeline(const GPURenderPipelineDescriptor& desc)
 
 D3D12Pipeline::D3D12Pipeline(const GPURayTracingPipelineDescriptor& desc)
 {
+    get_logger()->error("D3D12 Ray Tracing Pipeline creation is not yet fully implemented due to missing shader information in GPURayTracingPipelineDescriptor.");
     assert(!!!"RayTracingPipeline is currently not supported!");
-
-    // pipeline = nullptr;
-    //
-    // auto rhi = get_rhi();
-    //
-    // ID3D12Device5* device5 = nullptr;
-    // ID3D12Device*  device  = rhi->device;
-    // if (!device || FAILED(device->QueryInterface(IID_PPV_ARGS(&device5)))) {
-    //     get_logger()->error("Creating RayTracingPipeline is not supported!");
-    //     return;
-    // }
-    //
-    // // Ray tracing pipelines use state objects instead of traditional PSOs
-    // D3D12_STATE_OBJECT_DESC state_object_desc = {};
-    // state_object_desc.Type                    = D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE;
-    //
-    // Vector<D3D12_STATE_SUBOBJECT>            subobjects;
-    // Vector<D3D12_RAYTRACING_SHADER_CONFIG>   shader_configs;
-    // Vector<D3D12_RAYTRACING_PIPELINE_CONFIG> pipeline_configs;
-    //
-    // // This is a complex setup that would require detailed implementation
-    // // based on your specific ray tracing pipeline descriptor structure
-    //
-    // // For now, just a placeholder that shows the pattern
-    // D3D12_RAYTRACING_PIPELINE_CONFIG pipeline_config = {};
-    // pipeline_config.MaxTraceRecursionDepth           = desc.max_recursion_depth;
-    //
-    // D3D12_STATE_SUBOBJECT pipeline_config_subobject = {};
-    // pipeline_config_subobject.Type                  = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_PIPELINE_CONFIG;
-    // pipeline_config_subobject.pDesc                 = &pipeline_config;
-    //
-    // subobjects.push_back(pipeline_config_subobject);
-    //
-    // state_object_desc.NumSubobjects = static_cast<UINT>(subobjects.size());
-    // state_object_desc.pSubobjects   = subobjects.data();
-    //
-    // ID3D12StateObject* state_object = nullptr;
-    // HRESULT            hr           = device5->CreateStateObject(&state_object_desc, IID_PPV_ARGS(&state_object));
-    //
-    // if (SUCCEEDED(hr)) {
-    //     // For ray tracing, we store the state object in the pipeline pointer
-    //     // (this requires careful casting when using it)
-    //     pipeline = reinterpret_cast<ID3D12PipelineState*>(state_object);
-    // }
-    //
-    // device5->Release();
 }
 
 void D3D12Pipeline::destroy()

@@ -1,3 +1,5 @@
+import lyra;
+
 struct VertexInput
 {
     float2 pos   : POSITION;

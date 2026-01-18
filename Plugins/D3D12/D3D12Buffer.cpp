@@ -6,7 +6,7 @@ D3D12Buffer::D3D12Buffer()
     // do nothing
 }
 
-D3D12Buffer::D3D12Buffer(const GPUBufferDescriptor& desc)
+D3D12Buffer::D3D12Buffer(const GPUBufferDescriptor& desc, D3D12_RESOURCE_FLAGS additional_flags)
 {
     // figure out correct size
     size_ = desc.size;
@@ -29,7 +29,7 @@ D3D12Buffer::D3D12Buffer(const GPUBufferDescriptor& desc)
     resource_desc.SampleDesc.Count = 1;
     resource_desc.Layout           = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
     resource_desc.Alignment        = 0;
-    resource_desc.Flags            = infer_buffer_flags(desc.usage);
+    resource_desc.Flags            = infer_buffer_flags(desc.usage) | additional_flags;
 
     auto rhi = get_rhi();
     ThrowIfFailed(rhi->allocator->CreateResource(
