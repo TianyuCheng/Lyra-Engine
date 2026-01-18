@@ -214,8 +214,9 @@ Geometry Geometry::create_cube()
         auto desc               = GPUBufferDescriptor{};
         desc.label              = "vertex_buffer";
         desc.size               = sizeof(Vertex) * 24;
-        desc.usage              = GPUBufferUsage::VERTEX | GPUBufferUsage::MAP_WRITE;
+        desc.usage              = GPUBufferUsage::VERTEX | GPUBufferUsage::MAP_WRITE | GPUBufferUsage::BLAS_INPUT;
         desc.mapped_at_creation = true;
+        desc.virtual_address    = true;
         return device.create_buffer(desc);
     });
 
@@ -223,8 +224,9 @@ Geometry Geometry::create_cube()
         auto desc               = GPUBufferDescriptor{};
         desc.label              = "index_buffer";
         desc.size               = sizeof(uint32_t) * 36;
-        desc.usage              = GPUBufferUsage::INDEX | GPUBufferUsage::MAP_WRITE;
+        desc.usage              = GPUBufferUsage::INDEX | GPUBufferUsage::MAP_WRITE | GPUBufferUsage::BLAS_INPUT;
         desc.mapped_at_creation = true;
+        desc.virtual_address    = true;
         return device.create_buffer(desc);
     });
 

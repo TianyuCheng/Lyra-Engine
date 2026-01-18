@@ -292,6 +292,20 @@ GPUCommandBundle GPUDevice::create_command_bundle(const GPUCommandBundleDescript
     return command_bundle;
 }
 
+GPUBVHSizes GPUDevice::get_blas_sizes(GPUBlasHandle blas) const
+{
+    GPUBVHSizes sizes;
+    RHI::api()->get_blas_sizes(blas, sizes);
+    return sizes;
+}
+
+GPUBVHSizes GPUDevice::get_tlas_sizes(GPUTlasHandle tlas) const
+{
+    GPUBVHSizes sizes;
+    RHI::api()->get_tlas_sizes(tlas, sizes);
+    return sizes;
+}
+
 void GPUDevice::wait() const
 {
     RHI::api()->wait_idle();

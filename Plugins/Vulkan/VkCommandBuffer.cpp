@@ -730,14 +730,20 @@ void cmd::build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
         for (auto& instance : entry.instances) {
             auto& blas = fetch_resource(rhi->blases, instance.blas);
 
-            float* src_transform = reinterpret_cast<float*>(instance.transform);
-            float* dst_transform = reinterpret_cast<float*>(address->transform.matrix);
-            std::memcpy(dst_transform, src_transform, 12);
             address->instanceCustomIndex                    = instance.custom_data;
             address->instanceShaderBindingTableRecordOffset = 0; // NOTE: We don't support more complex cases for now.
             address->mask                                   = instance.mask;
             address->flags                                  = blas.build.flags;
             address->accelerationStructureReference         = blas.reference;
+
+            // copy transform matrix over
+            // Vulkan uses 3x4 row-major transformation matrix
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkTransformMatrixKHR.html
+            // but our API uses 4x3 column major transform matrix (aligns with glm::mat4).
+            // Therefore we need to transpose it while copying.
+            for (int r = 0; r < 3; r++)
+                for (int c = 0; c < 4; c++)
+                    address->transform.matrix[r][c] = instance.transform[c][r];
 
             address++;
         }
@@ -851,7 +857,7 @@ void cmd::build_blases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
 
             auto& range           = blas.ranges.at(k);
             range.firstVertex     = src_geometry.first_vertex;
-            range.primitiveCount  = src_geometry.size.vertex_count / 3;
+            range.primitiveCount  = src_geometry.size.index_count / 3;
             range.primitiveOffset = src_geometry.first_index;
             range.transformOffset = 0;
         }

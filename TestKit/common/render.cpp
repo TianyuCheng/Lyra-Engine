@@ -51,7 +51,7 @@ RenderTarget RenderTarget::create(GPUTextureFormat format, uint width, uint heig
     tex_desc.array_layers    = 1;
     tex_desc.mip_level_count = 1;
     tex_desc.sample_count    = samples;
-    tex_desc.usage           = GPUTextureUsage::COPY_SRC | GPUTextureUsage::RENDER_ATTACHMENT;
+    tex_desc.usage           = GPUTextureUsage::COPY_SRC | GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::STORAGE_BINDING;
 
     GPUBufferDescriptor buf_desc{};
     buf_desc.label = "host backbuffer";

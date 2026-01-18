@@ -519,5 +519,7 @@ LYRA_EXPORT auto create() -> RenderAPI
     api.cmd_memory_barrier               = cmd::memory_barrier;
     api.cmd_buffer_barrier               = cmd::buffer_barrier;
     api.cmd_texture_barrier              = cmd::texture_barrier;
+    api.cmd_build_blases                 = cmd::build_blases;
+    api.cmd_build_tlases                 = cmd::build_tlases;
     return api;
 }

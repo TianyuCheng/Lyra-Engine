@@ -458,6 +458,10 @@ namespace lyra
 
         auto create_command_bundle(const GPUCommandBundleDescriptor& descriptor) const -> GPUCommandBundle;
 
+        auto get_blas_sizes(GPUBlasHandle blas) const -> GPUBVHSizes;
+
+        auto get_tlas_sizes(GPUTlasHandle tlas) const -> GPUBVHSizes;
+
         auto wait() const -> void;
 
         auto wait(GPUFence fence) const -> void;

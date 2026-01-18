@@ -2,8 +2,10 @@
 
 struct DescriptorObjects
 {
-    List<VkDescriptorBufferInfo> buffers;
-    List<VkDescriptorImageInfo>  images;
+    List<VkDescriptorBufferInfo>                       buffers;
+    List<VkDescriptorImageInfo>                        images;
+    List<VkWriteDescriptorSetAccelerationStructureKHR> as_writes;
+    List<VkAccelerationStructureKHR>                   as_handles;
 };
 
 void VulkanDescriptorPool::destroy()
@@ -128,8 +130,21 @@ void fill_descriptor_write(VkWriteDescriptorSet& write, DescriptorObjects& objec
             break;
         }
         case GPUResourceType::ACCELERATION_STRUCTURE:
-            assert(!!!"BVH not supported yet!");
+        {
+            objects.as_handles.emplace_front();
+            auto& handle = objects.as_handles.front();
+            handle       = fetch_resource(rhi->tlases, entry.tlas).tlas;
+
+            objects.as_writes.emplace_front();
+            auto& as_write                      = objects.as_writes.front();
+            as_write.sType                      = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+            as_write.pNext                      = nullptr;
+            as_write.accelerationStructureCount = 1;
+            as_write.pAccelerationStructures    = &handle;
+
+            write.pNext = &as_write;
             break;
+        }
     }
 }
 
@@ -169,18 +184,24 @@ VkDescriptorPool create_descriptor_pool(uint max_sets)
 
     // clang-format off
     static HashMap<VkDescriptorType, float> allocations = {
-        { VK_DESCRIPTOR_TYPE_SAMPLER,                1.0f },
-        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,          1.0f },
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1.0f },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1.0f },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1.0f },
-        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         2.0f },
-        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 2.0f },
+        { VK_DESCRIPTOR_TYPE_SAMPLER,                    1.0f },
+        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,              1.0f },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,     1.0f },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,             1.0f },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,     1.0f },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,             2.0f },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,     2.0f },
+        { VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1.0f },
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,              1.0f },
     };
     // clang-format on
 
     Vector<VkDescriptorPoolSize> pool_sizes;
+    pool_sizes.reserve(allocations.size());
     for (const auto& kv : allocations) {
+        if (!rhi->features.raytracing && kv.first == VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR)
+            continue;
+
         auto pool_size            = VkDescriptorPoolSize{};
         pool_size.type            = kv.first;
         pool_size.descriptorCount = static_cast<uint32_t>(max_sets * kv.second);

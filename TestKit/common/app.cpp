@@ -58,12 +58,13 @@ TestApp::TestApp(const TestAppDescriptor& app_desc) : desc(app_desc)
         desc.page_size = 32;
         return device.create_bind_group_heap(desc);
     });
+
+    // initialize render target
+    render_target = RenderTarget::create(get_backbuffer_format(), desc.width, desc.height);
 }
 
 void TestApp::run()
 {
-    render_target = RenderTarget::create(get_backbuffer_format(), desc.width, desc.height);
-
     if (desc.window) {
         run_with_window();
     } else {
@@ -117,6 +118,28 @@ void TestApp::postprocessing(const GPUCommandBuffer& cmd, GPUTextureHandle backb
         cmd.resource_barrier(state_transition(backbuffer, color_attachment_state(), present_src_state()));
     } else {
         cmd.resource_barrier(state_transition(backbuffer, color_attachment_state(), copy_src_state()));
+        cmd.copy_texture_to_buffer(render_target.copy_src(), render_target.copy_dst(), render_target.copy_ext());
+    }
+}
+
+void TestApp::postprocessing_compute(const GPUCommandBuffer& cmd, GPUTextureHandle backbuffer)
+{
+    if (desc.window) {
+        // copy to backbuffer
+        GPUTexelCopyTextureInfo src{};
+        src.texture = render_target.texture;
+        src.aspect  = GPUTextureAspect::COLOR;
+
+        GPUTexelCopyTextureInfo dst{};
+        dst.texture = backbuffer;
+        dst.aspect  = GPUTextureAspect::COLOR;
+
+        cmd.resource_barrier(state_transition(render_target.texture, unordered_access_state(GPUBarrierSync::COMPUTE), copy_src_state()));
+        cmd.resource_barrier(state_transition(backbuffer, undefined_state(), copy_dst_state()));
+        cmd.copy_texture_to_texture(src, dst, render_target.copy_ext());
+        cmd.resource_barrier(state_transition(backbuffer, copy_dst_state(), present_src_state()));
+    } else {
+        cmd.resource_barrier(state_transition(render_target.texture, unordered_access_state(GPUBarrierSync::COMPUTE), copy_src_state()));
         cmd.copy_texture_to_buffer(render_target.copy_src(), render_target.copy_dst(), render_target.copy_ext());
     }
 }

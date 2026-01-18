@@ -451,7 +451,7 @@ namespace lyra
     // NOTE: Non-WebGPU standard because WebGPU does not support raytracing.
     struct GPUTlasInstance
     {
-        float         transform[4][3];
+        float         transform[4][3]; // column major 4x3
         uint32_t      custom_data;
         uint8_t       mask;
         GPUBlasHandle blas;

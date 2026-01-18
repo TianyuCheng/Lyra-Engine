@@ -11,7 +11,7 @@ VulkanBlas::VulkanBlas(const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescrip
 
     ranges.clear();
     geometries.clear();
-    uint32_t max_primitive_count = 0;
+    Vector<uint> max_primitive_counts;
 
     update_mode = desc.update_mode;
 
@@ -26,7 +26,7 @@ VulkanBlas::VulkanBlas(const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescrip
         geometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
         geometry.flags        = VK_GEOMETRY_OPAQUE_BIT_KHR;
 
-        // triangle geometry data
+        // triangle geometry data (will be partially overwritten by cmd::build_blas)
         geometry.geometry.triangles.sType                  = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
         geometry.geometry.triangles.vertexData.hostAddress = nullptr;
         geometry.geometry.triangles.vertexStride           = size_of(vkenum(size.triangles.vertex_format));
@@ -35,7 +35,7 @@ VulkanBlas::VulkanBlas(const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescrip
         geometry.geometry.triangles.indexData.hostAddress  = nullptr;
         geometry.geometry.triangles.indexType              = vkenum(size.triangles.index_format);
 
-        // triangle build range
+        // triangle build range (will be overwritten by cmd::build_blas)
         auto& range           = ranges.back();
         range.primitiveCount  = size.triangles.index_count / 3;
         range.primitiveOffset = 0;
@@ -43,7 +43,7 @@ VulkanBlas::VulkanBlas(const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescrip
         range.transformOffset = 0;
 
         // update max primitive count
-        max_primitive_count = std::max(max_primitive_count, range.primitiveOffset);
+        max_primitive_counts.push_back(range.primitiveCount);
     }
 
     // configure build info
@@ -61,7 +61,7 @@ VulkanBlas::VulkanBlas(const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescrip
     this->sizes.pNext = nullptr;
     rhi->vtable.vkGetAccelerationStructureBuildSizesKHR(rhi->device,
         VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
-        &build, &max_primitive_count, &this->sizes);
+        &build, max_primitive_counts.data(), &this->sizes);
 
     // create buffer to store BLAS
     auto additional             = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR;
@@ -84,6 +84,14 @@ VulkanBlas::VulkanBlas(const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescrip
 
     if (desc.label)
         rhi->set_debug_label(VK_OBJECT_TYPE_ACCELERATION_STRUCTURE_KHR, (uint64_t)blas, desc.label);
+
+    // save the blas address
+    reference = lyra::execute([&]() {
+        VkAccelerationStructureDeviceAddressInfoKHR info{};
+        info.sType                 = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+        info.accelerationStructure = blas;
+        return vkGetAccelerationStructureDeviceAddressKHR(rhi->device, &info);
+    });
 }
 
 void VulkanBlas::destroy()

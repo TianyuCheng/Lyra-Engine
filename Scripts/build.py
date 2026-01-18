@@ -53,6 +53,15 @@ def do_config(args: argparse.Namespace):
     save_config(config)
     command = ["cmake", "--preset", config.generator]
     execute(command)
+    print(f">>> Project configuration complete!")
+    print(f">>> {config}")
+
+def do_switch(args: argparse.Namespace):
+    config = load_config()
+    config.preset = args.preset
+    save_config(config)
+    print(f">>> Project configuration updated!")
+    print(f">>> {config}")
 
 def do_build(args: argparse.Namespace):
     config = load_config()
@@ -75,17 +84,20 @@ def do_test(args: argparse.Namespace):
     env_vars = {}
     if args.target and args.target != "all":
         env_vars["LYRA_TESTKIT_FILTER"] = args.target
-        print("SETTING LYRA_TESTKIT_FILTER", args.target)
     execute(command, env_vars)
 
 def parse_args():
     parser = argparse.ArgumentParser("Lyra Build Helper")
     subparsers = parser.add_subparsers(dest="mode")
 
-    # just use preset
+    # just config preset
     config_parser = subparsers.add_parser("config")
     config_parser.add_argument("generator")
     config_parser.add_argument("preset")
+
+    # just switch mode
+    switch_parser = subparsers.add_parser("switch")
+    switch_parser.add_argument("preset")
 
     # just build target
     build_parser = subparsers.add_parser("build")
@@ -107,6 +119,9 @@ def main():
     try:
         if args.mode == "config":
             do_config(args)
+
+        elif args.mode == "switch":
+            do_switch(args)
 
         elif args.mode == "build":
             do_build(args)

@@ -9,6 +9,9 @@ list:
 config generator preset:
     @{{PYTHON}} Scripts/build.py config {{generator}} {{preset}}
 
+switch preset:
+    @{{PYTHON}} Scripts/build.py switch {{preset}}
+
 build target="all":
     @{{PYTHON}} Scripts/build.py build --target {{target}}
 
@@ -16,6 +19,7 @@ run target="all":
     @{{PYTHON}} Scripts/build.py run --target {{target}}
 
 test target="all":
+    @{{PYTHON}} Scripts/build.py build --target testkit
     @{{PYTHON}} Scripts/build.py test --target {{target}}
 
 [confirm("This will clean all build products! (y/n)")]

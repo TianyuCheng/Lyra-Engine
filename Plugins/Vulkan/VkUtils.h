@@ -496,6 +496,9 @@ struct VulkanRHI
     VmaAllocator       alloc;
     QueueFamilyIndices queues;
 
+    // required features
+    GPUSupportedFeatures features;
+
     // additional properties
     VkPhysicalDeviceProperties  props  = {};
     VkPhysicalDeviceProperties2 props2 = {};

@@ -1,5 +1,5 @@
 // NOTE: This controls whether to dump verbose shader reflection debugging log.
-#define SLANG_DEBUG
+// #define SLANG_DEBUG
 
 #include <iostream>
 #include "SlangUtils.h"
@@ -350,12 +350,13 @@ SlangProfileID CompilerWrapper::select_profile(const CompilerDescriptor& descrip
 {
     switch (descriptor.target) {
         case CompileTarget::MSL:
+            // msl_2_3 is the minimal version supporting ray tracing
             return GLOBAL_SESSION->findProfile("msl_2_4");
         case CompileTarget::DXIL:
-            return GLOBAL_SESSION->findProfile("sm_6_5");
         case CompileTarget::SPIRV:
-        default: // fallback for invalid arguments
-            return GLOBAL_SESSION->findProfile("spirv_1_5");
+        default:
+            // sm_6_6 is the minimal version supporting ray tracing
+            return GLOBAL_SESSION->findProfile("sm_6_6");
     }
 }
 

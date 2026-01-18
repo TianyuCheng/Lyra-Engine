@@ -11,14 +11,11 @@ struct Camera
     float4x4 proj_inv;
 };
 
-struct Params
-{
-    ConstantBuffer<Camera>          camera;
-    RaytracingAccelerationStructure tlas;
-    RWTexture2D<float4>             output;
-};
+ConstantBuffer<Camera> camera;
 
-ParameterBlock<Params> params;
+RaytracingAccelerationStructure tlas;
+
+RWTexture2D<float4> output;
 
 [shader("compute")]
 [numthreads(8, 8, 1)]
@@ -26,7 +23,7 @@ void csmain(uint3 dispatch_id : SV_DispatchThreadID)
 {
     uint2 idx = dispatch_id.xy;
     uint2 dim;
-    params.output.GetDimensions(dim.x, dim.y);
+    output.GetDimensions(dim.x, dim.y);
 
     if (idx.x >= dim.x || idx.y >= dim.y) return;
 
@@ -34,9 +31,9 @@ void csmain(uint3 dispatch_id : SV_DispatchThreadID)
     float2 ndc = uv * 2.0 - 1.0;
     ndc.y = -ndc.y;
 
-    float4 target = mul(float4(ndc, 1.0, 1.0), params.camera.proj_inv);
-    float3 direction = mul(float4(normalize(target.xyz / target.w), 0.0), params.camera.view_inv).xyz;
-    float3 origin = mul(float4(0.0, 0.0, 0.0, 1.0), params.camera.view_inv).xyz;
+    float4 target = mul(float4(ndc, 1.0, 1.0), camera.proj_inv);
+    float3 direction = mul(float4(normalize(target.xyz / target.w), 0.0), camera.view_inv).xyz;
+    float3 origin = mul(float4(0.0, 0.0, 0.0, 1.0), camera.view_inv).xyz;
 
     RayDesc ray;
     ray.Origin = origin;
@@ -45,18 +42,18 @@ void csmain(uint3 dispatch_id : SV_DispatchThreadID)
     ray.TMax = 10000.0;
 
     RayQuery<RAY_FLAG_NONE> q;
-    q.TraceRayInline(params.tlas, RAY_FLAG_NONE, 0xFF, ray);
+    q.TraceRayInline(tlas, RAY_FLAG_NONE, 0xFF, ray);
     q.Proceed();
 
     if (q.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
     {
          float2 bary = q.CommittedTriangleBarycentrics();
          float3 color = float3(1.0 - bary.x - bary.y, bary.x, bary.y);
-         params.output[idx] = float4(color, 1.0);
+         output[idx] = float4(color, 1.0);
     }
     else
     {
-        params.output[idx] = float4(0.0, 0.0, 0.2, 1.0);
+        output[idx] = float4(0.0, 0.0, 0.0, 0.0);
     }
 }
 )""";
@@ -76,8 +73,6 @@ struct RayTracingApp : public TestApp
     GPUBlas               blas;
     GPUTlas               tlas;
     GPUBuffer             scratch;
-    GPUTexture            output_tex;
-    GPUTextureView        output_view;
     SimpleComputePipeline pipeline;
     GPUBindGroup          bind_group;
 
@@ -112,7 +107,7 @@ struct RayTracingApp : public TestApp
 
         Camera camera;
         camera.proj = glm::perspective(fovy, aspect, 0.1f, 100.0f);
-        camera.view = glm::lookAt(glm::vec3(0.0, 0.0, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        camera.view = glm::lookAt(glm::vec3(3.0, 3.0, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
         auto mapped           = uniform.ubuffer.get_mapped_range<CameraUniform>();
         mapped.at(0).proj     = camera.proj;
@@ -153,10 +148,15 @@ struct RayTracingApp : public TestApp
 
         // scratch buffer
         scratch = execute([&]() {
+            auto blas_sizes = device.get_blas_sizes(blas);
+            auto tlas_sizes = device.get_tlas_sizes(tlas);
+            auto size       = std::max(blas_sizes.build_size, tlas_sizes.build_size);
+
             GPUBufferDescriptor desc = {};
             desc.label               = "as_scratch";
-            desc.size                = 1024 * 1024 * 4; // 4MB
+            desc.size                = size;
             desc.usage               = GPUBufferUsage::STORAGE;
+            desc.virtual_address     = true;
             return device.create_buffer(desc);
         });
     }
@@ -184,19 +184,6 @@ struct RayTracingApp : public TestApp
     {
         auto& device = RHI::get_current_device();
 
-        GPUTextureDescriptor desc = {};
-        desc.label                = "output";
-        desc.format               = GPUTextureFormat::RGBA8UNORM;
-        desc.size                 = {this->desc.width, this->desc.height, 1};
-        desc.array_layers         = 1;
-        desc.mip_level_count      = 1;
-        desc.sample_count         = 1;
-        desc.dimension            = GPUTextureDimension::x2D;
-        desc.usage                = GPUTextureUsage::STORAGE_BINDING | GPUTextureUsage::COPY_SRC | GPUTextureUsage::TEXTURE_BINDING;
-
-        output_tex  = device.create_texture(desc);
-        output_view = output_tex.create_view();
-
         // create bind group
         Array<GPUBindGroupEntry, 3> entries = {};
 
@@ -210,9 +197,9 @@ struct RayTracingApp : public TestApp
         entries[1].binding = 1;
         entries[1].tlas    = tlas;
 
-        entries[2].type    = GPUResourceType::TEXTURE;
+        entries[2].type    = GPUResourceType::STORAGE_TEXTURE;
         entries[2].binding = 2;
-        entries[2].texture = output_view;
+        entries[2].texture = render_target.view;
 
         GPUBindGroupDescriptor bg_desc = {};
         bg_desc.layout                 = pipeline.blayouts.at(0);
@@ -245,28 +232,29 @@ struct RayTracingApp : public TestApp
         tri.index_buffer            = geometry.ibuffer;
         tri.first_index             = 0;
 
-        Vector<GPUBlasTriangleGeometry> tris;
-        tris.push_back(tri);
-
         GPUBlasBuildEntry blas_entry    = {};
         blas_entry.blas                 = blas;
         blas_entry.geometries.type      = GPUBlasType::TRIANGLE;
-        blas_entry.geometries.triangles = tris;
+        blas_entry.geometries.triangles = tri;
 
         cmd.build_blases(scratch, blas_entry);
+
+        auto blas_sizes = device.get_blas_sizes(blas);
+        auto tlas_sizes = device.get_tlas_sizes(tlas);
+        auto size       = std::max(blas_sizes.build_size, tlas_sizes.build_size);
 
         // barrier for BLAS build completion
         GPUBufferBarrier barrier = {};
         barrier.buffer           = scratch;
+        barrier.size             = size;
         barrier.src_sync         = GPUBarrierSync::ACCELERATION_STRUCTURE_BUILD;
         barrier.dst_sync         = GPUBarrierSync::ACCELERATION_STRUCTURE_BUILD;
         barrier.src_access       = GPUBarrierAccess::ACCELERATION_STRUCTURE_WRITE;
         barrier.dst_access       = GPUBarrierAccess::ACCELERATION_STRUCTURE_READ;
         cmd.resource_barrier(barrier);
 
-        // build TLAS
+        // build TLAS (with identity matrix 3x4)
         GPUTlasInstance instance = {};
-        // Identity matrix 3x4
         std::memset(instance.transform, 0, sizeof(instance.transform));
         instance.transform[0][0] = 1.0f;
         instance.transform[1][1] = 1.0f;
@@ -291,31 +279,24 @@ struct RayTracingApp : public TestApp
     {
         auto& device = RHI::get_current_device();
         auto  cmd    = execute([&]() {
-            GPUCommandBufferDescriptor desc = {};
-            desc.queue                      = GPUQueueType::DEFAULT;
+            GPUCommandBufferDescriptor desc{};
+            desc.queue = GPUQueueType::DEFAULT;
             return device.create_command_buffer(desc);
         });
 
-        // dispatch Compute
+        if (desc.window) {
+            cmd.wait(backbuffer.available, GPUBarrierSync::COMPUTE);
+            cmd.signal(backbuffer.complete, GPUBarrierSync::COPY);
+        }
+
+        // prepare render target barrier state
+        cmd.resource_barrier(state_transition(render_target.texture, undefined_state(), unordered_access_state(GPUBarrierSync::COMPUTE)));
+
+        // dispatch compute
         cmd.set_pipeline(pipeline.pipeline);
         cmd.set_bind_group(0, bind_group);
         cmd.dispatch_workgroups((desc.width + 7) / 8, (desc.height + 7) / 8, 1);
-
-        // copy to backbuffer
-        GPUTexelCopyTextureInfo src = {};
-        src.texture                 = output_tex;
-        src.aspect                  = GPUTextureAspect::COLOR;
-
-        GPUTexelCopyTextureInfo dst = {};
-        dst.texture                 = backbuffer.texture;
-        dst.aspect                  = GPUTextureAspect::COLOR;
-
-        GPUExtent3D extent = {desc.width, desc.height, 1};
-
-        cmd.resource_barrier(state_transition(output_tex, undefined_state(), copy_src_state()));
-        cmd.resource_barrier(state_transition(backbuffer.texture, undefined_state(), copy_dst_state()));
-        cmd.copy_texture_to_texture(src, dst, extent);
-        cmd.resource_barrier(state_transition(backbuffer.texture, copy_dst_state(), present_src_state()));
+        postprocessing_compute(cmd, backbuffer.texture);
         cmd.submit();
     }
 };
@@ -325,7 +306,7 @@ TEST_CASE("rhi::vulkan::ray_tracing" * doctest::description("Basic ray tracing u
 {
     TestAppDescriptor desc{};
     desc.name              = "vulkan";
-    desc.window            = true;
+    desc.window            = false;
     desc.backend           = RHIBackend::VULKAN;
     desc.width             = 640;
     desc.height            = 480;

@@ -119,9 +119,13 @@ def run_rhi_tests(args, buckets):
             print("::".join(variant["components"]))
             full_name = variant["name"]
             backend = variant["components"][1]
-            subprocess.check_call([args.executable, f"-tc={full_name}"], cwd=directory)
-            test_result = os.path.join(directory, f"{backend}.png")
-            results[test_name][backend] = test_result
+            try:
+                subprocess.check_call([args.executable, f"-tc={full_name}"], cwd=directory)
+            except subprocess.CalledProcessError:
+                print(f"Failed to run test: {full_name}")
+            finally:
+                test_result = os.path.join(directory, f"{backend}.png")
+                results[test_name][backend] = test_result
 
     return results
 

@@ -28,6 +28,7 @@ struct TestApp
     void run_with_window();
     void run_without_window();
     void postprocessing(const GPUCommandBuffer& cmd, GPUTextureHandle backbuffer);
+    void postprocessing_compute(const GPUCommandBuffer& cmd, GPUTextureHandle backbuffer);
     auto get_backbuffer_format() const -> GPUTextureFormat;
 
     TestAppDescriptor       desc;
