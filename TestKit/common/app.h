@@ -31,6 +31,11 @@ struct TestApp
     void postprocessing_compute(const GPUCommandBuffer& cmd, GPUTextureHandle backbuffer);
     auto get_backbuffer_format() const -> GPUTextureFormat;
 
+    // dispatch callbacks
+    void on_update(const Window& window);
+    void on_render(const Window&);
+    void on_close(const Window&);
+
     TestAppDescriptor       desc;
     GPUSurface              swp;
     OwnedResource<Window>   win;

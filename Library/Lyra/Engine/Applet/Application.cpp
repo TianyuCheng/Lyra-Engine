@@ -149,19 +149,19 @@ void Application::init_compiler()
 void Application::bind_events()
 {
     // bind window callbacks
-    wsi->bind<WindowEvent::START>(&Application::init, this);
-    wsi->bind<WindowEvent::UPDATE>(&Application::update, this);
-    wsi->bind<WindowEvent::RENDER>(&Application::render, this);
-    wsi->bind<WindowEvent::RESIZE>(&Application::resize, this);
-    wsi->bind<WindowEvent::CLOSE>(&Application::destroy, this);
+    wsi->bind<WindowEvent::START, &Application::init>(*this);
+    wsi->bind<WindowEvent::UPDATE, &Application::update>(*this);
+    wsi->bind<WindowEvent::RENDER, &Application::render>(*this);
+    wsi->bind<WindowEvent::RESIZE, &Application::resize>(*this);
+    wsi->bind<WindowEvent::CLOSE, &Application::destroy>(*this);
 }
 
-void Application::init()
+void Application::init(const Window&)
 {
     run_callbacks<AppEvent::INIT>();
 }
 
-void Application::update()
+void Application::update(const Window&)
 {
     run_callbacks<AppEvent::UI_PRE>();
     run_callbacks<AppEvent::UI>();
@@ -172,19 +172,19 @@ void Application::update()
     run_callbacks<AppEvent::UPDATE_POST>();
 }
 
-void Application::render()
+void Application::render(const Window&)
 {
     run_callbacks<AppEvent::RENDER_PRE>();
     run_callbacks<AppEvent::RENDER>();
     run_callbacks<AppEvent::RENDER_POST>();
 }
 
-void Application::resize()
+void Application::resize(const Window&)
 {
     run_callbacks<AppEvent::RESIZE>();
 }
 
-void Application::destroy()
+void Application::destroy(const Window&)
 {
     uint  index = static_cast<uint>(AppEvent::DESTROY);
     auto& funcs = callbacks.at(index);

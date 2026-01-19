@@ -70,12 +70,6 @@ namespace lyra
         using arg_type = typename std::tuple_element<N, std::tuple<Args...>>::type;
     };
 
-    // specialization for functors (objects with operator())
-    template <typename T>
-    struct function_traits : function_traits<decltype(&T::operator())>
-    {
-    };
-
 } // namespace lyra
 
 #endif // LYRA_LIBRARY_COMMON_FUNCTION_H

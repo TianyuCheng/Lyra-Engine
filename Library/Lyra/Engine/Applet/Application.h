@@ -129,11 +129,11 @@ namespace lyra
         auto& get_compiler_descriptor() const { return descriptor.slc; }
 
     private:
-        void init();
-        void update();
-        void render();
-        void resize();
-        void destroy();
+        void init(const Window&);
+        void update(const Window&);
+        void render(const Window&);
+        void resize(const Window&);
+        void destroy(const Window&);
 
     private:
         void init_logger();

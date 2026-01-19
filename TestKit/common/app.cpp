@@ -72,23 +72,30 @@ void TestApp::run()
     }
 }
 
+void TestApp::on_update(const Window& window)
+{
+    this->update(window.get_input_state());
+}
+
+void TestApp::on_render(const Window&)
+{
+    auto texture = this->swp.get_current_texture();
+    if (!texture.suboptimal) {
+        render(texture);
+        texture.present();
+    }
+}
+
+void TestApp::on_close(const Window&)
+{
+    RHI::get_current_device().wait();
+}
+
 void TestApp::run_with_window()
 {
-    win->bind<WindowEvent::UPDATE>([&](const Window& window) {
-        this->update(window.get_input_state());
-    });
-
-    win->bind<WindowEvent::RENDER>([&]() {
-        auto texture = this->swp.get_current_texture();
-        if (!texture.suboptimal) {
-            render(texture);
-            texture.present();
-        }
-    });
-    win->bind<WindowEvent::CLOSE>([&]() {
-        RHI::get_current_device().wait();
-    });
-
+    win->bind<WindowEvent::UPDATE, &TestApp::on_update>(*this);
+    win->bind<WindowEvent::RENDER, &TestApp::on_render>(*this);
+    win->bind<WindowEvent::CLOSE, &TestApp::on_close>(*this);
     win->loop();
 }
 

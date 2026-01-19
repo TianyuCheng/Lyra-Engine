@@ -3,15 +3,28 @@
 #ifndef LYRA_LIBRARY_PLUGIN_WSI_UTILS_H
 #define LYRA_LIBRARY_PLUGIN_WSI_UTILS_H
 
-#include <Lyra/Common/Function.h>
 #include <Lyra/Common/BitFlags.h>
+#include <Lyra/Common/Function.h>
+#include <Lyra/Common/Collections.h>
 #include <Lyra/Plugin/WSI/WSIEnums.h>
 
 namespace lyra
 {
-    using WindowFlags = BitFlags<WindowFlag>;
+    struct Window;
 
+    using WindowFlags    = BitFlags<WindowFlag>;
     using WindowCallback = Delegate<void(WindowEvent)>;
+    using WindowDelegate = Delegate<void(const Window&)>;
+
+    struct WindowCallbacks
+    {
+        Vector<WindowDelegate> start;
+        Vector<WindowDelegate> close;
+        Vector<WindowDelegate> timer;
+        Vector<WindowDelegate> update;
+        Vector<WindowDelegate> render;
+        Vector<WindowDelegate> resize;
+    };
 
     struct MonitorInfo
     {

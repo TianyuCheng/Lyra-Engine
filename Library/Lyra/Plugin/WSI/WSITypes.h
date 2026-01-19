@@ -6,7 +6,6 @@
 #include <Lyra/Common/Enums.h>
 #include <Lyra/Common/Pointer.h>
 #include <Lyra/Common/Function.h>
-#include <Lyra/Common/Collections.h>
 #include <Lyra/Plugin/WSI/WSIEnums.h>
 #include <Lyra/Plugin/WSI/WSIDescs.h>
 #include <Lyra/Plugin/WSI/WSIUtils.h>
@@ -18,21 +17,15 @@ namespace lyra
     struct Window;
     struct WindowAPI;
 
-    struct WindowCallbacks
-    {
-        Vector<std::function<void(const Window&)>> start;
-        Vector<std::function<void(const Window&)>> close;
-        Vector<std::function<void(const Window&)>> timer;
-        Vector<std::function<void(const Window&)>> update;
-        Vector<std::function<void(const Window&)>> render;
-        Vector<std::function<void(const Window&)>> resize;
-    };
+    // clang-format off
+    template <typename>   struct is_window_callback                                   : std::false_type {};
+    template <>           struct is_window_callback<void(*)(const Window&)>           : std::true_type {};
+    template <typename C> struct is_window_callback<void (C::*)(const Window&)>       : std::true_type {};
+    template <typename C> struct is_window_callback<void (C::*)(const Window&) const> : std::true_type {};
+    // clang-format on
 
     struct Window
     {
-        using GeneralCallback  = std::function<void()>;
-        using ExplicitCallback = std::function<void(const Window&)>;
-
         friend struct EventLoop;
 
         static auto init(const WindowDescriptor& descriptor) -> OwnedResource<Window>;
@@ -59,30 +52,22 @@ namespace lyra
 
         void get_framebuffer_scale(float& xscale, float& yscale) const;
 
-        template <WindowEvent E, typename F, typename T>
-        void bind(F&& f, T* user)
+        template <WindowEvent E, auto F>
+        std::enable_if_t<is_window_callback<decltype(F)>::value, void> bind()
         {
-            static_assert(function_traits<F>::arity <= 1, "Bound function can at most take 1 argument with type const Window&");
+            auto cb = WindowDelegate::create<F>();
+            return bind<E>(cb);
+        }
 
-            if constexpr (function_traits<F>::arity == 0) {
-                bind<E>([user, f](const Window& window) { return ((*user).*f)(); });
-                return;
-            }
-
-            if constexpr (function_traits<F>::arity == 1) {
-                bind<E>([user, f](const Window& window) { return ((*user).*f)(window); });
-                return;
-            }
+        template <WindowEvent E, auto F, typename Class>
+        std::enable_if_t<is_window_callback<decltype(F)>::value, void> bind(Class& instance)
+        {
+            auto cb = WindowDelegate::create<Class, F>(instance);
+            return bind<E>(cb);
         }
 
         template <WindowEvent E>
-        void bind(GeneralCallback&& f)
-        {
-            bind<E>([f](const Window&) { f(); });
-        }
-
-        template <WindowEvent E>
-        void bind(ExplicitCallback&& f)
+        void bind(WindowDelegate f)
         {
             if constexpr (E == WindowEvent::START) {
                 callbacks.start.push_back(f);
