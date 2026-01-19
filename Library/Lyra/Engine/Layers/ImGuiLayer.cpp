@@ -13,41 +13,41 @@ void ImGuiLayer::bind(Application& app)
     app.get_blackboard().add<GUIRenderer*>(gui.get());
 
     // bind imgui manager events
-    app.bind<AppEvent::INIT>(&ImGuiLayer::theme, this);
-    app.bind<AppEvent::RESIZE>(&ImGuiLayer::resize, this);
-    app.bind<AppEvent::UPDATE>(&ImGuiLayer::update, this);
-    app.bind<AppEvent::UPDATE_PRE>(&ImGuiLayer::pre_update, this);
-    app.bind<AppEvent::UPDATE_POST>(&ImGuiLayer::post_update, this);
-    app.bind<AppEvent::RENDER_POST>(&ImGuiLayer::render, this);
+    app.bind<AppEvent::INIT, &ImGuiLayer::theme>(*this);
+    app.bind<AppEvent::RESIZE, &ImGuiLayer::resize>(*this);
+    app.bind<AppEvent::UPDATE, &ImGuiLayer::update>(*this);
+    app.bind<AppEvent::UPDATE_PRE, &ImGuiLayer::pre_update>(*this);
+    app.bind<AppEvent::UPDATE_POST, &ImGuiLayer::post_update>(*this);
+    app.bind<AppEvent::RENDER_POST, &ImGuiLayer::render>(*this);
 }
 
-void ImGuiLayer::update()
+void ImGuiLayer::update(Blackboard&)
 {
     gui->update();
 }
 
-void ImGuiLayer::pre_update()
+void ImGuiLayer::pre_update(Blackboard&)
 {
     gui->new_frame();
 }
 
-void ImGuiLayer::post_update()
+void ImGuiLayer::post_update(Blackboard&)
 {
     gui->end_frame();
 }
 
-void ImGuiLayer::render()
+void ImGuiLayer::render(Blackboard&)
 {
     if (descriptor.viewports)
         gui->render_side_viewports();
 }
 
-void ImGuiLayer::resize()
+void ImGuiLayer::resize(Blackboard&)
 {
     gui->resize();
 }
 
-void ImGuiLayer::theme()
+void ImGuiLayer::theme(Blackboard&)
 {
     ImGuiStyle& style  = ImGui::GetStyle();
     ImVec4*     colors = style.Colors;

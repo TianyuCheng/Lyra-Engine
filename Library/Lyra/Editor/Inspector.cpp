@@ -1,6 +1,6 @@
 #include <Lyra/Common/GUI.h>
-#include <Lyra/Common/Logger.h>
 #include <Lyra/Editor/Icons.h>
+#include <Lyra/Common/Logger.h>
 #include <Lyra/Editor/Colors.h>
 #include <Lyra/Editor/Layout.h>
 #include <Lyra/Editor/Inspector.h>
@@ -16,7 +16,7 @@ Inspector::Inspector()
 void Inspector::bind(Application& app)
 {
     // bind layout manager events
-    app.bind<AppEvent::UPDATE>(&Inspector::update, this);
+    app.bind<AppEvent::UPDATE, &Inspector::update>(*this);
 }
 
 void Inspector::update(Blackboard& blackboard)

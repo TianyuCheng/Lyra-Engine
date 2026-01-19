@@ -55,9 +55,9 @@ void SampleCubeRenderer::bind(Application& app)
 {
     app.get_blackboard().add<SampleCubeRenderer*>(this);
 
-    app.bind<AppEvent::INIT>(&SampleCubeRenderer::init, this);
-    app.bind<AppEvent::UPDATE>(&SampleCubeRenderer::update, this);
-    app.bind<AppEvent::DESTROY>(&SampleCubeRenderer::destroy, this);
+    app.bind<AppEvent::INIT, &SampleCubeRenderer::init>(*this);
+    app.bind<AppEvent::UPDATE, &SampleCubeRenderer::update>(*this);
+    app.bind<AppEvent::DESTROY, &SampleCubeRenderer::destroy>(*this);
 }
 
 void SampleCubeRenderer::render(const Backbuffer& backbuffer, GPUDevice device, GPUCommandBuffer command)

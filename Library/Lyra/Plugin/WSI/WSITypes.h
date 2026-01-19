@@ -19,9 +19,9 @@ namespace lyra
 
     // clang-format off
     template <typename>   struct is_window_callback                                   : std::false_type {};
-    template <>           struct is_window_callback<void(*)(const Window&)>           : std::true_type {};
-    template <typename C> struct is_window_callback<void (C::*)(const Window&)>       : std::true_type {};
-    template <typename C> struct is_window_callback<void (C::*)(const Window&) const> : std::true_type {};
+    template <>           struct is_window_callback<void(*)(const Window&)>           : std::true_type  {};
+    template <typename C> struct is_window_callback<void (C::*)(const Window&)>       : std::true_type  {};
+    template <typename C> struct is_window_callback<void (C::*)(const Window&) const> : std::true_type  {};
     // clang-format on
 
     struct Window

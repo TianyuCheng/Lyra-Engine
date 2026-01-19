@@ -17,7 +17,7 @@ namespace lyra
 
         void bind(Application& app);
 
-        void update();
+        void update(Blackboard&);
 
     private:
         AssetServer ams;

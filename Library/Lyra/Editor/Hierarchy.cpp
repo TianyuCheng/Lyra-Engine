@@ -16,7 +16,7 @@ Hierarchy::Hierarchy()
 void Hierarchy::bind(Application& app)
 {
     // bind layout manager events
-    app.bind<AppEvent::UPDATE>(&Hierarchy::update, this);
+    app.bind<AppEvent::UPDATE, &Hierarchy::update>(*this);
 }
 
 void Hierarchy::update(Blackboard& blackboard)

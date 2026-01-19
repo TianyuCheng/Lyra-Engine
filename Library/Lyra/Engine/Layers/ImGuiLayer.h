@@ -17,17 +17,17 @@ namespace lyra
 
         void bind(Application& app);
 
-        void update();
+        void update(Blackboard&);
 
-        void pre_update();
+        void pre_update(Blackboard&);
 
-        void post_update();
+        void post_update(Blackboard&);
 
-        void render();
+        void render(Blackboard&);
 
-        void resize();
+        void resize(Blackboard&);
 
-        void theme();
+        void theme(Blackboard&);
 
         // provide a way to retrieve the raw ImGuiContext
         FORCE_INLINE auto context() -> ImGuiContext*

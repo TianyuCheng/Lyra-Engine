@@ -13,10 +13,10 @@ void AssetLayer::bind(Application& app)
     app.get_blackboard().add<AssetServer*>(&ams);
 
     // bind asset manager events
-    app.bind<AppEvent::UPDATE>(&AssetLayer::update, this);
+    app.bind<AppEvent::UPDATE, &AssetLayer::update>(*this);
 }
 
-void AssetLayer::update()
+void AssetLayer::update(Blackboard&)
 {
     // do nothing for now,
     // we will do some asset event polling later

@@ -21,7 +21,7 @@ Files::Files(const Path& root)
 void Files::bind(Application& app)
 {
     // bind layout manager events
-    app.bind<AppEvent::UPDATE>(&Files::update, this);
+    app.bind<AppEvent::UPDATE, &Files::update>(*this);
 
     // initial data
     update_directory(root, true);

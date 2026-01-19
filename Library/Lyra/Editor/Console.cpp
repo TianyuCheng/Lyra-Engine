@@ -19,7 +19,7 @@ Console::Console(size_t capacity)
 void Console::bind(Application& app)
 {
     // bind layout manager events
-    app.bind<AppEvent::UPDATE>(&Console::update, this);
+    app.bind<AppEvent::UPDATE, &Console::update>(*this);
 }
 
 void Console::update(Blackboard& blackboard)

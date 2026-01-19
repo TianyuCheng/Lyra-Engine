@@ -20,7 +20,7 @@ void SceneView::bind(Application& app)
     app.get_blackboard().add<SceneView*>(this);
 
     // bind layout manager events
-    app.bind<AppEvent::UPDATE>(&SceneView::update, this);
+    app.bind<AppEvent::UPDATE, &SceneView::update>(*this);
 
     // create canvas frames for GameView
     canvas.init(app.get_graphics_descriptor().frames);

@@ -195,8 +195,8 @@ int main(int argc, const char* argv[])
     app->bind<SampleCubeRenderer>(*renderer);
 
     // bind additional systems
-    app->bind<AppEvent::UPDATE>(imgui_update);
-    app->bind<AppEvent::RENDER>(imgui_render);
+    app->bind<AppEvent::UPDATE, &imgui_update>();
+    app->bind<AppEvent::RENDER, &imgui_render>();
 
     // event loop
     app->run();

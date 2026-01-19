@@ -15,6 +15,13 @@ namespace lyra
 {
     using AppWindowDescriptor = WindowDescriptor;
 
+    // clang-format off
+    template <typename>   struct is_app_callback                                 : std::false_type {};
+    template <>           struct is_app_callback<void(*)(Blackboard&)>           : std::true_type  {};
+    template <typename C> struct is_app_callback<void (C::*)(Blackboard&)>       : std::true_type  {};
+    template <typename C> struct is_app_callback<void (C::*)(Blackboard&) const> : std::true_type  {};
+    // clang-format on
+
     enum struct AppEvent : uint
     {
         INIT,
@@ -80,7 +87,7 @@ namespace lyra
         static constexpr size_t STAGE_COUNT = magic_enum::enum_count<AppEvent>();
 
     public:
-        using Callback  = std::function<void(Blackboard&)>;
+        using Callback  = Delegate<void(Blackboard&)>;
         using Callbacks = Vector<Callback>;
 
         explicit Application(const AppDescriptor& descriptor);
@@ -99,26 +106,25 @@ namespace lyra
 
         // bind individual functions that will run with application loop
         template <AppEvent E>
-        void bind(Callback&& callback)
+        void bind(Callback callback)
         {
             callbacks.at(static_cast<uint>(E)).push_back(callback);
         }
 
-        // bind class member function with class instance
-        template <AppEvent E, typename F, typename T>
-        void bind(F&& f, T* user)
+        // bind class member function with free function
+        template <AppEvent E, auto F>
+        std::enable_if_t<is_app_callback<decltype(F)>::value, void> bind()
         {
-            static_assert(function_traits<F>::arity <= 1, "Bound function can at most take 1 argument with type Blackboard&");
+            auto cb = Callback::create<F>();
+            return bind<E>(cb);
+        }
 
-            if constexpr (function_traits<F>::arity == 0) {
-                bind<E>([user, f](Blackboard&) { return ((*user).*f)(); });
-                return;
-            }
-
-            if constexpr (function_traits<F>::arity == 1) {
-                bind<E>([user, f](Blackboard& blackboard) { return ((*user).*f)(blackboard); });
-                return;
-            }
+        // bind class member function with class instance
+        template <AppEvent E, auto F, typename Class>
+        std::enable_if_t<is_app_callback<decltype(F)>::value, void> bind(Class& instance)
+        {
+            auto cb = Callback::create<Class, F>(instance);
+            return bind<E>(cb);
         }
 
         auto& get_blackboard() { return blackboard; }
