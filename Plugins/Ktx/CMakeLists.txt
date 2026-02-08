@@ -9,4 +9,6 @@ target_sources(lyra-ktx PRIVATE
 
 find_package(ktx REQUIRED)
 find_package(VulkanHeaders REQUIRED)
+target_link_libraries(lyra-ktx PRIVATE lyra::assets)
+target_link_libraries(lyra-ktx PRIVATE lyra::render)
 target_link_libraries(lyra-ktx PRIVATE KTX::ktx Vulkan::Headers)

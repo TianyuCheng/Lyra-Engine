@@ -1,7 +1,7 @@
 // global module headers
 #include <Lyra/Common/String.h>
 #include <Lyra/Common/Plugin.h>
-#include <Lyra/Plugin/GUI/GUIAPI.h>
+#include <Lyra/UICore/GUIAPI.h>
 
 // local plugin header(s)
 #include "GUIRenderer.h"
@@ -90,9 +90,9 @@ LYRA_EXPORT auto cleanup() -> void
     // do nothing
 }
 
-LYRA_EXPORT auto create() -> GUIRenderAPI
+LYRA_EXPORT auto create() -> GUIAPI
 {
-    auto api                  = GUIRenderAPI{};
+    auto api                  = GUIAPI{};
     api.get_api_name          = get_api_name;
     api.create_gui            = create_gui;
     api.delete_gui            = delete_gui;

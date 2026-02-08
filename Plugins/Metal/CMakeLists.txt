@@ -34,6 +34,7 @@ target_sources(lyra-metal PRIVATE
 )
 
 # link Metal frameworks
+target_link_libraries(lyra-metal PRIVATE lyra::render)
 target_link_libraries(lyra-metal PRIVATE
   ${METAL_LIBRARY}
   ${FOUNDATION_LIBRARY}

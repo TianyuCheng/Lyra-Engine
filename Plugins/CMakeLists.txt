@@ -6,7 +6,7 @@ add_subdirectory(Glfw)
 #--------------------------------
 add_subdirectory(Slang)
 
-# guikit plugins
+# editor plugins
 #--------------------------------
 add_subdirectory(ImGui)
 

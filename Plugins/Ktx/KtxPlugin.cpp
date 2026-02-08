@@ -1,7 +1,7 @@
 #include <Lyra/Common/Macros.h>
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Common/Plugin.h>
-#include <Lyra/Plugin/AMS/AMSAPI.h>
+#include <Lyra/Assets/AMSAPI.h>
 
 #include "KtxAsset.h"
 

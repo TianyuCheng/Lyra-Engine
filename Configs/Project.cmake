@@ -2,7 +2,6 @@ include(GNUInstallDirs)
 
 set(PROJECT_NAME "lyra")
 set(PROJECT_PREFIX "")
-set(PROJECT_COMMON_LIB "lyra::engine")
 
 # specify the binary directory
 set(LIBRARY_BIN_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -31,9 +30,38 @@ macro(lyra_shared NAME)
 
     # IDE target folders
     set_target_properties(${TARGET_NAME} PROPERTIES PREFIX "")
-    set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Plugins")
+    set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Library")
 
     # install shared library
+    install(
+        TARGETS ${TARGET_NAME}
+        EXPORT ${TARGET_NAME}-targets
+        DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+endmacro()
+
+# define a macro for interface library
+macro(lyra_header NAME)
+    set(TARGET_NAME    "${PROJECT_NAME}-${NAME}")
+    set(NAMESPACE_NAME "${PROJECT_NAME}::${NAME}")
+
+    # add library target
+    add_library(${TARGET_NAME} INTERFACE)
+
+    # change the dll path (to allow easier linking)
+    set_target_properties(${TARGET_NAME} PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${LIBRARY_BIN_DIRECTORY}/
+        LIBRARY_OUTPUT_DIRECTORY ${LIBRARY_BIN_DIRECTORY}/
+        ARCHIVE_OUTPUT_DIRECTORY ${LIBRARY_BIN_DIRECTORY}/)
+
+    # re-export target with namespace
+    add_library(${NAMESPACE_NAME} ALIAS ${TARGET_NAME})
+
+    # IDE target folders
+    set_target_properties(${TARGET_NAME} PROPERTIES PREFIX "")
+    set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Library")
+
+    # install header library
     install(
         TARGETS ${TARGET_NAME}
         EXPORT ${TARGET_NAME}-targets
@@ -61,7 +89,7 @@ macro(lyra_plugin NAME)
     # IDE target folders
     set_target_properties(${TARGET_NAME} PROPERTIES PREFIX "")
     set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Plugins")
-    target_link_libraries(${TARGET_NAME} PUBLIC ${PROJECT_COMMON_LIB})
+    target_link_libraries(${TARGET_NAME} PUBLIC lyra::common)
 
 endmacro()
 
@@ -84,5 +112,6 @@ macro(lyra_sample NAME)
 
     set_target_properties(${TARGET_NAME} PROPERTIES PREFIX "")
     set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Samples")
-    target_link_libraries(${TARGET_NAME} PUBLIC ${PROJECT_COMMON_LIB})
+    target_link_libraries(${TARGET_NAME} PUBLIC lyra::common)
+    target_link_libraries(${TARGET_NAME} PUBLIC lyra::engine)
 endmacro()

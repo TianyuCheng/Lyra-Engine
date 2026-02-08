@@ -3,8 +3,8 @@
 #include <Lyra/Common/Assert.h>
 #include <Lyra/Common/Pointer.h>
 #include <Lyra/Common/Function.h>
-#include <Lyra/Plugin/RHI/RHIInits.h>
-#include <Lyra/Plugin/RHI/RHITypes.h>
+#include <Lyra/Render/RHIInits.h>
+#include <Lyra/Render/RHITypes.h>
 
 // local headers
 #include "GUIRenderer.h"

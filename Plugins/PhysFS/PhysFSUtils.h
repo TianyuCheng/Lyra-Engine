@@ -5,7 +5,7 @@
 #include <Lyra/Common/String.h>
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Common/Collections.h>
-#include <Lyra/Plugin/VFS/VFSTypes.h>
+#include <Lyra/FileIO/VFSTypes.h>
 
 #include <physfs.h>
 

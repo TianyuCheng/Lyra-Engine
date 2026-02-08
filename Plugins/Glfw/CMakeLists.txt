@@ -13,3 +13,5 @@ endif()
 # link dependencies
 find_package(glfw REQUIRED)
 target_link_libraries(lyra-glfw PRIVATE glfw::glfw)
+target_link_libraries(lyra-glfw PRIVATE lyra::window)
+target_link_libraries(lyra-glfw PRIVATE lyra::render)

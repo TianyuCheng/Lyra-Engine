@@ -12,8 +12,8 @@
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Common/Plugin.h>
 #include <Lyra/Common/Collections.h>
-#include <Lyra/Plugin/VFS/VFSAPI.h>
-#include <Lyra/Plugin/VFS/VFSTypes.h>
+#include <Lyra/FileIO/VFSAPI.h>
+#include <Lyra/FileIO/VFSTypes.h>
 
 // plugin headers
 #include "PhysFSUtils.h"

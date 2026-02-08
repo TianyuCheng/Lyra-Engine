@@ -1,7 +1,8 @@
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Common/Stdint.h>
-#include <Lyra/Engine/Assets/GenericAsset.h>
-#include <Lyra/Engine/Assets/TextureAsset.h>
+#include <Lyra/Assets/AMSAPI.h>
+#include <Lyra/Assets/Assets.h>
+#include <Lyra/Render/RHIAPI.h>
 
 #include <cmath>
 #include <ktx.h>

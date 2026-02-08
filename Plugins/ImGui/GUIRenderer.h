@@ -9,11 +9,11 @@
 #include <Lyra/Common/Math.h>
 #include <Lyra/Common/Stdint.h>
 #include <Lyra/Common/Collections.h>
-#include <Lyra/Plugin/WSI/WSIAPI.h>
-#include <Lyra/Plugin/WSI/WSITypes.h>
-#include <Lyra/Plugin/SLC/SLCAPI.h>
-#include <Lyra/Plugin/GUI/GUIAPI.h>
-#include <Lyra/Plugin/RHI/RHIAPI.h>
+#include <Lyra/Window/WSIAPI.h>
+#include <Lyra/Window/WSITypes.h>
+#include <Lyra/Shader/SLCAPI.h>
+#include <Lyra/Render/RHIAPI.h>
+#include <Lyra/UICore/GUIAPI.h>
 
 using namespace lyra;
 

@@ -16,9 +16,9 @@ using Microsoft::WRL::ComPtr;
 #include <Lyra/Common/Conversion.h>
 #include <Lyra/Common/Collections.h>
 #include <Lyra/Common/Compatibility.h>
-#include <Lyra/Plugin/RHI/RHIDescs.h>
-#include <Lyra/Plugin/RHI/RHIAPI.h>
-#include <Lyra/Plugin/RHI/RHIError.h>
+#include <Lyra/Render/RHIDescs.h>
+#include <Lyra/Render/RHIAPI.h>
+#include <Lyra/Render/RHIError.h>
 
 #include "SimpleHeap.h"
 #include "BlockAllocator.h"
