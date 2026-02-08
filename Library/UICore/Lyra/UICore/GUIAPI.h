@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_PLUGIN_GUI_API_H
-#define LYRA_LIBRARY_PLUGIN_GUI_API_H
+#ifndef LYRA_LIBRARY_UICORE_GUI_API_H
+#define LYRA_LIBRARY_UICORE_GUI_API_H
 
 #include <Lyra/Shader/SLCTypes.h>
 #include <Lyra/Render/RHITypes.h>
@@ -47,4 +47,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_PLUGIN_GUI_API_H
+#endif // LYRA_LIBRARY_UICORE_GUI_API_H

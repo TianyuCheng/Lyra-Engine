@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_ENGINE_SCENES_LIGHT_H
-#define LYRA_LIBRARY_ENGINE_SCENES_LIGHT_H
+#ifndef LYRA_LIBRARY_SCENE_LIGHT_H
+#define LYRA_LIBRARY_SCENE_LIGHT_H
 
 #include <Lyra/Common/Math.h>
 #include <Lyra/Common/Stdint.h>
@@ -42,4 +42,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_ENGINE_SCENES_LIGHT_H
+#endif // LYRA_LIBRARY_SCENE_LIGHT_H

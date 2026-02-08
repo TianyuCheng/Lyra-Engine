@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_PLUGIN_VFS_ENUMS_H
-#define LYRA_LIBRARY_PLUGIN_VFS_ENUMS_H
+#ifndef LYRA_LIBRARY_FILEIO_VFS_ENUMS_H
+#define LYRA_LIBRARY_FILEIO_VFS_ENUMS_H
 
 #include <Lyra/Common/String.h>
 #include <Lyra/Common/Stdint.h>
@@ -22,4 +22,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_PLUGIN_VFS_ENUMS_H
+#endif // LYRA_LIBRARY_FILEIO_VFS_ENUMS_H

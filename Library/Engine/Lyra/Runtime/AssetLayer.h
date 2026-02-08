@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_ENGINE_LAYERS_ASSET_LAYER_H
-#define LYRA_LIBRARY_ENGINE_LAYERS_ASSET_LAYER_H
+#ifndef LYRA_LIBRARY_RUNTIME_ASSET_LAYER_H
+#define LYRA_LIBRARY_RUNTIME_ASSET_LAYER_H
 
 #include <Lyra/Assets/AMSTypes.h>
 
@@ -27,4 +27,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_ENGINE_LAYERS_ASSET_LAYER_H
+#endif // LYRA_LIBRARY_RUNTIME_ASSET_LAYER_H

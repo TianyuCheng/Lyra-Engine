@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_ENGINE_SCENES_SCENE_NODE_H
-#define LYRA_LIBRARY_ENGINE_SCENES_SCENE_NODE_H
+#ifndef LYRA_LIBRARY_SCENE_NODE_H
+#define LYRA_LIBRARY_SCENE_NODE_H
 
 #include <Lyra/Common/ECS.h>
 
@@ -30,4 +30,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_ENGINE_SCENES_SCENE_NODE_H
+#endif // LYRA_LIBRARY_SCENE_NODE_H

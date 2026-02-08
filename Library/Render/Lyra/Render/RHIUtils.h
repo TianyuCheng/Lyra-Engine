@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_PLUGIN_RHI_UTILS_H
-#define LYRA_LIBRARY_PLUGIN_RHI_UTILS_H
+#ifndef LYRA_LIBRARY_RENDER_RHI_UTILS_H
+#define LYRA_LIBRARY_RENDER_RHI_UTILS_H
 
 #include <Lyra/Common/Assert.h>
 #include <Lyra/Common/String.h>
@@ -695,4 +695,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_PLUGIN_RHI_UTILS_H
+#endif // LYRA_LIBRARY_RENDER_RHI_UTILS_H

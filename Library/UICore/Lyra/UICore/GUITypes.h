@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_PLUGIN_GUI_TYPES_H
-#define LYRA_LIBRARY_PLUGIN_GUI_TYPES_H
+#ifndef LYRA_LIBRARY_UICORE_GUI_TYPES_H
+#define LYRA_LIBRARY_UICORE_GUI_TYPES_H
 
 #include <Lyra/Common/Plugin.h>
 #include <Lyra/Common/Macros.h>
@@ -89,4 +89,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_PLUGIN_GUI_TYPES_H
+#endif // LYRA_LIBRARY_UICORE_GUI_TYPES_H

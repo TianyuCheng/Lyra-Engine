@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_ENGINE_FRAME_GRAPH_COMMON_H
-#define LYRA_ENGINE_FRAME_GRAPH_COMMON_H
+#ifndef LYRA_LIBRARY_RENDER_FRAME_GRAPH_COMMON_H
+#define LYRA_LIBRARY_RENDER_FRAME_GRAPH_COMMON_H
 
 #include <Lyra/Common/Hash.h>
 #include <Lyra/Common/Stdint.h>
@@ -15,4 +15,4 @@
 #include <Lyra/Render/RHIInits.h>
 #include <Lyra/Render/RHITypes.h>
 
-#endif // LYRA_ENGINE_FRAME_GRAPH_COMMON_H
+#endif // LYRA_LIBRARY_RENDER_FRAME_GRAPH_COMMON_H

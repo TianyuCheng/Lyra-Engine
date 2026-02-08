@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_PLUGIN_RHI_ERROR_H
-#define LYRA_LIBRARY_PLUGIN_RHI_ERROR_H
+#ifndef LYRA_LIBRARY_RENDER_RHI_ERROR_H
+#define LYRA_LIBRARY_RENDER_RHI_ERROR_H
 
 #include <stdexcept>
 
@@ -54,4 +54,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_PLUGIN_RHI_ERROR_H
+#endif // LYRA_LIBRARY_RENDER_RHI_ERROR_H

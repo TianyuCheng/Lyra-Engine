@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_ENGINE_SCENES_TRANSFORM_H
-#define LYRA_LIBRARY_ENGINE_SCENES_TRANSFORM_H
+#ifndef LYRA_LIBRARY_SCENE_TRANSFORM_H
+#define LYRA_LIBRARY_SCENE_TRANSFORM_H
 
 #include <Lyra/Common/Math.h>
 
@@ -29,4 +29,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_ENGINE_SCENES_TRANSFORM_H
+#endif // LYRA_LIBRARY_SCENE_TRANSFORM_H

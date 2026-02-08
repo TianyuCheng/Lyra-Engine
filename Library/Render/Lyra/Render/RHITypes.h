@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_PLUGIN_RHI_TYPES_H
-#define LYRA_LIBRARY_PLUGIN_RHI_TYPES_H
+#ifndef LYRA_LIBRARY_RENDER_RHI_TYPES_H
+#define LYRA_LIBRARY_RENDER_RHI_TYPES_H
 
 // reference: https://gpuweb.github.io/gpuweb/#
 
@@ -528,4 +528,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_PLUGIN_RHI_TYPES_H
+#endif // LYRA_LIBRARY_RENDER_RHI_TYPES_H

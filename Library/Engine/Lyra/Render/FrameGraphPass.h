@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_ENGINE_RENDER_FRAME_GRAPH_PASS_H
-#define LYRA_LIBRARY_ENGINE_RENDER_FRAME_GRAPH_PASS_H
+#ifndef LYRA_LIBRARY_RENDER_FRAME_GRAPH_PASS_H
+#define LYRA_LIBRARY_RENDER_FRAME_GRAPH_PASS_H
 
 #include "FrameGraphCommon.h" // IWYU pragma: keep
 #include "FrameGraphEnums.h"
@@ -66,4 +66,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_ENGINE_RENDER_FRAME_GRAPH_PASS_H
+#endif // LYRA_LIBRARY_RENDER_FRAME_GRAPH_PASS_H

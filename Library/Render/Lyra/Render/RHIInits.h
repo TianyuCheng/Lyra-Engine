@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_PLUGIN_RHI_INITS_H
-#define LYRA_LIBRARY_PLUGIN_RHI_INITS_H
+#ifndef LYRA_LIBRARY_RENDER_RHI_INITS_H
+#define LYRA_LIBRARY_RENDER_RHI_INITS_H
 
 #include <Lyra/Render/RHIEnums.h>
 #include <Lyra/Render/RHIUtils.h>
@@ -36,4 +36,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_PLUGIN_RHI_INITS_H
+#endif // LYRA_LIBRARY_RENDER_RHI_INITS_H

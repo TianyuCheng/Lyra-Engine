@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_PLUGIN_RHI_DESCS_H
-#define LYRA_LIBRARY_PLUGIN_RHI_DESCS_H
+#ifndef LYRA_LIBRARY_RENDER_RHI_DESCS_H
+#define LYRA_LIBRARY_RENDER_RHI_DESCS_H
 
 #include <Lyra/Window/WSIUtils.h>
 #include <Lyra/Render/RHIEnums.h>
@@ -225,4 +225,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_PLUGIN_RHI_DESCS_H
+#endif // LYRA_LIBRARY_RENDER_RHI_DESCS_H

@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_COMMON_SLOTMAP_H
-#define LYRA_LIBRARY_COMMON_SLOTMAP_H
+#ifndef LYRA_LIBRARY_COMMON_DETAIL_SLOTMAP_H
+#define LYRA_LIBRARY_COMMON_DETAIL_SLOTMAP_H
 
 #include <vector>
 #include <cstdint>
@@ -142,4 +142,4 @@ namespace lyra::detail
 
 } // namespace lyra::detail
 
-#endif // LYRA_LIBRARY_COMMON_SLOTMAP_H
+#endif // LYRA_LIBRARY_COMMON_DETAIL_SLOTMAP_H

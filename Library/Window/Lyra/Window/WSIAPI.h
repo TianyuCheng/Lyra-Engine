@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_PLUGIN_WSI_API_H
-#define LYRA_LIBRARY_PLUGIN_WSI_API_H
+#ifndef LYRA_LIBRARY_WINDOW_WSI_API_H
+#define LYRA_LIBRARY_WINDOW_WSI_API_H
 
 #include <Lyra/Window/WSIEnums.h>
 #include <Lyra/Window/WSIUtils.h>
@@ -54,4 +54,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_PLUGIN_WSI_API_H
+#endif // LYRA_LIBRARY_WINDOW_WSI_API_H

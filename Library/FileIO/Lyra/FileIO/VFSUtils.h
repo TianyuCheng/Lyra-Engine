@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_PLUGIN_VFS_UTILS_H
-#define LYRA_LIBRARY_PLUGIN_VFS_UTILS_H
+#ifndef LYRA_LIBRARY_FILEIO_VFS_UTILS_H
+#define LYRA_LIBRARY_FILEIO_VFS_UTILS_H
 
 #include <Lyra/Common/Path.h>
 #include <Lyra/Common/String.h>
@@ -33,4 +33,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_PLUGIN_VFS_UTILS_H
+#endif // LYRA_LIBRARY_FILEIO_VFS_UTILS_H

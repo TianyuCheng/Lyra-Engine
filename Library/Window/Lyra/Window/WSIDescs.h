@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_PLUGIN_WSI_DESCS_H
-#define LYRA_LIBRARY_PLUGIN_WSI_DESCS_H
+#ifndef LYRA_LIBRARY_WINDOW_WSI_DESCS_H
+#define LYRA_LIBRARY_WINDOW_WSI_DESCS_H
 
 #include <Lyra/Common/Stdint.h>
 #include <Lyra/Common/String.h>
@@ -20,4 +20,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_PLUGIN_WSI_DESCS_H
+#endif // LYRA_LIBRARY_WINDOW_WSI_DESCS_H

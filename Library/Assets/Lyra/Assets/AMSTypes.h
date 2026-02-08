@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_PLUGIN_AMS_TYPES_H
-#define LYRA_LIBRARY_PLUGIN_AMS_TYPES_H
+#ifndef LYRA_LIBRARY_ASSETS_AMS_TYPES_H
+#define LYRA_LIBRARY_ASSETS_AMS_TYPES_H
 
 #include <Lyra/Common/UUID.h>
 #include <Lyra/Common/GUID.h>
@@ -119,4 +119,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_PLUGIN_AMS_TYPES_H
+#endif // LYRA_LIBRARY_ASSETS_AMS_TYPES_H

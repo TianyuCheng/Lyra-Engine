@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_PLUGIN_WSI_STATE_H
-#define LYRA_LIBRARY_PLUGIN_WSI_STATE_H
+#ifndef LYRA_LIBRARY_WINDOW_WSI_STATE_H
+#define LYRA_LIBRARY_WINDOW_WSI_STATE_H
 
 #include <chrono>
 
@@ -72,4 +72,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_PLUGIN_WSI_STATE_H
+#endif // LYRA_LIBRARY_WINDOW_WSI_STATE_H

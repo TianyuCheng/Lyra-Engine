@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_ENGINE_SCENES_UNIVERSE_H
-#define LYRA_LIBRARY_ENGINE_SCENES_UNIVERSE_H
+#ifndef LYRA_LIBRARY_SCENE_WORLD_H
+#define LYRA_LIBRARY_SCENE_WORLD_H
 
 #include <Lyra/Common/ECS.h>
 
@@ -61,4 +61,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_ENGINE_SCENES_UNIVERSE_H
+#endif // LYRA_LIBRARY_SCENE_WORLD_H

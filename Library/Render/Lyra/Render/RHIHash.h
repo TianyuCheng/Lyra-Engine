@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_PLUGIN_RHI_HASH_H
-#define LYRA_LIBRARY_PLUGIN_RHI_HASH_H
+#ifndef LYRA_LIBRARY_RENDER_RHI_HASH_H
+#define LYRA_LIBRARY_RENDER_RHI_HASH_H
 
 #include <Lyra/Common/Hash.h>
 #include <Lyra/Render/RHIDescs.h>
@@ -37,4 +37,4 @@ struct std::hash<lyra::GPUTextureDescriptor>
     }
 };
 
-#endif // LYRA_LIBRARY_PLUGIN_RHI_HASH_H
+#endif // LYRA_LIBRARY_RENDER_RHI_HASH_H

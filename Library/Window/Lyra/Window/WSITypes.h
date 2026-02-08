@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_PLUGIN_WSI_TYPES_H
-#define LYRA_LIBRARY_PLUGIN_WSI_TYPES_H
+#ifndef LYRA_LIBRARY_WINDOW_WSI_TYPES_H
+#define LYRA_LIBRARY_WINDOW_WSI_TYPES_H
 
 #include <Lyra/Common/Enums.h>
 #include <Lyra/Common/Pointer.h>
@@ -114,4 +114,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_PLUGIN_WSI_TYPES_H
+#endif // LYRA_LIBRARY_WINDOW_WSI_TYPES_H

@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_PLUGIN_SLC_TYPES_H
-#define LYRA_LIBRARY_PLUGIN_SLC_TYPES_H
+#ifndef LYRA_LIBRARY_SHADER_SLC_TYPES_H
+#define LYRA_LIBRARY_SHADER_SLC_TYPES_H
 
 #include <Lyra/Common/Path.h>
 #include <Lyra/Common/String.h>
@@ -76,4 +76,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_PLUGIN_SLC_TYPES_H
+#endif // LYRA_LIBRARY_SHADER_SLC_TYPES_H

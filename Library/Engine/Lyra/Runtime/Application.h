@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_ENGINE_APPLET_APPLICATION_H
-#define LYRA_LIBRARY_ENGINE_APPLET_APPLICATION_H
+#ifndef LYRA_LIBRARY_RUNTIME_APPLICATION_H
+#define LYRA_LIBRARY_RUNTIME_APPLICATION_H
 
 #include <Lyra/Common/Enums.h>
 #include <Lyra/Common/Stdint.h>
@@ -173,4 +173,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_ENGINE_APPLET_APPLICATION_H
+#endif // LYRA_LIBRARY_RUNTIME_APPLICATION_H
