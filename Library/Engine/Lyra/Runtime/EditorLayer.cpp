@@ -2,52 +2,57 @@
 
 using namespace lyra;
 
-ImGuiLayer::ImGuiLayer(const GUIDescriptor& descriptor) : descriptor(descriptor)
+EditorLayer::EditorLayer(const GUIDescriptor& descriptor) : descriptor(descriptor)
 {
     gui = GUIRenderer::init(descriptor);
+
+    // NOTE: This call will properly setup ImGuiContext* in the lyra-engine shared library.
+    // Users should still call it again in the user application as well for the same reason
+    // if they intend to directly call ImGui functions in their executable.
+    apply_context();
 }
 
-void ImGuiLayer::bind(Application& app)
+void EditorLayer::bind(Application& app)
 {
     // save imgui manager into blackboard
     app.get_blackboard().add<GUIRenderer*>(gui.get());
 
     // bind imgui manager events
-    app.bind<AppEvent::INIT, &ImGuiLayer::theme>(*this);
-    app.bind<AppEvent::RESIZE, &ImGuiLayer::resize>(*this);
-    app.bind<AppEvent::UPDATE, &ImGuiLayer::update>(*this);
-    app.bind<AppEvent::UPDATE_PRE, &ImGuiLayer::pre_update>(*this);
-    app.bind<AppEvent::UPDATE_POST, &ImGuiLayer::post_update>(*this);
-    app.bind<AppEvent::RENDER_POST, &ImGuiLayer::render>(*this);
+    app.bind<AppEvent::INIT, &EditorLayer::theme>(*this);
+    app.bind<AppEvent::RESIZE, &EditorLayer::resize>(*this);
+    app.bind<AppEvent::UPDATE, &EditorLayer::update>(*this);
+    app.bind<AppEvent::UPDATE_PRE, &EditorLayer::pre_update>(*this);
+    app.bind<AppEvent::UPDATE_POST, &EditorLayer::post_update>(*this);
+    app.bind<AppEvent::RENDER_POST, &EditorLayer::render>(*this);
 }
 
-void ImGuiLayer::update(Blackboard&)
+void EditorLayer::update(Blackboard&)
 {
     gui->update();
 }
 
-void ImGuiLayer::pre_update(Blackboard&)
+void EditorLayer::pre_update(Blackboard&)
 {
     gui->new_frame();
 }
 
-void ImGuiLayer::post_update(Blackboard&)
+void EditorLayer::post_update(Blackboard&)
 {
     gui->end_frame();
 }
 
-void ImGuiLayer::render(Blackboard&)
+void EditorLayer::render(Blackboard&)
 {
     if (descriptor.viewports)
         gui->render_side_viewports();
 }
 
-void ImGuiLayer::resize(Blackboard&)
+void EditorLayer::resize(Blackboard&)
 {
     gui->resize();
 }
 
-void ImGuiLayer::theme(Blackboard&)
+void EditorLayer::theme(Blackboard&)
 {
     ImGuiStyle& style  = ImGui::GetStyle();
     ImVec4*     colors = style.Colors;

@@ -13,12 +13,12 @@
 
 namespace lyra
 {
-    // ImGuiLayer is only a wrapper around GUIRenderer.
+    // EditorLayer is only a wrapper around GUIRenderer.
     // It is created to handle application events.
-    struct ImGuiLayer
+    struct EditorLayer
     {
     public:
-        explicit ImGuiLayer(const GUIDescriptor& descriptor);
+        explicit EditorLayer(const GUIDescriptor& descriptor);
 
         void bind(Application& app);
 

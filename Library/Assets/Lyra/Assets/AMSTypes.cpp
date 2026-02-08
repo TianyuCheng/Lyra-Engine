@@ -18,15 +18,15 @@ static time_t get_timestamp()
     return timestamp;
 }
 
-static GUID load_guid(const Path& path)
+static lyra::GUID load_guid(const Path& path)
 {
-    GUID guid = 0;
+    lyra::GUID guid = 0;
 
     std::ifstream f(path, std::ios::in);
     assert(f.good());
     JSON data = JSON::parse(f);
     if (data.contains("guid")) {
-        guid = data["guid"].get<GUID>();
+        guid = data["guid"].get<lyra::GUID>();
     }
     f.close();
     return guid;
@@ -99,7 +99,7 @@ RawAssetHandle AssetServer::load_asset(UUID type_uuid, FSPath path)
     // load asset guid
     auto data = metadata_loader->read<char>(metadata_vfs.c_str());
     auto json = JSON::parse(data.begin(), data.end());
-    auto guid = json["guid"].template get<GUID>();
+    auto guid = json["guid"].template get<lyra::GUID>();
 
     // issue asset load (if necessary)
     // TODO: move asset loading to worker threads
@@ -131,7 +131,7 @@ void AssetServer::unload_asset(UUID type_uuid, RawAssetHandle handle)
     }
 }
 
-bool AssetServer::import_asset(const Path& path, GUID& guid)
+bool AssetServer::import_asset(const Path& path, lyra::GUID& guid)
 {
     // sanity check if extensions has been registered
     auto ext = path.extension().string();

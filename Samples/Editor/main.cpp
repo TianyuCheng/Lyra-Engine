@@ -151,7 +151,7 @@ int main(int argc, const char* argv[])
         desc.docking   = true;
         desc.viewports = false;
 
-        auto layer = std::make_unique<ImGuiLayer>(desc);
+        auto layer = std::make_unique<EditorLayer>(desc);
         layer->apply_context(); // imgui context in user application
         app->bind(*layer);
         return std::move(layer);
