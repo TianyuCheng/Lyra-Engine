@@ -59,7 +59,7 @@ static void rebuild_mounts(PhysFSLoader* loader)
     char** search_path = PHYSFS_getSearchPath();
     if (search_path) {
         for (char** i = search_path; *i; ++i)
-            PHYSFS_removeFromSearchPath(*i);
+            PHYSFS_unmount(*i);
         PHYSFS_freeList(search_path);
     }
 
@@ -72,7 +72,7 @@ static void rebuild_mounts(PhysFSLoader* loader)
     // mount each in order, appending to the end (higher prio earlier in search order)
     for (const auto& m : sorted) {
         if (!PHYSFS_mount(m->root.string().c_str(), m->vpath.c_str(), 1)) {
-            get_logger()->error("rebuild_mounts: failed to mount {} -> {}: {}", m->vpath, m->root.string(), PHYSFS_getLastError());
+            get_logger()->error("rebuild_mounts: failed to mount {} -> {}: {}", m->vpath, m->root.string(), PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()));
         } else {
             get_logger()->trace("rebuild_mounts: mounted {} -> {}", m->vpath, m->root.string());
         }
@@ -152,7 +152,7 @@ static bool open_file(FileLoaderHandle loader, FileHandle& out_handle, FSPath pa
 
     PHYSFS_File* pf = PHYSFS_openRead(v.c_str());
     if (!pf) {
-        get_logger()->error("open_file: failed to open {}: {}", v, PHYSFS_getLastError());
+        get_logger()->error("open_file: failed to open {}: {}", v, PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()));
         return false;
     }
 
@@ -185,7 +185,7 @@ static bool read_file(FileLoaderHandle loader, FileHandle handle, void* buffer, 
 
     PHYSFS_sint64 len = PHYSFS_readBytes(pf, buffer, static_cast<PHYSFS_uint64>(size));
     if (len < 0) {
-        get_logger()->error("read_file: PhysicsFS error: {}", PHYSFS_getLastError());
+        get_logger()->error("read_file: PhysicsFS error: {}", PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()));
         return false;
     }
     bytes_read = static_cast<size_t>(len);
@@ -294,7 +294,7 @@ LYRA_EXPORT auto prepare() -> void
     get_logger()->set_level(parse_log_level_from_env("LYRA_PHYSFS_VERBOSITY"));
 
     if (!PHYSFS_init(nullptr)) {
-        get_logger()->error("prepare: PHYSFS_init failed: {}", PHYSFS_getLastError());
+        get_logger()->error("prepare: PHYSFS_init failed: {}", PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()));
     }
 }
 

@@ -40,6 +40,7 @@ find_package(etl REQUIRED)
 find_package(glm REQUIRED)
 find_package(fmt REQUIRED)
 find_package(absl REQUIRED)
+find_package(apus REQUIRED)
 find_package(entt REQUIRED)
 find_package(json REQUIRED)
 find_package(toml REQUIRED)
@@ -68,6 +69,7 @@ target_link_libraries(lyra-common PUBLIC
   $<BUILD_INTERFACE:absl::flat_hash_set>
   $<BUILD_INTERFACE:absl::btree>
   $<BUILD_INTERFACE:absl::synchronization>
+  $<BUILD_INTERFACE:apus::apus>
 
   # math libraries
   $<BUILD_INTERFACE:glm::glm>
