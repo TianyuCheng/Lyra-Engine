@@ -14,7 +14,7 @@
 #include <absl/container/btree_map.h>
 #include <absl/container/flat_hash_map.h>
 #include <absl/container/flat_hash_set.h>
-#include <boost/circular_buffer.hpp>
+#include <apus/ring_buffer.hpp>
 #include <Lyra/Detail/View.h>
 #include <Lyra/Detail/Slotmap.h>
 #include <Lyra/Detail/Blackboard.h>
@@ -55,7 +55,7 @@ namespace lyra
     using InitList = std::initializer_list<T...>;
 
     template <typename... T>
-    using RingBuffer = boost::circular_buffer<T...>;
+    using RingBuffer = apus::ring_buffer<T...>;
 
     template <typename... T>
     using Slotmap = lyra::detail::slotmap<T...>;
