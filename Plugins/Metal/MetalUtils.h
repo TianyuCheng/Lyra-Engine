@@ -32,9 +32,9 @@ using namespace lyra;
 template <typename T>
 struct MetalDestroyer
 {
-    void operator()(T& obj)
+    void operator()(T* obj)
     {
-        obj.destroy();
+        obj->destroy();
     }
 };
 
@@ -774,18 +774,12 @@ T& fetch_resource(MetalResourceManager<T>& manager, Handle handle)
         throw std::runtime_error("Resource handle is invalid!");
     }
 
-    // check resource range
-    if (!manager.range_check(handle.value)) {
-        get_logger()->error("Resource handle {} with value={} access out of range!", Handle::type_name(), handle.value);
-        throw std::runtime_error("Resource handle is accessing out of range!");
+    T* resource = manager.find(handle.template to_slotmap_handle<T>());
+    if (!resource) {
+        get_logger()->error("Resource handle {} with value={} cannot be found!", Handle::type_name(), handle.value);
+        throw std::runtime_error("Resource handle references cannot be found!");
     }
-
-    T& resource = manager.at(handle.value);
-    if (!resource.valid()) {
-        get_logger()->error("Resource handle {} with value={} has invalid object!", Handle::type_name(), handle.value);
-        throw std::runtime_error("Resource handle references an invalid object!");
-    }
-    return resource;
+    return *resource;
 }
 
 #endif // LYRA_PLUGIN_METAL_UTILS_H

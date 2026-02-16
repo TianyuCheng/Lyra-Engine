@@ -174,7 +174,7 @@ GPUBindGroupHandle create_bind_group(const GPUBindGroupDescriptor& desc)
     // 1. faster access (avoid indirection to vector)
     // 2. minimal storage (no need to store descriptors in RHI backend)
     // once descriptor set is created, it is never changed for rest of its life
-    auto handle = astype<uint64_t>(descriptor);
+    auto handle = as_type<uint64_t>(descriptor);
     return GPUBindGroupHandle(handle);
 }
 

@@ -143,7 +143,7 @@ static bool delete_loader(FileLoaderHandle loader)
         g_loaders.end());
 
     // delete pointer
-    auto pointer = loader.astype<NativeFSLoader>();
+    auto pointer = loader.as_type<NativeFSLoader>();
     delete pointer;
     return true;
 }
@@ -155,7 +155,7 @@ static size_t sizeof_file(FileLoaderHandle loader, FSPath path)
         return 0;
     }
 
-    auto candidates = resolve_read_paths(loader.astype<NativeFSLoader>(), path);
+    auto candidates = resolve_read_paths(loader.as_type<NativeFSLoader>(), path);
     for (const auto& p : candidates) {
         std::error_code ec;
         if (fs::exists(p, ec) && fs::is_regular_file(p, ec)) {
@@ -176,7 +176,7 @@ static bool exists_file(FileLoaderHandle loader, FSPath path)
         return false;
     }
 
-    auto candidates = resolve_read_paths(loader.astype<NativeFSLoader>(), path);
+    auto candidates = resolve_read_paths(loader.as_type<NativeFSLoader>(), path);
     for (const auto& p : candidates) {
         std::error_code ec;
         if (fs::exists(p, ec) && fs::is_regular_file(p, ec))
@@ -192,7 +192,7 @@ static bool open_file(FileLoaderHandle loader, FileHandle& out_handle, FSPath pa
         return false;
     }
 
-    auto pointer = loader.astype<NativeFSLoader>();
+    auto pointer = loader.as_type<NativeFSLoader>();
 
     // find and open the corresponding file
     auto candidates = resolve_read_paths(pointer, path);
@@ -215,7 +215,7 @@ static void close_file(FileLoaderHandle loader, FileHandle handle)
         return;
     }
 
-    auto h = handle.astype<std::ifstream>();
+    auto h = handle.as_type<std::ifstream>();
     h->close();
     delete h;
 }
@@ -229,7 +229,7 @@ static bool read_file(FileLoaderHandle loader, FileHandle handle, void* buffer, 
         return false;
     }
 
-    auto h = handle.astype<std::ifstream>();
+    auto h = handle.as_type<std::ifstream>();
     if (!h->is_open()) {
         get_logger()->error("read_file: file handle is not opened for read");
         return false;
@@ -248,7 +248,7 @@ static bool seek_file(FileLoaderHandle loader, FileHandle handle, int64_t offset
         return false;
     }
 
-    auto h = handle.astype<std::ifstream>();
+    auto h = handle.as_type<std::ifstream>();
     if (!h->is_open()) {
         get_logger()->error("read_file: file handle is not opened for read");
         return false;
@@ -267,7 +267,7 @@ static bool read_whole_file(FileLoaderHandle loader, FSPath path, void* data)
         return false;
     }
 
-    auto pointer    = loader.astype<NativeFSLoader>();
+    auto pointer    = loader.as_type<NativeFSLoader>();
     auto candidates = resolve_read_paths(pointer, path);
     for (const auto& real : candidates) {
         std::ifstream in(real, std::ios::binary);
@@ -304,7 +304,7 @@ static bool mount(FileLoaderHandle loader, MountHandle& handle, FSPath vpath, OS
         return false;
     }
 
-    auto pointer = loader.astype<NativeFSLoader>();
+    auto pointer = loader.as_type<NativeFSLoader>();
 
     // prepare mount point
     auto m      = new NativeMount{};
@@ -325,8 +325,8 @@ static bool mount(FileLoaderHandle loader, MountHandle& handle, FSPath vpath, OS
 
 static bool unmount(FileLoaderHandle loader, MountHandle handle)
 {
-    auto pointer = loader.astype<NativeFSLoader>();
-    auto pmount  = handle.astype<NativeMount>();
+    auto pointer = loader.as_type<NativeFSLoader>();
+    auto pmount  = handle.as_type<NativeMount>();
     get_logger()->info("unmount path={} from vpath={} (removed {} mounts)", pmount->root.string(), pmount->vpath);
 
     // lock while unmount

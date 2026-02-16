@@ -5,6 +5,7 @@
 
 #include <Lyra/Shader/SLCTypes.h>
 #include <Lyra/Render/RHITypes.h>
+#include <Lyra/UICore/GUIEnums.h>
 
 namespace lyra
 {
@@ -23,6 +24,8 @@ namespace lyra
 
     using GUIHandle = TypedPointerHandle<GUI>;
 
+    using GUITextureHandle = TypedEnumHandle<GUIObject, GUIObject::TEXTURE, uint64_t>;
+
     struct GUIAPI
     {
         // api name
@@ -38,8 +41,8 @@ namespace lyra
 
         void* (*get_context)(GUIHandle gui);
 
-        uint (*create_texture)(GUIHandle gui, GPUTextureHandle texture, GPUTextureViewHandle view);
-        void (*delete_texture)(GUIHandle gui, uint texid);
+        auto (*create_texture)(GUIHandle gui, GPUTextureHandle texture, GPUTextureViewHandle view) -> GUITextureHandle;
+        void (*delete_texture)(GUIHandle gui, GUITextureHandle texid);
 
         void (*render_main_viewport)(GUIHandle gui, GPUCommandEncoderHandle cmdbuffer, GPUTextureViewHandle backbuffer);
         void (*render_side_viewports)(GUIHandle gui);

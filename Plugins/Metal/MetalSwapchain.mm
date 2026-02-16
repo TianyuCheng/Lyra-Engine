@@ -134,14 +134,14 @@ void MetalSwapchain::Frame::init(id<CAMetalDrawable> drawable)
         texture_obj.texture = drawable.texture;
         texture_obj.format  = drawable.texture.pixelFormat;
         texture_obj.type    = drawable.texture.textureType;
-        this->texture       = GPUTextureHandle(rhi->textures.add(texture_obj));
+        this->texture       = GPUTextureHandle::create(rhi->textures.add(texture_obj));
 
         // create texture view
         auto view_obj    = MetalTextureView{};
         view_obj.texture = drawable.texture;
         view_obj.format  = drawable.texture.pixelFormat;
         view_obj.type    = drawable.texture.textureType;
-        this->view       = GPUTextureViewHandle(rhi->views.add(view_obj));
+        this->view       = GPUTextureViewHandle::create(rhi->views.add(view_obj));
     }
 }
 
@@ -153,13 +153,13 @@ void MetalSwapchain::Frame::destroy()
         // clean up texture if already created
         if (this->texture.valid()) {
             // don't destroy the underlying MTLTexture - it's owned by the drawable
-            rhi->textures.remove(texture.value);
+            rhi->textures.remove(texture.to_slotmap_handle<MetalTexture>());
             this->texture.reset();
         }
 
         // clean up texture view if already created
         if (this->view.valid()) {
-            rhi->views.remove(view.value);
+            rhi->views.remove(view.to_slotmap_handle<MetalTextureView>());
             this->view.reset();
         }
 

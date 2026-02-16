@@ -169,8 +169,8 @@ void D3D12Swapchain::Frame::init(D3D12Swapchain* swp, uint backbuffer_index, uin
     D3D12TextureView view(texture, view_desc);
 
     // fill in swap frame
-    this->texture = GPUTextureHandle(rhi->textures.add(texture));
-    this->view    = GPUTextureViewHandle(rhi->views.add(view));
+    this->texture = GPUTextureHandle::create(rhi->textures.add(texture));
+    this->view    = GPUTextureViewHandle::create(rhi->views.add(view));
 }
 
 void D3D12Swapchain::Frame::destroy()
@@ -180,13 +180,13 @@ void D3D12Swapchain::Frame::destroy()
     // clean up existing texture
     if (texture.valid()) {
         fetch_resource(rhi->textures, texture).destroy();
-        rhi->textures.remove(texture.value);
+        rhi->textures.remove(texture.to_slotmap_handle<D3D12Texture>());
     }
 
     // clean up existing texture view
     if (view.valid()) {
         fetch_resource(rhi->views, view).destroy();
-        rhi->views.remove(view.value);
+        rhi->views.remove(view.to_slotmap_handle<D3D12TextureView>());
     }
 }
 #pragma endregion D3D12SwapchainFrame

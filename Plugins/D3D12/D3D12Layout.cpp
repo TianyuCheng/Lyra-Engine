@@ -389,7 +389,7 @@ D3D12BindGroup* D3D12BindGroupLayout::create(GPUBindGroupHeapHandle heap_handle,
     bind_group->default_index = std::numeric_limits<uint32_t>::max();
     bind_group->sampler_index = std::numeric_limits<uint16_t>::max();
     bind_group->dynamic_index = std::numeric_limits<uint16_t>::max();
-    bind_group->heap_index    = heap_handle.value;
+    bind_group->heap_index    = static_cast<uint16_t>(heap_handle.to_slotmap_handle<D3D12BindGroupHeap>().index);
 
     // allocate descriptors for default ranges
     if (num_defaults)

@@ -55,6 +55,7 @@ namespace lyra
     using GPUIndex32               = uint32_t;
     using GPUSize32                = uint32_t;
     using GPUSignedOffset32        = int32_t;
+    using GPUIndex64               = uint64_t;
     using GPUSize64Out             = uint64_t;
     using GPUIntegerCoordinateOut  = uint32_t;
     using GPUSize32Out             = uint32_t;
@@ -73,30 +74,27 @@ namespace lyra
     using GPUTextureAspectFlags    = BitFlags<GPUTextureAspect>;
 
     template <GPUObjectType E>
-    using GPUHandle32 = TypedEnumHandle<GPUObjectType, E, uint32_t>;
-
-    template <GPUObjectType E>
-    using GPUHandle64 = TypedEnumHandle<GPUObjectType, E, uint64_t>;
+    using GPUHandle = TypedEnumHandle<GPUObjectType, E, GPUIndex64>;
 
     // typed GPU handle
-    using GPUSurfaceHandle            = GPUHandle32<GPUObjectType::SURFACE>;
-    using GPUFenceHandle              = GPUHandle32<GPUObjectType::FENCE>;
-    using GPUCommandEncoderHandle     = GPUHandle32<GPUObjectType::COMMAND_ENCODER>;
-    using GPUBufferHandle             = GPUHandle32<GPUObjectType::BUFFER>;
-    using GPUSamplerHandle            = GPUHandle32<GPUObjectType::SAMPLER>;
-    using GPUTextureHandle            = GPUHandle32<GPUObjectType::TEXTURE>;
-    using GPUTextureViewHandle        = GPUHandle32<GPUObjectType::TEXTURE_VIEW>;
-    using GPUShaderModuleHandle       = GPUHandle32<GPUObjectType::SHADER_MODULE>;
-    using GPUQuerySetHandle           = GPUHandle32<GPUObjectType::QUERY_SET>;
-    using GPUTlasHandle               = GPUHandle32<GPUObjectType::TLAS>;
-    using GPUBlasHandle               = GPUHandle32<GPUObjectType::BLAS>;
-    using GPUBindGroupHandle          = GPUHandle64<GPUObjectType::BIND_GROUP>;
-    using GPUBindGroupHeapHandle      = GPUHandle32<GPUObjectType::BIND_GROUP_HEAP>;
-    using GPUBindGroupLayoutHandle    = GPUHandle32<GPUObjectType::BIND_GROUP_LAYOUT>;
-    using GPUPipelineLayoutHandle     = GPUHandle32<GPUObjectType::PIPELINE_LAYOUT>;
-    using GPURenderPipelineHandle     = GPUHandle32<GPUObjectType::RENDER_PIPELINE>;
-    using GPUComputePipelineHandle    = GPUHandle32<GPUObjectType::COMPUTE_PIPELINE>;
-    using GPURayTracingPipelineHandle = GPUHandle32<GPUObjectType::RAYTRACING_PIPELINE>;
+    using GPUSurfaceHandle            = GPUHandle<GPUObjectType::SURFACE>;
+    using GPUFenceHandle              = GPUHandle<GPUObjectType::FENCE>;
+    using GPUCommandEncoderHandle     = GPUHandle<GPUObjectType::COMMAND_ENCODER>;
+    using GPUBufferHandle             = GPUHandle<GPUObjectType::BUFFER>;
+    using GPUSamplerHandle            = GPUHandle<GPUObjectType::SAMPLER>;
+    using GPUTextureHandle            = GPUHandle<GPUObjectType::TEXTURE>;
+    using GPUTextureViewHandle        = GPUHandle<GPUObjectType::TEXTURE_VIEW>;
+    using GPUShaderModuleHandle       = GPUHandle<GPUObjectType::SHADER_MODULE>;
+    using GPUQuerySetHandle           = GPUHandle<GPUObjectType::QUERY_SET>;
+    using GPUTlasHandle               = GPUHandle<GPUObjectType::TLAS>;
+    using GPUBlasHandle               = GPUHandle<GPUObjectType::BLAS>;
+    using GPUBindGroupHandle          = GPUHandle<GPUObjectType::BIND_GROUP>;
+    using GPUBindGroupHeapHandle      = GPUHandle<GPUObjectType::BIND_GROUP_HEAP>;
+    using GPUBindGroupLayoutHandle    = GPUHandle<GPUObjectType::BIND_GROUP_LAYOUT>;
+    using GPUPipelineLayoutHandle     = GPUHandle<GPUObjectType::PIPELINE_LAYOUT>;
+    using GPURenderPipelineHandle     = GPUHandle<GPUObjectType::RENDER_PIPELINE>;
+    using GPUComputePipelineHandle    = GPUHandle<GPUObjectType::COMPUTE_PIPELINE>;
+    using GPURayTracingPipelineHandle = GPUHandle<GPUObjectType::RAYTRACING_PIPELINE>;
 
     // forward declarations
     using GPUFeatureNames   = TypedView<GPUFeatureName>;

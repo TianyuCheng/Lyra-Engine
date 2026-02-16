@@ -6,6 +6,10 @@
 #include <Lyra/Common/Macros.h>
 #include <Lyra/Common/Stdint.h>
 #include <Lyra/Common/String.h>
+#include <Lyra/Common/Conversion.h>
+
+// for conversion conversion betwen slot_map_handle and our handles
+#include <apus/slot_map.hpp>
 
 namespace lyra
 {
@@ -24,6 +28,20 @@ namespace lyra
         FORCE_INLINE bool valid() const { return value != THandle(-1); }
 
         FORCE_INLINE void reset() { value = THandle(-1); }
+
+        template <typename SlotType>
+        FORCE_INLINE static TypedEnumHandle create(apus::slot_map_handle<SlotType> handle)
+        {
+            static_assert(sizeof(THandle) == sizeof(apus::slot_map_handle<SlotType>));
+            return TypedEnumHandle(as_type<THandle>(handle));
+        }
+
+        template <typename SlotType>
+        FORCE_INLINE apus::slot_map_handle<SlotType> to_slotmap_handle() const
+        {
+            static_assert(sizeof(THandle) == sizeof(apus::slot_map_handle<SlotType>));
+            return as_type<apus::slot_map_handle<SlotType>>(value);
+        }
 
         constexpr static auto type_name() -> CString
         {
@@ -59,10 +77,10 @@ namespace lyra
         FORCE_INLINE void reset() { pointer = nullptr; }
 
         template <typename U>
-        FORCE_INLINE U* astype() { return reinterpret_cast<U*>(pointer); }
+        FORCE_INLINE U* as_type() { return reinterpret_cast<U*>(pointer); }
 
         template <typename U>
-        FORCE_INLINE U* astype() const { return reinterpret_cast<U*>(pointer); }
+        FORCE_INLINE U* as_type() const { return reinterpret_cast<U*>(pointer); }
     };
 
     template <typename E, E TYPE, typename THandle = uint32_t>

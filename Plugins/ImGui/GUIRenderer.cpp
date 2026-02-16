@@ -102,7 +102,7 @@ static void imgui_create_vertex_buffers(GUIPipelineData* pipeline_data, GUIRende
     vbuffer.unmap();
 }
 
-static GPUBindGroup imgui_create_texture_descriptor(GUIPipelineData* pipeline_data, GUIRendererData* renderer_data, uint texid)
+static GPUBindGroup imgui_create_texture_descriptor(GUIPipelineData* pipeline_data, GUIRendererData* renderer_data, GUITextureManager::handle texid)
 {
     auto& device = RHI::get_current_device();
 
@@ -157,7 +157,7 @@ static void imgui_create_texture(GUIPipelineData* pipeline_data, GUIRendererData
     texinfo.view    = texture.create_view();
 
     auto texid = renderer_data->textures.add(texinfo);
-    tex->SetTexID(texid);
+    tex->SetTexID(as_type<ImTextureID>(texid));
 }
 
 static void imgui_update_texture(GPUCommandBuffer cmdbuffer, GUIRendererData* renderer_data, ImTextureData* tex)
@@ -177,8 +177,8 @@ static void imgui_update_texture(GPUCommandBuffer cmdbuffer, GUIRendererData* re
     }
     staging.unmap();
 
-    auto  texid   = tex->GetTexID();
-    auto& texture = renderer_data->textures.at(static_cast<uint>(texid));
+    auto  texid   = as_type<GUITextureManager::handle>(tex->GetTexID());
+    auto& texture = renderer_data->textures.at(texid);
 
     GPUTexelCopyBufferInfo source{};
     source.buffer         = staging;
@@ -209,19 +209,20 @@ static void imgui_update_texture(GPUCommandBuffer cmdbuffer, GUIRendererData* re
     tex->SetStatus(ImTextureStatus_OK);
 }
 
-static void imgui_delete_texture(GUIPipelineData* pipeline_data, GUIRendererData* renderer_data, ImTextureID texid)
+static void imgui_delete_texture(GUIPipelineData* pipeline_data, GUIRendererData* renderer_data, GUITextureManager::handle texid)
 {
     // deferred deletion of texture, because the current texture/view might still be used in some frames in flight
-    auto& texinfo = renderer_data->textures.at(static_cast<uint>(texid));
+    auto& texinfo = renderer_data->textures.at(texid);
     if (texinfo.valid()) {
-        renderer_data->textures.remove(static_cast<uint>(texid));
+        renderer_data->textures.remove(texid);
         renderer_data->garbage_textures.push_back(GUIGarbageTexture{texinfo, pipeline_data->frame_count});
     }
 }
 
 static void imgui_delete_texture(GUIPipelineData* pipeline_data, GUIRendererData* renderer_data, ImTextureData* tex)
 {
-    imgui_delete_texture(pipeline_data, renderer_data, tex->GetTexID());
+    auto texid = as_type<GUITextureManager::handle>(tex->GetTexID());
+    imgui_delete_texture(pipeline_data, renderer_data, texid);
 
     // reset texture id
     tex->SetTexID(ImTextureID_Invalid);
@@ -353,7 +354,7 @@ static void imgui_render(GPUCommandBuffer cmdbuffer, GPUTextureViewHandle backbu
                 static_cast<GPUIntegerCoordinate>(clip_max.y - clip_min.y));
 
             // bind texture
-            uint texid   = static_cast<uint>(draw_cmd.GetTexID());
+            auto texid   = as_type<GUITextureManager::handle>(draw_cmd.GetTexID());
             auto texinfo = imgui_create_texture_descriptor(pipeline_data, renderer_data, texid);
             cmdbuffer.set_bind_group(0, texinfo);
 
@@ -851,17 +852,20 @@ void GUIRenderer::end_render_pass(GPUCommandBuffer cmdbuffer) const
     imgui_end_render_pass(cmdbuffer);
 }
 
-uint GUIRenderer::create_texture(GPUTextureHandle texture, GPUTextureViewHandle view)
+GUITextureHandle GUIRenderer::create_texture(GPUTextureHandle texture, GPUTextureViewHandle view)
 {
     GUITexture texinfo{};
     texinfo.view.handle    = view;
     texinfo.texture.handle = texture;
-    return renderer_data->textures.add(texinfo);
+
+    auto handle = renderer_data->textures.add(texinfo);
+    return GUITextureHandle::create(handle);
 }
 
-void GUIRenderer::delete_texture(uint texid)
+void GUIRenderer::delete_texture(GUITextureHandle texid)
 {
-    imgui_delete_texture(pipeline_data.get(), renderer_data.get(), (ImTextureID)texid);
+    auto handle = as_type<GUITextureManager::handle>(texid);
+    imgui_delete_texture(pipeline_data.get(), renderer_data.get(), handle);
 }
 
 ImGuiContext* GUIRenderer::context() const

@@ -14,7 +14,7 @@ namespace lyra
 
     struct GUITexture
     {
-        uint texid = 0;
+        GUITextureHandle texid;
     };
 
     struct GUIRenderer
@@ -45,14 +45,14 @@ namespace lyra
         // ownership of GPUTextureHandle and GPUTextureViewHandle will be taken over
         auto create_texture(GPUTextureHandle texture, GPUTextureViewHandle texview) const -> GUITexture
         {
-            uint texid = GUIRenderer::api()->create_texture(handle, texture, texview);
+            auto texid = GUIRenderer::api()->create_texture(handle, texture, texview);
             return GUITexture{texid};
         }
 
         // GUIRenderer will be responsible for managing GPUTextureView deletion upon delete_texture
         auto create_texture(GPUTextureViewHandle texview) const -> GUITexture
         {
-            uint texid = GUIRenderer::api()->create_texture(handle, GPUTextureHandle(), texview);
+            auto texid = GUIRenderer::api()->create_texture(handle, GPUTextureHandle(), texview);
             return GUITexture{texid};
         }
 

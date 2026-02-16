@@ -18,6 +18,11 @@ namespace lyra
         GPUTexture     texture = GPUTexture{};
         GPUTextureView texview = GPUTextureView{};
         GPUExtent2D    extent  = GPUExtent2D{};
+
+        auto imtex() const -> ImTextureID
+        {
+            return as_type<ImTextureID>(tex_id.texid);
+        }
     };
 
     struct Canvas

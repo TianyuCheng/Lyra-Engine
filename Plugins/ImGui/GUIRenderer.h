@@ -8,6 +8,7 @@
 
 #include <Lyra/Common/Math.h>
 #include <Lyra/Common/Stdint.h>
+#include <Lyra/Common/Conversion.h>
 #include <Lyra/Common/Collections.h>
 #include <Lyra/Window/WSIAPI.h>
 #include <Lyra/Window/WSITypes.h>
@@ -67,10 +68,10 @@ struct GUIPlatformData
 struct GUITextureDeleter
 {
     // deferred deletion, only reset the handles
-    void operator()(GUITexture& texture)
+    void operator()(GUITexture* texture)
     {
-        texture.texture.handle.reset();
-        texture.view.handle.reset();
+        texture->texture.handle.reset();
+        texture->view.handle.reset();
     }
 };
 
@@ -117,8 +118,8 @@ public:
     void new_frame();
     void end_frame();
 
-    uint create_texture(GPUTextureHandle texture, GPUTextureViewHandle view);
-    void delete_texture(uint texid);
+    auto create_texture(GPUTextureHandle texture, GPUTextureViewHandle view) -> GUITextureHandle;
+    void delete_texture(GUITextureHandle texid);
 
     void begin_render_pass(GPUCommandBuffer cmdbuffer, GPUTextureViewHandle backbuffer) const;
     void end_render_pass(GPUCommandBuffer cmdbuffer) const;

@@ -38,13 +38,13 @@ bool api::create_surface(GPUSurfaceHandle& surface, const GPUSurfaceDescriptor& 
     auto obj = D3D12Swapchain(desc);
     auto ind = rhi->swapchains.add(obj);
 
-    surface = GPUSurfaceHandle(ind);
+    surface = GPUSurfaceHandle::create(ind);
     return true;
 }
 
 void api::delete_surface(GPUSurfaceHandle surface)
 {
-    get_rhi()->swapchains.remove(surface.value);
+    get_rhi()->swapchains.remove(surface.to_slotmap_handle<D3D12Swapchain>());
 }
 
 bool api::create_buffer(GPUBufferHandle& buffer, const GPUBufferDescriptor& desc)
@@ -53,13 +53,13 @@ bool api::create_buffer(GPUBufferHandle& buffer, const GPUBufferDescriptor& desc
     auto rhi = get_rhi();
     auto ind = rhi->buffers.add(obj);
 
-    buffer = GPUBufferHandle(ind);
+    buffer = GPUBufferHandle::create(ind);
     return true;
 }
 
 void api::delete_buffer(GPUBufferHandle buffer)
 {
-    get_rhi()->buffers.remove(buffer.value);
+    get_rhi()->buffers.remove(buffer.to_slotmap_handle<D3D12Buffer>());
 }
 
 void api::map_buffer(GPUBufferHandle buffer, GPUMapMode, GPUSize64 offset, GPUSize64 size)
@@ -98,13 +98,13 @@ bool api::create_sampler(GPUSamplerHandle& sampler, const GPUSamplerDescriptor& 
     auto obj = D3D12Sampler(desc);
     auto ind = rhi->samplers.add(obj);
 
-    sampler = GPUSamplerHandle(ind);
+    sampler = GPUSamplerHandle::create(ind);
     return true;
 }
 
 void api::delete_sampler(GPUSamplerHandle sampler)
 {
-    get_rhi()->samplers.remove(sampler.value);
+    get_rhi()->samplers.remove(sampler.to_slotmap_handle<D3D12Sampler>());
 }
 
 bool api::create_texture(GPUTextureHandle& texture, const GPUTextureDescriptor& desc)
@@ -113,13 +113,13 @@ bool api::create_texture(GPUTextureHandle& texture, const GPUTextureDescriptor& 
     auto obj = D3D12Texture(desc);
     auto ind = rhi->textures.add(obj);
 
-    texture = GPUTextureHandle(ind);
+    texture = GPUTextureHandle::create(ind);
     return true;
 }
 
 void api::delete_texture(GPUTextureHandle handle)
 {
-    get_rhi()->textures.remove(handle.value);
+    get_rhi()->textures.remove(handle.to_slotmap_handle<D3D12Texture>());
 }
 
 bool api::create_texture_view(GPUTextureViewHandle& handle, GPUTextureHandle texture, const GPUTextureViewDescriptor& desc)
@@ -129,13 +129,13 @@ bool api::create_texture_view(GPUTextureViewHandle& handle, GPUTextureHandle tex
     auto  obj = D3D12TextureView(tex, desc);
     auto  ind = rhi->views.add(obj);
 
-    handle = GPUTextureViewHandle(ind);
+    handle = GPUTextureViewHandle::create(ind);
     return true;
 }
 
 void api::delete_texture_view(GPUTextureViewHandle handle)
 {
-    get_rhi()->views.remove(handle.value);
+    get_rhi()->views.remove(handle.to_slotmap_handle<D3D12TextureView>());
 }
 
 bool api::create_shader_module(GPUShaderModuleHandle& shader, const GPUShaderModuleDescriptor& desc)
@@ -144,13 +144,13 @@ bool api::create_shader_module(GPUShaderModuleHandle& shader, const GPUShaderMod
     auto obj = D3D12Shader(desc);
     auto ind = rhi->shaders.add(obj);
 
-    shader = GPUShaderModuleHandle(ind);
+    shader = GPUShaderModuleHandle::create(ind);
     return true;
 }
 
 void api::delete_shader_module(GPUShaderModuleHandle shader)
 {
-    get_rhi()->shaders.remove(shader.value);
+    get_rhi()->shaders.remove(shader.to_slotmap_handle<D3D12Shader>());
 }
 
 bool api::create_fence(GPUFenceHandle& fence)
@@ -159,13 +159,13 @@ bool api::create_fence(GPUFenceHandle& fence)
     auto obj = D3D12Fence(false);
     auto ind = rhi->fences.add(obj);
 
-    fence = GPUFenceHandle(ind);
+    fence = GPUFenceHandle::create(ind);
     return true;
 }
 
 void api::delete_fence(GPUFenceHandle fence)
 {
-    get_rhi()->fences.remove(fence.value);
+    get_rhi()->fences.remove(fence.to_slotmap_handle<D3D12Fence>());
 }
 
 bool api::create_blas(GPUBlasHandle& blas, const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescriptors sizes)
@@ -174,13 +174,13 @@ bool api::create_blas(GPUBlasHandle& blas, const GPUBlasDescriptor& desc, GPUBla
     auto obj = D3D12Blas(desc, sizes);
     auto ind = rhi->blases.add(obj);
 
-    blas = GPUBlasHandle(ind);
+    blas = GPUBlasHandle::create(ind);
     return true;
 }
 
 void api::delete_blas(GPUBlasHandle blas)
 {
-    get_rhi()->blases.remove(blas.value);
+    get_rhi()->blases.remove(blas.to_slotmap_handle<D3D12Blas>());
 }
 
 bool api::create_tlas(GPUTlasHandle& tlas, const GPUTlasDescriptor& desc)
@@ -189,13 +189,13 @@ bool api::create_tlas(GPUTlasHandle& tlas, const GPUTlasDescriptor& desc)
     auto obj = D3D12Tlas(desc);
     auto ind = rhi->tlases.add(obj);
 
-    tlas = GPUTlasHandle(ind);
+    tlas = GPUTlasHandle::create(ind);
     return true;
 }
 
 void api::delete_tlas(GPUTlasHandle tlas)
 {
-    get_rhi()->tlases.remove(tlas.value);
+    get_rhi()->tlases.remove(tlas.to_slotmap_handle<D3D12Tlas>());
 }
 
 bool api::get_blas_sizes(GPUBlasHandle blas, GPUBVHSizes& sizes)
@@ -221,13 +221,13 @@ bool api::create_query_set(GPUQuerySetHandle& query_set, const GPUQuerySetDescri
     auto rhi = get_rhi();
     auto ind = rhi->query_sets.add(D3D12QuerySet(desc));
 
-    query_set = GPUQuerySetHandle(ind);
+    query_set = GPUQuerySetHandle::create(ind);
     return true;
 }
 
 void api::delete_query_set(GPUQuerySetHandle query_set)
 {
-    get_rhi()->query_sets.remove(query_set.value);
+    get_rhi()->query_sets.remove(query_set.to_slotmap_handle<D3D12QuerySet>());
 }
 
 bool api::create_bind_group_heap(GPUBindGroupHeapHandle& heap, const GPUBindGroupHeapDescriptor& desc)
@@ -236,18 +236,18 @@ bool api::create_bind_group_heap(GPUBindGroupHeapHandle& heap, const GPUBindGrou
     auto rhi = get_rhi();
     auto ind = rhi->bind_group_heaps.add(obj);
 
-    heap = GPUBindGroupHeapHandle(ind);
+    heap = GPUBindGroupHeapHandle::create(ind);
     return true;
 }
 
 void api::delete_bind_group_heap(GPUBindGroupHeapHandle heap)
 {
-    get_rhi()->bind_group_heaps.remove(heap.value);
+    get_rhi()->bind_group_heaps.remove(heap.to_slotmap_handle<D3D12BindGroupHeap>());
 }
 
 void api::reset_bind_group_heap(GPUBindGroupHeapHandle heap)
 {
-    get_rhi()->bind_group_heaps.at(heap.value).reset();
+    get_rhi()->bind_group_heaps.at(heap.to_slotmap_handle<D3D12BindGroupHeap>()).reset();
 }
 
 bool api::create_bind_group_layout(GPUBindGroupLayoutHandle& layout, const GPUBindGroupLayoutDescriptor& desc)
@@ -256,13 +256,13 @@ bool api::create_bind_group_layout(GPUBindGroupLayoutHandle& layout, const GPUBi
     auto rhi = get_rhi();
     auto ind = rhi->bind_group_layouts.add(obj);
 
-    layout = GPUBindGroupLayoutHandle(ind);
+    layout = GPUBindGroupLayoutHandle::create(ind);
     return true;
 }
 
 void api::delete_bind_group_layout(GPUBindGroupLayoutHandle layout)
 {
-    get_rhi()->bind_group_layouts.remove(layout.value);
+    get_rhi()->bind_group_layouts.remove(layout.to_slotmap_handle<D3D12BindGroupLayout>());
 }
 
 bool api::create_pipeline_layout(GPUPipelineLayoutHandle& layout, const GPUPipelineLayoutDescriptor& desc)
@@ -271,13 +271,13 @@ bool api::create_pipeline_layout(GPUPipelineLayoutHandle& layout, const GPUPipel
     auto rhi = get_rhi();
     auto ind = rhi->pipeline_layouts.add(obj);
 
-    layout = GPUPipelineLayoutHandle(ind);
+    layout = GPUPipelineLayoutHandle::create(ind);
     return true;
 }
 
 void api::delete_pipeline_layout(GPUPipelineLayoutHandle layout)
 {
-    get_rhi()->pipeline_layouts.remove(layout.value);
+    get_rhi()->pipeline_layouts.remove(layout.to_slotmap_handle<D3D12PipelineLayout>());
 }
 
 bool api::create_render_pipeline(GPURenderPipelineHandle& pipeline, const GPURenderPipelineDescriptor& desc)
@@ -286,13 +286,13 @@ bool api::create_render_pipeline(GPURenderPipelineHandle& pipeline, const GPURen
     auto rhi = get_rhi();
     auto ind = rhi->pipelines.add(obj);
 
-    pipeline = GPURenderPipelineHandle(ind);
+    pipeline = GPURenderPipelineHandle::create(ind);
     return true;
 }
 
 void api::delete_render_pipeline(GPURenderPipelineHandle pipeline)
 {
-    get_rhi()->pipelines.remove(pipeline.value);
+    get_rhi()->pipelines.remove(pipeline.to_slotmap_handle<D3D12Pipeline>());
 }
 
 bool api::create_compute_pipeline(GPUComputePipelineHandle& pipeline, const GPUComputePipelineDescriptor& desc)
@@ -301,13 +301,13 @@ bool api::create_compute_pipeline(GPUComputePipelineHandle& pipeline, const GPUC
     auto rhi = get_rhi();
     auto ind = rhi->pipelines.add(obj);
 
-    pipeline = GPUComputePipelineHandle(ind);
+    pipeline = GPUComputePipelineHandle::create(ind);
     return true;
 }
 
 void api::delete_compute_pipeline(GPUComputePipelineHandle pipeline)
 {
-    get_rhi()->pipelines.remove(pipeline.value);
+    get_rhi()->pipelines.remove(pipeline.to_slotmap_handle<D3D12Pipeline>());
 }
 
 bool api::create_raytracing_pipeline(GPURayTracingPipelineHandle& handle, const GPURayTracingPipelineDescriptor& desc)
@@ -316,13 +316,13 @@ bool api::create_raytracing_pipeline(GPURayTracingPipelineHandle& handle, const 
     auto rhi = get_rhi();
     auto ind = rhi->pipelines.add(obj);
 
-    handle = GPURayTracingPipelineHandle(ind);
+    handle = GPURayTracingPipelineHandle::create(ind);
     return true;
 }
 
 void api::delete_raytracing_pipeline(GPURayTracingPipelineHandle pipeline)
 {
-    get_rhi()->pipelines.remove(pipeline.value);
+    get_rhi()->pipelines.remove(pipeline.to_slotmap_handle<D3D12Pipeline>());
 }
 
 bool api::create_bind_group(GPUBindGroupHandle& bind_group, const GPUBindGroupDescriptor& desc)
@@ -337,7 +337,7 @@ bool api::create_bind_group(GPUBindGroupHandle& bind_group, const GPUBindGroupDe
     // 1. faster access (avoid indirection to vector)
     // 2. minimal storage (no need to store descriptors in RHI backend)
     // once descriptor set is created, it is never changed for rest of its life
-    auto handle = astype<uint64_t>(des);
+    auto handle = as_type<uint64_t>(des);
     bind_group  = GPUBindGroupHandle(handle);
     return true;
 }

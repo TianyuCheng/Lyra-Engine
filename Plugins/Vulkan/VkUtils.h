@@ -40,9 +40,9 @@ static const char* LUNARG_VALIDATION_LAYER_NAME   = "VK_LAYER_KHRONOS_validation
 template <typename T>
 struct VulkanDestroyer
 {
-    void operator()(T& obj)
+    void operator()(T* obj)
     {
-        obj.destroy();
+        obj->destroy();
     }
 };
 
@@ -481,6 +481,21 @@ struct VulkanSwapchain
     bool valid() const { return swapchain != VK_NULL_HANDLE; }
 };
 
+using VulkanSwapchainManager       = VulkanResourceManager<VulkanSwapchain>;
+using VulkanSemaphoreManager       = VulkanResourceManager<VulkanSemaphore>;
+using VulkanBufferManager          = VulkanResourceManager<VulkanBuffer>;
+using VulkanTextureManager         = VulkanResourceManager<VulkanTexture>;
+using VulkanTextureViewManager     = VulkanResourceManager<VulkanTextureView>;
+using VulkanSamplerManager         = VulkanResourceManager<VulkanSampler>;
+using VulkanShaderManager          = VulkanResourceManager<VulkanShader>;
+using VulkanTlasManager            = VulkanResourceManager<VulkanTlas>;
+using VulkanBlasManager            = VulkanResourceManager<VulkanBlas>;
+using VulkanQueryManager           = VulkanResourceManager<VulkanQuerySet>;
+using VulkanPipelineManager        = VulkanResourceManager<VulkanPipeline>;
+using VulkanPipelineLayoutManager  = VulkanResourceManager<VulkanPipelineLayout>;
+using VulkanDescriptorPoolManager  = VulkanResourceManager<VulkanDescriptorPool>;
+using VulkanBindGroupLayoutManager = VulkanResourceManager<VulkanBindGroupLayout>;
+
 struct VulkanRHI
 {
     RHIFlags           rhiflags       = 0;
@@ -514,20 +529,20 @@ struct VulkanRHI
     GPUSurfaceHandle surface_tracker;
 
     // collection of objects
-    VulkanResourceManager<VulkanSwapchain>       swapchains;
-    VulkanResourceManager<VulkanSemaphore>       fences;
-    VulkanResourceManager<VulkanBuffer>          buffers;
-    VulkanResourceManager<VulkanTexture>         textures;
-    VulkanResourceManager<VulkanTextureView>     views;
-    VulkanResourceManager<VulkanSampler>         samplers;
-    VulkanResourceManager<VulkanShader>          shaders;
-    VulkanResourceManager<VulkanTlas>            tlases;
-    VulkanResourceManager<VulkanBlas>            blases;
-    VulkanResourceManager<VulkanQuerySet>        query_sets;
-    VulkanResourceManager<VulkanPipeline>        pipelines;
-    VulkanResourceManager<VulkanPipelineLayout>  pipeline_layouts;
-    VulkanResourceManager<VulkanDescriptorPool>  descriptor_pools;
-    VulkanResourceManager<VulkanBindGroupLayout> bind_group_layouts;
+    VulkanSwapchainManager       swapchains;
+    VulkanSemaphoreManager       fences;
+    VulkanBufferManager          buffers;
+    VulkanTextureManager         textures;
+    VulkanTextureViewManager     views;
+    VulkanSamplerManager         samplers;
+    VulkanShaderManager          shaders;
+    VulkanTlasManager            tlases;
+    VulkanBlasManager            blases;
+    VulkanQueryManager           query_sets;
+    VulkanPipelineManager        pipelines;
+    VulkanPipelineLayoutManager  pipeline_layouts;
+    VulkanDescriptorPoolManager  descriptor_pools;
+    VulkanBindGroupLayoutManager bind_group_layouts;
 
     auto current_frame() -> VulkanFrame& { return frames.at(current_frame_index % frames.size()); }
 
@@ -782,18 +797,12 @@ T& fetch_resource(VulkanResourceManager<T>& manager, Handle handle)
         throw std::runtime_error("Resource handle is invalid!");
     }
 
-    // check resource range
-    if (!manager.range_check(handle.value)) {
-        get_logger()->error("Resource handle {} with value={} access out of range!", Handle::type_name(), handle.value);
-        throw std::runtime_error("Resource handle is accessing out of range!");
+    T* resource = manager.find(handle.template to_slotmap_handle<T>());
+    if (!resource) {
+        get_logger()->error("Resource handle {} with value={} cannot be found!", Handle::type_name(), handle.value);
+        throw std::runtime_error("Resource handle references cannot be found!");
     }
-
-    T& resource = manager.at(handle.value);
-    if (!resource.valid()) {
-        get_logger()->error("Resource handle {} with value={} has invalid object!", Handle::type_name(), handle.value);
-        throw std::runtime_error("Resource handle references an invalid object!");
-    }
-    return resource;
+    return *resource;
 }
 
 inline VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(

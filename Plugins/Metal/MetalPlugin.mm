@@ -15,14 +15,14 @@ bool api::create_surface(GPUSurfaceHandle& handle, const GPUSurfaceDescriptor& d
         return false;
     }
 
-    handle = GPUSurfaceHandle(rhi->swapchains.add(obj));
+    handle = GPUSurfaceHandle::create(rhi->swapchains.add(obj));
     get_logger()->info("Metal surface created: {}x{}", obj.extent.width, obj.extent.height);
     return true;
 }
 
 void api::delete_surface(GPUSurfaceHandle handle)
 {
-    get_rhi()->swapchains.remove(handle.value);
+    get_rhi()->swapchains.remove(handle.to_slotmap_handle<MetalSwapchain>());
 }
 
 bool api::get_surface_extent(GPUSurfaceHandle surface, GPUExtent2D& extent)
@@ -54,13 +54,13 @@ bool api::create_buffer(GPUBufferHandle& handle, const GPUBufferDescriptor& desc
     auto rhi = get_rhi();
     auto obj = MetalBuffer(desc);
     auto ind = rhi->buffers.add(obj);
-    handle   = GPUBufferHandle(ind);
+    handle   = GPUBufferHandle::create(ind);
     return obj.valid();
 }
 
 void api::delete_buffer(GPUBufferHandle handle)
 {
-    get_rhi()->buffers.remove(handle.value);
+    get_rhi()->buffers.remove(handle.to_slotmap_handle<MetalBuffer>());
 }
 
 void api::map_buffer(GPUBufferHandle buffer, GPUMapMode, GPUSize64 offset, GPUSize64 size)
@@ -93,13 +93,13 @@ bool api::create_sampler(GPUSamplerHandle& handle, const GPUSamplerDescriptor& d
     auto rhi = get_rhi();
     auto obj = MetalSampler(desc);
     auto ind = rhi->samplers.add(obj);
-    handle   = GPUSamplerHandle(ind);
+    handle   = GPUSamplerHandle::create(ind);
     return obj.valid();
 }
 
 void api::delete_sampler(GPUSamplerHandle handle)
 {
-    get_rhi()->samplers.remove(handle.value);
+    get_rhi()->samplers.remove(handle.to_slotmap_handle<MetalSampler>());
 }
 
 bool api::create_texture(GPUTextureHandle& handle, const GPUTextureDescriptor& desc)
@@ -107,13 +107,13 @@ bool api::create_texture(GPUTextureHandle& handle, const GPUTextureDescriptor& d
     auto rhi = get_rhi();
     auto obj = MetalTexture(desc);
     auto ind = rhi->textures.add(obj);
-    handle   = GPUTextureHandle(ind);
+    handle   = GPUTextureHandle::create(ind);
     return obj.valid();
 }
 
 void api::delete_texture(GPUTextureHandle handle)
 {
-    get_rhi()->textures.remove(handle.value);
+    get_rhi()->textures.remove(handle.to_slotmap_handle<MetalTexture>());
 }
 
 bool api::create_texture_view(GPUTextureViewHandle& handle, GPUTextureHandle texture, const GPUTextureViewDescriptor& desc)
@@ -122,13 +122,13 @@ bool api::create_texture_view(GPUTextureViewHandle& handle, GPUTextureHandle tex
     auto& tex = fetch_resource(rhi->textures, texture);
     auto  obj = MetalTextureView(tex, desc);
     auto  ind = rhi->views.add(obj);
-    handle    = GPUTextureViewHandle(ind);
+    handle    = GPUTextureViewHandle::create(ind);
     return obj.valid();
 }
 
 void api::delete_texture_view(GPUTextureViewHandle handle)
 {
-    get_rhi()->views.remove(handle.value);
+    get_rhi()->views.remove(handle.to_slotmap_handle<MetalTextureView>());
 }
 
 bool api::create_shader_module(GPUShaderModuleHandle& handle, const GPUShaderModuleDescriptor& desc)
@@ -136,13 +136,13 @@ bool api::create_shader_module(GPUShaderModuleHandle& handle, const GPUShaderMod
     auto rhi = get_rhi();
     auto obj = MetalShader(desc);
     auto ind = rhi->shaders.add(obj);
-    handle   = GPUShaderModuleHandle(ind);
+    handle   = GPUShaderModuleHandle::create(ind);
     return obj.valid();
 }
 
 void api::delete_shader_module(GPUShaderModuleHandle handle)
 {
-    get_rhi()->shaders.remove(handle.value);
+    get_rhi()->shaders.remove(handle.to_slotmap_handle<MetalShader>());
 }
 
 bool api::create_fence(GPUFenceHandle& handle)
@@ -150,13 +150,13 @@ bool api::create_fence(GPUFenceHandle& handle)
     auto rhi = get_rhi();
     auto obj = MetalFence(false); // Create with signaled=false
     auto ind = rhi->fences.add(obj);
-    handle   = GPUFenceHandle(ind);
+    handle   = GPUFenceHandle::create(ind);
     return obj.valid();
 }
 
 void api::delete_fence(GPUFenceHandle handle)
 {
-    get_rhi()->fences.remove(handle.value);
+    get_rhi()->fences.remove(handle.to_slotmap_handle<MetalFence>());
 }
 
 bool api::create_blas(GPUBlasHandle& handle, const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescriptors sizes)
@@ -175,13 +175,13 @@ bool api::create_blas(GPUBlasHandle& handle, const GPUBlasDescriptor& desc, GPUB
     }
 
     auto ind = rhi->blases.add(obj);
-    handle   = GPUBlasHandle(ind);
+    handle   = GPUBlasHandle::create(ind);
     return true;
 }
 
 void api::delete_blas(GPUBlasHandle handle)
 {
-    get_rhi()->blases.remove(handle.value);
+    get_rhi()->blases.remove(handle.to_slotmap_handle<MetalBlas>());
 }
 
 bool api::create_tlas(GPUTlasHandle& handle, const GPUTlasDescriptor& desc)
@@ -200,13 +200,13 @@ bool api::create_tlas(GPUTlasHandle& handle, const GPUTlasDescriptor& desc)
     }
 
     auto ind = rhi->tlases.add(obj);
-    handle   = GPUTlasHandle(ind);
+    handle   = GPUTlasHandle::create(ind);
     return true;
 }
 
 void api::delete_tlas(GPUTlasHandle handle)
 {
-    get_rhi()->tlases.remove(handle.value);
+    get_rhi()->tlases.remove(handle.to_slotmap_handle<MetalTlas>());
 }
 
 bool api::get_blas_sizes(GPUBlasHandle handle, GPUBVHSizes& sizes)
@@ -257,13 +257,13 @@ bool api::create_query_set(GPUQuerySetHandle& handle, const GPUQuerySetDescripto
         return false;
 
     auto ind = rhi->query_sets.add(obj);
-    handle   = GPUQuerySetHandle(ind);
+    handle   = GPUQuerySetHandle::create(ind);
     return true;
 }
 
 void api::delete_query_set(GPUQuerySetHandle handle)
 {
-    get_rhi()->query_sets.remove(handle.value);
+    get_rhi()->query_sets.remove(handle.to_slotmap_handle<MetalQuerySet>());
 }
 
 bool api::create_bind_group(GPUBindGroupHandle& handle, const GPUBindGroupDescriptor& desc)
@@ -277,13 +277,13 @@ bool api::create_bind_group_heap(GPUBindGroupHeapHandle& handle, const GPUBindGr
 {
     auto rhi = get_rhi();
     auto ind = rhi->bind_group_heaps.add(MetalBindGroupHeap(desc));
-    handle   = GPUBindGroupHeapHandle(ind);
+    handle   = GPUBindGroupHeapHandle::create(ind);
     return true;
 }
 
 void api::delete_bind_group_heap(GPUBindGroupHeapHandle handle)
 {
-    get_rhi()->bind_group_heaps.remove(handle.value);
+    get_rhi()->bind_group_heaps.remove(handle.to_slotmap_handle<MetalBindGroupHeap>());
 }
 
 void api::reset_bind_group_heap(GPUBindGroupHeapHandle handle)
@@ -298,13 +298,13 @@ bool api::create_bind_group_layout(GPUBindGroupLayoutHandle& handle, const GPUBi
     auto rhi = get_rhi();
     auto obj = MetalBindGroupLayout(desc);
     auto ind = rhi->bind_group_layouts.add(obj);
-    handle   = GPUBindGroupLayoutHandle(ind);
+    handle   = GPUBindGroupLayoutHandle::create(ind);
     return obj.valid();
 }
 
 void api::delete_bind_group_layout(GPUBindGroupLayoutHandle handle)
 {
-    get_rhi()->bind_group_layouts.remove(handle.value);
+    get_rhi()->bind_group_layouts.remove(handle.to_slotmap_handle<MetalBindGroupLayout>());
 }
 
 bool api::create_pipeline_layout(GPUPipelineLayoutHandle& handle, const GPUPipelineLayoutDescriptor& desc)
@@ -312,13 +312,13 @@ bool api::create_pipeline_layout(GPUPipelineLayoutHandle& handle, const GPUPipel
     auto rhi = get_rhi();
     auto obj = MetalPipelineLayout(desc);
     auto ind = rhi->pipeline_layouts.add(obj);
-    handle   = GPUPipelineLayoutHandle(ind);
+    handle   = GPUPipelineLayoutHandle::create(ind);
     return obj.valid();
 }
 
 void api::delete_pipeline_layout(GPUPipelineLayoutHandle handle)
 {
-    get_rhi()->pipeline_layouts.remove(handle.value);
+    get_rhi()->pipeline_layouts.remove(handle.to_slotmap_handle<MetalPipelineLayout>());
 }
 
 bool api::create_render_pipeline(GPURenderPipelineHandle& handle, const GPURenderPipelineDescriptor& desc)
@@ -329,13 +329,13 @@ bool api::create_render_pipeline(GPURenderPipelineHandle& handle, const GPURende
         return false;
     }
     auto ind = rhi->pipelines.add(obj);
-    handle   = GPURenderPipelineHandle(ind);
+    handle   = GPURenderPipelineHandle::create(ind);
     return true;
 }
 
 void api::delete_render_pipeline(GPURenderPipelineHandle handle)
 {
-    get_rhi()->pipelines.remove(handle.value);
+    get_rhi()->pipelines.remove(handle.to_slotmap_handle<MetalPipeline>());
 }
 
 bool api::create_compute_pipeline(GPUComputePipelineHandle& handle, const GPUComputePipelineDescriptor& desc)
@@ -346,13 +346,13 @@ bool api::create_compute_pipeline(GPUComputePipelineHandle& handle, const GPUCom
         return false;
     }
     auto ind = rhi->pipelines.add(obj);
-    handle   = GPUComputePipelineHandle(ind);
+    handle   = GPUComputePipelineHandle::create(ind);
     return true;
 }
 
 void api::delete_compute_pipeline(GPUComputePipelineHandle handle)
 {
-    get_rhi()->pipelines.remove(handle.value);
+    get_rhi()->pipelines.remove(handle.to_slotmap_handle<MetalPipeline>());
 }
 
 bool api::create_raytracing_pipeline(GPURayTracingPipelineHandle& handle, const GPURayTracingPipelineDescriptor& desc)
@@ -369,13 +369,13 @@ bool api::create_raytracing_pipeline(GPURayTracingPipelineHandle& handle, const 
     // Note: valid() check will pass even with just max_recursion_depth set
     // since the current implementation is a placeholder
     auto ind = rhi->pipelines.add(obj);
-    handle   = GPURayTracingPipelineHandle(ind);
+    handle   = GPURayTracingPipelineHandle::create(ind);
     return true;
 }
 
 void api::delete_raytracing_pipeline(GPURayTracingPipelineHandle handle)
 {
-    get_rhi()->pipelines.remove(handle.value);
+    get_rhi()->pipelines.remove(handle.to_slotmap_handle<MetalPipeline>());
 }
 
 auto get_api_name() -> CString

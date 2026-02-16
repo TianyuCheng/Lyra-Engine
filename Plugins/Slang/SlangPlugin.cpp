@@ -21,7 +21,7 @@ bool create_compiler(CompilerHandle& compiler, const CompilerDescriptor& descrip
 void delete_compiler(CompilerHandle compiler)
 {
     if (compiler.pointer) {
-        delete compiler.astype<CompilerWrapper>();
+        delete compiler.as_type<CompilerWrapper>();
         compiler.pointer = nullptr;
     }
 }
@@ -29,7 +29,7 @@ void delete_compiler(CompilerHandle compiler)
 bool create_module(CompilerHandle compiler, const CompileDescriptor& desc, ShaderModuleHandle& module)
 {
     auto internal = std::make_unique<CompileResultInternal>();
-    auto handle   = compiler.astype<CompilerWrapper>();
+    auto handle   = compiler.as_type<CompilerWrapper>();
     if (handle->compile(desc, *internal)) {
         module = ShaderModuleHandle{internal.release()};
         return true;
@@ -48,7 +48,7 @@ void delete_module(ShaderModuleHandle module)
 bool create_reflection(CompilerHandle compiler, ShaderEntryPoints entries, ShaderReflectionHandle& reflection)
 {
     auto internal = std::make_unique<ReflectResultInternal>();
-    auto handle   = compiler.astype<CompilerWrapper>();
+    auto handle   = compiler.as_type<CompilerWrapper>();
     bool success  = handle->reflect(entries, *internal);
 
     reflection = ShaderReflectionHandle{internal.release()};

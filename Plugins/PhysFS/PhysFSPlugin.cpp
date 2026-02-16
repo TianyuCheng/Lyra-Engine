@@ -106,7 +106,7 @@ static bool delete_loader(FileLoaderHandle loader)
         g_loaders.end());
 
     // delete pointer
-    auto pointer = loader.astype<PhysFSLoader>();
+    auto pointer = loader.as_type<PhysFSLoader>();
     delete pointer;
     return true;
 }
@@ -168,7 +168,7 @@ static void close_file(FileLoaderHandle loader, FileHandle handle)
         return;
     }
 
-    auto pf = handle.astype<PHYSFS_File>();
+    auto pf = handle.as_type<PHYSFS_File>();
     PHYSFS_close(pf);
 }
 
@@ -181,7 +181,7 @@ static bool read_file(FileLoaderHandle loader, FileHandle handle, void* buffer, 
         return false;
     }
 
-    auto pf = handle.astype<PHYSFS_File>();
+    auto pf = handle.as_type<PHYSFS_File>();
 
     PHYSFS_sint64 len = PHYSFS_readBytes(pf, buffer, static_cast<PHYSFS_uint64>(size));
     if (len < 0) {
@@ -199,7 +199,7 @@ static bool seek_file(FileLoaderHandle loader, FileHandle handle, int64_t offset
         return false;
     }
 
-    auto pf = handle.astype<PHYSFS_File>();
+    auto pf = handle.as_type<PHYSFS_File>();
 
     return PHYSFS_seek(pf, static_cast<PHYSFS_uint64>(offset)) != 0;
 }
@@ -231,7 +231,7 @@ static bool mount(FileLoaderHandle loader, MountHandle& out_handle, FSPath vpath
         return false;
     }
 
-    auto pointer = loader.astype<PhysFSLoader>();
+    auto pointer = loader.as_type<PhysFSLoader>();
 
     std::error_code ec;
 
@@ -267,8 +267,8 @@ static bool mount(FileLoaderHandle loader, MountHandle& out_handle, FSPath vpath
 
 static bool unmount(FileLoaderHandle loader, MountHandle handle)
 {
-    auto pointer = loader.astype<PhysFSLoader>();
-    auto pmount  = handle.astype<PhysMountPoint>();
+    auto pointer = loader.as_type<PhysFSLoader>();
+    auto pmount  = handle.as_type<PhysMountPoint>();
     get_logger()->info("unmount path={} from vpath={} (removed {} mounts)", pmount->root.string(), pmount->vpath);
 
     // lock while unmount

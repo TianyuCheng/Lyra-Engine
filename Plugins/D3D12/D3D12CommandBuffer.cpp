@@ -282,7 +282,7 @@ void cmd::set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GP
     auto  rhi = get_rhi();
     auto& frm = rhi->current_frame();
     auto& cmd = frm.command(cmdbuffer);
-    auto  des = astype<D3D12BindGroup*>(bind_group);
+    auto  des = as_type<D3D12BindGroup*>(bind_group);
 
     const auto& info = cmd.pso.layout->bindgroups.at(index);
     if (info.has_default_root_parameter()) {

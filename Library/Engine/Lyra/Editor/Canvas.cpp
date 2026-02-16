@@ -53,7 +53,7 @@ Backbuffer Canvas::get_backbuffer() const
 void Canvas::display() const
 {
     auto& frame = get_frame();
-    ImGui::Image(frame.tex_id.texid, frame_extent);
+    ImGui::Image(frame.imtex(), frame_extent);
 }
 
 void Canvas::detect_window()
