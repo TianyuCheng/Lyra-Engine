@@ -24,10 +24,9 @@ target_sources(lyra-common PUBLIC
   Lyra/Common/Stdint.h
   Lyra/Common/String.h
 
+  Lyra/Detail/View.h
   Lyra/Detail/Arena.h
   Lyra/Detail/Blackboard.h
-  Lyra/Detail/Slotmap.h
-  Lyra/Detail/View.h
 )
 
 target_sources(lyra-common PRIVATE

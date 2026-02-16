@@ -4,27 +4,36 @@
 #define LYRA_LIBRARY_SCENE_TRANSFORM_H
 
 #include <Lyra/Common/Math.h>
+#include <Lyra/Common/BitFlags.h>
+
+namespace lyra
+{
+    enum struct TransformFlag : uint
+    {
+        NONE        = 0x0,
+        LOCAL_DIRTY = 0x1,
+        WORLD_DIRTY = 0x2,
+    };
+} // namespace lyra
+
+ENABLE_BIT_FLAGS(lyra::TransformFlag);
 
 namespace lyra
 {
 
-    struct Transform
+    using TransformFlags = BitFlags<TransformFlag>;
+
+    struct TransformLocal
     {
-        Vector3    scale    = Vector3(1.0f);
-        Vector3    position = Vector3(0.0f);
-        Quaternion rotation = Quaternion();
+        Quaternion     rotation = glm::identity<Quaternion>();
+        Vector3        position = Vector3(0.0f);
+        Vector3        scale    = Vector3(1.0f);
+        TransformFlags flags    = TransformFlag::NONE;
     };
 
-    struct WorldTransform
+    struct TransformWorld
     {
         Matrix4x4 xform = Matrix4x4();
-
-        bool dirty = false;
-    };
-
-    struct CameraTransform
-    {
-        Matrix4x4 projection;
     };
 
 } // namespace lyra

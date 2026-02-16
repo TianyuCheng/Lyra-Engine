@@ -38,12 +38,20 @@
 #include <Lyra/Runtime/Application.h>
 #include <Lyra/Runtime/AssetLayer.h>
 #include <Lyra/Runtime/EditorLayer.h>
+
+// Render headers
 #include <Lyra/Render/FrameGraph.h>
 #include <Lyra/Render/FrameGraphPass.h>
 #include <Lyra/Render/FrameGraphEnums.h>
 #include <Lyra/Render/FrameGraphContext.h>
 #include <Lyra/Render/FrameGraphBuilder.h>
 #include <Lyra/Render/FrameGraphResource.h>
+
+// Scene headers
+#include <Lyra/Scene/Node.h>
+#include <Lyra/Scene/Light.h>
+#include <Lyra/Scene/World.h>
+#include <Lyra/Scene/Transform.h>
 
 // Editor files
 #include <Lyra/Editor/Canvas.h>

@@ -65,8 +65,8 @@ namespace lyra
     template <typename... T>
     using FreeList = apus::free_list<T...>;
 
-    template <typename... T>
-    using SmallVector = apus::small_vector<T...>;
+    template <typename T, std::size_t N>
+    using SmallVector = apus::small_vector<T, N>;
 
     template <typename... T>
     using TypedView = lyra::detail::typed_view<T...>;
