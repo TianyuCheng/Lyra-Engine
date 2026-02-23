@@ -18,6 +18,7 @@ namespace lyra
         void update(Blackboard& blackboard);
 
     private:
+        void draw_inspector(World& world, SceneNode node);
     };
 } // namespace lyra
 
