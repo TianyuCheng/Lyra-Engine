@@ -6,26 +6,26 @@
 #include "Icons.h"
 #include "Colors.h"
 #include "Layout.h"
-#include "Console.h"
+#include "LoggerView.h"
 
 #define LYRA_CONSOLE_WINDOW_NAME (LYRA_ICON_CONSOLE "Console")
 
 using namespace lyra;
 
-Console::Console(size_t capacity)
+LoggerView::LoggerView(size_t capacity)
 {
     get_console_sink()->get_console().resize(capacity);
 
     filter[0] = '\0';
 }
 
-void Console::bind(Application& app)
+void LoggerView::bind(Application& app)
 {
     // bind layout manager events
-    app.bind<AppEvent::UPDATE, &Console::update>(*this);
+    app.bind<AppEvent::UPDATE, &LoggerView::update>(*this);
 }
 
-void Console::update(Blackboard& blackboard)
+void LoggerView::update(Blackboard& blackboard)
 {
     lyra::execute_once([&]() {
         auto& layout = blackboard.get<EditorLayoutInfo>();
@@ -40,7 +40,7 @@ void Console::update(Blackboard& blackboard)
     ImGui::End();
 }
 
-void Console::show_bar()
+void LoggerView::show_bar()
 {
     // log verbosity
     ImGui::PushItemWidth(200);
@@ -76,7 +76,7 @@ void Console::show_bar()
     ImGui::PopItemWidth();
 }
 
-void Console::show_logs() const
+void LoggerView::show_logs() const
 {
     String filter_text(filter);
 
@@ -101,7 +101,7 @@ void Console::show_logs() const
     };
 
     // show filtered console logs
-    ImGui::BeginChild("Console Log", ImVec2(0, 0), true, ImGuiWindowFlags_HorizontalScrollbar);
+    ImGui::BeginChild("Logs", ImVec2(0, 0), true, ImGuiWindowFlags_HorizontalScrollbar);
     {
         auto& sink = get_console_sink()->get_console();
         sink.for_each([&](const ConsoleLog& log) {

@@ -1,17 +1,17 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_EDITOR_INSPECTOR_H
-#define LYRA_LIBRARY_EDITOR_INSPECTOR_H
+#ifndef LYRA_LIBRARY_EDITOR_TREE_VIEW_H
+#define LYRA_LIBRARY_EDITOR_TREE_VIEW_H
 
 // local imports
 #include "../Runtime/Application.h"
 
 namespace lyra
 {
-    struct Inspector
+    struct TreeView
     {
     public:
-        explicit Inspector();
+        explicit TreeView();
 
         void bind(Application& app);
 
@@ -21,4 +21,4 @@ namespace lyra
     };
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_EDITOR_INSPECTOR_H
+#endif // LYRA_LIBRARY_EDITOR_TREE_VIEW_H

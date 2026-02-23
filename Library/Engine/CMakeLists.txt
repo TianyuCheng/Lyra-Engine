@@ -36,15 +36,14 @@ target_sources(lyra-engine PUBLIC
   # editor
   Lyra/Editor/Canvas.h
   Lyra/Editor/Colors.h
-  Lyra/Editor/Console.h
-  Lyra/Editor/Files.h
   Lyra/Editor/Fonts.h
-  Lyra/Editor/Hierarchy.h
   Lyra/Editor/Icons.h
-  Lyra/Editor/Inspector.h
   Lyra/Editor/Layout.h
+  Lyra/Editor/FileView.h
+  Lyra/Editor/TreeView.h
   Lyra/Editor/SceneView.h
-
+  Lyra/Editor/ObjectView.h
+  Lyra/Editor/LoggerView.h
 )
 
 # sources
@@ -65,12 +64,12 @@ target_sources(lyra-engine PRIVATE
 
   # editor
   Lyra/Editor/Canvas.cpp
-  Lyra/Editor/Console.cpp
-  Lyra/Editor/Files.cpp
-  Lyra/Editor/Hierarchy.cpp
-  Lyra/Editor/Inspector.cpp
   Lyra/Editor/Layout.cpp
+  Lyra/Editor/FileView.cpp
+  Lyra/Editor/TreeView.cpp
   Lyra/Editor/SceneView.cpp
+  Lyra/Editor/ObjectView.cpp
+  Lyra/Editor/LoggerView.cpp
 )
 
 # libraries

@@ -56,11 +56,11 @@
 
 // Editor files
 #include <Lyra/Editor/Canvas.h>
-#include <Lyra/Editor/Files.h>
 #include <Lyra/Editor/Layout.h>
-#include <Lyra/Editor/Console.h>
-#include <Lyra/Editor/Hierarchy.h>
+#include <Lyra/Editor/FileView.h>
+#include <Lyra/Editor/TreeView.h>
 #include <Lyra/Editor/SceneView.h>
-#include <Lyra/Editor/Inspector.h>
+#include <Lyra/Editor/ObjectView.h>
+#include <Lyra/Editor/LoggerView.h>
 
 #endif // LYRA_LIBRARY_LYRA_HPP

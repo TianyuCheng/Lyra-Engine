@@ -1,17 +1,17 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_EDITOR_CONSOLE_H
-#define LYRA_LIBRARY_EDITOR_CONSOLE_H
+#ifndef LYRA_LIBRARY_EDITOR_LOG_VIEW_H
+#define LYRA_LIBRARY_EDITOR_LOG_VIEW_H
 
 // local imports
 #include "../Runtime/Application.h"
 
 namespace lyra
 {
-    struct Console
+    struct LoggerView
     {
     public:
-        explicit Console(size_t capacity);
+        explicit LoggerView(size_t capacity);
 
         void bind(Application& app);
 
@@ -27,4 +27,4 @@ namespace lyra
     };
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_EDITOR_CONSOLE_H
+#endif // LYRA_LIBRARY_EDITOR_LOG_VIEW_H

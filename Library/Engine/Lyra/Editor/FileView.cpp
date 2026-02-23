@@ -5,13 +5,13 @@
 // local imports
 #include "Icons.h"
 #include "Layout.h"
-#include "Files.h"
+#include "FileView.h"
 
 #define LYRA_FILES_WINDOW_NAME (LYRA_ICON_FOLDER "Files")
 
 using namespace lyra;
 
-Files::Files(const Path& root)
+FileView::FileView(const Path& root)
     : root(root), curr(root)
 {
     // sanity check
@@ -19,16 +19,16 @@ Files::Files(const Path& root)
     assert(std::filesystem::is_directory(root));
 }
 
-void Files::bind(Application& app)
+void FileView::bind(Application& app)
 {
     // bind layout manager events
-    app.bind<AppEvent::UPDATE, &Files::update>(*this);
+    app.bind<AppEvent::UPDATE, &FileView::update>(*this);
 
     // initial data
     update_directory(root, true);
 }
 
-void Files::update(Blackboard& blackboard)
+void FileView::update(Blackboard& blackboard)
 {
     lyra::execute_once([&]() {
         auto& layout = blackboard.get<EditorLayoutInfo>();
@@ -51,7 +51,7 @@ void Files::update(Blackboard& blackboard)
     ImGui::End();
 }
 
-void Files::show_breadcrumb()
+void FileView::show_breadcrumb()
 {
     // root / home
     if (ImGui::Button(LYRA_ICON_HOME "Home"))
@@ -88,7 +88,7 @@ void Files::show_breadcrumb()
     ImGui::NewLine();
 }
 
-void Files::show_dir_files()
+void FileView::show_dir_files()
 {
     // drawing grid
     int   grid_id   = 0;
@@ -128,7 +128,7 @@ void Files::show_dir_files()
     ImGui::NewLine();
 }
 
-void Files::show_context_menu()
+void FileView::show_context_menu()
 {
     // capture the whole file browser region for right click
     auto region = ImGui::GetContentRegionAvail();
@@ -164,7 +164,7 @@ void Files::show_context_menu()
     }
 }
 
-void Files::show_new_file_dialog()
+void FileView::show_new_file_dialog()
 {
     if (ImGui::BeginPopupModal("New File", &show_new_file_modal, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text("This is a modal dialog (file)!");
@@ -179,7 +179,7 @@ void Files::show_new_file_dialog()
     }
 }
 
-void Files::show_new_folder_dialog()
+void FileView::show_new_folder_dialog()
 {
     if (ImGui::BeginPopupModal("New Folder", &show_new_folder_modal, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text("This is a modal dialog (folder)!");
@@ -194,7 +194,7 @@ void Files::show_new_folder_dialog()
     }
 }
 
-void Files::next_icon_grid(float row_width, float start_x)
+void FileView::next_icon_grid(float row_width, float start_x)
 {
     // calculate next position
     float last_x = ImGui::GetItemRectMax().x;
@@ -207,7 +207,7 @@ void Files::next_icon_grid(float row_width, float start_x)
     }
 }
 
-void Files::draw_icon_grid(CString icon, CString text, float icon_scale) const
+void FileView::draw_icon_grid(CString icon, CString text, float icon_scale) const
 {
     ImGui::BeginGroup(); // group icon + text together
     {
@@ -228,7 +228,7 @@ void Files::draw_icon_grid(CString icon, CString text, float icon_scale) const
     ImGui::EndGroup();
 }
 
-void Files::update_directory(const Path& path, bool force)
+void FileView::update_directory(const Path& path, bool force)
 {
     // stop if no changes
     if (!force && curr == path) return;

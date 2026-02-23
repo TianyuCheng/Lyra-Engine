@@ -170,21 +170,21 @@ int main(int argc, const char* argv[])
         return std::move(layer);
     });
 
-    // editor components (console)
-    auto console = std::make_unique<Console>(4096);
-    app->bind<Console>(*console);
+    // editor components (console logs)
+    auto console = std::make_unique<LoggerView>(4096);
+    app->bind<LoggerView>(*console);
 
-    // editor components (files)
-    auto files = std::make_unique<Files>(assets_root);
-    app->bind<Files>(*files);
+    // editor components (file manager)
+    auto files = std::make_unique<FileView>(assets_root);
+    app->bind<FileView>(*files);
 
-    // editor components (inspector)
-    auto inspector = std::make_unique<Inspector>();
-    app->bind<Inspector>(*inspector);
+    // editor components (object inspector)
+    auto inspector = std::make_unique<ObjectView>();
+    app->bind<ObjectView>(*inspector);
 
-    // editor components (hierarchy)
-    auto hierarchy = std::make_unique<Hierarchy>();
-    app->bind<Hierarchy>(*hierarchy);
+    // editor components (scene tree hierarchy)
+    auto hierarchy = std::make_unique<TreeView>();
+    app->bind<TreeView>(*hierarchy);
 
     // editor components (scene)
     auto scene = std::make_unique<SceneView>();

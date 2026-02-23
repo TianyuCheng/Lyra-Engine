@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_EDITOR_FILES_H
-#define LYRA_LIBRARY_EDITOR_FILES_H
+#ifndef LYRA_LIBRARY_EDITOR_FILE_VIEW_H
+#define LYRA_LIBRARY_EDITOR_FILE_VIEW_H
 
 #include <Lyra/Common/Path.h>
 
@@ -10,10 +10,10 @@
 
 namespace lyra
 {
-    struct Files
+    struct FileView
     {
     public:
-        explicit Files(const Path& root);
+        explicit FileView(const Path& root);
 
         void bind(Application& app);
 
@@ -48,4 +48,4 @@ namespace lyra
     };
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_EDITOR_FILES_H
+#endif // LYRA_LIBRARY_EDITOR_FILE_VIEW_H
