@@ -4,6 +4,7 @@
 #define LYRA_LIBRARY_SCENE_NODE_H
 
 #include <Lyra/Common/ECS.h>
+#include <Lyra/Common/Macros.h>
 #include <Lyra/Common/String.h>
 #include <Lyra/Common/Collections.h>
 
@@ -15,11 +16,11 @@ namespace lyra
         Entity entity;
 
         // clang-format off
-        SceneNode()              : entity(entt::null) {}
-        SceneNode(Entity entity) : entity(entity) {}
+        FORCE_INLINE SceneNode()              : entity(entt::null) {}
+        FORCE_INLINE SceneNode(Entity entity) : entity(entity) {}
 
-        operator Entity()          { return entity; }
-        operator Entity() const    { return entity; }
+        FORCE_INLINE operator Entity()          { return entity; }
+        FORCE_INLINE operator Entity() const    { return entity; }
         // clang-format on
     };
 

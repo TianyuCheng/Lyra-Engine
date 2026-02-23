@@ -11,6 +11,11 @@ namespace lyra
     struct TreeView
     {
     public:
+        struct ItemState
+        {
+            bool expanded = false;
+        };
+
         explicit TreeView();
 
         void bind(Application& app);

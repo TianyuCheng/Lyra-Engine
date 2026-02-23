@@ -24,13 +24,13 @@ namespace lyra
          * @brief Access the underlying registry.
          * @return Reference to the registry.
          */
-        auto& operator->() { return registry; }
+        FORCE_INLINE auto& operator->() { return registry; }
 
         /**
          * @brief Access the underlying registry (const).
          * @return Const reference to the registry.
          */
-        const auto& operator->() const { return registry; }
+        FORCE_INLINE const auto& operator->() const { return registry; }
 
         /**
          * @brief Create a view of entities having the specified components.
@@ -38,7 +38,7 @@ namespace lyra
          * @return An EnTT view.
          */
         template <typename... T>
-        auto view() { return registry.view<T...>(); }
+        FORCE_INLINE auto view() { return registry.view<T...>(); }
 
         /**
          * @brief Create a view for a specific node.
@@ -47,7 +47,7 @@ namespace lyra
          * @return An EnTT view.
          */
         template <typename... T>
-        auto view(const SceneNode node) { return registry.view<T...>(node.entity); }
+        FORCE_INLINE auto view(const SceneNode node) { return registry.view<T...>(node.entity); }
 
         /**
          * @brief Check if a node has any of the specified components.
@@ -56,7 +56,7 @@ namespace lyra
          * @return True if the node has any of the components, false otherwise.
          */
         template <typename... T>
-        bool any_of(const SceneNode node) const
+        FORCE_INLINE bool any_of(const SceneNode node) const
         {
             return registry.any_of<T...>(node.entity);
         }
@@ -68,7 +68,7 @@ namespace lyra
          * @return True if the node has all of the components, false otherwise.
          */
         template <typename... T>
-        bool all_of(const SceneNode node) const
+        FORCE_INLINE bool all_of(const SceneNode node) const
         {
             return registry.all_of<T...>(node.entity);
         }
@@ -81,19 +81,19 @@ namespace lyra
          * @param args Arguments for component construction.
          */
         template <typename T, typename... Args>
-        void add_component(const SceneNode node, Args... args)
+        FORCE_INLINE void add_component(const SceneNode node, Args... args)
         {
             registry.emplace_or_replace<T>(node, std::forward<Args>(args)...);
         }
 
         template <typename... T>
-        decltype(auto) get_component(const SceneNode node)
+        FORCE_INLINE decltype(auto) get_component(const SceneNode node)
         {
             return registry.get<T...>(node);
         }
 
         template <typename... T>
-        decltype(auto) get_component(const SceneNode node) const
+        FORCE_INLINE decltype(auto) get_component(const SceneNode node) const
         {
             return registry.get<T...>(node);
         }
@@ -102,7 +102,7 @@ namespace lyra
          * @brief Create a new entity with default TransformLocal and TransformWorld components.
          * @return The created Entity.
          */
-        auto create() -> Entity
+        FORCE_INLINE auto create() -> Entity
         {
             // every entity in the scene must have transforms attached
             auto node = registry.create();
@@ -111,12 +111,25 @@ namespace lyra
             return node;
         }
 
+        FORCE_INLINE auto create(const String& name) -> Entity
+        {
+            // every entity in the scene must have transforms attached
+            auto node = create();
+            registry.emplace<NodeName>(node, name);
+            return node;
+        }
+
+        FORCE_INLINE void set_name(const SceneNode node, const String& name)
+        {
+            registry.emplace<NodeName>(node, name);
+        }
+
         /**
          * @brief Add a child node to a parent node.
          * @param node The parent node.
          * @param child The child node to add.
          */
-        void add_child(const SceneNode node, const SceneNode child)
+        FORCE_INLINE void add_child(const SceneNode node, const SceneNode child)
         {
             // connect parent node
             registry.emplace_or_replace<Parent>(child, node);
@@ -131,7 +144,7 @@ namespace lyra
          * @param node The parent node.
          * @param child The child node to remove.
          */
-        void del_child(const SceneNode node, const SceneNode child)
+        FORCE_INLINE void del_child(const SceneNode node, const SceneNode child)
         {
             // delete parent node
             registry.remove<Parent>(child);
@@ -146,7 +159,7 @@ namespace lyra
          * @param node The node.
          * @param parent The parent node to set.
          */
-        void set_parent(const SceneNode node, const SceneNode parent)
+        FORCE_INLINE void set_parent(const SceneNode node, const SceneNode parent)
         {
             add_child(parent, node);
         }
@@ -156,7 +169,7 @@ namespace lyra
          * @param node The node to reparent.
          * @param parent The new parent node.
          */
-        void reparent(const SceneNode node, const SceneNode parent)
+        FORCE_INLINE void reparent(const SceneNode node, const SceneNode parent)
         {
             // delete from old parent
             auto old_parent = registry.try_get<Parent>(node);
@@ -173,7 +186,7 @@ namespace lyra
          * @param node The scene node.
          * @param scale The scale factor.
          */
-        void scale(const SceneNode node, const Vector3& scale)
+        FORCE_INLINE void scale(const SceneNode node, const Vector3& scale)
         {
             auto& transform = registry.get_or_emplace<TransformLocal>(node);
             transform.scale *= scale;
@@ -185,7 +198,7 @@ namespace lyra
          * @param node The scene node.
          * @param translation The translation vector.
          */
-        void translate(const SceneNode node, const Vector3& translation)
+        FORCE_INLINE void translate(const SceneNode node, const Vector3& translation)
         {
             auto& transform = registry.get_or_emplace<TransformLocal>(node);
             transform.position += translation;
@@ -197,7 +210,7 @@ namespace lyra
          * @param node The scene node.
          * @param rotation The rotation quaternion.
          */
-        void rotate(const SceneNode node, const Quaternion& rotation)
+        FORCE_INLINE void rotate(const SceneNode node, const Quaternion& rotation)
         {
             auto& transform = registry.get_or_emplace<TransformLocal>(node);
             transform.rotation *= rotation;
@@ -210,7 +223,7 @@ namespace lyra
          * @param axis The rotation axis.
          * @param angle The rotation angle in degrees.
          */
-        void rotate(const SceneNode node, const Vector3& axis, float angle)
+        FORCE_INLINE void rotate(const SceneNode node, const Vector3& axis, float angle)
         {
             rotate(node, glm::angleAxis(glm::radians(angle), axis));
         }

@@ -8,9 +8,8 @@ static void render_scene(Blackboard& blackboard, GPUCommandBuffer command)
 {
     // apply a toy demo renderer
     if (auto view = blackboard.try_get<SceneView*>()) {
-        auto device   = blackboard.get<GPUDevice>();
         auto renderer = blackboard.get<SampleCubeRenderer*>();
-        renderer->render((*view)->get_backbuffer(), device, command);
+        renderer->render((*view)->get_backbuffer(), blackboard, command);
     }
 }
 
