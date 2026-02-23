@@ -142,6 +142,13 @@ int main(int argc, const char* argv[])
         return std::move(layer);
     });
 
+    // scene layer
+    auto scene = lyra::execute([&]() {
+        auto layer = std::make_unique<SceneLayer>();
+        app->bind(*layer);
+        return std::move(layer);
+    });
+
     // imgui layer
     auto imgui = lyra::execute([&]() {
         auto desc      = GUIDescriptor{};
@@ -187,8 +194,8 @@ int main(int argc, const char* argv[])
     app->bind<TreeView>(*hierarchy);
 
     // editor components (scene)
-    auto scene = std::make_unique<SceneView>();
-    app->bind<SceneView>(*scene);
+    auto sceneview = std::make_unique<SceneView>();
+    app->bind<SceneView>(*sceneview);
 
     // renderer (temporary solution)
     auto renderer = std::make_unique<SampleCubeRenderer>();

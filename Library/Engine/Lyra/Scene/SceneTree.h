@@ -60,7 +60,23 @@ namespace lyra
         }
 
         /**
-         * @brief helper to retrieve SceneTree::Node.
+         * @brief helpers for iterator begin
+         */
+        FORCE_INLINE auto begin() { return roots.begin(); }
+        FORCE_INLINE auto begin() const { return roots.begin(); }
+        FORCE_INLINE auto cegin() const { return roots.begin(); }
+        FORCE_INLINE auto regin() const { return roots.begin(); }
+
+        /**
+         * @brief helpers for iterator end
+         */
+        FORCE_INLINE auto end() { return roots.end(); }
+        FORCE_INLINE auto end() const { return roots.end(); }
+        FORCE_INLINE auto cend() const { return roots.end(); }
+        FORCE_INLINE auto rend() const { return roots.end(); }
+
+        /**
+         * @brief helpers to retrieve SceneTree::Node.
          */
         FORCE_INLINE Node&       at(NodeIndex i) { return nodes.at(i); }
         FORCE_INLINE const Node& at(NodeIndex i) const { return nodes.at(i); }

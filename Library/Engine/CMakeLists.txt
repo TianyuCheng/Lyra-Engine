@@ -12,12 +12,13 @@ target_sources(lyra-engine PUBLIC
   # runtime
   Lyra/Runtime/Application.h
   Lyra/Runtime/AssetLayer.h
+  Lyra/Runtime/SceneLayer.h
   Lyra/Runtime/EditorLayer.h
 
   # scene
-  Lyra/Scene/Node.h
   Lyra/Scene/World.h
   Lyra/Scene/Light.h
+  Lyra/Scene/SceneNode.h
   Lyra/Scene/Transform.h
   Lyra/Scene/SceneTree.h
 
@@ -51,6 +52,7 @@ target_sources(lyra-engine PRIVATE
   # runtime
   Lyra/Runtime/Application.cpp
   Lyra/Runtime/AssetLayer.cpp
+  Lyra/Runtime/SceneLayer.cpp
   Lyra/Runtime/EditorLayer.cpp
 
   # scene

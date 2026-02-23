@@ -37,6 +37,7 @@
 // Engine headers
 #include <Lyra/Runtime/Application.h>
 #include <Lyra/Runtime/AssetLayer.h>
+#include <Lyra/Runtime/SceneLayer.h>
 #include <Lyra/Runtime/EditorLayer.h>
 
 // Render headers
@@ -48,9 +49,9 @@
 #include <Lyra/Render/FrameGraphResource.h>
 
 // Scene headers
-#include <Lyra/Scene/Node.h>
-#include <Lyra/Scene/Light.h>
 #include <Lyra/Scene/World.h>
+#include <Lyra/Scene/Light.h>
+#include <Lyra/Scene/SceneNode.h>
 #include <Lyra/Scene/Transform.h>
 #include <Lyra/Scene/SceneTree.h>
 

@@ -6,7 +6,7 @@
 #include <Lyra/Common/ECS.h>
 
 // local imports
-#include "Node.h"
+#include "SceneNode.h"
 #include "Transform.h"
 
 namespace lyra
