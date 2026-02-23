@@ -4,6 +4,7 @@
 #define LYRA_LIBRARY_SCENE_TRANSFORM_H
 
 #include <Lyra/Common/Math.h>
+#include <Lyra/Common/Stdint.h>
 #include <Lyra/Common/BitFlags.h>
 
 namespace lyra

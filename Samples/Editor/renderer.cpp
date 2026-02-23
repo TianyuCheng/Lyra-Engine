@@ -176,9 +176,10 @@ void SampleCubeRenderer::update(Blackboard& blackboard)
 
     auto& world     = **world_ptr;
     auto& hierarchy = **hierarchy_ptr;
+    auto  clock     = blackboard.get<Clock*>();
 
-    // rotate parent cube
-    world.rotate(parent_node, {0.0f, 1.0f, 0.0f}, 1.0f);
+    // rotate parent cube (45 degrees per second)
+    world.rotate(parent_node, {0.0f, 1.0f, 0.0f}, 45.0f * clock->delta_time);
 
     // update all transforms in the hierarchy
     hierarchy.update();

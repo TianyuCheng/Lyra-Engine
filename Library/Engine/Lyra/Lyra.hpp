@@ -39,6 +39,7 @@
 #include <Lyra/Runtime/AssetLayer.h>
 #include <Lyra/Runtime/SceneLayer.h>
 #include <Lyra/Runtime/EditorLayer.h>
+#include <Lyra/Runtime/TimingLayer.h>
 
 // Render headers
 #include <Lyra/Render/FrameGraph.h>

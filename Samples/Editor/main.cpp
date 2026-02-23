@@ -141,6 +141,13 @@ int main(int argc, const char* argv[])
         return std::move(layer);
     });
 
+    // timing layer
+    auto timing = lyra::execute([&]() {
+        auto layer = std::make_unique<TimingLayer>();
+        app->bind(*layer);
+        return std::move(layer);
+    });
+
     // scene layer
     auto scene = lyra::execute([&]() {
         auto layer = std::make_unique<SceneLayer>();

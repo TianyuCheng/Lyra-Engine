@@ -14,6 +14,7 @@ target_sources(lyra-engine PUBLIC
   Lyra/Runtime/AssetLayer.h
   Lyra/Runtime/SceneLayer.h
   Lyra/Runtime/EditorLayer.h
+  Lyra/Runtime/TimingLayer.h
 
   # scene
   Lyra/Scene/World.h
@@ -54,6 +55,7 @@ target_sources(lyra-engine PRIVATE
   Lyra/Runtime/AssetLayer.cpp
   Lyra/Runtime/SceneLayer.cpp
   Lyra/Runtime/EditorLayer.cpp
+  Lyra/Runtime/TimingLayer.cpp
 
   # scene
   Lyra/Scene/SceneTree.cpp
