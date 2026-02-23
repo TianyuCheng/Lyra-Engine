@@ -15,7 +15,6 @@
 #include <absl/container/flat_hash_map.h>
 #include <absl/container/flat_hash_set.h>
 #include <apus/slot_map.hpp>
-#include <apus/free_list.hpp>
 #include <apus/ring_buffer.hpp>
 #include <apus/small_vector.hpp>
 #include <Lyra/Detail/View.h>
@@ -61,9 +60,6 @@ namespace lyra
 
     template <typename... T>
     using Slotmap = apus::slot_map<T...>;
-
-    template <typename... T>
-    using FreeList = apus::free_list<T...>;
 
     template <typename T, std::size_t N>
     using SmallVector = apus::small_vector<T, N>;

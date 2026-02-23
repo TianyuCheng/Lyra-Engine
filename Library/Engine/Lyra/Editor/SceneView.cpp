@@ -8,6 +8,7 @@
 #include "Icons.h"
 #include "Layout.h"
 #include "SceneView.h"
+#include "../Runtime/TimingLayer.h"
 
 #define LYRA_SCENE_WINDOW_NAME (LYRA_ICON_SCENE "Scene")
 
@@ -15,6 +16,7 @@ using namespace lyra;
 
 SceneView::SceneView()
 {
+    // do nothing
 }
 
 void SceneView::bind(Application& app)
@@ -36,8 +38,23 @@ void SceneView::update(Blackboard& blackboard)
         ImGui::DockBuilderDockWindow(LYRA_SCENE_WINDOW_NAME, layout.main);
     });
 
+    auto clock = blackboard.get<Clock*>();
+
     ImGui::Begin(LYRA_SCENE_WINDOW_NAME);
     {
+        // center align the buttons
+        float button_width = 40.0f;
+        float total_width  = button_width * 2 + ImGui::GetStyle().ItemSpacing.x;
+        ImGui::SetCursorPosX((ImGui::GetWindowSize().x - total_width) * 0.5f);
+
+        if (ImGui::Button(LYRA_ICON_PLAY, ImVec2(button_width, 0))) {
+            clock->paused = false;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button(LYRA_ICON_PAUSE, ImVec2(button_width, 0))) {
+            clock->paused = true;
+        }
+
         canvas.update(blackboard);
         canvas.display();
     }
