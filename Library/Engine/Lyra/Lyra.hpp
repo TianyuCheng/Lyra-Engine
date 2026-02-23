@@ -52,6 +52,7 @@
 #include <Lyra/Scene/Light.h>
 #include <Lyra/Scene/World.h>
 #include <Lyra/Scene/Transform.h>
+#include <Lyra/Scene/SceneTree.h>
 
 // Editor files
 #include <Lyra/Editor/Canvas.h>

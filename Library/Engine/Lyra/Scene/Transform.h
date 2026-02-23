@@ -23,6 +23,7 @@ namespace lyra
 
     using TransformFlags = BitFlags<TransformFlag>;
 
+    // component
     struct TransformLocal
     {
         Quaternion     rotation = glm::identity<Quaternion>();
@@ -31,6 +32,7 @@ namespace lyra
         TransformFlags flags    = TransformFlag::NONE;
     };
 
+    // component
     struct TransformWorld
     {
         Matrix4x4 xform = Matrix4x4();

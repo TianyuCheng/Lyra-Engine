@@ -14,23 +14,12 @@ target_sources(lyra-engine PUBLIC
   Lyra/Runtime/AssetLayer.h
   Lyra/Runtime/EditorLayer.h
 
-  # editor
-  Lyra/Editor/Canvas.h
-  Lyra/Editor/Colors.h
-  Lyra/Editor/Console.h
-  Lyra/Editor/Files.h
-  Lyra/Editor/Fonts.h
-  Lyra/Editor/Hierarchy.h
-  Lyra/Editor/Icons.h
-  Lyra/Editor/Inspector.h
-  Lyra/Editor/Layout.h
-  Lyra/Editor/SceneView.h
-
   # scene
   Lyra/Scene/Node.h
   Lyra/Scene/World.h
   Lyra/Scene/Light.h
   Lyra/Scene/Transform.h
+  Lyra/Scene/SceneTree.h
 
   # frame graph
   Lyra/Render/FrameGraph.h
@@ -43,6 +32,19 @@ target_sources(lyra-engine PUBLIC
   Lyra/Render/FrameGraphResource.h
   Lyra/Render/FrameGraphTexture.h
   Lyra/Render/FrameGraphTraits.h
+
+  # editor
+  Lyra/Editor/Canvas.h
+  Lyra/Editor/Colors.h
+  Lyra/Editor/Console.h
+  Lyra/Editor/Files.h
+  Lyra/Editor/Fonts.h
+  Lyra/Editor/Hierarchy.h
+  Lyra/Editor/Icons.h
+  Lyra/Editor/Inspector.h
+  Lyra/Editor/Layout.h
+  Lyra/Editor/SceneView.h
+
 )
 
 # sources
@@ -52,6 +54,15 @@ target_sources(lyra-engine PRIVATE
   Lyra/Runtime/AssetLayer.cpp
   Lyra/Runtime/EditorLayer.cpp
 
+  # scene
+  Lyra/Scene/SceneTree.cpp
+
+  # frame graph
+  Lyra/Render/FrameGraph.cpp
+  Lyra/Render/FrameGraphAllocator.cpp
+  Lyra/Render/FrameGraphBuilder.cpp
+  Lyra/Render/FrameGraphTexture.cpp
+
   # editor
   Lyra/Editor/Canvas.cpp
   Lyra/Editor/Console.cpp
@@ -60,12 +71,6 @@ target_sources(lyra-engine PRIVATE
   Lyra/Editor/Inspector.cpp
   Lyra/Editor/Layout.cpp
   Lyra/Editor/SceneView.cpp
-
-  # frame graph
-  Lyra/Render/FrameGraph.cpp
-  Lyra/Render/FrameGraphAllocator.cpp
-  Lyra/Render/FrameGraphBuilder.cpp
-  Lyra/Render/FrameGraphTexture.cpp
 )
 
 # libraries

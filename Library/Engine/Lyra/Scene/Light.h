@@ -11,6 +11,7 @@
 namespace lyra
 {
 
+    // component
     struct PointLight
     {
         Vector3 position;  // x, y, z (12 bytes)
@@ -21,6 +22,7 @@ namespace lyra
         uint    profile;   // IES profile index (4 bytes)
     };
 
+    // component
     struct SpotLight
     {
         Vector3 position;  // x, y, z (12 bytes)
@@ -32,6 +34,7 @@ namespace lyra
         Vector2 angle;     // angle scale, angle offset
     };
 
+    // component
     struct DirectionalLight
     {
         Vector3 direction; // dx, dy, dz

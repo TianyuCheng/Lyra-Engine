@@ -4,6 +4,7 @@
 #define LYRA_LIBRARY_SCENE_NODE_H
 
 #include <Lyra/Common/ECS.h>
+#include <Lyra/Common/String.h>
 #include <Lyra/Common/Collections.h>
 
 namespace lyra
@@ -20,6 +21,11 @@ namespace lyra
         operator Entity()          { return entity; }
         operator Entity() const    { return entity; }
         // clang-format on
+    };
+
+    struct NodeName
+    {
+        String name = "unamed";
     };
 
     struct Parent

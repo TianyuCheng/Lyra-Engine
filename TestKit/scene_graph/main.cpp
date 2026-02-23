@@ -1,3 +1,4 @@
+#include <Lyra/Scene/SceneTree.h>
 #include "helper.h"
 
 TEST_CASE("scn::basic_scene_graph" * doctest::description("Basic Scene Graph"))
@@ -67,11 +68,40 @@ TEST_CASE("scn::basic_scene_graph" * doctest::description("Basic Scene Graph"))
         CHECK_EQ(world.registry.get<lyra::TransformLocal>(node).scale, lyra::Vector3(2.0f, 2.0f, 2.0f));
 
         world.rotate(node, {0.0f, 1.0f, 0.0f}, 90.0f);
-        auto&            finalLocal = world.registry.get<lyra::TransformLocal>(node);
-        lyra::Quaternion expected_q = glm::angleAxis(glm::radians(90.0f), lyra::Vector3(0.0f, 1.0f, 0.0f));
-        CHECK_EQ(finalLocal.rotation.w, doctest::Approx(expected_q.w));
-        CHECK_EQ(finalLocal.rotation.x, doctest::Approx(expected_q.x));
-        CHECK_EQ(finalLocal.rotation.y, doctest::Approx(expected_q.y));
-        CHECK_EQ(finalLocal.rotation.z, doctest::Approx(expected_q.z));
+        auto& final_local = world.registry.get<lyra::TransformLocal>(node);
+        auto  expected_q  = glm::angleAxis(glm::radians(90.0f), lyra::Vector3(0.0f, 1.0f, 0.0f));
+        CHECK_EQ(final_local.rotation.w, doctest::Approx(expected_q.w));
+        CHECK_EQ(final_local.rotation.x, doctest::Approx(expected_q.x));
+        CHECK_EQ(final_local.rotation.y, doctest::Approx(expected_q.y));
+        CHECK_EQ(final_local.rotation.z, doctest::Approx(expected_q.z));
+    }
+
+    SUBCASE("hierarchy and transform propagation")
+    {
+        auto parent = world.create();
+        auto child  = world.create();
+        world.add_child(parent, child);
+
+        lyra::SceneTree hierarchy(world);
+        hierarchy.rebuild();
+
+        CHECK_EQ(hierarchy.size(), 2);
+
+        world.translate(parent, {10.0f, 0.0f, 0.0f});
+        world.translate(child, {0.0f, 5.0f, 0.0f});
+        hierarchy.update();
+
+        auto& parent_world = world.registry.get<lyra::TransformWorld>(parent);
+        auto& child_world  = world.registry.get<lyra::TransformWorld>(child);
+
+        // check parent translation (10, 0, 0)
+        CHECK_EQ(parent_world.xform[3][0], doctest::Approx(10.0f));
+        CHECK_EQ(parent_world.xform[3][1], doctest::Approx(0.0f));
+        CHECK_EQ(parent_world.xform[3][2], doctest::Approx(0.0f));
+
+        // check child translation (10, 5, 0) - inherited from parent
+        CHECK_EQ(child_world.xform[3][0], doctest::Approx(10.0f));
+        CHECK_EQ(child_world.xform[3][1], doctest::Approx(5.0f));
+        CHECK_EQ(child_world.xform[3][2], doctest::Approx(0.0f));
     }
 }
