@@ -10,7 +10,9 @@
 
 namespace lyra
 {
-
+    /**
+     * @brief A simple text file asset.
+     */
     struct TextAsset
     {
         static constexpr CString name = "TextAsset";
@@ -21,13 +23,17 @@ namespace lyra
         // extensions: to let assert server what extensions to look for
         static constexpr InitList<CString> extensions = {".txt"};
 
-        // handler: to let asset server know how to load this type of asset
+        /**
+         * @brief Get the built-in handler for TextAssets.
+         */
         static auto handler() -> AssetHandlerAPI;
 
-        // text content
-        String content;
+        String content; ///< Raw text content.
     };
 
+    /**
+     * @brief A JSON document asset.
+     */
     struct JsonAsset
     {
         static constexpr CString name = "JsonAsset";
@@ -38,12 +44,17 @@ namespace lyra
         // extensions: to let assert server what extensions to look for
         static constexpr InitList<CString> extensions = {".json"};
 
-        // handler: to let asset server know how to load this type of asset
+        /**
+         * @brief Get the built-in handler for JsonAssets.
+         */
         static auto handler() -> AssetHandlerAPI;
 
-        JSON content;
+        JSON content; ///< Parsed JSON data.
     };
 
+    /**
+     * @brief A TOML document asset.
+     */
     struct TomlAsset
     {
         static constexpr CString name = "TomlAsset";
@@ -54,12 +65,17 @@ namespace lyra
         // extensions: to let assert server what extensions to look for
         static constexpr InitList<CString> extensions = {".toml"};
 
-        // handler: to let asset server know how to load this type of asset
+        /**
+         * @brief Get the built-in handler for TomlAssets.
+         */
         static auto handler() -> AssetHandlerAPI;
 
-        TOML content;
+        TOML content; ///< Parsed TOML data.
     };
 
+    /**
+     * @brief A texture asset containing binary image data and its subresource info.
+     */
     struct TextureAsset
     {
         static constexpr CString name = "TextureAsset";
@@ -70,20 +86,25 @@ namespace lyra
         // extensions: to let assert server what extensions to look for
         static constexpr InitList<CString> extensions = {".png", ".jpg", ".exr", ".ktx"};
 
-        // handler: to let asset server know how to load this type of asset
+        /**
+         * @brief Get the handler for TextureAssets (typically loaded via a plugin).
+         */
         static auto handler() -> AssetHandlerAPI;
 
+        /**
+         * @brief Metadata for an individual mip-level or subresource.
+         */
         struct Subresource
         {
-            uint offset; // offset into the binary blob
-            uint pitch;  // bytes per row
-            uint width;
-            uint height;
+            uint offset; ///< Offset into the binary blob (bytes).
+            uint pitch;  ///< Bytes per row.
+            uint width;  ///< Width of the subresource level.
+            uint height; ///< Height of the subresource level.
         };
 
-        GPUTextureFormat    format;
-        Vector<uint8_t>     binary;
-        Vector<Subresource> subresources;
+        GPUTextureFormat    format;       ///< Format required by the GPU.
+        Vector<uint8_t>     binary;       ///< Raw optimized image bits.
+        Vector<Subresource> subresources; ///< List of subresource headers.
     };
 
 } // namespace lyra

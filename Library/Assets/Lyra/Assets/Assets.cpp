@@ -6,9 +6,10 @@ using TexturePlugin = Plugin<AssetHandlerAPI>;
 
 static Own<TexturePlugin> TEXTURE_PLUGIN;
 
-// Dummy asset process implementation,
-// which does absolutely nothing except for saving the asset path in metadata.
-// This is suitable for simple assets that do not need an importing process.
+/**
+ * @brief Default asset processing implementation.
+ * Simply records the source path in the metadata.
+ */
 template <typename AssetType>
 JSON process_asset(AssetServer* manager, OSPath source_path, OSPath target_path)
 {
@@ -20,7 +21,9 @@ JSON process_asset(AssetServer* manager, OSPath source_path, OSPath target_path)
     return metadata;
 }
 
-// Simple asset unload implementation, which only uses C++ pointer deletion.
+/**
+ * @brief Default asset unloading implementation.
+ */
 template <typename AssetType>
 void unload_asset(void* asset)
 {
@@ -28,6 +31,9 @@ void unload_asset(void* asset)
     delete typed_asset;
 }
 
+/**
+ * @brief Built-in loader for JSON assets.
+ */
 static void* load_json_asset(FileLoader* loader, const JSON& metadata)
 {
     auto path    = metadata["path"].template get<String>();
@@ -35,6 +41,9 @@ static void* load_json_asset(FileLoader* loader, const JSON& metadata)
     return new JsonAsset{JSON::parse(content.begin(), content.end())};
 }
 
+/**
+ * @brief Built-in loader for text assets.
+ */
 static void* load_text_asset(FileLoader* loader, const JSON& metadata)
 {
     auto path    = metadata["path"].template get<String>();
@@ -42,6 +51,9 @@ static void* load_text_asset(FileLoader* loader, const JSON& metadata)
     return new TextAsset{String(content.begin(), content.end())};
 }
 
+/**
+ * @brief Built-in loader for TOML assets.
+ */
 static void* load_toml_asset(FileLoader* loader, const JSON& metadata)
 {
     auto path    = metadata["path"].template get<String>();

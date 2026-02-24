@@ -12,58 +12,58 @@
 
 namespace lyra
 {
-
+    /**
+     * @brief A basic asset handle containing only a GUID.
+     */
     struct RawAssetHandle
     {
-        GUID guid;
+        GUID guid = 0ull; ///< The globally unique identifier for the asset.
 
+        /**
+         * @brief Check if the handle points to a valid asset.
+         */
         FORCE_INLINE bool valid() const { return guid != 0ull; }
     };
 
+    /**
+     * @brief A type-safe asset handle that associates a GUID with a specific AssetType.
+     * @tparam AssetType The class/struct representing the asset data.
+     */
     template <typename AssetType>
     struct AssetHandle : RawAssetHandle
     {
-        static constexpr UUID type_uuid = AssetType::uuid;
+        static constexpr UUID type_uuid = AssetType::uuid; ///< The static UUID of the asset type.
     };
 
+    /**
+     * @brief Configuration for importing/cooking assets during development.
+     */
     struct AMSImportDescriptor
     {
-        // directory where user places assets
-        OSPath assets_path;
-
-        // directory where import metadata are generated
-        OSPath metadata_path;
-
-        // directory where asset caches are generated
-        OSPath generated_path;
+        OSPath assets_path;    ///< Directory where source assets (e.g. .png, .obj) are located.
+        OSPath metadata_path;  ///< Directory where .import metadata files are generated.
+        OSPath generated_path; ///< Directory where processed/cooked binary files are stored.
     };
 
+    /**
+     * @brief Configuration for loading assets at runtime.
+     */
     struct AMSLoaderDescriptor
     {
-        // file loader for loading actual assets,
-        // include both editor source files and generated caches,
-        // generated caches should have higher priority while loading.
         FileLoader* assets;
-
-        // file loader for loading metadata,
-        // user could use the same loader as assets,
-        // if a separate imported directory is mount on the asset loader.
         FileLoader* metadata;
     };
 
+    /**
+     * @brief Main configuration for the AssetServer.
+     */
     struct AMSDescriptor
     {
-        // development only
         AMSImportDescriptor importer;
-
-        // both development + runtime
         AMSLoaderDescriptor loader;
 
-        // watch asset directory changes
-        bool watch = false;
-
-        // number of threads for asset processing/loading
-        uint workers = 1;
+        bool watch   = false; ///< Whether to monitor the asset directory for hot-reloading.
+        uint workers = 1;     ///< Number of worker threads for background asset processing.
     };
 
 } // namespace lyra

@@ -3,6 +3,9 @@
 #ifndef LYRA_LIBRARY_ASSETS_AMS_TYPES_H
 #define LYRA_LIBRARY_ASSETS_AMS_TYPES_H
 
+#include <memory>
+#include <shared_mutex>
+
 #include <Lyra/Common/UUID.h>
 #include <Lyra/Common/GUID.h>
 #include <Lyra/Common/Path.h>
@@ -18,6 +21,9 @@
 
 namespace lyra
 {
+    /**
+     * @brief The AssetServer manages engine assets with a reference counting policy based on handles.
+     */
     struct AssetServer
     {
     public:
@@ -25,11 +31,9 @@ namespace lyra
 
         virtual ~AssetServer();
 
-        // AssetType needs to define the following:
-        // 1. static constexpr CString name
-        // 2. static constexpr UUID uuid
-        // 3. static constexpr List<CString> extensions
-        // 4. static AssetHandlerAPI handler();
+        /**
+         * @brief Register a new asset type.
+         */
         template <typename AssetType>
         void register_asset(const JSON& options = {})
         {
@@ -38,25 +42,24 @@ namespace lyra
             info.handler        = AssetType::handler();
             info.assets         = {};
 
-            // configure handler
             if (info.handler->configure)
                 info.handler->configure(options);
 
-            // save asset-type specific processor
-            processors.emplace(AssetType::uuid, info);
+            processors.emplace(AssetType::uuid, std::move(info));
 
-            // maintain mapping from file extension to asset-type uuid
             for (const auto& extension : AssetType::extensions)
                 extensions.emplace(extension, AssetType::uuid);
         }
 
-        // configure asset-type handler
+        /**
+         * @brief Configure an existing asset-type handler.
+         */
         template <typename AssetType>
         void configure_asset(const JSON& options)
         {
             auto it = processors.find(AssetType::uuid);
             if (it == processors.end()) {
-                spdlog::error("AssetType ({}) has not been registered!", to_string(it->second));
+                spdlog::error("AssetType ({}) has not been registered!", AssetType::name);
                 return;
             }
 
@@ -66,15 +69,18 @@ namespace lyra
             }
         }
 
-        // get the actual asset pointer, returns nullptr if asset is not ready
+        /**
+         * @brief Get the raw asset pointer. Returns nullptr if not loaded.
+         */
         template <typename AssetType>
         auto get_asset(AssetHandle<AssetType> handle) -> AssetType*
         {
             return reinterpret_cast<AssetType*>(get_asset(AssetType::uuid, handle));
         }
 
-        // load the asset via asset path in virtual file system,
-        // returns a typed asset handle (with uuid)
+        /**
+         * @brief Load an asset and increment its handle reference count.
+         */
         template <typename AssetType>
         auto load_asset(FSPath path) -> AssetHandle<AssetType>
         {
@@ -82,38 +88,53 @@ namespace lyra
             return AssetHandle<AssetType>{handle.guid};
         }
 
-        // unload the asset (if necessary)
+        /**
+         * @brief Decrement the reference count for an asset handle.
+         */
         template <typename AssetType>
         void unload_asset(AssetHandle<AssetType> handle)
         {
             unload_asset(AssetType::uuid, handle);
         }
 
-        // import the asset via asset path in actual file system,
-        // returns a boolean indicating import status,
-        // along with a typed asset handle (guid)
+        /**
+         * @brief Preproces asset into engine compatible format.
+         */
         bool import_asset(const Path& path, GUID& guid);
 
+        /**
+         * @brief Purge assets with zero handle references.
+         */
+        void purge();
+
     private:
+        struct AssetRecord
+        {
+            void* data   = nullptr;
+            uint  refcnt = 0;
+        };
+
+        struct AssetProcessor
+        {
+            String                      type;
+            AssetHandlerAPI*            handler;
+            Own<std::shared_mutex>      mutex;
+            HashMap<GUID, AssetRecord*> assets;
+
+            AssetProcessor() : mutex(std::make_unique<std::shared_mutex>()) {}
+            AssetProcessor(const AssetProcessor&)                      = delete;
+            AssetProcessor(AssetProcessor&& other) noexcept            = default;
+            AssetProcessor& operator=(const AssetProcessor&)           = delete;
+            AssetProcessor& operator=(AssetProcessor&& other) noexcept = default;
+        };
+
         auto get_asset(UUID type_uuid, RawAssetHandle handle) -> void*;
         auto load_asset(UUID type_uuid, FSPath path) -> RawAssetHandle;
         void unload_asset(UUID type_uuid, RawAssetHandle handle);
 
     private:
-        struct AssetProcessor
-        {
-            String               type;
-            AssetHandlerAPI*     handler;
-            HashMap<GUID, void*> assets;
-        };
-
-        // descriptor
-        AMSDescriptor descriptor;
-
-        // mapping from extensions to asset type uuid
-        HashMap<String, UUID> extensions;
-
-        // mapping from asset type uuids to asset processor
+        AMSDescriptor                 descriptor;
+        HashMap<String, UUID>         extensions;
         HashMap<UUID, AssetProcessor> processors;
     };
 

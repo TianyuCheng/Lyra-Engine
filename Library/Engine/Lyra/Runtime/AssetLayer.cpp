@@ -18,6 +18,6 @@ void AssetLayer::bind(Application& app)
 
 void AssetLayer::update(Blackboard&)
 {
-    // do nothing for now,
-    // we will do some asset event polling later
+    // cleanup unused assets
+    ams.purge();
 }
