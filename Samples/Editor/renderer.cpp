@@ -125,12 +125,12 @@ void SampleCubeRenderer::render(const Backbuffer& backbuffer, Blackboard& blackb
 
 void SampleCubeRenderer::init(Blackboard& blackboard)
 {
-    GPUDevice device   = blackboard.get<GPUDevice>();
-    Compiler  compiler = blackboard.get<Compiler>();
+    auto device   = blackboard.get<GPUDevice*>();
+    auto compiler = blackboard.get<Compiler*>();
 
-    init_pipeline(device, compiler);
-    init_buffers(device);
-    init_bind_group(device);
+    init_pipeline(*device, *compiler);
+    init_buffers(*device);
+    init_bind_group(*device);
 
     // initialize scene nodes
     if (auto world_ptr = blackboard.try_get<World*>()) {
@@ -155,8 +155,8 @@ void SampleCubeRenderer::init(Blackboard& blackboard)
 
 void SampleCubeRenderer::destroy(Blackboard& blackboard)
 {
-    GPUDevice device = blackboard.get<GPUDevice>();
-    device.wait();
+    auto device = blackboard.get<GPUDevice*>();
+    device->wait();
 
     vshader.destroy();
     fshader.destroy();
@@ -193,10 +193,10 @@ void SampleCubeRenderer::update(Blackboard& blackboard)
     if (!depth_texture.handle.valid() ||
         depth_texture.width != backbuffer.extent.width ||
         depth_texture.height != backbuffer.extent.height) {
-        auto device = blackboard.get<GPUDevice>();
+        auto device = blackboard.get<GPUDevice*>();
 
         if (depth_texture.handle.valid()) {
-            device.wait();
+            device->wait();
             depth_texture.destroy();
             depth_view.destroy();
         }
@@ -212,7 +212,7 @@ void SampleCubeRenderer::update(Blackboard& blackboard)
             desc.usage           = GPUTextureUsage::RENDER_ATTACHMENT;
             desc.mip_level_count = 1;
             desc.sample_count    = 1;
-            return device.create_texture(desc);
+            return device->create_texture(desc);
         });
         depth_view    = depth_texture.create_view();
     }
@@ -221,7 +221,7 @@ void SampleCubeRenderer::update(Blackboard& blackboard)
     auto& cam_world = world.get_component<TransformWorld>(camera_node);
 
     // update camera projection parameters
-    auto& cam_perspective = world.get_component<PerspectiveCamera>(camera_node);
+    auto& cam_perspective  = world.get_component<PerspectiveCamera>(camera_node);
     cam_perspective.aspect = aspect;
 
     // get updated projection from CameraLayer (note: this might be 1 frame late if aspect ratio just changed)

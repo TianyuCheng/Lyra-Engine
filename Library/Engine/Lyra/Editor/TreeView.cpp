@@ -68,9 +68,9 @@ static void render_node(World& world, SceneTree& hierarchy, SceneTree::NodeIndex
     // render tree node
     bool is_open = false;
     if (label) {
-        is_open = ImGui::TreeNodeEx((void*)(uintptr_t)node_idx, flags, "%s %s", icon, label);
+        is_open = ImGui::TreeNodeEx((void*)(uintptr_t)node_idx, flags, "%s%s", icon, label);
     } else {
-        is_open = ImGui::TreeNodeEx((void*)(uintptr_t)node_idx, flags, "%s Node %u", icon, entity);
+        is_open = ImGui::TreeNodeEx((void*)(uintptr_t)node_idx, flags, "%sNode %u", icon, entity);
     }
 
     // handle selection

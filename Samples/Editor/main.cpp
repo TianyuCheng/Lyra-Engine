@@ -1,5 +1,6 @@
 #include <cxxopts.hpp>
 #include <Lyra/Lyra.hpp>
+#include "imgui.h"
 #include "renderer.h"
 
 using namespace lyra;
@@ -38,19 +39,19 @@ static void imgui_update(Blackboard& blackboard)
 
 static void imgui_render(Blackboard& blackboard)
 {
-    auto device  = blackboard.get<GPUDevice>();
-    auto surface = blackboard.get<GPUSurface>();
+    auto device  = blackboard.get<GPUDevice*>();
+    auto surface = blackboard.get<GPUSurface*>();
     auto imgui   = blackboard.get<GUIRenderer*>();
 
     // command buffer
     auto command = lyra::execute([&]() {
         auto desc  = GPUCommandBufferDescriptor{};
         desc.queue = GPUQueueType::DEFAULT;
-        return device.create_command_buffer(desc);
+        return device->create_command_buffer(desc);
     });
 
     // current backbuffer
-    auto backbuffer = surface.get_current_texture();
+    auto backbuffer = surface->get_current_texture();
 
     // synchronization
     command.wait(backbuffer.available, GPUBarrierSync::PIXEL_SHADING);
@@ -165,9 +166,9 @@ int main(int argc, const char* argv[])
     // imgui layer
     auto imgui = lyra::execute([&]() {
         auto desc      = GUIDescriptor{};
-        desc.window    = app->get_blackboard().get<Window>();
-        desc.surface   = app->get_blackboard().get<GPUSurface>();
-        desc.compiler  = app->get_blackboard().get<Compiler>();
+        desc.window    = *app->get_blackboard().get<Window*>();
+        desc.surface   = *app->get_blackboard().get<GPUSurface*>();
+        desc.compiler  = *app->get_blackboard().get<Compiler*>();
         desc.docking   = true;
         desc.viewports = false;
 

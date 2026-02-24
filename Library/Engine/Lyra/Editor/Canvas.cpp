@@ -81,7 +81,7 @@ void Canvas::create_frames(Blackboard& blackboard)
     extent.height = std::max(64u, static_cast<uint>(frame_extent.y));
 
     auto gui = blackboard.get<GUIRenderer*>();
-    auto dev = blackboard.get<GPUDevice>();
+    auto dev = blackboard.get<GPUDevice*>();
     for (uint i = 0; i < frame_count; i++) {
         CanvasFrame frame = {};
 
@@ -97,7 +97,7 @@ void Canvas::create_frames(Blackboard& blackboard)
             desc.mip_level_count = 1;
             desc.sample_count    = 1;
             desc.usage           = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
-            return dev.create_texture(desc);
+            return dev->create_texture(desc);
         });
         frame.texview = frame.texture.create_view();
         frame.extent  = extent;

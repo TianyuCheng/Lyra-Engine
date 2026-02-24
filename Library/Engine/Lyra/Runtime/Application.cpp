@@ -74,11 +74,11 @@ Application::Application(const AppDescriptor& descriptor)
 
     // adding commonly used components into blackboard
     blackboard.add<Application*>(this);
-    blackboard.add<Window>(*wsi);
-    blackboard.add<Compiler>(*slc);
-    blackboard.add<GPUAdapter>(adapter);
-    blackboard.add<GPUDevice>(device);
-    blackboard.add<GPUSurface>(surface.handle);
+    blackboard.add<Window*>(wsi.get());
+    blackboard.add<Compiler*>(slc.get());
+    blackboard.add<GPUAdapter*>(&adapter);
+    blackboard.add<GPUDevice*>(&device);
+    blackboard.add<GPUSurface*>(&surface);
 }
 
 /**
