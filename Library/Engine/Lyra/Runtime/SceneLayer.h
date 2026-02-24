@@ -12,18 +12,30 @@
 
 namespace lyra
 {
+    /**
+     * @brief The SceneLayer struct manages the ECS world and its corresponding scene tree.
+     */
     struct SceneLayer
     {
     public:
+        /**
+         * @brief Default constructor for SceneLayer.
+         */
         explicit SceneLayer();
 
+        /**
+         * @brief Register the World and SceneTree to the blackboard.
+         */
         void bind(Application& app);
 
+        /**
+         * @brief Main update loop for the scene.
+         */
         void update(Blackboard&);
 
     private:
-        World     world;
-        SceneTree hierarchy;
+        World     world;     ///< The ECS world instance.
+        SceneTree hierarchy; ///< The scene graph hierarchy for the world.
     };
 
 } // namespace lyra

@@ -60,6 +60,9 @@ AppDescriptor& AppDescriptor::with_frames_in_flight(uint frames_in_flight)
 #pragma endregion AppDescriptor
 
 #pragma region Application
+/**
+ * @brief Initialize the application.
+ */
 Application::Application(const AppDescriptor& descriptor)
     : descriptor(descriptor)
 {
@@ -78,6 +81,9 @@ Application::Application(const AppDescriptor& descriptor)
     blackboard.add<GPUSurface>(surface.handle);
 }
 
+/**
+ * @brief Clean up application resources.
+ */
 Application::~Application()
 {
     // wait for graphics device idle
@@ -89,17 +95,26 @@ Application::~Application()
     wsi.reset();
 }
 
+/**
+ * @brief Initialize the default logger.
+ */
 void Application::init_logger()
 {
     create_default_logger();
 }
 
+/**
+ * @brief Initialize the window system.
+ */
 void Application::init_window()
 {
     // initialize WSI (window system integration)
     wsi = Window::init(descriptor.wsi);
 }
 
+/**
+ * @brief Initialize the rendering hardware interface.
+ */
 void Application::init_graphics()
 {
     // initialize RHI (rendering hardware interface)
@@ -135,6 +150,9 @@ void Application::init_graphics()
     });
 }
 
+/**
+ * @brief Initialize the shader language compiler.
+ */
 void Application::init_compiler()
 {
     // initialize SLC (shader langauge compiler)
@@ -146,6 +164,9 @@ void Application::init_compiler()
     });
 }
 
+/**
+ * @brief Bind window callbacks to application methods.
+ */
 void Application::bind_events()
 {
     // bind window callbacks
@@ -156,11 +177,17 @@ void Application::bind_events()
     wsi->bind<WindowEvent::CLOSE, &Application::destroy>(*this);
 }
 
+/**
+ * @brief Handle application initialization event.
+ */
 void Application::init(const Window&)
 {
     run_callbacks<AppEvent::INIT>();
 }
 
+/**
+ * @brief Handle application update event, including UI stages.
+ */
 void Application::update(const Window&)
 {
     run_callbacks<AppEvent::UI_PRE>();
@@ -172,6 +199,9 @@ void Application::update(const Window&)
     run_callbacks<AppEvent::UPDATE_POST>();
 }
 
+/**
+ * @brief Handle application rendering event.
+ */
 void Application::render(const Window&)
 {
     run_callbacks<AppEvent::RENDER_PRE>();
@@ -179,11 +209,17 @@ void Application::render(const Window&)
     run_callbacks<AppEvent::RENDER_POST>();
 }
 
+/**
+ * @brief Handle application resize event.
+ */
 void Application::resize(const Window&)
 {
     run_callbacks<AppEvent::RESIZE>();
 }
 
+/**
+ * @brief Handle application destruction event.
+ */
 void Application::destroy(const Window&)
 {
     uint  index = static_cast<uint>(AppEvent::DESTROY);
@@ -192,6 +228,9 @@ void Application::destroy(const Window&)
         (*it)(blackboard);
 }
 
+/**
+ * @brief Main execution entry point.
+ */
 void Application::run()
 {
     // run event loop

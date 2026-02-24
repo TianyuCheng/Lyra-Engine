@@ -13,12 +13,14 @@ target_sources(lyra-engine PUBLIC
   Lyra/Runtime/Application.h
   Lyra/Runtime/AssetLayer.h
   Lyra/Runtime/SceneLayer.h
+  Lyra/Runtime/CameraLayer.h
   Lyra/Runtime/EditorLayer.h
   Lyra/Runtime/TimingLayer.h
 
   # scene
   Lyra/Scene/World.h
   Lyra/Scene/Light.h
+  Lyra/Scene/Camera.h
   Lyra/Scene/SceneNode.h
   Lyra/Scene/Transform.h
   Lyra/Scene/SceneTree.h
@@ -54,6 +56,7 @@ target_sources(lyra-engine PRIVATE
   Lyra/Runtime/Application.cpp
   Lyra/Runtime/AssetLayer.cpp
   Lyra/Runtime/SceneLayer.cpp
+  Lyra/Runtime/CameraLayer.cpp
   Lyra/Runtime/EditorLayer.cpp
   Lyra/Runtime/TimingLayer.cpp
 

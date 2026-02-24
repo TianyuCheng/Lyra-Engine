@@ -6,6 +6,7 @@
 #include <Lyra/Common/ECS.h>
 
 // local imports
+#include "Camera.h"
 #include "SceneNode.h"
 #include "Transform.h"
 

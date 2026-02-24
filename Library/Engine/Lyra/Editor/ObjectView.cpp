@@ -1,8 +1,10 @@
 #include <Lyra/Common/GUI.h>
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Scene/World.h>
-#include <Lyra/Scene/Transform.h>
+#include <Lyra/Scene/Camera.h>
 #include <Lyra/Scene/SceneNode.h>
+#include <Lyra/Scene/Transform.h>
+
 #include "Icons.h"
 #include "Layout.h"
 #include "ObjectView.h"
@@ -14,6 +16,7 @@ using namespace lyra;
 
 ObjectView::ObjectView()
 {
+    // do nothing
 }
 
 void ObjectView::bind(Application& app)
@@ -31,11 +34,10 @@ void ObjectView::update(Blackboard& blackboard)
 
     ImGui::Begin(LYRA_INSPECTOR_WINDOW_NAME);
     {
-        World** world_ptr     = blackboard.try_get<World*>();
-        auto*   selection_ptr = blackboard.try_get<TreeView::Selection>();
-
-        if (world_ptr && selection_ptr) {
-            draw_inspector(**world_ptr, selection_ptr->node);
+        auto world     = blackboard.try_get<World*>();
+        auto selection = blackboard.try_get<TreeView::Selection>();
+        if (world && selection) {
+            draw_inspector(**world, selection->node);
         }
     }
     ImGui::End();
@@ -77,6 +79,28 @@ void ObjectView::draw_inspector(World& world, SceneNode node)
             if (ImGui::DragFloat3("Scale", &transform.scale.x, 0.1f)) {
                 transform.flags.set(TransformFlag::LOCAL_DIRTY);
             }
+        }
+    }
+
+    if (world.any_of<PerspectiveCamera>(node)) {
+        auto& camera = world.get_component<PerspectiveCamera>(node);
+
+        if (ImGui::CollapsingHeader("Perspective Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::DragFloat("FOV", &camera.fov, 0.1f, 1.0f, 179.0f);
+            ImGui::DragFloat("Aspect", &camera.aspect, 0.01f, 0.1f, 10.0f);
+            ImGui::DragFloat("Near", &camera.near_plane, 0.01f, 0.001f, 10.0f);
+            ImGui::DragFloat("Far", &camera.far_plane, 1.0f, 10.0f, 10000.0f);
+        }
+    }
+
+    if (world.any_of<OrthographicCamera>(node)) {
+        auto& camera = world.get_component<OrthographicCamera>(node);
+
+        if (ImGui::CollapsingHeader("Orthographic Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::DragFloat("Size", &camera.size, 0.1f, 0.1f, 1000.0f);
+            ImGui::DragFloat("Aspect", &camera.aspect, 0.01f, 0.1f, 10.0f);
+            ImGui::DragFloat("Near", &camera.near_plane, 0.01f, -1000.0f, 1000.0f);
+            ImGui::DragFloat("Far", &camera.far_plane, 0.01f, -1000.0f, 1000.0f);
         }
     }
 }

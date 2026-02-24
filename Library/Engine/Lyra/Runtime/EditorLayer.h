@@ -13,45 +13,73 @@
 
 namespace lyra
 {
-    // EditorLayer is only a wrapper around GUIRenderer.
-    // It is created to handle application events.
+    /**
+     * @brief The EditorLayer struct manages the Dear ImGui GUI system for the engine editor.
+     */
     struct EditorLayer
     {
     public:
+        /**
+         * @brief Construct the EditorLayer with a GUIDescriptor.
+         */
         explicit EditorLayer(const GUIDescriptor& descriptor);
 
+        /**
+         * @brief Register the GUIRenderer to the blackboard and bind its lifecycle events.
+         */
         void bind(Application& app);
 
+        /**
+         * @brief Main update loop for the GUI.
+         */
         void update(Blackboard&);
 
+        /**
+         * @brief Prepare the GUI system for a new frame.
+         */
         void pre_update(Blackboard&);
 
+        /**
+         * @brief Finalize GUI updates for the current frame.
+         */
         void post_update(Blackboard&);
 
+        /**
+         * @brief Main GUI rendering step.
+         */
         void render(Blackboard&);
 
+        /**
+         * @brief Handle window resize events for the GUI.
+         */
         void resize(Blackboard&);
 
+        /**
+         * @brief Apply a default theme to the GUI.
+         */
         void theme(Blackboard&);
 
-        // provide a way to retrieve the raw ImGuiContext
+        /**
+         * @brief Retrieve the raw ImGuiContext.
+         * @return A pointer to the current ImGuiContext.
+         */
         FORCE_INLINE auto context() -> ImGuiContext*
         {
             return reinterpret_cast<ImGuiContext*>(gui->context<ImGuiContext>());
         }
 
-        // apply_context() is required to be called from user application
-        // because currently we created GUIRenderer in Lyra-Engine.dll.
-        // User application will need ImGuiContext* if it intends to call
-        // any ImGui functions.
+        /**
+         * @brief Set the ImGui context as current for the current thread/library.
+         * This must be called in any library or executable that uses ImGui.
+         */
         FORCE_INLINE void apply_context()
         {
             ImGui::SetCurrentContext(context());
         }
 
     private:
-        GUIDescriptor              descriptor;
-        OwnedResource<GUIRenderer> gui;
+        GUIDescriptor              descriptor; ///< The GUI initialization descriptor.
+        OwnedResource<GUIRenderer> gui;        ///< The managed GUIRenderer resource.
     };
 
 } // namespace lyra

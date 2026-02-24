@@ -148,6 +148,13 @@ int main(int argc, const char* argv[])
         return std::move(layer);
     });
 
+    // camera layer
+    auto camera = lyra::execute([&]() {
+        auto layer = std::make_unique<CameraLayer>();
+        app->bind(*layer);
+        return std::move(layer);
+    });
+
     // scene layer
     auto scene = lyra::execute([&]() {
         auto layer = std::make_unique<SceneLayer>();

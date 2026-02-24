@@ -1,8 +1,8 @@
 #include <Lyra/Common/GUI.h>
 #include <Lyra/Common/Logger.h>
+#include <Lyra/Scene/Camera.h>
 #include <Lyra/Scene/SceneTree.h>
 #include <Lyra/Scene/SceneNode.h>
-#include <fmt/format.h>
 
 // local imports
 #include "Icons.h"
@@ -15,6 +15,7 @@ using namespace lyra;
 
 TreeView::TreeView()
 {
+    // do nothing
 }
 
 void TreeView::bind(Application& app)
@@ -28,15 +29,25 @@ static void render_node(World& world, SceneTree& hierarchy, SceneTree::NodeIndex
     const auto& node   = hierarchy.at(node_idx);
     const auto  entity = node.entity;
 
-    // get node name
-    String label;
+    bool is_leaf = (node.first_child == SceneTree::INVALID_NODE);
+
+    // determine node name
+    CString label = nullptr;
     if (world.any_of<NodeName>(entity)) {
-        label = world.get_component<NodeName>(entity).name;
-    } else {
-        label = fmt::format("Node {}", static_cast<uint32_t>(entity));
+        label = world.get_component<NodeName>(entity).name.c_str();
     }
 
-    // get expansion state
+    // determine icon
+    CString icon = "";
+    if (world.any_of<PerspectiveCamera, OrthographicCamera>(entity)) {
+        icon = LYRA_ICON_CAMERA;
+    } else if (!is_leaf) {
+        icon = LYRA_ICON_GROUP;
+    } else {
+        icon = LYRA_ICON_NODE;
+    }
+
+    // determine expansion state
     bool expanded = false;
     if (world.any_of<TreeView::Expansion>(entity)) {
         expanded = world.get_component<TreeView::Expansion>(entity).expanded;
@@ -44,23 +55,27 @@ static void render_node(World& world, SceneTree& hierarchy, SceneTree::NodeIndex
 
     // imgui tree node flags
     ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth;
-    if (node.first_child == SceneTree::INVALID_NODE) {
+    if (is_leaf) {
         flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
     }
     if (selected_node == node_idx) {
         flags |= ImGuiTreeNodeFlags_Selected;
     }
-    
     if (expanded) {
         ImGui::SetNextItemOpen(true, ImGuiCond_Once);
     }
 
     // render tree node
-    bool is_open = ImGui::TreeNodeEx((void*)(uintptr_t)node_idx, flags, "%s", label.c_str());
+    bool is_open = false;
+    if (label) {
+        is_open = ImGui::TreeNodeEx((void*)(uintptr_t)node_idx, flags, "%s %s", icon, label);
+    } else {
+        is_open = ImGui::TreeNodeEx((void*)(uintptr_t)node_idx, flags, "%s Node %u", icon, entity);
+    }
 
     // handle selection
     if (ImGui::IsItemClicked()) {
-        selected_node = node_idx;
+        selected_node                              = node_idx;
         blackboard.get<TreeView::Selection>().node = SceneNode(entity);
     }
 

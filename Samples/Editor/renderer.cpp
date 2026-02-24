@@ -148,6 +148,8 @@ void SampleCubeRenderer::init(Blackboard& blackboard)
         // create camera node
         camera_node = world.create("Main Camera");
         world.translate(camera_node, {0.0f, 0.0f, 5.0f});
+        world.add_component<PerspectiveCamera>(camera_node);
+        world.add_component<CameraProjection>(camera_node);
     }
 }
 
@@ -191,12 +193,14 @@ void SampleCubeRenderer::update(Blackboard& blackboard)
     if (!depth_texture.handle.valid() ||
         depth_texture.width != backbuffer.extent.width ||
         depth_texture.height != backbuffer.extent.height) {
+        auto device = blackboard.get<GPUDevice>();
+
         if (depth_texture.handle.valid()) {
+            device.wait();
             depth_texture.destroy();
             depth_view.destroy();
         }
 
-        auto device   = blackboard.get<GPUDevice>();
         depth_texture = execute([&]() {
             auto desc            = GPUTextureDescriptor{};
             desc.label           = "depth_buffer";
@@ -216,8 +220,15 @@ void SampleCubeRenderer::update(Blackboard& blackboard)
     auto  aspect    = (float)backbuffer.extent.width / (float)backbuffer.extent.height;
     auto& cam_world = world.get_component<TransformWorld>(camera_node);
 
+    // update camera projection parameters
+    auto& cam_perspective = world.get_component<PerspectiveCamera>(camera_node);
+    cam_perspective.aspect = aspect;
+
+    // get updated projection from CameraLayer (note: this might be 1 frame late if aspect ratio just changed)
+    auto& cam_projection = world.get_component<CameraProjection>(camera_node);
+
     auto camera       = ubuffer.get_mapped_range<Camera>();
-    camera.at(0).proj = glm::perspective(1.05f, aspect, 0.01f, 100.0f);
+    camera.at(0).proj = cam_projection.projection;
     camera.at(0).view = glm::inverse(cam_world.xform);
 }
 
