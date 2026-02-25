@@ -19,7 +19,7 @@ add_subdirectory(ZipFS)
 
 # assets plugins
 #--------------------------------
-add_subdirectory(Ktx)
+add_subdirectory(Texture)
 
 # render plugins
 #--------------------------------

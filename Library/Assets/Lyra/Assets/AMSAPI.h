@@ -45,13 +45,13 @@ namespace lyra
          * @param metadata The metadata JSON associated with the asset.
          * @return void* A pointer to the loaded asset data (untyped).
          */
-        void* (*load)(FileLoader* loader, const JSON& metadata);
+        void* (*load)(AssetServer* manager, FileLoader* loader, const JSON& metadata);
 
         /**
          * @brief Properly unload and clean up the asset data.
          * @param data Pointer to the asset data to be unloaded.
          */
-        void (*unload)(void* data);
+        void (*unload)(AssetServer* manager, void* data);
     };
 
 } // namespace lyra

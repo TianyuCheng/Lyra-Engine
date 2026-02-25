@@ -1,7 +1,6 @@
 #ifndef LYRA_TESTLIB_HELPER_H
 #define LYRA_TESTLIB_HELPER_H
 
-#define DOCTEST_CONFIG_NO_EXCEPTIONS
 #include <doctest/doctest.h>
 
 #include <cmath>

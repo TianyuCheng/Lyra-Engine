@@ -1,18 +1,20 @@
-#include <Lyra/Common/Logger.h>
-#include <Lyra/Common/Stdint.h>
-#include <Lyra/Assets/AMSAPI.h>
-#include <Lyra/Assets/Assets.h>
-#include <Lyra/Render/RHIAPI.h>
-
 #include <cmath>
 #include <ktx.h>
 #include <vulkan/vulkan.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-#include "KtxAsset.h"
+#include <Lyra/Common/Macros.h>
+#include <Lyra/Common/Logger.h>
+#include <Lyra/Common/Stdint.h>
+#include <Lyra/Common/Plugin.h>
+#include <Lyra/Assets/AMSAPI.h>
+#include <Lyra/Assets/Assets.h>
+#include <Lyra/Render/RHIAPI.h>
 
-static Logger logger = create_logger("Ktx", LogLevel::trace);
+using namespace lyra;
+
+static Logger logger = create_logger("Texture", LogLevel::trace);
 
 Logger get_logger()
 {
@@ -31,7 +33,7 @@ static GPUTextureFormat to_gpu_texture_format(VkFormat format)
     }
 }
 
-static void* load_ktx_asset(FileLoader* loader, const JSON& metadata)
+static void* load_texture_asset(AssetServer*, FileLoader* loader, const JSON& metadata)
 {
     auto path    = metadata["path"].template get<String>();
     auto content = loader->read<uint8_t>(path.c_str());
@@ -59,12 +61,12 @@ static void* load_ktx_asset(FileLoader* loader, const JSON& metadata)
     return texture_asset;
 }
 
-static void unload_texture_asset(void* asset)
+static void unload_texture_asset(AssetServer*, void* asset)
 {
     delete reinterpret_cast<TextureAsset*>(asset);
 }
 
-static JSON process_ktx_asset(AssetServer* manager, OSPath source_path, OSPath target_path)
+static JSON process_texture_asset(AssetServer* manager, OSPath source_path, OSPath target_path)
 {
     auto source_path_cstr = reinterpret_cast<const char*>(source_path);
 
@@ -149,11 +151,21 @@ static JSON process_ktx_asset(AssetServer* manager, OSPath source_path, OSPath t
     return metadata;
 }
 
-AssetHandlerAPI KtxAsset::handler()
+LYRA_EXPORT auto prepare() -> void
+{
+    get_logger()->set_level(parse_log_level_from_env("LYRA_TEXTURE_VERBOSITY"));
+}
+
+LYRA_EXPORT auto cleanup() -> void
+{
+    // do nothing
+}
+
+LYRA_EXPORT auto create() -> AssetHandlerAPI
 {
     auto api    = AssetHandlerAPI{};
-    api.load    = load_ktx_asset;
+    api.load    = load_texture_asset;
     api.unload  = unload_texture_asset;
-    api.process = process_ktx_asset;
+    api.process = process_texture_asset;
     return api;
 }

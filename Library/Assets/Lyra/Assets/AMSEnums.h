@@ -10,9 +10,4 @@
  * @brief Enums for the Asset Management System.
  */
 
-namespace lyra
-{
-
-} // namespace lyra
-
 #endif // LYRA_LIBRARY_ASSETS_AMS_ENUMS_H

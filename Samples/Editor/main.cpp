@@ -98,13 +98,9 @@ int main(int argc, const char* argv[])
     if (!fs::exists(assets_root))
         fs::create_directory(assets_root);
 
-    auto metadata_root = root / "Metadata";
-    if (!fs::exists(metadata_root))
-        fs::create_directory(metadata_root);
-
-    auto generated_root = root / "Generated";
-    if (!fs::exists(generated_root))
-        fs::create_directory(generated_root);
+    auto caches_root = root / "Caches";
+    if (!fs::exists(caches_root))
+        fs::create_directory(caches_root);
 
     // application
     auto app = lyra::execute([&]() {
@@ -120,22 +116,20 @@ int main(int argc, const char* argv[])
     // file loader
     auto file_loader = lyra::execute([&]() {
         auto loader = std::make_unique<FileLoader>(FSLoader::NATIVE);
-        loader->mount("/", generated_root, 2);
-        loader->mount("/", metadata_root, 1);
+        loader->mount("/", caches_root, 1);
         loader->mount("/", assets_root, 0);
         return loader;
     });
 
     // asset layer
     auto assets = lyra::execute([&]() {
-        auto desc                    = AMSDescriptor{};
-        desc.importer.assets_path    = assets_root.c_str();
-        desc.importer.metadata_path  = metadata_root.c_str();
-        desc.importer.generated_path = generated_root.c_str();
-        desc.loader.assets           = file_loader.get();
-        desc.loader.metadata         = file_loader.get();
-        desc.watch                   = true;
-        desc.workers                 = 4;
+        auto desc                 = AMSDescriptor{};
+        desc.importer.assets_path = assets_root.c_str();
+        desc.importer.caches_path = caches_root.c_str();
+        desc.loader.assets        = file_loader.get();
+        desc.loader.metadata      = file_loader.get();
+        desc.watch                = true;
+        desc.workers              = 4;
 
         auto layer = std::make_unique<AssetLayer>(desc);
         app->bind(*layer);

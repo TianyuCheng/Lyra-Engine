@@ -24,10 +24,20 @@ static lyra::GUID load_guid(const Path& path)
 
     std::ifstream f(path, std::ios::in);
     if (!f.good()) return 0;
-    JSON data = JSON::parse(f);
-    if (data.contains("guid")) {
-        guid = data["guid"].get<lyra::GUID>();
+
+    // check if file is empty to avoid json parse error
+    if (f.peek() == std::ifstream::traits_type::eof())
+        return 0;
+
+    try {
+        JSON data = JSON::parse(f);
+        if (data.contains("guid")) {
+            guid = data["guid"].get<lyra::GUID>();
+        }
+    } catch (const std::exception& e) {
+        spdlog::error("Failed to parse metadata GUID from {}: {}", path.string(), e.what());
     }
+
     f.close();
     return guid;
 }
@@ -35,16 +45,26 @@ static lyra::GUID load_guid(const Path& path)
 static void save_json(const Path& path, const JSON& data, int indent = 2)
 {
     std::ofstream f(path, std::ios::out);
-    assert(f.good());
+    if (!f.good()) {
+        spdlog::error("Failed to open file for writing: {}", path.string());
+        return;
+    }
     f << data.dump(indent);
     f.close();
+}
+
+static JSON default_process(AssetServer*, OSPath source_path, OSPath)
+{
+    JSON metadata;
+    metadata["path"] = Path(source_path).string();
+    return metadata;
 }
 
 /**
  * @brief Initialize the AssetServer.
  */
 AssetServer::AssetServer(const AMSDescriptor& descriptor)
-    : descriptor(descriptor)
+    : descriptor(descriptor), pool(descriptor.workers)
 {
     // do nothing
 }
@@ -61,7 +81,7 @@ AssetServer::~AssetServer()
         for (auto& kv : processor.assets) {
             auto record = kv.second;
             if (record->data) {
-                processor.handler->unload(record->data);
+                processor.handler->unload(this, record->data);
             }
             delete record;
         }
@@ -69,6 +89,33 @@ AssetServer::~AssetServer()
     }
 
     processors.clear();
+}
+
+/**
+ * @brief Register a new asset type with early validation.
+ */
+void AssetServer::register_processor(UUID uuid, AssetProcessor&& proc, const InitList<CString>& extensions, const JSON& options)
+{
+    // load and unload must exist
+    assert(proc.handler->load != nullptr);
+    assert(proc.handler->unload != nullptr);
+
+    // patch dummy process if missing
+    if (proc.handler->process == nullptr) {
+        proc.handler->process = default_process;
+    }
+
+    // configure asset processor
+    if (proc.handler->configure) {
+        proc.handler->configure(options);
+    }
+
+    auto type_uuid = uuid;
+    processors.emplace(type_uuid, std::move(proc));
+
+    for (const auto& extension : extensions) {
+        this->extensions.emplace(extension, type_uuid);
+    }
 }
 
 /**
@@ -112,9 +159,12 @@ RawAssetHandle AssetServer::load_asset(UUID type_uuid, FSPath path)
     auto it2 = proc_ptr->assets.find(guid);
     if (it2 == proc_ptr->assets.end()) {
         auto record            = new AssetRecord();
-        record->data           = proc_ptr->handler->load(descriptor.loader.assets, json);
+        record->data           = nullptr;
         record->refcnt         = 1;
         proc_ptr->assets[guid] = record;
+        pool.detach_task([this, proc_ptr, json, record]() {
+            record->data = proc_ptr->handler->load(this, descriptor.loader.assets, json);
+        });
     } else {
         it2->second->refcnt++;
     }
@@ -130,7 +180,7 @@ void AssetServer::unload_asset(UUID type_uuid, RawAssetHandle handle)
     if (it == processors.end()) return;
     auto& proc = it->second;
 
-    std::unique_lock alock(*proc.mutex);
+    std::shared_lock alock(*proc.mutex);
 
     auto it2 = proc.assets.find(handle.guid);
     if (it2 != proc.assets.end()) {
@@ -149,10 +199,9 @@ void AssetServer::purge()
         std::unique_lock alock(*proc.mutex);
         for (auto it = proc.assets.begin(); it != proc.assets.end();) {
             auto record = it->second;
-            if (record->refcnt == 0) {
-                if (record->data) {
-                    proc.handler->unload(record->data);
-                }
+            // only purge if refcnt is 0 and it's not currently loading (data != nullptr)
+            if (record->refcnt == 0 && record->data != nullptr) {
+                proc.handler->unload(this, record->data);
                 delete record;
                 proc.assets.erase(it++);
             } else {
@@ -169,26 +218,34 @@ bool AssetServer::import_asset(const Path& path, lyra::GUID& guid)
 {
     auto ext = path.extension().string();
     auto it  = extensions.find(ext);
-    if (it == extensions.end()) return false;
+    if (it == extensions.end()) {
+        spdlog::error("No processor found for extension: {}", ext);
+        return false;
+    }
 
     auto type_uuid = it->second;
     auto it2       = processors.find(type_uuid);
-    if (it2 == processors.end()) return false;
+    if (it2 == processors.end()) {
+        spdlog::error("Processor for type {} not found!", to_string(type_uuid));
+        return false;
+    }
 
     auto& proc      = it2->second;
     auto  type_name = proc.type;
     auto  handler   = proc.handler;
 
-    guid             = 0ull;
-    Path import_path = get_metadata_path(descriptor.importer.metadata_path / path);
+    Path source_path = Path(descriptor.importer.assets_path) / path;
+    Path target_path = Path(descriptor.importer.caches_path) / path;
+    Path import_path = get_metadata_path(source_path);
+
+    guid = 0ull;
+
     if (std::filesystem::exists(import_path))
         guid = load_guid(import_path);
 
     if (guid == 0)
         guid = random_guid();
 
-    Path source_path = descriptor.importer.assets_path / path;
-    Path target_path = descriptor.importer.generated_path / path;
     JSON metadata;
     metadata["version"] = "1";
     metadata["guid"]    = guid;

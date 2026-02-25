@@ -20,9 +20,13 @@ if(${Vulkan_FOUND})
   target_compile_definitions(lyra-testkit PRIVATE LYRA_VULKAN_SUPPORT)
 endif()
 
-# test cases
-add_subdirectory(depth_test)
+# non-rhi tests
 add_subdirectory(scene_graph)
+add_subdirectory(asset_server)
+add_subdirectory(shader_reflection)
+
+# rhi test cases
+add_subdirectory(depth_test)
 add_subdirectory(ray_tracing)
 add_subdirectory(frame_graph)
 add_subdirectory(stencil_test)
@@ -30,7 +34,6 @@ add_subdirectory(push_constants)
 add_subdirectory(dynamic_uniform)
 add_subdirectory(texture_sampling)
 add_subdirectory(graphics_pipeline)
-add_subdirectory(shader_reflection)
 
 # add custom target to run test kit
 find_package(Python3 REQUIRED COMPONENTS Interpreter)

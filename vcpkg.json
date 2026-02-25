@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "dependencies": [
     "abseil",
+    "bshoshany-thread-pool",
     "cxxopts",
     {
       "name": "d3d12-memory-allocator",

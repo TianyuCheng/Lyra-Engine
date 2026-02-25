@@ -58,10 +58,17 @@ void EditorLayer::theme(Blackboard&)
     ImVec4*     colors = style.Colors;
 
     // ui config
-    style.FramePadding.x       = 15.0f;
-    style.FramePadding.y       = 10.0f;
-    style.GrabMinSize          = 15.0f;
-    style.DockingSeparatorSize = 6.0f;
+    style.WindowPadding.x      = 4.0f;
+    style.WindowPadding.y      = 4.0f;
+    style.FramePadding.x       = 4.0f;
+    style.FramePadding.y       = 4.0f;
+    style.ItemSpacing.x        = 4.0f;
+    style.ItemSpacing.y        = 4.0f;
+    style.ItemInnerSpacing.x   = 4.0f;
+    style.ItemInnerSpacing.y   = 4.0f;
+    style.GrabMinSize          = 8.0f;
+    style.DockingSeparatorSize = 8.0f;
+    style.IndentSpacing        = 20.0f;
 
     // corners
     style.WindowRounding    = 8.0f;
@@ -71,6 +78,9 @@ void EditorLayer::theme(Blackboard&)
     style.ScrollbarRounding = 6.0f;
     style.GrabRounding      = 6.0f;
     style.TabRounding       = 6.0f;
+
+    // windows
+    style.WindowMenuButtonPosition = ImGuiDir_Right;
 
     // base colors for a pleasant and modern dark theme with dark accents
     colors[ImGuiCol_Text]                  = ImVec4(0.92f, 0.93f, 0.94f, 1.00f); // light grey text for readability

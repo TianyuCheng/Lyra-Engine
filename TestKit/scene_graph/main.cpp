@@ -1,4 +1,3 @@
-#include <Lyra/Scene/SceneTree.h>
 #include "helper.h"
 
 TEST_CASE("scn::basic_scene_graph" * doctest::description("Basic Scene Graph"))

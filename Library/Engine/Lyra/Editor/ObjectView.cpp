@@ -32,6 +32,7 @@ void ObjectView::update(Blackboard& blackboard)
         ImGui::DockBuilderDockWindow(LYRA_INSPECTOR_WINDOW_NAME, layout.right);
     });
 
+    // imgui::disable_window_menu_button();
     ImGui::Begin(LYRA_INSPECTOR_WINDOW_NAME);
     {
         auto world     = blackboard.try_get<World*>();
@@ -62,7 +63,7 @@ void ObjectView::draw_inspector(World& world, SceneNode node)
     if (world.any_of<TransformLocal>(node)) {
         auto& transform = world.get_component<TransformLocal>(node);
 
-        if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (ImGui::CollapsingHeader(LYRA_ICON_NODE "Transform", ImGuiTreeNodeFlags_DefaultOpen)) {
             // translation
             if (ImGui::DragFloat3("Translation", &transform.position.x, 0.1f)) {
                 transform.flags.set(TransformFlag::LOCAL_DIRTY);
@@ -85,7 +86,7 @@ void ObjectView::draw_inspector(World& world, SceneNode node)
     if (world.any_of<PerspectiveCamera>(node)) {
         auto& camera = world.get_component<PerspectiveCamera>(node);
 
-        if (ImGui::CollapsingHeader("Perspective Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (ImGui::CollapsingHeader(LYRA_ICON_CAMERA "Perspective", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::DragFloat("FOV", &camera.fov, 0.1f, 1.0f, 179.0f);
             ImGui::DragFloat("Aspect", &camera.aspect, 0.01f, 0.1f, 10.0f);
             ImGui::DragFloat("Near", &camera.near_plane, 0.01f, 0.001f, 10.0f);
@@ -96,7 +97,7 @@ void ObjectView::draw_inspector(World& world, SceneNode node)
     if (world.any_of<OrthographicCamera>(node)) {
         auto& camera = world.get_component<OrthographicCamera>(node);
 
-        if (ImGui::CollapsingHeader("Orthographic Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (ImGui::CollapsingHeader(LYRA_ICON_CAMERA "Orthographic", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::DragFloat("Size", &camera.size, 0.1f, 0.1f, 1000.0f);
             ImGui::DragFloat("Aspect", &camera.aspect, 0.01f, 0.1f, 10.0f);
             ImGui::DragFloat("Near", &camera.near_plane, 0.01f, -1000.0f, 1000.0f);

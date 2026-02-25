@@ -2,10 +2,6 @@
 
 using namespace lyra;
 
-using TexturePlugin = Plugin<AssetHandlerAPI>;
-
-static Own<TexturePlugin> TEXTURE_PLUGIN;
-
 /**
  * @brief Default asset processing implementation.
  * Simply records the source path in the metadata.
@@ -25,8 +21,10 @@ JSON process_asset(AssetServer* manager, OSPath source_path, OSPath target_path)
  * @brief Default asset unloading implementation.
  */
 template <typename AssetType>
-void unload_asset(void* asset)
+void unload_asset(AssetServer* manager, void* asset)
 {
+    MAYBE_UNUSED(manager);
+
     auto typed_asset = reinterpret_cast<AssetType*>(asset);
     delete typed_asset;
 }
@@ -34,8 +32,10 @@ void unload_asset(void* asset)
 /**
  * @brief Built-in loader for JSON assets.
  */
-static void* load_json_asset(FileLoader* loader, const JSON& metadata)
+static void* load_json_asset(AssetServer* manager, FileLoader* loader, const JSON& metadata)
 {
+    MAYBE_UNUSED(manager);
+
     auto path    = metadata["path"].template get<String>();
     auto content = loader->read<char>(path.c_str());
     return new JsonAsset{JSON::parse(content.begin(), content.end())};
@@ -44,8 +44,10 @@ static void* load_json_asset(FileLoader* loader, const JSON& metadata)
 /**
  * @brief Built-in loader for text assets.
  */
-static void* load_text_asset(FileLoader* loader, const JSON& metadata)
+static void* load_text_asset(AssetServer* manager, FileLoader* loader, const JSON& metadata)
 {
+    MAYBE_UNUSED(manager);
+
     auto path    = metadata["path"].template get<String>();
     auto content = loader->read<char>(path.c_str());
     return new TextAsset{String(content.begin(), content.end())};
@@ -54,8 +56,10 @@ static void* load_text_asset(FileLoader* loader, const JSON& metadata)
 /**
  * @brief Built-in loader for TOML assets.
  */
-static void* load_toml_asset(FileLoader* loader, const JSON& metadata)
+static void* load_toml_asset(AssetServer* manager, FileLoader* loader, const JSON& metadata)
 {
+    MAYBE_UNUSED(manager);
+
     auto path    = metadata["path"].template get<String>();
     auto content = loader->read<char>(path.c_str());
     auto view    = StringView(content.data(), content.size() - 1);
@@ -91,6 +95,9 @@ AssetHandlerAPI TomlAsset::handler()
 
 AssetHandlerAPI TextureAsset::handler()
 {
+    using TexturePlugin = Plugin<AssetHandlerAPI>;
+    static Own<TexturePlugin> TEXTURE_PLUGIN;
+
     if (!TEXTURE_PLUGIN)
         TEXTURE_PLUGIN = std::make_unique<TexturePlugin>("lyra-ktx");
 

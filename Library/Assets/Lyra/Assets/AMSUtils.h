@@ -40,9 +40,8 @@ namespace lyra
      */
     struct AMSImportDescriptor
     {
-        OSPath assets_path;    ///< Directory where source assets (e.g. .png, .obj) are located.
-        OSPath metadata_path;  ///< Directory where .import metadata files are generated.
-        OSPath generated_path; ///< Directory where processed/cooked binary files are stored.
+        OSPath assets_path; ///< Directory where source assets (e.g. .png, .obj) are located.
+        OSPath caches_path; ///< Directory where processed/cooked binary files are stored.
     };
 
     /**

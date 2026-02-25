@@ -1365,6 +1365,7 @@
 #define ICON_FA_VIALS                                  "\xef\x92\x93" // U+f493
 #define ICON_FA_VIDEO                                  "\xef\x80\xbd" // U+f03d
 #define ICON_FA_VIDEO_SLASH                            "\xef\x93\xa2" // U+f4e2
+#define ICON_FA_VIDEO_CAMERA                           "\uf03d"       // U+f03d
 #define ICON_FA_VIHARA                                 "\xef\x9a\xa7" // U+f6a7
 #define ICON_FA_VIRUS                                  "\xee\x81\xb4" // U+e074
 #define ICON_FA_VIRUS_COVID                            "\xee\x92\xa8" // U+e4a8

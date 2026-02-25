@@ -43,7 +43,7 @@ void SceneView::update(Blackboard& blackboard)
     ImGui::Begin(LYRA_SCENE_WINDOW_NAME);
     {
         // center align the buttons
-        float button_width = 40.0f;
+        float button_width = 24.0f;
         float total_width  = button_width * 2 + ImGui::GetStyle().ItemSpacing.x;
         ImGui::SetCursorPosX((ImGui::GetWindowSize().x - total_width) * 0.5f);
 

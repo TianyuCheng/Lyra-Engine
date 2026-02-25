@@ -4,8 +4,10 @@
 #define LYRA_LIBRARY_ASSETS_AMS_TYPES_H
 
 #include <memory>
+#include <atomic>
 #include <shared_mutex>
 
+#include <BS_thread_pool.hpp>
 #include <Lyra/Common/UUID.h>
 #include <Lyra/Common/GUID.h>
 #include <Lyra/Common/Path.h>
@@ -41,14 +43,7 @@ namespace lyra
             info.type           = AssetType::name;
             info.handler        = AssetType::handler();
             info.assets         = {};
-
-            if (info.handler->configure)
-                info.handler->configure(options);
-
-            processors.emplace(AssetType::uuid, std::move(info));
-
-            for (const auto& extension : AssetType::extensions)
-                extensions.emplace(extension, AssetType::uuid);
+            register_processor(AssetType::uuid, std::move(info), AssetType::extensions, options);
         }
 
         /**
@@ -110,8 +105,8 @@ namespace lyra
     private:
         struct AssetRecord
         {
-            void* data   = nullptr;
-            uint  refcnt = 0;
+            void*                 data   = nullptr;
+            std::atomic<uint32_t> refcnt = 0;
         };
 
         struct AssetProcessor
@@ -132,8 +127,11 @@ namespace lyra
         auto load_asset(UUID type_uuid, FSPath path) -> RawAssetHandle;
         void unload_asset(UUID type_uuid, RawAssetHandle handle);
 
+        void register_processor(UUID uuid, AssetProcessor&& proc, const InitList<CString>& extensions, const JSON& options);
+
     private:
         AMSDescriptor                 descriptor;
+        BS::thread_pool<>             pool;
         HashMap<String, UUID>         extensions;
         HashMap<UUID, AssetProcessor> processors;
     };

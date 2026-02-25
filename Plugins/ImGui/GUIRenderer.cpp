@@ -702,7 +702,7 @@ void GUIRenderer::init(const GUIDescriptor& descriptor)
     init_platform_data(descriptor);
     init_viewport_data(descriptor);
     init_dummy_texture();
-    init_imgui_font("Fonts/Font.ttf", 18.0f);
+    init_imgui_font("Fonts/Font.ttf", descriptor.font_size);
 }
 
 void GUIRenderer::reset()
@@ -1157,7 +1157,11 @@ void GUIRenderer::init_dummy_texture()
 
 void GUIRenderer::init_imgui_font(CString filename, float font_size)
 {
-    ImGuiIO& io = ImGui::GetIO();
+    ImGuiIO&    io    = ImGui::GetIO();
+    ImGuiStyle& style = ImGui::GetStyle();
+
+    // initialize font size
+    style.FontSizeBase = font_size;
 
     // adjust range for Nerd Font
     static const ImWchar icon_ranges[] = {0xe000, 0xf8ff, 0};
@@ -1172,8 +1176,9 @@ void GUIRenderer::init_imgui_font(CString filename, float font_size)
     icon_cfg.MergeMode            = true;        // merge icons with regular font
     icon_cfg.PixelSnapH           = true;        // optional, can help with pixel alignment
     icon_cfg.GlyphRanges          = icon_ranges; // icons only
+    icon_cfg.GlyphMaxAdvanceX     = font_size * +1.5f;
     icon_cfg.GlyphMinAdvanceX     = font_size * +1.5f;
-    icon_cfg.GlyphOffset.x        = font_size * -0.5f;
+    icon_cfg.GlyphOffset.x        = font_size * -0.25f;
 
     // font source
     auto file = cmrc::imgui::get_filesystem().open(filename);

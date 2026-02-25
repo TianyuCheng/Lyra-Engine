@@ -18,8 +18,9 @@ namespace lyra
         CompilerHandle   compiler;
 
         // options
-        bool docking   = false;
-        bool viewports = false;
+        bool  docking   = false;
+        bool  viewports = false;
+        float font_size = 16.0f;
     };
 
     using GUIHandle = TypedPointerHandle<GUI>;
