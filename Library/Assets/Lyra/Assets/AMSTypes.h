@@ -39,10 +39,10 @@ namespace lyra
         template <typename AssetType>
         void register_asset(const JSON& options = {})
         {
-            AssetProcessor info = {};
-            info.type           = AssetType::name;
-            info.handler        = AssetType::handler();
-            info.assets         = {};
+            auto info     = std::make_unique<AssetProcessor>();
+            info->type    = AssetType::name;
+            info->handler = AssetType::handler();
+            info->assets  = {};
             register_processor(AssetType::uuid, std::move(info), AssetType::extensions, options);
         }
 
@@ -59,8 +59,8 @@ namespace lyra
             }
 
             auto& proc = it->second;
-            if (proc.handler->configure) {
-                proc.handler->configure(options);
+            if (proc->handler.configure) {
+                proc->handler.configure(options);
             }
         }
 
@@ -112,7 +112,7 @@ namespace lyra
         struct AssetProcessor
         {
             String                      type;
-            AssetHandlerAPI*            handler;
+            AssetHandlerAPI             handler;
             Own<std::shared_mutex>      mutex;
             HashMap<GUID, AssetRecord*> assets;
 
@@ -127,13 +127,13 @@ namespace lyra
         auto load_asset(UUID type_uuid, FSPath path) -> RawAssetHandle;
         void unload_asset(UUID type_uuid, RawAssetHandle handle);
 
-        void register_processor(UUID uuid, AssetProcessor&& proc, const InitList<CString>& extensions, const JSON& options);
+        void register_processor(UUID uuid, Own<AssetProcessor>&& proc, const InitList<CString>& extensions, const JSON& options);
 
     private:
-        AMSDescriptor                 descriptor;
-        BS::thread_pool<>             pool;
-        HashMap<String, UUID>         extensions;
-        HashMap<UUID, AssetProcessor> processors;
+        AMSDescriptor                      descriptor;
+        BS::thread_pool<>                  pool;
+        HashMap<String, AssetProcessor*>   extensions;
+        HashMap<UUID, Own<AssetProcessor>> processors;
     };
 
 } // namespace lyra

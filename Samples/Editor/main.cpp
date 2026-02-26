@@ -133,6 +133,13 @@ int main(int argc, const char* argv[])
 
         auto layer = std::make_unique<AssetLayer>(desc);
         app->bind(*layer);
+
+        auto ams = app->get_blackboard().get<AssetServer*>();
+        ams->register_asset<TextAsset>();
+        ams->register_asset<JsonAsset>();
+        ams->register_asset<TomlAsset>();
+        ams->register_asset<TextureAsset>();
+
         return std::move(layer);
     });
 

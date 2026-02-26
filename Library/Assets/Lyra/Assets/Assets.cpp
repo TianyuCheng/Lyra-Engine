@@ -99,7 +99,7 @@ AssetHandlerAPI TextureAsset::handler()
     static Own<TexturePlugin> TEXTURE_PLUGIN;
 
     if (!TEXTURE_PLUGIN)
-        TEXTURE_PLUGIN = std::make_unique<TexturePlugin>("lyra-ktx");
+        TEXTURE_PLUGIN = std::make_unique<TexturePlugin>("lyra-texture");
 
     return *TEXTURE_PLUGIN->get_api();
 }

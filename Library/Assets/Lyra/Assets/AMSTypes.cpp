@@ -77,15 +77,15 @@ AssetServer::~AssetServer()
     // unload all existing assets regardless of ref count
     for (auto& kv_processor : processors) {
         auto&            processor = kv_processor.second;
-        std::unique_lock alock(*processor.mutex);
-        for (auto& kv : processor.assets) {
+        std::unique_lock alock(*processor->mutex);
+        for (auto& kv : processor->assets) {
             auto record = kv.second;
             if (record->data) {
-                processor.handler->unload(this, record->data);
+                processor->handler.unload(this, record->data);
             }
             delete record;
         }
-        processor.assets.clear();
+        processor->assets.clear();
     }
 
     processors.clear();
@@ -94,27 +94,28 @@ AssetServer::~AssetServer()
 /**
  * @brief Register a new asset type with early validation.
  */
-void AssetServer::register_processor(UUID uuid, AssetProcessor&& proc, const InitList<CString>& extensions, const JSON& options)
+void AssetServer::register_processor(UUID uuid, Own<AssetProcessor>&& proc, const InitList<CString>& extensions, const JSON& options)
 {
     // load and unload must exist
-    assert(proc.handler->load != nullptr);
-    assert(proc.handler->unload != nullptr);
+    assert(proc->handler.load != nullptr);
+    assert(proc->handler.unload != nullptr);
 
     // patch dummy process if missing
-    if (proc.handler->process == nullptr) {
-        proc.handler->process = default_process;
+    if (proc->handler.process == nullptr) {
+        proc->handler.process = default_process;
     }
 
     // configure asset processor
-    if (proc.handler->configure) {
-        proc.handler->configure(options);
+    if (proc->handler.configure) {
+        proc->handler.configure(options);
     }
 
-    auto type_uuid = uuid;
-    processors.emplace(type_uuid, std::move(proc));
+    auto type_uuid           = uuid;
+    auto [it, success]       = processors.emplace(type_uuid, std::move(proc));
+    AssetProcessor* proc_ptr = it->second.get();
 
     for (const auto& extension : extensions) {
-        this->extensions.emplace(extension, type_uuid);
+        this->extensions.emplace(extension, proc_ptr);
     }
 }
 
@@ -127,10 +128,10 @@ void* AssetServer::get_asset(UUID type_uuid, RawAssetHandle handle)
     if (it == processors.end()) return nullptr;
     const auto& proc = it->second;
 
-    std::shared_lock alock(*proc.mutex);
+    std::shared_lock alock(*proc->mutex);
 
-    const auto it2 = proc.assets.find(handle.guid);
-    if (it2 == proc.assets.end()) return nullptr;
+    const auto it2 = proc->assets.find(handle.guid);
+    if (it2 == proc->assets.end()) return nullptr;
     return it2->second->data;
 }
 
@@ -142,7 +143,7 @@ RawAssetHandle AssetServer::load_asset(UUID type_uuid, FSPath path)
     auto it = processors.find(type_uuid);
     if (it == processors.end()) return RawAssetHandle();
 
-    AssetProcessor* proc_ptr = &it->second;
+    AssetProcessor* proc_ptr = it->second.get();
 
     auto  metadata_file   = get_metadata_path(Path(path));
     auto  metadata_vfs    = metadata_file.string();
@@ -163,7 +164,8 @@ RawAssetHandle AssetServer::load_asset(UUID type_uuid, FSPath path)
         record->refcnt         = 1;
         proc_ptr->assets[guid] = record;
         pool.detach_task([this, proc_ptr, json, record]() {
-            record->data = proc_ptr->handler->load(this, descriptor.loader.assets, json);
+            const JSON& data = json.contains("data") ? json["data"] : json;
+            record->data     = proc_ptr->handler.load(this, descriptor.loader.assets, data);
         });
     } else {
         it2->second->refcnt++;
@@ -180,10 +182,10 @@ void AssetServer::unload_asset(UUID type_uuid, RawAssetHandle handle)
     if (it == processors.end()) return;
     auto& proc = it->second;
 
-    std::shared_lock alock(*proc.mutex);
+    std::shared_lock alock(*proc->mutex);
 
-    auto it2 = proc.assets.find(handle.guid);
-    if (it2 != proc.assets.end()) {
+    auto it2 = proc->assets.find(handle.guid);
+    if (it2 != proc->assets.end()) {
         it2->second->refcnt--;
     }
 }
@@ -196,14 +198,14 @@ void AssetServer::purge()
     for (auto& kv_processor : processors) {
         auto& proc = kv_processor.second;
 
-        std::unique_lock alock(*proc.mutex);
-        for (auto it = proc.assets.begin(); it != proc.assets.end();) {
+        std::unique_lock alock(*proc->mutex);
+        for (auto it = proc->assets.begin(); it != proc->assets.end();) {
             auto record = it->second;
             // only purge if refcnt is 0 and it's not currently loading (data != nullptr)
             if (record->refcnt == 0 && record->data != nullptr) {
-                proc.handler->unload(this, record->data);
+                proc->handler.unload(this, record->data);
                 delete record;
-                proc.assets.erase(it++);
+                proc->assets.erase(it++);
             } else {
                 ++it;
             }
@@ -223,16 +225,9 @@ bool AssetServer::import_asset(const Path& path, lyra::GUID& guid)
         return false;
     }
 
-    auto type_uuid = it->second;
-    auto it2       = processors.find(type_uuid);
-    if (it2 == processors.end()) {
-        spdlog::error("Processor for type {} not found!", to_string(type_uuid));
-        return false;
-    }
-
-    auto& proc      = it2->second;
-    auto  type_name = proc.type;
-    auto  handler   = proc.handler;
+    auto* proc      = it->second;
+    auto  type_name = proc->type;
+    auto  handler   = &proc->handler;
 
     Path source_path = Path(descriptor.importer.assets_path) / path;
     Path target_path = Path(descriptor.importer.caches_path) / path;

@@ -14,7 +14,7 @@ struct DummyAsset
     static constexpr CString           name       = "DummyAsset";
     static constexpr UUID              uuid       = make_uuid("00000000-0000-0000-0000-000000000001");
     static constexpr InitList<CString> extensions = {".dummy"};
-    static auto                        handler() -> AssetHandlerAPI*;
+    static auto                        handler() -> AssetHandlerAPI;
 
     int value = 0;
 };
@@ -36,15 +36,14 @@ static void dummy_unload(AssetServer*, void* data)
     delete static_cast<DummyAsset*>(data);
 }
 
-AssetHandlerAPI* DummyAsset::handler()
+AssetHandlerAPI DummyAsset::handler()
 {
-    static AssetHandlerAPI dummy_handler_api = {
+    return {
         nullptr,
         nullptr,
         dummy_load,
-        dummy_unload};
-
-    return &dummy_handler_api;
+        dummy_unload,
+    };
 }
 
 TEST_CASE("ams::asset_server")
@@ -106,7 +105,8 @@ TEST_CASE("ams::asset_server")
             f << "raw dummy content";
         }
 
-        GUID guid    = 0;
+        lyra::GUID guid = 0;
+
         bool success = import_ams.import_asset("new_test.dummy", guid);
 
         CHECK(success);
@@ -119,7 +119,7 @@ TEST_CASE("ams::asset_server")
         // verify metadata content
         std::ifstream f(expected_metadata);
         JSON          metadata = JSON::parse(f);
-        CHECK_EQ(metadata["guid"].get<GUID>(), guid);
+        CHECK_EQ(metadata["guid"].get<lyra::GUID>(), guid);
         CHECK_EQ(metadata["type"].get<std::string>(), "DummyAsset");
     }
 

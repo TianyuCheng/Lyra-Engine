@@ -84,7 +84,7 @@ namespace lyra
         static constexpr UUID uuid = make_uuid("30cdfac2-ad77-4297-91fb-832241bc4f3f");
 
         // extensions: to let assert server what extensions to look for
-        static constexpr InitList<CString> extensions = {".png", ".jpg", ".exr", ".ktx"};
+        static constexpr InitList<CString> extensions = {".png", ".jpg", ".hdr", ".dds", ".exr", ".ktx", ".ktx2"};
 
         /**
          * @brief Get the handler for TextureAssets (typically loaded via a plugin).
