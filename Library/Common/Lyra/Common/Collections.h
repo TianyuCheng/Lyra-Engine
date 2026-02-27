@@ -50,6 +50,9 @@ namespace lyra
     using TreeMap = absl::btree_map<T...>;
 
     template <typename... T>
+    using MultiMap = absl::btree_multimap<T...>;
+
+    template <typename... T>
     using Optional = std::optional<T...>;
 
     template <typename... T>

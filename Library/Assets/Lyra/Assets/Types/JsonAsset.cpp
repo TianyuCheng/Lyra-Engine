@@ -1,0 +1,46 @@
+#include <Lyra/FileIO/VFSAPI.h>
+
+#include "JsonAsset.h"
+
+using namespace lyra;
+
+static void* load_json_asset(FileLoader* loader, const JSON& metadata)
+{
+    auto path    = metadata["path"].template get<String>();
+    auto content = loader->read<char>(path.c_str());
+    return new JsonAsset{JSON::parse(content.begin(), content.end())};
+}
+
+static uint get_json_extensions(CString* extensions)
+{
+    if (extensions) {
+        extensions[0] = ".json";
+    }
+    return 1;
+}
+
+static JSON json_process(OSPath source_path, OSPath)
+{
+    JSON metadata;
+    metadata["path"] = Path(source_path).string();
+    return metadata;
+}
+
+AssetLoaderAPI JsonAsset::loader()
+{
+    auto api                     = AssetLoaderAPI{};
+    api.configure                = nullptr;
+    api.load                     = load_json_asset;
+    api.unload                   = [](void* asset) { delete reinterpret_cast<JsonAsset*>(asset); };
+    api.get_supported_extensions = get_json_extensions;
+    return api;
+}
+
+AssetCookerAPI JsonAsset::cooker()
+{
+    auto api                     = AssetCookerAPI{};
+    api.configure                = nullptr;
+    api.process                  = json_process;
+    api.get_supported_extensions = get_json_extensions;
+    return api;
+}

@@ -1,0 +1,47 @@
+#include <Lyra/FileIO/VFSAPI.h>
+
+#include "TomlAsset.h"
+
+using namespace lyra;
+
+static void* load_toml_asset(FileLoader* loader, const JSON& metadata)
+{
+    auto path    = metadata["path"].template get<String>();
+    auto content = loader->read<char>(path.c_str());
+    auto view    = StringView(content.data(), content.size() - 1);
+    return new TomlAsset{toml::parse(view)};
+}
+
+static uint get_toml_extensions(CString* extensions)
+{
+    if (extensions) {
+        extensions[0] = ".toml";
+    }
+    return 1;
+}
+
+static JSON toml_process(OSPath source_path, OSPath)
+{
+    JSON metadata;
+    metadata["path"] = Path(source_path).string();
+    return metadata;
+}
+
+AssetLoaderAPI TomlAsset::loader()
+{
+    auto api                     = AssetLoaderAPI{};
+    api.configure                = nullptr;
+    api.load                     = load_toml_asset;
+    api.unload                   = [](void* asset) { delete reinterpret_cast<TomlAsset*>(asset); };
+    api.get_supported_extensions = get_toml_extensions;
+    return api;
+}
+
+AssetCookerAPI TomlAsset::cooker()
+{
+    auto api                     = AssetCookerAPI{};
+    api.configure                = nullptr;
+    api.process                  = toml_process;
+    api.get_supported_extensions = get_toml_extensions;
+    return api;
+}

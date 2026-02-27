@@ -34,33 +34,81 @@ namespace lyra
         virtual ~AssetServer();
 
         /**
-         * @brief Register a new asset type.
+         * @brief Internal detection for cooker support.
+         */
+        template <typename T, typename = void>
+        struct has_cooker : std::false_type
+        {
+        };
+
+        template <typename T>
+        struct has_cooker<T, std::void_t<decltype(T::cooker())>> : std::true_type
+        {
+        };
+
+        /**
+         * @brief Register a loader for an asset type.
+         * If the asset type also provides a cooker() method, it will be registered automatically.
          */
         template <typename AssetType>
         void register_asset(const JSON& options = {})
         {
-            auto info     = std::make_unique<AssetProcessor>();
-            info->type    = AssetType::name;
-            info->handler = AssetType::handler();
-            info->assets  = {};
-            register_processor(AssetType::uuid, std::move(info), AssetType::extensions, options);
+            auto info    = std::make_unique<AssetProcessor>();
+            info->type   = AssetType::name;
+            info->loader = AssetType::loader();
+            info->assets = {};
+
+            if (info->loader.configure) {
+                info->loader.configure(this, options);
+            }
+
+            uint            count = info->loader.get_supported_extensions(nullptr);
+            Vector<CString> exts(count);
+            info->loader.get_supported_extensions(exts.data());
+
+            auto [it, success]       = processors.emplace(AssetType::uuid, std::move(info));
+            AssetProcessor* proc_ptr = it->second.get();
+
+            for (uint i = 0; i < count; ++i) {
+                loader_extensions.emplace(exts[i], proc_ptr);
+            }
+
+            // automatically register cooker if provided by the AssetType
+            if constexpr (has_cooker<AssetType>::value) {
+                register_asset<AssetType, AssetType>(options);
+            }
         }
 
         /**
-         * @brief Configure an existing asset-type handler.
+         * @brief Register a cooker for an asset type from a specific source format.
          */
-        template <typename AssetType>
-        void configure_asset(const JSON& options)
+        template <typename AssetType, typename CookerType>
+        void register_asset(const JSON& options = {})
         {
             auto it = processors.find(AssetType::uuid);
             if (it == processors.end()) {
-                spdlog::error("AssetType ({}) has not been registered!", AssetType::name);
+                spdlog::error("AssetType ({}) has not been registered! Please register the loader first.", AssetType::name);
                 return;
             }
 
             auto& proc = it->second;
-            if (proc->handler.configure) {
-                proc->handler.configure(options);
+
+            AssetCookerAPI cooker = CookerType::cooker();
+            if (cooker.configure) {
+                cooker.configure(this, options);
+            }
+
+            uint count = cooker.get_supported_extensions(nullptr);
+
+            Vector<CString> exts(count);
+            cooker.get_supported_extensions(exts.data());
+
+            // add cooker to processor's list (stable pointers)
+            proc->cookers.push_back(cooker);
+            AssetCookerAPI* cooker_ptr = &proc->cookers.back();
+
+            for (uint i = 0; i < count; ++i) {
+                cooker_extensions.emplace(exts[i], cooker_ptr);
             }
         }
 
@@ -93,6 +141,16 @@ namespace lyra
         }
 
         /**
+         * @brief Increment the reference count for an asset handle.
+         */
+        template <typename AssetType>
+        auto clone_asset(AssetHandle<AssetType> handle) -> AssetHandle<AssetType>
+        {
+            clone_asset(AssetType::uuid, handle);
+            return handle;
+        }
+
+        /**
          * @brief Preproces asset into engine compatible format.
          */
         bool import_asset(const Path& path, GUID& guid);
@@ -112,7 +170,8 @@ namespace lyra
         struct AssetProcessor
         {
             String                      type;
-            AssetHandlerAPI             handler;
+            AssetLoaderAPI              loader;
+            List<AssetCookerAPI>        cookers; // storage for cookers (stable pointers)
             Own<std::shared_mutex>      mutex;
             HashMap<GUID, AssetRecord*> assets;
 
@@ -126,14 +185,14 @@ namespace lyra
         auto get_asset(UUID type_uuid, RawAssetHandle handle) -> void*;
         auto load_asset(UUID type_uuid, FSPath path) -> RawAssetHandle;
         void unload_asset(UUID type_uuid, RawAssetHandle handle);
-
-        void register_processor(UUID uuid, Own<AssetProcessor>&& proc, const InitList<CString>& extensions, const JSON& options);
+        void clone_asset(UUID type_uuid, RawAssetHandle handle);
 
     private:
         AMSDescriptor                      descriptor;
         BS::thread_pool<>                  pool;
-        HashMap<String, AssetProcessor*>   extensions;
         HashMap<UUID, Own<AssetProcessor>> processors;
+        HashMap<String, AssetProcessor*>   loader_extensions;
+        HashMap<String, AssetCookerAPI*>   cooker_extensions;
     };
 
 } // namespace lyra

@@ -39,9 +39,9 @@ static void imgui_update(Blackboard& blackboard)
 
 static void imgui_render(Blackboard& blackboard)
 {
-    auto device  = blackboard.get<GPUDevice*>();
-    auto surface = blackboard.get<GPUSurface*>();
-    auto imgui   = blackboard.get<GUIRenderer*>();
+    auto device   = blackboard.get<GPUDevice*>();
+    auto surface  = blackboard.get<GPUSurface*>();
+    auto renderer = blackboard.get<GUIRenderer*>();
 
     // command buffer
     auto command = lyra::execute([&]() {
@@ -62,7 +62,7 @@ static void imgui_render(Blackboard& blackboard)
 
     // render UI command recording
     command.resource_barrier(state_transition(backbuffer.texture, undefined_state(), color_attachment_state()));
-    imgui->render_main_viewport(command, backbuffer.view);
+    renderer->render_main_viewport(command, backbuffer.view);
     command.resource_barrier(state_transition(backbuffer.texture, color_attachment_state(), present_src_state()));
 
     // command buffer submission
@@ -135,10 +135,26 @@ int main(int argc, const char* argv[])
         app->bind(*layer);
 
         auto ams = app->get_blackboard().get<AssetServer*>();
+
+        // register assets loaders
         ams->register_asset<TextAsset>();
         ams->register_asset<JsonAsset>();
         ams->register_asset<TomlAsset>();
+        ams->register_asset<MeshAsset>();
+        // ams->register_asset<ModelAsset>();
         ams->register_asset<TextureAsset>();
+        ams->register_asset<MaterialAsset>();
+
+        // register multiple cookers for textures
+        ams->register_asset<TextureAsset, TextureAsset::stb>();
+        ams->register_asset<TextureAsset, TextureAsset::exr>();
+        ams->register_asset<TextureAsset, TextureAsset::dds>();
+        ams->register_asset<TextureAsset, TextureAsset::ktx>();
+
+        // // register multiple cookers for models
+        // ams->register_asset<ModelAsset, ModelAsset::stl>();
+        // ams->register_asset<ModelAsset, ModelAsset::obj>();
+        // ams->register_asset<ModelAsset, ModelAsset::gltf>();
 
         return std::move(layer);
     });

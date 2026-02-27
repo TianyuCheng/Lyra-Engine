@@ -11,15 +11,16 @@ namespace fs = std::filesystem;
 
 struct DummyAsset
 {
-    static constexpr CString           name       = "DummyAsset";
-    static constexpr UUID              uuid       = make_uuid("00000000-0000-0000-0000-000000000001");
-    static constexpr InitList<CString> extensions = {".dummy"};
-    static auto                        handler() -> AssetHandlerAPI;
+    static constexpr CString name = "DummyAsset";
+    static constexpr UUID    uuid = make_uuid("00000000-0000-0000-0000-000000000001");
+
+    static auto loader() -> AssetLoaderAPI;
+    static auto cooker() -> AssetCookerAPI;
 
     int value = 0;
 };
 
-static void* dummy_load(AssetServer*, FileLoader*, const JSON& metadata)
+static void* dummy_load(FileLoader*, const JSON& metadata)
 {
     std::this_thread::sleep_for(std::chrono::milliseconds(50)); // simulate slow load
     auto asset = new DummyAsset();
@@ -31,19 +32,42 @@ static void* dummy_load(AssetServer*, FileLoader*, const JSON& metadata)
     return asset;
 }
 
-static void dummy_unload(AssetServer*, void* data)
+static void dummy_unload(void* data)
 {
     delete static_cast<DummyAsset*>(data);
 }
 
-AssetHandlerAPI DummyAsset::handler()
+static uint dummy_extensions(CString* extensions)
+{
+    if (extensions) {
+        extensions[0] = ".dummy";
+    }
+    return 1;
+}
+
+static JSON dummy_process(OSPath source_path, OSPath)
+{
+    JSON metadata;
+    metadata["path"]  = Path(source_path).string();
+    metadata["value"] = 100;
+    return metadata;
+}
+
+AssetLoaderAPI DummyAsset::loader()
 {
     return {
         nullptr,
-        nullptr,
         dummy_load,
         dummy_unload,
-    };
+        dummy_extensions};
+}
+
+AssetCookerAPI DummyAsset::cooker()
+{
+    return {
+        nullptr,
+        dummy_process,
+        dummy_extensions};
 }
 
 TEST_CASE("ams::asset_server")
@@ -98,6 +122,7 @@ TEST_CASE("ams::asset_server")
 
         AssetServer import_ams(import_desc);
         import_ams.register_asset<DummyAsset>();
+        import_ams.register_asset<DummyAsset, DummyAsset>(); // register as cooker too
 
         auto raw_path = source_dir / "new_test.dummy";
         {

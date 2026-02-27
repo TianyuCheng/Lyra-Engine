@@ -1,0 +1,59 @@
+#ifndef LYRA_LIBRARY_ASSETS_MODEL_ASSET_H
+#define LYRA_LIBRARY_ASSETS_MODEL_ASSET_H
+
+#include <Lyra/Common/UUID.h>
+#include <Lyra/Common/Math.h>
+#include <Lyra/Common/String.h>
+#include <Lyra/Common/Collections.h>
+#include <Lyra/Assets/AMSAPI.h>
+#include <Lyra/Assets/AMSUtils.h>
+
+namespace lyra
+{
+    struct MeshAsset;
+    struct MaterialAsset;
+
+    /**
+     * @brief A model asset acting as a container for hierarchy and mesh/material bindings.
+     */
+    struct ModelAsset
+    {
+        static constexpr CString name = "ModelAsset";
+
+        static constexpr UUID uuid = make_uuid("e5a478e0-e725-4ad6-95bf-36d58cc10101");
+
+        static auto loader() -> AssetLoaderAPI;
+
+        // stl cooker
+        struct stl
+        {
+            static auto cooker() -> AssetCookerAPI;
+        };
+
+        // obj cooker
+        struct obj
+        {
+            static auto cooker() -> AssetCookerAPI;
+        };
+
+        // gltf cooker
+        struct gltf
+        {
+            static auto cooker() -> AssetCookerAPI;
+        };
+
+        struct Node
+        {
+            String                     name;
+            Matrix4x4                  transform;
+            AssetHandle<MeshAsset>     mesh;
+            AssetHandle<MaterialAsset> material;
+            Vector<uint>               children;
+        };
+
+        uint         root = 0;
+        Vector<Node> nodes;
+    };
+} // namespace lyra
+
+#endif // LYRA_LIBRARY_ASSETS_MODEL_ASSET_H

@@ -53,13 +53,6 @@ static void save_json(const Path& path, const JSON& data, int indent = 2)
     f.close();
 }
 
-static JSON default_process(AssetServer*, OSPath source_path, OSPath)
-{
-    JSON metadata;
-    metadata["path"] = Path(source_path).string();
-    return metadata;
-}
-
 /**
  * @brief Initialize the AssetServer.
  */
@@ -81,7 +74,7 @@ AssetServer::~AssetServer()
         for (auto& kv : processor->assets) {
             auto record = kv.second;
             if (record->data) {
-                processor->handler.unload(this, record->data);
+                processor->loader.unload(record->data);
             }
             delete record;
         }
@@ -92,46 +85,18 @@ AssetServer::~AssetServer()
 }
 
 /**
- * @brief Register a new asset type with early validation.
- */
-void AssetServer::register_processor(UUID uuid, Own<AssetProcessor>&& proc, const InitList<CString>& extensions, const JSON& options)
-{
-    // load and unload must exist
-    assert(proc->handler.load != nullptr);
-    assert(proc->handler.unload != nullptr);
-
-    // patch dummy process if missing
-    if (proc->handler.process == nullptr) {
-        proc->handler.process = default_process;
-    }
-
-    // configure asset processor
-    if (proc->handler.configure) {
-        proc->handler.configure(options);
-    }
-
-    auto type_uuid           = uuid;
-    auto [it, success]       = processors.emplace(type_uuid, std::move(proc));
-    AssetProcessor* proc_ptr = it->second.get();
-
-    for (const auto& extension : extensions) {
-        this->extensions.emplace(extension, proc_ptr);
-    }
-}
-
-/**
  * @brief Internal helper to safely retrieve an asset pointer.
  */
 void* AssetServer::get_asset(UUID type_uuid, RawAssetHandle handle)
 {
     auto it = processors.find(type_uuid);
     if (it == processors.end()) return nullptr;
-    const auto& proc = it->second;
+    const auto& processor = it->second;
 
-    std::shared_lock alock(*proc->mutex);
+    std::shared_lock alock(*processor->mutex);
 
-    const auto it2 = proc->assets.find(handle.guid);
-    if (it2 == proc->assets.end()) return nullptr;
+    const auto it2 = processor->assets.find(handle.guid);
+    if (it2 == processor->assets.end()) return nullptr;
     return it2->second->data;
 }
 
@@ -143,7 +108,7 @@ RawAssetHandle AssetServer::load_asset(UUID type_uuid, FSPath path)
     auto it = processors.find(type_uuid);
     if (it == processors.end()) return RawAssetHandle();
 
-    AssetProcessor* proc_ptr = it->second.get();
+    AssetProcessor* processor_ptr = it->second.get();
 
     auto  metadata_file   = get_metadata_path(Path(path));
     auto  metadata_vfs    = metadata_file.string();
@@ -155,17 +120,17 @@ RawAssetHandle AssetServer::load_asset(UUID type_uuid, FSPath path)
     auto json = JSON::parse(data.begin(), data.end());
     auto guid = json["guid"].template get<lyra::GUID>();
 
-    std::unique_lock alock(*proc_ptr->mutex);
+    std::unique_lock alock(*processor_ptr->mutex);
 
-    auto it2 = proc_ptr->assets.find(guid);
-    if (it2 == proc_ptr->assets.end()) {
-        auto record            = new AssetRecord();
-        record->data           = nullptr;
-        record->refcnt         = 1;
-        proc_ptr->assets[guid] = record;
-        pool.detach_task([this, proc_ptr, json, record]() {
+    auto it2 = processor_ptr->assets.find(guid);
+    if (it2 == processor_ptr->assets.end()) {
+        auto record                = new AssetRecord();
+        record->data               = nullptr;
+        record->refcnt             = 1;
+        processor_ptr->assets[guid] = record;
+        pool.detach_task([this, processor_ptr, json, record]() {
             const JSON& data = json.contains("data") ? json["data"] : json;
-            record->data     = proc_ptr->handler.load(this, descriptor.loader.assets, data);
+            record->data     = processor_ptr->loader.load(descriptor.loader.assets, data);
         });
     } else {
         it2->second->refcnt++;
@@ -180,13 +145,30 @@ void AssetServer::unload_asset(UUID type_uuid, RawAssetHandle handle)
 {
     auto it = processors.find(type_uuid);
     if (it == processors.end()) return;
-    auto& proc = it->second;
+    auto& processor = it->second;
 
-    std::shared_lock alock(*proc->mutex);
+    std::shared_lock alock(*processor->mutex);
 
-    auto it2 = proc->assets.find(handle.guid);
-    if (it2 != proc->assets.end()) {
+    auto it2 = processor->assets.find(handle.guid);
+    if (it2 != processor->assets.end()) {
         it2->second->refcnt--;
+    }
+}
+
+/**
+ * @brief Increment reference count for an asset handle.
+ */
+void AssetServer::clone_asset(UUID type_uuid, RawAssetHandle handle)
+{
+    auto it = processors.find(type_uuid);
+    if (it == processors.end()) return;
+    auto& processor = it->second;
+
+    std::shared_lock alock(*processor->mutex);
+
+    auto it2 = processor->assets.find(handle.guid);
+    if (it2 != processor->assets.end()) {
+        it2->second->refcnt++;
     }
 }
 
@@ -196,16 +178,16 @@ void AssetServer::unload_asset(UUID type_uuid, RawAssetHandle handle)
 void AssetServer::purge()
 {
     for (auto& kv_processor : processors) {
-        auto& proc = kv_processor.second;
+        auto& processor = kv_processor.second;
 
-        std::unique_lock alock(*proc->mutex);
-        for (auto it = proc->assets.begin(); it != proc->assets.end();) {
+        std::unique_lock alock(*processor->mutex);
+        for (auto it = processor->assets.begin(); it != processor->assets.end();) {
             auto record = it->second;
             // only purge if refcnt is 0 and it's not currently loading (data != nullptr)
             if (record->refcnt == 0 && record->data != nullptr) {
-                proc->handler.unload(this, record->data);
+                processor->loader.unload(record->data);
                 delete record;
-                proc->assets.erase(it++);
+                processor->assets.erase(it++);
             } else {
                 ++it;
             }
@@ -219,15 +201,13 @@ void AssetServer::purge()
 bool AssetServer::import_asset(const Path& path, lyra::GUID& guid)
 {
     auto ext = path.extension().string();
-    auto it  = extensions.find(ext);
-    if (it == extensions.end()) {
-        spdlog::error("No processor found for extension: {}", ext);
+    auto it  = cooker_extensions.find(ext);
+    if (it == cooker_extensions.end()) {
+        spdlog::error("No cooker found for extension: {}", ext);
         return false;
     }
 
-    auto* proc      = it->second;
-    auto  type_name = proc->type;
-    auto  handler   = &proc->handler;
+    auto* cooker = it->second;
 
     Path source_path = Path(descriptor.importer.assets_path) / path;
     Path target_path = Path(descriptor.importer.caches_path) / path;
@@ -245,8 +225,7 @@ bool AssetServer::import_asset(const Path& path, lyra::GUID& guid)
     metadata["version"] = "1";
     metadata["guid"]    = guid;
     metadata["time"]    = get_timestamp();
-    metadata["type"]    = type_name;
-    metadata["data"]    = handler->process(this, (OSPath)source_path.c_str(), (OSPath)target_path.c_str());
+    metadata["data"]    = cooker->process((OSPath)source_path.c_str(), (OSPath)target_path.c_str());
 
     save_json(import_path, metadata);
     return true;
