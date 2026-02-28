@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LIBRARY_ASSETS_AMS_TYPES_H
-#define LYRA_LIBRARY_ASSETS_AMS_TYPES_H
+#ifndef LYRA_LIBRARY_ASSETS_AMS_SERVER_H
+#define LYRA_LIBRARY_ASSETS_AMS_SERVER_H
 
 #include <memory>
 #include <atomic>
@@ -197,4 +197,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LIBRARY_ASSETS_AMS_TYPES_H
+#endif // LYRA_LIBRARY_ASSETS_AMS_SERVER_H

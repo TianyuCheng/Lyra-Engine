@@ -1,5 +1,5 @@
 #include <Lyra/FileIO/VFSAPI.h>
-#include <Lyra/Assets/AMSTypes.h>
+#include <Lyra/Assets/AMSServer.h>
 
 #include "MaterialAsset.h"
 #include "TextureAsset.h"

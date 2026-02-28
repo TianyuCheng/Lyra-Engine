@@ -31,7 +31,7 @@
 #include <Lyra/FileIO/VFSEnums.h>
 #include <Lyra/FileIO/VFSTypes.h>
 #include <Lyra/Assets/AMSUtils.h>
-#include <Lyra/Assets/AMSTypes.h>
+#include <Lyra/Assets/AMSServer.h>
 #include <Lyra/Assets/Assets.h>
 
 // Engine headers

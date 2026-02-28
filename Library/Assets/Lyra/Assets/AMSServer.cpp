@@ -1,7 +1,7 @@
 #include <ctime>
 #include <fstream>
 
-#include <Lyra/Assets/AMSTypes.h>
+#include <Lyra/Assets/AMSServer.h>
 
 using namespace lyra;
 
@@ -124,9 +124,9 @@ RawAssetHandle AssetServer::load_asset(UUID type_uuid, FSPath path)
 
     auto it2 = processor_ptr->assets.find(guid);
     if (it2 == processor_ptr->assets.end()) {
-        auto record                = new AssetRecord();
-        record->data               = nullptr;
-        record->refcnt             = 1;
+        auto record                 = new AssetRecord();
+        record->data                = nullptr;
+        record->refcnt              = 1;
         processor_ptr->assets[guid] = record;
         pool.detach_task([this, processor_ptr, json, record]() {
             const JSON& data = json.contains("data") ? json["data"] : json;

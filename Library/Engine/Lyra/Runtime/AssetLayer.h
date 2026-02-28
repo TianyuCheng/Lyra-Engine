@@ -3,7 +3,7 @@
 #ifndef LYRA_LIBRARY_RUNTIME_ASSET_LAYER_H
 #define LYRA_LIBRARY_RUNTIME_ASSET_LAYER_H
 
-#include <Lyra/Assets/AMSTypes.h>
+#include <Lyra/Assets/AMSServer.h>
 
 // local includes
 #include "Application.h"

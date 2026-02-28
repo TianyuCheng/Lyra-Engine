@@ -7,7 +7,7 @@ target_sources(lyra-assets PUBLIC
     Lyra/Assets/AMSAPI.h
     Lyra/Assets/AMSEnums.h
     Lyra/Assets/AMSUtils.h
-    Lyra/Assets/AMSTypes.h
+    Lyra/Assets/AMSServer.h
     Lyra/Assets/Assets.h
     Lyra/Assets/Types/TextAsset.h
     Lyra/Assets/Types/JsonAsset.h
@@ -19,7 +19,7 @@ target_sources(lyra-assets PUBLIC
 )
 
 target_sources(lyra-assets PRIVATE
-    Lyra/Assets/AMSTypes.cpp
+    Lyra/Assets/AMSServer.cpp
     Lyra/Assets/Types/TextAsset.cpp
     Lyra/Assets/Types/JsonAsset.cpp
     Lyra/Assets/Types/TomlAsset.cpp
