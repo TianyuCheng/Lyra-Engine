@@ -241,9 +241,8 @@ void FileView::next_icon_grid(float row_width, float start_x)
 {
     // calculate next position
     float last_x = ImGui::GetItemRectMax().x;
-    float next_x = last_x + padding + icon_size;
-    if (next_x < row_width) {
-        ImGui::SameLine();
+    if (last_x + padding + icon_size < row_width) {
+        ImGui::SameLine(0.0f, padding);
     } else {
         ImGui::NewLine();
         ImGui::SetCursorPosX(start_x); // align new row
@@ -255,14 +254,16 @@ void FileView::draw_icon_grid(CString icon, CString text, float icon_scale) cons
     const ImVec2 pos = ImGui::GetCursorPos();
     ImGui::BeginGroup();
     {
-        // background button for interaction
+        // background button for interaction - hide by default
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
         ImGui::Button("##bg", ImVec2(icon_size, icon_size));
+        ImGui::PopStyleColor();
 
         // draw icon on top, centered
         ImGui::SetWindowFontScale(icon_scale);
         const ImVec2 icon_size_actual = ImGui::CalcTextSize(icon);
-        ImGui::SetCursorPosX(pos.x + (icon_size - icon_size_actual.x * 1.00) * 0.5f);
-        ImGui::SetCursorPosY(pos.y + (icon_size - icon_size_actual.y * 1.00) * 0.5f);
+        ImGui::SetCursorPosX(pos.x + (icon_size - icon_size_actual.x) * 0.5f);
+        ImGui::SetCursorPosY(pos.y + (icon_size - icon_size_actual.y) * 0.5f);
         ImGui::TextUnformatted(icon);
         ImGui::SetWindowFontScale(1.0f);
 
