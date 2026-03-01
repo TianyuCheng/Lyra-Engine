@@ -33,6 +33,8 @@ namespace lyra::detail
         typed_view(const std::vector<T>&&) = delete;
         typed_view(std::vector<T>&&)       = delete;
 
+        typed_view(const T* data, size_t N) : data_(const_cast<T*>(data)), count(N) {}
+
         template <size_t N>
         typed_view(T (&data)[N]) : data_(data), count(N) {}
 

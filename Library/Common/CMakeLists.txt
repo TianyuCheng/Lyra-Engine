@@ -21,6 +21,7 @@ target_sources(lyra-common PUBLIC
   Lyra/Common/Path.h
   Lyra/Common/Plugin.h
   Lyra/Common/Pointer.h
+  Lyra/Common/Promise.h
   Lyra/Common/Stdint.h
   Lyra/Common/String.h
 

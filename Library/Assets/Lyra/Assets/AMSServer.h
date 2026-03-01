@@ -16,6 +16,7 @@
 #include <Lyra/Common/Stdint.h>
 #include <Lyra/Common/Handle.h>
 #include <Lyra/Common/Logger.h>
+#include <Lyra/Common/Promise.h>
 #include <Lyra/Common/Collections.h>
 #include <Lyra/FileIO/VFSEnums.h>
 #include <Lyra/FileIO/VFSUtils.h>
@@ -176,7 +177,7 @@ namespace lyra
         /**
          * @brief Preproces asset into engine compatible format.
          */
-        bool import_asset(const Path& path, AssetID& guid);
+        Future<AssetID> import_asset(const Path& path);
 
     private:
         struct AssetRecord

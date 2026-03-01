@@ -186,13 +186,15 @@ void AssetServer::clone_asset(AssetTypeID type_id, RawAssetHandle handle)
     }
 }
 
-bool AssetServer::import_asset(const Path& path, AssetID& guid)
+Future<AssetID> AssetServer::import_asset(const Path& path)
 {
     auto ext = path.extension().string();
     auto it  = cooker_extensions.find(ext);
     if (it == cooker_extensions.end()) {
         spdlog::error("No cooker found for extension: {}", ext);
-        return false;
+        Promise<AssetID> p;
+        p.set_value(0);
+        return p.get_future();
     }
 
     auto cooker = it->second;
@@ -201,7 +203,7 @@ bool AssetServer::import_asset(const Path& path, AssetID& guid)
     Path target_path = Path(descriptor.importer.caches_path) / path;
     Path import_path = get_metadata_path(source_path);
 
-    guid = registry.get_guid(path.string());
+    AssetID guid = registry.get_guid(path.string());
 
     if (guid == 0 && fs::exists(import_path))
         guid = load_guid(import_path);
@@ -210,17 +212,17 @@ bool AssetServer::import_asset(const Path& path, AssetID& guid)
         guid = registry.generate_guid();
 
     // we use a separate task for cooking
-    pool.detach_task([this, cooker, source_path, target_path, import_path, path, guid]() {
+    return pool.submit_task([this, cooker, source_path, target_path, import_path, path, guid]() -> AssetID {
         JSON data = cooker->process((OSPath)source_path.c_str(), (OSPath)target_path.c_str());
 
         // find processor to get type_id and type_name
         AssetTypeID type_id   = 0;
-        String      type_name = "";
+        CString     type_name = "";
         for (auto& [tid, proc] : processors) {
             for (auto& c : proc->cookers) {
                 if (&c == cooker) {
                     type_id   = tid;
-                    type_name = proc->type_name;
+                    type_name = proc->type_name.c_str();
                     break;
                 }
             }
@@ -233,14 +235,13 @@ bool AssetServer::import_asset(const Path& path, AssetID& guid)
         metadata["type"]    = type_name;
         metadata["time"]    = get_timestamp();
         metadata["data"]    = data;
-
         save_json(import_path, metadata);
 
         // for simplicity, let's assume registry is not thread-safe and use a mutex
         static std::mutex registry_mutex;
         std::lock_guard   lock(registry_mutex);
         registry.update(guid, path.string(), type_id);
-    });
 
-    return true;
+        return guid;
+    });
 }

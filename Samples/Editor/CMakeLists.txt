@@ -8,7 +8,7 @@ target_sources(lyra-editor PRIVATE main.cpp
 # add custom target to run sample executable
 add_custom_target(
   editor
-  COMMAND $<TARGET_FILE:lyra-editor> --project "$ENV{LYRA_DEFAULT_PROJECT}"
+  COMMAND $<TARGET_FILE:lyra-editor> --project $ENV{LYRA_DEFAULT_PROJECT}
   COMMENT "Run Lyra::Editor"
   DEPENDS lyra-editor
   VERBATIM)

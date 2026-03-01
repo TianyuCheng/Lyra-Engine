@@ -14,6 +14,13 @@
 
 namespace lyra
 {
+    struct FileState
+    {
+        using Files = SmallVector<String, 4>;
+
+        Files entries;
+    };
+
     struct MouseState
     {
         static constexpr size_t COUNT = magic_enum::enum_count<MouseButton>();
@@ -32,6 +39,7 @@ namespace lyra
 
     struct InputState
     {
+        FileState     files;
         MouseState    mouse;
         KeyboardState keyboard;
 
@@ -58,6 +66,9 @@ namespace lyra
         bool is_key_down(KeyButton key) const;     // when key is pressed down and hold (simply the current status)
         bool is_key_pressed(KeyButton key) const;  // exactly once when key is pressed down
         bool is_key_released(KeyButton key) const; // exactly once when key is released up
+
+        bool has_dropped_files() const;
+        auto get_dropped_files() const -> detail::typed_view<String>;
 
     private:
         auto current_state() const -> const InputState& { return states[state_index]; }

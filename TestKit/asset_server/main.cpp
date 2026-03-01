@@ -139,9 +139,9 @@ TEST_CASE("ams::asset_server")
 
         lyra::GUID guid = 0;
 
-        bool success = import_ams.import_asset("new_test.dummy", guid);
+        auto future = import_ams.import_asset("new_test.dummy");
+        guid = future.get();
 
-        CHECK(success);
         CHECK_NE(guid, 0);
 
         // metadata should be created next to the source asset

@@ -4,12 +4,16 @@
 #define LYRA_LIBRARY_EDITOR_FILE_VIEW_H
 
 #include <Lyra/Common/Path.h>
+#include <Lyra/Common/Promise.h>
+#include <Lyra/Assets/AMSUtils.h>
 
 // local imports
 #include "../Runtime/Application.h"
 
 namespace lyra
 {
+    struct AssetServer;
+
     struct FileView
     {
     public:
@@ -26,12 +30,14 @@ namespace lyra
         void show_context_menu();
         void show_new_file_dialog();
         void show_new_folder_dialog();
+        void show_import_indicator();
         void next_icon_grid(float row_width, float start_x);
         void draw_icon_grid(CString icon, CString text, float icon_scale) const;
 
     private:
         // data helpers
         void update_directory(const Path& path, bool force = false);
+        void handle_file_drop(Blackboard& blackboard);
 
     private:
         Path root;
@@ -39,6 +45,8 @@ namespace lyra
 
         Vector<String> files   = {};
         Vector<String> folders = {};
+
+        Vector<Future<AssetID>> active_imports;
 
         bool show_new_file_modal   = false;
         bool show_new_folder_modal = false;

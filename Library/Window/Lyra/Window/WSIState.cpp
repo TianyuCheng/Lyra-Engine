@@ -10,6 +10,9 @@ void InputState::update(const WindowHandle& handle)
     WindowInputQuery query{};
     Window::api()->query_input_events(handle, query);
 
+    // clear files from previous frames
+    files.entries.clear();
+
     // loop over events and update input state
     for (uint i = 0; i < query.num_events; i++) {
         const auto& event = query.input_events.at(i);
@@ -19,6 +22,11 @@ void InputState::update(const WindowHandle& handle)
                 break;
             case WindowInputEvent::Type::KEY_BUTTON:
                 keyboard.status.at(static_cast<uint>(event.key_button.button)) = event.key_button.state;
+                break;
+            case WindowInputEvent::Type::FILE_DROP:
+                files.entries.resize(event.file_drop.count);
+                for (uint j = 0; j < event.file_drop.count; j++)
+                    files.entries.at(j) = event.file_drop.files[j];
                 break;
             default:
                 // TODO: ignore other events for now
@@ -102,4 +110,15 @@ bool WindowInput::is_key_released(KeyButton key) const
     auto& prev_keyboard = previous_state().keyboard;
     return (prev_keyboard.status[(int)key] == ButtonState::ON) &&
            (curr_keyboard.status[(int)key] == ButtonState::OFF);
+}
+
+bool WindowInput::has_dropped_files() const
+{
+    return !current_state().files.entries.empty();
+}
+
+lyra::detail::typed_view<String> WindowInput::get_dropped_files() const
+{
+    const auto& entries = current_state().files.entries;
+    return detail::typed_view(entries.data(), entries.size());
 }

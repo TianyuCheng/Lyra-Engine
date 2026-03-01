@@ -31,6 +31,9 @@ static constexpr CString REGISTRY_MAGIC   = "LYRA";
 bool AssetRegistry::load(const OSPath& path)
 {
     auto ext = Path(path).extension().string();
+    if (!fs::exists(path)) {
+        return false;
+    }
     if (ext == ".bin") {
         return load_binary(path);
     }
@@ -44,6 +47,9 @@ bool AssetRegistry::load(const OSPath& path)
 bool AssetRegistry::save(const OSPath& path)
 {
     auto ext = Path(path).extension().string();
+    if (!fs::exists(path)) {
+        return false;
+    }
     if (ext == ".bin") {
         return save_binary(path);
     }

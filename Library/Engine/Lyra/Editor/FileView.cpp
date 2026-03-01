@@ -1,6 +1,7 @@
 #include <Lyra/Common/GUI.h>
 #include <Lyra/Common/Path.h>
 #include <Lyra/Common/Logger.h>
+#include <Lyra/Assets/AMSServer.h>
 
 // local imports
 #include "Icons.h"
@@ -35,6 +36,8 @@ void FileView::update(Blackboard& blackboard)
         ImGui::DockBuilderDockWindow(LYRA_FILES_WINDOW_NAME, layout.bottom);
     });
 
+    handle_file_drop(blackboard);
+
     ImGui::Begin(LYRA_FILES_WINDOW_NAME);
     {
         show_breadcrumb();
@@ -45,10 +48,67 @@ void FileView::update(Blackboard& blackboard)
             show_context_menu();
             show_new_file_dialog();
             show_new_folder_dialog();
+            show_import_indicator();
         }
         ImGui::EndChild();
     }
     ImGui::End();
+}
+
+void FileView::handle_file_drop(Blackboard& blackboard)
+{
+    auto window = blackboard.get<Window*>();
+    auto ams    = blackboard.get<AssetServer*>();
+
+    // check if mouse is over the file view window
+    if (!ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows | ImGuiHoveredFlags_AllowWhenBlockedByPopup))
+        return;
+
+    if (window->get_input_state().has_dropped_files()) {
+        for (const auto& path_str : window->get_input_state().get_dropped_files()) {
+            Path src(path_str);
+            Path dst = curr / src.filename();
+
+            try {
+                // copy file to current directory
+                std::filesystem::copy_file(src, dst, std::filesystem::copy_options::overwrite_existing);
+
+                // get relative path from root for import
+                auto rel_path = std::filesystem::relative(dst, root);
+
+                active_imports.push_back(ams->import_asset(rel_path));
+                spdlog::info("Importing dropped asset: {} -> {}", path_str, rel_path.string());
+            } catch (const std::exception& e) {
+                spdlog::error("Failed to copy/import dropped file {}: {}", path_str, e.what());
+            }
+        }
+
+        // refresh directory view
+        update_directory(curr, true);
+    }
+}
+
+void FileView::show_import_indicator()
+{
+    // cleanup finished imports
+    for (auto it = active_imports.begin(); it != active_imports.end();) {
+        if (it->wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+            it = active_imports.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    if (active_imports.empty()) return;
+
+    // show indicator in the corner of the window
+    ImVec2 region = ImGui::GetWindowContentRegionMax();
+    ImGui::SetCursorPos(ImVec2(region.x - 200, region.y - 40));
+    ImGui::BeginChild("##ImportIndicator", ImVec2(200, 40), true, ImGuiWindowFlags_NoScrollbar);
+    {
+        ImGui::Text(LYRA_ICON_IMPORT " Importing %zu assets...", active_imports.size());
+    }
+    ImGui::EndChild();
 }
 
 void FileView::show_breadcrumb()
