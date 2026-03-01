@@ -4,11 +4,17 @@ import json
 import shlex
 import argparse
 import subprocess
+from pathlib import Path
 from copy import deepcopy
 from contextlib import contextmanager
 from dataclasses import dataclass, asdict
 
 BUILDROOT = "Scratch"
+
+# This is the project that editor/player will load by default.
+LYRA_DEFAULT_PROJECT = Path(__file__).parents[1] / BUILDROOT / "project"
+os.makedirs(LYRA_DEFAULT_PROJECT, exist_ok=True)
+os.environ["LYRA_DEFAULT_PROJECT"] = str(LYRA_DEFAULT_PROJECT)
 
 @dataclass
 class BuildConfig:

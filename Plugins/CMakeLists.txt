@@ -19,11 +19,10 @@ add_subdirectory(ZipFS)
 
 # assets plugins
 #--------------------------------
-add_subdirectory(Texture)
+add_subdirectory(Image)
 
 # render plugins
 #--------------------------------
-
 # build d3d12 backend on Windows
 if(WIN32)
   add_subdirectory(D3D12)

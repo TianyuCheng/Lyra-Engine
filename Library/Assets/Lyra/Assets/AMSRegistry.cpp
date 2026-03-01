@@ -37,7 +37,7 @@ bool AssetRegistry::load(const OSPath& path)
     if (ext == ".toml") {
         return load_toml(path);
     }
-    spdlog::error("Unsupported registry format: {}", ext);
+    spdlog::error("Unsupported registry file: {}", path);
     return false;
 }
 
@@ -50,7 +50,7 @@ bool AssetRegistry::save(const OSPath& path)
     if (ext == ".toml") {
         return save_toml(path);
     }
-    spdlog::error("Unsupported registry format: {}", ext);
+    spdlog::error("Unsupported registry file: {}", path);
     return false;
 }
 
