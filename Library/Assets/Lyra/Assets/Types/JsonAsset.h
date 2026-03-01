@@ -1,9 +1,9 @@
 #ifndef LYRA_LIBRARY_ASSETS_JSON_ASSET_H
 #define LYRA_LIBRARY_ASSETS_JSON_ASSET_H
 
-#include <Lyra/Common/UUID.h>
 #include <Lyra/Common/Config.h>
 #include <Lyra/Assets/AMSAPI.h>
+#include <Lyra/Assets/AMSEnums.h>
 
 namespace lyra
 {
@@ -14,7 +14,7 @@ namespace lyra
     {
         static constexpr CString name = "JsonAsset";
 
-        static constexpr UUID uuid = make_uuid("0d9c0641-6042-45a5-abea-467c8f2dc325");
+        static constexpr uint type = static_cast<uint>(AssetType::JSON);
 
         static auto loader() -> AssetLoaderAPI;
 

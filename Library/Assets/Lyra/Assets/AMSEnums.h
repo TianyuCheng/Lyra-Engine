@@ -3,11 +3,29 @@
 #ifndef LYRA_LIBRARY_ASSETS_AMS_ENUMS_H
 #define LYRA_LIBRARY_ASSETS_AMS_ENUMS_H
 
+#include <Lyra/Common/Enums.h>
 #include <Lyra/Common/Stdint.h>
 
 /**
  * @file AMSEnums.h
  * @brief Enums for the Asset Management System.
  */
+
+namespace lyra
+{
+    using AssetTypeID = uint32_t;
+
+    enum struct AssetType : AssetTypeID
+    {
+        TEXT,
+        JSON,
+        TOML,
+        MESH,
+        MODEL,
+        TEXTURE,
+        MATERIAL,
+    };
+
+} // namespace lyra
 
 #endif // LYRA_LIBRARY_ASSETS_AMS_ENUMS_H

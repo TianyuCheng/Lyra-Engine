@@ -13,10 +13,9 @@ static void configure_material_loader(AssetServer* manager, const JSON&)
     G_ASSET_SERVER = manager;
 }
 
-static void* load_material_asset(FileLoader* loader, const JSON& metadata)
+static void* load_material_asset(FileLoader* loader, FSPath path)
 {
-    auto path    = metadata["path"].template get<String>();
-    auto content = loader->read<char>(path.c_str());
+    auto content = loader->read<char>(path);
     auto json    = JSON::parse(content.begin(), content.end());
 
     auto asset = new MaterialAsset();

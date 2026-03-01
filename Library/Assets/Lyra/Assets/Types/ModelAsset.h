@@ -1,11 +1,11 @@
 #ifndef LYRA_LIBRARY_ASSETS_MODEL_ASSET_H
 #define LYRA_LIBRARY_ASSETS_MODEL_ASSET_H
 
-#include <Lyra/Common/UUID.h>
 #include <Lyra/Common/Math.h>
 #include <Lyra/Common/String.h>
 #include <Lyra/Common/Collections.h>
 #include <Lyra/Assets/AMSAPI.h>
+#include <Lyra/Assets/AMSEnums.h>
 #include <Lyra/Assets/AMSUtils.h>
 
 namespace lyra
@@ -20,7 +20,7 @@ namespace lyra
     {
         static constexpr CString name = "ModelAsset";
 
-        static constexpr UUID uuid = make_uuid("e5a478e0-e725-4ad6-95bf-36d58cc10101");
+        static constexpr uint type = static_cast<uint>(AssetType::MODEL);
 
         static auto loader() -> AssetLoaderAPI;
 

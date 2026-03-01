@@ -41,19 +41,11 @@ static bool parse_mesh_metadata(const JSON& metadata, MeshAsset* asset)
     return true;
 }
 
-static void* load_mesh_asset(FileLoader* loader, const JSON& metadata)
+static void* load_mesh_asset(FileLoader* loader, FSPath path)
 {
     auto asset = new MeshAsset();
 
-    // 1. parse metadata JSON
-    if (!parse_mesh_metadata(metadata, asset)) {
-        delete asset;
-        return nullptr;
-    }
-
-    // 2. load raw binary data from the .mesh file
-    auto path    = metadata["path"].template get<String>();
-    auto content = loader->read<uint8_t>(path.c_str());
+    auto content = loader->read<uint8_t>(path);
 
     if (content.empty()) {
         delete asset;
@@ -68,7 +60,49 @@ static void* load_mesh_asset(FileLoader* loader, const JSON& metadata)
         return true;
     };
 
-    // the binary file now only contains raw data buffers:
+    // Mesh is now pure binary format:
+    // [version: uint32]
+    uint32_t version = 0;
+    if (!read_raw(&version, sizeof(uint32_t)) || version != MESH_ASSET_VERSION) {
+        delete asset;
+        return nullptr;
+    }
+
+    // [min_bounds: Vector3]
+    if (!read_raw(&asset->min_bounds, sizeof(Vector3))) {
+        delete asset;
+        return nullptr;
+    }
+
+    // [max_bounds: Vector3]
+    if (!read_raw(&asset->max_bounds, sizeof(Vector3))) {
+        delete asset;
+        return nullptr;
+    }
+
+    // [index_format: uint32]
+    uint32_t index_format = 0;
+    if (!read_raw(&index_format, sizeof(uint32_t))) {
+        delete asset;
+        return nullptr;
+    }
+    asset->index_format = static_cast<GPUIndexFormat>(index_format);
+
+    // [submesh_count: uint32]
+    uint32_t submesh_count = 0;
+    if (!read_raw(&submesh_count, sizeof(uint32_t))) {
+        delete asset;
+        return nullptr;
+    }
+
+    // [submeshes: array]
+    asset->submeshes.resize(submesh_count);
+    if (!read_raw(asset->submeshes.data(), submesh_count * sizeof(MeshAsset::Submesh))) {
+        delete asset;
+        return nullptr;
+    }
+
+    // the binary file contains raw data buffers:
     // [vertex_data_size: uint32]
     // [vertex_data: blob]
     // [index_data_size: uint32]

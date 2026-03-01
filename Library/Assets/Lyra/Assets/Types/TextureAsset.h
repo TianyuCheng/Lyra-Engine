@@ -1,9 +1,9 @@
 #ifndef LYRA_LIBRARY_ASSETS_TEXTURE_ASSET_H
 #define LYRA_LIBRARY_ASSETS_TEXTURE_ASSET_H
 
-#include <Lyra/Common/UUID.h>
 #include <Lyra/Common/Collections.h>
 #include <Lyra/Assets/AMSAPI.h>
+#include <Lyra/Assets/AMSEnums.h>
 #include <Lyra/Render/RHIEnums.h>
 
 namespace lyra
@@ -15,7 +15,7 @@ namespace lyra
     {
         static constexpr CString name = "TextureAsset";
 
-        static constexpr UUID uuid = make_uuid("30cdfac2-ad77-4297-91fb-832241bc4f3f");
+        static constexpr uint type = static_cast<uint>(AssetType::TEXTURE);
 
         static auto loader() -> AssetLoaderAPI;
 

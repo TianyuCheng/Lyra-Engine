@@ -123,11 +123,14 @@ int main(int argc, const char* argv[])
 
     // asset layer
     auto assets = lyra::execute([&]() {
+        auto registry = root / "Assets.toml";
+
         auto desc                 = AMSDescriptor{};
         desc.importer.assets_path = assets_root.c_str();
         desc.importer.caches_path = caches_root.c_str();
         desc.loader.assets        = file_loader.get();
-        desc.loader.metadata      = file_loader.get();
+        desc.loader.caches        = file_loader.get();
+        desc.registry             = registry.c_str();
         desc.watch                = true;
         desc.workers              = 4;
 

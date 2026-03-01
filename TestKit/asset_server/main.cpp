@@ -12,6 +12,7 @@ namespace fs = std::filesystem;
 struct DummyAsset
 {
     static constexpr CString name = "DummyAsset";
+    static constexpr uint    type = 9999;
     static constexpr UUID    uuid = make_uuid("00000000-0000-0000-0000-000000000001");
 
     static auto loader() -> AssetLoaderAPI;
@@ -20,12 +21,13 @@ struct DummyAsset
     int value = 0;
 };
 
-static void* dummy_load(FileLoader*, const JSON& metadata)
+static void* dummy_load(FileLoader* loader, FSPath path)
 {
     std::this_thread::sleep_for(std::chrono::milliseconds(50)); // simulate slow load
-    auto asset = new DummyAsset();
-    if (metadata.contains("value")) {
-        asset->value = metadata["value"].get<int>();
+    auto asset   = new DummyAsset();
+    auto content = loader->read<char>(path);
+    if (!content.empty()) {
+        asset->value = 100;
     } else {
         asset->value = 42;
     }
@@ -99,9 +101,10 @@ TEST_CASE("ams::asset_server")
 
     // initialize assetserver
     AMSDescriptor desc;
-    desc.workers         = 4;
-    desc.loader.assets   = &loader;
-    desc.loader.metadata = &loader;
+    desc.workers              = 4;
+    desc.loader.assets        = &loader;
+    auto temp_dir_str         = temp_dir.string();
+    desc.importer.assets_path = temp_dir_str.c_str();
 
     AssetServer ams(desc);
     ams.register_asset<DummyAsset>();
@@ -130,6 +133,10 @@ TEST_CASE("ams::asset_server")
             f << "raw dummy content";
         }
 
+        // ensure metadata does not exist from previous run
+        Path expected_metadata = source_dir / "new_test.dummy.import";
+        if (fs::exists(expected_metadata)) fs::remove(expected_metadata);
+
         lyra::GUID guid = 0;
 
         bool success = import_ams.import_asset("new_test.dummy", guid);
@@ -138,7 +145,14 @@ TEST_CASE("ams::asset_server")
         CHECK_NE(guid, 0);
 
         // metadata should be created next to the source asset
-        Path expected_metadata = source_dir / "new_test.dummy.import";
+        expected_metadata = source_dir / "new_test.dummy.import";
+
+        // wait for async import to finish
+        int timeout = 100; // 1 second
+        while (!fs::exists(expected_metadata) && timeout-- > 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+
         REQUIRE(fs::exists(expected_metadata));
 
         // verify metadata content
@@ -174,7 +188,7 @@ TEST_CASE("ams::asset_server")
         auto handle1 = ams.load_asset<DummyAsset>("test.dummy");
         auto handle2 = ams.load_asset<DummyAsset>("test.dummy");
 
-        CHECK_EQ(handle1.guid, handle2.guid);
+        CHECK_EQ(handle1.uuid, handle2.uuid);
 
         // wait for load
         while (ams.get_asset(handle1) == nullptr) {
@@ -211,7 +225,7 @@ TEST_CASE("ams::asset_server")
 
         for (int i = 0; i < num_threads; ++i) {
             CHECK(handles[i].valid());
-            CHECK_EQ(handles[i].guid, handles[0].guid);
+            CHECK_EQ(handles[i].uuid, handles[0].uuid);
         }
 
         // wait for load

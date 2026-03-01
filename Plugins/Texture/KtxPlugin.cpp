@@ -47,10 +47,9 @@ static void configure_loader(AssetServer* manager, const JSON& options)
     get_logger()->set_level(parse_log_level_from_env("LYRA_TEXTURE_VERBOSITY"));
 }
 
-static void* load_texture_asset(FileLoader* loader, const JSON& metadata)
+static void* load_texture_asset(FileLoader* loader, FSPath path)
 {
-    auto path    = metadata["path"].template get<String>();
-    auto content = loader->read<uint8_t>(path.c_str());
+    auto content = loader->read<uint8_t>(path);
 
     if (content.empty()) {
         get_logger()->error("Failed to read texture file: {}", path);

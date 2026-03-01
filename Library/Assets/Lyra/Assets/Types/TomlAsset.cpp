@@ -4,10 +4,9 @@
 
 using namespace lyra;
 
-static void* load_toml_asset(FileLoader* loader, const JSON& metadata)
+static void* load_toml_asset(FileLoader* loader, FSPath path)
 {
-    auto path    = metadata["path"].template get<String>();
-    auto content = loader->read<char>(path.c_str());
+    auto content = loader->read<char>(path);
     auto view    = StringView(content.data(), content.size() - 1);
     return new TomlAsset{toml::parse(view)};
 }

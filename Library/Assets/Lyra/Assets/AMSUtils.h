@@ -12,17 +12,21 @@
 
 namespace lyra
 {
+    using AssetID = lyra::GUID;
+
+    using AssetTypeID = uint;
+
     /**
      * @brief A basic asset handle containing only a GUID.
      */
     struct RawAssetHandle
     {
-        GUID guid = 0ull; ///< The globally unique identifier for the asset.
+        AssetID uuid = 0ull; ///< The globally unique identifier for the asset.
 
         /**
          * @brief Check if the handle points to a valid asset.
          */
-        FORCE_INLINE bool valid() const { return guid != 0ull; }
+        FORCE_INLINE bool valid() const { return uuid != 0; }
     };
 
     /**
@@ -32,7 +36,7 @@ namespace lyra
     template <typename AssetType>
     struct AssetHandle : RawAssetHandle
     {
-        static constexpr UUID type_uuid = AssetType::uuid; ///< The static UUID of the asset type.
+        static constexpr uint type = AssetType::type; ///< The static asset type.
     };
 
     /**
@@ -50,7 +54,7 @@ namespace lyra
     struct AMSLoaderDescriptor
     {
         FileLoader* assets;
-        FileLoader* metadata;
+        FileLoader* caches;
     };
 
     /**
@@ -60,6 +64,7 @@ namespace lyra
     {
         AMSImportDescriptor importer;
         AMSLoaderDescriptor loader;
+        CString             registry;
 
         bool watch   = false; ///< Whether to monitor the asset directory for hot-reloading.
         uint workers = 1;     ///< Number of worker threads for background asset processing.

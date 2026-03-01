@@ -27,10 +27,10 @@ namespace lyra
         /**
          * @brief Load processed asset data into memory.
          * @param loader Pointer to the virtual FileLoader.
-         * @param metadata The metadata JSON associated with the asset.
+         * @param path The virtual path to the asset file.
          * @return void* A pointer to the loaded asset data (untyped).
          */
-        void* (*load)(FileLoader* loader, const JSON& metadata);
+        void* (*load)(FileLoader* loader, FSPath path);
 
         /**
          * @brief Properly unload and clean up the asset data.

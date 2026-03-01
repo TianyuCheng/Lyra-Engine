@@ -18,6 +18,6 @@ void AssetLayer::bind(Application& app)
 
 void AssetLayer::update(Blackboard&)
 {
-    // cleanup unused assets
     ams.purge();
+    ams.flush();
 }

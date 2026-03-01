@@ -20,6 +20,7 @@
 #include <Lyra/FileIO/VFSEnums.h>
 #include <Lyra/FileIO/VFSUtils.h>
 #include <Lyra/Assets/AMSAPI.h>
+#include <Lyra/Assets/AMSRegistry.h>
 
 namespace lyra
 {
@@ -47,26 +48,38 @@ namespace lyra
         };
 
         /**
+         * @brief Purge unloaded assets.
+         */
+        void purge();
+
+        /**
+         * @brief Flush dirty registry to disk.
+         */
+        void flush();
+
+        /**
          * @brief Register a loader for an asset type.
          * If the asset type also provides a cooker() method, it will be registered automatically.
          */
         template <typename AssetType>
         void register_asset(const JSON& options = {})
         {
-            auto info    = std::make_unique<AssetProcessor>();
-            info->type   = AssetType::name;
-            info->loader = AssetType::loader();
-            info->assets = {};
+            auto info       = std::make_unique<AssetProcessor>();
+            info->type_name = AssetType::name;
+            info->type_id   = AssetType::type;
+            info->loader    = AssetType::loader();
+            info->assets    = {};
 
             if (info->loader.configure) {
                 info->loader.configure(this, options);
             }
 
-            uint            count = info->loader.get_supported_extensions(nullptr);
+            uint count = info->loader.get_supported_extensions(nullptr);
+
             Vector<CString> exts(count);
             info->loader.get_supported_extensions(exts.data());
 
-            auto [it, success]       = processors.emplace(AssetType::uuid, std::move(info));
+            auto [it, success]       = processors.emplace(AssetType::type, std::move(info));
             AssetProcessor* proc_ptr = it->second.get();
 
             for (uint i = 0; i < count; ++i) {
@@ -85,7 +98,7 @@ namespace lyra
         template <typename AssetType, typename CookerType>
         void register_asset(const JSON& options = {})
         {
-            auto it = processors.find(AssetType::uuid);
+            auto it = processors.find(AssetType::type);
             if (it == processors.end()) {
                 spdlog::error("AssetType ({}) has not been registered! Please register the loader first.", AssetType::name);
                 return;
@@ -118,7 +131,7 @@ namespace lyra
         template <typename AssetType>
         auto get_asset(AssetHandle<AssetType> handle) -> AssetType*
         {
-            return reinterpret_cast<AssetType*>(get_asset(AssetType::uuid, handle));
+            return reinterpret_cast<AssetType*>(get_asset(AssetType::type, handle));
         }
 
         /**
@@ -127,8 +140,18 @@ namespace lyra
         template <typename AssetType>
         auto load_asset(FSPath path) -> AssetHandle<AssetType>
         {
-            auto handle = load_asset(AssetType::uuid, path);
-            return AssetHandle<AssetType>{handle.guid};
+            auto handle = load_asset(AssetType::type, path);
+            return AssetHandle<AssetType>{handle.uuid};
+        }
+
+        /**
+         * @brief Load an asset by its GUID and increment its handle reference count.
+         */
+        template <typename AssetType>
+        auto load_asset(AssetID guid) -> AssetHandle<AssetType>
+        {
+            auto handle = load_asset(AssetType::type, guid);
+            return AssetHandle<AssetType>{handle.uuid};
         }
 
         /**
@@ -137,7 +160,7 @@ namespace lyra
         template <typename AssetType>
         void unload_asset(AssetHandle<AssetType> handle)
         {
-            unload_asset(AssetType::uuid, handle);
+            unload_asset(AssetType::type, handle);
         }
 
         /**
@@ -146,19 +169,14 @@ namespace lyra
         template <typename AssetType>
         auto clone_asset(AssetHandle<AssetType> handle) -> AssetHandle<AssetType>
         {
-            clone_asset(AssetType::uuid, handle);
+            clone_asset(AssetType::type, handle);
             return handle;
         }
 
         /**
          * @brief Preproces asset into engine compatible format.
          */
-        bool import_asset(const Path& path, GUID& guid);
-
-        /**
-         * @brief Purge assets with zero handle references.
-         */
-        void purge();
+        bool import_asset(const Path& path, AssetID& guid);
 
     private:
         struct AssetRecord
@@ -169,11 +187,12 @@ namespace lyra
 
         struct AssetProcessor
         {
-            String                      type;
-            AssetLoaderAPI              loader;
-            List<AssetCookerAPI>        cookers; // storage for cookers (stable pointers)
-            Own<std::shared_mutex>      mutex;
-            HashMap<GUID, AssetRecord*> assets;
+            String                         type_name;
+            AssetTypeID                    type_id;
+            AssetLoaderAPI                 loader;
+            List<AssetCookerAPI>           cookers; // storage for cookers (stable pointers)
+            Own<std::shared_mutex>         mutex;
+            HashMap<AssetID, AssetRecord*> assets;
 
             AssetProcessor() : mutex(std::make_unique<std::shared_mutex>()) {}
             AssetProcessor(const AssetProcessor&)                      = delete;
@@ -182,17 +201,19 @@ namespace lyra
             AssetProcessor& operator=(AssetProcessor&& other) noexcept = default;
         };
 
-        auto get_asset(UUID type_uuid, RawAssetHandle handle) -> void*;
-        auto load_asset(UUID type_uuid, FSPath path) -> RawAssetHandle;
-        void unload_asset(UUID type_uuid, RawAssetHandle handle);
-        void clone_asset(UUID type_uuid, RawAssetHandle handle);
+        auto get_asset(AssetTypeID type_id, RawAssetHandle handle) -> void*;
+        auto load_asset(AssetTypeID type_id, FSPath path) -> RawAssetHandle;
+        auto load_asset(AssetTypeID type_id, AssetID guid) -> RawAssetHandle;
+        void unload_asset(AssetTypeID type_id, RawAssetHandle handle);
+        void clone_asset(AssetTypeID type_id, RawAssetHandle handle);
 
     private:
-        AMSDescriptor                      descriptor;
-        BS::thread_pool<>                  pool;
-        HashMap<UUID, Own<AssetProcessor>> processors;
-        HashMap<String, AssetProcessor*>   loader_extensions;
-        HashMap<String, AssetCookerAPI*>   cooker_extensions;
+        AMSDescriptor                             descriptor;
+        BS::thread_pool<>                         pool;
+        AssetRegistry                             registry;
+        HashMap<AssetTypeID, Own<AssetProcessor>> processors;
+        HashMap<String, AssetProcessor*>          loader_extensions;
+        HashMap<String, AssetCookerAPI*>          cooker_extensions;
     };
 
 } // namespace lyra

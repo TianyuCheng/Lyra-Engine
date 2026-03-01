@@ -1,10 +1,10 @@
 #ifndef LYRA_LIBRARY_ASSETS_MESH_ASSET_H
 #define LYRA_LIBRARY_ASSETS_MESH_ASSET_H
 
-#include <Lyra/Common/UUID.h>
 #include <Lyra/Common/Math.h>
 #include <Lyra/Common/Collections.h>
 #include <Lyra/Assets/AMSAPI.h>
+#include <Lyra/Assets/AMSEnums.h>
 #include <Lyra/Render/RHIEnums.h>
 
 namespace lyra
@@ -16,7 +16,7 @@ namespace lyra
     {
         static constexpr CString name = "MeshAsset";
 
-        static constexpr UUID uuid = make_uuid("76f8e24a-fb22-498a-8be2-8242ac120002");
+        static constexpr uint type = static_cast<uint>(AssetType::MESH);
 
         static auto loader() -> AssetLoaderAPI;
 
