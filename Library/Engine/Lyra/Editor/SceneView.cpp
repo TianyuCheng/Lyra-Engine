@@ -10,7 +10,7 @@
 #include "SceneView.h"
 #include "../Runtime/TimingLayer.h"
 
-#define LYRA_SCENE_WINDOW_NAME (LYRA_ICON_SCENE "Scene")
+#define LYRA_SCENE_WINDOW_NAME (LYRA_ICON_SCENE " Scene")
 
 using namespace lyra;
 

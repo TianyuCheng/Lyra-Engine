@@ -15,7 +15,7 @@ namespace lyra
     {
         static constexpr CString name = "TextureAsset";
 
-        static constexpr uint type = static_cast<uint>(AssetType::TEXTURE);
+        static constexpr AssetTypeID type = 0xca9028ca;
 
         static auto loader() -> AssetLoaderAPI;
 

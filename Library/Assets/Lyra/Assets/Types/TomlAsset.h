@@ -14,7 +14,7 @@ namespace lyra
     {
         static constexpr CString name = "TomlAsset";
 
-        static constexpr uint type = static_cast<uint>(AssetType::TOML);
+        static constexpr AssetTypeID type = 0xc8e8e7c7;
 
         static auto loader() -> AssetLoaderAPI;
 

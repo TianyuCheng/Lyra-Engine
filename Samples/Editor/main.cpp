@@ -102,6 +102,8 @@ int main(int argc, const char* argv[])
     if (!fs::exists(caches_root))
         fs::create_directory(caches_root);
 
+    auto registry = root / "Assets.toml";
+
     // application
     auto app = lyra::execute([&]() {
         auto desc = AppDescriptor();
@@ -123,8 +125,6 @@ int main(int argc, const char* argv[])
 
     // asset layer
     auto assets = lyra::execute([&]() {
-        auto registry = root / "Assets.toml";
-
         auto desc                 = AMSDescriptor{};
         desc.importer.assets_path = assets_root.c_str();
         desc.importer.caches_path = caches_root.c_str();

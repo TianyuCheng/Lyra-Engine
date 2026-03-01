@@ -14,7 +14,7 @@ namespace lyra
     {
         static constexpr CString name = "JsonAsset";
 
-        static constexpr uint type = static_cast<uint>(AssetType::JSON);
+        static constexpr AssetTypeID type = 0x5372a266;
 
         static auto loader() -> AssetLoaderAPI;
 

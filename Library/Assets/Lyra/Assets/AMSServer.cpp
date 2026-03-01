@@ -60,7 +60,7 @@ AssetServer::AssetServer(const AMSDescriptor& descriptor)
 {
     // load registry
     if (!registry.load(descriptor.registry)) {
-        spdlog::info("AssetRegistry not found or failed to load. Rebuilding from source...");
+        spdlog::info("AssetRegistry {} not found or failed to load. Rebuilding from source...", descriptor.registry);
         registry.rebuild(descriptor.importer.assets_path);
         registry.save(descriptor.registry);
     }
@@ -232,7 +232,7 @@ Future<AssetID> AssetServer::import_asset(const Path& path)
         JSON metadata;
         metadata["version"] = "1";
         metadata["guid"]    = guid;
-        metadata["type"]    = type_name;
+        metadata["type"]    = type_id;
         metadata["time"]    = get_timestamp();
         metadata["data"]    = data;
         save_json(import_path, metadata);

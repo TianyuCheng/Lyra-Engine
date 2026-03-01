@@ -16,7 +16,7 @@ namespace lyra
     {
         static constexpr CString name = "MeshAsset";
 
-        static constexpr uint type = static_cast<uint>(AssetType::MESH);
+        static constexpr AssetTypeID type = 0xc599b40c;
 
         static auto loader() -> AssetLoaderAPI;
 

@@ -8,7 +8,7 @@
 #include "Layout.h"
 #include "FileView.h"
 
-#define LYRA_FILES_WINDOW_NAME (LYRA_ICON_FOLDER "Files")
+#define LYRA_FILES_WINDOW_NAME (LYRA_ICON_FOLDER " Files")
 
 using namespace lyra;
 
@@ -64,28 +64,24 @@ void FileView::handle_file_drop(Blackboard& blackboard)
     if (!ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows | ImGuiHoveredFlags_AllowWhenBlockedByPopup))
         return;
 
-    if (window->get_input_state().has_dropped_files()) {
-        for (const auto& path_str : window->get_input_state().get_dropped_files()) {
-            Path src(path_str);
-            Path dst = curr / src.filename();
+    if (window->get_input_state().has_dropped_files())
+        return;
 
-            try {
-                // copy file to current directory
-                std::filesystem::copy_file(src, dst, std::filesystem::copy_options::overwrite_existing);
-
-                // get relative path from root for import
-                auto rel_path = std::filesystem::relative(dst, root);
-
-                active_imports.push_back(ams->import_asset(rel_path));
-                spdlog::info("Importing dropped asset: {} -> {}", path_str, rel_path.string());
-            } catch (const std::exception& e) {
-                spdlog::error("Failed to copy/import dropped file {}: {}", path_str, e.what());
-            }
+    for (const auto& path_str : window->get_input_state().get_dropped_files()) {
+        Path src(path_str);
+        Path dst = curr / src.filename();
+        try {
+            std::filesystem::copy_file(src, dst, std::filesystem::copy_options::overwrite_existing);
+            auto rel_path = std::filesystem::relative(dst, root);
+            active_imports.push_back(ams->import_asset(rel_path));
+            spdlog::info("Importing dropped asset: {} -> {}", path_str, rel_path.string());
+        } catch (const std::exception& e) {
+            spdlog::error("Failed to copy/import dropped file {}: {}", path_str, e.what());
         }
-
-        // refresh directory view
-        update_directory(curr, true);
     }
+
+    // refresh directory view
+    update_directory(curr, true);
 }
 
 void FileView::show_import_indicator()
@@ -128,18 +124,9 @@ void FileView::show_breadcrumb()
     }
 
     // show directory path segments
-    auto relative = std::filesystem::relative(curr, root);
-    for (const auto& part : relative) {
-        auto parts = to_string(part);
-        if (ImGui::Button(parts.c_str())) {
-            Path path = root;
-            for (auto p : relative) {
-                path /= p;
-                if (p == part) {
-                    update_directory(path);
-                    break;
-                }
-            }
+    for (const auto& breadcrumb : breadcrumbs) {
+        if (ImGui::Button(breadcrumb.name.c_str())) {
+            update_directory(breadcrumb.path);
         }
         ImGui::SameLine();
         ImGui::TextUnformatted("/");
@@ -157,11 +144,10 @@ void FileView::show_dir_files()
 
     // folders
     for (const auto& folder : folders) {
-
         ImGui::PushID(grid_id++);
         {
             // folder icon
-            draw_icon_grid(LYRA_ICON_FOLDER, folder.c_str(), 3.0f);
+            draw_icon_grid(LYRA_ICON_FOLDER, folder.c_str(), 6.0f);
             next_icon_grid(row_width, start_x);
 
             // handle clicks
@@ -173,14 +159,11 @@ void FileView::show_dir_files()
 
     // files
     for (const auto& file : files) {
-
         ImGui::PushID(grid_id++);
         {
             // file icon
-            draw_icon_grid(LYRA_ICON_FILE, file.c_str(), 3.0f);
+            draw_icon_grid(LYRA_ICON_FILE, file.c_str(), 6.0f);
             next_icon_grid(row_width, start_x);
-
-            // TODO: handle clicks
         }
         ImGui::PopID();
     }
@@ -269,19 +252,28 @@ void FileView::next_icon_grid(float row_width, float start_x)
 
 void FileView::draw_icon_grid(CString icon, CString text, float icon_scale) const
 {
-    ImGui::BeginGroup(); // group icon + text together
+    const ImVec2 pos = ImGui::GetCursorPos();
+    ImGui::BeginGroup();
     {
-        // icon
+        // background button for interaction
+        ImGui::Button("##bg", ImVec2(icon_size, icon_size));
+
+        // draw icon on top, centered
         ImGui::SetWindowFontScale(icon_scale);
-        ImGui::Button(icon, ImVec2(icon_size, icon_size));
+        const ImVec2 icon_size_actual = ImGui::CalcTextSize(icon);
+        ImGui::SetCursorPosX(pos.x + (icon_size - icon_size_actual.x * 1.00) * 0.5f);
+        ImGui::SetCursorPosY(pos.y + (icon_size - icon_size_actual.y * 1.00) * 0.5f);
+        ImGui::TextUnformatted(icon);
         ImGui::SetWindowFontScale(1.0f);
 
-        const float width = ImGui::CalcTextSize(text).x;
+        // reset cursor to below the button
+        ImGui::SetCursorPosY(pos.y + icon_size + ImGui::GetStyle().ItemSpacing.y);
+        const float width = ImGui::CalcTextSize(text, nullptr, false, icon_size).x;
         const float start = icon_size > width ? (icon_size - width) / 2 : 0;
 
         // filename text under icon
-        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + start);
-        ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + icon_size);
+        ImGui::SetCursorPosX(pos.x + start);
+        ImGui::PushTextWrapPos(pos.x + icon_size);
         ImGui::TextWrapped("%s", text);
         ImGui::PopTextWrapPos();
     }
@@ -299,6 +291,16 @@ void FileView::update_directory(const Path& path, bool force)
     // invalid directory cache
     files.clear();
     folders.clear();
+    breadcrumbs.clear();
+
+    // re-evaluate breadcrumbs
+    auto relative   = std::filesystem::relative(curr, root);
+    Path bread_path = root;
+    for (const auto& part : relative) {
+        if (part == ".") continue; // skip current directory indicator
+        bread_path /= part;
+        breadcrumbs.push_back({to_string(part), bread_path});
+    }
 
     // re-evaluate immediate files and folders
     for (const auto& entry : std::filesystem::directory_iterator(curr)) {
@@ -309,6 +311,10 @@ void FileView::update_directory(const Path& path, bool force)
         if (entry.is_directory()) {
             folders.push_back(rel_path);
         } else {
+            // hide *.import meta files
+            if (abs_path.extension() == ".import")
+                continue;
+
             files.push_back(rel_path);
         }
     }

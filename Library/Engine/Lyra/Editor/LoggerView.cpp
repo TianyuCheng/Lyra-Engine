@@ -8,7 +8,7 @@
 #include "Layout.h"
 #include "LoggerView.h"
 
-#define LYRA_CONSOLE_WINDOW_NAME (LYRA_ICON_CONSOLE "Console")
+#define LYRA_CONSOLE_WINDOW_NAME (LYRA_ICON_CONSOLE " Console")
 
 using namespace lyra;
 

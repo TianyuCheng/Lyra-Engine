@@ -13,18 +13,8 @@
 
 namespace lyra
 {
-    using AssetTypeID = uint32_t;
 
-    enum struct AssetType : AssetTypeID
-    {
-        TEXT,
-        JSON,
-        TOML,
-        MESH,
-        MODEL,
-        TEXTURE,
-        MATERIAL,
-    };
+    using AssetTypeID = uint;
 
 } // namespace lyra
 

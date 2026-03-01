@@ -47,9 +47,6 @@ bool AssetRegistry::load(const OSPath& path)
 bool AssetRegistry::save(const OSPath& path)
 {
     auto ext = Path(path).extension().string();
-    if (!fs::exists(path)) {
-        return false;
-    }
     if (ext == ".bin") {
         return save_binary(path);
     }
@@ -231,7 +228,7 @@ void AssetRegistry::rebuild(const OSPath& assets_dir)
                 if (metadata.contains("guid")) {
                     AssetID     guid = metadata["guid"].get<AssetID>();
                     AssetTypeID type = 0;
-                    if (metadata.contains("type")) {
+                    if (metadata.contains("type") && metadata["type"].is_number()) {
                         type = metadata["type"].get<AssetTypeID>();
                     }
 

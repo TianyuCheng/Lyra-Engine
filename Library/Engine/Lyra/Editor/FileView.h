@@ -40,12 +40,19 @@ namespace lyra
         void handle_file_drop(Blackboard& blackboard);
 
     private:
+        struct Breadcrumb
+        {
+            String name;
+            Path   path;
+        };
+
+    private:
         Path root;
         Path curr;
 
-        Vector<String> files   = {};
-        Vector<String> folders = {};
-
+        Vector<String>          files       = {};
+        Vector<String>          folders     = {};
+        Vector<Breadcrumb>      breadcrumbs = {};
         Vector<Future<AssetID>> active_imports;
 
         bool show_new_file_modal   = false;

@@ -1176,9 +1176,8 @@ void GUIRenderer::init_imgui_font(CString filename, float font_size)
     icon_cfg.MergeMode            = true;        // merge icons with regular font
     icon_cfg.PixelSnapH           = true;        // optional, can help with pixel alignment
     icon_cfg.GlyphRanges          = icon_ranges; // icons only
-    icon_cfg.GlyphMaxAdvanceX     = font_size * +1.5f;
-    icon_cfg.GlyphMinAdvanceX     = font_size * +1.5f;
-    icon_cfg.GlyphOffset.x        = font_size * -0.25f;
+    icon_cfg.GlyphMaxAdvanceX     = font_size;
+    icon_cfg.GlyphMinAdvanceX     = font_size;
 
     // font source
     auto file = cmrc::imgui::get_filesystem().open(filename);

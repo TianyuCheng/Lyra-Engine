@@ -10,7 +10,7 @@
 #include "ObjectView.h"
 #include "TreeView.h"
 
-#define LYRA_INSPECTOR_WINDOW_NAME (LYRA_ICON_INSPECTOR "Inspector")
+#define LYRA_INSPECTOR_WINDOW_NAME (LYRA_ICON_INSPECTOR " Inspector")
 
 using namespace lyra;
 

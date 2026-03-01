@@ -20,7 +20,7 @@ namespace lyra
     {
         static constexpr CString name = "ModelAsset";
 
-        static constexpr uint type = static_cast<uint>(AssetType::MODEL);
+        static constexpr AssetTypeID type = 0xd32a1ea4;
 
         static auto loader() -> AssetLoaderAPI;
 
