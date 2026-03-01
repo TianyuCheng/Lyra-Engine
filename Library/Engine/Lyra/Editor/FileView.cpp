@@ -36,10 +36,10 @@ void FileView::update(Blackboard& blackboard)
         ImGui::DockBuilderDockWindow(LYRA_FILES_WINDOW_NAME, layout.bottom);
     });
 
-    handle_file_drop(blackboard);
-
     ImGui::Begin(LYRA_FILES_WINDOW_NAME);
     {
+        handle_file_drop(blackboard);
+
         show_breadcrumb();
         ImGui::Separator();
         ImGui::BeginChild("##FileBrowser");

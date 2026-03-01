@@ -42,8 +42,8 @@ WindowInput::WindowInput()
 
 void WindowInput::update(const WindowHandle& handle)
 {
-    states[state_index].update(handle);
     state_index = (state_index + 1) % 2;
+    states[state_index].update(handle);
 
     auto timestamp = std::chrono::steady_clock::now();
     auto duration  = timestamp - elapsed_time;

@@ -39,12 +39,14 @@ struct UserState
     WindowInputQuery events;
 
     // temporary storage for file paths (file drop event)
-    Vector<CString> file_paths = {};
+    Vector<String>  file_strings = {};
+    Vector<CString> file_paths   = {};
 
     void reset_events()
     {
         events.num_events = 0;
 
+        file_strings.clear();
         file_paths.clear();
     }
 
@@ -178,9 +180,12 @@ struct UserState
         }
 
         // update file path storage
+        file_strings.resize(count);
         file_paths.resize(count);
-        for (uint i = 0; i < count; i++)
-            file_paths[i] = paths[i];
+        for (uint i = 0; i < count; i++) {
+            file_strings[i] = paths[i];
+            file_paths[i]   = file_strings[i].c_str();
+        }
 
         auto& event           = events.input_events[events.num_events++];
         event.type            = WindowInputEvent::Type::FILE_DROP;
