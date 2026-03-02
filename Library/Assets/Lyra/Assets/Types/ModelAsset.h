@@ -7,11 +7,11 @@
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/Assets/AMSEnums.h>
 #include <Lyra/Assets/AMSUtils.h>
+#include <Lyra/Assets/Types/MeshAsset.h>
+#include <Lyra/Assets/Types/MaterialAsset.h>
 
 namespace lyra
 {
-    struct MeshAsset;
-    struct MaterialAsset;
 
     /**
      * @brief A model asset acting as a container for hierarchy and mesh/material bindings.

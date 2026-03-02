@@ -63,7 +63,7 @@ void ObjectView::draw_inspector(World& world, SceneNode node)
     if (world.any_of<TransformLocal>(node)) {
         auto& transform = world.get_component<TransformLocal>(node);
 
-        if (ImGui::CollapsingHeader(LYRA_ICON_NODE "Transform", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (ImGui::CollapsingHeader(LYRA_ICON_NODE " Transform", ImGuiTreeNodeFlags_DefaultOpen)) {
             // translation
             if (ImGui::DragFloat3("Translation", &transform.position.x, 0.1f)) {
                 transform.flags.set(TransformFlag::LOCAL_DIRTY);
@@ -86,7 +86,7 @@ void ObjectView::draw_inspector(World& world, SceneNode node)
     if (world.any_of<PerspectiveCamera>(node)) {
         auto& camera = world.get_component<PerspectiveCamera>(node);
 
-        if (ImGui::CollapsingHeader(LYRA_ICON_CAMERA "Perspective", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (ImGui::CollapsingHeader(LYRA_ICON_CAMERA " Perspective", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::DragFloat("FOV", &camera.fov, 0.1f, 1.0f, 179.0f);
             ImGui::DragFloat("Aspect", &camera.aspect, 0.01f, 0.1f, 10.0f);
             ImGui::DragFloat("Near", &camera.near_plane, 0.01f, 0.001f, 10.0f);
