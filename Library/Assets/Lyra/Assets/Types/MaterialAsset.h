@@ -9,6 +9,9 @@
 #include <Lyra/Assets/AMSEnums.h>
 #include <Lyra/Render/RHIEnums.h>
 
+// macro collision with Windows GDI
+#undef OPAQUE
+
 namespace lyra
 {
     struct TextureAsset;

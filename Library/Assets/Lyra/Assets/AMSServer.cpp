@@ -61,7 +61,7 @@ AssetServer::AssetServer(const AMSDescriptor& descriptor)
 {
     // load registry
     if (!registry.load(descriptor.registry)) {
-        spdlog::info("AssetRegistry {} not found or failed to load. Rebuilding from source...", descriptor.registry);
+        spdlog::info("AssetRegistry {} not found or failed to load. Rebuilding from source...", Path(descriptor.registry).string());
         registry.rebuild(descriptor.importer.assets_path);
         registry.save(descriptor.registry);
     }

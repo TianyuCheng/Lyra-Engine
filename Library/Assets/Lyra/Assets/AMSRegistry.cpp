@@ -40,7 +40,7 @@ bool AssetRegistry::load(const OSPath& path)
     if (ext == ".toml") {
         return load_toml(path);
     }
-    spdlog::error("Unsupported registry file: {}", path);
+    spdlog::error("Unsupported registry file: {}", Path(path).string());
     return false;
 }
 
@@ -53,7 +53,7 @@ bool AssetRegistry::save(const OSPath& path)
     if (ext == ".toml") {
         return save_toml(path);
     }
-    spdlog::error("Unsupported registry file: {}", path);
+    spdlog::error("Unsupported registry file: {}", Path(path).string());
     return false;
 }
 
@@ -69,9 +69,9 @@ bool AssetRegistry::flush(const OSPath& path)
     return false;
 }
 
-bool AssetRegistry::load_binary(const OSPath& path)
+bool AssetRegistry::load_binary(const OSPath& bin_path)
 {
-    std::ifstream f(path, std::ios::binary | std::ios::ate);
+    std::ifstream f(bin_path, std::ios::binary | std::ios::ate);
     if (!f.good()) return false;
 
     size_t size = f.tellg();
@@ -128,9 +128,9 @@ bool AssetRegistry::load_binary(const OSPath& path)
     return true;
 }
 
-bool AssetRegistry::save_binary(const OSPath& path)
+bool AssetRegistry::save_binary(const OSPath& bin_path)
 {
-    std::ofstream f(path, std::ios::binary);
+    std::ofstream f(bin_path, std::ios::binary);
     if (!f.good()) return false;
 
     f.write(REGISTRY_MAGIC, 4);
@@ -154,22 +154,22 @@ bool AssetRegistry::save_binary(const OSPath& path)
     return true;
 }
 
-bool AssetRegistry::load_toml(const OSPath& path)
+bool AssetRegistry::load_toml(const OSPath& toml_path)
 {
     try {
-        auto config = toml::parse_file(path);
+        auto config = toml::parse_file(toml_path);
         entries.clear();
         string_table.clear();
 
         if (auto arr = config["entries"].as_array()) {
-            arr->for_each([this](auto& entry) {
+            for (auto& entry : *arr) {
                 if (auto e = entry.as_array()) {
-                    AssetID     guid     = e->get(0)->as_integer()->get();
-                    AssetTypeID type     = static_cast<AssetTypeID>(e->get(1)->as_integer()->get());
-                    String      path_str = e->get(2)->as_string()->get();
-                    update(guid, path_str, type);
+                    AssetID     guid = e->get(0)->as_integer()->get();
+                    AssetTypeID type = static_cast<AssetTypeID>(e->get(1)->as_integer()->get());
+                    String      path = e->get(2)->as_string()->get();
+                    update(guid, path, type);
                 }
-            });
+            }
         }
 
         build_lookup_tables();
@@ -181,9 +181,9 @@ bool AssetRegistry::load_toml(const OSPath& path)
     }
 }
 
-bool AssetRegistry::save_toml(const OSPath& path)
+bool AssetRegistry::save_toml(const OSPath& toml_path)
 {
-    std::ofstream f(path);
+    std::ofstream f(toml_path);
     if (!f.good()) return false;
 
     toml::array entries_arr;
@@ -212,7 +212,7 @@ void AssetRegistry::rebuild(const OSPath& assets_dir)
 
     namespace fs = std::filesystem;
     if (!fs::exists(assets_dir) || !fs::is_directory(assets_dir)) {
-        spdlog::error("Asset directory does not exist: {}", assets_dir);
+        spdlog::error("Asset directory does not exist: {}", Path(assets_dir).string());
         return;
     }
 
