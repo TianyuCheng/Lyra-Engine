@@ -7,23 +7,30 @@
 
 namespace lyra {
 
-inline JSON save_to_ktx2(ktxTexture2* texture, OSPath target_path, Logger logger)
+inline Path get_texture_cache_path(AssetID guid, OSPath caches_root)
 {
-    KTX_error_code result = ktxTexture_WriteToNamedFile(ktxTexture(texture), reinterpret_cast<const char*>(target_path));
+    return Path(caches_root) / "Textures" / (std::to_string(guid) + ".ktx2");
+}
+
+inline bool save_to_ktx2(JSON& metadata, ktxTexture2* texture, const Path& target_path, OSPath caches_root, Logger logger)
+{
+    fs::create_directories(target_path.parent_path());
+    KTX_error_code result = ktxTexture_WriteToNamedFile(ktxTexture(texture), target_path.string().c_str());
     ktxTexture_Destroy(ktxTexture(texture));
 
     if (result != KTX_SUCCESS) {
         logger->error("Failed to write KTX2 texture to file: {}", ktxErrorString(result));
-        return {};
+        return false;
     }
 
-    auto metadata    = JSON{};
-    metadata["path"] = reinterpret_cast<const char*>(target_path);
-    return metadata;
+    metadata["path"] = fs::relative(target_path, caches_root).string();
+    return true;
 }
 
-inline JSON encode_and_save_simple(void* pixels, int width, int height, size_t pixel_size, VkFormat format, OSPath target_path, Logger logger)
+inline bool encode_and_save_simple(JSON& metadata, void* pixels, int width, int height, size_t pixel_size, VkFormat format, OSPath caches_root, Logger logger)
 {
+    const Path target_path = get_texture_cache_path(metadata["guid"].get<AssetID>(), caches_root);
+
     ktxTexture2*         texture;
     ktxTextureCreateInfo create_info;
     create_info.glInternalformat = 0;
@@ -41,17 +48,17 @@ inline JSON encode_and_save_simple(void* pixels, int width, int height, size_t p
     KTX_error_code result = ktxTexture2_Create(&create_info, KTX_TEXTURE_CREATE_ALLOC_STORAGE, &texture);
     if (result != KTX_SUCCESS) {
         logger->error("Failed to create KTX2 texture: {}", ktxErrorString(result));
-        return {};
+        return false;
     }
 
     result = ktxTexture_SetImageFromMemory(ktxTexture(texture), 0, 0, 0, static_cast<ktx_uint8_t*>(pixels), width * height * 4 * pixel_size);
     if (result != KTX_SUCCESS) {
         logger->error("Failed to set image data for KTX2 texture: {}", ktxErrorString(result));
         ktxTexture_Destroy(ktxTexture(texture));
-        return {};
+        return false;
     }
 
-    return save_to_ktx2(texture, target_path, logger);
+    return save_to_ktx2(metadata, texture, target_path, caches_root, logger);
 }
 
 } // namespace lyra

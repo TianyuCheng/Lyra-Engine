@@ -47,12 +47,11 @@ static uint dummy_extensions(CString* extensions)
     return 1;
 }
 
-static JSON dummy_process(OSPath source_path, OSPath)
+static bool dummy_process(JSON& metadata, OSPath source_path, OSPath)
 {
-    JSON metadata;
     metadata["path"]  = Path(source_path).string();
     metadata["value"] = 100;
-    return metadata;
+    return true;
 }
 
 AssetLoaderAPI DummyAsset::loader()

@@ -1,8 +1,9 @@
 #include <ctime>
+#include <mutex>
 #include <fstream>
 #include <filesystem>
-#include <mutex>
 
+#include <Lyra/Common/Function.h>
 #include <Lyra/Assets/AMSServer.h>
 
 using namespace lyra;
@@ -200,7 +201,6 @@ Future<AssetID> AssetServer::import_asset(const Path& path)
     auto cooker = it->second;
 
     Path source_path = Path(descriptor.importer.assets_path) / path;
-    Path target_path = Path(descriptor.importer.caches_path) / path;
     Path import_path = get_metadata_path(source_path);
 
     AssetID guid = registry.get_guid(path.string());
@@ -212,36 +212,31 @@ Future<AssetID> AssetServer::import_asset(const Path& path)
         guid = registry.generate_guid();
 
     // we use a separate task for cooking
-    return pool.submit_task([this, cooker, source_path, target_path, import_path, path, guid]() -> AssetID {
-        JSON data = cooker->process((OSPath)source_path.c_str(), (OSPath)target_path.c_str());
-
+    return pool.submit_task([this, cooker, source_path, import_path, path, guid]() -> AssetID {
         // find processor to get type_id and type_name
-        AssetTypeID type_id   = 0;
-        CString     type_name = "";
-        for (auto& [tid, proc] : processors) {
-            for (auto& c : proc->cookers) {
-                if (&c == cooker) {
-                    type_id   = tid;
-                    type_name = proc->type_name.c_str();
-                    break;
-                }
-            }
-            if (type_id != 0) break;
-        }
+        AssetTypeID type_id = lyra::execute([&]() {
+            for (auto& [tid, proc] : processors)
+                for (auto& c : proc->cookers)
+                    if (&c == cooker)
+                        return tid;
+            return AssetTypeID(0);
+        });
 
+        // populate metadata and import (preprocess) the asset
         JSON metadata;
-        metadata["version"] = "1";
         metadata["guid"]    = guid;
+        metadata["version"] = "1";
         metadata["type"]    = type_id;
         metadata["time"]    = get_timestamp();
-        metadata["data"]    = data;
+        if (!cooker->process(metadata, (OSPath)source_path.c_str(), descriptor.importer.caches_path))
+            return AssetID(0);
+
         save_json(import_path, metadata);
 
         // for simplicity, let's assume registry is not thread-safe and use a mutex
         static std::mutex registry_mutex;
         std::lock_guard   lock(registry_mutex);
         registry.update(guid, path.string(), type_id);
-
         return guid;
     });
 }

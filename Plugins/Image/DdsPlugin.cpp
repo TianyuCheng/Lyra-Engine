@@ -38,19 +38,19 @@ static VkFormat gli_to_vk_format(gli::format format)
 
 static void configure_cooker(AssetServer* manager, const JSON& options) {}
 
-static JSON process_dds(OSPath source_path, OSPath target_path)
+static bool process_dds(JSON& metadata, OSPath source_path, OSPath target_path)
 {
     auto source_path_str = String(reinterpret_cast<const char*>(source_path));
     gli::texture tex = gli::load(source_path_str);
     if (tex.empty()) {
         logger->error("Failed to load DDS file: {}", source_path_str);
-        return {};
+        return false;
     }
 
     VkFormat vk_format = gli_to_vk_format(tex.format());
     if (vk_format == VK_FORMAT_UNDEFINED) {
         logger->error("Unsupported DDS format in file: {}", source_path_str);
-        return {};
+        return false;
     }
 
     ktxTexture2* ktx_tex;
@@ -70,7 +70,7 @@ static JSON process_dds(OSPath source_path, OSPath target_path)
     KTX_error_code result = ktxTexture2_Create(&create_info, KTX_TEXTURE_CREATE_ALLOC_STORAGE, &ktx_tex);
     if (result != KTX_SUCCESS) {
         logger->error("Failed to create KTX2 texture from DDS: {}", ktxErrorString(result));
-        return {};
+        return false;
     }
 
     for (size_t layer = 0; layer < tex.layers(); ++layer) {
@@ -82,7 +82,8 @@ static JSON process_dds(OSPath source_path, OSPath target_path)
         }
     }
 
-    return save_to_ktx2(ktx_tex, target_path, logger);
+    const Path final_target_path = get_texture_cache_path(metadata["guid"].get<AssetID>(), target_path);
+    return save_to_ktx2(metadata, ktx_tex, final_target_path, target_path, logger);
 }
 
 static uint get_supported_cooker_extensions(CString* extensions)

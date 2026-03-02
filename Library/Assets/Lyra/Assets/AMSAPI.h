@@ -58,11 +58,12 @@ namespace lyra
 
         /**
          * @brief Process a raw source asset and save it to a target path (cooking).
+         * @param metadata JSON object containing input info (like guid) and to be populated with output metadata (like path).
          * @param source_path Path to the raw source file in the OS filesystem.
-         * @param target_path Path where the processed asset should be saved.
-         * @return JSON The metadata object describing the imported asset.
+         * @param caches_root Root path where processed assets should be saved.
+         * @return True if processing was successful, false otherwise.
          */
-        JSON (*process)(OSPath source_path, OSPath target_path);
+        bool (*process)(JSON& metadata, OSPath source_path, OSPath caches_root);
 
         /**
          * @brief Get the list of file extensions supported by this cooker.

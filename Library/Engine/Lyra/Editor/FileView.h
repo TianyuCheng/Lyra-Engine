@@ -54,6 +54,9 @@ namespace lyra
         Vector<String>          folders     = {};
         Vector<Breadcrumb>      breadcrumbs = {};
         Vector<Future<AssetID>> active_imports;
+        uint32_t                finished_success = 0;
+        uint32_t                finished_failure = 0;
+        float                   notification_timer = 0.0f;
 
         bool show_new_file_modal   = false;
         bool show_new_folder_modal = false;

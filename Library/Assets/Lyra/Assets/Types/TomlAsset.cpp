@@ -19,11 +19,10 @@ static uint get_toml_extensions(CString* extensions)
     return 1;
 }
 
-static JSON toml_process(OSPath source_path, OSPath)
+static bool toml_process(JSON& metadata, OSPath source_path, OSPath)
 {
-    JSON metadata;
-    metadata["path"] = Path(source_path).string();
-    return metadata;
+    metadata["path"] = reinterpret_cast<const char*>(source_path);
+    return true;
 }
 
 AssetLoaderAPI TomlAsset::loader()

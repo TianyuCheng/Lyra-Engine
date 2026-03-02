@@ -12,7 +12,7 @@ static Logger logger = create_logger("ExrCooker", LogLevel::trace);
 
 static void configure_cooker(AssetServer* manager, const JSON& options) {}
 
-static JSON process_exr(OSPath source_path, OSPath target_path)
+static bool process_exr(JSON& metadata, OSPath source_path, OSPath target_path)
 {
     auto source_path_str = String(reinterpret_cast<const char*>(source_path));
     int width, height;
@@ -22,12 +22,12 @@ static JSON process_exr(OSPath source_path, OSPath target_path)
     if (ret != TINYEXR_SUCCESS) {
         logger->error("Failed to load EXR file: {} (error: {})", source_path_str, err ? err : "unknown");
         FreeEXRErrorMessage(err);
-        return {};
+        return false;
     }
 
-    auto metadata = encode_and_save_simple(pixels, width, height, sizeof(float), VK_FORMAT_R32G32B32A32_SFLOAT, target_path, logger);
+    bool success = encode_and_save_simple(metadata, pixels, width, height, sizeof(float), VK_FORMAT_R32G32B32A32_SFLOAT, target_path, logger);
     free(pixels);
-    return metadata;
+    return success;
 }
 
 static uint get_supported_cooker_extensions(CString* extensions)

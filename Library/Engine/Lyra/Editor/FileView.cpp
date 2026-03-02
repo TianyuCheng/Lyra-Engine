@@ -64,7 +64,7 @@ void FileView::handle_file_drop(Blackboard& blackboard)
     if (!ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows | ImGuiHoveredFlags_AllowWhenBlockedByPopup))
         return;
 
-    if (window->get_input_state().has_dropped_files())
+    if (!window->get_input_state().has_dropped_files())
         return;
 
     for (const auto& path_str : window->get_input_state().get_dropped_files()) {
@@ -73,8 +73,13 @@ void FileView::handle_file_drop(Blackboard& blackboard)
         try {
             std::filesystem::copy_file(src, dst, std::filesystem::copy_options::overwrite_existing);
             auto rel_path = std::filesystem::relative(dst, root);
-            active_imports.push_back(ams->import_asset(rel_path));
-            spdlog::info("Importing dropped asset: {} -> {}", path_str, rel_path.string());
+            auto future   = ams->import_asset(rel_path);
+            if (future.valid()) {
+                active_imports.push_back(std::move(future));
+                spdlog::info("Importing dropped asset: {} -> {}", path_str, rel_path.string());
+            } else {
+                spdlog::error("Failed to start import for asset: {}", rel_path.string());
+            }
         } catch (const std::exception& e) {
             spdlog::error("Failed to copy/import dropped file {}: {}", path_str, e.what());
         }
@@ -89,28 +94,51 @@ void FileView::show_import_indicator()
     // cleanup finished imports
     for (auto it = active_imports.begin(); it != active_imports.end();) {
         if (it->wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+            if (it->get() != 0) {
+                finished_success++;
+            } else {
+                finished_failure++;
+            }
             it = active_imports.erase(it);
+            notification_timer = 5.0f; // show for 5 seconds
         } else {
             ++it;
         }
     }
 
-    if (active_imports.empty()) return;
+    if (active_imports.empty() && notification_timer <= 0.0f) return;
+
+    // update timer
+    if (active_imports.empty() && notification_timer > 0.0f) {
+        notification_timer -= ImGui::GetIO().DeltaTime;
+    }
 
     // show indicator in the corner of the window
     ImVec2 region = ImGui::GetWindowContentRegionMax();
-    ImGui::SetCursorPos(ImVec2(region.x - 200, region.y - 40));
-    ImGui::BeginChild("##ImportIndicator", ImVec2(200, 40), true, ImGuiWindowFlags_NoScrollbar);
+    ImGui::SetCursorPos(ImVec2(region.x - 250, region.y - 50));
+    ImGui::BeginChild("##ImportIndicator", ImVec2(250, 50), true, ImGuiWindowFlags_NoScrollbar);
     {
-        ImGui::Text(LYRA_ICON_IMPORT " Importing %zu assets...", active_imports.size());
+        if (!active_imports.empty()) {
+            ImGui::Text(LYRA_ICON_IMPORT " Importing %zu assets...", active_imports.size());
+        } else {
+            ImGui::TextColored(finished_failure > 0 ? ImVec4(1, 0.4f, 0.4f, 1) : ImVec4(0.4f, 1, 0.4f, 1),
+                "Import finished: %u ok, %u failed", finished_success, finished_failure);
+            if (ImGui::IsWindowHovered()) notification_timer = 0.0f; // dismiss on hover
+        }
     }
     ImGui::EndChild();
+
+    // reset counters when notification is gone
+    if (active_imports.empty() && notification_timer <= 0.0f) {
+        finished_success = 0;
+        finished_failure = 0;
+    }
 }
 
 void FileView::show_breadcrumb()
 {
     // root / home
-    if (ImGui::Button(LYRA_ICON_HOME "Home"))
+    if (ImGui::Button(LYRA_ICON_HOME " Home"))
         update_directory(root);
 
     ImGui::SameLine();

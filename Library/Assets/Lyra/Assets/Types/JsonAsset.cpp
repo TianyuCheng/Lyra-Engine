@@ -18,11 +18,10 @@ static uint get_json_extensions(CString* extensions)
     return 1;
 }
 
-static JSON json_process(OSPath source_path, OSPath)
+static bool json_process(JSON& metadata, OSPath source_path, OSPath)
 {
-    JSON metadata;
-    metadata["path"] = Path(source_path).string();
-    return metadata;
+    metadata["path"] = reinterpret_cast<const char*>(source_path);
+    return true;
 }
 
 AssetLoaderAPI JsonAsset::loader()

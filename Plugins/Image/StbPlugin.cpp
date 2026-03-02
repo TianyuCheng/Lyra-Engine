@@ -12,7 +12,7 @@ static Logger logger = create_logger("StbCooker", LogLevel::trace);
 
 static void configure_cooker(AssetServer* manager, const JSON& options) {}
 
-static JSON process_stb(OSPath source_path, OSPath target_path)
+static bool process_stb(JSON& metadata, OSPath source_path, OSPath target_path)
 {
     auto source_path_str = String(reinterpret_cast<const char*>(source_path));
     int width, height, channels;
@@ -33,12 +33,12 @@ static JSON process_stb(OSPath source_path, OSPath target_path)
 
     if (!pixels) {
         logger->error("Failed to load image file via STB: {}", source_path_str);
-        return {};
+        return false;
     }
 
-    auto metadata = encode_and_save_simple(pixels, width, height, pixel_size, format, target_path, logger);
+    bool success = encode_and_save_simple(metadata, pixels, width, height, pixel_size, format, target_path, logger);
     stbi_image_free(pixels);
-    return metadata;
+    return success;
 }
 
 static uint get_supported_cooker_extensions(CString* extensions)

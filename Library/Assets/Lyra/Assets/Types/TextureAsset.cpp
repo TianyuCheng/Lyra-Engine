@@ -7,14 +7,15 @@ using namespace lyra;
 using TextureLoaderPlugin = Plugin<AssetLoaderAPI>;
 using TextureCookerPlugin = Plugin<AssetCookerAPI>;
 
-static JSON ktx_process(OSPath source_path, OSPath target_path)
+static bool ktx_process(JSON& metadata, OSPath source_path, OSPath caches_root)
 {
-    MAYBE_UNUSED(target_path);
+    Path dst = Path(caches_root) / "Textures" / (std::to_string(metadata["guid"].get<AssetID>()) + ".ktx2");
 
-    // for ktx, ktx2, we don't need to do anything except for set metadata
-    JSON metadata;
-    metadata["path"] = reinterpret_cast<const char*>(source_path);
-    return metadata;
+    fs::create_directories(dst.parent_path());
+    fs::copy_file(Path(source_path), dst, fs::copy_options::overwrite_existing);
+
+    metadata["path"] = fs::relative(dst, caches_root).string();
+    return true;
 }
 
 static uint get_ktx_extensions(CString* extensions)
