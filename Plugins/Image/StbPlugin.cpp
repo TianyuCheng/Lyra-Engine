@@ -15,11 +15,12 @@ static void configure_cooker(AssetServer* manager, const JSON& options) {}
 static bool process_stb(JSON& metadata, OSPath source_path, OSPath target_path)
 {
     auto source_path_str = String(reinterpret_cast<const char*>(source_path));
-    int width, height, channels;
-    bool is_hdr = stbi_is_hdr(source_path_str.c_str());
-    void* pixels = nullptr;
-    size_t pixel_size = 0;
-    VkFormat format = VK_FORMAT_UNDEFINED;
+
+    int      width, height, channels;
+    bool     is_hdr     = stbi_is_hdr(source_path_str.c_str());
+    void*    pixels     = nullptr;
+    size_t   pixel_size = 0;
+    VkFormat format     = VK_FORMAT_UNDEFINED;
 
     if (is_hdr) {
         pixels     = stbi_loadf(source_path_str.c_str(), &width, &height, &channels, STBI_rgb_alpha);
@@ -45,16 +46,17 @@ static uint get_supported_cooker_extensions(CString* extensions)
 {
     static const char* exts[] = {".png", ".jpg", ".hdr"};
     if (extensions) {
-        for (uint i = 0; i < 3; ++i) extensions[i] = exts[i];
+        for (uint i = 0; i < 3; ++i)
+            extensions[i] = exts[i];
     }
     return 3;
 }
 
 LYRA_EXPORT auto create() -> AssetCookerAPI
 {
-    auto api    = AssetCookerAPI{};
-    api.configure = configure_cooker;
-    api.process = process_stb;
+    auto api                     = AssetCookerAPI{};
+    api.configure                = configure_cooker;
+    api.process                  = process_stb;
     api.get_supported_extensions = get_supported_cooker_extensions;
     return api;
 }

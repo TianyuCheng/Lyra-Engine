@@ -15,10 +15,11 @@ static void configure_cooker(AssetServer* manager, const JSON& options) {}
 static bool process_exr(JSON& metadata, OSPath source_path, OSPath target_path)
 {
     auto source_path_str = String(reinterpret_cast<const char*>(source_path));
-    int width, height;
-    float* pixels = nullptr;
-    const char* err = nullptr;
-    int ret = LoadEXR(&pixels, &width, &height, source_path_str.c_str(), &err);
+
+    int     width, height;
+    float*  pixels = nullptr;
+    CString err    = nullptr;
+    int     ret    = LoadEXR(&pixels, &width, &height, source_path_str.c_str(), &err);
     if (ret != TINYEXR_SUCCESS) {
         logger->error("Failed to load EXR file: {} (error: {})", source_path_str, err ? err : "unknown");
         FreeEXRErrorMessage(err);
@@ -41,9 +42,9 @@ static uint get_supported_cooker_extensions(CString* extensions)
 
 LYRA_EXPORT auto create() -> AssetCookerAPI
 {
-    auto api    = AssetCookerAPI{};
-    api.configure = configure_cooker;
-    api.process = process_exr;
+    auto api                     = AssetCookerAPI{};
+    api.configure                = configure_cooker;
+    api.process                  = process_exr;
     api.get_supported_extensions = get_supported_cooker_extensions;
     return api;
 }
