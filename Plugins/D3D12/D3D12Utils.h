@@ -301,12 +301,18 @@ struct D3D12BindGroup
         // the index into the heap though
         struct
         {
-            uint32_t default_index = std::numeric_limits<uint32_t>::max();
-            uint32_t sampler_index = std::numeric_limits<uint32_t>::max();
+            uint32_t default_index;
+            uint32_t sampler_index;
         };
     };
 
     uint16_t dynamic_index = std::numeric_limits<uint16_t>::max();
+
+    D3D12BindGroup()
+    {
+        default_index = std::numeric_limits<uint32_t>::max();
+        sampler_index = std::numeric_limits<uint32_t>::max();
+    }
 
     bool valid() const
     {
