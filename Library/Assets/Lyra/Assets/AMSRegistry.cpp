@@ -30,6 +30,10 @@ static constexpr CString REGISTRY_MAGIC   = "LYRA";
 
 bool AssetRegistry::load(const OSPath& path)
 {
+    if (!path) {
+        spdlog::error("registry file is not specified!");
+        return false;
+    }
     auto ext = Path(path).extension().string();
     if (!fs::exists(path)) {
         return false;
@@ -46,6 +50,10 @@ bool AssetRegistry::load(const OSPath& path)
 
 bool AssetRegistry::save(const OSPath& path)
 {
+    if (!path) {
+        spdlog::error("registry file is not specified!");
+        return false;
+    }
     auto ext = Path(path).extension().string();
     if (ext == ".bin") {
         return save_binary(path);

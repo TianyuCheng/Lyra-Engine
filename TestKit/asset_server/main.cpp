@@ -11,9 +11,8 @@ namespace fs = std::filesystem;
 
 struct DummyAsset
 {
-    static constexpr CString name = "DummyAsset";
-    static constexpr uint    type = 9999;
-    static constexpr UUID    uuid = make_uuid("00000000-0000-0000-0000-000000000001");
+    static constexpr CString     name = "DummyAsset";
+    static constexpr AssetTypeID type = 9999;
 
     static auto loader() -> AssetLoaderAPI;
     static auto cooker() -> AssetCookerAPI;
@@ -73,11 +72,11 @@ AssetCookerAPI DummyAsset::cooker()
 
 TEST_CASE("ams::asset_server")
 {
-    spdlog::set_level(spdlog::level::trace);
     // setup temporary directory for tests
     auto temp_dir = fs::temp_directory_path() / "lyra_ams_test";
     fs::create_directories(temp_dir);
 
+    auto registry      = temp_dir / "Assets.toml";
     auto asset_path    = temp_dir / "test.dummy";
     auto metadata_path = temp_dir / "test.dummy.import";
 
@@ -85,6 +84,7 @@ TEST_CASE("ams::asset_server")
     {
         std::ofstream f(asset_path);
         f << "dummy data";
+        f.close();
     }
     {
         JSON metadata;
@@ -92,6 +92,7 @@ TEST_CASE("ams::asset_server")
         metadata["value"] = 100;
         std::ofstream f(metadata_path);
         f << metadata.dump();
+        f.close();
     }
 
     // initialize fileloader
@@ -99,11 +100,11 @@ TEST_CASE("ams::asset_server")
     loader.mount("/", temp_dir.string().c_str(), 0);
 
     // initialize assetserver
-    AMSDescriptor desc;
+    AMSDescriptor desc        = {};
     desc.workers              = 4;
+    desc.registry             = registry.c_str();
     desc.loader.assets        = &loader;
-    auto temp_dir_str         = temp_dir.string();
-    desc.importer.assets_path = temp_dir_str.c_str();
+    desc.importer.assets_path = temp_dir.c_str();
 
     AssetServer ams(desc);
     ams.register_asset<DummyAsset>();
@@ -117,10 +118,8 @@ TEST_CASE("ams::asset_server")
 
         // reconfigure ams for importing
         AMSDescriptor import_desc        = desc;
-        auto          source_dir_str     = source_dir.string();
-        auto          caches_dir_str     = caches_dir.string();
-        import_desc.importer.assets_path = source_dir_str.c_str();
-        import_desc.importer.caches_path = caches_dir_str.c_str();
+        import_desc.importer.assets_path = source_dir.c_str();
+        import_desc.importer.caches_path = caches_dir.c_str();
 
         AssetServer import_ams(import_desc);
         import_ams.register_asset<DummyAsset>();
@@ -130,17 +129,15 @@ TEST_CASE("ams::asset_server")
         {
             std::ofstream f(raw_path);
             f << "raw dummy content";
+            f.close();
         }
 
         // ensure metadata does not exist from previous run
         Path expected_metadata = source_dir / "new_test.dummy.import";
         if (fs::exists(expected_metadata)) fs::remove(expected_metadata);
 
-        lyra::GUID guid = 0;
-
         auto future = import_ams.import_asset("new_test.dummy");
-        guid = future.get();
-
+        auto guid   = future.get();
         CHECK_NE(guid, 0);
 
         // metadata should be created next to the source asset
@@ -158,7 +155,8 @@ TEST_CASE("ams::asset_server")
         std::ifstream f(expected_metadata);
         JSON          metadata = JSON::parse(f);
         CHECK_EQ(metadata["guid"].get<lyra::GUID>(), guid);
-        CHECK_EQ(metadata["type"].get<std::string>(), "DummyAsset");
+        CHECK_EQ(metadata["type"].get<lyra::AssetTypeID>(), DummyAsset::type);
+        f.close();
     }
 
     SUBCASE("Basic Asynchronous Loading")

@@ -288,22 +288,32 @@ struct D3D12Shader
     bool valid() const { return !binary.empty(); }
 };
 
+struct D3D12BindGroupHeap;
 struct D3D12BindGroup
 {
-    // NOTE: D3D12 requires an explicit separation of cbv_srv_uav vs sampler heap,
-    // but a single bindgroup is allowed to contain both. We only need to record
-    // the index into the heap though
-    uint32_t default_index = std::numeric_limits<uint32_t>::max();
-    uint32_t sampler_index = std::numeric_limits<uint16_t>::max();
+    union
+    {
+        // NOTE: This is only required for dynamic uniform.
+        GPUBindGroupHeapHandle heap;
+
+        // NOTE: D3D12 requires an explicit separation of cbv_srv_uav vs sampler heap,
+        // but a single bindgroup is allowed to contain both. We only need to record
+        // the index into the heap though
+        struct
+        {
+            uint32_t default_index = std::numeric_limits<uint32_t>::max();
+            uint32_t sampler_index = std::numeric_limits<uint32_t>::max();
+        };
+    };
+
     uint16_t dynamic_index = std::numeric_limits<uint16_t>::max();
-    uint16_t heap_index    = std::numeric_limits<uint16_t>::max();
 
     bool valid() const
     {
         bool default_valid = default_index != std::numeric_limits<uint32_t>::max();
-        bool sampler_valid = sampler_index != std::numeric_limits<uint16_t>::max();
+        bool sampler_valid = sampler_index != std::numeric_limits<uint32_t>::max();
         bool dynamic_valid = dynamic_index != std::numeric_limits<uint16_t>::max();
-        bool heap_valid    = heap_index != std::numeric_limits<uint16_t>::max();
+        bool heap_valid    = heap.valid();
         return default_valid || sampler_valid || (dynamic_valid && heap_valid);
     }
 };

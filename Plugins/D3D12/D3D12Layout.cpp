@@ -378,8 +378,6 @@ void D3D12BindGroupLayout::destroy()
 D3D12BindGroup* D3D12BindGroupLayout::create(GPUBindGroupHeapHandle heap_handle, const GPUBindGroupDescriptor& desc)
 {
     assert(!bindless && "Cannot create bindless descriptor using bound descriptor entries!");
-    assert(heap_handle.value < std::numeric_limits<uint16_t>::max()); // avoid using too many heaps
-
     auto rhi = get_rhi();
 
     // allocate descriptors
@@ -387,9 +385,9 @@ D3D12BindGroup* D3D12BindGroupLayout::create(GPUBindGroupHeapHandle heap_handle,
     auto  bind_group = heap.memory->allocate<D3D12BindGroup>();
 
     bind_group->default_index = std::numeric_limits<uint32_t>::max();
-    bind_group->sampler_index = std::numeric_limits<uint16_t>::max();
+    bind_group->sampler_index = std::numeric_limits<uint32_t>::max();
     bind_group->dynamic_index = std::numeric_limits<uint16_t>::max();
-    bind_group->heap_index    = static_cast<uint16_t>(heap_handle.to_slotmap_handle<D3D12BindGroupHeap>().index);
+    bind_group->heap          = heap_handle;
 
     // allocate descriptors for default ranges
     if (num_defaults)

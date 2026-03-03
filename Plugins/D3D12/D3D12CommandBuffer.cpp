@@ -306,7 +306,7 @@ void cmd::set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GP
     assert(des->dynamic_index != std::numeric_limits<uint16_t>::max());
     assert(info.has_dynamic_root_parameter());
     for (uint i = 0; i < dynamic_offsets.size(); i++) {
-        auto& heap    = fetch_resource(rhi->bind_group_heaps, GPUBindGroupHeapHandle(des->heap_index));
+        auto& heap    = fetch_resource(rhi->bind_group_heaps, des->heap);
         auto& dynamic = heap.dynamic_heap.at(des->dynamic_index + i);
         auto  address = dynamic.address + dynamic_offsets.at(i);
         if (dynamic.type == D3D12_ROOT_PARAMETER_TYPE_CBV) {
