@@ -5,6 +5,7 @@
 
 #include <Lyra/Common/Stdint.h>
 
+#undef DEBUG
 namespace lyra
 {
 

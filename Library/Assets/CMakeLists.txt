@@ -31,6 +31,10 @@ target_sources(lyra-assets PRIVATE
     Lyra/Assets/Types/ModelAsset.cpp
 )
 
+find_package(ktx REQUIRED)
+find_package(VulkanHeaders REQUIRED)
+
 target_link_libraries(lyra-assets PUBLIC lyra::common)
 target_link_libraries(lyra-assets PUBLIC lyra::fileio)
 target_link_libraries(lyra-assets PUBLIC lyra::render)
+target_link_libraries(lyra-assets PUBLIC KTX::ktx Vulkan::Headers)
