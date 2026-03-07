@@ -48,11 +48,12 @@ def save_config(config: BuildConfig):
     with config_file("w") as f:
         json.dump(asdict(config), f, indent=2)
 
-def execute(args, env_vars={}):
+def execute(args, cwd=os.getcwd(), env_vars={}):
     print(f">>> {shlex.join(args)}")
     environ = deepcopy(os.environ)
     environ.update(env_vars)
-    subprocess.run(args, check=True, env=environ)
+    proc = subprocess.run(args, env=environ, cwd=cwd, text=True, check=True, capture_output=True)
+    return proc
 
 def do_config(args: argparse.Namespace):
     config = BuildConfig(generator=args.generator, preset=args.preset)
@@ -80,7 +81,13 @@ def do_build(args: argparse.Namespace):
 def do_run(args: argparse.Namespace):
     config = load_config()
     preset = f"{config.generator}-{config.preset}"
-    command = ["cmake", "--build", "--preset", preset, "--target", args.target]
+    command = ["cmake", "--build", "--preset", preset, "--target", f"show-{args.target}"]
+    proc = execute(command)
+    info = proc.stdout.strip().splitlines()
+    directory = info[-2]
+    executable = os.path.join(directory, info[-1])
+    command = [executable] + args.args
+    print(">>> EXE:", executable)
     execute(command)
 
 def do_test(args: argparse.Namespace):
@@ -112,6 +119,7 @@ def parse_args():
     # just run target
     test_parser = subparsers.add_parser("run")
     test_parser.add_argument("--target")
+    test_parser.add_argument("args", nargs="*")
 
     # just test target
     test_parser = subparsers.add_parser("test")

@@ -15,8 +15,8 @@ switch preset:
 build target="all":
     @{{PYTHON}} Scripts/build.py build --target {{target}}
 
-run target="all":
-    @{{PYTHON}} Scripts/build.py run --target {{target}}
+run target="all" *args="":
+    @{{PYTHON}} Scripts/build.py run --target {{target}} -- {{args}}
 
 test target="all":
     @{{PYTHON}} Scripts/build.py build --target testkit
