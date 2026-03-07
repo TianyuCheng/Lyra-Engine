@@ -40,7 +40,6 @@ target_sources(lyra-engine PUBLIC
   # editor
   Lyra/Editor/Canvas.h
   Lyra/Editor/Colors.h
-  Lyra/Editor/Fonts.h
   Lyra/Editor/Icons.h
   Lyra/Editor/Layout.h
   Lyra/Editor/FileView.h

@@ -1,3 +1,5 @@
-Font: Agave
-From: https://www.nerdfonts.com/font-downloads
-Icons: https://www.nerdfonts.com/cheat-sheet
+Font: JetBrains Mono
+From: https://fonts.google.com/specimen/JetBrains+Mono
+
+Icon: Google Material Icons
+From: https://fonts.google.com/icons

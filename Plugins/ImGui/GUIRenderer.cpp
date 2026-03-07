@@ -702,7 +702,7 @@ void GUIRenderer::init(const GUIDescriptor& descriptor)
     init_platform_data(descriptor);
     init_viewport_data(descriptor);
     init_dummy_texture();
-    init_imgui_font("Fonts/Font.ttf", descriptor.font_size);
+    init_imgui_font(descriptor.font_size);
 }
 
 void GUIRenderer::reset()
@@ -1155,7 +1155,7 @@ void GUIRenderer::init_dummy_texture()
     renderer_data->textures.add(texinfo);
 }
 
-void GUIRenderer::init_imgui_font(CString filename, float font_size)
+void GUIRenderer::init_imgui_font(float font_size)
 {
     ImGuiIO&    io    = ImGui::GetIO();
     ImGuiStyle& style = ImGui::GetStyle();
@@ -1178,22 +1178,24 @@ void GUIRenderer::init_imgui_font(CString filename, float font_size)
     icon_cfg.GlyphRanges          = icon_ranges; // icons only
     icon_cfg.GlyphMaxAdvanceX     = font_size;
     icon_cfg.GlyphMinAdvanceX     = font_size;
+    icon_cfg.GlyphOffset.y        = font_size * 0.25f;
 
     // font source
-    auto file = cmrc::imgui::get_filesystem().open(filename);
+    auto text_font = cmrc::imgui::get_filesystem().open("Fonts/Texts.ttf");
+    auto icon_font = cmrc::imgui::get_filesystem().open("Fonts/Icons.ttf");
 
     // load the main font from memory
     io.Fonts->AddFontFromMemoryTTF(
-        (void*)file.begin(),
-        static_cast<int>(file.size()),
+        (void*)text_font.begin(),
+        static_cast<int>(text_font.size()),
         font_size,
         &font_cfg);
 
     // load the icon font from memory
     io.Fonts->AddFontFromMemoryTTF(
-        (void*)file.begin(),
-        static_cast<int>(file.size()),
-        font_size * 1.25f,
+        (void*)icon_font.begin(),
+        static_cast<int>(icon_font.size()),
+        font_size * 1.15f,
         &icon_cfg);
 
     io.Fonts->Build();

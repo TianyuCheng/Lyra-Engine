@@ -73,8 +73,9 @@ namespace lyra
         char new_folder_name[256] = "";
         char rename_buffer[256]   = "";
 
-        float icon_size = 128.0f;
-        float padding   = 16.0f;
+        float icon_size  = 128.0f;
+        float icon_scale = 6.0f;
+        float padding    = 16.0f;
     };
 } // namespace lyra
 

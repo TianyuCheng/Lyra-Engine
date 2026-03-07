@@ -137,7 +137,7 @@ private:
     void init_renderer_data(const GUIDescriptor& descriptor);
     void init_viewport_data(const GUIDescriptor& descriptor);
     void init_dummy_texture();
-    void init_imgui_font(CString filename, float font_size);
+    void init_imgui_font(float font_size);
 
     void setup_render_state(GPUCommandBuffer cmdbuffer, ImDrawData* draw_data, int width, int height);
 

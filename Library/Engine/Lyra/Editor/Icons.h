@@ -3,35 +3,31 @@
 #ifndef LYRA_LIBRARY_EDITOR_ICONS_H
 #define LYRA_LIBRARY_EDITOR_ICONS_H
 
-#include "Fonts.h"
+#define LYRA_ICON_HOME       "\ue88a"
+#define LYRA_ICON_FILTER     "\uef4f"
+#define LYRA_ICON_FOLDER     "\ue2c7"
+#define LYRA_ICON_FILE       "\ue24d"
+#define LYRA_ICON_CONSOLE    "\ueb8e"
+#define LYRA_ICON_CAMERA     "\uf07f"
+#define LYRA_ICON_SCENE      "\ue3b0"
+#define LYRA_ICON_GAME       "\uea28"
+#define LYRA_ICON_TREE       "\ue97a"
+#define LYRA_ICON_NODE       "\ue9fe"
+#define LYRA_ICON_GROUP      "\ue9fe"
+#define LYRA_ICON_INSPECTOR  "\ue8b6"
 
-#define LYRA_ICON_HOME       ICON_FA_HOUSE
-#define LYRA_ICON_FILTER     ICON_FA_FILTER
-#define LYRA_ICON_FOLDER     ICON_FA_FOLDER
-#define LYRA_ICON_FILE       ICON_FA_FILE
-#define LYRA_ICON_FILE_TEXT  ICON_FA_FILE_LINES
-#define LYRA_ICON_FILE_IMAGE ICON_FA_FILE_IMAGE
-#define LYRA_ICON_CONSOLE    "\ue795"
-#define LYRA_ICON_CAMERA     ICON_FA_VIDEO_CAMERA
-#define LYRA_ICON_SCENE      ICON_FA_CAMERA
-#define LYRA_ICON_GAME       ICON_FA_CUBE
-#define LYRA_ICON_TREE       ICON_FA_LIST
-#define LYRA_ICON_NODE       ICON_FA_CUBE
-#define LYRA_ICON_GROUP      ICON_FA_CUBES
-#define LYRA_ICON_INSPECTOR  ICON_FA_MAGNIFYING_GLASS
+#define LYRA_ICON_PLAY       "\ue037"
+#define LYRA_ICON_PAUSE      "\ue034"
+#define LYRA_ICON_RESTART    "\ue042"
 
-#define LYRA_ICON_PLAY       ICON_FA_PLAY
-#define LYRA_ICON_PAUSE      ICON_FA_PAUSE
-#define LYRA_ICON_RESTART    ICON_FA_ROTATE_LEFT
-#define LYRA_ICON_DELETE     ICON_FA_TRASH
-
-#define LYRA_ICON_NEW_FOLDER "\uea80"
-#define LYRA_ICON_NEW_FILE   "\uea7f"
-#define LYRA_ICON_IMPORT     "\uee38"
-#define LYRA_ICON_REFRESH    "\uf021"
-#define LYRA_ICON_RENAME     "\uf01f"
-#define LYRA_ICON_FILE_SAVE  "\uf0c7"
-#define LYRA_ICON_FILE_OPEN  "\uf07c"
+#define LYRA_ICON_NEW_FOLDER "\ue2cc"
+#define LYRA_ICON_NEW_FILE   "\ue89c"
+#define LYRA_ICON_IMPORT     "\ue9fc"
+#define LYRA_ICON_REFRESH    "\ue5d5"
+#define LYRA_ICON_RENAME     "\ueb60"
+#define LYRA_ICON_DELETE     "\ue872"
+#define LYRA_ICON_FILE_SAVE  "\ue161"
+#define LYRA_ICON_FILE_OPEN  "\ueaf3"
 
 #define LYRA_ICON_ERROR      "\uea87"
 #define LYRA_ICON_WARN       "\uea6c"

@@ -236,7 +236,7 @@ void FileView::show_dir_files(Blackboard& blackboard)
         ImGui::PushID(grid_id++);
         {
             // folder icon
-            draw_icon_grid(LYRA_ICON_FOLDER, folder.c_str(), 6.0f, is_selected(folder));
+            draw_icon_grid(LYRA_ICON_FOLDER, folder.c_str(), icon_scale, is_selected(folder));
 
             // handle clicks
             if (ImGui::IsItemHovered()) {
@@ -283,7 +283,7 @@ void FileView::show_dir_files(Blackboard& blackboard)
         ImGui::PushID(grid_id++);
         {
             // file icon
-            draw_icon_grid(LYRA_ICON_FILE, file.c_str(), 6.0f, is_selected(file));
+            draw_icon_grid(LYRA_ICON_FILE, file.c_str(), icon_scale, is_selected(file));
 
             // handle clicks
             if (ImGui::IsItemHovered()) {
