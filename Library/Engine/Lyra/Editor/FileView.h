@@ -26,13 +26,15 @@ namespace lyra
     private:
         // ui helpers
         void show_breadcrumb();
-        void show_dir_files();
-        void show_context_menu();
+        void show_dir_files(Blackboard& blackboard);
+        void show_context_menu(Blackboard& blackboard);
         void show_new_file_dialog();
         void show_new_folder_dialog();
+        void show_rename_dialog();
+        void show_delete_dialog(Blackboard& blackboard);
         void show_import_indicator();
         void next_icon_grid(float row_width, float start_x);
-        void draw_icon_grid(CString icon, CString text, float icon_scale) const;
+        void draw_icon_grid(CString icon, CString text, float icon_scale, bool selected = false) const;
 
     private:
         // data helpers
@@ -54,12 +56,22 @@ namespace lyra
         Vector<String>          folders     = {};
         Vector<Breadcrumb>      breadcrumbs = {};
         Vector<Future<AssetID>> active_imports;
-        uint32_t                finished_success = 0;
-        uint32_t                finished_failure = 0;
+        uint                    finished_success   = 0;
+        uint                    finished_failure   = 0;
         float                   notification_timer = 0.0f;
+
+        String         context_selected_file;
+        String         context_selected_folder;
+        Vector<String> selected_items;
+        String         last_selected;
 
         bool show_new_file_modal   = false;
         bool show_new_folder_modal = false;
+        bool show_delete_modal     = false;
+        bool show_rename_modal     = false;
+
+        char new_folder_name[256] = "";
+        char rename_buffer[256]   = "";
 
         float icon_size = 128.0f;
         float padding   = 16.0f;

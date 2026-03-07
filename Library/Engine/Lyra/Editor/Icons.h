@@ -23,11 +23,13 @@
 #define LYRA_ICON_PLAY       ICON_FA_PLAY
 #define LYRA_ICON_PAUSE      ICON_FA_PAUSE
 #define LYRA_ICON_RESTART    ICON_FA_ROTATE_LEFT
+#define LYRA_ICON_DELETE     ICON_FA_TRASH
 
 #define LYRA_ICON_NEW_FOLDER "\uea80"
 #define LYRA_ICON_NEW_FILE   "\uea7f"
 #define LYRA_ICON_IMPORT     "\uee38"
 #define LYRA_ICON_REFRESH    "\uf021"
+#define LYRA_ICON_RENAME     "\uf01f"
 #define LYRA_ICON_FILE_SAVE  "\uf0c7"
 #define LYRA_ICON_FILE_OPEN  "\uf07c"
 

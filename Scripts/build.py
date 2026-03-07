@@ -48,11 +48,11 @@ def save_config(config: BuildConfig):
     with config_file("w") as f:
         json.dump(asdict(config), f, indent=2)
 
-def execute(args, cwd=os.getcwd(), env_vars={}):
+def execute(args, env_vars={}, **kwargs):
     print(f">>> {shlex.join(args)}")
     environ = deepcopy(os.environ)
     environ.update(env_vars)
-    proc = subprocess.run(args, env=environ, cwd=cwd, text=True, check=True, capture_output=True)
+    proc = subprocess.run(args, **kwargs)
     return proc
 
 def do_config(args: argparse.Namespace):
@@ -82,7 +82,7 @@ def do_run(args: argparse.Namespace):
     config = load_config()
     preset = f"{config.generator}-{config.preset}"
     command = ["cmake", "--build", "--preset", preset, "--target", f"show-{args.target}"]
-    proc = execute(command)
+    proc = execute(command, check=True, text=True, capture_output=True)
     info = proc.stdout.strip().splitlines()
     directory = info[-2]
     executable = os.path.join(directory, info[-1])
