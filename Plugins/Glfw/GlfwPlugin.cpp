@@ -71,7 +71,8 @@ struct UserState
     void add_mouse_wheel_event(float x, float y)
     {
         if (is_event_queue_full()) {
-            get_logger()->warn("Ignore mouse wheel event beacause event queue is full!");
+            // NOTE: This is too excessive!
+            // get_logger()->warn("Ignore mouse wheel event beacause event queue is full!");
             return;
         }
 

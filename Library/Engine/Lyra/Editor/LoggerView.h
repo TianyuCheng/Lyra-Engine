@@ -22,8 +22,8 @@ namespace lyra
         void show_logs() const;
 
     private:
-        int  log_level = 0;
-        char filter[1024];
+        uint8_t level_filter = 0x3F; // Bitmask for individual level toggles
+        char    filter[1024];
     };
 } // namespace lyra
 

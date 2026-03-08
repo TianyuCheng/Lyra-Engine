@@ -42,37 +42,45 @@ void LoggerView::update(Blackboard& blackboard)
 
 void LoggerView::show_bar()
 {
-    // log verbosity
-    ImGui::PushItemWidth(200);
-    CString log_levels[]  = {"trace", "debug", "info", "warn", "error", "critical", "off"};
-    CString preview_value = log_levels[log_level];
+    // toggle buttons for each log level
+    auto level_button = [&](const char* label, LogLevel level, ImVec4 color) {
+        bool active = (level_filter & (1 << (int)level));
+        if (active) {
+            ImGui::PushStyleColor(ImGuiCol_Button, color);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(color.x * 1.2f, color.y * 1.2f, color.z * 1.2f, color.w));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(color.x * 0.8f, color.y * 0.8f, color.z * 0.8f, color.w));
+        } else {
+            ImGui::PushStyleColor(ImGuiCol_Text, color);
+            ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyle().Colors[ImGuiCol_ChildBg]);
+        }
 
-    // just to apply some padding
-    ImGui::BeginDisabled();
-    ImGui::PushStyleColor(ImGuiCol_TextDisabled, LYRA_COLOR_DISABLED);
-    ImGui::Button(LYRA_ICON_FILTER);
-    ImGui::PopStyleColor();
-    ImGui::EndDisabled();
+        if (ImGui::Button(label)) {
+            level_filter ^= (1 << (int)level);
+        }
+
+        if (active) ImGui::PopStyleColor(3);
+        else ImGui::PopStyleColor(2);
+    };
+
+    level_button("TRACE", LogLevel::trace, LYRA_COLOR_TRACE);
+    ImGui::SameLine();
+    level_button("DEBUG", LogLevel::debug, LYRA_COLOR_DEBUG);
+    ImGui::SameLine();
+    level_button("INFO", LogLevel::info, LYRA_COLOR_INFO);
+    ImGui::SameLine();
+    level_button("WARN", LogLevel::warn, LYRA_COLOR_WARN);
+    ImGui::SameLine();
+    level_button("ERROR", LogLevel::err, LYRA_COLOR_ERROR);
+    ImGui::SameLine();
+    level_button("CRIT", LogLevel::critical, LYRA_COLOR_CRITICAL);
 
     ImGui::SameLine();
-    if (ImGui::BeginCombo("##LogLevel", preview_value)) {
-        for (int i = 0; i < IM_ARRAYSIZE(log_levels); i++) {
-            const bool is_log_level = (log_level == i);
-            if (ImGui::Selectable(log_levels[i], is_log_level)) {
-                log_level = i;
-            }
-            if (is_log_level) {
-                ImGui::SetItemDefaultFocus();
-            }
-        }
-        ImGui::EndCombo();
-    }
-    ImGui::PopItemWidth();
+    ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
     ImGui::SameLine();
 
     // log filter
     ImGui::PushItemWidth(-1);
-    ImGui::InputText("##LogFilter", filter, 1024, 0);
+    ImGui::InputTextWithHint("##LogFilter", LYRA_ICON_FILTER " Filter...", filter, 1024);
     ImGui::PopItemWidth();
 }
 
@@ -80,13 +88,10 @@ void LoggerView::show_logs() const
 {
     String filter_text(filter);
 
-    // record the original text color
-    ImGuiStyle& style      = ImGui::GetStyle();
-    ImVec4*     colors     = style.Colors;
-    ImVec4      text_color = colors[ImGuiCol_Text];
-
     // change log color
     auto set_text_color = [&](LogLevel level) {
+        ImGuiStyle& style  = ImGui::GetStyle();
+        ImVec4*     colors = style.Colors;
         // clang-format off
         switch (level) {
             case LogLevel::trace:    colors[ImGuiCol_Text] = LYRA_COLOR_TRACE;    break;
@@ -100,18 +105,22 @@ void LoggerView::show_logs() const
         // clang-format on
     };
 
+    // record original text color
+    ImVec4 original_color = ImGui::GetStyle().Colors[ImGuiCol_Text];
+
     // show filtered console logs
     ImGui::BeginChild("Logs", ImVec2(0, 0), true, ImGuiWindowFlags_HorizontalScrollbar);
     {
         auto& sink = get_console_sink()->get_console();
         sink.for_each([&](const ConsoleLog& log) {
-            if (log_level <= static_cast<int>(log.verbosity))
+            if (level_filter & (1 << (int)log.verbosity)) {
                 if (filter_text.empty() || log.payload.find(filter_text) != String::npos) {
                     if (!log.payload.empty()) {
                         set_text_color(log.verbosity);
-                        ImGui::Text("%s", log.payload.c_str());
+                        ImGui::TextUnformatted(log.payload.c_str());
                     }
                 }
+            }
         });
         if (sink.modified()) {
             sink.reset();
@@ -120,6 +129,6 @@ void LoggerView::show_logs() const
     }
     ImGui::EndChild();
 
-    // restore the original text color
-    colors[ImGuiCol_Text] = text_color;
+    // restore color
+    ImGui::GetStyle().Colors[ImGuiCol_Text] = original_color;
 }

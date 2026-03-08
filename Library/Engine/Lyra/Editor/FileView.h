@@ -73,8 +73,8 @@ namespace lyra
         SelectionModel selection;
         IconGrid       grid;
 
-        bool   is_marquee_selecting = false;
-        ImVec2 marquee_start_pos;
+        bool           is_marquee_selecting = false;
+        ImVec2         marquee_start_pos;
         Vector<String> initial_selection; // selection state before marquee started
 
         bool show_new_file_modal   = false;
