@@ -14,21 +14,27 @@ namespace lyra
      */
     struct IconGrid
     {
-    public:
-        float icon_size  = 128.0f;
-        float icon_scale = 6.0f;
-        float padding    = 16.0f;
+    private:
+        // automatically set by IconGrid
+        float icon_scale         = 6.0f;
+        float adjusted_grid_size = 128.0f;
 
+    public:
+        // accessible by user
+        float grid_size    = 128.0f;
+        float grid_padding = 16.0f;
+
+    public:
         /**
          * @brief Interaction flags returned by draw_item.
          */
         enum InteractionFlags : int
         {
-            None           = 0,
-            Clicked        = 1 << 0,
-            DoubleClicked  = 1 << 1,
-            RightClicked   = 1 << 2,
-            Hovered        = 1 << 3
+            None          = 0,
+            Clicked       = 1 << 0,
+            DoubleClicked = 1 << 1,
+            RightClicked  = 1 << 2,
+            Hovered       = 1 << 3
         };
 
         struct Context

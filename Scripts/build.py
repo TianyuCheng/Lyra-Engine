@@ -85,8 +85,9 @@ def do_run(args: argparse.Namespace):
     command = ["cmake", "--build", "--preset", preset, "--target", f"show-{args.target}"]
     proc = execute(command, check=True, text=True, capture_output=True)
     info = proc.stdout.strip().splitlines()
-    directory = info[-2]
-    executable = os.path.join(directory, info[-1])
+    directory = info[-2].strip()
+    executable = info[-1].strip()
+    executable = os.path.join(directory, executable)
     command = [executable] + args.args
     print(">>> EXE:", executable)
     execute(command)

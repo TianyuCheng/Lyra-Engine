@@ -9,12 +9,13 @@ auto IconGrid::begin() -> Context
 {
     ImGuiStyle& style = ImGui::GetStyle();
 
-    // calculate icon_scale based on icon_size and font metrics
-    // icon_size / (ImGui's base font size * ImGui's base font scale)
-    float base_font_size    = style.FontSizeBase;
-    float font_global_scale = ImGui::GetIO().FontGlobalScale;
+    // calculate icon_scale based on grid_size and font metrics
+    // grid_size / (ImGui's base font size * ImGui's base font scale)
+    icon_scale = std::floor((grid_size - grid_padding) / style.FontSizeBase);
+    icon_scale /= style.FontScaleMain;
 
-    icon_scale = std::floor((icon_size - padding) / (base_font_size * font_global_scale));
+    // need to account for additional scaling by monitor DPI
+    adjusted_grid_size = grid_size * style.FontScaleMain;
 
     Context ctx;
     ctx.start_x   = ImGui::GetCursorPosX();
@@ -37,7 +38,7 @@ auto IconGrid::draw_item(Context& ctx, CString icon, CString label, bool selecte
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
         }
 
-        ImGui::Button("##bg", ImVec2(icon_size, icon_size));
+        ImGui::Button("##bg", ImVec2(adjusted_grid_size, adjusted_grid_size));
 
         if (ImGui::IsItemHovered()) interaction |= Hovered;
         if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) interaction |= Clicked;
@@ -49,16 +50,16 @@ auto IconGrid::draw_item(Context& ctx, CString icon, CString label, bool selecte
         // draw icon centered in the box
         ImGui::SetWindowFontScale(icon_scale);
         const ImVec2 s = ImGui::CalcTextSize(icon);
-        ImGui::SetCursorPosX(pos.x + (icon_size - s.x) * 0.5f);
-        ImGui::SetCursorPosY(pos.y + (icon_size - s.y) * 0.5f);
+        ImGui::SetCursorPosX(pos.x + (adjusted_grid_size - s.x) * 0.5f);
+        ImGui::SetCursorPosY(pos.y + (adjusted_grid_size - s.y) * 0.5f);
         ImGui::TextUnformatted(icon);
         ImGui::SetWindowFontScale(1.0f);
 
         // draw label under icon
-        ImGui::SetCursorPosY(pos.y + icon_size + ImGui::GetStyle().ItemSpacing.y);
-        const float w = ImGui::CalcTextSize(label, nullptr, false, icon_size).x;
-        ImGui::SetCursorPosX(pos.x + (icon_size > w ? (icon_size - w) * 0.5f : 0));
-        ImGui::PushTextWrapPos(pos.x + icon_size);
+        ImGui::SetCursorPosY(pos.y + adjusted_grid_size + ImGui::GetStyle().ItemSpacing.y);
+        const float w = ImGui::CalcTextSize(label, nullptr, false, adjusted_grid_size).x;
+        ImGui::SetCursorPosX(pos.x + (adjusted_grid_size > w ? (adjusted_grid_size - w) * 0.5f : 0));
+        ImGui::PushTextWrapPos(pos.x + adjusted_grid_size);
         ImGui::TextWrapped("%s", label);
         ImGui::PopTextWrapPos();
     }
@@ -71,8 +72,8 @@ auto IconGrid::draw_item(Context& ctx, CString icon, CString label, bool selecte
 void IconGrid::next_column(Context& ctx)
 {
     float last_x = ImGui::GetItemRectMax().x;
-    if (last_x + padding + icon_size < ctx.row_width) {
-        ImGui::SameLine(0.0f, padding);
+    if (last_x + grid_padding + adjusted_grid_size < ctx.row_width) {
+        ImGui::SameLine(0.0f, grid_padding);
     } else {
         ImGui::NewLine();
         ImGui::SetCursorPosX(ctx.start_x);

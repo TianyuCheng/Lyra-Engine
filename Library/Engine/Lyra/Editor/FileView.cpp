@@ -122,7 +122,7 @@ void FileView::show_dir_files(Blackboard& blackboard)
     auto handle_marquee = [&](StringView name) {
         if (is_marquee_selecting) {
             ImVec2 pos = ImGui::GetCursorScreenPos();
-            ImRect item_rect(pos, ImVec2(pos.x + grid.icon_size, pos.y + grid.icon_size));
+            ImRect item_rect(pos, ImVec2(pos.x + grid.grid_size, pos.y + grid.grid_size));
             if (marquee_rect.Overlaps(item_rect)) {
                 if (!selection.is_selected(name)) {
                     selection.items.emplace_back(name);

@@ -800,8 +800,9 @@ void GUIRenderer::resize()
     io.ConfigDpiScaleFonts     = true; // [Experimental] Automatically overwrite style.FontScaleDpi in Begin() when Monitor DPI changes. This will scale fonts but _NOT_ scale sizes/padding for now.
     io.ConfigDpiScaleViewports = true; // [Experimental] Scale Dear ImGui and Platform Windows when Monitor DPI changes.
 
-    ImGuiStyle& style  = ImGui::GetStyle();
-    style.FontScaleDpi = std::max(dpi_xscale, dpi_yscale);
+    ImGuiStyle& style   = ImGui::GetStyle();
+    style.FontScaleDpi  = std::max(dpi_xscale, dpi_yscale);
+    style.FontScaleMain = std::max(dpi_xscale, dpi_yscale);
 }
 
 void GUIRenderer::destroy()

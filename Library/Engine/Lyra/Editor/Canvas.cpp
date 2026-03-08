@@ -71,7 +71,9 @@ void Canvas::detect_window()
     if (curr_extent.x != frame_extent.x || curr_extent.y != frame_extent.y)
         frame_changed = true;
 
-    frame_extent = curr_extent;
+    frame_extent   = curr_extent;
+    frame_extent.x = std::max(0.0f, frame_extent.x);
+    frame_extent.y = std::max(0.0f, frame_extent.y);
 }
 
 void Canvas::create_frames(Blackboard& blackboard)
