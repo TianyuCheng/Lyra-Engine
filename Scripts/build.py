@@ -79,6 +79,7 @@ def do_build(args: argparse.Namespace):
     execute(command)
 
 def do_run(args: argparse.Namespace):
+    do_build(args)
     config = load_config()
     preset = f"{config.generator}-{config.preset}"
     command = ["cmake", "--build", "--preset", preset, "--target", f"show-{args.target}"]

@@ -42,6 +42,8 @@ target_sources(lyra-engine PUBLIC
   Lyra/Editor/Colors.h
   Lyra/Editor/Icons.h
   Lyra/Editor/Layout.h
+  Lyra/Editor/IconGrid.h
+  Lyra/Editor/SelectionModel.h
   Lyra/Editor/FileView.h
   Lyra/Editor/TreeView.h
   Lyra/Editor/SceneView.h
@@ -71,6 +73,8 @@ target_sources(lyra-engine PRIVATE
   # editor
   Lyra/Editor/Canvas.cpp
   Lyra/Editor/Layout.cpp
+  Lyra/Editor/IconGrid.cpp
+  Lyra/Editor/SelectionModel.cpp
   Lyra/Editor/FileView.cpp
   Lyra/Editor/TreeView.cpp
   Lyra/Editor/SceneView.cpp

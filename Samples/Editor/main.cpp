@@ -77,7 +77,7 @@ int main(int argc, const char* argv[])
     // clang-format off
     cxxopts::Options options("Lyra::Editor", "Lyra engine editor program.");
     options.add_options()
-        ("p,project", "project root directory", cxxopts::value<std::filesystem::path>()->default_value("./Scratch/project"))
+        ("p,project", "project root directory", cxxopts::value<std::filesystem::path>())
         ("h,help", "print usage")
     ;
     // clang-format on

@@ -325,7 +325,7 @@ static void imgui_render(GPUCommandBuffer cmdbuffer, GPUTextureViewHandle backbu
     // initial render state setup
     imgui_setup_render_state(cmdbuffer, pipeline_data, renderer_data, draw_data, fb_width, fb_height);
 
-    // Will project scissor/clipping rectangles into framebuffer space
+    // will project scissor/clipping rectangles into framebuffer space
     ImVec2 clip_off   = draw_data->DisplayPos;       // (0,0) unless using multi-viewports
     ImVec2 clip_scale = draw_data->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
 

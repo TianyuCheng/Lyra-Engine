@@ -8,6 +8,8 @@
 #include <Lyra/Assets/AMSUtils.h>
 
 // local imports
+#include "IconGrid.h"
+#include "SelectionModel.h"
 #include "../Runtime/Application.h"
 
 namespace lyra
@@ -27,14 +29,21 @@ namespace lyra
         // ui helpers
         void show_breadcrumb();
         void show_dir_files(Blackboard& blackboard);
+        void show_item(Blackboard& blackboard, IconGrid& grid, IconGrid::Context& ctx, StringView name, bool is_folder);
         void show_context_menu(Blackboard& blackboard);
+
+        // modals
         void show_new_file_dialog();
         void show_new_folder_dialog();
         void show_rename_dialog();
         void show_delete_dialog(Blackboard& blackboard);
         void show_import_indicator();
-        void next_icon_grid(float row_width, float start_x);
-        void draw_icon_grid(CString icon, CString text, float icon_scale, bool selected = false) const;
+
+        // actions
+        void action_delete_selected();
+        void action_rename(StringView old_name, StringView new_name);
+        void action_create_folder(StringView name);
+        void action_reimport_selected(AssetServer* ams);
 
     private:
         // data helpers
@@ -60,10 +69,8 @@ namespace lyra
         uint                    finished_failure   = 0;
         float                   notification_timer = 0.0f;
 
-        String         context_selected_file;
-        String         context_selected_folder;
-        Vector<String> selected_items;
-        String         last_selected;
+        SelectionModel selection;
+        IconGrid       grid;
 
         bool show_new_file_modal   = false;
         bool show_new_folder_modal = false;
@@ -72,10 +79,6 @@ namespace lyra
 
         char new_folder_name[256] = "";
         char rename_buffer[256]   = "";
-
-        float icon_size  = 128.0f;
-        float icon_scale = 6.0f;
-        float padding    = 16.0f;
     };
 } // namespace lyra
 

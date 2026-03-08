@@ -118,7 +118,6 @@ macro(lyra_sample NAME)
     show-${NAME}
     COMMAND ${CMAKE_COMMAND} -E echo $<TARGET_FILE_DIR:lyra-${NAME}>
     COMMAND ${CMAKE_COMMAND} -E echo $<TARGET_FILE_NAME:lyra-${NAME}>
-    DEPENDS lyra-${NAME}
     VERBATIM)
 
   # move to Targets folder
@@ -152,7 +151,6 @@ macro(lyra_toolkit NAME)
     show-${NAME}
     COMMAND ${CMAKE_COMMAND} -E echo $<TARGET_FILE_DIR:lyra-${NAME}>
     COMMAND ${CMAKE_COMMAND} -E echo $<TARGET_FILE_NAME:lyra-${NAME}>
-    DEPENDS lyra-${NAME}
     VERBATIM)
 
   # move to Targets folder
