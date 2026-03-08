@@ -63,6 +63,7 @@ namespace lyra
 
         Vector<String>          files       = {};
         Vector<String>          folders     = {};
+        Vector<String>          all_items   = {}; // Cached combined list
         Vector<Breadcrumb>      breadcrumbs = {};
         Vector<Future<AssetID>> active_imports;
         uint                    finished_success   = 0;
@@ -71,6 +72,10 @@ namespace lyra
 
         SelectionModel selection;
         IconGrid       grid;
+
+        bool   is_marquee_selecting = false;
+        ImVec2 marquee_start_pos;
+        Vector<String> initial_selection; // selection state before marquee started
 
         bool show_new_file_modal   = false;
         bool show_new_folder_modal = false;

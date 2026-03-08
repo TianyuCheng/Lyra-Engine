@@ -13,7 +13,8 @@ auto IconGrid::begin() -> Context
     // icon_size / (ImGui's base font size * ImGui's base font scale)
     float base_font_size    = style.FontSizeBase;
     float font_global_scale = ImGui::GetIO().FontGlobalScale;
-    icon_scale              = std::floor(icon_size / (base_font_size * font_global_scale));
+
+    icon_scale = std::floor((icon_size - padding) / (base_font_size * font_global_scale));
 
     Context ctx;
     ctx.start_x   = ImGui::GetCursorPosX();

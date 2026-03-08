@@ -15,7 +15,6 @@ namespace lyra
     {
     public:
         Vector<String> items;         ///< List of currently selected item names.
-        String         last_selected; ///< Anchor for range selection.
 
         /**
          * @brief Check if an item is currently selected.
@@ -31,13 +30,6 @@ namespace lyra
          * @brief Clear existing selection and select only the specified item.
          */
         void select_only(StringView item);
-
-        /**
-         * @brief Select a range of items from last_selected to the target item (Shift click behavior).
-         * @param item The target item.
-         * @param all_items The full list of items in the current view to determine the range.
-         */
-        void select_range(StringView item, const Vector<String>& all_items);
 
         /**
          * @brief Clear all selected items.

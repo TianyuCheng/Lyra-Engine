@@ -63,7 +63,7 @@ void FileView::show_breadcrumb()
         update_directory(root);
 
     ImGui::SameLine();
-    ImGui::TextUnformatted("/");
+    ImGui::TextUnformatted(LYRA_ICON_CARET);
     ImGui::SameLine();
 
     if (root == curr) {
@@ -76,7 +76,7 @@ void FileView::show_breadcrumb()
             update_directory(breadcrumb.path);
         }
         ImGui::SameLine();
-        ImGui::TextUnformatted("/");
+        ImGui::TextUnformatted(LYRA_ICON_CARET);
         ImGui::SameLine();
     }
     ImGui::NewLine();
@@ -86,16 +86,58 @@ void FileView::show_dir_files(Blackboard& blackboard)
 {
     auto ctx = grid.begin();
 
-    // background click to clear selection
-    if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-        selection.clear();
+    ImVec2 marquee_end_pos = ImGui::GetMousePos();
+    ImRect marquee_rect;
+
+    // background click logic
+    if (ImGui::IsWindowHovered() && !ImGui::IsAnyItemActive()) {
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+            is_marquee_selecting = true;
+            marquee_start_pos    = ImGui::GetMousePos();
+            initial_selection    = (ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper) ? selection.items : Vector<String>();
+            if (!ImGui::GetIO().KeyCtrl && !ImGui::GetIO().KeySuper) {
+                selection.clear();
+            }
+        }
     }
 
+    if (is_marquee_selecting) {
+        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+            is_marquee_selecting = false;
+            initial_selection.clear();
+        } else {
+            marquee_rect = ImRect(marquee_start_pos, marquee_end_pos);
+            if (marquee_rect.Min.x > marquee_rect.Max.x) std::swap(marquee_rect.Min.x, marquee_rect.Max.x);
+            if (marquee_rect.Min.y > marquee_rect.Max.y) std::swap(marquee_rect.Min.y, marquee_rect.Max.y);
+
+            // draw marquee visual
+            ImGui::GetWindowDrawList()->AddRectFilled(marquee_rect.Min, marquee_rect.Max, ImGui::GetColorU32(ImGuiCol_Header, 0.3f));
+            ImGui::GetWindowDrawList()->AddRect(marquee_rect.Min, marquee_rect.Max, ImGui::GetColorU32(ImGuiCol_Header, 1.0f));
+
+            // start fresh from initial state for this frame's calculation
+            selection.items = initial_selection;
+        }
+    }
+
+    auto handle_marquee = [&](StringView name) {
+        if (is_marquee_selecting) {
+            ImVec2 pos = ImGui::GetCursorScreenPos();
+            ImRect item_rect(pos, ImVec2(pos.x + grid.icon_size, pos.y + grid.icon_size));
+            if (marquee_rect.Overlaps(item_rect)) {
+                if (!selection.is_selected(name)) {
+                    selection.items.emplace_back(name);
+                }
+            }
+        }
+    };
+
     for (const auto& folder : folders) {
+        handle_marquee(folder);
         show_item(blackboard, grid, ctx, folder, true);
     }
 
     for (const auto& file : files) {
+        handle_marquee(file);
         show_item(blackboard, grid, ctx, file, false);
     }
 
@@ -112,8 +154,6 @@ void FileView::show_item(Blackboard& blackboard, IconGrid& grid, IconGrid::Conte
     if (inter & IconGrid::Clicked) {
         if (ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper)
             selection.toggle(name);
-        else if (ImGui::GetIO().KeyShift)
-            selection.select_range(name, folders.size() + files.size() > 0 ? (is_folder ? folders : files) : folders); // simplified range logic for now
         else
             selection.select_only(name);
     }
@@ -318,6 +358,7 @@ void FileView::update_directory(const Path& path, bool force)
     curr = path;
     files.clear();
     folders.clear();
+    all_items.clear();
     breadcrumbs.clear();
     selection.clear();
 
@@ -337,6 +378,16 @@ void FileView::update_directory(const Path& path, bool force)
         else
             files.push_back(rel);
     }
+
+    // sort and build all_items
+    std::sort(folders.begin(), folders.end());
+    std::sort(files.begin(), files.end());
+
+    all_items.reserve(folders.size() + files.size());
+    for (const auto& f : folders)
+        all_items.push_back(f);
+    for (const auto& f : files)
+        all_items.push_back(f);
 }
 
 void FileView::handle_file_drop(Blackboard& blackboard)

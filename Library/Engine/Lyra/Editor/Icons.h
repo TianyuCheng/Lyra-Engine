@@ -14,6 +14,7 @@
 #define LYRA_ICON_TREE       "\ue97a"
 #define LYRA_ICON_NODE       "\ue9fe"
 #define LYRA_ICON_GROUP      "\ue9fe"
+#define LYRA_ICON_CARET      "\ue5df"
 #define LYRA_ICON_INSPECTOR  "\ue8b6"
 
 #define LYRA_ICON_PLAY       "\ue037"
