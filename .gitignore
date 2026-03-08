@@ -34,5 +34,6 @@
 Scratch/
 Build/
 build/
+imgui.ini
 .DS_Store
 .clangd
