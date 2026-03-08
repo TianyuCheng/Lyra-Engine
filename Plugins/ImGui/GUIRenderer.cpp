@@ -1,4 +1,5 @@
 // library headers
+#include <chrono>
 #include <Lyra/Common/Plugin.h>
 #include <Lyra/Common/Assert.h>
 #include <Lyra/Common/Pointer.h>
@@ -772,11 +773,28 @@ void GUIRenderer::update()
         platform_data->garbage_viewports.clear();
     }
 
+    // start time
+    static auto start_time = std::chrono::high_resolution_clock::now();
+
+    // update time
+    auto  current_time = std::chrono::high_resolution_clock::now();
+    float time         = std::chrono::duration<float>(current_time - start_time).count();
+    float delta_time   = time - platform_data->elapsed;
+
+    // elapsed time
+    platform_data->elapsed = time;
+
+    // guard against too small delta time (which would cause issues in ImGui)
+    if (delta_time <= 0.0f) {
+        delta_time = 1.0f / 60.0f;
+    }
+
     // update window inputs
     for (auto& window : platform_data->window_contexts) {
         WSI::api()->query_input_events(window.window, window.events);
 
-        ImGuiIO& io = ImGui::GetIO(window.context);
+        ImGuiIO& io  = ImGui::GetIO(window.context);
+        io.DeltaTime = delta_time;
         update_viewport_state(io, window);
         update_mouse_state(io, window);
         update_key_state(io, window);

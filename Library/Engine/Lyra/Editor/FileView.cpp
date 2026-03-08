@@ -173,7 +173,7 @@ void FileView::show_item(Blackboard& blackboard, IconGrid& grid, IconGrid::Conte
             if (selection.size() == 1) {
                 if (ImGui::MenuItem(LYRA_ICON_RENAME " Rename")) {
                     show_rename_modal = true;
-                    strncpy(rename_buffer, selection.items[0].c_str(), sizeof(rename_buffer) - 1);
+                    strncpy_s(rename_buffer, selection.items[0].c_str(), sizeof(rename_buffer) - 1);
                 }
             }
             if (!is_folder) {
