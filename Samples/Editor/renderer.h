@@ -9,7 +9,7 @@ struct SampleCubeRenderer
 {
 public:
     void bind(Application& app);
-    void render(const Backbuffer& backbuffer, GPUDevice device, GPUCommandBuffer command);
+    void render(const Backbuffer& backbuffer, Blackboard& blackboard, GPUCommandBuffer command);
 
 private:
     void init(Blackboard& blackboard);
@@ -29,8 +29,14 @@ private:
     GPUBuffer         vbuffer;
     GPUBuffer         ibuffer;
     GPUBuffer         ubuffer;
+    GPUTexture        depth_texture;
+    GPUTextureView    depth_view;
 
     Vector<GPUBindGroupLayoutHandle> blayouts;
+
+    SceneNode camera_node;
+    SceneNode parent_node;
+    SceneNode child_node;
 };
 
 #endif // LYRA_SAMPLES_EDITOR_RENDERER_H

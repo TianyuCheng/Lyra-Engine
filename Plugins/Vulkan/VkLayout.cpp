@@ -127,7 +127,8 @@ VulkanPipelineLayout::VulkanPipelineLayout(const GPUPipelineLayoutDescriptor& de
 
     Vector<VkDescriptorSetLayout> bind_group_layouts;
     for (const auto& handle : desc.bind_group_layouts) {
-        auto& bind_group_layout = rhi->bind_group_layouts.at(handle.value);
+        auto  bind_gorup_handle = handle.to_slotmap_handle<VulkanBindGroupLayout>();
+        auto& bind_group_layout = rhi->bind_group_layouts.at(bind_gorup_handle);
         assert(bind_group_layout.layout != VK_NULL_HANDLE);
         bind_group_layouts.push_back(bind_group_layout.layout);
     }

@@ -1,10 +1,11 @@
 // library headers
+#include <chrono>
 #include <Lyra/Common/Plugin.h>
 #include <Lyra/Common/Assert.h>
 #include <Lyra/Common/Pointer.h>
 #include <Lyra/Common/Function.h>
-#include <Lyra/Plugin/RHI/RHIInits.h>
-#include <Lyra/Plugin/RHI/RHITypes.h>
+#include <Lyra/Render/RHIInits.h>
+#include <Lyra/Render/RHITypes.h>
 
 // local headers
 #include "GUIRenderer.h"
@@ -102,7 +103,7 @@ static void imgui_create_vertex_buffers(GUIPipelineData* pipeline_data, GUIRende
     vbuffer.unmap();
 }
 
-static GPUBindGroup imgui_create_texture_descriptor(GUIPipelineData* pipeline_data, GUIRendererData* renderer_data, uint texid)
+static GPUBindGroup imgui_create_texture_descriptor(GUIPipelineData* pipeline_data, GUIRendererData* renderer_data, GUITextureManager::handle texid)
 {
     auto& device = RHI::get_current_device();
 
@@ -157,7 +158,7 @@ static void imgui_create_texture(GUIPipelineData* pipeline_data, GUIRendererData
     texinfo.view    = texture.create_view();
 
     auto texid = renderer_data->textures.add(texinfo);
-    tex->SetTexID(texid);
+    tex->SetTexID(as_type<ImTextureID>(texid));
 }
 
 static void imgui_update_texture(GPUCommandBuffer cmdbuffer, GUIRendererData* renderer_data, ImTextureData* tex)
@@ -177,8 +178,8 @@ static void imgui_update_texture(GPUCommandBuffer cmdbuffer, GUIRendererData* re
     }
     staging.unmap();
 
-    auto  texid   = tex->GetTexID();
-    auto& texture = renderer_data->textures.at(static_cast<uint>(texid));
+    auto  texid   = as_type<GUITextureManager::handle>(tex->GetTexID());
+    auto& texture = renderer_data->textures.at(texid);
 
     GPUTexelCopyBufferInfo source{};
     source.buffer         = staging;
@@ -209,19 +210,20 @@ static void imgui_update_texture(GPUCommandBuffer cmdbuffer, GUIRendererData* re
     tex->SetStatus(ImTextureStatus_OK);
 }
 
-static void imgui_delete_texture(GUIPipelineData* pipeline_data, GUIRendererData* renderer_data, ImTextureID texid)
+static void imgui_delete_texture(GUIPipelineData* pipeline_data, GUIRendererData* renderer_data, GUITextureManager::handle texid)
 {
     // deferred deletion of texture, because the current texture/view might still be used in some frames in flight
-    auto& texinfo = renderer_data->textures.at(static_cast<uint>(texid));
+    auto& texinfo = renderer_data->textures.at(texid);
     if (texinfo.valid()) {
-        renderer_data->textures.remove(static_cast<uint>(texid));
+        renderer_data->textures.remove(texid);
         renderer_data->garbage_textures.push_back(GUIGarbageTexture{texinfo, pipeline_data->frame_count});
     }
 }
 
 static void imgui_delete_texture(GUIPipelineData* pipeline_data, GUIRendererData* renderer_data, ImTextureData* tex)
 {
-    imgui_delete_texture(pipeline_data, renderer_data, tex->GetTexID());
+    auto texid = as_type<GUITextureManager::handle>(tex->GetTexID());
+    imgui_delete_texture(pipeline_data, renderer_data, texid);
 
     // reset texture id
     tex->SetTexID(ImTextureID_Invalid);
@@ -324,7 +326,7 @@ static void imgui_render(GPUCommandBuffer cmdbuffer, GPUTextureViewHandle backbu
     // initial render state setup
     imgui_setup_render_state(cmdbuffer, pipeline_data, renderer_data, draw_data, fb_width, fb_height);
 
-    // Will project scissor/clipping rectangles into framebuffer space
+    // will project scissor/clipping rectangles into framebuffer space
     ImVec2 clip_off   = draw_data->DisplayPos;       // (0,0) unless using multi-viewports
     ImVec2 clip_scale = draw_data->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
 
@@ -353,7 +355,7 @@ static void imgui_render(GPUCommandBuffer cmdbuffer, GPUTextureViewHandle backbu
                 static_cast<GPUIntegerCoordinate>(clip_max.y - clip_min.y));
 
             // bind texture
-            uint texid   = static_cast<uint>(draw_cmd.GetTexID());
+            auto texid   = as_type<GUITextureManager::handle>(draw_cmd.GetTexID());
             auto texinfo = imgui_create_texture_descriptor(pipeline_data, renderer_data, texid);
             cmdbuffer.set_bind_group(0, texinfo);
 
@@ -407,9 +409,6 @@ static void platform_create_window(ImGuiViewport* viewport)
 
     WindowHandle window;
     WSI::api()->create_window(desc, window);
-    WSI::api()->bind_window_callback(window, [](WindowEvent) {
-        // dummy callback, do nothing
-    });
 
     // used to propagate the shared renderer data
     auto main_viewport = ImGui::GetMainViewport();
@@ -704,7 +703,7 @@ void GUIRenderer::init(const GUIDescriptor& descriptor)
     init_platform_data(descriptor);
     init_viewport_data(descriptor);
     init_dummy_texture();
-    init_imgui_font("Fonts/Font.ttf", 18.0f);
+    init_imgui_font(descriptor.font_size);
 }
 
 void GUIRenderer::reset()
@@ -774,11 +773,28 @@ void GUIRenderer::update()
         platform_data->garbage_viewports.clear();
     }
 
+    // start time
+    static auto start_time = std::chrono::high_resolution_clock::now();
+
+    // update time
+    auto  current_time = std::chrono::high_resolution_clock::now();
+    float time         = std::chrono::duration<float>(current_time - start_time).count();
+    float delta_time   = time - platform_data->elapsed;
+
+    // elapsed time
+    platform_data->elapsed = time;
+
+    // guard against too small delta time (which would cause issues in ImGui)
+    if (delta_time <= 0.0f) {
+        delta_time = 1.0f / 60.0f;
+    }
+
     // update window inputs
     for (auto& window : platform_data->window_contexts) {
         WSI::api()->query_input_events(window.window, window.events);
 
-        ImGuiIO& io = ImGui::GetIO(window.context);
+        ImGuiIO& io  = ImGui::GetIO(window.context);
+        io.DeltaTime = delta_time;
         update_viewport_state(io, window);
         update_mouse_state(io, window);
         update_key_state(io, window);
@@ -802,8 +818,9 @@ void GUIRenderer::resize()
     io.ConfigDpiScaleFonts     = true; // [Experimental] Automatically overwrite style.FontScaleDpi in Begin() when Monitor DPI changes. This will scale fonts but _NOT_ scale sizes/padding for now.
     io.ConfigDpiScaleViewports = true; // [Experimental] Scale Dear ImGui and Platform Windows when Monitor DPI changes.
 
-    ImGuiStyle& style  = ImGui::GetStyle();
-    style.FontScaleDpi = std::max(dpi_xscale, dpi_yscale);
+    ImGuiStyle& style   = ImGui::GetStyle();
+    style.FontScaleDpi  = std::max(dpi_xscale, dpi_yscale);
+    style.FontScaleMain = std::max(dpi_xscale, dpi_yscale);
 }
 
 void GUIRenderer::destroy()
@@ -854,17 +871,20 @@ void GUIRenderer::end_render_pass(GPUCommandBuffer cmdbuffer) const
     imgui_end_render_pass(cmdbuffer);
 }
 
-uint GUIRenderer::create_texture(GPUTextureHandle texture, GPUTextureViewHandle view)
+GUITextureHandle GUIRenderer::create_texture(GPUTextureHandle texture, GPUTextureViewHandle view)
 {
     GUITexture texinfo{};
     texinfo.view.handle    = view;
     texinfo.texture.handle = texture;
-    return renderer_data->textures.add(texinfo);
+
+    auto handle = renderer_data->textures.add(texinfo);
+    return GUITextureHandle::create(handle);
 }
 
-void GUIRenderer::delete_texture(uint texid)
+void GUIRenderer::delete_texture(GUITextureHandle texid)
 {
-    imgui_delete_texture(pipeline_data.get(), renderer_data.get(), (ImTextureID)texid);
+    auto handle = as_type<GUITextureManager::handle>(texid);
+    imgui_delete_texture(pipeline_data.get(), renderer_data.get(), handle);
 }
 
 ImGuiContext* GUIRenderer::context() const
@@ -1044,8 +1064,10 @@ void GUIRenderer::init_pipeline_data(const GUIDescriptor& descriptor)
         GPURenderPipelineDescriptor desc{};
         desc.label                = "imgui_pipeline";
         desc.layout               = pipeline_data->playout;
+        desc.vertex.entry_point   = "vsmain";
         desc.vertex.buffers       = buffer;
         desc.vertex.module        = pipeline_data->vshader;
+        desc.fragment.entry_point = "fsmain";
         desc.fragment.module      = pipeline_data->fshader;
         desc.fragment.targets     = color_state;
         desc.multisample.count    = 1;
@@ -1152,9 +1174,13 @@ void GUIRenderer::init_dummy_texture()
     renderer_data->textures.add(texinfo);
 }
 
-void GUIRenderer::init_imgui_font(CString filename, float font_size)
+void GUIRenderer::init_imgui_font(float font_size)
 {
-    ImGuiIO& io = ImGui::GetIO();
+    ImGuiIO&    io    = ImGui::GetIO();
+    ImGuiStyle& style = ImGui::GetStyle();
+
+    // initialize font size
+    style.FontSizeBase = font_size;
 
     // adjust range for Nerd Font
     static const ImWchar icon_ranges[] = {0xe000, 0xf8ff, 0};
@@ -1169,24 +1195,26 @@ void GUIRenderer::init_imgui_font(CString filename, float font_size)
     icon_cfg.MergeMode            = true;        // merge icons with regular font
     icon_cfg.PixelSnapH           = true;        // optional, can help with pixel alignment
     icon_cfg.GlyphRanges          = icon_ranges; // icons only
-    icon_cfg.GlyphMinAdvanceX     = font_size * +1.5f;
-    icon_cfg.GlyphOffset.x        = font_size * -0.5f;
+    icon_cfg.GlyphMaxAdvanceX     = font_size;
+    icon_cfg.GlyphMinAdvanceX     = font_size;
+    icon_cfg.GlyphOffset.y        = font_size * 0.25f;
 
     // font source
-    auto file = cmrc::imgui::get_filesystem().open(filename);
+    auto text_font = cmrc::imgui::get_filesystem().open("Fonts/Texts.ttf");
+    auto icon_font = cmrc::imgui::get_filesystem().open("Fonts/Icons.ttf");
 
     // load the main font from memory
     io.Fonts->AddFontFromMemoryTTF(
-        (void*)file.begin(),
-        static_cast<int>(file.size()),
+        (void*)text_font.begin(),
+        static_cast<int>(text_font.size()),
         font_size,
         &font_cfg);
 
     // load the icon font from memory
     io.Fonts->AddFontFromMemoryTTF(
-        (void*)file.begin(),
-        static_cast<int>(file.size()),
-        font_size * 1.25f,
+        (void*)icon_font.begin(),
+        static_cast<int>(icon_font.size()),
+        font_size * 1.15f,
         &icon_cfg);
 
     io.Fonts->Build();

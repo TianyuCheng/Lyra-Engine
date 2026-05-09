@@ -48,25 +48,25 @@
     },
     {
       "name": "xcode-debug",
-      "displayName": "Visual Studio Debug Build",
+      "displayName": "Xcode Debug Build",
       "configurePreset": "xcode",
       "configuration": "Debug"
     },
     {
       "name": "xcode-release",
-      "displayName": "Visual Studio Release Build",
+      "displayName": "Xcode Release Build",
       "configurePreset": "xcode",
       "configuration": "Release"
     },
     {
       "name": "ninja-debug",
-      "displayName": "Visual Studio Debug Build",
+      "displayName": "Ninja Debug Build",
       "configurePreset": "ninja",
       "configuration": "Debug"
     },
     {
       "name": "ninja-release",
-      "displayName": "Visual Studio Release Build",
+      "displayName": "Ninja Release Build",
       "configurePreset": "ninja",
       "configuration": "Release"
     }

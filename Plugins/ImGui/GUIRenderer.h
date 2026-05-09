@@ -8,12 +8,13 @@
 
 #include <Lyra/Common/Math.h>
 #include <Lyra/Common/Stdint.h>
+#include <Lyra/Common/Conversion.h>
 #include <Lyra/Common/Collections.h>
-#include <Lyra/Plugin/WSI/WSIAPI.h>
-#include <Lyra/Plugin/WSI/WSITypes.h>
-#include <Lyra/Plugin/SLC/SLCAPI.h>
-#include <Lyra/Plugin/GUI/GUIAPI.h>
-#include <Lyra/Plugin/RHI/RHIAPI.h>
+#include <Lyra/Window/WSIAPI.h>
+#include <Lyra/Window/WSITypes.h>
+#include <Lyra/Shader/SLCAPI.h>
+#include <Lyra/Render/RHIAPI.h>
+#include <Lyra/UICore/GUIAPI.h>
 
 using namespace lyra;
 
@@ -67,10 +68,10 @@ struct GUIPlatformData
 struct GUITextureDeleter
 {
     // deferred deletion, only reset the handles
-    void operator()(GUITexture& texture)
+    void operator()(GUITexture* texture)
     {
-        texture.texture.handle.reset();
-        texture.view.handle.reset();
+        texture->texture.handle.reset();
+        texture->view.handle.reset();
     }
 };
 
@@ -117,8 +118,8 @@ public:
     void new_frame();
     void end_frame();
 
-    uint create_texture(GPUTextureHandle texture, GPUTextureViewHandle view);
-    void delete_texture(uint texid);
+    auto create_texture(GPUTextureHandle texture, GPUTextureViewHandle view) -> GUITextureHandle;
+    void delete_texture(GUITextureHandle texid);
 
     void begin_render_pass(GPUCommandBuffer cmdbuffer, GPUTextureViewHandle backbuffer) const;
     void end_render_pass(GPUCommandBuffer cmdbuffer) const;
@@ -136,7 +137,7 @@ private:
     void init_renderer_data(const GUIDescriptor& descriptor);
     void init_viewport_data(const GUIDescriptor& descriptor);
     void init_dummy_texture();
-    void init_imgui_font(CString filename, float font_size);
+    void init_imgui_font(float font_size);
 
     void setup_render_state(GPUCommandBuffer cmdbuffer, ImDrawData* draw_data, int width, int height);
 

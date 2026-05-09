@@ -16,9 +16,9 @@ using Microsoft::WRL::ComPtr;
 #include <Lyra/Common/Conversion.h>
 #include <Lyra/Common/Collections.h>
 #include <Lyra/Common/Compatibility.h>
-#include <Lyra/Plugin/RHI/RHIDescs.h>
-#include <Lyra/Plugin/RHI/RHIAPI.h>
-#include <Lyra/Plugin/RHI/RHIError.h>
+#include <Lyra/Render/RHIDescs.h>
+#include <Lyra/Render/RHIAPI.h>
+#include <Lyra/Render/RHIError.h>
 
 #include "SimpleHeap.h"
 #include "BlockAllocator.h"
@@ -36,9 +36,9 @@ struct D3D12PresentMode
 template <typename T>
 struct D3D12Destroyer
 {
-    void operator()(T& obj)
+    void operator()(T* obj)
     {
-        obj.destroy();
+        obj->destroy();
     }
 };
 
@@ -183,7 +183,7 @@ struct D3D12Buffer
 
     // implementation in D3D12Buffer.cpp
     explicit D3D12Buffer();
-    explicit D3D12Buffer(const GPUBufferDescriptor& desc);
+    explicit D3D12Buffer(const GPUBufferDescriptor& desc, D3D12_RESOURCE_FLAGS additional_flags = D3D12_RESOURCE_FLAG_NONE);
 
     void map(GPUSize64 offset = 0, GPUSize64 size = 0);
     void unmap();
@@ -288,22 +288,38 @@ struct D3D12Shader
     bool valid() const { return !binary.empty(); }
 };
 
+struct D3D12BindGroupHeap;
 struct D3D12BindGroup
 {
-    // NOTE: D3D12 requires an explicit separation of cbv_srv_uav vs sampler heap,
-    // but a single bindgroup is allowed to contain both. We only need to record
-    // the index into the heap though
-    uint32_t default_index = std::numeric_limits<uint32_t>::max();
-    uint32_t sampler_index = std::numeric_limits<uint16_t>::max();
+    union
+    {
+        // NOTE: This is only required for dynamic uniform.
+        GPUBindGroupHeapHandle heap;
+
+        // NOTE: D3D12 requires an explicit separation of cbv_srv_uav vs sampler heap,
+        // but a single bindgroup is allowed to contain both. We only need to record
+        // the index into the heap though
+        struct
+        {
+            uint32_t default_index;
+            uint32_t sampler_index;
+        };
+    };
+
     uint16_t dynamic_index = std::numeric_limits<uint16_t>::max();
-    uint16_t heap_index    = std::numeric_limits<uint16_t>::max();
+
+    D3D12BindGroup()
+    {
+        default_index = std::numeric_limits<uint32_t>::max();
+        sampler_index = std::numeric_limits<uint32_t>::max();
+    }
 
     bool valid() const
     {
         bool default_valid = default_index != std::numeric_limits<uint32_t>::max();
-        bool sampler_valid = sampler_index != std::numeric_limits<uint16_t>::max();
+        bool sampler_valid = sampler_index != std::numeric_limits<uint32_t>::max();
         bool dynamic_valid = dynamic_index != std::numeric_limits<uint16_t>::max();
-        bool heap_valid    = heap_index != std::numeric_limits<uint16_t>::max();
+        bool heap_valid    = heap.valid();
         return default_valid || sampler_valid || (dynamic_valid && heap_valid);
     }
 };
@@ -397,6 +413,7 @@ struct D3D12BindGroupLayout
     void create_buffer_descriptor(D3D12BindGroupHeap& heap, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
     void create_buffer_cbv_descriptor(D3D12BindGroupHeap& heap, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
     void create_buffer_uav_descriptor(D3D12BindGroupHeap& heap, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
+    void create_bvh_descriptor(D3D12BindGroupHeap& heap, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
 };
 
 struct D3D12PipelineLayout
@@ -494,7 +511,7 @@ struct D3D12Blas
 
     // implementation in D3D12Blas.cpp
     explicit D3D12Blas();
-    explicit D3D12Blas(const GPUBlasDescriptor& desc, const Vector<GPUBlasGeometrySizeDescriptor>& sizes);
+    explicit D3D12Blas(const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescriptors sizes);
 
     void destroy();
 
@@ -506,13 +523,15 @@ struct D3D12QuerySet
     ID3D12QueryHeap* pool = nullptr;
     GPUQueryType     type = GPUQueryType::TIMESTAMP;
 
+    D3D12Buffer buffer;
+
     // implementation in D3D12QuerySet.cpp
     explicit D3D12QuerySet();
     explicit D3D12QuerySet(const GPUQuerySetDescriptor& desc);
 
     void destroy();
 
-    bool valid() const { return pool != nullptr; }
+    bool valid() const { return pool != nullptr || buffer.valid(); }
 };
 
 struct D3D12CommandBuffer
@@ -926,18 +945,12 @@ T& fetch_resource(D3D12ResourceManager<T>& manager, Handle handle)
         throw std::runtime_error("Resource handle is invalid!");
     }
 
-    // check resource range
-    if (!manager.range_check(handle.value)) {
-        get_logger()->error("Resource handle {} with value={} access out of range!", Handle::type_name(), handle.value);
-        throw std::runtime_error("Resource handle is accessing out of range!");
+    T* resource = manager.find(handle.template to_slotmap_handle<T>());
+    if (!resource) {
+        get_logger()->error("Resource handle {} with value={} cannot be found!", Handle::type_name(), handle.value);
+        throw std::runtime_error("Resource handle references cannot be found!");
     }
-
-    T& resource = manager.at(handle.value);
-    if (!resource.valid()) {
-        get_logger()->error("Resource handle {} with value={} has invalid object!", Handle::type_name(), handle.value);
-        throw std::runtime_error("Resource handle references an invalid object!");
-    }
-    return resource;
+    return *resource;
 }
 
 template <typename T>

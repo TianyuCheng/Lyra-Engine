@@ -11,6 +11,7 @@ struct Geometry
     static auto create_triangle() -> Geometry;
     static auto create_fullscreen() -> Geometry;
     static auto create_overlapping_triangles() -> Geometry;
+    static auto create_cube() -> Geometry;
 };
 
 #endif // LYRA_TESTLIB_HELPER_GEOMETRY_H

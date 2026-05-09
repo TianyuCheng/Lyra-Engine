@@ -1,0 +1,77 @@
+#pragma once
+
+#ifndef LYRA_LYRA_COMMON_COLLECTIONS_H
+#define LYRA_LYRA_COMMON_COLLECTIONS_H
+
+#include <list>
+#include <array>
+#include <deque>
+#include <stack>
+#include <vector>
+#include <optional>
+#include <forward_list>
+#include <initializer_list>
+#include <absl/container/btree_map.h>
+#include <absl/container/flat_hash_map.h>
+#include <absl/container/flat_hash_set.h>
+#include <apus/slot_map.hpp>
+#include <apus/ring_buffer.hpp>
+#include <apus/small_vector.hpp>
+#include <Lyra/Helper/View.h>
+#include <Lyra/Helper/Blackboard.h>
+
+namespace lyra
+{
+    template <typename... T>
+    using List = std::list<T...>;
+
+    template <typename... T>
+    using FList = std::forward_list<T...>;
+
+    template <typename... T>
+    using Deque = std::deque<T...>;
+
+    template <typename... T>
+    using Stack = std::stack<T...>;
+
+    template <typename T, int N>
+    using Array = std::array<T, N>;
+
+    template <typename... T>
+    using Vector = std::vector<T...>;
+
+    template <typename... T>
+    using HashSet = absl::flat_hash_set<T...>;
+
+    template <typename... T>
+    using HashMap = absl::flat_hash_map<T...>;
+
+    template <typename... T>
+    using TreeMap = absl::btree_map<T...>;
+
+    template <typename... T>
+    using MultiMap = absl::btree_multimap<T...>;
+
+    template <typename... T>
+    using Optional = std::optional<T...>;
+
+    template <typename... T>
+    using InitList = std::initializer_list<T...>;
+
+    template <typename... T>
+    using RingBuffer = apus::ring_buffer<T...>;
+
+    template <typename... T>
+    using Slotmap = apus::slot_map<T...>;
+
+    template <typename T, std::size_t N>
+    using SmallVector = apus::small_vector<T, N>;
+
+    template <typename... T>
+    using TypedView = lyra::detail::typed_view<T...>;
+
+    using Blackboard = lyra::detail::Blackboard;
+
+} // end of namespace lyra
+
+#endif // LYRA_LYRA_COMMON_COLLECTIONS_H

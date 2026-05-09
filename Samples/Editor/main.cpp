@@ -1,5 +1,6 @@
 #include <cxxopts.hpp>
 #include <Lyra/Lyra.hpp>
+#include "imgui.h"
 #include "renderer.h"
 
 using namespace lyra;
@@ -8,9 +9,8 @@ static void render_scene(Blackboard& blackboard, GPUCommandBuffer command)
 {
     // apply a toy demo renderer
     if (auto view = blackboard.try_get<SceneView*>()) {
-        auto device   = blackboard.get<GPUDevice>();
         auto renderer = blackboard.get<SampleCubeRenderer*>();
-        renderer->render((*view)->get_backbuffer(), device, command);
+        renderer->render((*view)->get_backbuffer(), blackboard, command);
     }
 }
 
@@ -39,19 +39,19 @@ static void imgui_update(Blackboard& blackboard)
 
 static void imgui_render(Blackboard& blackboard)
 {
-    auto device  = blackboard.get<GPUDevice>();
-    auto surface = blackboard.get<GPUSurface>();
-    auto imgui   = blackboard.get<GUIRenderer*>();
+    auto device   = blackboard.get<GPUDevice*>();
+    auto surface  = blackboard.get<GPUSurface*>();
+    auto renderer = blackboard.get<GUIRenderer*>();
 
     // command buffer
     auto command = lyra::execute([&]() {
         auto desc  = GPUCommandBufferDescriptor{};
         desc.queue = GPUQueueType::DEFAULT;
-        return device.create_command_buffer(desc);
+        return device->create_command_buffer(desc);
     });
 
     // current backbuffer
-    auto backbuffer = surface.get_current_texture();
+    auto backbuffer = surface->get_current_texture();
 
     // synchronization
     command.wait(backbuffer.available, GPUBarrierSync::PIXEL_SHADING);
@@ -62,7 +62,7 @@ static void imgui_render(Blackboard& blackboard)
 
     // render UI command recording
     command.resource_barrier(state_transition(backbuffer.texture, undefined_state(), color_attachment_state()));
-    imgui->render_main_viewport(command, backbuffer.view);
+    renderer->render_main_viewport(command, backbuffer.view);
     command.resource_barrier(state_transition(backbuffer.texture, color_attachment_state(), present_src_state()));
 
     // command buffer submission
@@ -77,7 +77,7 @@ int main(int argc, const char* argv[])
     // clang-format off
     cxxopts::Options options("Lyra::Editor", "Lyra engine editor program.");
     options.add_options()
-        ("p,project", "project root directory", cxxopts::value<std::filesystem::path>()->default_value("./"))
+        ("p,project", "project root directory", cxxopts::value<std::filesystem::path>())
         ("h,help", "print usage")
     ;
     // clang-format on
@@ -98,13 +98,11 @@ int main(int argc, const char* argv[])
     if (!fs::exists(assets_root))
         fs::create_directory(assets_root);
 
-    auto metadata_root = root / "Metadata";
-    if (!fs::exists(metadata_root))
-        fs::create_directory(metadata_root);
+    auto caches_root = root / "Caches";
+    if (!fs::exists(caches_root))
+        fs::create_directory(caches_root);
 
-    auto generated_root = root / "Generated";
-    if (!fs::exists(generated_root))
-        fs::create_directory(generated_root);
+    auto registry = root / "Assets.toml";
 
     // application
     auto app = lyra::execute([&]() {
@@ -120,24 +118,67 @@ int main(int argc, const char* argv[])
     // file loader
     auto file_loader = lyra::execute([&]() {
         auto loader = std::make_unique<FileLoader>(FSLoader::NATIVE);
-        loader->mount("/", generated_root, 2);
-        loader->mount("/", metadata_root, 1);
+        loader->mount("/", caches_root, 1);
         loader->mount("/", assets_root, 0);
         return loader;
     });
 
     // asset layer
     auto assets = lyra::execute([&]() {
-        auto desc                    = AMSDescriptor{};
-        desc.importer.assets_path    = assets_root.c_str();
-        desc.importer.metadata_path  = metadata_root.c_str();
-        desc.importer.generated_path = generated_root.c_str();
-        desc.loader.assets           = file_loader.get();
-        desc.loader.metadata         = file_loader.get();
-        desc.watch                   = true;
-        desc.workers                 = 4;
+        auto desc                 = AMSDescriptor{};
+        desc.importer.assets_path = assets_root.c_str();
+        desc.importer.caches_path = caches_root.c_str();
+        desc.loader.assets        = file_loader.get();
+        desc.loader.caches        = file_loader.get();
+        desc.registry             = registry.c_str();
+        desc.watch                = true;
+        desc.workers              = 4;
 
         auto layer = std::make_unique<AssetLayer>(desc);
+        app->bind(*layer);
+
+        auto ams = app->get_blackboard().get<AssetServer*>();
+
+        // register assets loaders
+        ams->register_asset<TextAsset>();
+        ams->register_asset<JsonAsset>();
+        ams->register_asset<TomlAsset>();
+        ams->register_asset<MeshAsset>();
+        // ams->register_asset<ModelAsset>();
+        ams->register_asset<TextureAsset>();
+        ams->register_asset<MaterialAsset>();
+
+        // register multiple cookers for textures
+        ams->register_asset<TextureAsset, TextureAsset::stb>();
+        ams->register_asset<TextureAsset, TextureAsset::exr>();
+        ams->register_asset<TextureAsset, TextureAsset::dds>();
+        ams->register_asset<TextureAsset, TextureAsset::ktx>();
+
+        // // register multiple cookers for models
+        // ams->register_asset<ModelAsset, ModelAsset::stl>();
+        // ams->register_asset<ModelAsset, ModelAsset::obj>();
+        // ams->register_asset<ModelAsset, ModelAsset::gltf>();
+
+        return std::move(layer);
+    });
+
+    // timing layer
+    auto timing = lyra::execute([&]() {
+        auto layer = std::make_unique<TimingLayer>();
+        app->bind(*layer);
+        return std::move(layer);
+    });
+
+    // camera layer
+    auto camera = lyra::execute([&]() {
+        auto layer = std::make_unique<CameraLayer>();
+        app->bind(*layer);
+        return std::move(layer);
+    });
+
+    // scene layer
+    auto scene = lyra::execute([&]() {
+        auto layer = std::make_unique<SceneLayer>();
         app->bind(*layer);
         return std::move(layer);
     });
@@ -145,13 +186,13 @@ int main(int argc, const char* argv[])
     // imgui layer
     auto imgui = lyra::execute([&]() {
         auto desc      = GUIDescriptor{};
-        desc.window    = app->get_blackboard().get<Window>();
-        desc.surface   = app->get_blackboard().get<GPUSurface>();
-        desc.compiler  = app->get_blackboard().get<Compiler>();
+        desc.window    = *app->get_blackboard().get<Window*>();
+        desc.surface   = *app->get_blackboard().get<GPUSurface*>();
+        desc.compiler  = *app->get_blackboard().get<Compiler*>();
         desc.docking   = true;
         desc.viewports = false;
 
-        auto layer = std::make_unique<ImGuiLayer>(desc);
+        auto layer = std::make_unique<EditorLayer>(desc);
         layer->apply_context(); // imgui context in user application
         app->bind(*layer);
         return std::move(layer);
@@ -170,33 +211,33 @@ int main(int argc, const char* argv[])
         return std::move(layer);
     });
 
-    // editor components (console)
-    auto console = std::make_unique<Console>(4096);
-    app->bind<Console>(*console);
+    // editor components (console logs)
+    auto console = std::make_unique<LoggerView>(4096);
+    app->bind<LoggerView>(*console);
 
-    // editor components (files)
-    auto files = std::make_unique<Files>(assets_root);
-    app->bind<Files>(*files);
+    // editor components (file manager)
+    auto files = std::make_unique<FileView>(assets_root);
+    app->bind<FileView>(*files);
 
-    // editor components (inspector)
-    auto inspector = std::make_unique<Inspector>();
-    app->bind<Inspector>(*inspector);
+    // editor components (object inspector)
+    auto inspector = std::make_unique<ObjectView>();
+    app->bind<ObjectView>(*inspector);
 
-    // editor components (hierarchy)
-    auto hierarchy = std::make_unique<Hierarchy>();
-    app->bind<Hierarchy>(*hierarchy);
+    // editor components (scene tree hierarchy)
+    auto hierarchy = std::make_unique<TreeView>();
+    app->bind<TreeView>(*hierarchy);
 
     // editor components (scene)
-    auto scene = std::make_unique<SceneView>();
-    app->bind<SceneView>(*scene);
+    auto sceneview = std::make_unique<SceneView>();
+    app->bind<SceneView>(*sceneview);
 
     // renderer (temporary solution)
     auto renderer = std::make_unique<SampleCubeRenderer>();
     app->bind<SampleCubeRenderer>(*renderer);
 
     // bind additional systems
-    app->bind<AppEvent::UPDATE>(imgui_update);
-    app->bind<AppEvent::RENDER>(imgui_render);
+    app->bind<AppEvent::UPDATE, &imgui_update>();
+    app->bind<AppEvent::RENDER, &imgui_render>();
 
     // event loop
     app->run();

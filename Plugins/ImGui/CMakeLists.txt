@@ -12,10 +12,14 @@ target_sources(lyra-imgui PRIVATE
 cmrc_add_resource_library(
   imgui-resources
   NAMESPACE imgui
-  Fonts/Font.ttf
+  Fonts/Texts.ttf
+  Fonts/Icons.ttf
   Shaders/GUIShader.slang
 )
 
+find_package(imgui REQUIRED)
+target_link_libraries(lyra-imgui PRIVATE lyra::engine)
+target_link_libraries(lyra-imgui PUBLIC  imgui)
 target_link_libraries(lyra-imgui PRIVATE imgui-resources)
 
 # move resources under folder

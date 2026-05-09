@@ -6,7 +6,7 @@ add_subdirectory(Glfw)
 #--------------------------------
 add_subdirectory(Slang)
 
-# guikit plugins
+# editor plugins
 #--------------------------------
 add_subdirectory(ImGui)
 
@@ -19,11 +19,10 @@ add_subdirectory(ZipFS)
 
 # assets plugins
 #--------------------------------
-add_subdirectory(Ktx)
+add_subdirectory(Image)
 
 # render plugins
 #--------------------------------
-
 # build d3d12 backend on Windows
 if(WIN32)
   add_subdirectory(D3D12)

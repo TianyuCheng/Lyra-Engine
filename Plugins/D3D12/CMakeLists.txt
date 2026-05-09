@@ -36,6 +36,7 @@ target_sources(lyra-d3d12 PRIVATE
 find_package(D3D12MemoryAllocator REQUIRED)
 
 # link with D3D12
+target_link_libraries(lyra-d3d12 PRIVATE lyra::engine)
 target_link_libraries(lyra-d3d12 PRIVATE GPUOpen::D3D12MemoryAllocator)
 target_link_libraries(lyra-d3d12 PRIVATE ${D3D12_LIBRARIES})
 target_include_directories(lyra-d3d12 PRIVATE ${DXGI_INCLUDE_DIR})

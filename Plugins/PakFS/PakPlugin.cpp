@@ -1,7 +1,7 @@
 // library headers
 #include <Lyra/Common/Macros.h>
 #include <Lyra/Common/Plugin.h>
-#include <Lyra/Plugin/VFS/VFSAPI.h>
+#include <Lyra/FileIO/VFSAPI.h>
 
 // plugin headers
 #include "PakUtils.h"

@@ -21,13 +21,21 @@ struct Camera
     float4x4 view;
 };
 
+struct PushConstants
+{
+    float4x4 model;
+};
+
 ConstantBuffer<Camera> camera;
+
+[[vk::push_constant]]
+PushConstants push_constants : PUSH_CONSTANT;
 
 [shader("vertex")]
 VertexOutput vsmain(VertexInput input)
 {
     VertexOutput output;
-    output.position = mul(mul(float4(input.position, 1.0), camera.view), camera.proj);
+    output.position = mul(mul(mul(float4(input.position, 1.0), push_constants.model), camera.view), camera.proj);
     output.color = float4(input.color, 1.0);
     return output;
 }
@@ -55,54 +63,100 @@ void SampleCubeRenderer::bind(Application& app)
 {
     app.get_blackboard().add<SampleCubeRenderer*>(this);
 
-    app.bind<AppEvent::INIT>(&SampleCubeRenderer::init, this);
-    app.bind<AppEvent::UPDATE>(&SampleCubeRenderer::update, this);
-    app.bind<AppEvent::DESTROY>(&SampleCubeRenderer::destroy, this);
+    app.bind<AppEvent::INIT, &SampleCubeRenderer::init>(*this);
+    app.bind<AppEvent::UPDATE, &SampleCubeRenderer::update>(*this);
+    app.bind<AppEvent::DESTROY, &SampleCubeRenderer::destroy>(*this);
 }
 
-void SampleCubeRenderer::render(const Backbuffer& backbuffer, GPUDevice device, GPUCommandBuffer command)
+void SampleCubeRenderer::render(const Backbuffer& backbuffer, Blackboard& blackboard, GPUCommandBuffer command)
 {
-    // color attachments
-    auto color_attachment        = GPURenderPassColorAttachment{};
-    color_attachment.clear_value = GPUColor{0.0f, 0.0f, 0.0f, 1.0f};
-    color_attachment.load_op     = GPULoadOp::CLEAR;
-    color_attachment.store_op    = GPUStoreOp::STORE;
-    color_attachment.view        = backbuffer.texview;
+    if (auto world_ptr = blackboard.try_get<World*>()) {
+        auto& world = **world_ptr;
 
-    // render pass info
-    auto render_pass                     = GPURenderPassDescriptor{};
-    render_pass.color_attachments        = color_attachment;
-    render_pass.depth_stencil_attachment = {};
+        // color attachments
+        auto color_attachment        = GPURenderPassColorAttachment{};
+        color_attachment.clear_value = GPUColor{0.0f, 0.0f, 0.0f, 1.0f};
+        color_attachment.load_op     = GPULoadOp::CLEAR;
+        color_attachment.store_op    = GPUStoreOp::STORE;
+        color_attachment.view        = backbuffer.texview;
 
-    command.push_debug_group("Renderer");
-    command.resource_barrier(state_transition(backbuffer.texture, undefined_state(), color_attachment_state()));
-    command.begin_render_pass(render_pass);
-    command.set_viewport(0, 0, static_cast<float>(backbuffer.extent.width), static_cast<float>(backbuffer.extent.height));
-    command.set_scissor_rect(0, 0, backbuffer.extent.width, backbuffer.extent.height);
-    command.set_pipeline(pipeline);
-    command.set_vertex_buffer(0, vbuffer);
-    command.set_index_buffer(ibuffer, GPUIndexFormat::UINT32);
-    command.set_bind_group(0, bind_group);
-    command.draw_indexed(24, 1, 0, 0, 0);
-    command.end_render_pass();
-    command.resource_barrier(state_transition(backbuffer.texture, color_attachment_state(), shader_resource_state(GPUBarrierSync::ALL_SHADING)));
-    command.pop_debug_group();
+        // depth attachments
+        auto depth_attachment              = GPURenderPassDepthStencilAttachment{};
+        depth_attachment.view              = depth_view;
+        depth_attachment.depth_load_op     = GPULoadOp::CLEAR;
+        depth_attachment.depth_store_op    = GPUStoreOp::STORE;
+        depth_attachment.depth_clear_value = 1.0f;
+
+        // render pass info
+        auto render_pass                     = GPURenderPassDescriptor{};
+        render_pass.color_attachments        = color_attachment;
+        render_pass.depth_stencil_attachment = depth_attachment;
+
+        command.push_debug_group("Renderer");
+        command.resource_barrier(state_transition(backbuffer.texture, undefined_state(), color_attachment_state()));
+        command.resource_barrier(state_transition(depth_texture, undefined_state(), depth_stencil_attachment_state()));
+        command.begin_render_pass(render_pass);
+        command.set_viewport(0, 0, static_cast<float>(backbuffer.extent.width), static_cast<float>(backbuffer.extent.height));
+        command.set_scissor_rect(0, 0, backbuffer.extent.width, backbuffer.extent.height);
+        command.set_pipeline(pipeline);
+        command.set_vertex_buffer(0, vbuffer);
+        command.set_index_buffer(ibuffer, GPUIndexFormat::UINT32);
+        command.set_bind_group(0, bind_group);
+
+        // render parent cube
+        {
+            auto& xform = world.get_component<TransformWorld>(parent_node).xform;
+            command.set_push_constants(GPUShaderStage::VERTEX, 0, xform);
+            command.draw_indexed(24, 1, 0, 0, 0);
+        }
+
+        // render child cube
+        {
+            auto& xform = world.get_component<TransformWorld>(child_node).xform;
+            command.set_push_constants(GPUShaderStage::VERTEX, 0, xform);
+            command.draw_indexed(24, 1, 0, 0, 0);
+        }
+
+        command.end_render_pass();
+        command.resource_barrier(state_transition(backbuffer.texture, color_attachment_state(), shader_resource_state(GPUBarrierSync::ALL_SHADING)));
+        command.pop_debug_group();
+    }
 }
 
 void SampleCubeRenderer::init(Blackboard& blackboard)
 {
-    GPUDevice device   = blackboard.get<GPUDevice>();
-    Compiler  compiler = blackboard.get<Compiler>();
+    auto device   = blackboard.get<GPUDevice*>();
+    auto compiler = blackboard.get<Compiler*>();
 
-    init_pipeline(device, compiler);
-    init_buffers(device);
-    init_bind_group(device);
+    init_pipeline(*device, *compiler);
+    init_buffers(*device);
+    init_bind_group(*device);
+
+    // initialize scene nodes
+    if (auto world_ptr = blackboard.try_get<World*>()) {
+        auto& world = **world_ptr;
+
+        // create parent cube
+        parent_node = world.create("Parent Cube");
+
+        // create child cube
+        child_node = world.create("Child Cube");
+        world.translate(child_node, {2.0f, 0.0f, 0.0f});
+        world.scale(child_node, {0.5f, 0.5f, 0.5f});
+        world.add_child(parent_node, child_node);
+
+        // create camera node
+        camera_node = world.create("Main Camera");
+        world.translate(camera_node, {0.0f, 0.0f, 5.0f});
+        world.add_component<PerspectiveCamera>(camera_node);
+        world.add_component<CameraProjection>(camera_node);
+    }
 }
 
 void SampleCubeRenderer::destroy(Blackboard& blackboard)
 {
-    GPUDevice device = blackboard.get<GPUDevice>();
-    device.wait();
+    auto device = blackboard.get<GPUDevice*>();
+    device->wait();
 
     vshader.destroy();
     fshader.destroy();
@@ -111,21 +165,71 @@ void SampleCubeRenderer::destroy(Blackboard& blackboard)
     vbuffer.destroy();
     ibuffer.destroy();
     ubuffer.destroy();
+    depth_texture.destroy();
+    depth_view.destroy();
 }
 
 void SampleCubeRenderer::update(Blackboard& blackboard)
 {
-    if (auto scene = blackboard.try_get<SceneView*>()) {
-        auto backbuffer = (*scene)->get_backbuffer();
-        auto aspect     = (float)backbuffer.extent.width / (float)backbuffer.extent.height;
+    auto world_ptr     = blackboard.try_get<World*>();
+    auto hierarchy_ptr = blackboard.try_get<SceneTree*>();
+    auto scene         = blackboard.try_get<SceneView*>();
+    if (!world_ptr || !hierarchy_ptr || !scene) return;
 
-        auto camera       = ubuffer.get_mapped_range<Camera>();
-        camera.at(0).proj = glm::perspective(1.05f, aspect, 0.01f, 100.0f);
-        camera.at(0).view = glm::lookAt(
-            glm::vec3(0.0f, 0.0f, 3.0f),
-            glm::vec3(0.0f, 0.0f, 0.0f),
-            glm::vec3(0.0f, 1.0f, 0.0f));
+    auto& world     = **world_ptr;
+    auto& hierarchy = **hierarchy_ptr;
+    auto  clock     = blackboard.get<Clock*>();
+
+    // rotate parent cube (45 degrees per second)
+    world.rotate(parent_node, {0.0f, 1.0f, 0.0f}, 45.0f * clock->delta_time);
+
+    // update all transforms in the hierarchy
+    hierarchy.update();
+
+    // update camera uniform buffer
+    auto backbuffer = (*scene)->get_backbuffer();
+
+    // ensure depth buffer matches backbuffer size
+    if (!depth_texture.handle.valid() ||
+        depth_texture.width != backbuffer.extent.width ||
+        depth_texture.height != backbuffer.extent.height) {
+        auto device = blackboard.get<GPUDevice*>();
+
+        if (depth_texture.handle.valid()) {
+            device->wait();
+            depth_texture.destroy();
+            depth_view.destroy();
+        }
+
+        depth_texture = execute([&]() {
+            auto desc            = GPUTextureDescriptor{};
+            desc.label           = "depth_buffer";
+            desc.size.width      = backbuffer.extent.width;
+            desc.size.height     = backbuffer.extent.height;
+            desc.size.depth      = 1;
+            desc.dimension       = GPUTextureDimension::x2D;
+            desc.format          = GPUTextureFormat::DEPTH32FLOAT;
+            desc.usage           = GPUTextureUsage::RENDER_ATTACHMENT;
+            desc.mip_level_count = 1;
+            desc.sample_count    = 1;
+            return device->create_texture(desc);
+        });
+        depth_view    = depth_texture.create_view();
     }
+
+    auto  aspect    = (float)backbuffer.extent.width / (float)backbuffer.extent.height;
+    auto& cam_world = world.get_component<TransformWorld>(camera_node);
+
+    // update camera projection parameters
+    auto& cam_perspective  = world.get_component<PerspectiveCamera>(camera_node);
+    cam_perspective.aspect = aspect;
+
+    // get updated projection from CameraLayer (note: this might be 1 frame late if aspect ratio just changed)
+    auto& cam_projection = world.get_component<CameraProjection>(camera_node);
+
+    auto camera       = ubuffer.get_mapped_range<Camera>();
+    camera.at(0).proj = cam_projection.projection;
+    camera.at(0).view = glm::inverse(cam_world.xform);
 }
 
 void SampleCubeRenderer::init_buffers(GPUDevice device)
@@ -300,14 +404,17 @@ void SampleCubeRenderer::init_pipeline(GPUDevice device, Compiler compiler)
         desc.primitive.topology                    = GPUPrimitiveTopology::TRIANGLE_LIST;
         desc.primitive.front_face                  = GPUFrontFace::CCW;
         desc.primitive.strip_index_format          = GPUIndexFormat::UINT32;
-        desc.depth_stencil.depth_compare           = GPUCompareFunction::ALWAYS;
-        desc.depth_stencil.depth_write_enabled     = false;
+        desc.depth_stencil.depth_compare           = GPUCompareFunction::LESS_EQUAL;
+        desc.depth_stencil.depth_write_enabled     = true;
+        desc.depth_stencil.format                  = GPUTextureFormat::DEPTH32FLOAT;
         desc.multisample.alpha_to_coverage_enabled = false;
         desc.multisample.count                     = 1;
         desc.vertex.module                         = vshader;
-        desc.fragment.module                       = fshader;
         desc.vertex.buffers                        = layout;
+        desc.vertex.entry_point                    = "vsmain";
+        desc.fragment.module                       = fshader;
         desc.fragment.targets                      = rstates;
+        desc.fragment.entry_point                  = "fsmain";
         return device.create_render_pipeline(desc);
     });
 }

@@ -8,7 +8,7 @@
 #include <Lyra/Common/String.h>
 #include <Lyra/Common/Pointer.h>
 #include <Lyra/Common/Collections.h>
-#include <Lyra/Plugin/VFS/VFSAPI.h>
+#include <Lyra/FileIO/VFSAPI.h>
 
 using namespace lyra;
 

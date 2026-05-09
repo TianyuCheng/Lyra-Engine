@@ -1,7 +1,7 @@
 // global module headers
 #include <Lyra/Common/String.h>
 #include <Lyra/Common/Plugin.h>
-#include <Lyra/Plugin/GUI/GUIAPI.h>
+#include <Lyra/UICore/GUIAPI.h>
 
 // local plugin header(s)
 #include "GUIRenderer.h"
@@ -19,50 +19,50 @@ static bool create_gui(GUIHandle& gui, const GUIDescriptor& descriptor)
 
 static void delete_gui(GUIHandle gui)
 {
-    auto renderer = gui.astype<GUIRenderer>();
+    auto renderer = gui.as_type<GUIRenderer>();
     renderer->destroy();
     delete renderer;
 }
 
 static void new_frame(GUIHandle gui)
 {
-    gui.astype<GUIRenderer>()->new_frame();
+    gui.as_type<GUIRenderer>()->new_frame();
 }
 
 static void end_frame(GUIHandle gui)
 {
-    gui.astype<GUIRenderer>()->end_frame();
+    gui.as_type<GUIRenderer>()->end_frame();
 }
 
 static void update_gui(GUIHandle gui)
 {
-    gui.astype<GUIRenderer>()->update();
+    gui.as_type<GUIRenderer>()->update();
 }
 
 static void resize_gui(GUIHandle gui)
 {
-    gui.astype<GUIRenderer>()->resize();
+    gui.as_type<GUIRenderer>()->resize();
 }
 
 static void* get_context(GUIHandle gui)
 {
-    return gui.astype<GUIRenderer>()->context();
+    return gui.as_type<GUIRenderer>()->context();
 }
 
-uint create_texture(GUIHandle gui, GPUTextureHandle texture, GPUTextureViewHandle view)
+GUITextureHandle create_texture(GUIHandle gui, GPUTextureHandle texture, GPUTextureViewHandle view)
 {
-    return gui.astype<GUIRenderer>()->create_texture(texture, view);
+    return gui.as_type<GUIRenderer>()->create_texture(texture, view);
 }
 
-void delete_texture(GUIHandle gui, uint texid)
+void delete_texture(GUIHandle gui, GUITextureHandle texid)
 {
-    return gui.astype<GUIRenderer>()->delete_texture(texid);
+    return gui.as_type<GUIRenderer>()->delete_texture(texid);
 }
 
 static void render_main_viewport(GUIHandle gui, GPUCommandEncoderHandle encoder, GPUTextureViewHandle backbuffer)
 {
     auto cmdbuffer = GPUCommandBuffer(encoder);
-    auto renderer  = gui.astype<GUIRenderer>();
+    auto renderer  = gui.as_type<GUIRenderer>();
     renderer->reset();
     renderer->prepare(cmdbuffer);
     renderer->begin_render_pass(cmdbuffer, backbuffer);
@@ -90,9 +90,9 @@ LYRA_EXPORT auto cleanup() -> void
     // do nothing
 }
 
-LYRA_EXPORT auto create() -> GUIRenderAPI
+LYRA_EXPORT auto create() -> GUIAPI
 {
-    auto api                  = GUIRenderAPI{};
+    auto api                  = GUIAPI{};
     api.get_api_name          = get_api_name;
     api.create_gui            = create_gui;
     api.delete_gui            = delete_gui;

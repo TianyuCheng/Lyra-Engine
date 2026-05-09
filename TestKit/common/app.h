@@ -1,7 +1,6 @@
 #ifndef LYRA_TESTLIB_HELPER_APP_H
 #define LYRA_TESTLIB_HELPER_APP_H
 
-#include "./common.h"
 #include "./render.h"
 
 struct TestAppDescriptor
@@ -14,6 +13,8 @@ struct TestAppDescriptor
     RHIFlags      rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
     CompileTarget compile_target = CompileTarget::SPIRV;
     CompileFlags  compile_flags  = CompileFlag::DEBUG;
+
+    Vector<GPUFeatureName> required_features = {};
 };
 
 struct TestApp
@@ -27,7 +28,13 @@ struct TestApp
     void run_with_window();
     void run_without_window();
     void postprocessing(const GPUCommandBuffer& cmd, GPUTextureHandle backbuffer);
+    void postprocessing_compute(const GPUCommandBuffer& cmd, GPUTextureHandle backbuffer);
     auto get_backbuffer_format() const -> GPUTextureFormat;
+
+    // dispatch callbacks
+    void on_update(const Window& window);
+    void on_render(const Window&);
+    void on_close(const Window&);
 
     TestAppDescriptor       desc;
     GPUSurface              swp;

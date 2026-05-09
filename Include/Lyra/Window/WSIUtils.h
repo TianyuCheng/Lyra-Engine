@@ -1,0 +1,51 @@
+#pragma once
+
+#ifndef LYRA_LYRA_WINDOW_WSIUTILS_H
+#define LYRA_LYRA_WINDOW_WSIUTILS_H
+
+#include <Lyra/Common/BitFlags.h>
+#include <Lyra/Common/Function.h>
+#include <Lyra/Common/Collections.h>
+#include <Lyra/Window/WSIEnums.h>
+
+namespace lyra
+{
+    struct Window;
+
+    using WindowFlags    = BitFlags<WindowFlag>;
+    using WindowCallback = Delegate<void(WindowEvent)>;
+    using WindowDelegate = Delegate<void(const Window&)>;
+
+    struct WindowCallbacks
+    {
+        Vector<WindowDelegate> start;
+        Vector<WindowDelegate> close;
+        Vector<WindowDelegate> timer;
+        Vector<WindowDelegate> update;
+        Vector<WindowDelegate> render;
+        Vector<WindowDelegate> resize;
+    };
+
+    struct MonitorInfo
+    {
+        int   monitor_pos_x;
+        int   monitor_pos_y;
+        uint  monitor_width;
+        uint  monitor_height;
+        int   workarea_pos_x;
+        int   workarea_pos_y;
+        uint  workarea_width;
+        uint  workarea_height;
+        float dpi_scale_x;
+        float dpi_scale_y;
+    };
+
+    struct WindowHandle
+    {
+        void* window = nullptr;
+        void* native = nullptr;
+    };
+
+} // namespace lyra
+
+#endif // LYRA_LYRA_WINDOW_WSIUTILS_H

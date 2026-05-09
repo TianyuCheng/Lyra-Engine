@@ -9,7 +9,7 @@
 #include <sstream>
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Common/Function.h>
-#include <Lyra/Plugin/SLC/SLCAPI.h>
+#include <Lyra/Shader/SLCAPI.h>
 
 using namespace lyra;
 

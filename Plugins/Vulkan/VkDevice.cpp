@@ -72,9 +72,9 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
     Vector<CString> debugger_extensions = {};
     Vector<CString> validation_layers   = {};
 
-    auto required_features       = GPUSupportedFeatures{};
-    required_features.bindless   = is_required(desc.required_features, GPUFeatureName::BINDLESS);
-    required_features.raytracing = is_required(desc.required_features, GPUFeatureName::RAYTRACING);
+    rhi->features            = GPUSupportedFeatures{};
+    rhi->features.bindless   = is_required(desc.required_features, GPUFeatureName::BINDLESS);
+    rhi->features.raytracing = is_required(desc.required_features, GPUFeatureName::RAYTRACING);
 
     // add validation layer
     if (rhi->rhiflags.contains(RHIFlag::VALIDATION)) {
@@ -103,11 +103,11 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
     }
 
     // load bindless extensions
-    if (required_features.bindless)
+    if (rhi->features.bindless)
         device_extensions.push_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
 
     // load raytracing extensions
-    if (required_features.raytracing) {
+    if (rhi->features.raytracing) {
         device_extensions.push_back(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
         device_extensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
         device_extensions.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
@@ -187,7 +187,7 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
 
     // optional: used to support bindless descriptors
     auto descriptor_indexing = VkPhysicalDeviceDescriptorIndexingFeatures{};
-    if (required_features.bindless) {
+    if (rhi->features.bindless) {
         descriptor_indexing.sType                                     = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
         descriptor_indexing.pNext                                     = nullptr;
         descriptor_indexing.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
@@ -203,20 +203,21 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
 
     // optional: used to get device address for raytracing buffers
     auto buffer_device_address = VkPhysicalDeviceBufferDeviceAddressFeatures{};
-    if (required_features.raytracing) {
+    if (rhi->features.raytracing) {
         buffer_device_address.sType               = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
         buffer_device_address.pNext               = nullptr;
         buffer_device_address.bufferDeviceAddress = VK_TRUE;
         append_feature((VulkanBase*)&buffer_device_address);
-        if (!is_supported(device_extensions, VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME)) {
-            get_logger()->error("Device extension {} is not supported!", VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
+        if (!is_supported(device_extensions, VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME)) {
+            get_logger()->error("Device extension {} is not supported!", VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
             exit(1);
         }
     }
 
     // optional: used for host query reset in raytracing
     auto host_query_reset = VkPhysicalDeviceHostQueryResetFeatures{};
-    if (required_features.raytracing) {
+    if (rhi->features.raytracing) {
+        device_extensions.push_back(VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME);
         host_query_reset.sType          = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES;
         host_query_reset.pNext          = nullptr;
         host_query_reset.hostQueryReset = VK_TRUE;
@@ -229,7 +230,7 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
 
     // optional: used to support bvh building
     auto acceleration_structure = VkPhysicalDeviceAccelerationStructureFeaturesKHR{};
-    if (required_features.raytracing) {
+    if (rhi->features.raytracing) {
         acceleration_structure.sType                 = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
         acceleration_structure.pNext                 = nullptr;
         acceleration_structure.accelerationStructure = VK_TRUE;
@@ -242,7 +243,7 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
 
     // optional: used to raytracing pipelines
     auto raytracing_pipeline = VkPhysicalDeviceRayTracingPipelineFeaturesKHR{};
-    if (required_features.raytracing) {
+    if (rhi->features.raytracing) {
         raytracing_pipeline.sType                        = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
         raytracing_pipeline.pNext                        = nullptr;
         raytracing_pipeline.rayTracingPipeline           = VK_TRUE;
@@ -256,7 +257,7 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
 
     // optional: used to ray query in other shader types.
     auto ray_query = VkPhysicalDeviceRayQueryFeaturesKHR{};
-    if (required_features.raytracing) {
+    if (rhi->features.raytracing) {
         ray_query.sType    = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
         ray_query.pNext    = nullptr;
         ray_query.rayQuery = VK_TRUE;
@@ -395,7 +396,7 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
     }
 
     // create memory allocator
-    bool enable_buffer_device_address = required_features.raytracing;
+    bool enable_buffer_device_address = rhi->features.raytracing;
     create_allocator(rhi, enable_buffer_device_address);
 
     // transfer queues
