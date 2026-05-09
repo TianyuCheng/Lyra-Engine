@@ -171,8 +171,6 @@ static bool process_texture(JSON& metadata, OSPath source_path, OSPath target_pa
     return false;
 }
 
-
-
 static uint get_supported_cooker_extensions(CString* extensions)
 {
     static const char* exts[] = {".png", ".jpg", ".hdr", ".exr", ".dds", ".ktx", ".ktx2"};
@@ -182,7 +180,6 @@ static uint get_supported_cooker_extensions(CString* extensions)
     }
     return 7;
 }
-
 
 LYRA_EXPORT auto create() -> AssetCookerAPI
 {

@@ -43,17 +43,21 @@ void SceneView::update(Blackboard& blackboard)
     ImGui::Begin(LYRA_SCENE_WINDOW_NAME);
     {
         // center align the buttons
-        float button_width = 24.0f;
-        float total_width  = button_width * 2 + ImGui::GetStyle().ItemSpacing.x;
+        float button_size = ImGui::GetFrameHeight() + 4.0f;
+        float total_width = button_size * 2 + ImGui::GetStyle().ItemSpacing.x;
+
+        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 2.0f);
         ImGui::SetCursorPosX((ImGui::GetWindowSize().x - total_width) * 0.5f);
 
-        if (ImGui::Button(LYRA_ICON_PLAY, ImVec2(button_width, 0))) {
+        if (ImGui::Button(LYRA_ICON_PLAY, ImVec2(button_size, button_size))) {
             clock->paused = false;
         }
         ImGui::SameLine();
-        if (ImGui::Button(LYRA_ICON_PAUSE, ImVec2(button_width, 0))) {
+        if (ImGui::Button(LYRA_ICON_PAUSE, ImVec2(button_size, button_size))) {
             clock->paused = true;
         }
+
+        ImGui::Dummy(ImVec2(0, 2.0f));
 
         canvas.update(blackboard);
         canvas.display();

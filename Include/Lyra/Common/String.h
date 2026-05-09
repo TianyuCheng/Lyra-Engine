@@ -11,6 +11,9 @@
 #if __APPLE__
 // to allow compilation on MacOS
 size_t strnlen_s(const char* s, size_t maxlen);
+
+// to allow compilation on MacOS
+int strncpy_s(char* dest, size_t destsz, const char* src, size_t count);
 #endif
 
 namespace lyra
