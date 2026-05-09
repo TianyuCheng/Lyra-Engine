@@ -84,6 +84,7 @@ namespace lyra
 
         char new_folder_name[256] = "";
         char rename_buffer[256]   = "";
+        char search_filter[256]   = "";
     };
 } // namespace lyra
 

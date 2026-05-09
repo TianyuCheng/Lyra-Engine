@@ -24,6 +24,7 @@ namespace lyra
     private:
         uint8_t level_filter = 0x3F; // Bitmask for individual level toggles
         char    filter[1024];
+        bool    auto_scroll  = true;
     };
 } // namespace lyra
 

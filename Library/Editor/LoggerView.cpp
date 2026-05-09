@@ -42,16 +42,33 @@ void LoggerView::update(Blackboard& blackboard)
 
 void LoggerView::show_bar()
 {
+    // Clear button
+    if (ImGui::Button(LYRA_ICON_DELETE " Clear")) {
+        get_console_sink()->get_console().clear();
+    }
+    ImGui::SameLine();
+
+    // Auto-scroll toggle
+    bool auto_scroll_active = auto_scroll;
+    if (auto_scroll_active) ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyle().Colors[ImGuiCol_ButtonActive]);
+    if (ImGui::Button(LYRA_ICON_REFRESH " Auto-scroll")) {
+        auto_scroll = !auto_scroll;
+    }
+    if (auto_scroll_active) ImGui::PopStyleColor();
+    ImGui::SameLine();
+
+    ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
+    ImGui::SameLine();
+
     // toggle buttons for each log level
     auto level_button = [&](const char* label, LogLevel level, ImVec4 color) {
         bool active = (level_filter & (1 << (int)level));
         if (active) {
             ImGui::PushStyleColor(ImGuiCol_Button, color);
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(color.x * 1.2f, color.y * 1.2f, color.z * 1.2f, color.w));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(color.x * 0.8f, color.y * 0.8f, color.z * 0.8f, color.w));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(color.x * 1.1f, color.y * 1.1f, color.z * 1.1f, color.w));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(color.x * 0.9f, color.y * 0.9f, color.z * 0.9f, color.w));
         } else {
             ImGui::PushStyleColor(ImGuiCol_Text, color);
-            ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyle().Colors[ImGuiCol_ChildBg]);
         }
 
         if (ImGui::Button(label)) {
@@ -59,29 +76,23 @@ void LoggerView::show_bar()
         }
 
         if (active) ImGui::PopStyleColor(3);
-        else ImGui::PopStyleColor(2);
+        else ImGui::PopStyleColor(1);
     };
 
-    level_button("TRACE", LogLevel::trace, LYRA_COLOR_TRACE);
-    ImGui::SameLine();
-    level_button("DEBUG", LogLevel::debug, LYRA_COLOR_DEBUG);
-    ImGui::SameLine();
-    level_button("INFO", LogLevel::info, LYRA_COLOR_INFO);
-    ImGui::SameLine();
-    level_button("WARN", LogLevel::warn, LYRA_COLOR_WARN);
-    ImGui::SameLine();
-    level_button("ERROR", LogLevel::err, LYRA_COLOR_ERROR);
-    ImGui::SameLine();
-    level_button("CRIT", LogLevel::critical, LYRA_COLOR_CRITICAL);
+    level_button("T", LogLevel::trace, LYRA_COLOR_TRACE); ImGui::SameLine();
+    level_button("D", LogLevel::debug, LYRA_COLOR_DEBUG); ImGui::SameLine();
+    level_button("I", LogLevel::info, LYRA_COLOR_INFO); ImGui::SameLine();
+    level_button("W", LogLevel::warn, LYRA_COLOR_WARN); ImGui::SameLine();
+    level_button("E", LogLevel::err, LYRA_COLOR_ERROR); ImGui::SameLine();
+    level_button("C", LogLevel::critical, LYRA_COLOR_CRITICAL);
 
     ImGui::SameLine();
     ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
     ImGui::SameLine();
 
     // log filter
-    ImGui::PushItemWidth(-1);
+    ImGui::SetNextItemWidth(-1);
     ImGui::InputTextWithHint("##LogFilter", LYRA_ICON_FILTER " Filter...", filter, 1024);
-    ImGui::PopItemWidth();
 }
 
 void LoggerView::show_logs() const
@@ -124,7 +135,7 @@ void LoggerView::show_logs() const
         });
         if (sink.modified()) {
             sink.reset();
-            ImGui::SetScrollHereY(1.0f);
+            if (auto_scroll) ImGui::SetScrollHereY(1.0f);
         }
     }
     ImGui::EndChild();

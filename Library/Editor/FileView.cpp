@@ -6,6 +6,7 @@
 
 // local imports
 #include <Lyra/Editor/Icons.h>
+#include <Lyra/Editor/Colors.h>
 #include <Lyra/Editor/Layout.h>
 #include <Lyra/Editor/FileView.h>
 
@@ -38,8 +39,12 @@ void FileView::update(Blackboard& blackboard)
         handle_file_drop(blackboard);
 
         show_breadcrumb();
+        ImGui::SameLine(ImGui::GetWindowWidth() - 220);
+        ImGui::SetNextItemWidth(200);
+        ImGui::InputTextWithHint("##FileSearch", LYRA_ICON_FILTER " Search...", search_filter, sizeof(search_filter));
+
         ImGui::Separator();
-        ImGui::BeginChild("##FileBrowser");
+        ImGui::BeginChild("##FileBrowser", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()));
         {
             show_dir_files(blackboard);
             show_context_menu(blackboard);
@@ -51,6 +56,9 @@ void FileView::update(Blackboard& blackboard)
             show_import_indicator();
         }
         ImGui::EndChild();
+
+        ImGui::Separator();
+        ImGui::TextDisabled(" %zu items  |  %zu selected", files.size() + folders.size(), selection.size());
     }
     ImGui::End();
 }
@@ -146,12 +154,24 @@ void FileView::show_dir_files(Blackboard& blackboard)
         }
     };
 
+    String filter(search_filter);
+    auto matches_filter = [&](StringView name) {
+        if (filter.empty()) return true;
+        String n(name);
+        std::transform(n.begin(), n.end(), n.begin(), ::tolower);
+        String f(filter);
+        std::transform(f.begin(), f.end(), f.begin(), ::tolower);
+        return n.find(f) != String::npos;
+    };
+
     for (const auto& folder : folders) {
+        if (!matches_filter(folder)) continue;
         handle_marquee(folder);
         show_item(blackboard, grid, ctx, folder, true);
     }
 
     for (const auto& file : files) {
+        if (!matches_filter(file)) continue;
         handle_marquee(file);
         show_item(blackboard, grid, ctx, file, false);
     }
@@ -163,8 +183,13 @@ void FileView::show_item(Blackboard& blackboard, IconGrid& grid, IconGrid::Conte
 {
     ImGui::PushID(name.data(), name.data() + name.size());
 
+    // color folders
+    if (is_folder) ImGui::PushStyleColor(ImGuiCol_Text, LYRA_COLOR_FOLDER);
+
     bool is_sel = selection.is_selected(name);
     int  inter  = grid.draw_item(ctx, is_folder ? LYRA_ICON_FOLDER : LYRA_ICON_FILE, name.data(), is_sel);
+
+    if (is_folder) ImGui::PopStyleColor();
 
     if (inter & IconGrid::Clicked) {
         if (ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper)

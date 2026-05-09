@@ -32,6 +32,7 @@ namespace lyra
 
     private:
         SceneTree::NodeIndex selected_node = SceneTree::INVALID_NODE;
+        char                 search_filter[256] = "";
     };
 } // namespace lyra
 
