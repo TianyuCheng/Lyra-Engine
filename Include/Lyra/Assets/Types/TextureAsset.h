@@ -19,29 +19,7 @@ namespace lyra
 
         static auto loader() -> AssetLoaderAPI;
 
-        // stb cooker (jpg, png, hdr, etc)
-        struct stb
-        {
-            static auto cooker() -> AssetCookerAPI;
-        };
-
-        // exr cooker
-        struct exr
-        {
-            static auto cooker() -> AssetCookerAPI;
-        };
-
-        // dds cooker
-        struct dds
-        {
-            static auto cooker() -> AssetCookerAPI;
-        };
-
-        // ktx cooker
-        struct ktx
-        {
-            static auto cooker() -> AssetCookerAPI;
-        };
+        static auto cooker() -> AssetCookerAPI;
 
         struct Subresource
         {

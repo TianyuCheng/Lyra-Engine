@@ -190,7 +190,8 @@ void AssetServer::clone_asset(AssetTypeID type_id, RawAssetHandle handle)
 Future<AssetID> AssetServer::import_asset(const Path& path)
 {
     auto ext = path.extension().string();
-    auto it  = cooker_extensions.find(ext);
+
+    auto it = cooker_extensions.find(ext);
     if (it == cooker_extensions.end()) {
         spdlog::error("No cooker found for extension: {}", ext);
         Promise<AssetID> p;

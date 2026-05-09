@@ -122,32 +122,9 @@ AssetLoaderAPI TextureAsset::loader()
     return api;
 }
 
-AssetCookerAPI TextureAsset::stb::cooker()
+AssetCookerAPI TextureAsset::cooker()
 {
     static Own<TextureCookerPlugin> PLUGIN;
-    if (!PLUGIN) PLUGIN = std::make_unique<TextureCookerPlugin>("lyra-stb");
+    if (!PLUGIN) PLUGIN = std::make_unique<TextureCookerPlugin>("lyra-texture");
     return *PLUGIN->get_api();
-}
-
-AssetCookerAPI TextureAsset::exr::cooker()
-{
-    static Own<TextureCookerPlugin> PLUGIN;
-    if (!PLUGIN) PLUGIN = std::make_unique<TextureCookerPlugin>("lyra-exr");
-    return *PLUGIN->get_api();
-}
-
-AssetCookerAPI TextureAsset::dds::cooker()
-{
-    static Own<TextureCookerPlugin> PLUGIN;
-    if (!PLUGIN) PLUGIN = std::make_unique<TextureCookerPlugin>("lyra-dds");
-    return *PLUGIN->get_api();
-}
-
-AssetCookerAPI TextureAsset::ktx::cooker()
-{
-    auto api                     = AssetCookerAPI{};
-    api.configure                = nullptr;
-    api.process                  = ktx_process;
-    api.get_supported_extensions = get_ktx_extensions;
-    return api;
 }
