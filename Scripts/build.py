@@ -90,7 +90,9 @@ def do_run(args: argparse.Namespace):
     executable = os.path.join(directory, executable)
     command = [executable] + args.args
     print(">>> EXE:", executable)
-    execute(command)
+
+    # run from BUILDROOT to avoid cluttering project root
+    execute(command, cwd=os.path.abspath(BUILDROOT))
 
 def do_test(args: argparse.Namespace):
     config = load_config()
