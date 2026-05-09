@@ -58,15 +58,15 @@ void EditorLayer::theme(Blackboard&)
     ImVec4*     colors = style.Colors;
 
     // ui config
-    style.WindowPadding.x      = 4.0f;
-    style.WindowPadding.y      = 4.0f;
-    style.FramePadding.x       = 4.0f;
-    style.FramePadding.y       = 4.0f;
-    style.ItemSpacing.x        = 4.0f;
-    style.ItemSpacing.y        = 4.0f;
-    style.ItemInnerSpacing.x   = 4.0f;
-    style.ItemInnerSpacing.y   = 4.0f;
-    style.GrabMinSize          = 8.0f;
+    style.WindowPadding.x      = 8.0f;
+    style.WindowPadding.y      = 8.0f;
+    style.FramePadding.x       = 8.0f;
+    style.FramePadding.y       = 6.0f;
+    style.ItemSpacing.x        = 8.0f;
+    style.ItemSpacing.y        = 6.0f;
+    style.ItemInnerSpacing.x   = 6.0f;
+    style.ItemInnerSpacing.y   = 6.0f;
+    style.GrabMinSize          = 10.0f;
     style.DockingSeparatorSize = 8.0f;
     style.IndentSpacing        = 20.0f;
 

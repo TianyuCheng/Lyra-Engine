@@ -59,27 +59,42 @@ void FileView::update(Blackboard& blackboard)
 
 void FileView::show_breadcrumb()
 {
-    if (ImGui::Button(LYRA_ICON_HOME " Home"))
-        update_directory(root);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f, 0.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
 
-    ImGui::SameLine();
-    ImGui::TextUnformatted(LYRA_ICON_CARET);
-    ImGui::SameLine();
-
-    if (root == curr) {
-        ImGui::NewLine();
-        return;
-    }
-
-    for (const auto& breadcrumb : breadcrumbs) {
-        if (ImGui::Button(breadcrumb.name.c_str())) {
-            update_directory(breadcrumb.path);
+    // Root / Home
+    if (curr == root) {
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextDisabled(LYRA_ICON_HOME);
+    } else {
+        if (ImGui::Button(LYRA_ICON_HOME)) {
+            update_directory(root);
         }
-        ImGui::SameLine();
-        ImGui::TextUnformatted(LYRA_ICON_CARET);
-        ImGui::SameLine();
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Go to Root");
     }
-    ImGui::NewLine();
+
+    for (size_t i = 0; i < breadcrumbs.size(); ++i) {
+        ImGui::SameLine();
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextDisabled(LYRA_ICON_CARET);
+        ImGui::SameLine();
+
+        const auto& bc = breadcrumbs[i];
+        bool is_last = (i == breadcrumbs.size() - 1);
+
+        if (is_last) {
+            ImGui::TextUnformatted(bc.name.c_str());
+        } else {
+            if (ImGui::Button(bc.name.c_str())) {
+                update_directory(bc.path);
+            }
+        }
+    }
+
+    ImGui::PopStyleColor();
+    ImGui::PopStyleVar(2);
+    ImGui::Spacing();
 }
 
 void FileView::show_dir_files(Blackboard& blackboard)
