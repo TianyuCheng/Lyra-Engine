@@ -10,5 +10,5 @@ target_sources(lyra-slang PRIVATE
 
 # link dependencies
 find_package(slang REQUIRED)
-target_link_libraries(lyra-slang PRIVATE lyra::shader)
+target_link_libraries(lyra-slang PRIVATE lyra::engine)
 target_link_libraries(lyra-slang PRIVATE slang::slang)

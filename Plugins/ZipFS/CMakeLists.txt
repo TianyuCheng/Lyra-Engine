@@ -9,5 +9,5 @@ target_sources(lyra-zipfs PRIVATE
 )
 
 find_package(miniz REQUIRED)
-target_link_libraries(lyra-zipfs PRIVATE lyra::fileio)
+target_link_libraries(lyra-zipfs PRIVATE lyra::engine)
 target_link_libraries(lyra-zipfs PRIVATE miniz::miniz)

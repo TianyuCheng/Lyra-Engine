@@ -110,7 +110,6 @@ macro(lyra_sample NAME)
 
   set_target_properties(${TARGET_NAME} PROPERTIES PREFIX "")
   set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Samples")
-  target_link_libraries(${TARGET_NAME} PUBLIC lyra::common)
   target_link_libraries(${TARGET_NAME} PUBLIC lyra::engine)
 
   # add custom target to run sample executable
@@ -143,7 +142,6 @@ macro(lyra_toolkit NAME)
 
   set_target_properties(${TARGET_NAME} PROPERTIES PREFIX "")
   set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Toolkit")
-  target_link_libraries(${TARGET_NAME} PUBLIC lyra::common)
   target_link_libraries(${TARGET_NAME} PUBLIC lyra::engine)
 
   # add custom target to run sample executable

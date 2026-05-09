@@ -34,8 +34,8 @@ target_sources(lyra-metal PRIVATE
 )
 
 # link Metal frameworks
-target_link_libraries(lyra-metal PRIVATE lyra::render)
 target_link_libraries(lyra-metal PRIVATE
+  lyra::engine
   ${METAL_LIBRARY}
   ${FOUNDATION_LIBRARY}
   ${QUARTZCORE_LIBRARY}

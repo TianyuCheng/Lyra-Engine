@@ -8,4 +8,4 @@ target_sources(lyra-pakfs PRIVATE
   PakPlugin.cpp
 )
 
-target_link_libraries(lyra-pakfs PRIVATE lyra::fileio)
+target_link_libraries(lyra-pakfs PRIVATE lyra::engine)

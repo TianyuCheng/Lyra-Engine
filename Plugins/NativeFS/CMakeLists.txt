@@ -7,4 +7,4 @@ target_sources(lyra-nativefs PRIVATE
   NativeFSPlugin.cpp
 )
 
-target_link_libraries(lyra-nativefs PRIVATE lyra::fileio)
+target_link_libraries(lyra-nativefs PRIVATE lyra::engine)

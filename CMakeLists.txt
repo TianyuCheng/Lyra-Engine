@@ -16,6 +16,7 @@ include(System)
 include(CMakeRC)
 
 # project components
+add_subdirectory(Include)
 add_subdirectory(Library)
 add_subdirectory(Plugins)
 add_subdirectory(TestKit)

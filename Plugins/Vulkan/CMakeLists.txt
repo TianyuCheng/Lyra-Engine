@@ -33,7 +33,7 @@ target_sources(lyra-vulkan PRIVATE
 find_package(volk REQUIRED)
 find_package(VulkanHeaders REQUIRED)
 find_package(VulkanMemoryAllocator REQUIRED)
-target_link_libraries(lyra-vulkan PRIVATE lyra::render)
+target_link_libraries(lyra-vulkan PRIVATE lyra::engine)
 target_link_libraries(lyra-vulkan PRIVATE Vulkan::Headers volk::volk volk::volk_headers GPUOpen::VulkanMemoryAllocator)
 
 # message(STATUS "CXX COMPILER: ${CMAKE_CXX_COMPILER_ID}")

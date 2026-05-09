@@ -5,16 +5,17 @@ find_package(tinyexr REQUIRED)
 # lyra-stb
 lyra_plugin(stb)
 target_sources(lyra-stb PRIVATE StbPlugin.cpp)
-target_link_libraries(lyra-stb PRIVATE lyra::assets lyra::render)
+target_link_libraries(lyra-stb PRIVATE lyra::engine)
 
 # lyra-exr
 lyra_plugin(exr)
 target_sources(lyra-exr PRIVATE ExrPlugin.cpp)
+target_link_libraries(lyra-exr PRIVATE lyra::engine)
 target_link_libraries(lyra-exr INTERFACE tinyexr)
-target_link_libraries(lyra-exr PRIVATE lyra::assets lyra::render miniz::miniz)
+target_link_libraries(lyra-exr PRIVATE miniz::miniz)
 
 # lyra-dds
 lyra_plugin(dds)
 target_sources(lyra-dds PRIVATE DdsPlugin.cpp)
+target_link_libraries(lyra-dds PRIVATE lyra::engine)
 target_link_libraries(lyra-dds INTERFACE gli)
-target_link_libraries(lyra-dds PRIVATE lyra::assets lyra::render)
