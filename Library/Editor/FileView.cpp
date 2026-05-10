@@ -38,9 +38,14 @@ void FileView::update(Blackboard& blackboard)
     {
         handle_file_drop(blackboard);
 
+        float start_y = ImGui::GetCursorPosY();
         show_breadcrumb();
-        ImGui::SameLine(ImGui::GetWindowWidth() - 220);
-        ImGui::SetNextItemWidth(200);
+        
+        const float search_bar_width = 250.0f;
+        ImGui::SameLine();
+        ImGui::SetCursorPosY(start_y);
+        ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x - search_bar_width);
+        ImGui::SetNextItemWidth(search_bar_width);
         ImGui::InputTextWithHint("##FileSearch", LYRA_ICON_FILTER " Search...", search_filter, sizeof(search_filter));
 
         ImGui::Separator();
@@ -102,7 +107,6 @@ void FileView::show_breadcrumb()
 
     ImGui::PopStyleColor();
     ImGui::PopStyleVar(2);
-    ImGui::Spacing();
 }
 
 void FileView::show_dir_files(Blackboard& blackboard)
@@ -183,13 +187,8 @@ void FileView::show_item(Blackboard& blackboard, IconGrid& grid, IconGrid::Conte
 {
     ImGui::PushID(name.data(), name.data() + name.size());
 
-    // color folders
-    if (is_folder) ImGui::PushStyleColor(ImGuiCol_Text, LYRA_COLOR_FOLDER);
-
     bool is_sel = selection.is_selected(name);
-    int  inter  = grid.draw_item(ctx, is_folder ? LYRA_ICON_FOLDER : LYRA_ICON_FILE, name.data(), is_sel);
-
-    if (is_folder) ImGui::PopStyleColor();
+    int  inter  = grid.draw_item(ctx, is_folder ? LYRA_ICON_FOLDER : LYRA_ICON_FILE, name.data(), is_sel, is_folder ? LYRA_COLOR_FOLDER : ImVec4(0, 0, 0, 0));
 
     if (inter & IconGrid::Clicked) {
         if (ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper)

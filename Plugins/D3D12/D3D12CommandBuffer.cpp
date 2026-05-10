@@ -1,4 +1,6 @@
 // reference: https://alain.xyz/blog/raw-directx12
+#include <limits>
+#include <algorithm>
 #include "D3D12Utils.h"
 
 void D3D12CommandBuffer::wait(const D3D12Fence& fence, GPUBarrierSyncFlags)
@@ -615,12 +617,18 @@ void cmd::set_scissor_rect(GPUCommandEncoderHandle cmdbuffer, GPUIntegerCoordina
     auto& frm = rhi->current_frame();
     auto& cmd = frm.command(cmdbuffer);
 
+    // D3D12_RECT uses signed LONG integers.
+    auto left   = std::clamp(static_cast<LONG>(x), 0L, static_cast<LONG>(std::numeric_limits<int32_t>::max()));
+    auto top    = std::clamp(static_cast<LONG>(y), 0L, static_cast<LONG>(std::numeric_limits<int32_t>::max()));
+    auto right  = std::clamp(static_cast<LONG>(x + w), left, static_cast<LONG>(std::numeric_limits<int32_t>::max()));
+    auto bottom = std::clamp(static_cast<LONG>(y + h), top, static_cast<LONG>(std::numeric_limits<int32_t>::max()));
+
     // setup d3d12 scissor rect
     D3D12_RECT scissor_rect = {};
-    scissor_rect.left       = x;
-    scissor_rect.top        = y;
-    scissor_rect.right      = x + w;
-    scissor_rect.bottom     = y + h;
+    scissor_rect.left       = left;
+    scissor_rect.top        = top;
+    scissor_rect.right      = right;
+    scissor_rect.bottom     = bottom;
 
     // set the scissor rect on the command list
     cmd.command_buffer->RSSetScissorRects(1, &scissor_rect);

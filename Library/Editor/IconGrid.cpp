@@ -23,7 +23,7 @@ auto IconGrid::begin() -> Context
     return ctx;
 }
 
-auto IconGrid::draw_item(Context& ctx, CString icon, CString label, bool selected) -> int
+auto IconGrid::draw_item(Context& ctx, CString icon, CString label, bool selected, ImVec4 icon_color) -> int
 {
     int interaction = None;
 
@@ -48,12 +48,14 @@ auto IconGrid::draw_item(Context& ctx, CString icon, CString label, bool selecte
         ImGui::PopStyleColor(selected ? 2 : 1);
 
         // draw icon centered in the box
+        if (icon_color.w > 0.0f) ImGui::PushStyleColor(ImGuiCol_Text, icon_color);
         ImGui::SetWindowFontScale(icon_scale);
         const ImVec2 s = ImGui::CalcTextSize(icon);
         ImGui::SetCursorPosX(pos.x + (adjusted_grid_size - s.x) * 0.5f);
         ImGui::SetCursorPosY(pos.y + (adjusted_grid_size - s.y) * 0.5f);
         ImGui::TextUnformatted(icon);
         ImGui::SetWindowFontScale(1.0f);
+        if (icon_color.w > 0.0f) ImGui::PopStyleColor();
 
         // draw label under icon
         ImGui::SetCursorPosY(pos.y + adjusted_grid_size + ImGui::GetStyle().ItemSpacing.y);

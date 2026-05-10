@@ -52,7 +52,7 @@ namespace lyra
          * @brief Draw a single item in the grid and handle its layout.
          * @return Bitmask of InteractionFlags.
          */
-        auto draw_item(Context& ctx, CString icon, CString label, bool selected) -> int;
+        auto draw_item(Context& ctx, CString icon, CString label, bool selected, ImVec4 icon_color = ImVec4(0, 0, 0, 0)) -> int;
 
     private:
         void next_column(Context& ctx);

@@ -1,3 +1,4 @@
+#include <limits>
 #include <algorithm>
 #include "VkUtils.h"
 
@@ -511,9 +512,14 @@ void cmd::set_scissor_rect(GPUCommandEncoderHandle cmdbuffer, GPUIntegerCoordina
     auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
 
+    // Vulkan offsets are signed 32-bit integers, but must be >= 0.
+    // Clamping to int32_t max to avoid overflow when casting.
+    auto offset_x = std::clamp(static_cast<int32_t>(x), 0, std::numeric_limits<int32_t>::max());
+    auto offset_y = std::clamp(static_cast<int32_t>(y), 0, std::numeric_limits<int32_t>::max());
+
     auto scissor          = VkRect2D{};
-    scissor.offset.x      = std::max(x, GPUIntegerCoordinate(0));
-    scissor.offset.y      = std::max(y, GPUIntegerCoordinate(0));
+    scissor.offset.x      = offset_x;
+    scissor.offset.y      = offset_y;
     scissor.extent.width  = w;
     scissor.extent.height = h;
 
