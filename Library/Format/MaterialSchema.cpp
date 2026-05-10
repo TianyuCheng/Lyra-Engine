@@ -1,6 +1,6 @@
 #include <Lyra/FileIO/VFSAPI.h>
 #include <Lyra/Assets/AMSServer.h>
-#include <Lyra/Assets/Types/MaterialSchema.h>
+#include <Lyra/Format/MaterialSchema.h>
 
 using namespace lyra;
 

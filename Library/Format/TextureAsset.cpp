@@ -6,11 +6,10 @@
 #include <Lyra/Common/Stdint.h>
 #include <Lyra/Common/Plugin.h>
 #include <Lyra/Assets/AMSAPI.h>
-#include <Lyra/Assets/Assets.h>
 #include <Lyra/Render/RHIAPI.h>
 #include <Lyra/FileIO/VFSAPI.h>
 
-#include <Lyra/Assets/Types/TextureAsset.h>
+#include <Lyra/Format/TextureAsset.h>
 
 using namespace lyra;
 

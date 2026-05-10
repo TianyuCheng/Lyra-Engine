@@ -1,6 +1,6 @@
 #include <Lyra/Common/Plugin.h>
 
-#include <Lyra/Assets/Types/ModelAsset.h>
+#include <Lyra/Format/ModelAsset.h>
 
 using namespace lyra;
 

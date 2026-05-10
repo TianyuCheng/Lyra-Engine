@@ -1,8 +1,7 @@
 #include <Lyra/FileIO/VFSAPI.h>
 #include <Lyra/Assets/AMSServer.h>
-
-#include <Lyra/Assets/Types/MaterialAsset.h>
-#include <Lyra/Assets/Types/TextureAsset.h>
+#include <Lyra/Format/TextureAsset.h>
+#include <Lyra/Format/MaterialAsset.h>
 
 using namespace lyra;
 
@@ -11,8 +10,10 @@ static AssetServer* G_ASSET_SERVER = nullptr;
 // Helper to map string to GPUCullMode
 static GPUCullMode string_to_cull_mode(const String& str)
 {
-    if (str == "none") return GPUCullMode::NONE;
+    // clang-format off
+    if (str == "none")  return GPUCullMode::NONE;
     if (str == "front") return GPUCullMode::FRONT;
+    // clang-format on
     return GPUCullMode::BACK;
 }
 

@@ -1,5 +1,5 @@
-#ifndef LYRA_LYRA_ASSETS_TYPES_MODELASSET_H
-#define LYRA_LYRA_ASSETS_TYPES_MODELASSET_H
+#ifndef LYRA_LYRA_FORMAT_MODELASSET_H
+#define LYRA_LYRA_FORMAT_MODELASSET_H
 
 #include <Lyra/Common/Math.h>
 #include <Lyra/Common/String.h>
@@ -7,8 +7,8 @@
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/Assets/AMSEnums.h>
 #include <Lyra/Assets/AMSUtils.h>
-#include <Lyra/Assets/Types/MeshAsset.h>
-#include <Lyra/Assets/Types/MaterialAsset.h>
+#include <Lyra/Format/MeshAsset.h>
+#include <Lyra/Format/MaterialAsset.h>
 
 namespace lyra
 {
@@ -59,4 +59,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LYRA_ASSETS_TYPES_MODELASSET_H
+#endif // LYRA_LYRA_FORMAT_MODELASSET_H

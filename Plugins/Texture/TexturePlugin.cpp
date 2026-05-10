@@ -5,13 +5,10 @@
 #include <gli/gli.hpp>
 #include <gli/load.hpp>
 
-#include <algorithm>
-#include <cctype>
-
 #include <Lyra/Common/Macros.h>
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Common/Plugin.h>
-#include <Lyra/Assets/Assets.h>
+
 #include "TextureUtils.h"
 
 using namespace lyra;

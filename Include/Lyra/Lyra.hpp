@@ -32,15 +32,6 @@
 #include <Lyra/FileIO/VFSTypes.h>
 #include <Lyra/Assets/AMSUtils.h>
 #include <Lyra/Assets/AMSServer.h>
-#include <Lyra/Assets/Assets.h>
-
-// Engine headers
-#include <Lyra/Player/Application.h>
-#include <Lyra/Player/AssetLayer.h>
-#include <Lyra/Player/SceneLayer.h>
-#include <Lyra/Player/CameraLayer.h>
-#include <Lyra/Player/EditorLayer.h>
-#include <Lyra/Player/TimingLayer.h>
 
 // Render headers
 #include <Lyra/Render/FrameGraph.h>
@@ -58,6 +49,15 @@
 #include <Lyra/Scenes/Transform.h>
 #include <Lyra/Scenes/SceneTree.h>
 
+// Format headers
+#include <Lyra/Format/TextAsset.h>
+#include <Lyra/Format/JsonAsset.h>
+#include <Lyra/Format/TomlAsset.h>
+#include <Lyra/Format/ModelAsset.h>
+#include <Lyra/Format/TextureAsset.h>
+#include <Lyra/Format/MaterialAsset.h>
+#include <Lyra/Format/MaterialSchema.h>
+
 // Effect headers
 #include <Lyra/Effect/MaterialGraph.h>
 
@@ -69,5 +69,13 @@
 #include <Lyra/Editor/SceneView.h>
 #include <Lyra/Editor/ObjectView.h>
 #include <Lyra/Editor/LoggerView.h>
+
+// Player headers
+#include <Lyra/Player/Application.h>
+#include <Lyra/Player/AssetLayer.h>
+#include <Lyra/Player/SceneLayer.h>
+#include <Lyra/Player/CameraLayer.h>
+#include <Lyra/Player/EditorLayer.h>
+#include <Lyra/Player/TimingLayer.h>
 
 #endif // LYRA_LYRA_LYRA_HPP

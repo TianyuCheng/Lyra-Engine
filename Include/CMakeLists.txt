@@ -88,15 +88,17 @@ target_sources(lyra-headers INTERFACE
     Lyra/Assets/AMSRegistry.h
     Lyra/Assets/AMSServer.h
     Lyra/Assets/AMSUtils.h
-    Lyra/Assets/Assets.h
-    Lyra/Assets/Types/JsonAsset.h
-    Lyra/Assets/Types/MaterialAsset.h
-    Lyra/Assets/Types/MaterialSchema.h
-    Lyra/Assets/Types/MeshAsset.h
-    Lyra/Assets/Types/ModelAsset.h
-    Lyra/Assets/Types/TextAsset.h
-    Lyra/Assets/Types/TextureAsset.h
-    Lyra/Assets/Types/TomlAsset.h
+
+    # formats
+    Lyra/Format/Format.h
+    Lyra/Format/JsonAsset.h
+    Lyra/Format/MaterialAsset.h
+    Lyra/Format/MaterialSchema.h
+    Lyra/Format/MeshAsset.h
+    Lyra/Format/ModelAsset.h
+    Lyra/Format/TextAsset.h
+    Lyra/Format/TextureAsset.h
+    Lyra/Format/TomlAsset.h
 
     # editor
     Lyra/Editor/Canvas.h

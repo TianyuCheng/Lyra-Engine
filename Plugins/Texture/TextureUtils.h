@@ -3,7 +3,7 @@
 #include <ktx.h>
 #include <vulkan/vulkan.h>
 #include <Lyra/Common/Logger.h>
-#include <Lyra/Assets/Assets.h>
+#include <Lyra/Format/TextureAsset.h>
 
 namespace lyra
 {

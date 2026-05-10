@@ -1,6 +1,6 @@
 #include <Lyra/FileIO/VFSAPI.h>
 #include <Lyra/Common/Logger.h>
-#include <Lyra/Assets/Types/MeshAsset.h>
+#include <Lyra/Format/MeshAsset.h>
 
 using namespace lyra;
 

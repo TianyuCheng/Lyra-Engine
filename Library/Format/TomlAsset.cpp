@@ -1,6 +1,6 @@
 #include <Lyra/FileIO/VFSAPI.h>
 
-#include <Lyra/Assets/Types/TomlAsset.h>
+#include <Lyra/Format/TomlAsset.h>
 
 using namespace lyra;
 

@@ -1,5 +1,5 @@
-#ifndef LYRA_LYRA_ASSETS_TYPES_TOMLASSET_H
-#define LYRA_LYRA_ASSETS_TYPES_TOMLASSET_H
+#ifndef LYRA_LYRA_FORMAT_TOMLASSET_H
+#define LYRA_LYRA_FORMAT_TOMLASSET_H
 
 #include <Lyra/Common/Config.h>
 #include <Lyra/Assets/AMSAPI.h>
@@ -27,4 +27,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LYRA_ASSETS_TYPES_TOMLASSET_H
+#endif // LYRA_LYRA_FORMAT_TOMLASSET_H

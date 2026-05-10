@@ -1,5 +1,5 @@
-#ifndef LYRA_LYRA_ASSETS_TYPES_MATERIALSCHEMA_H
-#define LYRA_LYRA_ASSETS_TYPES_MATERIALSCHEMA_H
+#ifndef LYRA_LYRA_FORMAT_MATERIALSCHEMA_H
+#define LYRA_LYRA_FORMAT_MATERIALSCHEMA_H
 
 #include <Lyra/Common/Math.h>
 #include <Lyra/Common/String.h>
@@ -8,7 +8,7 @@
 #include <Lyra/Assets/AMSUtils.h>
 #include <Lyra/Assets/AMSEnums.h>
 #include <Lyra/Render/RHIEnums.h>
-
+#include <Lyra/Format/TextureAsset.h>
 #include <Lyra/Effect/MaterialGraph.h>
 
 // avoid collision with Windows GDI
@@ -16,9 +16,6 @@
 
 namespace lyra
 {
-    struct TextureAsset;
-
-    using TextureAssetHandle = AssetHandle<TextureAsset>;
 
     /**
      * @brief Common semantics for material parameters, mainly for PBR.
@@ -117,4 +114,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LYRA_ASSETS_TYPES_MATERIALSCHEMA_H
+#endif // LYRA_LYRA_FORMAT_MATERIALSCHEMA_H

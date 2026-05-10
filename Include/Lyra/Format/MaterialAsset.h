@@ -1,7 +1,7 @@
-#ifndef LYRA_LYRA_ASSETS_TYPES_MATERIALASSET_H
-#define LYRA_LYRA_ASSETS_TYPES_MATERIALASSET_H
+#ifndef LYRA_LYRA_FORMAT_MATERIALASSET_H
+#define LYRA_LYRA_FORMAT_MATERIALASSET_H
 
-#include <Lyra/Assets/Types/MaterialSchema.h>
+#include <Lyra/Format/MaterialSchema.h>
 
 // macro collision with Windows GDI
 #undef OPAQUE
@@ -35,4 +35,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LYRA_ASSETS_TYPES_MATERIALASSET_H
+#endif // LYRA_LYRA_FORMAT_MATERIALASSET_H

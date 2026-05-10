@@ -1,6 +1,6 @@
 #include <Lyra/FileIO/VFSAPI.h>
 
-#include <Lyra/Assets/Types/JsonAsset.h>
+#include <Lyra/Format/JsonAsset.h>
 
 using namespace lyra;
 

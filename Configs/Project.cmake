@@ -88,7 +88,7 @@ macro(lyra_plugin NAME)
   # IDE target folders
   set_target_properties(${TARGET_NAME} PROPERTIES PREFIX "")
   set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Plugins")
-  target_link_libraries(${TARGET_NAME} PUBLIC lyra::common)
+  target_link_libraries(${TARGET_NAME} PUBLIC lyra::engine)
 endmacro()
 
 # define a macro for sample registration
