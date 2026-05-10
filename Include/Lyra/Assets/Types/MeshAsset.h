@@ -6,11 +6,92 @@
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/Assets/AMSEnums.h>
 #include <Lyra/Render/RHIEnums.h>
+#include <Lyra/Assets/Types/MaterialAsset.h>
 
 namespace lyra
 {
     /**
-     * @brief A mesh asset containing optimized vertex and index data.
+     * @brief Semantics for mesh attributes.
+     */
+    enum struct MeshSemantics : uint32_t
+    {
+        POSITION,
+        NORMAL,
+        TANGENT,
+        BITANGENT,
+        COLOR0,
+        COLOR1,
+        COLOR2,
+        COLOR3,
+        TEXCOORD0,
+        TEXCOORD1,
+        TEXCOORD2,
+        TEXCOORD3,
+        TEXCOORD4,
+        TEXCOORD5,
+        TEXCOORD6,
+        TEXCOORD7,
+        JOINTS0,
+        JOINTS1,
+        WEIGHTS0,
+        WEIGHTS1,
+        CUSTOM0,
+        CUSTOM1,
+        CUSTOM2,
+        CUSTOM3,
+        CUSTOM4,
+        CUSTOM5,
+        CUSTOM6,
+        CUSTOM7,
+    };
+
+    /**
+     * @brief A single vertex attribute stream.
+     */
+    struct MeshAttribute
+    {
+        MeshSemantics   semantics;
+        GPUVertexFormat format;
+        uint32_t        element_count;
+        Vector<uint8_t> data;
+    };
+
+    /**
+     * @brief Range in geometry buffers.
+     */
+    struct GeometrySlice
+    {
+        uint32_t first_index;
+        uint32_t index_count;
+        uint32_t first_vertex;
+        uint32_t vertex_count;
+    };
+
+    /**
+     * @brief A logical submesh with material and bounds.
+     */
+    struct MeshSurface
+    {
+        GeometrySlice              slice;
+        AssetHandle<MaterialAsset> material;
+        Vector3                    min_bounds;
+        Vector3                    max_bounds;
+
+        // Space for Meshlet info (placeholder)
+        uint32_t first_meshlet = 0;
+        uint32_t meshlet_count = 0;
+    };
+
+    /**
+     * @brief Level of detail.
+     */
+    struct MeshLOD
+    {
+        Vector<MeshSurface> surfaces;
+    };
+
+    /**
+     * @brief A mesh asset containing geometry description.
      */
     struct MeshAsset
     {
@@ -20,20 +101,16 @@ namespace lyra
 
         static auto loader() -> AssetLoaderAPI;
 
-        struct Submesh
-        {
-            uint first_index;
-            uint index_count;
-            uint first_vertex;
-            uint vertex_count;
-        };
+        Vector<MeshAttribute> attributes;   ///< Vertex attribute streams.
+        Vector<uint8_t>       index_data;   ///< Raw index data.
+        GPUIndexFormat        index_format; ///< Format of indices.
+        Vector<MeshLOD>       lods;         ///< Levels of detail.
 
-        Vector<uint8_t> vertex_data;  ///< Raw vertex data.
-        Vector<uint8_t> index_data;   ///< Raw index data (usually uint32).
-        Vector<Submesh> submeshes;    ///< List of submesh ranges.
-        GPUIndexFormat  index_format; ///< Format of indices.
-        Vector3         min_bounds;   ///< AABB min.
-        Vector3         max_bounds;   ///< AABB max.
+        Vector3 min_bounds; ///< Global AABB min.
+        Vector3 max_bounds; ///< Global AABB max.
+
+        // Future room for Skeleton (placeholder)
+        // AssetHandle<SkeletonAsset> skeleton;
     };
 } // namespace lyra
 

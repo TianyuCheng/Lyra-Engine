@@ -24,6 +24,16 @@ namespace lyra
         AssetID uuid = 0ull; ///< The globally unique identifier for the asset.
 
         /**
+         * @brief Default constructor.
+         */
+        RawAssetHandle() = default;
+
+        /**
+         * @brief Construct from a raw GUID.
+         */
+        RawAssetHandle(AssetID id) : uuid(id) {}
+
+        /**
          * @brief Check if the handle points to a valid asset.
          */
         FORCE_INLINE bool valid() const { return uuid != 0; }
@@ -37,6 +47,16 @@ namespace lyra
     struct AssetHandle : RawAssetHandle
     {
         static constexpr uint type = AssetType::type; ///< The static asset type.
+
+        /**
+         * @brief Default constructor.
+         */
+        AssetHandle() = default;
+
+        /**
+         * @brief Construct from a raw GUID.
+         */
+        AssetHandle(AssetID id) : RawAssetHandle(id) {}
     };
 
     /**

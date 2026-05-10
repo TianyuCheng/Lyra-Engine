@@ -1,52 +1,29 @@
 #include <Lyra/FileIO/VFSAPI.h>
 #include <Lyra/Common/Logger.h>
-
 #include <Lyra/Assets/Types/MeshAsset.h>
 
 using namespace lyra;
 
-static constexpr uint32_t MESH_ASSET_VERSION = 1;
+static constexpr uint32_t MESH_ASSET_VERSION = 2;
+static constexpr uint32_t MESH_MAGIC         = 0x534D594C; // 'LYMS'
 
-static bool parse_mesh_metadata(const JSON& metadata, MeshAsset* asset)
+struct ChunkHeader
 {
-    // 1. version check
-    uint32_t version = metadata.value("version", 0u);
-    if (version != MESH_ASSET_VERSION) {
-        spdlog::error("Failed to load MeshAsset: Unsupported version (found {}, expected {})", version, MESH_ASSET_VERSION);
-        return false;
-    }
+    uint32_t type;
+    uint32_t size;
+};
 
-    // 2. extract bounds
-    if (metadata.contains("min_bounds")) {
-        auto& min         = metadata["min_bounds"];
-        asset->min_bounds = Vector3(min[0], min[1], min[2]);
-    }
-    if (metadata.contains("max_bounds")) {
-        auto& max         = metadata["max_bounds"];
-        asset->max_bounds = Vector3(max[0], max[1], max[2]);
-    }
-
-    // 3. extract index format
-    asset->index_format = static_cast<GPUIndexFormat>(metadata.value("index_format", (uint)GPUIndexFormat::UINT32));
-
-    // 4. extract submeshes
-    if (metadata.contains("submeshes")) {
-        for (auto& sm : metadata["submeshes"]) {
-            asset->submeshes.push_back({sm["first_index"].get<uint>(),
-                sm["index_count"].get<uint>(),
-                sm["first_vertex"].get<uint>(),
-                sm["vertex_count"].get<uint>()});
-        }
-    }
-    return true;
-}
+// Chunk Types
+static constexpr uint32_t CHUNK_BBOX = 0x584F4242; // 'BBOX'
+static constexpr uint32_t CHUNK_ATTR = 0x52545441; // 'ATTR'
+static constexpr uint32_t CHUNK_INDX = 0x58444E49; // 'INDX'
+static constexpr uint32_t CHUNK_LODS = 0x53444F4C; // 'LODS'
 
 static void* load_mesh_asset(FileLoader* loader, FSPath path)
 {
     auto asset = new MeshAsset();
 
     auto content = loader->read<uint8_t>(path);
-
     if (content.empty()) {
         delete asset;
         return nullptr;
@@ -60,74 +37,76 @@ static void* load_mesh_asset(FileLoader* loader, FSPath path)
         return true;
     };
 
-    // Mesh is now pure binary format:
-    // [version: uint32]
+    // Header: Magic + Version
+    uint32_t magic   = 0;
     uint32_t version = 0;
+    if (!read_raw(&magic, sizeof(uint32_t)) || magic != MESH_MAGIC) {
+        spdlog::error("Failed to load MeshAsset {}: Invalid magic", path);
+        delete asset;
+        return nullptr;
+    }
+
     if (!read_raw(&version, sizeof(uint32_t)) || version != MESH_ASSET_VERSION) {
+        spdlog::error("Failed to load MeshAsset {}: Unsupported version (found {}, expected {})", path, version, MESH_ASSET_VERSION);
         delete asset;
         return nullptr;
     }
 
-    // [min_bounds: Vector3]
-    if (!read_raw(&asset->min_bounds, sizeof(Vector3))) {
-        delete asset;
-        return nullptr;
-    }
+    // Chunk-based parsing
+    while (offset < content.size()) {
+        ChunkHeader chunk;
+        if (!read_raw(&chunk, sizeof(ChunkHeader))) break;
 
-    // [max_bounds: Vector3]
-    if (!read_raw(&asset->max_bounds, sizeof(Vector3))) {
-        delete asset;
-        return nullptr;
-    }
+        size_t next_chunk_offset = offset + chunk.size;
 
-    // [index_format: uint32]
-    uint32_t index_format = 0;
-    if (!read_raw(&index_format, sizeof(uint32_t))) {
-        delete asset;
-        return nullptr;
-    }
-    asset->index_format = static_cast<GPUIndexFormat>(index_format);
+        if (chunk.type == CHUNK_BBOX) {
+            read_raw(&asset->min_bounds, sizeof(Vector3));
+            read_raw(&asset->max_bounds, sizeof(Vector3));
+        } else if (chunk.type == CHUNK_ATTR) {
+            uint32_t attr_count = 0;
+            read_raw(&attr_count, sizeof(uint32_t));
+            asset->attributes.resize(attr_count);
+            for (uint32_t i = 0; i < attr_count; ++i) {
+                auto& attr = asset->attributes[i];
+                read_raw(&attr.semantics, sizeof(MeshSemantics));
+                read_raw(&attr.format, sizeof(GPUVertexFormat));
+                read_raw(&attr.element_count, sizeof(uint32_t));
+                uint32_t data_size = 0;
+                read_raw(&data_size, sizeof(uint32_t));
+                attr.data.resize(data_size);
+                read_raw(attr.data.data(), data_size);
+            }
+        } else if (chunk.type == CHUNK_INDX) {
+            read_raw(&asset->index_format, sizeof(GPUIndexFormat));
+            uint32_t data_size = 0;
+            read_raw(&data_size, sizeof(uint32_t));
+            asset->index_data.resize(data_size);
+            read_raw(asset->index_data.data(), data_size);
+        } else if (chunk.type == CHUNK_LODS) {
+            uint32_t lod_count = 0;
+            read_raw(&lod_count, sizeof(uint32_t));
+            asset->lods.resize(lod_count);
+            for (uint32_t i = 0; i < lod_count; ++i) {
+                auto&    lod           = asset->lods[i];
+                uint32_t surface_count = 0;
+                read_raw(&surface_count, sizeof(uint32_t));
+                lod.surfaces.resize(surface_count);
+                for (uint32_t j = 0; j < surface_count; ++j) {
+                    auto& surf = lod.surfaces[j];
+                    read_raw(&surf.slice, sizeof(GeometrySlice));
+                    AssetID material_id;
+                    read_raw(&material_id, sizeof(AssetID));
+                    surf.material = AssetHandle<MaterialAsset>(material_id);
+                    read_raw(&surf.min_bounds, sizeof(Vector3));
+                    read_raw(&surf.max_bounds, sizeof(Vector3));
+                    read_raw(&surf.first_meshlet, sizeof(uint32_t));
+                    read_raw(&surf.meshlet_count, sizeof(uint32_t));
+                }
+            }
+        }
 
-    // [submesh_count: uint32]
-    uint32_t submesh_count = 0;
-    if (!read_raw(&submesh_count, sizeof(uint32_t))) {
-        delete asset;
-        return nullptr;
-    }
-
-    // [submeshes: array]
-    asset->submeshes.resize(submesh_count);
-    if (!read_raw(asset->submeshes.data(), submesh_count * sizeof(MeshAsset::Submesh))) {
-        delete asset;
-        return nullptr;
-    }
-
-    // the binary file contains raw data buffers:
-    // [vertex_data_size: uint32]
-    // [vertex_data: blob]
-    // [index_data_size: uint32]
-    // [index_data: blob]
-
-    uint32_t vertex_size = 0;
-    if (!read_raw(&vertex_size, sizeof(uint32_t))) {
-        delete asset;
-        return nullptr;
-    }
-    asset->vertex_data.resize(vertex_size);
-    if (!read_raw(asset->vertex_data.data(), vertex_size)) {
-        delete asset;
-        return nullptr;
-    }
-
-    uint32_t index_size = 0;
-    if (!read_raw(&index_size, sizeof(uint32_t))) {
-        delete asset;
-        return nullptr;
-    }
-    asset->index_data.resize(index_size);
-    if (!read_raw(asset->index_data.data(), index_size)) {
-        delete asset;
-        return nullptr;
+        // Always jump to the next chunk start to skip unknown chunks or padding
+        offset = next_chunk_offset;
     }
 
     return asset;
