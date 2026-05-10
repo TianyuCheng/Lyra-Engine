@@ -82,6 +82,7 @@ target_sources(lyra-engine PRIVATE
   Assets/Types/TomlAsset.cpp
   Assets/Types/TextureAsset.cpp
   Assets/Types/MeshAsset.cpp
+  Assets/Types/MaterialSchema.cpp
   Assets/Types/MaterialAsset.cpp
   Assets/Types/ModelAsset.cpp
 

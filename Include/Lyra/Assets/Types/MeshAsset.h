@@ -10,6 +10,7 @@
 
 namespace lyra
 {
+
     /**
      * @brief Semantics for mesh attributes.
      */
@@ -72,10 +73,10 @@ namespace lyra
      */
     struct MeshSurface
     {
-        GeometrySlice              slice;
-        AssetHandle<MaterialAsset> material;
-        Vector3                    min_bounds;
-        Vector3                    max_bounds;
+        GeometrySlice       slice;
+        MaterialAssetHandle material;
+        Vector3             min_bounds;
+        Vector3             max_bounds;
 
         // Space for Meshlet info (placeholder)
         uint32_t first_meshlet = 0;
@@ -87,7 +88,10 @@ namespace lyra
      */
     struct MeshLOD
     {
-        Vector<MeshSurface> surfaces;
+        Vector<MeshAttribute> attributes;   ///< Vertex attribute streams for this LOD.
+        Vector<MeshSurface>   surfaces;     ///< Mesh surface for this LOD.
+        Vector<uint8_t>       index_data;   ///< Raw index data for this LOD.
+        GPUIndexFormat        index_format; ///< Format of indices for this LOD.
     };
 
     /**
@@ -101,17 +105,17 @@ namespace lyra
 
         static auto loader() -> AssetLoaderAPI;
 
-        Vector<MeshAttribute> attributes;   ///< Vertex attribute streams.
-        Vector<uint8_t>       index_data;   ///< Raw index data.
-        GPUIndexFormat        index_format; ///< Format of indices.
-        Vector<MeshLOD>       lods;         ///< Levels of detail.
+        Vector<MeshLOD> lods; ///< Levels of detail.
 
         Vector3 min_bounds; ///< Global AABB min.
-        Vector3 max_bounds; ///< Global AABB max.
+        Vector3 max_bounds;
 
         // Future room for Skeleton (placeholder)
         // AssetHandle<SkeletonAsset> skeleton;
     };
+
+    using MeshAssetHandle = AssetHandle<MeshAsset>;
+
 } // namespace lyra
 
 #endif // LYRA_LYRA_ASSETS_TYPES_MESHASSET_H

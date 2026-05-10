@@ -4,7 +4,7 @@
 
 using namespace lyra;
 
-static constexpr uint32_t MESH_ASSET_VERSION = 2;
+static constexpr uint32_t MESH_ASSET_VERSION = 3;
 static constexpr uint32_t MESH_MAGIC         = 0x534D594C; // 'LYMS'
 
 struct ChunkHeader
@@ -62,32 +62,36 @@ static void* load_mesh_asset(FileLoader* loader, FSPath path)
         if (chunk.type == CHUNK_BBOX) {
             read_raw(&asset->min_bounds, sizeof(Vector3));
             read_raw(&asset->max_bounds, sizeof(Vector3));
-        } else if (chunk.type == CHUNK_ATTR) {
-            uint32_t attr_count = 0;
-            read_raw(&attr_count, sizeof(uint32_t));
-            asset->attributes.resize(attr_count);
-            for (uint32_t i = 0; i < attr_count; ++i) {
-                auto& attr = asset->attributes[i];
-                read_raw(&attr.semantics, sizeof(MeshSemantics));
-                read_raw(&attr.format, sizeof(GPUVertexFormat));
-                read_raw(&attr.element_count, sizeof(uint32_t));
-                uint32_t data_size = 0;
-                read_raw(&data_size, sizeof(uint32_t));
-                attr.data.resize(data_size);
-                read_raw(attr.data.data(), data_size);
-            }
-        } else if (chunk.type == CHUNK_INDX) {
-            read_raw(&asset->index_format, sizeof(GPUIndexFormat));
-            uint32_t data_size = 0;
-            read_raw(&data_size, sizeof(uint32_t));
-            asset->index_data.resize(data_size);
-            read_raw(asset->index_data.data(), data_size);
         } else if (chunk.type == CHUNK_LODS) {
             uint32_t lod_count = 0;
             read_raw(&lod_count, sizeof(uint32_t));
             asset->lods.resize(lod_count);
             for (uint32_t i = 0; i < lod_count; ++i) {
-                auto&    lod           = asset->lods[i];
+                auto& lod = asset->lods[i];
+
+                // Read Attributes
+                uint32_t attr_count = 0;
+                read_raw(&attr_count, sizeof(uint32_t));
+                lod.attributes.resize(attr_count);
+                for (uint32_t k = 0; k < attr_count; ++k) {
+                    auto& attr = lod.attributes[k];
+                    read_raw(&attr.semantics, sizeof(MeshSemantics));
+                    read_raw(&attr.format, sizeof(GPUVertexFormat));
+                    read_raw(&attr.element_count, sizeof(uint32_t));
+                    uint32_t data_size = 0;
+                    read_raw(&data_size, sizeof(uint32_t));
+                    attr.data.resize(data_size);
+                    read_raw(attr.data.data(), data_size);
+                }
+
+                // Read Indices
+                read_raw(&lod.index_format, sizeof(GPUIndexFormat));
+                uint32_t index_data_size = 0;
+                read_raw(&index_data_size, sizeof(uint32_t));
+                lod.index_data.resize(index_data_size);
+                read_raw(lod.index_data.data(), index_data_size);
+
+                // Read Surfaces
                 uint32_t surface_count = 0;
                 read_raw(&surface_count, sizeof(uint32_t));
                 lod.surfaces.resize(surface_count);

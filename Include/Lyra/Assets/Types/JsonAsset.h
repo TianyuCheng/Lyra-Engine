@@ -22,6 +22,9 @@ namespace lyra
 
         JSON content; ///< Parsed JSON data.
     };
+
+    using JsonAssetHandle = AssetHandle<JsonAsset>;
+
 } // namespace lyra
 
 #endif // LYRA_LYRA_ASSETS_TYPES_JSONASSET_H

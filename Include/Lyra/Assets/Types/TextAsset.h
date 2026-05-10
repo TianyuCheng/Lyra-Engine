@@ -22,6 +22,9 @@ namespace lyra
 
         String content; ///< Raw text content.
     };
+
+    using TextAssetHandle = AssetHandle<TextAsset>;
+
 } // namespace lyra
 
 #endif // LYRA_LYRA_ASSETS_TYPES_TEXTASSET_H

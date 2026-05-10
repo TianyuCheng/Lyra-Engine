@@ -33,6 +33,9 @@ namespace lyra
         Vector<uint8_t>     binary;       ///< Raw optimized image bits.
         Vector<Subresource> subresources; ///< List of subresource headers.
     };
+
+    using TextureAssetHandle = AssetHandle<TextureAsset>;
+
 } // namespace lyra
 
 #endif // LYRA_LYRA_ASSETS_TYPES_TEXTUREASSET_H

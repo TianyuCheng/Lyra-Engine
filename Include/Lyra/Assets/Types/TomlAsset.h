@@ -22,6 +22,9 @@ namespace lyra
 
         TOML content; ///< Parsed TOML data.
     };
+
+    using TomlAssetHandle = AssetHandle<TomlAsset>;
+
 } // namespace lyra
 
 #endif // LYRA_LYRA_ASSETS_TYPES_TOMLASSET_H

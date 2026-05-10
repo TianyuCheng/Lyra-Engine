@@ -44,16 +44,19 @@ namespace lyra
 
         struct Node
         {
-            String                     name;
-            Matrix4x4                  transform;
-            AssetHandle<MeshAsset>     mesh;
-            AssetHandle<MaterialAsset> material;
-            Vector<uint>               children;
+            String              name;
+            Matrix4x4           transform;
+            MeshAssetHandle     mesh;
+            MaterialAssetHandle material;
+            Vector<uint>        children;
         };
 
         uint         root = 0;
         Vector<Node> nodes;
     };
+
+    using ModelAssetHandle = AssetHandle<ModelAsset>;
+
 } // namespace lyra
 
 #endif // LYRA_LYRA_ASSETS_TYPES_MODELASSET_H

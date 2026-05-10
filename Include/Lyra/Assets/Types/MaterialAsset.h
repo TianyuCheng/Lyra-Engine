@@ -1,22 +1,15 @@
 #ifndef LYRA_LYRA_ASSETS_TYPES_MATERIALASSET_H
 #define LYRA_LYRA_ASSETS_TYPES_MATERIALASSET_H
 
-#include <Lyra/Common/Math.h>
-#include <Lyra/Common/String.h>
-#include <Lyra/Common/Collections.h>
-#include <Lyra/Assets/AMSAPI.h>
-#include <Lyra/Assets/AMSUtils.h>
-#include <Lyra/Assets/AMSEnums.h>
-#include <Lyra/Render/RHIEnums.h>
+#include <Lyra/Assets/Types/MaterialSchema.h>
 
 // macro collision with Windows GDI
 #undef OPAQUE
 
 namespace lyra
 {
-    struct TextureAsset;
 
-    using AssetHandleTexture = AssetHandle<TextureAsset>;
+    using MaterialSchemaHandle = AssetHandle<MaterialSchema>;
 
     /**
      * @brief A material asset defining the visual appearance of a mesh.
@@ -29,22 +22,17 @@ namespace lyra
 
         static auto loader() -> AssetLoaderAPI;
 
-        enum struct BlendMode : uint
-        {
-            OPAQUE,
-            MASK,
-            BLEND
-        };
+        MaterialSchemaHandle schema; ///< The schema this material follows.
+        MaterialParams       params; ///< Actual values for parameters defined in the schema.
 
-        String                              shader_id; ///< Identifier for the shader/technique to use.
-        HashMap<String, AssetHandleTexture> textures;  ///< Map of texture parameter names to asset handles.
-        HashMap<String, Vector4>            constants; ///< Map of constant parameter names to values.
-
-        BlendMode   blend_mode  = BlendMode::OPAQUE; ///< Blending mode for this material.
-        GPUCullMode cull_mode   = GPUCullMode::BACK; ///< Culling mode for the pipeline.
-        bool        depth_write = true;              ///< Whether to write to the depth buffer.
-        bool        depth_test  = true;              ///< Whether to perform depth testing.
+        // Overrides for pipeline states (if empty, defaults from schema are used)
+        Optional<GPUCullMode> cull_mode;
+        Optional<bool>        depth_write;
+        Optional<bool>        depth_test;
     };
+
+    using MaterialAssetHandle = AssetHandle<MaterialAsset>;
+
 } // namespace lyra
 
 #endif // LYRA_LYRA_ASSETS_TYPES_MATERIALASSET_H

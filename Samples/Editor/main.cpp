@@ -147,7 +147,7 @@ int main(int argc, const char* argv[])
         // ams->register_asset<ModelAsset>();
         ams->register_asset<TextureAsset>();
         ams->register_asset<MaterialAsset>();
-        ams->register_asset<TextureAsset>();
+        ams->register_asset<MaterialSchema>();
 
         // // register multiple cookers for models
         // ams->register_asset<ModelAsset, ModelAsset::stl>();
