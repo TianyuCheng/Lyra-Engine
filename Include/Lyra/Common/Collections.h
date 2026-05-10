@@ -8,6 +8,7 @@
 #include <deque>
 #include <stack>
 #include <vector>
+#include <variant>
 #include <optional>
 #include <forward_list>
 #include <initializer_list>
@@ -51,6 +52,9 @@ namespace lyra
 
     template <typename... T>
     using MultiMap = absl::btree_multimap<T...>;
+
+    template <typename... T>
+    using Variant = std::variant<T...>;
 
     template <typename... T>
     using Optional = std::optional<T...>;

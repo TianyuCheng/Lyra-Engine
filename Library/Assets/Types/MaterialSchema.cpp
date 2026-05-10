@@ -67,6 +67,93 @@ static GPUCullMode string_to_cull_mode(const String& str)
     return GPUCullMode::BACK;
 }
 
+static MaterialGraphValueType string_to_graph_value_type(const String& str)
+{
+    // clang-format off
+    if (str == "bool")         return MaterialGraphValueType::BOOL;
+    if (str == "int")          return MaterialGraphValueType::INT;
+    if (str == "uint")         return MaterialGraphValueType::UINT;
+    if (str == "float")        return MaterialGraphValueType::FLOAT;
+    if (str == "float2")       return MaterialGraphValueType::FLOAT2;
+    if (str == "float3")       return MaterialGraphValueType::FLOAT3;
+    if (str == "float4")       return MaterialGraphValueType::FLOAT4;
+    if (str == "texture2d")    return MaterialGraphValueType::TEXTURE2D;
+    if (str == "texture_cube") return MaterialGraphValueType::TEXTURE_CUBE;
+    if (str == "sampler")      return MaterialGraphValueType::SAMPLER;
+    // clang-format on
+    return MaterialGraphValueType::NONE;
+}
+
+static MaterialGraphProperty parse_graph_property(const JSON& json)
+{
+    if (json.is_boolean()) return MaterialGraphProperty(json.get<bool>());
+    if (json.is_number_integer()) return MaterialGraphProperty(json.get<int>());
+    if (json.is_number_unsigned()) return MaterialGraphProperty(json.get<uint>());
+    if (json.is_number_float()) return MaterialGraphProperty(json.get<float>());
+    if (json.is_string()) return MaterialGraphProperty(json.get<String>());
+    if (json.is_array()) {
+        if (json.size() == 2) return MaterialGraphProperty(Vector2(json[0], json[1]));
+        if (json.size() == 3) return MaterialGraphProperty(Vector3(json[0], json[1], json[2]));
+        if (json.size() == 4) return MaterialGraphProperty(Vector4(json[0], json[1], json[2], json[3]));
+    }
+    return MaterialGraphProperty();
+}
+
+static MaterialGraphPin parse_graph_pin(const JSON& json)
+{
+    MaterialGraphPin pin;
+    pin.id   = json["id"].get<uint>();
+    pin.name = json["name"].get<String>();
+    pin.type = string_to_graph_value_type(json["type"].get<String>());
+    if (json.contains("default_value")) {
+        pin.default_value = parse_graph_property(json["default_value"]);
+    }
+    return pin;
+}
+
+static void load_material_graph(const JSON& json, MaterialGraph& graph)
+{
+    if (json.contains("nodes") && json["nodes"].is_array()) {
+        for (auto& n_json : json["nodes"]) {
+            MaterialGraphNode node;
+            node.id   = n_json["id"].get<uint>();
+            node.type = n_json["type"].get<String>();
+
+            if (n_json.contains("inputs") && n_json["inputs"].is_array()) {
+                for (auto& p_json : n_json["inputs"]) {
+                    node.inputs.push_back(parse_graph_pin(p_json));
+                }
+            }
+
+            if (n_json.contains("outputs") && n_json["outputs"].is_array()) {
+                for (auto& p_json : n_json["outputs"]) {
+                    node.outputs.push_back(parse_graph_pin(p_json));
+                }
+            }
+
+            if (n_json.contains("properties") && n_json["properties"].is_object()) {
+                for (auto& [key, val] : n_json["properties"].items()) {
+                    node.properties[key] = parse_graph_property(val);
+                }
+            }
+
+            graph.nodes.push_back(node);
+        }
+    }
+
+    if (json.contains("links") && json["links"].is_array()) {
+        for (auto& l_json : json["links"]) {
+            MaterialGraphLink link;
+            link.id        = l_json["id"].get<uint>();
+            link.from_node = l_json["from_node"].get<uint>();
+            link.from_pin  = l_json["from_pin"].get<uint>();
+            link.to_node   = l_json["to_node"].get<uint>();
+            link.to_pin    = l_json["to_pin"].get<uint>();
+            graph.links.push_back(link);
+        }
+    }
+}
+
 static void* load_material_schema(FileLoader* loader, FSPath path)
 {
     auto content = loader->read<char>(path);
@@ -103,10 +190,7 @@ static void* load_material_schema(FileLoader* loader, FSPath path)
     }
 
     if (json.contains("graph")) {
-        auto& g_json = json["graph"];
-        if (g_json.contains("shader_snippet_id")) {
-            schema->graph.shader_snippet_id = g_json["shader_snippet_id"].get<String>();
-        }
+        load_material_graph(json["graph"], schema->graph);
     }
 
     if (json.contains("blend_mode")) {

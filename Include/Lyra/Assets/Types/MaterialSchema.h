@@ -9,6 +9,8 @@
 #include <Lyra/Assets/AMSEnums.h>
 #include <Lyra/Render/RHIEnums.h>
 
+#include <Lyra/Assets/Types/MaterialGraph.h>
+
 // avoid collision with Windows GDI
 #undef OPAQUE
 
@@ -69,14 +71,6 @@ namespace lyra
         MaterialParameterType type;
         MaterialSemantic      semantic      = MaterialSemantic::NONE;
         Vector4               default_value = Vector4(0.0f);
-    };
-
-    /**
-     * @brief Describes the shading algorithm/graph for a material.
-     */
-    struct MaterialGraph
-    {
-        String shader_snippet_id; ///< ID of the shader code snippet or graph data.
     };
 
     /**
