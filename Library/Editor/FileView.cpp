@@ -40,7 +40,7 @@ void FileView::update(Blackboard& blackboard)
 
         float start_y = ImGui::GetCursorPosY();
         show_breadcrumb();
-        
+
         const float search_bar_width = 250.0f;
         ImGui::SameLine();
         ImGui::SetCursorPosY(start_y);
@@ -93,8 +93,8 @@ void FileView::show_breadcrumb()
         ImGui::TextDisabled(LYRA_ICON_CARET);
         ImGui::SameLine();
 
-        const auto& bc = breadcrumbs[i];
-        bool is_last = (i == breadcrumbs.size() - 1);
+        const auto& bc      = breadcrumbs[i];
+        bool        is_last = (i == breadcrumbs.size() - 1);
 
         if (is_last) {
             ImGui::TextUnformatted(bc.name.c_str());
@@ -159,7 +159,7 @@ void FileView::show_dir_files(Blackboard& blackboard)
     };
 
     String filter(search_filter);
-    auto matches_filter = [&](StringView name) {
+    auto   matches_filter = [&](StringView name) {
         if (filter.empty()) return true;
         String n(name);
         std::transform(n.begin(), n.end(), n.begin(), ::tolower);
@@ -201,35 +201,27 @@ void FileView::show_item(Blackboard& blackboard, IconGrid& grid, IconGrid::Conte
         update_directory(curr / name);
     }
 
-    if (inter & IconGrid::RightClicked) {
+    if (ImGui::BeginPopupContextItem("ItemContextMenu")) {
         if (!is_sel) selection.select_only(name);
-        ImGui::OpenPopup(is_folder ? "FolderItemContextMenu" : "FileItemContextMenu");
+
+        if (selection.size() == 1) {
+            if (ImGui::MenuItem(LYRA_ICON_RENAME " Rename")) {
+                show_rename_modal = true;
+                strncpy(rename_buffer, selection.items[0].c_str(), sizeof(rename_buffer) - 1);
+            }
+        }
+        if (!is_folder) {
+            if (ImGui::MenuItem(LYRA_ICON_IMPORT " Re-import")) {
+                action_reimport_selected(blackboard.get<AssetServer*>());
+            }
+        }
+        if (ImGui::MenuItem(LYRA_ICON_DELETE " Delete")) {
+            show_delete_modal = true;
+        }
+        ImGui::EndPopup();
     }
 
-    // shared context menu logic
-    auto render_context_menu = [&](const char* id) {
-        if (ImGui::BeginPopup(id)) {
-            if (selection.size() == 1) {
-                if (ImGui::MenuItem(LYRA_ICON_RENAME " Rename")) {
-                    show_rename_modal = true;
-                    strncpy(rename_buffer, selection.items[0].c_str(), sizeof(rename_buffer) - 1);
-                }
-            }
-            if (!is_folder) {
-                if (ImGui::MenuItem(LYRA_ICON_IMPORT " Re-import")) {
-                    action_reimport_selected(blackboard.get<AssetServer*>());
-                }
-            }
-            if (ImGui::MenuItem(LYRA_ICON_DELETE " Delete")) {
-                show_delete_modal = true;
-            }
-            ImGui::EndPopup();
-        }
-    };
-
-    render_context_menu("FolderItemContextMenu");
-    render_context_menu("FileItemContextMenu");
-
+    grid.next_column(ctx);
     ImGui::PopID();
 }
 

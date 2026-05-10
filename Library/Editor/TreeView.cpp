@@ -53,7 +53,7 @@ static void render_node(World& world, SceneTree& hierarchy, SceneTree::NodeIndex
         matches = (n.find(f) != String::npos);
     }
 
-    if (!matches && is_leaf) return; 
+    if (!matches && is_leaf) return;
 
     // determine icon
     CString icon = "";

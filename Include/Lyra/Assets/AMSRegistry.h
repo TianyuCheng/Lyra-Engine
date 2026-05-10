@@ -18,9 +18,10 @@ namespace lyra
      */
     struct AssetEntry
     {
-        AssetID     guid; ///< Globally unique identifier for the asset.
-        AssetTypeID type; ///< Enum-based asset type.
-        uint32_t    path; ///< Index into the string table for the asset path.
+        AssetID           guid;         ///< Globally unique identifier for the asset.
+        AssetTypeID       type;         ///< Enum-based asset type.
+        uint32_t          path;         ///< Index into the string table for the asset path.
+        Vector<AssetID>   dependencies; ///< List of GUIDs this asset depends on.
     };
 
     /**
@@ -62,7 +63,7 @@ namespace lyra
         /**
          * @brief Update or add an asset entry in the registry.
          */
-        void update(AssetID guid, StringView path, AssetTypeID type);
+        void update(AssetID guid, StringView path, AssetTypeID type, const Vector<AssetID>& dependencies = {});
 
         /**
          * @brief Get the asset path associated with a GUID.
@@ -78,6 +79,11 @@ namespace lyra
          * @brief Get the asset type associated with a GUID.
          */
         AssetTypeID get_type(AssetID guid) const;
+
+        /**
+         * @brief Get the list of dependencies for an asset.
+         */
+        const Vector<AssetID>& get_dependencies(AssetID guid) const;
 
         /**
          * @brief Generate a new random GUID that is guaranteed to be unique within this registry.

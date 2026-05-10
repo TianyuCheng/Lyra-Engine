@@ -175,6 +175,11 @@ namespace lyra
         }
 
         /**
+         * @brief Get the GUID associated with an asset path.
+         */
+        AssetID get_guid(FSPath path) const;
+
+        /**
          * @brief Preproces asset into engine compatible format.
          */
         Future<AssetID> import_asset(const Path& path);

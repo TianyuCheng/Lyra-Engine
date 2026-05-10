@@ -4,7 +4,7 @@ using namespace lyra;
 
 TimingLayer::TimingLayer()
 {
-    start_time = std::chrono::high_resolution_clock::now();
+    start_time      = std::chrono::high_resolution_clock::now();
     last_frame_time = start_time;
 }
 
@@ -20,10 +20,10 @@ void TimingLayer::bind(Application& app)
 void TimingLayer::update(Blackboard&)
 {
     auto now = std::chrono::high_resolution_clock::now();
-    
+
     // calculate actual delta time
     std::chrono::duration<float> delta = now - last_frame_time;
-    last_frame_time = now;
+    last_frame_time                    = now;
 
     if (clock.paused) {
         clock.delta_time = 0.0f;

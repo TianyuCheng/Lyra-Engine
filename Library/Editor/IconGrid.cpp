@@ -67,7 +67,6 @@ auto IconGrid::draw_item(Context& ctx, CString icon, CString label, bool selecte
     }
     ImGui::EndGroup();
 
-    next_column(ctx);
     return interaction;
 }
 

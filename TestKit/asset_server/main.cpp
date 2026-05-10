@@ -241,3 +241,137 @@ TEST_CASE("ams::asset_server")
     // cleanup
     fs::remove_all(temp_dir);
 }
+
+TEST_CASE("ams::registry_dependencies")
+{
+    auto temp_dir = fs::temp_directory_path() / "lyra_registry_test";
+    fs::create_directories(temp_dir);
+
+    AssetID         parent_guid = 1;
+    AssetID         dep1_guid   = 2;
+    AssetID         dep2_guid   = 3;
+    Vector<AssetID> deps        = {dep1_guid, dep2_guid};
+
+    SUBCASE("Binary Serialization")
+    {
+        AssetRegistry reg;
+        reg.update(parent_guid, "parent", 100, deps);
+        reg.update(dep1_guid, "dep1", 100);
+        reg.update(dep2_guid, "dep2", 100);
+
+        auto bin_path = temp_dir / "reg_test.bin";
+        CHECK(reg.save(bin_path.c_str()));
+
+        AssetRegistry reg2;
+        CHECK(reg2.load(bin_path.c_str()));
+
+        auto loaded_deps = reg2.get_dependencies(parent_guid);
+        CHECK_EQ(loaded_deps.size(), 2);
+        CHECK_EQ(loaded_deps[0], dep1_guid);
+        CHECK_EQ(loaded_deps[1], dep2_guid);
+    }
+
+    SUBCASE("TOML Serialization")
+    {
+        AssetRegistry reg;
+        reg.update(parent_guid, "parent", 100, deps);
+
+        auto toml_path = temp_dir / "reg_test.toml";
+        CHECK(reg.save(toml_path.c_str()));
+
+        AssetRegistry reg2;
+        CHECK(reg2.load(toml_path.c_str()));
+
+        auto loaded_deps = reg2.get_dependencies(parent_guid);
+        CHECK_EQ(loaded_deps.size(), 2);
+        CHECK_EQ(loaded_deps[0], dep1_guid);
+        CHECK_EQ(loaded_deps[1], dep2_guid);
+    }
+
+    fs::remove_all(temp_dir);
+}
+
+TEST_CASE("ams::asset_dependencies")
+{
+    auto temp_dir = fs::temp_directory_path() / "lyra_ams_dep_test";
+    fs::create_directories(temp_dir);
+
+    auto registry = temp_dir / "Assets.bin";
+
+    // Setup parent and child metadata
+    {
+        JSON child_meta;
+        child_meta["guid"] = 2001;
+        child_meta["type"] = DummyAsset::type;
+        std::ofstream f(temp_dir / "child.dummy.import");
+        f << child_meta.dump();
+    }
+    {
+        JSON parent_meta;
+        parent_meta["guid"]         = 1001;
+        parent_meta["type"]         = DummyAsset::type;
+        parent_meta["dependencies"] = {2001};
+        std::ofstream f(temp_dir / "parent.dummy.import");
+        f << parent_meta.dump();
+    }
+    // Create actual dummy files
+    {
+        std::ofstream f(temp_dir / "parent.dummy");
+        f << "p";
+        std::ofstream f2(temp_dir / "child.dummy");
+        f2 << "c";
+    }
+
+    FileLoader loader(FSLoader::NATIVE);
+    loader.mount("/", temp_dir.string().c_str(), 0);
+
+    AMSDescriptor desc        = {};
+    desc.workers              = 1;
+    desc.registry             = registry.c_str();
+    desc.loader.assets        = &loader;
+    desc.importer.assets_path = temp_dir.c_str();
+
+    AssetServer ams(desc);
+    ams.register_asset<DummyAsset>();
+
+    SUBCASE("Recursive Loading")
+    {
+        auto parent_handle = ams.load_asset<DummyAsset>("parent.dummy");
+        CHECK(parent_handle.valid());
+
+        // Child should also be loading automatically
+        AssetHandle<DummyAsset> child_handle{2001};
+
+        // Wait for both to load
+        int timeout = 100;
+        while ((ams.get_asset(parent_handle) == nullptr || ams.get_asset(child_handle) == nullptr) && timeout-- > 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+
+        REQUIRE_NE(ams.get_asset(parent_handle), nullptr);
+        REQUIRE_NE(ams.get_asset(child_handle), nullptr);
+    }
+
+    SUBCASE("Recursive Unloading")
+    {
+        auto                    parent_handle = ams.load_asset<DummyAsset>("parent.dummy");
+        AssetHandle<DummyAsset> child_handle{2001};
+
+        // Wait for load
+        while (ams.get_asset(parent_handle) == nullptr || ams.get_asset(child_handle) == nullptr) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+
+        // Unload parent
+        ams.unload_asset(parent_handle);
+
+        // Purge
+        ams.purge();
+
+        // Both should be gone if child refcnt dropped to 0
+        CHECK_EQ(ams.get_asset(parent_handle), nullptr);
+        CHECK_EQ(ams.get_asset(child_handle), nullptr);
+    }
+
+    fs::remove_all(temp_dir);
+}

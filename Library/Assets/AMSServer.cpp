@@ -112,6 +112,11 @@ void AssetServer::flush()
     registry.flush(descriptor.registry);
 }
 
+AssetID AssetServer::get_guid(FSPath path) const
+{
+    return registry.get_guid(path);
+}
+
 void* AssetServer::get_asset(AssetTypeID type_id, RawAssetHandle handle)
 {
     auto it = processors.find(type_id);
@@ -139,23 +144,50 @@ RawAssetHandle AssetServer::load_asset(AssetTypeID type_id, AssetID guid)
     if (it == processors.end()) return RawAssetHandle();
     AssetProcessor* processor_ptr = it->second.get();
 
-    std::unique_lock alock(*processor_ptr->mutex);
+    bool should_load_deps = false;
+    bool is_new_entry     = false;
 
-    auto it2 = processor_ptr->assets.find(guid);
-    if (it2 == processor_ptr->assets.end()) {
-        auto record                 = new AssetRecord();
-        record->data                = nullptr;
-        record->refcnt              = 1;
-        processor_ptr->assets[guid] = record;
+    {
+        std::unique_lock alock(*processor_ptr->mutex);
 
-        String path = String(registry.get_path(guid));
+        auto it2 = processor_ptr->assets.find(guid);
+        if (it2 == processor_ptr->assets.end()) {
+            auto record                 = new AssetRecord();
+            record->data                = nullptr;
+            record->refcnt              = 1;
+            processor_ptr->assets[guid] = record;
+            should_load_deps            = true;
+            is_new_entry                = true;
+        } else {
+            if (it2->second->refcnt == 0) should_load_deps = true;
+            it2->second->refcnt++;
+        }
+    }
+
+    if (should_load_deps) {
+        // recursively load dependencies
+        const auto& deps = registry.get_dependencies(guid);
+        for (auto dep_guid : deps) {
+            AssetTypeID dep_type = registry.get_type(dep_guid);
+            if (dep_type != 0) {
+                load_asset(dep_type, dep_guid);
+            }
+        }
+    }
+
+    if (is_new_entry) {
+        String       path   = String(registry.get_path(guid));
+        AssetRecord* record = nullptr;
+        {
+            std::shared_lock alock(*processor_ptr->mutex);
+            record = processor_ptr->assets[guid];
+        }
 
         pool.detach_task([this, processor_ptr, path, record]() {
             record->data = processor_ptr->loader.load(descriptor.loader.assets, path.c_str());
         });
-    } else {
-        it2->second->refcnt++;
     }
+
     return RawAssetHandle{guid};
 }
 
@@ -165,11 +197,29 @@ void AssetServer::unload_asset(AssetTypeID type_id, RawAssetHandle handle)
     if (it == processors.end()) return;
     auto& processor = it->second;
 
-    std::shared_lock alock(*processor->mutex);
+    bool should_unload_deps = false;
 
-    auto it2 = processor->assets.find(handle.uuid);
-    if (it2 != processor->assets.end()) {
-        it2->second->refcnt--;
+    {
+        std::unique_lock alock(*processor->mutex);
+
+        auto it2 = processor->assets.find(handle.uuid);
+        if (it2 != processor->assets.end()) {
+            it2->second->refcnt--;
+            if (it2->second->refcnt == 0) {
+                should_unload_deps = true;
+            }
+        }
+    }
+
+    if (should_unload_deps) {
+        // recursively unload dependencies
+        const auto& deps = registry.get_dependencies(handle.uuid);
+        for (auto dep_guid : deps) {
+            AssetTypeID dep_type = registry.get_type(dep_guid);
+            if (dep_type != 0) {
+                unload_asset(dep_type, RawAssetHandle{dep_guid});
+            }
+        }
     }
 }
 
@@ -179,7 +229,7 @@ void AssetServer::clone_asset(AssetTypeID type_id, RawAssetHandle handle)
     if (it == processors.end()) return;
     auto& processor = it->second;
 
-    std::shared_lock alock(*processor->mutex);
+    std::unique_lock alock(*processor->mutex);
 
     auto it2 = processor->assets.find(handle.uuid);
     if (it2 != processor->assets.end()) {
@@ -234,10 +284,15 @@ Future<AssetID> AssetServer::import_asset(const Path& path)
 
         save_json(import_path, metadata);
 
+        Vector<AssetID> dependencies;
+        if (metadata.contains("dependencies") && metadata["dependencies"].is_array()) {
+            dependencies = metadata["dependencies"].get<Vector<AssetID>>();
+        }
+
         // for simplicity, let's assume registry is not thread-safe and use a mutex
         static std::mutex registry_mutex;
         std::lock_guard   lock(registry_mutex);
-        registry.update(guid, path.string(), type_id);
+        registry.update(guid, path.string(), type_id, dependencies);
         return guid;
     });
 }

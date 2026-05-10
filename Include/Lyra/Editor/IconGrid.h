@@ -54,7 +54,6 @@ namespace lyra
          */
         auto draw_item(Context& ctx, CString icon, CString label, bool selected, ImVec4 icon_color = ImVec4(0, 0, 0, 0)) -> int;
 
-    private:
         void next_column(Context& ctx);
     };
 
