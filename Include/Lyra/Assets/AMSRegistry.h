@@ -25,7 +25,8 @@ namespace lyra
     };
 
     /**
-     * @brief The AssetRegistry maintains a mapping between AssetIDs and paths.
+     * @brief The AssetRegistry maintains a mapping between AssetIDs and paths, 
+     * as well as the asset dependency graph for automatic loading.
      * It can be serialized to binary or TOML formats.
      */
     struct AssetRegistry

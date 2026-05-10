@@ -12,6 +12,7 @@ For more details in project design and development, please refer to `Devlogs` di
 
 * [Overview](Devlogs/Overview.md)
 * [RHI Design & Implementation](Devlogs/RHI.md)
+* [Asset Management System](Devlogs/Assets.md)
 
 ## Build
 

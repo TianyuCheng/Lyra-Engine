@@ -11,6 +11,11 @@ These were somewhat successful, but they are scattered across different repos an
 with Vulkan implementations only. I am aiming to create a common codebase that I
 can leverage in future graphics/rendering projects.
 
+## Devlogs
+
+- [RHI Design](RHI.md)
+- [Asset Management System](Assets.md)
+
 ## Design
 
 The next section covers the architectural structure of **Lyra-Engine**.

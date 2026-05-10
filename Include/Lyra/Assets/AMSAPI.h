@@ -58,7 +58,9 @@ namespace lyra
 
         /**
          * @brief Process a raw source asset and save it to a target path (cooking).
-         * @param metadata JSON object containing input info (like guid) and to be populated with output metadata (like path).
+         * @param metadata JSON object containing input info (like guid) and to be populated with output metadata.
+         *                 Cookers should populate the "dependencies" key with an array of AssetID (GUIDs) if the
+         *                 asset depends on other assets. These will be automatically loaded by the AssetServer.
          * @param source_path Path to the raw source file in the OS filesystem.
          * @param caches_root Root path where processed assets should be saved.
          * @return True if processing was successful, false otherwise.
