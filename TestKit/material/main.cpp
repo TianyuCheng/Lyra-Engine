@@ -99,6 +99,78 @@ TEST_CASE("mat::material_graph_load")
         loader_api.unload(asset);
     }
 
+    SUBCASE("verify serialized graph")
+    {
+        auto loader_api = MaterialSchema::loader();
+        auto asset      = static_cast<MaterialSchema*>(loader_api.load(&loader, "/test.matschema"));
+
+        REQUIRE_NE(asset, nullptr);
+
+        JSON saved_json = asset->graph.save();
+
+        // Load the saved JSON into a new graph
+        MaterialGraph loaded_graph;
+        loaded_graph.load(saved_json);
+
+        // Verify loaded graph matches original
+        REQUIRE_EQ(loaded_graph.nodes.size(), 1);
+        CHECK_EQ(loaded_graph.nodes[0].id, 1);
+        CHECK_EQ(loaded_graph.nodes[0].type, "Add");
+        REQUIRE_EQ(loaded_graph.nodes[0].inputs.size(), 1);
+        CHECK_EQ(loaded_graph.nodes[0].inputs[0].id, 10);
+        CHECK_EQ(loaded_graph.nodes[0].inputs[0].name, "A");
+        CHECK_EQ(loaded_graph.nodes[0].inputs[0].type, MaterialGraphValueType::FLOAT);
+
+        REQUIRE_EQ(loaded_graph.links.size(), 1);
+        CHECK_EQ(loaded_graph.links[0].id, 100);
+
+        loader_api.unload(asset);
+    }
+
+    SUBCASE("verify graph validation")
+    {
+        // Test malformed node (missing type)
+        JSON malformed_node;
+        malformed_node["id"] = 1000;
+        // missing "type"
+
+        JSON malformed_graph;
+        malformed_graph["nodes"] = JSON::array({malformed_node});
+
+        MaterialGraph graph;
+        graph.load(malformed_graph);
+        CHECK_EQ(graph.nodes.size(), 0); // Should skip the node
+
+        // Test duplicate node IDs
+        JSON node1;
+        node1["id"] = 1;
+        node1["type"] = "Type1";
+        JSON node2;
+        node2["id"] = 1;
+        node2["type"] = "Type2";
+
+        JSON duplicate_id_graph;
+        duplicate_id_graph["nodes"] = JSON::array({node1, node2});
+
+        graph.load(duplicate_id_graph);
+        CHECK_EQ(graph.nodes.size(), 1); // Should only have the first one
+
+        // Test invalid link (references non-existent node)
+        JSON link;
+        link["id"] = 500;
+        link["from_node"] = 999; // non-existent
+        link["from_pin"] = 1;
+        link["to_node"] = 1;
+        link["to_pin"] = 1;
+
+        JSON invalid_link_graph;
+        invalid_link_graph["nodes"] = JSON::array({node1});
+        invalid_link_graph["links"] = JSON::array({link});
+
+        graph.load(invalid_link_graph);
+        CHECK_EQ(graph.links.size(), 0); // Should skip the link
+    }
+
     // cleanup
     fs::remove_all(temp_dir);
 }

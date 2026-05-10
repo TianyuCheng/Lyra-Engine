@@ -125,6 +125,9 @@ target_sources(lyra-engine PRIVATE
 
   # scenes
   Scenes/SceneTree.cpp
+
+  # effect
+  Effect/MaterialGraph.cpp
 )
 
 # link headers and common

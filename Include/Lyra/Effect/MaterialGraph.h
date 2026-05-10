@@ -1,7 +1,8 @@
-#ifndef LYRA_LYRA_ASSETS_TYPES_MATERIALGRAPH_H
-#define LYRA_LYRA_ASSETS_TYPES_MATERIALGRAPH_H
+#ifndef LYRA_LYRA_EFFECT_MATERIALGRAPH_H
+#define LYRA_LYRA_EFFECT_MATERIALGRAPH_H
 
 #include <Lyra/Common/Math.h>
+#include <Lyra/Common/Config.h>
 #include <Lyra/Common/Stdint.h>
 #include <Lyra/Common/String.h>
 #include <Lyra/Common/Collections.h>
@@ -86,8 +87,20 @@ namespace lyra
     {
         Vector<MaterialGraphNode> nodes;
         Vector<MaterialGraphLink> links;
+
+        /**
+         * @brief Loads a material graph from a JSON object.
+         * @param json The JSON object containing the graph data.
+         */
+        void load(const JSON& json);
+
+        /**
+         * @brief Saves the material graph to a JSON object.
+         * @return The JSON object representing the graph.
+         */
+        JSON save() const;
     };
 
 } // namespace lyra
 
-#endif // LYRA_LYRA_ASSETS_TYPES_MATERIALGRAPH_H
+#endif // LYRA_LYRA_EFFECT_MATERIALGRAPH_H

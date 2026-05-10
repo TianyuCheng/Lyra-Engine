@@ -58,6 +58,9 @@
 #include <Lyra/Scenes/Transform.h>
 #include <Lyra/Scenes/SceneTree.h>
 
+// Effect headers
+#include <Lyra/Effect/MaterialGraph.h>
+
 // Editor files
 #include <Lyra/Editor/Canvas.h>
 #include <Lyra/Editor/Layout.h>

@@ -9,7 +9,7 @@
 #include <Lyra/Assets/AMSEnums.h>
 #include <Lyra/Render/RHIEnums.h>
 
-#include <Lyra/Assets/Types/MaterialGraph.h>
+#include <Lyra/Effect/MaterialGraph.h>
 
 // avoid collision with Windows GDI
 #undef OPAQUE
