@@ -22,6 +22,8 @@ namespace lyra
 
         static auto loader() -> AssetLoaderAPI;
 
+        bool save(OSPath path) const;
+
         MaterialSchemaHandle schema; ///< The schema this material follows.
         MaterialParams       params; ///< Actual values for parameters defined in the schema.
 

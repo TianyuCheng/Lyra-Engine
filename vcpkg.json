@@ -11,9 +11,10 @@
     },
     "doctest",
     "entt",
+    "etl",
     "fmt",
-    "gli",
     "glfw3",
+    "gli",
     "glm",
     "ktx",
     "libassert",
@@ -26,10 +27,10 @@
     "stb",
     "tinyexr",
     "tinygltf",
+    "tinyobjloader",
     "tomlplusplus",
     "volk",
     "vulkan-headers",
-    "vulkan-memory-allocator",
-    "etl"
+    "vulkan-memory-allocator"
   ]
 }

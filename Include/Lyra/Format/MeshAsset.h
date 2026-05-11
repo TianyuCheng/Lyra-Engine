@@ -117,6 +117,8 @@ namespace lyra
 
         static auto loader() -> AssetLoaderAPI;
 
+        bool save(OSPath path) const;
+
         Vector<MeshLOD> lods; ///< Levels of detail.
 
         Vector3 min_bounds; ///< Global AABB min.
