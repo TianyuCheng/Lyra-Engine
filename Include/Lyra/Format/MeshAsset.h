@@ -103,6 +103,18 @@ namespace lyra
 
         static constexpr AssetTypeID type = 0xc599b40c;
 
+        static constexpr uint MESH_ASSET_VERSION = 0;
+
+        static constexpr uint MESH_MAGIC = 0x534D594C; // 'LYMS'
+
+        static constexpr uint CHUNK_BBOX = 0x584F4242; // 'BBOX'
+
+        static constexpr uint CHUNK_ATTR = 0x52545441; // 'ATTR'
+
+        static constexpr uint CHUNK_INDX = 0x58444E49; // 'INDX'
+
+        static constexpr uint CHUNK_LODS = 0x53444F4C; // 'LODS'
+
         static auto loader() -> AssetLoaderAPI;
 
         Vector<MeshLOD> lods; ///< Levels of detail.
