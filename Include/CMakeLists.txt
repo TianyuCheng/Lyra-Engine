@@ -129,10 +129,6 @@ target_sources(lyra-headers INTERFACE
     Lyra/Scenes/Transform.h
     Lyra/Scenes/World.h
 
-    # effect
-    Lyra/Effect/Effect.h
-    Lyra/Effect/MaterialGraph.h
-
     # ui layer
     Lyra/UICore/GUIAPI.h
     Lyra/UICore/GUIEnums.h

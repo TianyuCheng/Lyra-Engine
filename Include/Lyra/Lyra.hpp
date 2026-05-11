@@ -58,9 +58,6 @@
 #include <Lyra/Format/MaterialAsset.h>
 #include <Lyra/Format/MaterialSchema.h>
 
-// Effect headers
-#include <Lyra/Effect/MaterialGraph.h>
-
 // Editor files
 #include <Lyra/Editor/Canvas.h>
 #include <Lyra/Editor/Layout.h>
