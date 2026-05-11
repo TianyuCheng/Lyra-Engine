@@ -40,7 +40,7 @@ static GPUTextureFormat to_gpu_texture_format(VkFormat format)
         case VK_FORMAT_BC6H_SFLOAT_BLOCK:    return GPUTextureFormat::BC6H_RGB_FLOAT;
         case VK_FORMAT_BC7_UNORM_BLOCK:      return GPUTextureFormat::BC7_RGBA_UNORM;
         case VK_FORMAT_BC7_SRGB_BLOCK:       return GPUTextureFormat::BC7_RGBA_UNORM_SRGB;
-        default: 			                 return GPUTextureFormat::RGBA8UNORM;
+        default: 			     return GPUTextureFormat::RGBA8UNORM;
     }
     // clang-format on
 }

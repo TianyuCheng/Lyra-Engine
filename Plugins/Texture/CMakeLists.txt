@@ -7,7 +7,10 @@ find_package(VulkanHeaders REQUIRED)
 # lyra-texture
 lyra_plugin(texture)
 target_sources(lyra-texture PRIVATE
-    TextureCookerPlugin.cpp
+    TextureCookerSTBPlugin.cpp
+    TextureCookerEXRPlugin.cpp
+    TextureCookerDDSPlugin.cpp
+    TextureCookerKTXPlugin.cpp
     TextureLoaderPlugin.cpp
 )
 target_link_libraries(lyra-texture PRIVATE gli KTX::ktx miniz::miniz Vulkan::Headers)

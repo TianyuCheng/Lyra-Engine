@@ -2,6 +2,7 @@
 
 #include <ktx.h>
 #include <vulkan/vulkan.h>
+#include <gli/gli.hpp>
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Common/Config.h>
 #include <Lyra/Format/TextureAsset.h>
@@ -10,6 +11,40 @@ using namespace lyra;
 
 namespace lyra::texture
 {
+
+    inline Logger get_logger()
+    {
+        static Logger logger = create_logger("TextureCooker", LogLevel::trace);
+        return logger;
+    }
+
+    inline VkFormat gli_to_vk_format(gli::format format)
+    {
+        // clang-format off
+        switch (format) {
+            case gli::FORMAT_RGBA8_UNORM_PACK8:       return VK_FORMAT_R8G8B8A8_UNORM;
+            case gli::FORMAT_RGBA8_SRGB_PACK8:        return VK_FORMAT_R8G8B8A8_SRGB;
+            case gli::FORMAT_BGRA8_UNORM_PACK8:       return VK_FORMAT_B8G8R8A8_UNORM;
+            case gli::FORMAT_BGRA8_SRGB_PACK8:        return VK_FORMAT_B8G8R8A8_SRGB;
+            case gli::FORMAT_RGBA32_SFLOAT_PACK32:    return VK_FORMAT_R32G32B32A32_SFLOAT;
+            case gli::FORMAT_RGBA_DXT1_UNORM_BLOCK8:  return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
+            case gli::FORMAT_RGBA_DXT1_SRGB_BLOCK8:   return VK_FORMAT_BC1_RGBA_SRGB_BLOCK;
+            case gli::FORMAT_RGBA_DXT3_UNORM_BLOCK16: return VK_FORMAT_BC2_UNORM_BLOCK;
+            case gli::FORMAT_RGBA_DXT3_SRGB_BLOCK16:  return VK_FORMAT_BC2_SRGB_BLOCK;
+            case gli::FORMAT_RGBA_DXT5_UNORM_BLOCK16: return VK_FORMAT_BC3_UNORM_BLOCK;
+            case gli::FORMAT_RGBA_DXT5_SRGB_BLOCK16:  return VK_FORMAT_BC3_SRGB_BLOCK;
+            case gli::FORMAT_R_ATI1N_UNORM_BLOCK8:    return VK_FORMAT_BC4_UNORM_BLOCK;
+            case gli::FORMAT_R_ATI1N_SNORM_BLOCK8:    return VK_FORMAT_BC4_SNORM_BLOCK;
+            case gli::FORMAT_RG_ATI2N_UNORM_BLOCK16:  return VK_FORMAT_BC5_UNORM_BLOCK;
+            case gli::FORMAT_RG_ATI2N_SNORM_BLOCK16:  return VK_FORMAT_BC5_SNORM_BLOCK;
+            case gli::FORMAT_RGB_BP_UFLOAT_BLOCK16:   return VK_FORMAT_BC6H_UFLOAT_BLOCK;
+            case gli::FORMAT_RGB_BP_SFLOAT_BLOCK16:   return VK_FORMAT_BC6H_SFLOAT_BLOCK;
+            case gli::FORMAT_RGBA_BP_UNORM_BLOCK16:   return VK_FORMAT_BC7_UNORM_BLOCK;
+            case gli::FORMAT_RGBA_BP_SRGB_BLOCK16:    return VK_FORMAT_BC7_SRGB_BLOCK;
+            default:                                  return VK_FORMAT_UNDEFINED;
+        }
+        // clang-format on
+    }
 
     inline Path get_texture_cache_path(AssetID guid, OSPath caches_root)
     {

@@ -144,12 +144,18 @@ int main(int argc, const char* argv[])
         ams->register_asset<JsonAsset>();
         ams->register_asset<TomlAsset>();
         ams->register_asset<MeshAsset>();
-        // ams->register_asset<ModelAsset>();
-        ams->register_asset<TextureAsset>();
         ams->register_asset<MaterialAsset>();
         ams->register_asset<MaterialSchema>();
 
+        // register multiple cookers for texture asset
+        ams->register_asset<TextureAsset>();
+        ams->register_asset<TextureAsset, TextureAsset::stb>();
+        ams->register_asset<TextureAsset, TextureAsset::exr>();
+        ams->register_asset<TextureAsset, TextureAsset::dds>();
+        ams->register_asset<TextureAsset, TextureAsset::ktx>();
+
         // // register multiple cookers for models
+        // ams->register_asset<ModelAsset>();
         // ams->register_asset<ModelAsset, ModelAsset::stl>();
         // ams->register_asset<ModelAsset, ModelAsset::obj>();
         // ams->register_asset<ModelAsset, ModelAsset::gltf>();
