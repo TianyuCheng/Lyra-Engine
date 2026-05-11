@@ -7,6 +7,7 @@
 #include "GUIRenderer.h"
 
 using namespace lyra;
+using namespace lyra::imgui;
 
 static auto get_api_name() -> CString { return "ImGui"; }
 
@@ -80,30 +81,35 @@ static void render_side_viewports(GUIHandle gui)
     }
 }
 
-LYRA_EXPORT auto prepare() -> void
+namespace lyra::imgui
 {
-    get_logger()->set_level(parse_log_level_from_env("LYRA_IMGUI_VERBOSITY"));
-}
 
-LYRA_EXPORT auto cleanup() -> void
-{
-    // do nothing
-}
+    void prepare()
+    {
+        get_logger()->set_level(parse_log_level_from_env("LYRA_IMGUI_VERBOSITY"));
+    }
 
-LYRA_EXPORT auto create() -> GUIAPI
-{
-    auto api                  = GUIAPI{};
-    api.get_api_name          = get_api_name;
-    api.create_gui            = create_gui;
-    api.delete_gui            = delete_gui;
-    api.update_gui            = update_gui;
-    api.resize_gui            = resize_gui;
-    api.new_frame             = new_frame;
-    api.end_frame             = end_frame;
-    api.get_context           = get_context;
-    api.create_texture        = create_texture;
-    api.delete_texture        = delete_texture;
-    api.render_main_viewport  = render_main_viewport;
-    api.render_side_viewports = render_side_viewports;
-    return api;
-}
+    void cleanup()
+    {
+        // do nothing
+    }
+
+    GUIAPI create()
+    {
+        auto api                  = GUIAPI{};
+        api.get_api_name          = get_api_name;
+        api.create_gui            = create_gui;
+        api.delete_gui            = delete_gui;
+        api.update_gui            = update_gui;
+        api.resize_gui            = resize_gui;
+        api.new_frame             = new_frame;
+        api.end_frame             = end_frame;
+        api.get_context           = get_context;
+        api.create_texture        = create_texture;
+        api.delete_texture        = delete_texture;
+        api.render_main_viewport  = render_main_viewport;
+        api.render_side_viewports = render_side_viewports;
+        return api;
+    }
+
+} // namespace lyra::imgui

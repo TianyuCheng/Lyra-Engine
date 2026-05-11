@@ -7,8 +7,37 @@
 
 using namespace lyra;
 
-using FileLoaderPlugin = Plugin<FileLoaderAPI>;
-using FilePackerPlugin = Plugin<FilePackerAPI>;
+// forward declarations for inlined plugins
+namespace lyra::nativefs
+{
+extern FileLoaderAPI create();
+extern void          prepare();
+extern void          cleanup();
+} // namespace lyra::nativefs
+
+namespace lyra::physfs
+{
+extern FileLoaderAPI create();
+extern void          prepare();
+extern void          cleanup();
+} // namespace lyra::physfs
+
+namespace lyra::pakbuilder
+{
+extern FilePackerAPI create();
+extern void          prepare();
+extern void          cleanup();
+} // namespace lyra::pakbuilder
+
+namespace lyra::zipbuilder
+{
+extern FilePackerAPI create();
+extern void          prepare();
+extern void          cleanup();
+} // namespace lyra::zipbuilder
+
+using FileLoaderPlugin = BuiltinPlugin<FileLoaderAPI>;
+using FilePackerPlugin = BuiltinPlugin<FilePackerAPI>;
 
 static constexpr uint NUM_LOADER_BACKENDS = static_cast<uint>(magic_enum::enum_count<FSLoader>());
 static constexpr uint NUM_PACKER_BACKENDS = static_cast<uint>(magic_enum::enum_count<FSPacker>());
@@ -24,10 +53,16 @@ static FileLoaderAPI* create_file_loader_api(FSLoader loader)
 
     switch (loader) {
         case FSLoader::NATIVE:
-            loader_plugins[index] = std::make_unique<FileLoaderPlugin>("lyra-nativefs");
+            loader_plugins[index] = std::make_unique<FileLoaderPlugin>(
+                lyra::nativefs::create,
+                lyra::nativefs::prepare,
+                lyra::nativefs::cleanup);
             break;
         case FSLoader::PHYSFS:
-            loader_plugins[index] = std::make_unique<FileLoaderPlugin>("lyra-physfs");
+            loader_plugins[index] = std::make_unique<FileLoaderPlugin>(
+                lyra::physfs::create,
+                lyra::physfs::prepare,
+                lyra::physfs::cleanup);
             break;
     }
     return loader_plugins[index]->get_api();
@@ -41,10 +76,16 @@ static FilePackerAPI* create_file_packer_api(FSPacker packer)
 
     switch (packer) {
         case FSPacker::PAK:
-            packer_plugins[index] = std::make_unique<FilePackerPlugin>("lyra-pak");
+            packer_plugins[index] = std::make_unique<FilePackerPlugin>(
+                lyra::pakbuilder::create,
+                lyra::pakbuilder::prepare,
+                lyra::pakbuilder::cleanup);
             break;
         case FSPacker::ZIP:
-            packer_plugins[index] = std::make_unique<FilePackerPlugin>("lyra-zip");
+            packer_plugins[index] = std::make_unique<FilePackerPlugin>(
+                lyra::zipbuilder::create,
+                lyra::zipbuilder::prepare,
+                lyra::zipbuilder::cleanup);
             break;
     }
     return packer_plugins[index]->get_api();

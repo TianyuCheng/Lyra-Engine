@@ -15,7 +15,15 @@ using namespace lyra;
 
 namespace fs = std::filesystem;
 
-using TextureCookerPlugin = Plugin<AssetCookerAPI>;
+// forward declarations for inlined plugins
+namespace lyra::texture
+{
+    extern AssetCookerAPI create();
+    extern void           prepare();
+    extern void           cleanup();
+} // namespace lyra::texture
+
+using TextureCookerPlugin = BuiltinPlugin<AssetCookerAPI>;
 
 static GPUTextureFormat to_gpu_texture_format(VkFormat format)
 {
@@ -124,6 +132,10 @@ AssetLoaderAPI TextureAsset::loader()
 AssetCookerAPI TextureAsset::cooker()
 {
     static Own<TextureCookerPlugin> PLUGIN;
-    if (!PLUGIN) PLUGIN = std::make_unique<TextureCookerPlugin>("lyra-texture");
+    if (!PLUGIN)
+        PLUGIN = std::make_unique<TextureCookerPlugin>(
+            lyra::texture::create,
+            lyra::texture::prepare,
+            lyra::texture::cleanup);
     return *PLUGIN->get_api();
 }

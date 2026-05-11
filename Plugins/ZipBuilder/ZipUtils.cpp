@@ -4,15 +4,16 @@
 #include "ZipUtils.h"
 
 using namespace lyra;
+using namespace lyra::zipbuilder;
 
-static Logger logger = create_logger("ZipFS", LogLevel::trace);
+static Logger logger = create_logger("ZipBuilder", LogLevel::trace);
 
-auto get_logger() -> Logger
+auto lyra::zipbuilder::get_logger() -> Logger
 {
     return logger;
 }
 
-auto normalize_zip_path(FSPath vpath) -> String
+auto ZipArchive::normalize_path(FSPath vpath) -> String
 {
     if (!vpath) return String("");
 
@@ -35,9 +36,9 @@ auto normalize_zip_path(FSPath vpath) -> String
     return s;
 }
 
-bool finalize_zip_archive(ZipArchive& archive_data)
+bool ZipArchive::finalize()
 {
-    if (archive_data.is_finalized) {
+    if (is_finalized) {
         return true; // already finalized
     }
 
@@ -46,15 +47,15 @@ bool finalize_zip_archive(ZipArchive& archive_data)
     std::memset(&zip_archive, 0, sizeof(zip_archive));
 
     // Create the zip file
-    if (!mz_zip_writer_init_file(&zip_archive, archive_data.archive_path.string().c_str(), 0)) {
+    if (!mz_zip_writer_init_file(&zip_archive, archive_path.string().c_str(), 0)) {
         get_logger()->error("finalize_zip_archive: failed to initialize zip writer for {}: {}",
-            archive_data.archive_path.string(), mz_zip_get_error_string(mz_zip_get_last_error(&zip_archive)));
+            archive_path.string(), mz_zip_get_error_string(mz_zip_get_last_error(&zip_archive)));
         return false;
     }
 
     // Add all files to the archive
     bool success = true;
-    for (const auto& entry : archive_data.files) {
+    for (const auto& entry : files) {
         if (!mz_zip_writer_add_mem(&zip_archive, entry.filename.c_str(),
                 entry.data.data(), entry.data.size(), MZ_BEST_COMPRESSION)) {
             get_logger()->error("finalize_zip_archive: failed to add file '{}' to archive: {}",
@@ -84,9 +85,9 @@ bool finalize_zip_archive(ZipArchive& archive_data)
     }
 
     if (success) {
-        archive_data.is_finalized = true;
+        is_finalized = true;
         get_logger()->info("finalize_zip_archive: successfully wrote ZIP file {} with {} files",
-            archive_data.archive_path.string(), archive_data.files.size());
+            archive_path.string(), files.size());
     }
 
     return success;

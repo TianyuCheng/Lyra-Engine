@@ -1,5 +1,5 @@
 # setup plugin
-lyra_plugin(d3d12)
+lyra_backend(d3d12)
 
 find_package(D3D12)
 

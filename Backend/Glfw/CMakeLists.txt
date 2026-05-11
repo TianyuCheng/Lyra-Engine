@@ -1,5 +1,5 @@
 # setup plugin
-lyra_plugin(glfw)
+lyra_backend(glfw)
 
 # plugin sources
 target_sources(lyra-glfw PRIVATE GlfwPlugin.cpp)

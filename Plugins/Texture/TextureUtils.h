@@ -3,9 +3,12 @@
 #include <ktx.h>
 #include <vulkan/vulkan.h>
 #include <Lyra/Common/Logger.h>
+#include <Lyra/Common/Config.h>
 #include <Lyra/Format/TextureAsset.h>
 
-namespace lyra
+using namespace lyra;
+
+namespace lyra::texture
 {
 
     inline Path get_texture_cache_path(AssetID guid, OSPath caches_root)
@@ -61,5 +64,4 @@ namespace lyra
 
         return save_to_ktx2(metadata, texture, target_path, caches_root, logger);
     }
-
-} // namespace lyra
+} // namespace lyra::texture

@@ -18,6 +18,9 @@
 // plugin headers
 #include "PhysFSUtils.h"
 
+using namespace lyra;
+using namespace lyra::physfs;
+
 namespace fs = std::filesystem;
 
 static Logger logger = create_logger("PhysFS", LogLevel::trace);
@@ -115,7 +118,7 @@ static size_t sizeof_file(FileLoaderHandle loader, FSPath path)
 {
     if (!path) {
         get_logger()->error("sizeof_file: input path is null!");
-        return false;
+        return 0;
     }
 
     String v = normalize_vpath(path);
@@ -285,43 +288,46 @@ static bool unmount(FileLoaderHandle loader, MountHandle handle)
     return before != after;
 }
 
-// -----------------------------------------------------------------------------
-// plugin exports
-// -----------------------------------------------------------------------------
-
-LYRA_EXPORT auto prepare() -> void
+namespace lyra::physfs
 {
-    get_logger()->set_level(parse_log_level_from_env("LYRA_PHYSFS_VERBOSITY"));
 
-    if (!PHYSFS_init(nullptr)) {
-        get_logger()->error("prepare: PHYSFS_init failed: {}", PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()));
+    void prepare()
+    {
+        get_logger()->set_level(parse_log_level_from_env("LYRA_PHYSFS_VERBOSITY"));
+
+        if (!PHYSFS_init(nullptr)) {
+            get_logger()->error("prepare: PHYSFS_init failed: {}", PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()));
+        }
     }
-}
 
-LYRA_EXPORT auto cleanup() -> void
-{
-    for (auto& loader : g_loaders)
-        delete_loader(loader);
+    void cleanup()
+    {
+        for (auto& loader : g_loaders) {
+            auto pointer = loader.as_type<PhysFSLoader>();
+            delete pointer;
+        }
 
-    g_loaders.clear();
+        g_loaders.clear();
 
-    PHYSFS_deinit();
-}
+        PHYSFS_deinit();
+    }
 
-LYRA_EXPORT auto create() -> FileLoaderAPI
-{
-    auto api            = FileLoaderAPI{};
-    api.get_api_name    = get_api_name;
-    api.create_loader   = create_loader;
-    api.delete_loader   = delete_loader;
-    api.sizeof_file     = sizeof_file;
-    api.exists_file     = exists_file;
-    api.open_file       = open_file;
-    api.close_file      = close_file;
-    api.read_file       = read_file;
-    api.seek_file       = seek_file;
-    api.read_whole_file = read_whole_file;
-    api.mount           = mount;
-    api.unmount         = unmount;
-    return api;
-}
+    FileLoaderAPI create()
+    {
+        auto api            = FileLoaderAPI{};
+        api.get_api_name    = get_api_name;
+        api.create_loader   = create_loader;
+        api.delete_loader   = delete_loader;
+        api.sizeof_file     = sizeof_file;
+        api.exists_file     = exists_file;
+        api.open_file       = open_file;
+        api.close_file      = close_file;
+        api.read_file       = read_file;
+        api.seek_file       = seek_file;
+        api.read_whole_file = read_whole_file;
+        api.mount           = mount;
+        api.unmount         = unmount;
+        return api;
+    }
+
+} // namespace lyra::physfs

@@ -9,7 +9,6 @@ target_sources(lyra-physfs PRIVATE
 
 # packages
 find_package(PhysFS REQUIRED)
-target_link_libraries(lyra-physfs PRIVATE lyra::engine)
 target_link_libraries(lyra-physfs PRIVATE ${PHYSFS_LIBRARY})
 target_include_directories(lyra-physfs PRIVATE ${PHYSFS_INCLUDE_DIR})
 

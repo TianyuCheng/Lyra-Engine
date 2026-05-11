@@ -15,10 +15,11 @@
 CMRC_DECLARE(imgui);
 
 using namespace lyra;
+using namespace lyra::imgui;
 
 static Logger logger = create_logger("ImGui", LogLevel::trace);
 
-Logger get_logger()
+Logger lyra::imgui::get_logger()
 {
     return logger;
 }

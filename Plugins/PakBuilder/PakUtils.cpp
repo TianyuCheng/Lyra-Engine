@@ -1,18 +1,20 @@
 #include <fstream>
 #include <cstring>
+#include <algorithm>
 #include "PakUtils.h"
 
 using namespace lyra;
+using namespace lyra::pakbuilder;
 
-static Logger logger = create_logger("PakFS", LogLevel::trace);
+static Logger logger = create_logger("PakBuilder", LogLevel::trace);
 
-Logger get_logger()
+Logger lyra::pakbuilder::get_logger()
 {
     return logger;
 }
 
 // normalize path for PAK format: convert to forward slashes, no leading slash, max 55 chars
-String normalize_pak_path(FSPath vpath)
+String PakArchive::normalize_path(FSPath vpath)
 {
     if (!vpath) return String("");
 
@@ -36,7 +38,7 @@ String normalize_pak_path(FSPath vpath)
 }
 
 // write data in little-endian format
-void write_le32(std::ostream& os, uint value)
+void PakArchive::write_le32(std::ostream& os, uint value)
 {
     uint8_t bytes[4];
     bytes[0] = static_cast<uint8_t>(value & 0xFF);
@@ -47,15 +49,15 @@ void write_le32(std::ostream& os, uint value)
 }
 
 // finalize and write the PAK file to disk
-bool finalize_pak_archive(PakArchive& archive_data)
+bool PakArchive::finalize()
 {
-    if (archive_data.is_finalized) {
+    if (is_finalized) {
         return true; // already finalized
     }
 
-    std::ofstream file(archive_data.archive_path, std::ios::binary | std::ios::trunc);
+    std::ofstream file(archive_path, std::ios::binary | std::ios::trunc);
     if (!file) {
-        get_logger()->error("finalize_pak_archive: failed to open {} for writing", archive_data.archive_path.string());
+        get_logger()->error("finalize_pak_archive: failed to open {} for writing", archive_path.string());
         return false;
     }
 
@@ -72,7 +74,7 @@ bool finalize_pak_archive(PakArchive& archive_data)
     using FileInfo = std::pair<uint, uint>;        // (offset, size)
     Vector<std::pair<String, FileInfo>> file_info; // filename -> (offset, size)
 
-    for (const auto& entry : archive_data.files) {
+    for (const auto& entry : files) {
         uint file_offset = current_offset;
         uint file_size   = static_cast<uint>(entry.data.size());
 
@@ -134,12 +136,12 @@ bool finalize_pak_archive(PakArchive& archive_data)
     write_le32(file, dir_size);
 
     if (!file.good()) {
-        get_logger()->error("finalize_pak_archive: failed to write PAK file {}", archive_data.archive_path.string());
+        get_logger()->error("finalize_pak_archive: failed to write PAK file {}", archive_path.string());
         return false;
     }
 
-    archive_data.is_finalized = true;
+    is_finalized = true;
     get_logger()->info("finalize_pak_archive: successfully wrote PAK file {} with {} files",
-        archive_data.archive_path.string(), archive_data.files.size());
+        archive_path.string(), files.size());
     return true;
 }

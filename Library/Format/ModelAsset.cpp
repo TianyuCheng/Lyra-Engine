@@ -9,12 +9,9 @@ using ModelCookerPlugin = Plugin<AssetCookerAPI>;
 
 AssetLoaderAPI ModelAsset::loader()
 {
-    static Own<ModelLoaderPlugin> MODEL_LOADER_PLUGIN;
-
-    if (!MODEL_LOADER_PLUGIN)
-        MODEL_LOADER_PLUGIN = std::make_unique<ModelLoaderPlugin>("lyra-model");
-
-    return *MODEL_LOADER_PLUGIN->get_api();
+    static Own<ModelLoaderPlugin> PLUGIN;
+    if (!PLUGIN) PLUGIN = std::make_unique<ModelLoaderPlugin>("lyra-model");
+    return *PLUGIN->get_api();
 }
 
 AssetCookerAPI ModelAsset::stl::cooker()

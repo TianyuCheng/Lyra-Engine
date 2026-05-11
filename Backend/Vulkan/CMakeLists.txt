@@ -1,5 +1,5 @@
 # setup plugin
-lyra_plugin(vulkan)
+lyra_backend(vulkan)
 
 # plugin sources
 target_sources(lyra-vulkan PRIVATE

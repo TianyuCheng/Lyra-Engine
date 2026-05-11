@@ -1,3 +1,4 @@
+// system headers
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #define TINYEXR_IMPLEMENTATION
@@ -5,13 +6,16 @@
 #include <gli/gli.hpp>
 #include <gli/load.hpp>
 
+// library headers
 #include <Lyra/Common/Macros.h>
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Common/Plugin.h>
 
+// plugin headers
 #include "TextureUtils.h"
 
 using namespace lyra;
+using namespace lyra::texture;
 
 static Logger logger = create_logger("TextureCooker", LogLevel::trace);
 
@@ -178,11 +182,20 @@ static uint get_supported_cooker_extensions(CString* extensions)
     return 7;
 }
 
-LYRA_EXPORT auto create() -> AssetCookerAPI
+namespace lyra::texture
 {
-    auto api                     = AssetCookerAPI{};
-    api.configure                = configure_cooker;
-    api.process                  = process_texture;
-    api.get_supported_extensions = get_supported_cooker_extensions;
-    return api;
-}
+
+    void prepare() {}
+
+    void cleanup() {}
+
+    AssetCookerAPI create()
+    {
+        auto api                     = AssetCookerAPI{};
+        api.configure                = configure_cooker;
+        api.process                  = process_texture;
+        api.get_supported_extensions = get_supported_cooker_extensions;
+        return api;
+    }
+
+} // namespace lyra::texture

@@ -11,27 +11,32 @@
 
 using namespace lyra;
 
-// custom deleter for PHYSFS_File
-struct PhysFSFileDeleter
+namespace lyra::physfs
 {
-    void operator()(PHYSFS_File* f) const
+
+    // custom deleter for PHYSFS_File
+    struct PhysFSFileDeleter
     {
-        if (f) PHYSFS_close(f);
-    }
-};
+        void operator()(PHYSFS_File* f) const
+        {
+            if (f) PHYSFS_close(f);
+        }
+    };
 
-using PhysFSFilePtr = Own<PHYSFS_File, PhysFSFileDeleter>;
+    struct PhysMountPoint
+    {
+        String vpath;
+        Path   root;
+        uint   priority = 0;
+        uint   mount_id = 0;
+    };
 
-struct PhysMountPoint
-{
-    String vpath;
-    Path   root;
-    uint   priority = 0;
-    uint   mount_id = 0;
-};
+    struct PhysFSLoader
+    {
+        Vector<PhysMountPoint*> mounts;
+        std::mutex              mounts_mutex;
+    };
 
-struct PhysFSLoader
-{
-    Vector<PhysMountPoint*> mounts;
-    std::mutex              mounts_mutex;
-};
+    using PhysFSFilePtr = Own<PHYSFS_File, PhysFSFileDeleter>;
+
+} // namespace lyra::physfs

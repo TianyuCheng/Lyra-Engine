@@ -12,17 +12,22 @@
 
 using namespace lyra;
 
-struct NativeMount
+namespace lyra::nativefs
 {
-    String vpath;    // virtual mount prefix, e.g. "/textures" (no trailing slash)
-    Path   root;     // real OS directory root
-    uint   priority; // higher value = searched earlier
-};
 
-struct NativeFSLoader
-{
-    Vector<NativeMount*> mounts;
-    std::mutex           mounts_mutex;
-};
+    struct NativeMount
+    {
+        String vpath;    // virtual mount prefix, e.g. "/textures" (no trailing slash)
+        Path   root;     // real OS directory root
+        uint   priority; // higher value = searched earlier
+    };
+
+    struct NativeFSLoader
+    {
+        Vector<NativeMount*> mounts;
+        std::mutex           mounts_mutex;
+    };
+
+} // namespace lyra::nativefs
 
 #endif // LYRA_PLUGIN_NATIVE_FS_UTILS_H

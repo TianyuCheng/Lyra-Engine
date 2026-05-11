@@ -1,3 +1,71 @@
+# find all external dependencies first
+find_package(etl REQUIRED)
+find_package(glm REQUIRED)
+find_package(fmt REQUIRED)
+find_package(absl REQUIRED)
+find_package(apus REQUIRED)
+find_package(entt REQUIRED)
+find_package(json REQUIRED)
+find_package(toml REQUIRED)
+find_package(imgui REQUIRED)
+find_package(boxer REQUIRED)
+find_package(spdlog REQUIRED)
+find_package(libassert REQUIRED)
+find_package(magic_enum REQUIRED)
+find_package(ktx REQUIRED)
+find_package(VulkanHeaders REQUIRED)
+
+# create a dependency interface library
+add_library(lyra-deps INTERFACE)
+add_library(lyra::deps ALIAS lyra-deps)
+target_link_libraries(lyra-deps INTERFACE
+  # utility libraries
+  $<BUILD_INTERFACE:etl::etl>
+  $<BUILD_INTERFACE:absl::base>
+  $<BUILD_INTERFACE:absl::hash>
+  $<BUILD_INTERFACE:absl::meta>
+  $<BUILD_INTERFACE:absl::time>
+  $<BUILD_INTERFACE:absl::memory>
+  $<BUILD_INTERFACE:absl::utility>
+  $<BUILD_INTERFACE:absl::strings>
+  $<BUILD_INTERFACE:absl::cleanup>
+  $<BUILD_INTERFACE:absl::debugging>
+  $<BUILD_INTERFACE:absl::algorithm>
+  $<BUILD_INTERFACE:absl::flat_hash_map>
+  $<BUILD_INTERFACE:absl::flat_hash_set>
+  $<BUILD_INTERFACE:absl::btree>
+  $<BUILD_INTERFACE:absl::synchronization>
+  $<BUILD_INTERFACE:apus::apus>
+
+  # math libraries
+  $<BUILD_INTERFACE:glm::glm>
+
+  # ecs libraries
+  $<BUILD_INTERFACE:EnTT::EnTT>
+
+  # gui libraries
+  $<BUILD_INTERFACE:imgui::imgui>
+
+  # debugging libraries
+  $<BUILD_INTERFACE:fmt::fmt>
+  $<BUILD_INTERFACE:spdlog::spdlog>
+  $<BUILD_INTERFACE:libassert::assert>
+
+  # config format libraries
+  $<BUILD_INTERFACE:json::json>
+  $<BUILD_INTERFACE:toml::toml>
+
+  # misc libraries
+  $<BUILD_INTERFACE:magic_enum::magic_enum>
+
+  # asset libraries
+  $<BUILD_INTERFACE:KTX::ktx>
+  $<BUILD_INTERFACE:Vulkan::Headers>
+
+  # common
+  boxer::boxer
+)
+
 # --- Target: lyra-engine ---
 lyra_shared(engine)
 
@@ -66,72 +134,14 @@ target_sources(lyra-engine PRIVATE
   Effect/MaterialGraph.cpp
 )
 
-# link external dependencies
-find_package(etl REQUIRED)
-find_package(glm REQUIRED)
-find_package(fmt REQUIRED)
-find_package(absl REQUIRED)
-find_package(apus REQUIRED)
-find_package(entt REQUIRED)
-find_package(json REQUIRED)
-find_package(toml REQUIRED)
-find_package(imgui REQUIRED)
-find_package(boxer REQUIRED)
-find_package(spdlog REQUIRED)
-find_package(libassert REQUIRED)
-find_package(magic_enum REQUIRED)
-
-target_link_libraries(lyra-engine PUBLIC
-  # utility libraries
-  $<BUILD_INTERFACE:etl::etl>
-  $<BUILD_INTERFACE:absl::base>
-  $<BUILD_INTERFACE:absl::hash>
-  $<BUILD_INTERFACE:absl::meta>
-  $<BUILD_INTERFACE:absl::time>
-  $<BUILD_INTERFACE:absl::memory>
-  $<BUILD_INTERFACE:absl::utility>
-  $<BUILD_INTERFACE:absl::strings>
-  $<BUILD_INTERFACE:absl::cleanup>
-  $<BUILD_INTERFACE:absl::debugging>
-  $<BUILD_INTERFACE:absl::algorithm>
-  $<BUILD_INTERFACE:absl::flat_hash_map>
-  $<BUILD_INTERFACE:absl::flat_hash_set>
-  $<BUILD_INTERFACE:absl::btree>
-  $<BUILD_INTERFACE:absl::synchronization>
-  $<BUILD_INTERFACE:apus::apus>
-
-  # math libraries
-  $<BUILD_INTERFACE:glm::glm>
-
-  # ecs libraries
-  $<BUILD_INTERFACE:EnTT::EnTT>
-
-  # gui libraries
-  $<BUILD_INTERFACE:imgui::imgui>
-
-  # debugging libraries
-  $<BUILD_INTERFACE:fmt::fmt>
-  $<BUILD_INTERFACE:spdlog::spdlog>
-  $<BUILD_INTERFACE:libassert::assert>
-
-  # config format libraries
-  $<BUILD_INTERFACE:json::json>
-  $<BUILD_INTERFACE:toml::toml>
-
-  # misc libraries
-  $<BUILD_INTERFACE:magic_enum::magic_enum>
-)
-
 # link headers and common
-target_link_libraries(lyra-engine PUBLIC boxer::boxer)
+target_link_libraries(lyra-engine PUBLIC lyra-deps)
 target_link_libraries(lyra-engine PUBLIC lyra::headers)
 
-# link external dependencies
-find_package(ktx REQUIRED)
-find_package(VulkanHeaders REQUIRED)
-
-target_link_libraries(lyra-engine PUBLIC
-  # asset libraries
-  $<BUILD_INTERFACE:KTX::ktx>
-  $<BUILD_INTERFACE:Vulkan::Headers>
-)
+# link builtin plugins
+target_link_libraries(lyra-engine PRIVATE lyra::imgui)
+target_link_libraries(lyra-engine PRIVATE lyra::texture)
+target_link_libraries(lyra-engine PRIVATE lyra::physfs)
+target_link_libraries(lyra-engine PRIVATE lyra::nativefs)
+target_link_libraries(lyra-engine PRIVATE lyra::pakbuilder)
+target_link_libraries(lyra-engine PRIVATE lyra::zipbuilder)

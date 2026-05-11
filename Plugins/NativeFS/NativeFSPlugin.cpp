@@ -11,6 +11,9 @@
 // plugin headers
 #include "NativeFSUtils.h"
 
+using namespace lyra;
+using namespace lyra::nativefs;
+
 namespace fs = std::filesystem;
 
 static Logger logger = create_logger("NativeFS", LogLevel::trace);
@@ -342,37 +345,40 @@ static bool unmount(FileLoaderHandle loader, MountHandle handle)
     return before != after;
 }
 
-// -----------------------------------------------------------------------------
-// plugin exports
-// -----------------------------------------------------------------------------
-
-LYRA_EXPORT auto prepare() -> void
+namespace lyra::nativefs
 {
-    get_logger()->set_level(parse_log_level_from_env("LYRA_NATIVEFS_VERBOSITY"));
-}
 
-LYRA_EXPORT auto cleanup() -> void
-{
-    for (auto& loader : g_loaders)
-        delete_loader(loader);
+    void prepare()
+    {
+        get_logger()->set_level(parse_log_level_from_env("LYRA_NATIVEFS_VERBOSITY"));
+    }
 
-    g_loaders.clear();
-}
+    void cleanup()
+    {
+        for (auto& loader : g_loaders) {
+            auto pointer = loader.as_type<NativeFSLoader>();
+            delete pointer;
+        }
 
-LYRA_EXPORT auto create() -> FileLoaderAPI
-{
-    auto api            = FileLoaderAPI{};
-    api.get_api_name    = get_api_name;
-    api.create_loader   = create_loader;
-    api.delete_loader   = delete_loader;
-    api.sizeof_file     = sizeof_file;
-    api.exists_file     = exists_file;
-    api.open_file       = open_file;
-    api.close_file      = close_file;
-    api.read_file       = read_file;
-    api.seek_file       = seek_file;
-    api.read_whole_file = read_whole_file;
-    api.mount           = mount;
-    api.unmount         = unmount;
-    return api;
-}
+        g_loaders.clear();
+    }
+
+    FileLoaderAPI create()
+    {
+        auto api            = FileLoaderAPI{};
+        api.get_api_name    = get_api_name;
+        api.create_loader   = create_loader;
+        api.delete_loader   = delete_loader;
+        api.sizeof_file     = sizeof_file;
+        api.exists_file     = exists_file;
+        api.open_file       = open_file;
+        api.close_file      = close_file;
+        api.read_file       = read_file;
+        api.seek_file       = seek_file;
+        api.read_whole_file = read_whole_file;
+        api.mount           = mount;
+        api.unmount         = unmount;
+        return api;
+    }
+
+} // namespace lyra::nativefs
