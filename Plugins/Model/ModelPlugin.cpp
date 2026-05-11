@@ -5,22 +5,31 @@
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/FileIO/VFSAPI.h>
 #include <Lyra/Format/ModelAsset.h>
+#include "ModelUtils.h"
 
 using namespace lyra;
+using namespace lyra::model;
 
 static void* load_model_asset(FileLoader* loader, FSPath path)
 {
     auto content = loader->read<char>(path);
-    if (content.empty()) return nullptr;
+    if (content.empty()) {
+        get_logger()->error("failed to read model file: {}", path);
+        return nullptr;
+    }
 
     JSON json;
     try {
         json = JSON::parse(content.begin(), content.end());
-    } catch (...) {
+    } catch (const std::exception& e) {
+        get_logger()->error("failed to parse model JSON: {} (error: {})", path, e.what());
         return nullptr;
     }
 
-    if (!json.contains("nodes") || !json["nodes"].is_array()) return nullptr;
+    if (!json.contains("nodes") || !json["nodes"].is_array()) {
+        get_logger()->error("invalid model JSON (missing nodes array): {}", path);
+        return nullptr;
+    }
 
     auto asset  = new ModelAsset();
     asset->root = json.value("root", 0u);
@@ -63,8 +72,13 @@ static uint get_model_extensions(CString* extensions)
 
 namespace lyra::model::loader
 {
-    void prepare() {}
+    void prepare()
+    {
+        get_logger()->set_level(parse_log_level_from_env("LYRA_MODEL_VERBOSITY"));
+    }
+
     void cleanup() {}
+
     auto create() -> AssetLoaderAPI
     {
         auto api                     = AssetLoaderAPI{};

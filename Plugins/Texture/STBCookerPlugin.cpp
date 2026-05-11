@@ -11,7 +11,7 @@ static void configure_cooker(AssetServer* manager, const JSON& options) {}
 
 static bool process_stb(JSON& metadata, OSPath source_path, OSPath target_path)
 {
-    String   source_path_str = String(reinterpret_cast<const char*>(source_path));
+    String   source_path_str = Path(source_path).string();
     int      width, height, channels;
     bool     is_hdr     = stbi_is_hdr(source_path_str.c_str());
     void*    pixels     = nullptr;

@@ -1,8 +1,8 @@
 #pragma once
 
 #include <ktx.h>
-#include <vulkan/vulkan.h>
 #include <gli/gli.hpp>
+#include <vulkan/vulkan.h>
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Common/Config.h>
 #include <Lyra/Format/TextureAsset.h>
@@ -14,7 +14,7 @@ namespace lyra::texture
 
     inline Logger get_logger()
     {
-        static Logger logger = create_logger("TextureCooker", LogLevel::trace);
+        static Logger logger = create_logger("Texture", LogLevel::trace);
         return logger;
     }
 

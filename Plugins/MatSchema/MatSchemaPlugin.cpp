@@ -1,4 +1,5 @@
 #include <Lyra/Common/Plugin.h>
+#include <Lyra/Common/Logger.h>
 #include <Lyra/Assets/AMSAPI.h>
 
 using namespace lyra;
@@ -9,7 +10,11 @@ extern uint  get_schema_extensions(CString* extensions);
 
 namespace lyra::matschema::loader
 {
-    void prepare() {}
+    void prepare()
+    {
+        // the logger is created lazily in MatSchemaLoader.cpp, but we can set its level here
+        create_logger("MatSchemaLoader", LogLevel::trace)->set_level(parse_log_level_from_env("LYRA_MATSCHEMA_VERBOSITY"));
+    }
 
     void cleanup() {}
 

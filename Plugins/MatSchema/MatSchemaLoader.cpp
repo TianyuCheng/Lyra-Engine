@@ -6,6 +6,12 @@
 using namespace lyra;
 using namespace lyra::matschema;
 
+static Logger get_logger()
+{
+    static Logger logger = create_logger("MatSchemaLoader", LogLevel::trace);
+    return logger;
+}
+
 static void load_schema_parameters(MaterialSchema* schema, const JSON& json)
 {
     if (json.contains("parameters") && json["parameters"].is_array()) {
@@ -51,9 +57,18 @@ static void load_schema_states(MaterialSchema* schema, const JSON& json)
 void* load_material_schema(FileLoader* loader, FSPath path)
 {
     auto content = loader->read<char>(path);
-    if (content.empty()) return nullptr;
+    if (content.empty()) {
+        get_logger()->error("failed to read material schema file: {}", path);
+        return nullptr;
+    }
 
-    auto json = JSON::parse(content.begin(), content.end());
+    JSON json;
+    try {
+        json = JSON::parse(content.begin(), content.end());
+    } catch (const std::exception& e) {
+        get_logger()->error("failed to parse material schema JSON: {} (error: {})", path, e.what());
+        return nullptr;
+    }
 
     auto schema = new MaterialSchema();
 

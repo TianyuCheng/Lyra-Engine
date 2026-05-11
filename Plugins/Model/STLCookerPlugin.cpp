@@ -2,26 +2,29 @@
 #include <Lyra/Common/Plugin.h>
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/Format/ModelAsset.h>
+#include "ModelUtils.h"
 
 #include <fstream>
 #include <numeric>
 
 using namespace lyra;
+using namespace lyra::model;
 
 static void configure_stl(AssetServer*, const JSON&) {}
 
 static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
 {
     std::ifstream file(source_path, std::ios::binary);
-    if (!file.is_open()) return false;
+    if (!file.is_open()) {
+        get_logger()->error("failed to open STL file: {}", Path(source_path).string());
+        return false;
+    }
 
     // determine if binary or ascii
     char header[80];
     file.read(header, 80);
     bool is_binary = true;
     if (String(header, 5) == "solid") {
-        // could still be binary if the file is large, but usually "solid" means ascii
-        // simplified check:
         is_binary = false;
     }
 
@@ -41,7 +44,7 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
     if (is_binary) {
         uint32_t triangle_count;
         file.read(reinterpret_cast<char*>(&triangle_count), 4);
-        
+
         positions.reserve(triangle_count * 3);
         normals.reserve(triangle_count * 3);
 
@@ -75,7 +78,10 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
         }
     }
 
-    if (positions.empty()) return false;
+    if (positions.empty()) {
+        get_logger()->error("stl file contains no geometry: {}", Path(source_path).string());
+        return false;
+    }
 
     pos_attr.element_count = static_cast<uint>(positions.size());
     pos_attr.data.resize(positions.size() * sizeof(Vector3));
@@ -96,7 +102,7 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
     surf.slice.first_vertex = 0;
     surf.slice.vertex_count = static_cast<uint>(positions.size());
 
-    // Calculate bounds
+    // calculate bounds
     mesh.min_bounds = Vector3(std::numeric_limits<float>::max());
     mesh.max_bounds = Vector3(std::numeric_limits<float>::lowest());
     for (const auto& v : positions) {
@@ -110,12 +116,21 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
     Path mesh_cache_path = Path(caches_root) / (std::to_string(mesh_id) + ".mesh");
     mesh.save(mesh_cache_path.c_str());
 
-    // Create ModelAsset metadata
+    // create ModelAsset metadata
     JSON model_json;
     model_json["root"] = 0;
     JSON node;
     node["name"] = "STL_Model";
     node["mesh"] = std::to_string(mesh_id);
+
+    JSON transform = JSON::array();
+    for (int r = 0; r < 4; ++r) {
+        JSON row = JSON::array();
+        for (int c = 0; c < 4; ++c) row.push_back(r == c ? 1.0f : 0.0f);
+        transform.push_back(row);
+    }
+    node["transform"] = transform;
+
     model_json["nodes"] = JSON::array({node});
 
     Path model_cache_path = Path(caches_root) / (std::to_string(metadata["guid"].get<AssetID>()) + ".model");

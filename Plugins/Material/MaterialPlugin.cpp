@@ -13,6 +13,12 @@ using namespace lyra;
 
 static AssetServer* G_ASSET_SERVER = nullptr;
 
+static Logger get_logger()
+{
+    static Logger logger = create_logger("Material", LogLevel::trace);
+    return logger;
+}
+
 // helper to map string to gpucullmode
 static GPUCullMode string_to_cull_mode(const String& str)
 {
@@ -34,15 +40,15 @@ static bool load_material_schema(MaterialAsset* asset, const JSON& json, FSPath 
         if (json["schema"].is_string()) {
             asset->schema = G_ASSET_SERVER->load_asset<MaterialSchema>(json["schema"].get<String>().c_str());
             if (!asset->schema.valid()) {
-                spdlog::error("Failed to load material schema '{}' for material: {}", json["schema"].get<String>(), path);
+                get_logger()->error("failed to load material schema '{}' for material: {}", json["schema"].get<String>(), path);
                 return false;
             }
         } else {
-            spdlog::error("'schema' field in material must be a string: {}", path);
+            get_logger()->error("'schema' field in material must be a string: {}", path);
             return false;
         }
     } else {
-        spdlog::error("Material asset is missing mandatory 'schema' field: {}", path);
+        get_logger()->error("material asset is missing mandatory 'schema' field: {}", path);
         return false;
     }
     return true;
@@ -56,14 +62,14 @@ static void load_material_textures(MaterialAsset* asset, const JSON& json, FSPat
                 if (tex_path.is_string()) {
                     asset->params.textures[name] = G_ASSET_SERVER->load_asset<TextureAsset>(tex_path.get<String>().c_str());
                     if (!asset->params.textures[name].valid()) {
-                        spdlog::warn("Failed to load texture '{}' for material: {}", tex_path.get<String>(), path);
+                        get_logger()->warn("failed to load texture '{}' for material: {}", tex_path.get<String>(), path);
                     }
                 } else {
-                    spdlog::warn("Texture path for '{}' must be a string in material: {}", name, path);
+                    get_logger()->warn("texture path for '{}' must be a string in material: {}", name, path);
                 }
             }
         } else {
-            spdlog::warn("'textures' field must be an object in material: {}", path);
+            get_logger()->warn("'textures' field must be an object in material: {}", path);
         }
     }
 }
@@ -79,16 +85,16 @@ static void load_material_constants(MaterialAsset* asset, const JSON& json, FSPa
                     } else if (value.size() == 3) {
                         asset->params.constants[name] = Vector4(value[0], value[1], value[2], 1.0f);
                     } else {
-                        spdlog::warn("Constant '{}' array must have size 3 or 4 in material: {}", name, path);
+                        get_logger()->warn("constant '{}' array must have size 3 or 4 in material: {}", name, path);
                     }
                 } else if (value.is_number()) {
                     asset->params.constants[name] = Vector4(value.get<float>(), 0.0f, 0.0f, 0.0f);
                 } else {
-                    spdlog::warn("Constant '{}' has invalid format (must be array or number) in material: {}", name, path);
+                    get_logger()->warn("constant '{}' has invalid format (must be array or number) in material: {}", name, path);
                 }
             }
         } else {
-            spdlog::warn("'constants' field must be an object in material: {}", path);
+            get_logger()->warn("'constants' field must be an object in material: {}", path);
         }
     }
 }
@@ -99,7 +105,7 @@ static void load_material_overrides(MaterialAsset* asset, const JSON& json, FSPa
         if (json["cull_mode"].is_string()) {
             asset->cull_mode = string_to_cull_mode(json["cull_mode"].get<String>());
         } else {
-            spdlog::warn("'cull_mode' must be a string in material: {}", path);
+            get_logger()->warn("'cull_mode' must be a string in material: {}", path);
         }
     }
 
@@ -107,7 +113,7 @@ static void load_material_overrides(MaterialAsset* asset, const JSON& json, FSPa
         if (json["depth_write"].is_boolean()) {
             asset->depth_write = json["depth_write"].get<bool>();
         } else {
-            spdlog::warn("'depth_write' must be a boolean in material: {}", path);
+            get_logger()->warn("'depth_write' must be a boolean in material: {}", path);
         }
     }
 
@@ -115,7 +121,7 @@ static void load_material_overrides(MaterialAsset* asset, const JSON& json, FSPa
         if (json["depth_test"].is_boolean()) {
             asset->depth_test = json["depth_test"].get<bool>();
         } else {
-            spdlog::warn("'depth_test' must be a boolean in material: {}", path);
+            get_logger()->warn("'depth_test' must be a boolean in material: {}", path);
         }
     }
 }
@@ -124,7 +130,7 @@ static void* load_material_asset(FileLoader* loader, FSPath path)
 {
     auto content = loader->read<char>(path);
     if (content.empty()) {
-        spdlog::error("Failed to read material file: {}", path);
+        get_logger()->error("failed to read material file: {}", path);
         return nullptr;
     }
 
@@ -132,17 +138,17 @@ static void* load_material_asset(FileLoader* loader, FSPath path)
     try {
         json = JSON::parse(content.begin(), content.end());
     } catch (const JSON::parse_error& e) {
-        spdlog::error("Failed to parse material JSON at {}: {}", path, e.what());
+        get_logger()->error("failed to parse material JSON at {}: {}", path, e.what());
         return nullptr;
     }
 
     if (!json.is_object()) {
-        spdlog::error("Material JSON must be an object: {}", path);
+        get_logger()->error("material JSON must be an object: {}", path);
         return nullptr;
     }
 
     if (!G_ASSET_SERVER) {
-        spdlog::error("Asset server not configured for material loader!");
+        get_logger()->error("asset server not configured for material loader!");
         return nullptr;
     }
 
@@ -175,7 +181,10 @@ static uint get_material_extensions(CString* extensions)
 
 namespace lyra::material::loader
 {
-    void prepare() {}
+    void prepare()
+    {
+        get_logger()->set_level(parse_log_level_from_env("LYRA_MATERIAL_VERBOSITY"));
+    }
 
     void cleanup() {}
 

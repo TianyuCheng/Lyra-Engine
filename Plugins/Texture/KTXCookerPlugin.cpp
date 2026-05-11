@@ -9,11 +9,21 @@ static void configure_cooker(AssetServer* manager, const JSON& options) {}
 
 static bool process_ktx(JSON& metadata, OSPath source_path, OSPath target_path)
 {
-    String source_path_str = String(reinterpret_cast<const char*>(source_path));
+    String source_path_str = Path(source_path).string();
     Path   dst             = get_texture_cache_path(metadata["guid"].get<AssetID>(), target_path);
 
-    fs::create_directories(dst.parent_path());
-    fs::copy_file(Path(source_path_str), dst, fs::copy_options::overwrite_existing);
+    if (!fs::exists(Path(source_path_str))) {
+        get_logger()->error("Source KTX file does not exist: {}", source_path_str);
+        return false;
+    }
+
+    try {
+        fs::create_directories(dst.parent_path());
+        fs::copy_file(Path(source_path_str), dst, fs::copy_options::overwrite_existing);
+    } catch (const std::exception& e) {
+        get_logger()->error("Failed to copy KTX file to cache: {} (error: {})", source_path_str, e.what());
+        return false;
+    }
 
     metadata["path"] = fs::relative(dst, target_path).string();
     return true;

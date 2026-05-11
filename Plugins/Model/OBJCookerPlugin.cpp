@@ -2,6 +2,7 @@
 #include <Lyra/Common/Plugin.h>
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/Format/ModelAsset.h>
+#include "ModelUtils.h"
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
@@ -9,6 +10,7 @@
 #include <fstream>
 
 using namespace lyra;
+using namespace lyra::model;
 
 static void configure_obj(AssetServer*, const JSON&) {}
 
@@ -19,15 +21,15 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
 
     tinyobj::ObjReader reader;
 
-    if (!reader.ParseFromFile(String(reinterpret_cast<const char*>(source_path)), reader_config)) {
+    if (!reader.ParseFromFile(Path(source_path).string(), reader_config)) {
         if (!reader.Error().empty()) {
-            spdlog::error("TinyObjReader: {}", reader.Error());
+            get_logger()->error("tinyobjreader: {}", reader.Error());
         }
         return false;
     }
 
     if (!reader.Warning().empty()) {
-        spdlog::warn("TinyObjReader: {}", reader.Warning());
+        get_logger()->warn("tinyobjreader: {}", reader.Warning());
     }
 
     auto& attrib = reader.GetAttrib();
@@ -36,7 +38,7 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
 
     MeshAsset mesh;
     MeshLOD& lod = mesh.lods.emplace_back();
-    
+
     // For OBJ, we'll simplify and create one MeshAsset with multiple surfaces (one per shape)
     // and potentially multiple MeshAssets if they are very distinct, but for now let's go with surfaces.
 
@@ -50,12 +52,12 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
 
     ModelAsset model;
     model.root = 0;
-    
+
     // We'll create a single root node for the OBJ
     ModelAsset::Node root_node;
     root_node.name = "OBJ_Root";
     root_node.transform = Matrix4x4(1.0f);
-    
+
     AssetID mesh_id = random_guid();
     root_node.mesh = AssetHandle<MeshAsset>(mesh_id);
 
@@ -170,7 +172,17 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
     for (const auto& node : model.nodes) {
         JSON n;
         n["name"] = node.name;
-        n["mesh"] = std::to_string(node.mesh.uuid);
+        if (node.mesh.valid())     n["mesh"]     = std::to_string(node.mesh.uuid);
+        if (node.material.valid()) n["material"] = std::to_string(node.material.uuid);
+
+        JSON transform = JSON::array();
+        for (int r = 0; r < 4; ++r) {
+            JSON row = JSON::array();
+            for (int c = 0; c < 4; ++c) row.push_back(node.transform[r][c]);
+            transform.push_back(row);
+        }
+        n["transform"] = transform;
+
         nodes_arr.push_back(n);
     }
     model_json["nodes"] = nodes_arr;
@@ -180,7 +192,7 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
     out << model_json.dump(4);
 
     metadata["path"] = std::to_string(metadata["guid"].get<AssetID>()) + ".model";
-    
+
     JSON deps = JSON::array();
     deps.push_back(mesh_id);
     for (auto const& [idx, id] : material_map) deps.push_back(id);

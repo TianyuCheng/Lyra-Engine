@@ -8,6 +8,12 @@
 
 using namespace lyra;
 
+static Logger get_logger()
+{
+    static Logger logger = create_logger("Mesh", LogLevel::trace);
+    return logger;
+}
+
 struct ChunkHeader
 {
     uint type;
@@ -129,13 +135,13 @@ static void* load_mesh_asset(FileLoader* loader, FSPath path)
     uint version = 0;
 
     if (!reader.read(magic) || magic != MeshAsset::MESH_MAGIC) {
-        spdlog::error("Failed to load MeshAsset {}: Invalid magic", path);
+        get_logger()->error("failed to load MeshAsset {}: invalid magic", path);
         delete asset;
         return nullptr;
     }
 
     if (!reader.read(version) || version != MeshAsset::MESH_ASSET_VERSION) {
-        spdlog::error("Failed to load MeshAsset {}: Unsupported version (found {}, expected {})", path, version, MeshAsset::MESH_ASSET_VERSION);
+        get_logger()->error("failed to load MeshAsset {}: unsupported version (found {}, expected {})", path, version, MeshAsset::MESH_ASSET_VERSION);
         delete asset;
         return nullptr;
     }
@@ -155,7 +161,7 @@ static void* load_mesh_asset(FileLoader* loader, FSPath path)
         }
 
         if (!success) {
-            spdlog::error("Failed to load MeshAsset {}: Error reading chunk 0x{:08X}", path, chunk.type);
+            get_logger()->error("failed to load MeshAsset {}: error reading chunk 0x{:08X}", path, chunk.type);
             delete asset;
             return nullptr;
         }
@@ -182,7 +188,10 @@ static uint get_mesh_extensions(CString* extensions)
 
 namespace lyra::mesh::loader
 {
-    void prepare() {}
+    void prepare()
+    {
+        get_logger()->set_level(parse_log_level_from_env("LYRA_MESH_VERBOSITY"));
+    }
 
     void cleanup() {}
 

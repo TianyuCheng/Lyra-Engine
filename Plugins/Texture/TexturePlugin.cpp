@@ -10,8 +10,10 @@
 #include <Lyra/FileIO/VFSAPI.h>
 
 #include <Lyra/Format/TextureAsset.h>
+#include "TextureUtils.h"
 
 using namespace lyra;
+using namespace lyra::texture;
 
 namespace fs = std::filesystem;
 
@@ -50,16 +52,17 @@ static void* load_texture_asset(FileLoader* loader, FSPath path)
     auto content = loader->read<uint8_t>(path);
 
     if (content.empty()) {
-        spdlog::error("Failed to read texture file: {}", path);
+        get_logger()->error("failed to read texture file: {}", path);
         return nullptr;
     }
 
     ktxTexture2*   ktx_texture;
     KTX_error_code result = ktxTexture2_CreateFromMemory(content.data(), content.size(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktx_texture);
     if (result != KTX_SUCCESS) {
-        spdlog::error("Failed to create KTX texture from memory: {}", ktxErrorString(result));
+        get_logger()->error("failed to create KTX texture from memory ({}): {}", path, ktxErrorString(result));
         return nullptr;
     }
+
 
     auto texture_asset    = new TextureAsset();
     texture_asset->format = to_gpu_texture_format(static_cast<VkFormat>(ktx_texture->vkFormat));
@@ -113,7 +116,10 @@ static uint get_ktx_extensions(CString* extensions)
 
 namespace lyra::texture::loader
 {
-    void prepare() {}
+    void prepare()
+    {
+        get_logger()->set_level(parse_log_level_from_env("LYRA_TEXTURE_VERBOSITY"));
+    }
 
     void cleanup() {}
 
