@@ -140,7 +140,7 @@ namespace lyra::zipbuilder
         g_packers.clear();
     }
 
-    FilePackerAPI create()
+    auto create() -> FilePackerAPI
     {
         auto api          = FilePackerAPI{};
         api.get_api_name  = get_api_name;

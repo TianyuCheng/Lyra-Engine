@@ -363,7 +363,7 @@ namespace lyra::nativefs
         g_loaders.clear();
     }
 
-    FileLoaderAPI create()
+    auto create() -> FileLoaderAPI
     {
         auto api            = FileLoaderAPI{};
         api.get_api_name    = get_api_name;

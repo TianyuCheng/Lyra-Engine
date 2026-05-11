@@ -182,14 +182,14 @@ static uint get_supported_cooker_extensions(CString* extensions)
     return 7;
 }
 
-namespace lyra::texture
+namespace lyra::texture::cooker
 {
 
     void prepare() {}
 
     void cleanup() {}
 
-    AssetCookerAPI create()
+    auto create() -> AssetCookerAPI
     {
         auto api                     = AssetCookerAPI{};
         api.configure                = configure_cooker;
@@ -198,4 +198,4 @@ namespace lyra::texture
         return api;
     }
 
-} // namespace lyra::texture
+} // namespace lyra::texture::cooker

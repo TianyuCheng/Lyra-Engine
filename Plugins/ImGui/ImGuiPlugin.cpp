@@ -94,7 +94,7 @@ namespace lyra::imgui
         // do nothing
     }
 
-    GUIAPI create()
+    auto create() -> GUIAPI
     {
         auto api                  = GUIAPI{};
         api.get_api_name          = get_api_name;
