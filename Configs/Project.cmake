@@ -85,10 +85,12 @@ macro(lyra_backend NAME)
   # re-export target with namespace
   add_library(${NAMESPACE_NAME} ALIAS ${TARGET_NAME})
 
+  target_link_libraries(${TARGET_NAME} PUBLIC lyra::engine)
+  target_link_libraries(${TARGET_NAME} PUBLIC lyra::commons)
+
   # IDE target folders
   set_target_properties(${TARGET_NAME} PROPERTIES PREFIX "")
   set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Backend")
-  target_link_libraries(${TARGET_NAME} PUBLIC lyra::engine)
 endmacro()
 
 # define a macro for plugin registration
@@ -99,15 +101,15 @@ macro(lyra_plugin NAME)
   # add object library target
   add_library(${TARGET_NAME} OBJECT)
 
-  # IDE target folders
-  set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Plugins")
-
   # re-export target with namespace
   add_library(${NAMESPACE_NAME} ALIAS ${TARGET_NAME})
 
   # link with common headers
   target_link_libraries(${TARGET_NAME} PUBLIC lyra::headers)
-  target_link_libraries(${TARGET_NAME} PUBLIC lyra::deps)
+  target_link_libraries(${TARGET_NAME} PUBLIC lyra::commons)
+
+  # IDE target folders
+  set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Plugins")
 endmacro()
 
 # define a macro for sample registration

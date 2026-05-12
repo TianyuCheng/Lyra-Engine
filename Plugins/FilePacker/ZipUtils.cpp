@@ -4,13 +4,17 @@
 #include "ZipUtils.h"
 
 using namespace lyra;
-using namespace lyra::zipbuilder;
+using namespace lyra::file_packer::zip;
 
-static Logger logger = create_logger("ZipBuilder", LogLevel::trace);
-
-auto lyra::zipbuilder::get_logger() -> Logger
+static Logger get_shared_logger()
 {
+    static Logger logger = create_logger("FilePacker", LogLevel::trace);
     return logger;
+}
+
+auto lyra::file_packer::zip::get_logger() -> Logger
+{
+    return get_shared_logger();
 }
 
 auto ZipArchive::normalize_path(FSPath vpath) -> String
@@ -42,18 +46,18 @@ bool ZipArchive::finalize()
         return true; // already finalized
     }
 
-    // Initialize miniz zip writer
+    // initialize miniz zip writer
     mz_zip_archive zip_archive;
     std::memset(&zip_archive, 0, sizeof(zip_archive));
 
-    // Create the zip file
+    // create the zip file
     if (!mz_zip_writer_init_file(&zip_archive, archive_path.string().c_str(), 0)) {
         get_logger()->error("finalize_zip_archive: failed to initialize zip writer for {}: {}",
             archive_path.string(), mz_zip_get_error_string(mz_zip_get_last_error(&zip_archive)));
         return false;
     }
 
-    // Add all files to the archive
+    // add all files to the archive
     bool success = true;
     for (const auto& entry : files) {
         if (!mz_zip_writer_add_mem(&zip_archive, entry.filename.c_str(),
@@ -68,7 +72,7 @@ bool ZipArchive::finalize()
             entry.filename, entry.data.size());
     }
 
-    // Finalize the archive
+    // finalize the archive
     if (success) {
         if (!mz_zip_writer_finalize_archive(&zip_archive)) {
             get_logger()->error("finalize_zip_archive: failed to finalize archive: {}",
@@ -77,7 +81,7 @@ bool ZipArchive::finalize()
         }
     }
 
-    // Clean up
+    // clean up
     if (!mz_zip_writer_end(&zip_archive)) {
         get_logger()->error("finalize_zip_archive: failed to end zip writer: {}",
             mz_zip_get_error_string(mz_zip_get_last_error(&zip_archive)));

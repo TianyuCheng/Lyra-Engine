@@ -10,7 +10,7 @@
 
 using namespace lyra;
 
-namespace lyra::zipbuilder
+namespace lyra::file_packer::zip
 {
     struct ZipFileEntry
     {
@@ -33,6 +33,6 @@ namespace lyra::zipbuilder
 
     auto get_logger() -> Logger;
 
-} // namespace lyra::zipbuilder
+} // namespace lyra::file_packer::zip
 
 #endif // LYRA_PLUGIN_ZIP_BUILDER_UTILS_H

@@ -12,17 +12,19 @@
 #include "NativeFSUtils.h"
 
 using namespace lyra;
-using namespace lyra::nativefs;
+using namespace lyra::file_loader::native;
 
 namespace fs = std::filesystem;
 
-static Logger logger = create_logger("NativeFS", LogLevel::trace);
-
-static inline Logger get_logger() { return logger; }
+static Logger get_logger()
+{
+    static Logger logger = create_logger("FileLoader", LogLevel::trace);
+    return logger;
+}
 
 static Vector<FileLoaderHandle> g_loaders;
 
-// strip a prefix from path if present. Returns true if stripped.
+// strip a prefix from path if present. returns true if stripped.
 static bool strip_prefix(String& path, const String& prefix)
 {
     // path and prefix are normalized with '/'
@@ -90,7 +92,7 @@ static Vector<fs::path> resolve_read_paths(NativeFSLoader* loader, FSPath cpath)
     // normalize slashes
     std::replace(path.begin(), path.end(), '\\', '/');
 
-    // absolute OS path? Let caller use it directly.
+    // absolute OS path? let caller use it directly.
     fs::path probe(path);
     if (probe.is_absolute()) {
         out.push_back(probe);
@@ -345,12 +347,12 @@ static bool unmount(FileLoaderHandle loader, MountHandle handle)
     return before != after;
 }
 
-namespace lyra::nativefs
+namespace lyra::file_loader::native
 {
 
     void prepare()
     {
-        get_logger()->set_level(parse_log_level_from_env("LYRA_NATIVEFS_VERBOSITY"));
+        get_logger()->set_level(parse_log_level_from_env("LYRA_FILELOADER_VERBOSITY"));
     }
 
     void cleanup()
@@ -381,4 +383,4 @@ namespace lyra::nativefs
         return api;
     }
 
-} // namespace lyra::nativefs
+} // namespace lyra::file_loader::native

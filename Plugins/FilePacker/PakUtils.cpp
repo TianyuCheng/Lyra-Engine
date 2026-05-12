@@ -4,13 +4,17 @@
 #include "PakUtils.h"
 
 using namespace lyra;
-using namespace lyra::pakbuilder;
+using namespace lyra::file_packer::pak;
 
-static Logger logger = create_logger("PakBuilder", LogLevel::trace);
-
-Logger lyra::pakbuilder::get_logger()
+static Logger get_shared_logger()
 {
+    static Logger logger = create_logger("FilePacker", LogLevel::trace);
     return logger;
+}
+
+Logger lyra::file_packer::pak::get_logger()
+{
+    return get_shared_logger();
 }
 
 // normalize path for PAK format: convert to forward slashes, no leading slash, max 55 chars

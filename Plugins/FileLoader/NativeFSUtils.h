@@ -12,7 +12,7 @@
 
 using namespace lyra;
 
-namespace lyra::nativefs
+namespace lyra::file_loader::native
 {
 
     struct NativeMount
@@ -28,6 +28,6 @@ namespace lyra::nativefs
         std::mutex           mounts_mutex;
     };
 
-} // namespace lyra::nativefs
+} // namespace lyra::file_loader::native
 
 #endif // LYRA_PLUGIN_NATIVE_FS_UTILS_H
