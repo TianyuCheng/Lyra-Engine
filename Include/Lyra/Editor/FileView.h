@@ -50,6 +50,7 @@ namespace lyra
     private:
         // data helpers
         void update_directory(const Path& path, bool force = false);
+        void perform_update_directory(const Path& path, bool force = false);
         void handle_file_drop(Blackboard& blackboard);
 
         auto get_thumbnail(Blackboard& blackboard, StringView name) -> std::pair<ImTextureID, ImVec2> ;
@@ -102,6 +103,10 @@ namespace lyra
         char new_folder_name[256] = "";
         char rename_buffer[256]   = "";
         char search_filter[256]   = "";
+
+        Path next_path;
+        bool needs_refresh = false;
+        bool force_refresh = false;
     };
 } // namespace lyra
 

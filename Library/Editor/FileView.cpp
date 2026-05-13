@@ -35,6 +35,12 @@ void FileView::bind(Application& app)
 
 void FileView::update(Blackboard& blackboard)
 {
+    if (needs_refresh) {
+        perform_update_directory(next_path, force_refresh);
+        needs_refresh = false;
+        force_refresh = false;
+    }
+
     lyra::execute_once([&]() {
         auto& layout = blackboard.get<EditorLayoutInfo>();
         ImGui::DockBuilderDockWindow(LYRA_FILES_WINDOW_NAME, layout.bottom);
@@ -261,6 +267,9 @@ void FileView::show_context_menu(Blackboard& blackboard)
         }
         ImGui::Separator();
         if (ImGui::BeginMenu(LYRA_ICON_NEW_FILE " Create")) {
+            if (ImGui::MenuItem(LYRA_ICON_NEW_FILE " Create File")) {
+                show_new_file_modal = true;
+            }
             if (ImGui::MenuItem(LYRA_ICON_NEW_FOLDER " Create Folder")) {
                 show_new_folder_modal = true;
             }
@@ -269,9 +278,10 @@ void FileView::show_context_menu(Blackboard& blackboard)
         ImGui::EndPopup();
     }
 
-    if (show_new_folder_modal) ImGui::OpenPopup("New Folder");
-    if (show_delete_modal) ImGui::OpenPopup("Delete");
-    if (show_rename_modal) ImGui::OpenPopup("Rename");
+    if (show_new_file_modal) ImGui::OpenPopup(LYRA_ICON_NEW_FILE " New File");
+    if (show_new_folder_modal) ImGui::OpenPopup(LYRA_ICON_NEW_FOLDER " New Folder");
+    if (show_delete_modal) ImGui::OpenPopup(LYRA_ICON_DELETE " Delete");
+    if (show_rename_modal) ImGui::OpenPopup(LYRA_ICON_RENAME " Rename");
 }
 
 // --- Actions ---
@@ -330,84 +340,134 @@ void FileView::action_reimport_selected(AssetServer* ams)
 
 void FileView::show_new_folder_dialog()
 {
-    if (ImGui::BeginPopupModal("New Folder", &show_new_folder_modal, ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (ImGui::BeginPopupModal(LYRA_ICON_NEW_FOLDER " New Folder", &show_new_folder_modal, ImGuiWindowFlags_AlwaysAutoResize)) {
         if (ImGui::IsWindowAppearing()) {
             ImGui::SetKeyboardFocusHere();
             memset(new_folder_name, 0, sizeof(new_folder_name));
         }
+
         ImGui::Text("Enter folder name:");
         if (ImGui::InputText("##FolderName", new_folder_name, sizeof(new_folder_name), ImGuiInputTextFlags_EnterReturnsTrue)) {
             action_create_folder(new_folder_name);
             show_new_folder_modal = false;
             ImGui::CloseCurrentPopup();
         }
+
+        ImGui::Spacing();
         ImGui::Separator();
+        ImGui::Spacing();
+
+        float width         = ImGui::GetContentRegionAvail().x;
+        float buttons_width = (120 * 2) + ImGui::GetStyle().ItemSpacing.x;
+        ImGui::SetCursorPosX(width - buttons_width);
+
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            show_new_folder_modal = false;
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Button, LYRA_COLOR_INFO);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 1.0f, 0.3f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.8f, 0.1f, 1.0f));
         if (ImGui::Button("Create", ImVec2(120, 0))) {
             action_create_folder(new_folder_name);
             show_new_folder_modal = false;
             ImGui::CloseCurrentPopup();
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
-            show_new_folder_modal = false;
-            ImGui::CloseCurrentPopup();
-        }
+        ImGui::PopStyleColor(3);
         ImGui::EndPopup();
     }
 }
 
 void FileView::show_rename_dialog()
 {
-    if (ImGui::BeginPopupModal("Rename", &show_rename_modal, ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (ImGui::BeginPopupModal(LYRA_ICON_RENAME " Rename", &show_rename_modal, ImGuiWindowFlags_AlwaysAutoResize)) {
         if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
+
         ImGui::Text("Enter new name:");
         if (ImGui::InputText("##RenameBuffer", rename_buffer, sizeof(rename_buffer), ImGuiInputTextFlags_EnterReturnsTrue)) {
             action_rename(selection.items[0], rename_buffer);
             show_rename_modal = false;
             ImGui::CloseCurrentPopup();
         }
+
+        ImGui::Spacing();
         ImGui::Separator();
+        ImGui::Spacing();
+
+        float width         = ImGui::GetContentRegionAvail().x;
+        float buttons_width = (120 * 2) + ImGui::GetStyle().ItemSpacing.x;
+        ImGui::SetCursorPosX(width - buttons_width);
+
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            show_rename_modal = false;
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Button, LYRA_COLOR_DEBUG);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.8f, 1.0f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.6f, 0.9f, 1.0f));
         if (ImGui::Button("Rename", ImVec2(120, 0))) {
             action_rename(selection.items[0], rename_buffer);
             show_rename_modal = false;
             ImGui::CloseCurrentPopup();
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
-            show_rename_modal = false;
-            ImGui::CloseCurrentPopup();
-        }
+        ImGui::PopStyleColor(3);
         ImGui::EndPopup();
     }
 }
 
 void FileView::show_delete_dialog(Blackboard&)
 {
-    if (ImGui::BeginPopupModal("Delete", &show_delete_modal, ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (ImGui::BeginPopupModal(LYRA_ICON_DELETE " Delete", &show_delete_modal, ImGuiWindowFlags_AlwaysAutoResize)) {
         if (selection.size() == 1) {
             ImGui::Text("Are you sure you want to delete:");
-            float w = ImGui::CalcTextSize(selection.items[0].c_str()).x;
-            ImGui::SetCursorPosX((ImGui::GetWindowSize().x - w) * 0.5f);
-            ImGui::TextColored(ImVec4(1, 0.4f, 0.4f, 1), "'%s'", selection.items[0].c_str());
+            ImGui::Indent();
+            ImGui::TextColored(LYRA_COLOR_ERROR, "'%s'", selection.items[0].c_str());
+            ImGui::Unindent();
         } else {
             ImGui::Text("Are you sure you want to delete %zu selected items?", selection.size());
         }
+
+        ImGui::Spacing();
+        ImGui::TextDisabled("This action cannot be undone.");
+        ImGui::Spacing();
         ImGui::Separator();
+        ImGui::Spacing();
+
+        float width         = ImGui::GetContentRegionAvail().x;
+        float buttons_width = (120 * 2) + ImGui::GetStyle().ItemSpacing.x;
+        ImGui::SetCursorPosX(width - buttons_width);
+
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            show_delete_modal = false;
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Button, LYRA_COLOR_ERROR);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.4f, 0.4f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.8f, 0.1f, 0.1f, 1.0f));
         if (ImGui::Button("Delete", ImVec2(120, 0))) {
             action_delete_selected();
             show_delete_modal = false;
             ImGui::CloseCurrentPopup();
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
-            show_delete_modal = false;
-            ImGui::CloseCurrentPopup();
-        }
+        ImGui::PopStyleColor(3);
         ImGui::EndPopup();
     }
 }
 
 void FileView::update_directory(const Path& path, bool force)
+{
+    next_path     = path;
+    needs_refresh = true;
+    force_refresh = force;
+}
+
+void FileView::perform_update_directory(const Path& path, bool force)
 {
     if (!force && curr == path) return;
     curr = path;
@@ -496,7 +556,8 @@ void FileView::show_import_indicator()
                 finished_success++;
             else
                 finished_failure++;
-            it                 = active_imports.erase(it);
+            it = active_imports.erase(it);
+
             notification_timer = 5.0f;
         } else
             ++it;
@@ -530,13 +591,43 @@ void FileView::show_import_indicator()
 
 void FileView::show_new_file_dialog()
 {
-    if (ImGui::BeginPopupModal("New File", &show_new_file_modal, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::Text("This is a modal dialog (file)!");
-        ImGui::Separator();
-        if (ImGui::Button("Close")) {
+    if (ImGui::BeginPopupModal(LYRA_ICON_NEW_FILE " New File", &show_new_file_modal, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("Enter file name:");
+        static char new_file_name[256] = "";
+        if (ImGui::IsWindowAppearing()) {
+            ImGui::SetKeyboardFocusHere();
+            memset(new_file_name, 0, sizeof(new_file_name));
+        }
+
+        if (ImGui::InputText("##FileName", new_file_name, sizeof(new_file_name), ImGuiInputTextFlags_EnterReturnsTrue)) {
+            // action_create_file(new_file_name);
             show_new_file_modal = false;
             ImGui::CloseCurrentPopup();
         }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        float width         = ImGui::GetContentRegionAvail().x;
+        float buttons_width = (120 * 2) + ImGui::GetStyle().ItemSpacing.x;
+        ImGui::SetCursorPosX(width - buttons_width);
+
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            show_new_file_modal = false;
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Button, LYRA_COLOR_DEBUG);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.8f, 1.0f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.6f, 0.9f, 1.0f));
+        if (ImGui::Button("Create", ImVec2(120, 0))) {
+            // action_create_file(new_file_name);
+            show_new_file_modal = false;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::PopStyleColor(3);
         ImGui::EndPopup();
     }
 }
@@ -599,10 +690,11 @@ void FileView::load_thumbnails(Blackboard& blackboard)
         uint     row_pitch;
         uint     buffer_offset;
     };
-    Vector<PendingThumb> pending;
-    uint                 total_staging_size = 0;
-    uint                 alignment          = adapter.properties.texture_row_pitch_alignment;
 
+    Vector<PendingThumb> pending;
+
+    uint staging_size = 0;
+    uint alignment    = adapter.properties.texture_row_pitch_alignment;
     for (const auto& [name, path] : queued_thumbnails) {
         if (!loader->exists(path.c_str())) continue;
         auto content = loader->read<uint8_t>(path.c_str());
@@ -614,10 +706,10 @@ void FileView::load_thumbnails(Blackboard& blackboard)
 
         uint row_pitch = (w * 4 + alignment - 1) & ~(alignment - 1);
         uint img_size  = row_pitch * h;
-        uint offset    = (total_staging_size + 255) & ~255; // 256 byte alignment
+        uint offset    = (staging_size + 255) & ~255; // 256 byte alignment
 
         pending.push_back({name, w, h, data, row_pitch, offset});
-        total_staging_size = offset + img_size;
+        staging_size = offset + img_size;
     }
 
     if (pending.empty()) {
@@ -626,13 +718,12 @@ void FileView::load_thumbnails(Blackboard& blackboard)
     }
 
     GPUBufferDescriptor buf_desc{};
-    buf_desc.size     = total_staging_size;
+    buf_desc.size     = staging_size;
     buf_desc.usage    = GPUBufferUsage::COPY_SRC | GPUBufferUsage::MAP_WRITE;
     GPUBuffer staging = device.create_buffer(buf_desc);
 
     staging.map(GPUMapMode::WRITE);
     auto mapped = staging.get_mapped_range();
-
     for (const auto& p : pending) {
         for (int i = 0; i < p.h; i++) {
             std::memcpy(mapped.data + p.buffer_offset + p.row_pitch * i, p.data + p.w * 4 * i, p.w * 4);
