@@ -54,6 +54,12 @@ namespace lyra
          */
         auto draw_item(Context& ctx, CString icon, CString label, bool selected, ImVec4 icon_color = ImVec4(0, 0, 0, 0)) -> int;
 
+        /**
+         * @brief Draw a single item in the grid with a GPU texture and handle its layout.
+         * @return Bitmask of InteractionFlags.
+         */
+        auto draw_image_item(Context& ctx, ImTextureID tex_id, ImVec2 image_size, CString label, bool selected, ImVec4 bg_color = ImVec4(0, 0, 0, 0)) -> int;
+
         void next_column(Context& ctx);
     };
 

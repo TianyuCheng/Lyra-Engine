@@ -3,6 +3,7 @@
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Common/Plugin.h>
 #include "TextureUtils.h"
+#include "ThumbnailUtils.h"
 
 using namespace lyra;
 using namespace lyra::texture;
@@ -21,6 +22,8 @@ static bool process_exr(JSON& metadata, OSPath source_path, OSPath target_path)
         FreeEXRErrorMessage(err);
         return false;
     }
+
+    generate_thumbnail_from_pixels(metadata, pixels, width, height, sizeof(float), VK_FORMAT_R32G32B32A32_SFLOAT, target_path);
 
     bool success = encode_and_save_simple(metadata, pixels, width, height, sizeof(float), VK_FORMAT_R32G32B32A32_SFLOAT, target_path, get_logger());
     free(pixels);

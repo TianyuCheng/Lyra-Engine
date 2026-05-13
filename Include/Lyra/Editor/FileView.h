@@ -6,6 +6,8 @@
 #include <Lyra/Common/Path.h>
 #include <Lyra/Common/Promise.h>
 #include <Lyra/Assets/AMSUtils.h>
+#include <Lyra/Render/RHITypes.h>
+#include <Lyra/UICore/GUITypes.h>
 
 // local imports
 #include <Lyra/Editor/IconGrid.h>
@@ -46,9 +48,18 @@ namespace lyra
         void action_reimport_selected(AssetServer* ams);
 
     private:
+        struct ThumbnailTexture
+        {
+            GPUTexture texture;
+            GUITexture gui_texture;
+            bool       valid = false;
+        };
+
+    private:
         // data helpers
         void update_directory(const Path& path, bool force = false);
         void handle_file_drop(Blackboard& blackboard);
+        void load_thumbnail(Blackboard& blackboard, StringView name, const String& thumb_path);
 
     private:
         struct Breadcrumb
@@ -60,6 +71,7 @@ namespace lyra
     private:
         Path root;
         Path curr;
+        Blackboard* bboard = nullptr;
 
         Vector<String>          files       = {};
         Vector<String>          folders     = {};
@@ -72,6 +84,8 @@ namespace lyra
 
         SelectionModel selection;
         IconGrid       grid;
+
+        std::unordered_map<String, ThumbnailTexture> thumbnails;
 
         bool           is_marquee_selecting = false;
         ImVec2         marquee_start_pos;

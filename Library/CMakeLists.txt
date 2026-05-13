@@ -70,6 +70,7 @@ target_sources(lyra-engine PRIVATE
   # common
   Common/Logger.cpp
   Common/Msgbox.cpp
+  Common/STBImpl.cpp
 
   # fileio
   FileIO/VFSTypes.cpp

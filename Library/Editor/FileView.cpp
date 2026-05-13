@@ -1,8 +1,12 @@
 #include <algorithm>
+#include <fstream>
+#include <stb_image.h>
 #include <Lyra/Common/GUI.h>
 #include <Lyra/Common/Path.h>
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Assets/AMSServer.h>
+#include <Lyra/Render/RHITypes.h>
+#include <Lyra/Render/RHIInits.h>
 
 // local imports
 #include <Lyra/Editor/Icons.h>
@@ -23,6 +27,7 @@ FileView::FileView(const Path& root)
 
 void FileView::bind(Application& app)
 {
+    bboard = &app.get_blackboard();
     app.bind<AppEvent::UPDATE, &FileView::update>(*this);
     update_directory(root, true);
 }
@@ -188,7 +193,47 @@ void FileView::show_item(Blackboard& blackboard, IconGrid& grid, IconGrid::Conte
     ImGui::PushID(name.data(), name.data() + name.size());
 
     bool is_sel = selection.is_selected(name);
-    int  inter  = grid.draw_item(ctx, is_folder ? LYRA_ICON_FOLDER : LYRA_ICON_FILE, name.data(), is_sel, is_folder ? LYRA_COLOR_FOLDER : ImVec4(0, 0, 0, 0));
+
+    ImTextureID tex_id = ImTextureID_Invalid;
+    ImVec2      thumb_size = {0, 0};
+    if (!is_folder) {
+        auto it = thumbnails.find(String(name));
+        if (it != thumbnails.end()) {
+            if (it->second.valid) {
+                tex_id = as_type<ImTextureID>(it->second.gui_texture.texid);
+                thumb_size = ImVec2((float)it->second.texture.width, (float)it->second.texture.height);
+            }
+        } else {
+            // Check for .import file
+            Path import_path = curr / (String(name) + ".import");
+            if (std::filesystem::exists(import_path)) {
+                try {
+                    std::ifstream f(import_path);
+                    JSON          j = JSON::parse(f);
+                    if (j.contains("thumbnail")) {
+                        load_thumbnail(blackboard, name, j["thumbnail"]);
+                        auto it2 = thumbnails.find(String(name));
+                        if (it2 != thumbnails.end() && it2->second.valid) {
+                            tex_id = as_type<ImTextureID>(it2->second.gui_texture.texid);
+                            thumb_size = ImVec2((float)it2->second.texture.width, (float)it2->second.texture.height);
+                        }
+                    }
+                } catch (...) {
+                    // silent fail for now
+                }
+            }
+            if (tex_id == ImTextureID_Invalid) {
+                thumbnails[String(name)] = {{}, {}, false};
+            }
+        }
+    }
+
+    int inter = 0;
+    if (tex_id != ImTextureID_Invalid) {
+        inter = grid.draw_image_item(ctx, tex_id, thumb_size, name.data(), is_sel);
+    } else {
+        inter = grid.draw_item(ctx, is_folder ? LYRA_ICON_FOLDER : LYRA_ICON_FILE, name.data(), is_sel, is_folder ? LYRA_COLOR_FOLDER : ImVec4(0, 0, 0, 0));
+    }
 
     if (inter & IconGrid::Clicked) {
         if (ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper)
@@ -393,6 +438,16 @@ void FileView::update_directory(const Path& path, bool force)
     breadcrumbs.clear();
     selection.clear();
 
+    if (bboard && bboard->has<GUIRenderer*>()) {
+        auto gui = bboard->get<GUIRenderer*>();
+        for (auto& [name, thumb] : thumbnails) {
+            if (thumb.valid) {
+                gui->delete_texture(thumb.gui_texture);
+            }
+        }
+    }
+    thumbnails.clear();
+
     auto relative = std::filesystem::relative(curr, root);
     Path b_path   = root;
     for (const auto& part : relative) {
@@ -426,7 +481,11 @@ void FileView::handle_file_drop(Blackboard& blackboard)
     auto window = blackboard.get<Window*>();
     auto ams    = blackboard.get<AssetServer*>();
 
-    if (!ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows | ImGuiHoveredFlags_AllowWhenBlockedByPopup))
+    constexpr uint hovered_flags = ImGuiHoveredFlags_AllowWhenBlockedByActiveItem |
+                                   ImGuiHoveredFlags_ChildWindows |
+                                   ImGuiHoveredFlags_AllowWhenBlockedByPopup;
+
+    if (!ImGui::IsWindowHovered(hovered_flags))
         return;
 
     if (!window->get_input_state().has_dropped_files())
@@ -501,4 +560,81 @@ void FileView::show_new_file_dialog()
         }
         ImGui::EndPopup();
     }
+}
+
+void FileView::load_thumbnail(Blackboard& blackboard, StringView name, const String& thumb_rel_path)
+{
+    auto loader = blackboard.get<FileLoader*>();
+
+    const String& loader_path = thumb_rel_path;
+
+    if (!loader->exists(loader_path.c_str())) {
+        spdlog::warn("Thumbnail file does not exist: {}", loader_path);
+        return;
+    }
+
+    auto content = loader->read<uint8_t>(loader_path.c_str());
+    if (content.empty()) {
+        spdlog::error("Failed to read thumbnail file data: {}", loader_path);
+        return;
+    }
+
+    int      w, h, c;
+    stbi_uc* data = stbi_load_from_memory(content.data(), (int)content.size(), &w, &h, &c, STBI_rgb_alpha);
+    if (!data) {
+        spdlog::error("Failed to decode thumbnail image: {}", loader_path);
+        return;
+    }
+
+    auto& device  = RHI::get_current_device();
+    auto& adapter = RHI::get_current_adapter();
+    auto  gui     = blackboard.get<GUIRenderer*>();
+
+    GPUTextureDescriptor tex_desc{};
+    tex_desc.size      = {(uint)w, (uint)h, 1};
+    tex_desc.format    = GPUTextureFormat::RGBA8UNORM;
+    tex_desc.usage     = GPUTextureUsage::COPY_DST | GPUTextureUsage::TEXTURE_BINDING;
+    GPUTexture texture = device.create_texture(tex_desc);
+
+    uint alignment = adapter.properties.texture_row_pitch_alignment;
+    uint row_pitch = (w * 4 + alignment - 1) & ~(alignment - 1);
+
+    GPUBufferDescriptor buf_desc{};
+    buf_desc.size     = row_pitch * h;
+    buf_desc.usage    = GPUBufferUsage::COPY_SRC | GPUBufferUsage::MAP_WRITE;
+    GPUBuffer staging = device.create_buffer(buf_desc);
+
+    staging.map(GPUMapMode::WRITE);
+    auto mapped = staging.get_mapped_range();
+    for (int i = 0; i < h; i++) {
+        std::memcpy(mapped.data + row_pitch * i, data + w * 4 * i, w * 4);
+    }
+    staging.unmap();
+
+    GPUCommandBuffer cmdbuffer = execute([&]() {
+        auto desc = GPUCommandBufferDescriptor{};
+        return device.create_command_buffer(desc);
+    });
+
+    GPUTexelCopyBufferInfo src_info{};
+    src_info.buffer         = staging;
+    src_info.bytes_per_row  = row_pitch;
+    src_info.rows_per_image = h;
+
+    GPUTexelCopyTextureInfo dst_info{};
+    dst_info.texture = texture;
+    dst_info.aspect  = GPUTextureAspect::COLOR;
+
+    cmdbuffer.resource_barrier(state_transition(texture, undefined_state(), copy_dst_state()));
+    cmdbuffer.copy_buffer_to_texture(src_info, dst_info, {(uint)w, (uint)h, 1});
+    cmdbuffer.resource_barrier(state_transition(texture, copy_dst_state(), shader_resource_state(GPUBarrierSync::PIXEL_SHADING)));
+    cmdbuffer.submit();
+
+    device.wait();
+
+    staging.destroy();
+    stbi_image_free(data);
+
+    GUITexture gui_tex       = gui->create_texture(texture, texture.create_view());
+    thumbnails[String(name)] = {texture, gui_tex, true};
 }

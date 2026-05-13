@@ -120,6 +120,7 @@ int main(int argc, const char* argv[])
         auto loader = std::make_unique<FileLoader>(FSLoader::NATIVE);
         loader->mount("/", caches_root, 1);
         loader->mount("/", assets_root, 0);
+        app->get_blackboard().add<FileLoader*>(loader.get());
         return loader;
     });
 

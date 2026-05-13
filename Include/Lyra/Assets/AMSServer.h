@@ -8,6 +8,7 @@
 #include <shared_mutex>
 
 #include <BS_thread_pool.hpp>
+#include <absl/strings/ascii.h>
 #include <Lyra/Common/UUID.h>
 #include <Lyra/Common/GUID.h>
 #include <Lyra/Common/Path.h>
@@ -84,7 +85,7 @@ namespace lyra
             AssetProcessor* proc_ptr = it->second.get();
 
             for (uint i = 0; i < count; ++i) {
-                loader_extensions.emplace(exts[i], proc_ptr);
+                loader_extensions.emplace(absl::AsciiStrToLower(exts[i]), proc_ptr);
             }
 
             // automatically register cooker if provided by the AssetType
@@ -122,7 +123,7 @@ namespace lyra
             AssetCookerAPI* cooker_ptr = &proc->cookers.back();
 
             for (uint i = 0; i < count; ++i) {
-                cooker_extensions.emplace(exts[i], cooker_ptr);
+                cooker_extensions.emplace(absl::AsciiStrToLower(exts[i]), cooker_ptr);
             }
         }
 

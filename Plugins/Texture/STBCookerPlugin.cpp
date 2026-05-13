@@ -1,8 +1,8 @@
-#define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Common/Plugin.h>
 #include "TextureUtils.h"
+#include "ThumbnailUtils.h"
 
 using namespace lyra;
 using namespace lyra::texture;
@@ -32,6 +32,8 @@ static bool process_stb(JSON& metadata, OSPath source_path, OSPath target_path)
         get_logger()->error("Failed to load image file via STB: {}", source_path_str);
         return false;
     }
+
+    generate_thumbnail_from_pixels(metadata, pixels, width, height, pixel_size, format, target_path);
 
     bool success = encode_and_save_simple(metadata, pixels, width, height, pixel_size, format, target_path, get_logger());
     stbi_image_free(pixels);

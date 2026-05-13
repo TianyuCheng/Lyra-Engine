@@ -1,8 +1,10 @@
+#include <stb_image.h>
 #include <gli/gli.hpp>
 #include <gli/load.hpp>
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Common/Plugin.h>
 #include "TextureUtils.h"
+#include "ThumbnailUtils.h"
 
 using namespace lyra;
 using namespace lyra::texture;
@@ -12,6 +14,14 @@ static void configure_cooker(AssetServer* manager, const JSON& options) {}
 static bool process_dds(JSON& metadata, OSPath source_path, OSPath target_path)
 {
     String source_path_str = Path(source_path).string();
+
+    // Try to load thumbnail via STB first (supports many DDS formats including DXT1/5)
+    int w, h, c;
+    stbi_uc* data = stbi_load(source_path_str.c_str(), &w, &h, &c, STBI_rgb_alpha);
+    if (data) {
+        generate_thumbnail_from_pixels(metadata, data, w, h, sizeof(uint8_t), VK_FORMAT_R8G8B8A8_UNORM, target_path);
+        stbi_image_free(data);
+    }
 
     gli::texture tex = gli::load(source_path_str);
     if (tex.empty()) {

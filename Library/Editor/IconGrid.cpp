@@ -70,6 +70,60 @@ auto IconGrid::draw_item(Context& ctx, CString icon, CString label, bool selecte
     return interaction;
 }
 
+auto IconGrid::draw_image_item(Context& ctx, ImTextureID tex_id, ImVec2 image_size, CString label, bool selected, ImVec4 bg_color) -> int
+{
+    int interaction = None;
+
+    const ImVec2 pos = ImGui::GetCursorPos();
+    ImGui::BeginGroup();
+    {
+        // background button for interaction
+        if (selected) {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyle().Colors[ImGuiCol_Header]);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyle().Colors[ImGuiCol_HeaderHovered]);
+        } else {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+        }
+
+        ImGui::Button("##bg", ImVec2(adjusted_grid_size, adjusted_grid_size));
+
+        if (ImGui::IsItemHovered()) interaction |= Hovered;
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) interaction |= Clicked;
+        if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && ImGui::IsItemHovered()) interaction |= DoubleClicked;
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) interaction |= RightClicked;
+
+        ImGui::PopStyleColor(selected ? 2 : 1);
+
+        // calculate display size maintaining aspect ratio
+        float max_size = adjusted_grid_size - grid_padding;
+        ImVec2 display_size = { max_size, max_size };
+        if (image_size.x > 0 && image_size.y > 0) {
+            float aspect = image_size.x / image_size.y;
+            if (aspect > 1.0f) {
+                display_size.y = max_size / aspect;
+            } else {
+                display_size.x = max_size * aspect;
+            }
+        }
+
+        // draw image centered in the box
+        ImGui::SetCursorPosX(pos.x + (adjusted_grid_size - display_size.x) * 0.5f);
+        ImGui::SetCursorPosY(pos.y + (adjusted_grid_size - display_size.y) * 0.5f);
+        ImGui::Image(tex_id, display_size);
+
+        // draw label under icon
+        ImGui::SetCursorPosY(pos.y + adjusted_grid_size + ImGui::GetStyle().ItemSpacing.y);
+        const float w = ImGui::CalcTextSize(label, nullptr, false, adjusted_grid_size).x;
+        ImGui::SetCursorPosX(pos.x + (adjusted_grid_size > w ? (adjusted_grid_size - w) * 0.5f : 0));
+        ImGui::PushTextWrapPos(pos.x + adjusted_grid_size);
+        ImGui::TextWrapped("%s", label);
+        ImGui::PopTextWrapPos();
+    }
+    ImGui::EndGroup();
+
+    return interaction;
+}
+
 void IconGrid::next_column(Context& ctx)
 {
     float last_x = ImGui::GetItemRectMax().x;

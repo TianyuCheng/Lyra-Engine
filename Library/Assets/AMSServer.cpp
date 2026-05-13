@@ -3,6 +3,7 @@
 #include <fstream>
 #include <filesystem>
 
+#include <absl/strings/ascii.h>
 #include <Lyra/Common/Function.h>
 #include <Lyra/Assets/AMSServer.h>
 
@@ -239,7 +240,7 @@ void AssetServer::clone_asset(AssetTypeID type_id, RawAssetHandle handle)
 
 Future<AssetID> AssetServer::import_asset(const Path& path)
 {
-    auto ext = path.extension().string();
+    auto ext = absl::AsciiStrToLower(path.extension().string());
 
     auto it = cooker_extensions.find(ext);
     if (it == cooker_extensions.end()) {

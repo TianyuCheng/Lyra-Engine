@@ -5,6 +5,7 @@ target_sources(lyra-texture PRIVATE
     EXRCookerPlugin.cpp
     DDSCookerPlugin.cpp
     KTXCookerPlugin.cpp
+    ThumbnailUtils.cpp
     TexturePlugin.cpp
 )
 
