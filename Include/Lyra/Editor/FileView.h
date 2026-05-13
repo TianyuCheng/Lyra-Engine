@@ -48,6 +48,15 @@ namespace lyra
         void action_reimport_selected(AssetServer* ams);
 
     private:
+        // data helpers
+        void update_directory(const Path& path, bool force = false);
+        void handle_file_drop(Blackboard& blackboard);
+
+        auto get_thumbnail(Blackboard& blackboard, StringView name) -> std::pair<ImTextureID, ImVec2> ;
+        void load_thumbnails(Blackboard& blackboard);
+
+    private:
+
         struct ThumbnailTexture
         {
             GPUTexture texture;
@@ -55,13 +64,6 @@ namespace lyra
             bool       valid = false;
         };
 
-    private:
-        // data helpers
-        void update_directory(const Path& path, bool force = false);
-        void handle_file_drop(Blackboard& blackboard);
-        void load_thumbnail(Blackboard& blackboard, StringView name, const String& thumb_path);
-
-    private:
         struct Breadcrumb
         {
             String name;
@@ -69,8 +71,8 @@ namespace lyra
         };
 
     private:
-        Path root;
-        Path curr;
+        Path        root;
+        Path        curr;
         Blackboard* bboard = nullptr;
 
         Vector<String>          files       = {};
@@ -85,7 +87,8 @@ namespace lyra
         SelectionModel selection;
         IconGrid       grid;
 
-        std::unordered_map<String, ThumbnailTexture> thumbnails;
+        HashMap<String, ThumbnailTexture> thumbnails;
+        Vector<std::pair<String, String>> queued_thumbnails;
 
         bool           is_marquee_selecting = false;
         ImVec2         marquee_start_pos;

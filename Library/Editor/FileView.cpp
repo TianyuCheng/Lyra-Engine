@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <fstream>
+#include <utility>
 #include <stb_image.h>
 #include <Lyra/Common/GUI.h>
 #include <Lyra/Common/Path.h>
@@ -185,6 +186,8 @@ void FileView::show_dir_files(Blackboard& blackboard)
         show_item(blackboard, grid, ctx, file, false);
     }
 
+    load_thumbnails(blackboard);
+
     ImGui::NewLine();
 }
 
@@ -194,38 +197,14 @@ void FileView::show_item(Blackboard& blackboard, IconGrid& grid, IconGrid::Conte
 
     bool is_sel = selection.is_selected(name);
 
-    ImTextureID tex_id = ImTextureID_Invalid;
+    ImTextureID tex_id     = ImTextureID_Invalid;
     ImVec2      thumb_size = {0, 0};
+
     if (!is_folder) {
-        auto it = thumbnails.find(String(name));
-        if (it != thumbnails.end()) {
-            if (it->second.valid) {
-                tex_id = as_type<ImTextureID>(it->second.gui_texture.texid);
-                thumb_size = ImVec2((float)it->second.texture.width, (float)it->second.texture.height);
-            }
-        } else {
-            // Check for .import file
-            Path import_path = curr / (String(name) + ".import");
-            if (std::filesystem::exists(import_path)) {
-                try {
-                    std::ifstream f(import_path);
-                    JSON          j = JSON::parse(f);
-                    if (j.contains("thumbnail")) {
-                        load_thumbnail(blackboard, name, j["thumbnail"]);
-                        auto it2 = thumbnails.find(String(name));
-                        if (it2 != thumbnails.end() && it2->second.valid) {
-                            tex_id = as_type<ImTextureID>(it2->second.gui_texture.texid);
-                            thumb_size = ImVec2((float)it2->second.texture.width, (float)it2->second.texture.height);
-                        }
-                    }
-                } catch (...) {
-                    // silent fail for now
-                }
-            }
-            if (tex_id == ImTextureID_Invalid) {
-                thumbnails[String(name)] = {{}, {}, false};
-            }
-        }
+        auto [id, size] = get_thumbnail(blackboard, name);
+
+        tex_id     = id;
+        thumb_size = size;
     }
 
     int inter = 0;
@@ -523,11 +502,11 @@ void FileView::show_import_indicator()
             ++it;
     }
 
-    if (active_imports.empty() && notification_timer <= 0.0f) return;
+    if (active_imports.empty() && notification_timer <= 0.0f)
+        return;
 
-    if (active_imports.empty() && notification_timer > 0.0f) {
+    if (active_imports.empty() && notification_timer > 0.0f)
         notification_timer -= ImGui::GetIO().DeltaTime;
-    }
 
     ImVec2 region = ImGui::GetWindowContentRegionMax();
     ImGui::SetCursorPos(ImVec2(region.x - 250, region.y - 50));
@@ -562,52 +541,102 @@ void FileView::show_new_file_dialog()
     }
 }
 
-void FileView::load_thumbnail(Blackboard& blackboard, StringView name, const String& thumb_rel_path)
+std::pair<ImTextureID, ImVec2> FileView::get_thumbnail(Blackboard& blackboard, StringView name)
 {
-    auto loader = blackboard.get<FileLoader*>();
-
-    const String& loader_path = thumb_rel_path;
-
-    if (!loader->exists(loader_path.c_str())) {
-        spdlog::warn("Thumbnail file does not exist: {}", loader_path);
-        return;
+    auto it = thumbnails.find(String(name));
+    if (it != thumbnails.end()) {
+        if (it->second.valid) {
+            return {as_type<ImTextureID>(it->second.gui_texture.texid),
+                ImVec2((float)it->second.texture.width, (float)it->second.texture.height)};
+        }
+        return {ImTextureID_Invalid, {0, 0}};
     }
 
-    auto content = loader->read<uint8_t>(loader_path.c_str());
-    if (content.empty()) {
-        spdlog::error("Failed to read thumbnail file data: {}", loader_path);
-        return;
+    // Not in cache, check if we should queue it
+    auto name_str = String(name);
+    auto q_it     = std::find_if(queued_thumbnails.begin(), queued_thumbnails.end(), [&](const auto& p) {
+        return p.first == name_str;
+    });
+
+    if (q_it == queued_thumbnails.end()) {
+        // Not in queue, check .import file
+        Path import_path = curr / (name_str + ".import");
+        if (std::filesystem::exists(import_path)) {
+            try {
+                std::ifstream f(import_path);
+                JSON          j = JSON::parse(f);
+                if (j.contains("thumbnail")) {
+                    queued_thumbnails.push_back({name_str, j["thumbnail"]});
+                } else {
+                    // Mark as invalid so we don't check again this session
+                    thumbnails[name_str] = {{}, {}, false};
+                }
+            } catch (...) {
+                thumbnails[name_str] = {{}, {}, false};
+            }
+        } else {
+            thumbnails[name_str] = {{}, {}, false};
+        }
     }
 
-    int      w, h, c;
-    stbi_uc* data = stbi_load_from_memory(content.data(), (int)content.size(), &w, &h, &c, STBI_rgb_alpha);
-    if (!data) {
-        spdlog::error("Failed to decode thumbnail image: {}", loader_path);
-        return;
-    }
+    return {ImTextureID_Invalid, {0, 0}};
+}
 
+void FileView::load_thumbnails(Blackboard& blackboard)
+{
+    if (queued_thumbnails.empty()) return;
+
+    auto  loader  = blackboard.get<FileLoader*>();
     auto& device  = RHI::get_current_device();
     auto& adapter = RHI::get_current_adapter();
     auto  gui     = blackboard.get<GUIRenderer*>();
 
-    GPUTextureDescriptor tex_desc{};
-    tex_desc.size      = {(uint)w, (uint)h, 1};
-    tex_desc.format    = GPUTextureFormat::RGBA8UNORM;
-    tex_desc.usage     = GPUTextureUsage::COPY_DST | GPUTextureUsage::TEXTURE_BINDING;
-    GPUTexture texture = device.create_texture(tex_desc);
+    struct PendingThumb
+    {
+        String   name;
+        int      w, h;
+        stbi_uc* data;
+        uint     row_pitch;
+        uint     buffer_offset;
+    };
+    Vector<PendingThumb> pending;
+    uint                 total_staging_size = 0;
+    uint                 alignment          = adapter.properties.texture_row_pitch_alignment;
 
-    uint alignment = adapter.properties.texture_row_pitch_alignment;
-    uint row_pitch = (w * 4 + alignment - 1) & ~(alignment - 1);
+    for (const auto& [name, path] : queued_thumbnails) {
+        if (!loader->exists(path.c_str())) continue;
+        auto content = loader->read<uint8_t>(path.c_str());
+        if (content.empty()) continue;
+
+        int      w, h, c;
+        stbi_uc* data = stbi_load_from_memory(content.data(), (int)content.size(), &w, &h, &c, STBI_rgb_alpha);
+        if (!data) continue;
+
+        uint row_pitch = (w * 4 + alignment - 1) & ~(alignment - 1);
+        uint img_size  = row_pitch * h;
+        uint offset    = (total_staging_size + 255) & ~255; // 256 byte alignment
+
+        pending.push_back({name, w, h, data, row_pitch, offset});
+        total_staging_size = offset + img_size;
+    }
+
+    if (pending.empty()) {
+        queued_thumbnails.clear();
+        return;
+    }
 
     GPUBufferDescriptor buf_desc{};
-    buf_desc.size     = row_pitch * h;
+    buf_desc.size     = total_staging_size;
     buf_desc.usage    = GPUBufferUsage::COPY_SRC | GPUBufferUsage::MAP_WRITE;
     GPUBuffer staging = device.create_buffer(buf_desc);
 
     staging.map(GPUMapMode::WRITE);
     auto mapped = staging.get_mapped_range();
-    for (int i = 0; i < h; i++) {
-        std::memcpy(mapped.data + row_pitch * i, data + w * 4 * i, w * 4);
+
+    for (const auto& p : pending) {
+        for (int i = 0; i < p.h; i++) {
+            std::memcpy(mapped.data + p.buffer_offset + p.row_pitch * i, p.data + p.w * 4 * i, p.w * 4);
+        }
     }
     staging.unmap();
 
@@ -616,25 +645,36 @@ void FileView::load_thumbnail(Blackboard& blackboard, StringView name, const Str
         return device.create_command_buffer(desc);
     });
 
-    GPUTexelCopyBufferInfo src_info{};
-    src_info.buffer         = staging;
-    src_info.bytes_per_row  = row_pitch;
-    src_info.rows_per_image = h;
+    for (const auto& p : pending) {
+        GPUTextureDescriptor tex_desc{};
+        tex_desc.size      = {(uint)p.w, (uint)p.h, 1};
+        tex_desc.format    = GPUTextureFormat::RGBA8UNORM;
+        tex_desc.usage     = GPUTextureUsage::COPY_DST | GPUTextureUsage::TEXTURE_BINDING;
+        GPUTexture texture = device.create_texture(tex_desc);
 
-    GPUTexelCopyTextureInfo dst_info{};
-    dst_info.texture = texture;
-    dst_info.aspect  = GPUTextureAspect::COLOR;
+        GPUTexelCopyBufferInfo src_info{};
+        src_info.buffer         = staging;
+        src_info.offset         = p.buffer_offset;
+        src_info.bytes_per_row  = p.row_pitch;
+        src_info.rows_per_image = p.h;
 
-    cmdbuffer.resource_barrier(state_transition(texture, undefined_state(), copy_dst_state()));
-    cmdbuffer.copy_buffer_to_texture(src_info, dst_info, {(uint)w, (uint)h, 1});
-    cmdbuffer.resource_barrier(state_transition(texture, copy_dst_state(), shader_resource_state(GPUBarrierSync::PIXEL_SHADING)));
+        GPUTexelCopyTextureInfo dst_info{};
+        dst_info.texture = texture;
+        dst_info.aspect  = GPUTextureAspect::COLOR;
+
+        cmdbuffer.resource_barrier(state_transition(texture, undefined_state(), copy_dst_state()));
+        cmdbuffer.copy_buffer_to_texture(src_info, dst_info, {(uint)p.w, (uint)p.h, 1});
+        cmdbuffer.resource_barrier(state_transition(texture, copy_dst_state(), shader_resource_state(GPUBarrierSync::PIXEL_SHADING)));
+
+        GUITexture gui_tex = gui->create_texture(texture, texture.create_view());
+        thumbnails[p.name] = {texture, gui_tex, true};
+
+        stbi_image_free(p.data);
+    }
+
     cmdbuffer.submit();
-
     device.wait();
 
     staging.destroy();
-    stbi_image_free(data);
-
-    GUITexture gui_tex       = gui->create_texture(texture, texture.create_view());
-    thumbnails[String(name)] = {texture, gui_tex, true};
+    queued_thumbnails.clear();
 }
