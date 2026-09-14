@@ -93,9 +93,9 @@ target_sources(lyra-headers INTERFACE
     Lyra/Format/Format.h
     Lyra/Format/JsonAsset.h
     Lyra/Format/MaterialAsset.h
-    Lyra/Format/MaterialSchema.h
     Lyra/Format/MeshAsset.h
     Lyra/Format/ModelAsset.h
+    Lyra/Format/SceneAsset.h
     Lyra/Format/TextAsset.h
     Lyra/Format/TextureAsset.h
     Lyra/Format/TomlAsset.h

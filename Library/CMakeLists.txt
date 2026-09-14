@@ -82,8 +82,8 @@ target_sources(lyra-engine PRIVATE
   Format/TomlAsset.cpp
   Format/TextAsset.cpp
   Format/MaterialAsset.cpp
-  Format/MaterialSchema.cpp
   Format/ModelAsset.cpp
+  Format/SceneAsset.cpp
 
   # shader
   Shader/SLCTypes.cpp
@@ -134,8 +134,8 @@ target_link_libraries(lyra-engine PUBLIC lyra::headers)
 target_link_libraries(lyra-engine PRIVATE lyra::imgui)
 target_link_libraries(lyra-engine PRIVATE lyra::mesh)
 target_link_libraries(lyra-engine PRIVATE lyra::model)
+target_link_libraries(lyra-engine PRIVATE lyra::scene)
 target_link_libraries(lyra-engine PRIVATE lyra::texture)
 target_link_libraries(lyra-engine PRIVATE lyra::material)
-target_link_libraries(lyra-engine PRIVATE lyra::matschema)
 target_link_libraries(lyra-engine PRIVATE lyra::fileloader)
 target_link_libraries(lyra-engine PRIVATE lyra::filepacker)

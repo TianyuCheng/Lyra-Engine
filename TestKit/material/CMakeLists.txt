@@ -1,3 +1,3 @@
 target_sources(lyra-testkit PRIVATE
-  main.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/material.cpp
 )

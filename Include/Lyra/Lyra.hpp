@@ -54,9 +54,9 @@
 #include <Lyra/Format/JsonAsset.h>
 #include <Lyra/Format/TomlAsset.h>
 #include <Lyra/Format/ModelAsset.h>
+#include <Lyra/Format/SceneAsset.h>
 #include <Lyra/Format/TextureAsset.h>
 #include <Lyra/Format/MaterialAsset.h>
-#include <Lyra/Format/MaterialSchema.h>
 
 // Editor files
 #include <Lyra/Editor/Canvas.h>

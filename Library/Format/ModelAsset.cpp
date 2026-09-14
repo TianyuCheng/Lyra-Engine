@@ -1,5 +1,8 @@
-#include <Lyra/Common/Plugin.h>
+#include <fstream>
+#include <sstream>
+#include <functional>
 
+#include <Lyra/Common/Plugin.h>
 #include <Lyra/Format/ModelAsset.h>
 
 using namespace lyra;
@@ -26,7 +29,14 @@ namespace lyra::gltf::cooker {
     extern void cleanup();
 }
 
+namespace lyra::model::saver {
+    extern AssetSaverAPI create();
+    extern void prepare();
+    extern void cleanup();
+}
+
 using ModelLoaderPlugin = BuiltinPlugin<AssetLoaderAPI>;
+using ModelSaverPlugin  = BuiltinPlugin<AssetSaverAPI>;
 using ModelCookerPlugin = BuiltinPlugin<AssetCookerAPI>;
 
 AssetLoaderAPI ModelAsset::loader()
@@ -36,6 +46,17 @@ AssetLoaderAPI ModelAsset::loader()
         lyra::model::loader::create,
         lyra::model::loader::prepare,
         lyra::model::loader::cleanup
+    );
+    return *PLUGIN->get_api();
+}
+
+AssetSaverAPI ModelAsset::saver()
+{
+    static Own<ModelSaverPlugin> PLUGIN;
+    if (!PLUGIN) PLUGIN = std::make_unique<ModelSaverPlugin>(
+        lyra::model::saver::create,
+        lyra::model::saver::prepare,
+        lyra::model::saver::cleanup
     );
     return *PLUGIN->get_api();
 }
@@ -72,3 +93,5 @@ AssetCookerAPI ModelAsset::gltf::cooker()
     );
     return *PLUGIN->get_api();
 }
+
+

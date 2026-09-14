@@ -1,8 +1,10 @@
+find_package(LightUSD REQUIRED)
+
 add_subdirectory(ImGui)
 add_subdirectory(Mesh)
 add_subdirectory(Model)
 add_subdirectory(Texture)
 add_subdirectory(Material)
-add_subdirectory(MatSchema)
 add_subdirectory(FileLoader)
 add_subdirectory(FilePacker)
+add_subdirectory(Scene)

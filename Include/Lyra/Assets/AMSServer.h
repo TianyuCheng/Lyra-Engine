@@ -50,6 +50,19 @@ namespace lyra
         };
 
         /**
+         * @brief Internal detection for saver support.
+         */
+        template <typename T, typename = void>
+        struct has_saver : std::false_type
+        {
+        };
+
+        template <typename T>
+        struct has_saver<T, std::void_t<decltype(T::saver())>> : std::true_type
+        {
+        };
+
+        /**
          * @brief Purge unloaded assets.
          */
         void purge();
@@ -92,6 +105,11 @@ namespace lyra
             if constexpr (has_cooker<AssetType>::value) {
                 register_asset<AssetType, AssetType>(options);
             }
+
+            // automatically register saver if provided by the AssetType
+            if constexpr (has_saver<AssetType>::value) {
+                register_saver<AssetType>(options);
+            }
         }
 
         /**
@@ -124,6 +142,37 @@ namespace lyra
 
             for (uint i = 0; i < count; ++i) {
                 cooker_extensions.emplace(absl::AsciiStrToLower(exts[i]), cooker_ptr);
+            }
+        }
+
+        /**
+         * @brief Register a saver for an asset type.
+         */
+        template <typename AssetType>
+        void register_saver(const JSON& options = {})
+        {
+            auto it = processors.find(AssetType::type);
+            if (it == processors.end()) {
+                spdlog::error("AssetType ({}) has not been registered! Please register the loader first.", AssetType::name);
+                return;
+            }
+
+            auto& proc = it->second;
+
+            AssetSaverAPI saver = AssetType::saver();
+            if (saver.configure) {
+                saver.configure(this, options);
+            }
+
+            uint count = saver.get_supported_extensions(nullptr);
+
+            Vector<CString> exts(count);
+            saver.get_supported_extensions(exts.data());
+
+            proc->saver = saver;
+
+            for (uint i = 0; i < count; ++i) {
+                saver_extensions.emplace(absl::AsciiStrToLower(exts[i]), proc.get());
             }
         }
 
@@ -176,6 +225,29 @@ namespace lyra
         }
 
         /**
+         * @brief Save a loaded asset by its handle to an OS filesystem path.
+         */
+        template <typename AssetType>
+        bool save_asset(AssetHandle<AssetType> handle, OSPath path)
+        {
+            auto* asset = get_asset(handle);
+            if (!asset) {
+                spdlog::error("Cannot save asset: handle not loaded or invalid");
+                return false;
+            }
+            return save_asset_raw(AssetType::type, asset, path);
+        }
+
+        /**
+         * @brief Save an in-memory asset to an OS filesystem path.
+         */
+        template <typename AssetType>
+        bool save_asset(const AssetType& asset, OSPath path)
+        {
+            return save_asset_raw(AssetType::type, &asset, path);
+        }
+
+        /**
          * @brief Get the GUID associated with an asset path.
          */
         AssetID get_guid(FSPath path) const;
@@ -197,6 +269,7 @@ namespace lyra
             String                         type_name;
             AssetTypeID                    type_id;
             AssetLoaderAPI                 loader;
+            Optional<AssetSaverAPI>        saver;
             List<AssetCookerAPI>           cookers; // storage for cookers (stable pointers)
             Own<std::shared_mutex>         mutex;
             HashMap<AssetID, AssetRecord*> assets;
@@ -213,12 +286,14 @@ namespace lyra
         auto load_asset(AssetTypeID type_id, AssetID guid) -> RawAssetHandle;
         void unload_asset(AssetTypeID type_id, RawAssetHandle handle);
         void clone_asset(AssetTypeID type_id, RawAssetHandle handle);
+        bool save_asset_raw(AssetTypeID type_id, const void* asset, OSPath path);
 
     private:
         AMSDescriptor                             descriptor;
         BS::thread_pool<>                         pool;
         AssetRegistry                             registry;
         HashMap<AssetTypeID, Own<AssetProcessor>> processors;
+        HashMap<String, AssetProcessor*>          saver_extensions;
         HashMap<String, AssetProcessor*>          loader_extensions;
         HashMap<String, AssetCookerAPI*>          cooker_extensions;
     };

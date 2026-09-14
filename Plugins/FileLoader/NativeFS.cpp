@@ -106,9 +106,13 @@ static Vector<fs::path> resolve_read_paths(NativeFSLoader* loader, FSPath cpath)
     // check file path validity
     for (const auto& m : mounts) {
         String sub = path;
-        if (!m->vpath.empty() && m->vpath != "/")
+        if (m->vpath == "/") {
+            if (!sub.empty() && sub.front() == '/')
+                sub.erase(0, 1);
+        } else if (!m->vpath.empty()) {
             if (!strip_prefix(sub, m->vpath))
                 continue; // not under this mount
+        }
 
         fs::path real = m->root;
         if (!sub.empty())

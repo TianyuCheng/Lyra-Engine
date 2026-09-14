@@ -61,10 +61,14 @@ AssetServer::AssetServer(const AMSDescriptor& descriptor)
     : descriptor(descriptor), pool(descriptor.workers)
 {
     // load registry
-    if (!registry.load(descriptor.registry)) {
-        spdlog::info("AssetRegistry {} not found or failed to load. Rebuilding from source...", Path(descriptor.registry).string());
-        registry.rebuild(descriptor.importer.assets_path);
-        registry.save(descriptor.registry);
+    if (descriptor.registry) {
+        if (!registry.load(descriptor.registry)) {
+            spdlog::info("AssetRegistry {} not found or failed to load. Rebuilding from source...", Path(descriptor.registry).string());
+            if (descriptor.importer.assets_path) {
+                registry.rebuild(descriptor.importer.assets_path);
+            }
+            registry.save(descriptor.registry);
+        }
     }
 }
 
@@ -297,3 +301,21 @@ Future<AssetID> AssetServer::import_asset(const Path& path)
         return guid;
     });
 }
+
+bool AssetServer::save_asset_raw(AssetTypeID type_id, const void* asset, OSPath path)
+{
+    auto it = processors.find(type_id);
+    if (it == processors.end() || !it->second->saver.has_value()) {
+        spdlog::error("No saver registered for asset type ID: {:#x}", type_id);
+        return false;
+    }
+
+    const auto& saver = it->second->saver.value();
+    if (!saver.save) {
+        spdlog::error("Saver for asset type ID {:#x} has no save function defined", type_id);
+        return false;
+    }
+
+    return saver.save(asset, path);
+}
+

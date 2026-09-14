@@ -47,6 +47,32 @@ namespace lyra
     };
 
     /**
+     * @brief The AssetSaverAPI struct defines the interface for saving/serializing assets to disk.
+     */
+    struct AssetSaverAPI
+    {
+        /**
+         * @brief Configure the saver and provide access to the AssetServer.
+         */
+        void (*configure)(AssetServer* manager, const JSON& options);
+
+        /**
+         * @brief Save asset data to a target path in the OS filesystem.
+         * @param asset Pointer to the in-memory asset data (untyped).
+         * @param path Target path on disk.
+         * @return True if saving was successful, false otherwise.
+         */
+        bool (*save)(const void* asset, OSPath path);
+
+        /**
+         * @brief Get the list of file extensions supported by this saver.
+         * @param extensions Output parameter for the array of C-strings.
+         * @return uint The number of supported extensions.
+         */
+        uint (*get_supported_extensions)(CString* extensions);
+    };
+
+    /**
      * @brief The AssetCookerAPI struct defines the interface for preprocessing source assets.
      */
     struct AssetCookerAPI

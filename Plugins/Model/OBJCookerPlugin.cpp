@@ -7,17 +7,20 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 
+#include <filesystem>
 #include <fstream>
 
 using namespace lyra;
 using namespace lyra::model;
+
+namespace fs = std::filesystem;
 
 static void configure_obj(AssetServer*, const JSON&) {}
 
 static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
 {
     tinyobj::ObjReaderConfig reader_config;
-    reader_config.mtl_search_path = "./"; // Path to look for material files
+    reader_config.mtl_search_path = "./";
 
     tinyobj::ObjReader reader;
 
@@ -32,15 +35,23 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
         get_logger()->warn("tinyobjreader: {}", reader.Warning());
     }
 
-    auto& attrib = reader.GetAttrib();
-    auto& shapes = reader.GetShapes();
+    // Cache subdirectories
+    fs::path root(caches_root);
+    fs::path models_dir    = root / "models";
+    fs::path meshes_dir    = root / "meshes";
+    fs::path textures_dir  = root / "textures";
+    fs::path materials_dir = root / "materials";
+    fs::create_directories(models_dir);
+    fs::create_directories(meshes_dir);
+    fs::create_directories(textures_dir);
+    fs::create_directories(materials_dir);
+
+    auto& attrib    = reader.GetAttrib();
+    auto& shapes    = reader.GetShapes();
     auto& materials = reader.GetMaterials();
 
     MeshAsset mesh;
     MeshLOD& lod = mesh.lods.emplace_back();
-
-    // For OBJ, we'll simplify and create one MeshAsset with multiple surfaces (one per shape)
-    // and potentially multiple MeshAssets if they are very distinct, but for now let's go with surfaces.
 
     mesh.min_bounds = Vector3(std::numeric_limits<float>::max());
     mesh.max_bounds = Vector3(std::numeric_limits<float>::lowest());
@@ -53,7 +64,6 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
     ModelAsset model;
     model.root = 0;
 
-    // We'll create a single root node for the OBJ
     ModelAsset::Node root_node;
     root_node.name = "OBJ_Root";
     root_node.transform = Matrix4x4(1.0f);
@@ -61,7 +71,6 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
     AssetID mesh_id = random_guid();
     root_node.mesh = AssetHandle<MeshAsset>(mesh_id);
 
-    // Map material index to MaterialAsset GUID
     TreeMap<int, AssetID> material_map;
 
     for (size_t s = 0; s < shapes.size(); s++) {
@@ -108,20 +117,23 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
             index_offset += fv;
         }
 
-        surface.slice.index_count = static_cast<uint>(indices.size()) - surface.slice.first_index;
+        surface.slice.index_count  = static_cast<uint>(indices.size()) - surface.slice.first_index;
         surface.slice.first_vertex = surface.slice.first_index;
         surface.slice.vertex_count = surface.slice.index_count;
 
-        // Material handling
         int mat_idx = shapes[s].mesh.material_ids.empty() ? -1 : shapes[s].mesh.material_ids[0];
         if (mat_idx >= 0) {
             if (material_map.find(mat_idx) == material_map.end()) {
                 MaterialAsset mat;
-                // Simple mapping of OBJ material to Lyra MaterialAsset
-                // This would need a proper schema and mapping logic
+                if (static_cast<size_t>(mat_idx) < materials.size()) {
+                    const auto& m = materials[mat_idx];
+                    mat.base_color_factor = Vector4(m.diffuse[0], m.diffuse[1], m.diffuse[2], 1.0f);
+                    mat.roughness_factor  = 1.0f - (m.shininess / 1000.0f);
+                    if (mat.roughness_factor < 0.05f) mat.roughness_factor = 0.05f;
+                }
                 AssetID mat_id = random_guid();
-                Path mat_path = Path(caches_root) / (std::to_string(mat_id) + ".mat");
-                mat.save(mat_path.c_str());
+                Path mat_path = materials_dir / (std::to_string(mat_id) + ".material");
+                MaterialAsset::saver().save(&mat, mat_path.c_str());
                 material_map[mat_idx] = mat_id;
             }
             surface.material = AssetHandle<MaterialAsset>(material_map[mat_idx]);
@@ -130,18 +142,17 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
         lod.surfaces.push_back(surface);
     }
 
-    // Pack attributes
     MeshAttribute& pos_attr = lod.attributes.emplace_back();
-    pos_attr.semantics = MeshSemantics::POSITION;
-    pos_attr.format = GPUVertexFormat::FLOAT32x3;
+    pos_attr.semantics     = MeshSemantics::POSITION;
+    pos_attr.format        = GPUVertexFormat::FLOAT32x3;
     pos_attr.element_count = static_cast<uint>(positions.size());
     pos_attr.data.resize(positions.size() * sizeof(Vector3));
     memcpy(pos_attr.data.data(), positions.data(), pos_attr.data.size());
 
     if (!normals.empty()) {
         MeshAttribute& norm_attr = lod.attributes.emplace_back();
-        norm_attr.semantics = MeshSemantics::NORMAL;
-        norm_attr.format = GPUVertexFormat::FLOAT32x3;
+        norm_attr.semantics     = MeshSemantics::NORMAL;
+        norm_attr.format        = GPUVertexFormat::FLOAT32x3;
         norm_attr.element_count = static_cast<uint>(normals.size());
         norm_attr.data.resize(normals.size() * sizeof(Vector3));
         memcpy(norm_attr.data.data(), normals.data(), norm_attr.data.size());
@@ -149,8 +160,8 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
 
     if (!texcoords.empty()) {
         MeshAttribute& tex_attr = lod.attributes.emplace_back();
-        tex_attr.semantics = MeshSemantics::TEXCOORD0;
-        tex_attr.format = GPUVertexFormat::FLOAT32x2;
+        tex_attr.semantics     = MeshSemantics::TEXCOORD0;
+        tex_attr.format        = GPUVertexFormat::FLOAT32x2;
         tex_attr.element_count = static_cast<uint>(texcoords.size());
         tex_attr.data.resize(texcoords.size() * sizeof(Vector2));
         memcpy(tex_attr.data.data(), texcoords.data(), tex_attr.data.size());
@@ -160,38 +171,16 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
     lod.index_data.resize(indices.size() * sizeof(uint32_t));
     memcpy(lod.index_data.data(), indices.data(), lod.index_data.size());
 
-    Path mesh_cache_path = Path(caches_root) / (std::to_string(mesh_id) + ".mesh");
-    mesh.save(mesh_cache_path.c_str());
+    Path mesh_cache_path = meshes_dir / (std::to_string(mesh_id) + ".mesh");
+    MeshAsset::saver().save(&mesh, mesh_cache_path.c_str());
 
     model.nodes.push_back(root_node);
 
-    // Save ModelAsset
-    JSON model_json;
-    model_json["root"] = 0;
-    JSON nodes_arr = JSON::array();
-    for (const auto& node : model.nodes) {
-        JSON n;
-        n["name"] = node.name;
-        if (node.mesh.valid())     n["mesh"]     = std::to_string(node.mesh.uuid);
-        if (node.material.valid()) n["material"] = std::to_string(node.material.uuid);
+    AssetID model_id = metadata["guid"].get<AssetID>();
+    Path model_cache_path = models_dir / (std::to_string(model_id) + ".model");
+    ModelAsset::saver().save(&model, model_cache_path.c_str());
 
-        JSON transform = JSON::array();
-        for (int r = 0; r < 4; ++r) {
-            JSON row = JSON::array();
-            for (int c = 0; c < 4; ++c) row.push_back(node.transform[r][c]);
-            transform.push_back(row);
-        }
-        n["transform"] = transform;
-
-        nodes_arr.push_back(n);
-    }
-    model_json["nodes"] = nodes_arr;
-
-    Path model_cache_path = Path(caches_root) / (std::to_string(metadata["guid"].get<AssetID>()) + ".model");
-    std::ofstream out(model_cache_path);
-    out << model_json.dump(4);
-
-    metadata["path"] = std::to_string(metadata["guid"].get<AssetID>()) + ".model";
+    metadata["path"] = "models/" + std::to_string(model_id) + ".model";
 
     JSON deps = JSON::array();
     deps.push_back(mesh_id);

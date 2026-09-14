@@ -4,11 +4,14 @@
 #include <Lyra/Format/ModelAsset.h>
 #include "ModelUtils.h"
 
+#include <filesystem>
 #include <fstream>
 #include <numeric>
 
 using namespace lyra;
 using namespace lyra::model;
+
+namespace fs = std::filesystem;
 
 static void configure_stl(AssetServer*, const JSON&) {}
 
@@ -19,6 +22,17 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
         get_logger()->error("failed to open STL file: {}", Path(source_path).string());
         return false;
     }
+
+    // Cache subdirectories
+    fs::path root(caches_root);
+    fs::path models_dir   = root / "models";
+    fs::path meshes_dir   = root / "meshes";
+    fs::path textures_dir = root / "textures";
+    fs::path materials_dir = root / "materials";
+    fs::create_directories(models_dir);
+    fs::create_directories(meshes_dir);
+    fs::create_directories(textures_dir);
+    fs::create_directories(materials_dir);
 
     // determine if binary or ascii
     char header[80];
@@ -62,7 +76,6 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
             positions.push_back(v0); positions.push_back(v1); positions.push_back(v2);
         }
     } else {
-        // simplistic ASCII STL parser
         file.seekg(0);
         String line;
         Vector3 n;
@@ -102,7 +115,6 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
     surf.slice.first_vertex = 0;
     surf.slice.vertex_count = static_cast<uint>(positions.size());
 
-    // calculate bounds
     mesh.min_bounds = Vector3(std::numeric_limits<float>::max());
     mesh.max_bounds = Vector3(std::numeric_limits<float>::lowest());
     for (const auto& v : positions) {
@@ -113,31 +125,23 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
     surf.max_bounds = mesh.max_bounds;
 
     AssetID mesh_id = random_guid();
-    Path mesh_cache_path = Path(caches_root) / (std::to_string(mesh_id) + ".mesh");
-    mesh.save(mesh_cache_path.c_str());
+    Path mesh_cache_path = meshes_dir / (std::to_string(mesh_id) + ".mesh");
+    MeshAsset::saver().save(&mesh, mesh_cache_path.c_str());
 
-    // create ModelAsset metadata
-    JSON model_json;
-    model_json["root"] = 0;
-    JSON node;
-    node["name"] = "STL_Model";
-    node["mesh"] = std::to_string(mesh_id);
+    ModelAsset model;
+    model.root = 0;
 
-    JSON transform = JSON::array();
-    for (int r = 0; r < 4; ++r) {
-        JSON row = JSON::array();
-        for (int c = 0; c < 4; ++c) row.push_back(r == c ? 1.0f : 0.0f);
-        transform.push_back(row);
-    }
-    node["transform"] = transform;
+    ModelAsset::Node root_node;
+    root_node.name      = "STL_Model";
+    root_node.mesh      = AssetHandle<MeshAsset>(mesh_id);
+    root_node.transform = Matrix4x4(1.0f);
+    model.nodes.push_back(root_node);
 
-    model_json["nodes"] = JSON::array({node});
+    AssetID model_id = metadata["guid"].get<AssetID>();
+    Path model_cache_path = models_dir / (std::to_string(model_id) + ".model");
+    ModelAsset::saver().save(&model, model_cache_path.c_str());
 
-    Path model_cache_path = Path(caches_root) / (std::to_string(metadata["guid"].get<AssetID>()) + ".model");
-    std::ofstream out(model_cache_path);
-    out << model_json.dump(4);
-
-    metadata["path"] = std::to_string(metadata["guid"].get<AssetID>()) + ".model";
+    metadata["path"]         = "models/" + std::to_string(model_id) + ".model";
     metadata["dependencies"] = JSON::array({mesh_id});
 
     return true;

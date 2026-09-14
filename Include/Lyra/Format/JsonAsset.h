@@ -16,6 +16,8 @@ namespace lyra
 
         static constexpr AssetTypeID type = 0x5372a266;
 
+        static auto saver() -> AssetSaverAPI;
+
         static auto loader() -> AssetLoaderAPI;
 
         static auto cooker() -> AssetCookerAPI;

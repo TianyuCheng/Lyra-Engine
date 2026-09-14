@@ -1,3 +1,4 @@
+#include <fstream>
 #include <Lyra/Format/TextAsset.h>
 #include <Lyra/FileIO/VFSAPI.h>
 
@@ -23,6 +24,19 @@ static bool text_process(JSON& metadata, OSPath source_path, OSPath)
     return true;
 }
 
+static bool save_text_asset(const void* raw_asset, OSPath path)
+{
+    const auto* asset = reinterpret_cast<const TextAsset*>(raw_asset);
+    if (!asset) return false;
+
+    std::ofstream file(path);
+    if (!file.is_open()) return false;
+
+    file << asset->content;
+    file.close();
+    return !file.fail();
+}
+
 AssetLoaderAPI TextAsset::loader()
 {
     auto api                     = AssetLoaderAPI{};
@@ -38,6 +52,15 @@ AssetCookerAPI TextAsset::cooker()
     auto api                     = AssetCookerAPI{};
     api.configure                = nullptr;
     api.process                  = text_process;
+    api.get_supported_extensions = get_text_extensions;
+    return api;
+}
+
+AssetSaverAPI TextAsset::saver()
+{
+    auto api                     = AssetSaverAPI{};
+    api.configure                = nullptr;
+    api.save                     = save_text_asset;
     api.get_supported_extensions = get_text_extensions;
     return api;
 }

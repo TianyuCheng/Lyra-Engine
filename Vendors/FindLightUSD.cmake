@@ -9,11 +9,20 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(lightusd)
 
-add_library(lightusd::lightusd ALIAS lightusd)
+if (TARGET tinyusdz_static)
+  set(_lightusd_target tinyusdz_static)
+elseif (TARGET tinyusdz)
+  set(_lightusd_target tinyusdz)
+elseif (TARGET lightusd)
+  set(_lightusd_target lightusd)
+endif()
+
+if (DEFINED _lightusd_target)
+  target_include_directories(${_lightusd_target} INTERFACE ${lightusd_SOURCE_DIR}/src)
+  add_library(lightusd::lightusd ALIAS ${_lightusd_target})
+  set_target_properties(${_lightusd_target} PROPERTIES FOLDER "Vendors")
+endif()
 
 # mark lightusd as found
 set(lightusd_FOUND TRUE)
-
-# put lightusd under folder
-set_target_properties(lightusd PROPERTIES PREFIX "")
-set_target_properties(lightusd PROPERTIES FOLDER "Vendors")
+set(LightUSD_FOUND TRUE)

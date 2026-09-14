@@ -146,7 +146,7 @@ int main(int argc, const char* argv[])
         ams->register_asset<TomlAsset>();
         ams->register_asset<MeshAsset>();
         ams->register_asset<MaterialAsset>();
-        ams->register_asset<MaterialSchema>();
+        ams->register_asset<SceneAsset>();
 
         // register multiple cookers for texture asset
         ams->register_asset<TextureAsset>();
@@ -155,11 +155,11 @@ int main(int argc, const char* argv[])
         ams->register_asset<TextureAsset, TextureAsset::dds>();
         ams->register_asset<TextureAsset, TextureAsset::ktx>();
 
-        // // register multiple cookers for models
-        // ams->register_asset<ModelAsset>();
-        // ams->register_asset<ModelAsset, ModelAsset::stl>();
-        // ams->register_asset<ModelAsset, ModelAsset::obj>();
-        // ams->register_asset<ModelAsset, ModelAsset::gltf>();
+        // register multiple cookers for models
+        ams->register_asset<ModelAsset>();
+        ams->register_asset<ModelAsset, ModelAsset::stl>();
+        ams->register_asset<ModelAsset, ModelAsset::obj>();
+        ams->register_asset<ModelAsset, ModelAsset::gltf>();
 
         return std::move(layer);
     });

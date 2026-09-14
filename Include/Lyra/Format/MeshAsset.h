@@ -116,8 +116,7 @@ namespace lyra
         static constexpr uint CHUNK_LODS = 0x53444F4C; // 'LODS'
 
         static auto loader() -> AssetLoaderAPI;
-
-        bool save(OSPath path) const;
+        static auto saver()  -> AssetSaverAPI;
 
         Vector<MeshLOD> lods; ///< Levels of detail.
 

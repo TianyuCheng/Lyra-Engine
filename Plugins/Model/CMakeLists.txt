@@ -13,3 +13,4 @@ find_path(TINYGLTF_INCLUDE_DIRS "tiny_gltf.h")
 
 target_include_directories(lyra-model PRIVATE ${TINYGLTF_INCLUDE_DIRS})
 target_link_libraries(lyra-model PRIVATE tinyobjloader::tinyobjloader)
+target_link_libraries(lyra-model PRIVATE lightusd::lightusd)

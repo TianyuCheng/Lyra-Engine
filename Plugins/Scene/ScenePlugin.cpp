@@ -6,29 +6,33 @@
 #include <Lyra/Common/Plugin.h>
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/FileIO/VFSAPI.h>
-#include <Lyra/Format/ModelAsset.h>
-#include "ModelUtils.h"
+#include <Lyra/Format/SceneAsset.h>
 
 #include <tinyusdz.hh>
 #include <usda-reader.hh>
 #include <stream-reader.hh>
 
 using namespace lyra;
-using namespace lyra::model;
 
-static uint extract_model_nodes(
-    ModelAsset&           model,
+static Logger get_logger()
+{
+    static Logger logger = create_logger("Scene", LogLevel::trace);
+    return logger;
+}
+
+static uint extract_scene_nodes(
+    SceneAsset&           scene,
     const tinyusdz::Prim& prim)
 {
     const tinyusdz::Xform* xform = prim.as<tinyusdz::Xform>();
     if (!xform) {
         for (const auto& child : prim.children()) {
-            extract_model_nodes(model, child);
+            extract_scene_nodes(scene, child);
         }
         return 0;
     }
 
-    ModelAsset::Node node;
+    SceneAsset::Node node;
     node.name = prim.element_name();
 
     for (const auto& [prop_name, prop] : xform->props) {
@@ -38,6 +42,14 @@ static uint extract_model_nodes(
         if (prop_name == "lyra:name") {
             std::string s;
             if (attr.get_value(&s)) node.name = s;
+        } else if (prop_name == "lyra:model") {
+            std::string s;
+            if (attr.get_value(&s) && !s.empty()) {
+                try {
+                    node.model = ModelAssetHandle(std::stoull(s));
+                } catch (...) {
+                }
+            }
         } else if (prop_name == "lyra:mesh") {
             std::string s;
             if (attr.get_value(&s) && !s.empty()) {
@@ -66,25 +78,25 @@ static uint extract_model_nodes(
         }
     }
 
-    uint node_idx = static_cast<uint>(model.nodes.size());
-    model.nodes.push_back(node);
+    uint node_idx = static_cast<uint>(scene.nodes.size());
+    scene.nodes.push_back(node);
 
     for (const auto& child : prim.children()) {
         const tinyusdz::Xform* child_xform = child.as<tinyusdz::Xform>();
         if (child_xform) {
-            uint child_idx = extract_model_nodes(model, child);
-            model.nodes[node_idx].children.push_back(child_idx);
+            uint child_idx = extract_scene_nodes(scene, child);
+            scene.nodes[node_idx].children.push_back(child_idx);
         }
     }
 
     return node_idx;
 }
 
-static void* load_model_asset(FileLoader* loader, FSPath path)
+static void* load_scene_asset(FileLoader* loader, FSPath path)
 {
     auto content = loader->read<char>(path);
     if (content.empty()) {
-        get_logger()->error("failed to read model file: {}", path);
+        get_logger()->error("failed to read scene file: {}", path);
         return nullptr;
     }
 
@@ -95,36 +107,36 @@ static void* load_model_asset(FileLoader* loader, FSPath path)
 
     tinyusdz::usda::USDAReader reader(&sr);
     if (!reader.read() || !reader.reconstruct_stage()) {
-        get_logger()->error("failed to parse .model USDA at {}: {}", path, reader.get_error());
+        get_logger()->error("failed to parse .scene USDA at {}: {}", path, reader.get_error());
         return nullptr;
     }
 
     const tinyusdz::Stage& stage = reader.get_stage();
-    auto                   asset = new ModelAsset();
+    auto                   asset = new SceneAsset();
 
     for (const auto& root_prim : stage.root_prims()) {
-        extract_model_nodes(*asset, root_prim);
+        extract_scene_nodes(*asset, root_prim);
     }
 
     return asset;
 }
 
-static void unload_model_asset(void* asset)
+static void unload_scene_asset(void* asset)
 {
-    delete reinterpret_cast<ModelAsset*>(asset);
+    delete reinterpret_cast<SceneAsset*>(asset);
 }
 
-static uint get_model_extensions(CString* extensions)
+static uint get_scene_extensions(CString* extensions)
 {
     if (extensions) {
-        extensions[0] = ".model";
+        extensions[0] = ".scene";
     }
     return 1;
 }
 
-static bool save_model_asset(const void* raw_asset, OSPath path)
+static bool save_scene_asset(const void* raw_asset, OSPath path)
 {
-    const auto* asset = reinterpret_cast<const ModelAsset*>(raw_asset);
+    const auto* asset = reinterpret_cast<const SceneAsset*>(raw_asset);
     if (!asset) return false;
 
     std::ofstream file(path);
@@ -150,6 +162,8 @@ static bool save_model_asset(const void* raw_asset, OSPath path)
         file << pad << "def Xform \"" << prim_name << "\"\n"
              << pad << "{\n"
              << child_pad << "custom string lyra:name = \"" << node.name << "\"\n";
+        if (node.model.valid())
+            file << child_pad << "custom string lyra:model = \"" << std::to_string(node.model.uuid) << "\"\n";
         if (node.mesh.valid())
             file << child_pad << "custom string lyra:mesh = \"" << std::to_string(node.mesh.uuid) << "\"\n";
         if (node.material.valid())
@@ -182,11 +196,11 @@ static bool save_model_asset(const void* raw_asset, OSPath path)
     return !file.fail();
 }
 
-namespace lyra::model::loader
+namespace lyra::scene::loader
 {
     void prepare()
     {
-        get_logger()->set_level(parse_log_level_from_env("LYRA_MODEL_VERBOSITY"));
+        get_logger()->set_level(parse_log_level_from_env("LYRA_SCENE_VERBOSITY"));
     }
 
     void cleanup() {}
@@ -194,14 +208,14 @@ namespace lyra::model::loader
     auto create() -> AssetLoaderAPI
     {
         auto api                     = AssetLoaderAPI{};
-        api.load                     = load_model_asset;
-        api.unload                   = unload_model_asset;
-        api.get_supported_extensions = get_model_extensions;
+        api.load                     = load_scene_asset;
+        api.unload                   = unload_scene_asset;
+        api.get_supported_extensions = get_scene_extensions;
         return api;
     }
-} // namespace lyra::model::loader
+} // namespace lyra::scene::loader
 
-namespace lyra::model::saver
+namespace lyra::scene::saver
 {
     void prepare() {}
     void cleanup() {}
@@ -210,8 +224,8 @@ namespace lyra::model::saver
     {
         auto api                     = AssetSaverAPI{};
         api.configure                = nullptr;
-        api.save                     = save_model_asset;
-        api.get_supported_extensions = get_model_extensions;
+        api.save                     = save_scene_asset;
+        api.get_supported_extensions = get_scene_extensions;
         return api;
     }
-} // namespace lyra::model::saver
+} // namespace lyra::scene::saver
