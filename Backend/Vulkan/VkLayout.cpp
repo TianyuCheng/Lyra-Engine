@@ -98,7 +98,12 @@ VulkanBindGroupLayout::VulkanBindGroupLayout(const GPUBindGroupLayoutDescriptor&
         create_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         create_info.pBindings    = bindings.data();
         create_info.bindingCount = static_cast<uint32_t>(bindings.size());
-        create_info.pNext        = &bindingflags_info;
+        if (bindless) {
+            bindingflags_info.bindingCount = static_cast<uint32_t>(bindings.size());
+            create_info.pNext              = &bindingflags_info;
+        } else {
+            create_info.pNext              = nullptr;
+        }
 
         // create descritpor set layout
         auto rhi = get_rhi();
