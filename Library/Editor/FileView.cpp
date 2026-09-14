@@ -29,6 +29,12 @@ FileView::FileView(const Path& root)
 void FileView::bind(Application& app)
 {
     bboard = &app.get_blackboard();
+    if (auto ams_ptr = app.get_blackboard().try_get<AssetServer*>()) {
+        (*ams_ptr)->set_on_filesystem_changed([this]() {
+            needs_refresh = true;
+            force_refresh = true;
+        });
+    }
     app.bind<AppEvent::UPDATE, &FileView::update>(*this);
     update_directory(root, true);
 }
@@ -563,18 +569,29 @@ void FileView::show_import_indicator()
             ++it;
     }
 
-    if (active_imports.empty() && notification_timer <= 0.0f)
+    AssetPipelineStats stats{};
+    if (bboard) {
+        if (auto ams = bboard->try_get<AssetServer*>()) {
+            stats = (*ams)->get_pipeline_stats();
+        }
+    }
+
+    if (active_imports.empty() && stats.pending_count == 0 && notification_timer <= 0.0f)
         return;
 
-    if (active_imports.empty() && notification_timer > 0.0f)
+    if (active_imports.empty() && stats.pending_count == 0 && notification_timer > 0.0f)
         notification_timer -= ImGui::GetIO().DeltaTime;
 
     ImVec2 region = ImGui::GetWindowContentRegionMax();
-    ImGui::SetCursorPos(ImVec2(region.x - 250, region.y - 50));
-    ImGui::BeginChild("##ImportIndicator", ImVec2(250, 50), true, ImGuiWindowFlags_NoScrollbar);
+    ImGui::SetCursorPos(ImVec2(region.x - 260, region.y - 55));
+    ImGui::BeginChild("##ImportIndicator", ImVec2(260, 55), true, ImGuiWindowFlags_NoScrollbar);
     {
-        if (!active_imports.empty()) {
-            ImGui::Text(LYRA_ICON_IMPORT " Importing %zu assets...", active_imports.size());
+        if (stats.pending_count > 0 || !active_imports.empty()) {
+            uint32_t total = (uint32_t)active_imports.size() + stats.pending_count;
+            ImGui::Text(LYRA_ICON_IMPORT " Cooking %u asset%s...", total, total > 1 ? "s" : "");
+            if (!stats.current_asset.empty()) {
+                ImGui::TextDisabled("%s", stats.current_asset.c_str());
+            }
         } else {
             ImGui::TextColored(finished_failure > 0 ? ImVec4(1, 0.4f, 0.4f, 1) : ImVec4(0.4f, 1, 0.4f, 1),
                 "Import finished: %u ok, %u failed", finished_success, finished_failure);
@@ -583,7 +600,7 @@ void FileView::show_import_indicator()
     }
     ImGui::EndChild();
 
-    if (active_imports.empty() && notification_timer <= 0.0f) {
+    if (active_imports.empty() && stats.pending_count == 0 && notification_timer <= 0.0f) {
         finished_success = 0;
         finished_failure = 0;
     }

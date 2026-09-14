@@ -88,6 +88,7 @@ target_sources(lyra-headers INTERFACE
     Lyra/Assets/AMSRegistry.h
     Lyra/Assets/AMSServer.h
     Lyra/Assets/AMSUtils.h
+    Lyra/Assets/AMSWatcher.h
 
     # formats
     Lyra/Format/Format.h

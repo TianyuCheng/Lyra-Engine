@@ -10,6 +10,7 @@
       "platform": "windows"
     },
     "doctest",
+    "efsw",
     "entt",
     "etl",
     "fmt",

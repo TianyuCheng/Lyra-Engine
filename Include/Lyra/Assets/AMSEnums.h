@@ -16,6 +16,24 @@ namespace lyra
 
     using AssetTypeID = uint;
 
+    enum struct AssetWatchAction : uint8_t
+    {
+        Added,
+        Modified,
+        Removed,
+        Renamed
+    };
+
+    enum struct AssetCookStatus : uint8_t
+    {
+        Idle,
+        Queued,
+        Cooking,
+        Succeeded,
+        Failed,
+        Skipped
+    };
+
 } // namespace lyra
 
 #endif // LYRA_LYRA_ASSETS_AMSENUMS_H

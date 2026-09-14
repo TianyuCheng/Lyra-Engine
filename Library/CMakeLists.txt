@@ -10,6 +10,7 @@ find_package(toml REQUIRED)
 find_package(boxer REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(libassert REQUIRED)
+find_package(efsw CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
 
 # create a dependency interface library
@@ -53,6 +54,7 @@ target_link_libraries(lyra-commons INTERFACE
   $<BUILD_INTERFACE:toml::toml>
 
   # misc libraries
+  $<BUILD_INTERFACE:efsw::efsw>
   $<BUILD_INTERFACE:magic_enum::magic_enum>
 
   # common
@@ -66,6 +68,7 @@ target_sources(lyra-engine PRIVATE
   # assets
   Assets/AMSServer.cpp
   Assets/AMSRegistry.cpp
+  Assets/AMSWatcher.cpp
 
   # common
   Common/Logger.cpp

@@ -18,6 +18,7 @@ void AssetLayer::bind(Application& app)
 
 void AssetLayer::update(Blackboard&)
 {
+    ams.poll_events();
     ams.purge();
     ams.flush();
 }

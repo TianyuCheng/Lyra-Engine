@@ -23,9 +23,25 @@
 #include <Lyra/FileIO/VFSUtils.h>
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/Assets/AMSRegistry.h>
+#include <Lyra/Assets/AMSWatcher.h>
 
 namespace lyra
 {
+    /**
+     * @brief Pipeline status and metrics.
+     */
+    struct AssetPipelineStats
+    {
+        uint32_t pending_count   = 0;
+        uint32_t completed_count = 0;
+        uint32_t failed_count    = 0;
+        String   current_asset   = "";
+        bool     watching        = false;
+    };
+
+    using AssetReloadCallback      = Function<void(AssetID, AssetTypeID)>;
+    using FileSystemChangeCallback = Function<void()>;
+
     /**
      * @brief The AssetServer manages engine assets with a reference counting policy based on handles.
      */
@@ -235,7 +251,7 @@ namespace lyra
                 spdlog::error("Cannot save asset: handle not loaded or invalid");
                 return false;
             }
-            return save_asset_raw(AssetType::type, asset, path);
+            return save_asset(AssetType::type, asset, path);
         }
 
         /**
@@ -244,7 +260,7 @@ namespace lyra
         template <typename AssetType>
         bool save_asset(const AssetType& asset, OSPath path)
         {
-            return save_asset_raw(AssetType::type, &asset, path);
+            return save_asset(AssetType::type, &asset, path);
         }
 
         /**
@@ -253,9 +269,54 @@ namespace lyra
         AssetID get_guid(FSPath path) const;
 
         /**
-         * @brief Preproces asset into engine compatible format.
+         * @brief Preprocess asset into engine compatible format.
          */
-        Future<AssetID> import_asset(const Path& path);
+        Future<AssetID> import_asset(const Path& path, bool force = false);
+
+        /**
+         * @brief Hot-reload an asset that is currently loaded in memory.
+         */
+        void reload_asset(AssetID guid);
+
+        /**
+         * @brief Re-import/cook all recognized assets found in the assets directory.
+         */
+        void reimport_all(bool force = false);
+
+        /**
+         * @brief Enable or disable the active directory watcher.
+         */
+        void set_watching(bool enable);
+
+        /**
+         * @brief Check whether the directory watcher is currently active.
+         */
+        bool is_watching() const;
+
+        /**
+         * @brief Get current pipeline cooking metrics and status.
+         */
+        AssetPipelineStats get_pipeline_stats() const;
+
+        /**
+         * @brief Check if an extension has a registered cooker.
+         */
+        bool has_cooker_for(const Path& path) const;
+
+        /**
+         * @brief Poll and dispatch queued pipeline events on the main thread.
+         */
+        void poll_events();
+
+        /**
+         * @brief Set callback for hot-reloaded assets.
+         */
+        void set_on_asset_reloaded(AssetReloadCallback callback);
+
+        /**
+         * @brief Set callback for external filesystem modifications.
+         */
+        void set_on_filesystem_changed(FileSystemChangeCallback callback);
 
     private:
         struct AssetRecord
@@ -286,7 +347,8 @@ namespace lyra
         auto load_asset(AssetTypeID type_id, AssetID guid) -> RawAssetHandle;
         void unload_asset(AssetTypeID type_id, RawAssetHandle handle);
         void clone_asset(AssetTypeID type_id, RawAssetHandle handle);
-        bool save_asset_raw(AssetTypeID type_id, const void* asset, OSPath path);
+        bool save_asset(AssetTypeID type_id, const void* asset, OSPath path);
+        void handle_watch_events(const Vector<AssetWatchEvent>& events);
 
     private:
         AMSDescriptor                             descriptor;
@@ -296,6 +358,17 @@ namespace lyra
         HashMap<String, AssetProcessor*>          saver_extensions;
         HashMap<String, AssetProcessor*>          loader_extensions;
         HashMap<String, AssetCookerAPI*>          cooker_extensions;
+
+        Own<AssetWatcher>                       watcher;
+        std::atomic<uint32_t>                   pending_cooks{0};
+        std::atomic<uint32_t>                   completed_cooks{0};
+        std::atomic<uint32_t>                   failed_cooks{0};
+        mutable std::mutex                      pipeline_mutex;
+        String                                  current_cooking_asset;
+        Deque<AssetWatchEvent>                  queued_fs_events;
+        Vector<std::pair<AssetID, AssetTypeID>> queued_reloaded_assets;
+        AssetReloadCallback                     on_asset_reloaded;
+        FileSystemChangeCallback                on_fs_changed;
     };
 
 } // namespace lyra
