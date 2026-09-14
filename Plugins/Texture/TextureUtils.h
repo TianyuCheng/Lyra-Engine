@@ -48,7 +48,7 @@ namespace lyra::texture
 
     inline Path get_texture_cache_path(AssetID guid, OSPath caches_root)
     {
-        return Path(caches_root) / "Textures" / (std::to_string(guid) + ".ktx2");
+        return Path(caches_root) / "textures" / (std::to_string(guid) + ".ktx2");
     }
 
     inline bool save_to_ktx2(JSON& metadata, ktxTexture2* texture, const Path& target_path, OSPath caches_root, Logger logger)

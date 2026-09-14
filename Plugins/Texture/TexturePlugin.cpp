@@ -63,7 +63,6 @@ static void* load_texture_asset(FileLoader* loader, FSPath path)
         return nullptr;
     }
 
-
     auto texture_asset    = new TextureAsset();
     texture_asset->format = to_gpu_texture_format(static_cast<VkFormat>(ktx_texture->vkFormat));
     texture_asset->binary.resize(ktx_texture->dataSize);
@@ -96,7 +95,7 @@ static uint get_supported_loader_extensions(CString* extensions)
 
 static bool ktx_process(JSON& metadata, OSPath source_path, OSPath caches_root)
 {
-    Path dst = Path(caches_root) / "Textures" / (std::to_string(metadata["guid"].get<AssetID>()) + ".ktx2");
+    Path dst = get_texture_cache_path(metadata["guid"].get<AssetID>(), caches_root);
 
     fs::create_directories(dst.parent_path());
     fs::copy_file(Path(source_path), dst, fs::copy_options::overwrite_existing);

@@ -30,6 +30,7 @@ void FileView::bind(Application& app)
 {
     bboard = &app.get_blackboard();
     if (auto ams_ptr = app.get_blackboard().try_get<AssetServer*>()) {
+        last_completed_cooks = (*ams_ptr)->get_pipeline_stats().completed_count;
         (*ams_ptr)->set_on_filesystem_changed([this]() {
             needs_refresh = true;
             force_refresh = true;
@@ -41,6 +42,23 @@ void FileView::bind(Application& app)
 
 void FileView::update(Blackboard& blackboard)
 {
+    if (bboard) {
+        if (auto ams = bboard->try_get<AssetServer*>()) {
+            auto stats = (*ams)->get_pipeline_stats();
+            if (stats.completed_count != last_completed_cooks) {
+                last_completed_cooks = stats.completed_count;
+                // Invalidate failed/pending thumbnail cache entries so newly generated .import thumbnails load automatically
+                for (auto it = thumbnails.begin(); it != thumbnails.end();) {
+                    if (!it->second.valid) {
+                        thumbnails.erase(it++);
+                    } else {
+                        ++it;
+                    }
+                }
+            }
+        }
+    }
+
     if (needs_refresh) {
         perform_update_directory(next_path, force_refresh);
         needs_refresh = false;
@@ -334,10 +352,18 @@ void FileView::action_create_folder(StringView name)
 
 void FileView::action_reimport_selected(AssetServer* ams)
 {
+    if (!ams) return;
+    auto gui = (bboard && bboard->has<GUIRenderer*>()) ? bboard->get<GUIRenderer*>() : nullptr;
     for (const auto& sel : selection.items) {
         if (std::find(files.begin(), files.end(), sel) != files.end()) {
-            auto fut = ams->import_asset(std::filesystem::relative(curr / sel, root));
-            if (fut.valid()) active_imports.push_back(std::move(fut));
+            ams->import_asset(std::filesystem::relative(curr / sel, root), true);
+            auto it = thumbnails.find(sel);
+            if (it != thumbnails.end()) {
+                if (it->second.valid && gui) {
+                    gui->delete_texture(it->second.gui_texture);
+                }
+                thumbnails.erase(it);
+            }
         }
     }
 }
@@ -524,7 +550,6 @@ void FileView::perform_update_directory(const Path& path, bool force)
 void FileView::handle_file_drop(Blackboard& blackboard)
 {
     auto window = blackboard.get<Window*>();
-    auto ams    = blackboard.get<AssetServer*>();
 
     constexpr uint hovered_flags = ImGuiHoveredFlags_AllowWhenBlockedByActiveItem |
                                    ImGuiHoveredFlags_ChildWindows |
@@ -541,14 +566,9 @@ void FileView::handle_file_drop(Blackboard& blackboard)
         Path dst = curr / src.filename();
         try {
             std::filesystem::copy_file(src, dst, std::filesystem::copy_options::overwrite_existing);
-            auto rel_path = std::filesystem::relative(dst, root);
-            auto future   = ams->import_asset(rel_path);
-            if (future.valid()) {
-                active_imports.push_back(std::move(future));
-                spdlog::info("Importing dropped asset: {} -> {}", path_str, rel_path.string());
-            }
+            spdlog::info("Copied dropped file to: {}", dst.string());
         } catch (const std::exception& e) {
-            spdlog::error("Failed to copy/import dropped file {}: {}", path_str, e.what());
+            spdlog::error("Failed to copy dropped file {}: {}", path_str, e.what());
         }
     }
     update_directory(curr, true);
@@ -556,19 +576,6 @@ void FileView::handle_file_drop(Blackboard& blackboard)
 
 void FileView::show_import_indicator()
 {
-    for (auto it = active_imports.begin(); it != active_imports.end();) {
-        if (it->wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
-            if (it->get() != 0)
-                finished_success++;
-            else
-                finished_failure++;
-            it = active_imports.erase(it);
-
-            notification_timer = 5.0f;
-        } else
-            ++it;
-    }
-
     AssetPipelineStats stats{};
     if (bboard) {
         if (auto ams = bboard->try_get<AssetServer*>()) {
@@ -576,34 +583,50 @@ void FileView::show_import_indicator()
         }
     }
 
-    if (active_imports.empty() && stats.pending_count == 0 && notification_timer <= 0.0f)
-        return;
-
-    if (active_imports.empty() && stats.pending_count == 0 && notification_timer > 0.0f)
+    if (stats.pending_count > 0) {
+        if (!was_cooking) {
+            was_cooking             = true;
+            session_success         = 0;
+            session_failure         = 0;
+            session_start_completed = stats.completed_count;
+            session_start_failed    = stats.failed_count;
+        }
+        notification_timer = 0.0f;
+    } else if (was_cooking) {
+        was_cooking        = false;
+        session_success    = stats.completed_count - session_start_completed;
+        session_failure    = stats.failed_count - session_start_failed;
+        notification_timer = 5.0f;
+        for (auto it = thumbnails.begin(); it != thumbnails.end();) {
+            if (!it->second.valid) {
+                thumbnails.erase(it++);
+            } else {
+                ++it;
+            }
+        }
+    } else if (notification_timer > 0.0f) {
         notification_timer -= ImGui::GetIO().DeltaTime;
+    }
+
+    if (!was_cooking && notification_timer <= 0.0f)
+        return;
 
     ImVec2 region = ImGui::GetWindowContentRegionMax();
     ImGui::SetCursorPos(ImVec2(region.x - 260, region.y - 55));
     ImGui::BeginChild("##ImportIndicator", ImVec2(260, 55), true, ImGuiWindowFlags_NoScrollbar);
     {
-        if (stats.pending_count > 0 || !active_imports.empty()) {
-            uint32_t total = (uint32_t)active_imports.size() + stats.pending_count;
-            ImGui::Text(LYRA_ICON_IMPORT " Cooking %u asset%s...", total, total > 1 ? "s" : "");
+        if (was_cooking) {
+            ImGui::Text(LYRA_ICON_IMPORT " Cooking %u asset%s...", stats.pending_count, stats.pending_count > 1 ? "s" : "");
             if (!stats.current_asset.empty()) {
                 ImGui::TextDisabled("%s", stats.current_asset.c_str());
             }
         } else {
-            ImGui::TextColored(finished_failure > 0 ? ImVec4(1, 0.4f, 0.4f, 1) : ImVec4(0.4f, 1, 0.4f, 1),
-                "Import finished: %u ok, %u failed", finished_success, finished_failure);
+            ImGui::TextColored(session_failure > 0 ? ImVec4(1, 0.4f, 0.4f, 1) : ImVec4(0.4f, 1, 0.4f, 1),
+                "Import finished: %u ok, %u failed", session_success, session_failure);
             if (ImGui::IsWindowHovered()) notification_timer = 0.0f;
         }
     }
     ImGui::EndChild();
-
-    if (active_imports.empty() && stats.pending_count == 0 && notification_timer <= 0.0f) {
-        finished_success = 0;
-        finished_failure = 0;
-    }
 }
 
 void FileView::show_new_file_dialog()

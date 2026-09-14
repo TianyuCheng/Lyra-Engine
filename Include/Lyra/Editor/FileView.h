@@ -4,7 +4,6 @@
 #define LYRA_LYRA_EDITOR_FILE_VIEW_H
 
 #include <Lyra/Common/Path.h>
-#include <Lyra/Common/Promise.h>
 #include <Lyra/Assets/AMSUtils.h>
 #include <Lyra/Render/RHITypes.h>
 #include <Lyra/UICore/GUITypes.h>
@@ -78,12 +77,15 @@ namespace lyra
 
         Vector<String>          files       = {};
         Vector<String>          folders     = {};
-        Vector<String>          all_items   = {}; // Cached combined list
-        Vector<Breadcrumb>      breadcrumbs = {};
-        Vector<Future<AssetID>> active_imports;
-        uint                    finished_success   = 0;
-        uint                    finished_failure   = 0;
-        float                   notification_timer = 0.0f;
+        Vector<String>     all_items            = {}; // Cached combined list
+        Vector<Breadcrumb> breadcrumbs          = {};
+        uint32_t           session_success         = 0;
+        uint32_t           session_failure         = 0;
+        uint32_t           session_start_completed = 0;
+        uint32_t           session_start_failed    = 0;
+        uint32_t           last_completed_cooks    = 0;
+        bool               was_cooking             = false;
+        float              notification_timer      = 0.0f;
 
         SelectionModel selection;
         IconGrid       grid;
