@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LYRA_HELPER_VIEW_H
-#define LYRA_LYRA_HELPER_VIEW_H
+#ifndef LYRA_LYRA_COMMON_DETAIL_VIEW_H
+#define LYRA_LYRA_COMMON_DETAIL_VIEW_H
 
 #include <vector>
 #include <stdexcept>
@@ -112,4 +112,4 @@ namespace lyra::detail
 
 } // namespace lyra::detail
 
-#endif // LYRA_LYRA_HELPER_VIEW_H
+#endif // LYRA_LYRA_COMMON_DETAIL_VIEW_H

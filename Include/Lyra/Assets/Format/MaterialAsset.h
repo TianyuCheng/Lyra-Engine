@@ -1,5 +1,5 @@
-#ifndef LYRA_LYRA_FORMAT_MATERIALASSET_H
-#define LYRA_LYRA_FORMAT_MATERIALASSET_H
+#ifndef LYRA_LYRA_ASSETS_FORMAT_MATERIALASSET_H
+#define LYRA_LYRA_ASSETS_FORMAT_MATERIALASSET_H
 
 #include <Lyra/Common/Math.h>
 #include <Lyra/Common/String.h>
@@ -7,7 +7,7 @@
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/Assets/AMSUtils.h>
 #include <Lyra/Render/RHIEnums.h>
-#include <Lyra/Format/TextureAsset.h>
+#include <Lyra/Assets/Format/TextureAsset.h>
 
 // macro collision with Windows GDI
 #undef OPAQUE
@@ -67,4 +67,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LYRA_FORMAT_MATERIALASSET_H
+#endif // LYRA_LYRA_ASSETS_FORMAT_MATERIALASSET_H

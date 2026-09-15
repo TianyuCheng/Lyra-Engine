@@ -1,7 +1,7 @@
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Common/Plugin.h>
 #include <Lyra/Assets/AMSAPI.h>
-#include <Lyra/Format/ModelAsset.h>
+#include <Lyra/Assets/Format/ModelAsset.h>
 #include "ModelUtils.h"
 
 #include <filesystem>

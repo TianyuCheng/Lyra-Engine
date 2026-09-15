@@ -1,7 +1,7 @@
 #include <fstream>
 #include <Lyra/FileIO/VFSAPI.h>
 
-#include <Lyra/Format/TomlAsset.h>
+#include <Lyra/Assets/Format/TomlAsset.h>
 
 using namespace lyra;
 

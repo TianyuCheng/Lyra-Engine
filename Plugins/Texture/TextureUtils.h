@@ -5,7 +5,7 @@
 #include <vulkan/vulkan.h>
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Common/Config.h>
-#include <Lyra/Format/TextureAsset.h>
+#include <Lyra/Assets/Format/TextureAsset.h>
 
 using namespace lyra;
 

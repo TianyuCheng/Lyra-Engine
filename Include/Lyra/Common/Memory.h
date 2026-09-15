@@ -3,7 +3,7 @@
 #ifndef LYRA_LYRA_COMMON_MEMORY_H
 #define LYRA_LYRA_COMMON_MEMORY_H
 
-#include <Lyra/Helper/Arena.h>
+#include <Lyra/Common/Detail/Arena.h>
 
 namespace lyra
 {

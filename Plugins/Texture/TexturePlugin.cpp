@@ -9,7 +9,7 @@
 #include <Lyra/Render/RHIAPI.h>
 #include <Lyra/FileIO/VFSAPI.h>
 
-#include <Lyra/Format/TextureAsset.h>
+#include <Lyra/Assets/Format/TextureAsset.h>
 #include "TextureUtils.h"
 
 using namespace lyra;

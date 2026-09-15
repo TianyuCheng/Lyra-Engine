@@ -2,38 +2,18 @@
 #include <sstream>
 #include <functional>
 
+#include <Lyra/Common/Macros.h>
 #include <Lyra/Common/Plugin.h>
-#include <Lyra/Format/ModelAsset.h>
+#include <Lyra/Assets/Format/ModelAsset.h>
 
 using namespace lyra;
 
 // forward declarations
-namespace lyra::model::loader {
-    extern AssetLoaderAPI create();
-    extern void prepare();
-    extern void cleanup();
-}
-namespace lyra::stl::cooker {
-    extern AssetCookerAPI create();
-    extern void prepare();
-    extern void cleanup();
-}
-namespace lyra::obj::cooker {
-    extern AssetCookerAPI create();
-    extern void prepare();
-    extern void cleanup();
-}
-namespace lyra::gltf::cooker {
-    extern AssetCookerAPI create();
-    extern void prepare();
-    extern void cleanup();
-}
-
-namespace lyra::model::saver {
-    extern AssetSaverAPI create();
-    extern void prepare();
-    extern void cleanup();
-}
+FORWARD_DECLARE_API(lyra::model::loader, AssetLoaderAPI)
+FORWARD_DECLARE_API(lyra::stl::cooker, AssetCookerAPI)
+FORWARD_DECLARE_API(lyra::obj::cooker, AssetCookerAPI)
+FORWARD_DECLARE_API(lyra::gltf::cooker, AssetCookerAPI)
+FORWARD_DECLARE_API(lyra::model::saver, AssetSaverAPI)
 
 using ModelLoaderPlugin = BuiltinPlugin<AssetLoaderAPI>;
 using ModelSaverPlugin  = BuiltinPlugin<AssetSaverAPI>;

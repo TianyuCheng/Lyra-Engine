@@ -6,7 +6,7 @@
 #include <Lyra/Common/Plugin.h>
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/FileIO/VFSAPI.h>
-#include <Lyra/Format/SceneAsset.h>
+#include <Lyra/Assets/Format/SceneAsset.h>
 
 #include <tinyusdz.hh>
 #include <usda-reader.hh>

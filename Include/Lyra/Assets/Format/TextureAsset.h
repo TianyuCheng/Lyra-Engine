@@ -1,5 +1,5 @@
-#ifndef LYRA_LYRA_FORMAT_TEXTUREASSET_H
-#define LYRA_LYRA_FORMAT_TEXTUREASSET_H
+#ifndef LYRA_LYRA_ASSETS_FORMAT_TEXTUREASSET_H
+#define LYRA_LYRA_ASSETS_FORMAT_TEXTUREASSET_H
 
 #include <Lyra/Common/Collections.h>
 #include <Lyra/Assets/AMSAPI.h>
@@ -60,4 +60,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LYRA_FORMAT_TEXTUREASSET_H
+#endif // LYRA_LYRA_ASSETS_FORMAT_TEXTUREASSET_H

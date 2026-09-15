@@ -1,13 +1,13 @@
 #include "helper.h"
 #include <fstream>
-#include <Lyra/Format/MaterialAsset.h>
-#include <Lyra/Format/ModelAsset.h>
-#include <Lyra/Format/SceneAsset.h>
+#include <Lyra/Assets/Format/MaterialAsset.h>
+#include <Lyra/Assets/Format/ModelAsset.h>
+#include <Lyra/Assets/Format/SceneAsset.h>
 #include <Lyra/Assets/AMSServer.h>
-#include <Lyra/Format/MeshAsset.h>
-#include <Lyra/Format/TextAsset.h>
-#include <Lyra/Format/TomlAsset.h>
-#include <Lyra/Format/JsonAsset.h>
+#include <Lyra/Assets/Format/MeshAsset.h>
+#include <Lyra/Assets/Format/TextAsset.h>
+#include <Lyra/Assets/Format/TomlAsset.h>
+#include <Lyra/Assets/Format/JsonAsset.h>
 
 namespace fs = std::filesystem;
 

@@ -5,7 +5,7 @@
 #include <Lyra/Common/Plugin.h>
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/FileIO/VFSAPI.h>
-#include <Lyra/Format/MeshAsset.h>
+#include <Lyra/Assets/Format/MeshAsset.h>
 
 using namespace lyra;
 

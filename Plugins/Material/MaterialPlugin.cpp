@@ -6,8 +6,8 @@
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/Assets/AMSServer.h>
 #include <Lyra/FileIO/VFSAPI.h>
-#include <Lyra/Format/MaterialAsset.h>
-#include <Lyra/Format/TextureAsset.h>
+#include <Lyra/Assets/Format/MaterialAsset.h>
+#include <Lyra/Assets/Format/TextureAsset.h>
 
 // tinyusdz — only in .cpp, never in public headers
 #include <tinyusdz.hh>

@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LYRA_HELPER_ARENA_H
-#define LYRA_LYRA_HELPER_ARENA_H
+#ifndef LYRA_LYRA_COMMON_DETAIL_ARENA_H
+#define LYRA_LYRA_COMMON_DETAIL_ARENA_H
 
 #include <vector>
 #include <memory_resource>
@@ -182,4 +182,4 @@ namespace lyra::detail
 
 } // namespace lyra::detail
 
-#endif // LYRA_LYRA_HELPER_ARENA_H
+#endif // LYRA_LYRA_COMMON_DETAIL_ARENA_H

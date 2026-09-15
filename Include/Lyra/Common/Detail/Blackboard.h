@@ -1,8 +1,8 @@
 // Reference: https://github.com/skaarj1989/
 #pragma once
 
-#ifndef LYRA_LYRA_HELPER_BLACKBOARD_H
-#define LYRA_LYRA_HELPER_BLACKBOARD_H
+#ifndef LYRA_LYRA_COMMON_DETAIL_BLACKBOARD_H
+#define LYRA_LYRA_COMMON_DETAIL_BLACKBOARD_H
 
 #include <any>
 #include <cassert>
@@ -87,4 +87,4 @@ namespace lyra::detail
     }
 
 } // namespace lyra::detail
-#endif // LYRA_LYRA_HELPER_BLACKBOARD_H
+#endif // LYRA_LYRA_COMMON_DETAIL_BLACKBOARD_H

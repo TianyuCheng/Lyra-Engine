@@ -1,5 +1,6 @@
 #include <fstream>
 
+#include <Lyra/Common/Macros.h>
 #include <Lyra/Common/Enums.h>
 #include <Lyra/Common/Assert.h>
 #include <Lyra/Common/Logger.h>
@@ -8,33 +9,10 @@
 using namespace lyra;
 
 // forward declarations for inlined plugins
-namespace lyra::loader::native
-{
-    extern FileLoaderAPI create();
-    extern void          prepare();
-    extern void          cleanup();
-} // namespace lyra::loader::native
-
-namespace lyra::loader::physfs
-{
-    extern FileLoaderAPI create();
-    extern void          prepare();
-    extern void          cleanup();
-} // namespace lyra::loader::physfs
-
-namespace lyra::packer::pak
-{
-    extern FilePackerAPI create();
-    extern void          prepare();
-    extern void          cleanup();
-} // namespace lyra::packer::pak
-
-namespace lyra::packer::zip
-{
-    extern FilePackerAPI create();
-    extern void          prepare();
-    extern void          cleanup();
-} // namespace lyra::packer::zip
+FORWARD_DECLARE_API(lyra::loader::native, FileLoaderAPI)
+FORWARD_DECLARE_API(lyra::loader::physfs, FileLoaderAPI)
+FORWARD_DECLARE_API(lyra::packer::pak, FilePackerAPI)
+FORWARD_DECLARE_API(lyra::packer::zip, FilePackerAPI)
 
 using FileLoaderPlugin = BuiltinPlugin<FileLoaderAPI>;
 using FilePackerPlugin = BuiltinPlugin<FilePackerAPI>;

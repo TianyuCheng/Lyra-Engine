@@ -3,24 +3,13 @@
 #include <Lyra/Common/Macros.h>
 #include <Lyra/Common/Plugin.h>
 #include <Lyra/FileIO/VFSAPI.h>
-#include <Lyra/Format/MeshAsset.h>
+#include <Lyra/Assets/Format/MeshAsset.h>
 
 using namespace lyra;
 
 // forward declarations for inlined plugins
-namespace lyra::mesh::loader
-{
-    extern AssetLoaderAPI create();
-    extern void           prepare();
-    extern void           cleanup();
-} // namespace lyra::mesh::loader
-
-namespace lyra::mesh::saver
-{
-    extern AssetSaverAPI create();
-    extern void          prepare();
-    extern void          cleanup();
-} // namespace lyra::mesh::saver
+FORWARD_DECLARE_API(lyra::mesh::loader, AssetLoaderAPI)
+FORWARD_DECLARE_API(lyra::mesh::saver, AssetSaverAPI)
 
 using MeshLoaderPlugin = BuiltinPlugin<AssetLoaderAPI>;
 using MeshSaverPlugin  = BuiltinPlugin<AssetSaverAPI>;

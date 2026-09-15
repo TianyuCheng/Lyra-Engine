@@ -2,7 +2,7 @@
 #include <iomanip>
 #include <Lyra/FileIO/VFSAPI.h>
 
-#include <Lyra/Format/JsonAsset.h>
+#include <Lyra/Assets/Format/JsonAsset.h>
 
 using namespace lyra;
 

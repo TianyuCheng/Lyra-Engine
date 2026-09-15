@@ -7,10 +7,10 @@ target_sources(lyra-headers INTERFACE
     # everything
     Lyra/Lyra.hpp
 
-    # helper
-    Lyra/Helper/Arena.h
-    Lyra/Helper/Blackboard.h
-    Lyra/Helper/View.h
+    # detail headers
+    Lyra/Common/Detail/Arena.h
+    Lyra/Common/Detail/Blackboard.h
+    Lyra/Common/Detail/View.h
 
     # common headers
     Lyra/Common/Assert.h
@@ -91,15 +91,14 @@ target_sources(lyra-headers INTERFACE
     Lyra/Assets/AMSWatcher.h
 
     # formats
-    Lyra/Format/Format.h
-    Lyra/Format/JsonAsset.h
-    Lyra/Format/MaterialAsset.h
-    Lyra/Format/MeshAsset.h
-    Lyra/Format/ModelAsset.h
-    Lyra/Format/SceneAsset.h
-    Lyra/Format/TextAsset.h
-    Lyra/Format/TextureAsset.h
-    Lyra/Format/TomlAsset.h
+    Lyra/Assets/Format/JsonAsset.h
+    Lyra/Assets/Format/MaterialAsset.h
+    Lyra/Assets/Format/MeshAsset.h
+    Lyra/Assets/Format/ModelAsset.h
+    Lyra/Assets/Format/SceneAsset.h
+    Lyra/Assets/Format/TextAsset.h
+    Lyra/Assets/Format/TextureAsset.h
+    Lyra/Assets/Format/TomlAsset.h
 
     # engine
     Lyra/Engine/Application.h

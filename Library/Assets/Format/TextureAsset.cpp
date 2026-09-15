@@ -1,46 +1,18 @@
 #include <Lyra/Common/Macros.h>
 #include <Lyra/Common/Plugin.h>
 #include <Lyra/FileIO/VFSAPI.h>
-#include <Lyra/Format/TextureAsset.h>
+#include <Lyra/Assets/Format/TextureAsset.h>
 
 using namespace lyra;
 
 // forward declarations for inlined plugins
-namespace lyra::texture::cooker::stb
-{
-    extern AssetCookerAPI create();
-    extern void           prepare();
-    extern void           cleanup();
-} // namespace lyra::texture::cooker::stb
-
-namespace lyra::texture::cooker::exr
-{
-    extern AssetCookerAPI create();
-    extern void           prepare();
-    extern void           cleanup();
-} // namespace lyra::texture::cooker::exr
-
-namespace lyra::texture::cooker::dds
-{
-    extern AssetCookerAPI create();
-    extern void           prepare();
-    extern void           cleanup();
-} // namespace lyra::texture::cooker::dds
-
-namespace lyra::texture::cooker::ktx
-{
-    extern AssetCookerAPI create();
-    extern void           prepare();
-    extern void           cleanup();
-} // namespace lyra::texture::cooker::ktx
+FORWARD_DECLARE_API(lyra::texture::cooker::stb, AssetCookerAPI)
+FORWARD_DECLARE_API(lyra::texture::cooker::exr, AssetCookerAPI)
+FORWARD_DECLARE_API(lyra::texture::cooker::dds, AssetCookerAPI)
+FORWARD_DECLARE_API(lyra::texture::cooker::ktx, AssetCookerAPI)
 
 // forward declarations for inlined plugins
-namespace lyra::texture::loader
-{
-    extern AssetLoaderAPI create();
-    extern void           prepare();
-    extern void           cleanup();
-} // namespace lyra::texture::loader
+FORWARD_DECLARE_API(lyra::texture::loader, AssetLoaderAPI)
 
 using TextureCookerPlugin = BuiltinPlugin<AssetCookerAPI>;
 using TextureLoaderPlugin = BuiltinPlugin<AssetLoaderAPI>;

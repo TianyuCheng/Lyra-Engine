@@ -1,15 +1,11 @@
+#include <Lyra/Common/Macros.h>
 #include <Lyra/Common/Plugin.h>
 #include <Lyra/UICore/GUITypes.h>
 
 using namespace lyra;
 
 // forward declarations for inlined plugins
-namespace lyra::imgui
-{
-    extern GUIAPI create();
-    extern void   prepare();
-    extern void   cleanup();
-} // namespace lyra::imgui
+FORWARD_DECLARE_API(lyra::imgui, GUIAPI)
 
 using GUIPluginBuiltin = BuiltinPlugin<GUIAPI>;
 

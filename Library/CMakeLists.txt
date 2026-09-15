@@ -79,14 +79,14 @@ target_sources(lyra-engine PRIVATE
   FileIO/VFSTypes.cpp
 
   # format
-  Format/MeshAsset.cpp
-  Format/TextureAsset.cpp
-  Format/JsonAsset.cpp
-  Format/TomlAsset.cpp
-  Format/TextAsset.cpp
-  Format/MaterialAsset.cpp
-  Format/ModelAsset.cpp
-  Format/SceneAsset.cpp
+  Assets/Format/MeshAsset.cpp
+  Assets/Format/TextureAsset.cpp
+  Assets/Format/JsonAsset.cpp
+  Assets/Format/TomlAsset.cpp
+  Assets/Format/TextAsset.cpp
+  Assets/Format/MaterialAsset.cpp
+  Assets/Format/ModelAsset.cpp
+  Assets/Format/SceneAsset.cpp
 
   # shader
   Shader/SLCTypes.cpp

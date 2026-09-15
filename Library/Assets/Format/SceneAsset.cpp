@@ -1,22 +1,12 @@
+#include <Lyra/Common/Macros.h>
 #include <Lyra/Common/Plugin.h>
-#include <Lyra/Format/SceneAsset.h>
+#include <Lyra/Assets/Format/SceneAsset.h>
 
 using namespace lyra;
 
 // forward declarations
-namespace lyra::scene::loader
-{
-    extern AssetLoaderAPI create();
-    extern void           prepare();
-    extern void           cleanup();
-} // namespace lyra::scene::loader
-
-namespace lyra::scene::saver
-{
-    extern AssetSaverAPI create();
-    extern void          prepare();
-    extern void          cleanup();
-} // namespace lyra::scene::saver
+FORWARD_DECLARE_API(lyra::scene::loader, AssetLoaderAPI)
+FORWARD_DECLARE_API(lyra::scene::saver, AssetSaverAPI)
 
 using SceneLoaderPlugin = BuiltinPlugin<AssetLoaderAPI>;
 using SceneSaverPlugin  = BuiltinPlugin<AssetSaverAPI>;

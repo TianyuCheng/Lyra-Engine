@@ -18,8 +18,8 @@
 #include <apus/slot_map.hpp>
 #include <apus/ring_buffer.hpp>
 #include <apus/small_vector.hpp>
-#include <Lyra/Helper/View.h>
-#include <Lyra/Helper/Blackboard.h>
+#include <Lyra/Common/Detail/View.h>
+#include <Lyra/Common/Detail/Blackboard.h>
 
 namespace lyra
 {

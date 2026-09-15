@@ -51,13 +51,13 @@
 #include <Lyra/Scenes/SceneTree.h>
 
 // Format headers
-#include <Lyra/Format/TextAsset.h>
-#include <Lyra/Format/JsonAsset.h>
-#include <Lyra/Format/TomlAsset.h>
-#include <Lyra/Format/ModelAsset.h>
-#include <Lyra/Format/SceneAsset.h>
-#include <Lyra/Format/TextureAsset.h>
-#include <Lyra/Format/MaterialAsset.h>
+#include <Lyra/Assets/Format/TextAsset.h>
+#include <Lyra/Assets/Format/JsonAsset.h>
+#include <Lyra/Assets/Format/TomlAsset.h>
+#include <Lyra/Assets/Format/ModelAsset.h>
+#include <Lyra/Assets/Format/SceneAsset.h>
+#include <Lyra/Assets/Format/TextureAsset.h>
+#include <Lyra/Assets/Format/MaterialAsset.h>
 
 // Engine headers
 #include <Lyra/Engine/Application.h>
