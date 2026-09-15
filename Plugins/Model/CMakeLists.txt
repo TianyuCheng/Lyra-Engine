@@ -8,6 +8,7 @@ target_sources(lyra-model PRIVATE
     GLTFCookerPlugin.cpp
 )
 
+find_package(LightUSD REQUIRED)
 find_package(tinyobjloader CONFIG REQUIRED)
 find_path(TINYGLTF_INCLUDE_DIRS "tiny_gltf.h")
 

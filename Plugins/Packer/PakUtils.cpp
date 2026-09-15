@@ -4,15 +4,15 @@
 #include "PakUtils.h"
 
 using namespace lyra;
-using namespace lyra::file_packer::pak;
+using namespace lyra::packer::pak;
 
 static Logger get_shared_logger()
 {
-    static Logger logger = create_logger("FilePacker", LogLevel::trace);
+    static Logger logger = create_logger("Packer", LogLevel::trace);
     return logger;
 }
 
-Logger lyra::file_packer::pak::get_logger()
+Logger lyra::packer::pak::get_logger()
 {
     return get_shared_logger();
 }

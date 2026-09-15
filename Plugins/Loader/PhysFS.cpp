@@ -19,13 +19,13 @@
 #include "PhysFSUtils.h"
 
 using namespace lyra;
-using namespace lyra::file_loader::physfs;
+using namespace lyra::loader::physfs;
 
 namespace fs = std::filesystem;
 
 static Logger get_logger()
 {
-    static Logger logger = create_logger("FileLoader", LogLevel::trace);
+    static Logger logger = create_logger("Loader", LogLevel::trace);
     return logger;
 }
 
@@ -290,12 +290,12 @@ static bool unmount(FileLoaderHandle loader, MountHandle handle)
     return before != after;
 }
 
-namespace lyra::file_loader::physfs
+namespace lyra::loader::physfs
 {
 
     void prepare()
     {
-        get_logger()->set_level(parse_log_level_from_env("LYRA_FILELOADER_VERBOSITY"));
+        get_logger()->set_level(parse_log_level_from_env("LYRA_LOADER_VERBOSITY"));
 
         if (!PHYSFS_init(nullptr)) {
             get_logger()->error("prepare: PHYSFS_init failed: {}", PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()));
@@ -332,4 +332,4 @@ namespace lyra::file_loader::physfs
         return api;
     }
 
-} // namespace lyra::file_loader::physfs
+} // namespace lyra::loader::physfs

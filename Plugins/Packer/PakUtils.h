@@ -11,7 +11,7 @@
 
 using namespace lyra;
 
-namespace lyra::file_packer::pak
+namespace lyra::packer::pak
 {
 
 // PAK file format structures (little-endian)
@@ -55,6 +55,6 @@ namespace lyra::file_packer::pak
 
     auto get_logger() -> Logger;
 
-} // namespace lyra::file_packer::pak
+} // namespace lyra::packer::pak
 
 #endif // LYRA_PLUGIN_PAK_BUILDER_UTILS_H

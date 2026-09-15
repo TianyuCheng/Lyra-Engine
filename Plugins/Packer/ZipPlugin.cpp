@@ -4,10 +4,10 @@
 #include <Lyra/FileIO/VFSAPI.h>
 
 // plugin headers
-#include "PakUtils.h"
+#include "ZipUtils.h"
 
 using namespace lyra;
-using namespace lyra::file_packer::pak;
+using namespace lyra::packer::zip;
 
 // -----------------------------------------------------------------------------
 // global variables
@@ -19,7 +19,7 @@ static Vector<FilePackerHandle> g_packers;
 // API functions
 // -----------------------------------------------------------------------------
 
-static CString get_api_name() { return "PakBuilder"; }
+static CString get_api_name() { return "ZipBuilder"; }
 
 static bool create_packer(FilePackerHandle& packer, OSPath path)
 {
@@ -42,12 +42,12 @@ static bool create_packer(FilePackerHandle& packer, OSPath path)
         }
     }
 
-    auto* handle_data         = new PakArchive();
+    auto* handle_data         = new ZipArchive();
     handle_data->archive_path = archive_path;
 
     packer.pointer = handle_data;
     g_packers.push_back(packer);
-    get_logger()->info("create_packer: opened PAK archive {} with handle {}", Path(path).string(), packer.pointer);
+    get_logger()->info("create_packer: opened zip archive {} with handle {}", Path(path).string(), packer.pointer);
     return true;
 }
 
@@ -58,12 +58,12 @@ static void delete_packer(FilePackerHandle packer)
         return;
     }
 
-    auto* handle_data = static_cast<PakArchive*>(packer.pointer);
-    get_logger()->info("delete_packer: finalizing and closing PAK archive with handle {}", packer.pointer);
+    auto* handle_data = static_cast<ZipArchive*>(packer.pointer);
+    get_logger()->info("delete_packer: finalizing and closing zip archive with handle {}", packer.pointer);
 
     // finalize the archive before closing
     if (!handle_data->finalize()) {
-        get_logger()->error("delete_packer: failed to finalize PAK archive");
+        get_logger()->error("delete_packer: failed to finalize zip archive");
     }
 
     delete handle_data;
@@ -86,13 +86,13 @@ static bool write(FilePackerHandle packer, FSPath path, void* buffer, size_t siz
         return false;
     }
 
-    auto* archive_data = static_cast<PakArchive*>(packer.pointer);
+    auto* archive_data = static_cast<ZipArchive*>(packer.pointer);
     if (archive_data->is_finalized) {
         get_logger()->error("write: cannot write to finalized archive (handle {})", packer.pointer);
         return false;
     }
 
-    String normalized_path = PakArchive::normalize_path(path);
+    String normalized_path = ZipArchive::normalize_path(path);
     if (normalized_path.empty()) {
         get_logger()->error("write: normalized path is empty for input path {}", path);
         return false;
@@ -100,17 +100,17 @@ static bool write(FilePackerHandle packer, FSPath path, void* buffer, size_t siz
 
     // check if file already exists and replace it
     auto existing = std::find_if(archive_data->files.begin(), archive_data->files.end(),
-        [&normalized_path](const PakFileEntry& entry) {
+        [&normalized_path](const ZipFileEntry& entry) {
         return entry.filename == normalized_path;
     });
 
     if (existing != archive_data->files.end()) {
-        get_logger()->warn("write: replacing existing file {} in PAK", normalized_path);
+        get_logger()->warn("write: replacing existing file {} in ZIP", normalized_path);
         archive_data->files.erase(existing);
     }
 
     // add new file entry
-    PakFileEntry entry;
+    ZipFileEntry entry;
     entry.filename = normalized_path;
     entry.data.resize(size);
     std::memcpy(entry.data.data(), buffer, size);
@@ -122,18 +122,18 @@ static bool write(FilePackerHandle packer, FSPath path, void* buffer, size_t siz
     return true;
 }
 
-namespace lyra::file_packer::pak
+namespace lyra::packer::zip
 {
 
     void prepare()
     {
-        get_logger()->set_level(parse_log_level_from_env("LYRA_FILEPACKER_VERBOSITY"));
+        get_logger()->set_level(parse_log_level_from_env("LYRA_PACKER_VERBOSITY"));
     }
 
     void cleanup()
     {
         for (auto& packer : g_packers) {
-            auto pointer = static_cast<PakArchive*>(packer.pointer);
+            auto pointer = static_cast<ZipArchive*>(packer.pointer);
             delete pointer;
         }
 
@@ -150,4 +150,4 @@ namespace lyra::file_packer::pak
         return api;
     }
 
-} // namespace lyra::file_packer::pak
+} // namespace lyra::packer::zip

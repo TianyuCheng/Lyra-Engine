@@ -11,7 +11,7 @@
 
 using namespace lyra;
 
-namespace lyra::file_loader::physfs
+namespace lyra::loader::physfs
 {
 
     // custom deleter for PHYSFS_File
@@ -39,4 +39,4 @@ namespace lyra::file_loader::physfs
 
     using PhysFSFilePtr = Own<PHYSFS_File, PhysFSFileDeleter>;
 
-} // namespace lyra::file_loader::physfs
+} // namespace lyra::loader::physfs

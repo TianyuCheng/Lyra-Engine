@@ -12,13 +12,13 @@
 #include "NativeFSUtils.h"
 
 using namespace lyra;
-using namespace lyra::file_loader::native;
+using namespace lyra::loader::native;
 
 namespace fs = std::filesystem;
 
 static Logger get_logger()
 {
-    static Logger logger = create_logger("FileLoader", LogLevel::trace);
+    static Logger logger = create_logger("Loader", LogLevel::trace);
     return logger;
 }
 
@@ -351,12 +351,12 @@ static bool unmount(FileLoaderHandle loader, MountHandle handle)
     return before != after;
 }
 
-namespace lyra::file_loader::native
+namespace lyra::loader::native
 {
 
     void prepare()
     {
-        get_logger()->set_level(parse_log_level_from_env("LYRA_FILELOADER_VERBOSITY"));
+        get_logger()->set_level(parse_log_level_from_env("LYRA_LOADER_VERBOSITY"));
     }
 
     void cleanup()
@@ -387,4 +387,4 @@ namespace lyra::file_loader::native
         return api;
     }
 
-} // namespace lyra::file_loader::native
+} // namespace lyra::loader::native

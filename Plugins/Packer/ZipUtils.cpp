@@ -4,15 +4,15 @@
 #include "ZipUtils.h"
 
 using namespace lyra;
-using namespace lyra::file_packer::zip;
+using namespace lyra::packer::zip;
 
 static Logger get_shared_logger()
 {
-    static Logger logger = create_logger("FilePacker", LogLevel::trace);
+    static Logger logger = create_logger("Packer", LogLevel::trace);
     return logger;
 }
 
-auto lyra::file_packer::zip::get_logger() -> Logger
+auto lyra::packer::zip::get_logger() -> Logger
 {
     return get_shared_logger();
 }
