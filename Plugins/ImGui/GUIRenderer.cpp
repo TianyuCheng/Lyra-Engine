@@ -108,30 +108,33 @@ static GPUBindGroup imgui_create_texture_descriptor(GUIPipelineData* pipeline_da
 {
     auto& device = RHI::get_current_device();
 
-    auto& texinfo = renderer_data->textures.at(texid);
-    if (texinfo.bindgroup.valid())
-        return texinfo.bindgroup;
+    auto texinfo = renderer_data->textures.find(texid);
+    if (!texinfo)
+        return GPUBindGroup{};
+
+    if (texinfo->bindgroup.valid())
+        return texinfo->bindgroup;
 
     Array<GPUBindGroupEntry, 2> entries;
 
     entries.at(0).binding = 0;
     entries.at(0).index   = 0;
     entries.at(0).type    = GPUResourceType::TEXTURE;
-    entries.at(0).texture = texinfo.view;
+    entries.at(0).texture = texinfo->view;
 
     entries.at(1).binding = 1;
     entries.at(1).index   = 0;
     entries.at(1).type    = GPUResourceType::SAMPLER;
     entries.at(1).sampler = renderer_data->sampler;
 
-    texinfo.bindgroup = execute([&]() {
+    texinfo->bindgroup = execute([&]() {
         GPUBindGroupDescriptor desc{};
         desc.heap    = renderer_data->heap;
         desc.layout  = pipeline_data->blayouts.at(0);
         desc.entries = entries;
         return device.create_bind_group(desc);
     });
-    return texinfo.bindgroup;
+    return texinfo->bindgroup;
 }
 
 static void imgui_create_texture(GUIPipelineData* pipeline_data, GUIRendererData* renderer_data, ImTextureData* tex)
@@ -213,12 +216,18 @@ static void imgui_update_texture(GPUCommandBuffer cmdbuffer, GUIRendererData* re
 
 static void imgui_delete_texture(GUIPipelineData* pipeline_data, GUIRendererData* renderer_data, GUITextureManager::handle texid)
 {
-    // deferred deletion of texture, because the current texture/view might still be used in some frames in flight
-    auto& texinfo = renderer_data->textures.at(texid);
-    if (texinfo.valid()) {
-        renderer_data->textures.remove(texid);
-        renderer_data->garbage_textures.push_back(GUIGarbageTexture{texinfo, pipeline_data->frame_count});
+    auto* texinfo = renderer_data->textures.find(texid);
+    if (!texinfo) return;
+
+    // Avoid duplicate queueing
+    for (const auto& garbage : renderer_data->garbage_textures) {
+        if (garbage.texid == texid) return;
     }
+
+    // Defer deletion: keep texture in textures slotmap so current and in-flight frames
+    // can continue to render it. The GPU resources and slotmap entry will be reclaimed
+    // when garbage_textures frame delay expires.
+    renderer_data->garbage_textures.push_back(GUIGarbageTexture{texid, *texinfo, 0});
 }
 
 static void imgui_delete_texture(GUIPipelineData* pipeline_data, GUIRendererData* renderer_data, ImTextureData* tex)
@@ -359,6 +368,8 @@ static void imgui_render(GPUCommandBuffer cmdbuffer, GPUTextureViewHandle backbu
             // bind texture
             auto texid   = as_type<GUITextureManager::handle>(draw_cmd.GetTexID());
             auto texinfo = imgui_create_texture_descriptor(pipeline_data, renderer_data, texid);
+            if (!texinfo.valid())
+                continue;
             cmdbuffer.set_bind_group(0, texinfo);
 
             // draw
@@ -735,6 +746,9 @@ void GUIRenderer::reset()
         if (garbage.should_remove(frame_count)) {
             if (garbage.object.texture.valid()) garbage.object.texture.destroy();
             if (garbage.object.view.valid()) garbage.object.view.destroy();
+            if (renderer_data->textures.find(garbage.texid)) {
+                renderer_data->textures.remove(garbage.texid);
+            }
             it = garbage_textures.erase(it);
         } else {
             it++;
@@ -828,6 +842,22 @@ void GUIRenderer::resize()
 void GUIRenderer::destroy()
 {
     RHI::api()->wait_idle();
+
+    // clean up any remaining garbage textures
+    for (auto& garbage : renderer_data->garbage_textures) {
+        if (garbage.object.texture.valid()) garbage.object.texture.destroy();
+        if (garbage.object.view.valid()) garbage.object.view.destroy();
+        if (renderer_data->textures.find(garbage.texid)) {
+            renderer_data->textures.remove(garbage.texid);
+        }
+    }
+    renderer_data->garbage_textures.clear();
+
+    // clean up remaining active textures
+    for (auto& texinfo : renderer_data->textures) {
+        if (texinfo.texture.valid()) texinfo.texture.destroy();
+        if (texinfo.view.valid()) texinfo.view.destroy();
+    }
 
     // unset all backend user data (pointers will be reclaimed by unique_ptr)
     ImGuiIO& io                = ImGui::GetIO();

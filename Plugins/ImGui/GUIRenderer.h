@@ -22,15 +22,6 @@ namespace lyra::imgui
 {
     Logger get_logger();
 
-    template <typename T>
-    struct GUIGarbage
-    {
-        T    object;
-        uint unused = 0;
-
-        bool should_remove(uint threshold) { return unused++ >= threshold; }
-    };
-
     struct GUITexture
     {
         GPUBindGroup   bindgroup;
@@ -77,11 +68,27 @@ namespace lyra::imgui
         }
     };
 
-    using GUIGarbageBuffer   = GUIGarbage<GPUBuffer>;
+    using GUITextureManager = Slotmap<GUITexture, GUITextureDeleter>;
+
+    struct GUIGarbageBuffer
+    {
+        GPUBuffer object;
+        uint      unused = 0;
+
+        bool should_remove(uint threshold) { return unused++ >= threshold; }
+    };
+
+    struct GUIGarbageTexture
+    {
+        GUITextureManager::handle texid;
+        GUITexture                object;
+        uint                      unused = 0;
+
+        bool should_remove(uint threshold) { return unused++ >= threshold; }
+    };
+
     using GUIGarbageBuffers  = Vector<GUIGarbageBuffer>;
-    using GUIGarbageTexture  = GUIGarbage<GUITexture>;
     using GUIGarbageTextures = Vector<GUIGarbageTexture>;
-    using GUITextureManager  = Slotmap<GUITexture, GUITextureDeleter>;
 
     struct GUIPipelineData
     {
