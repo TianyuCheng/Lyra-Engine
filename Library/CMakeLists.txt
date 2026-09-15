@@ -12,6 +12,7 @@ find_package(spdlog REQUIRED)
 find_package(libassert REQUIRED)
 find_package(efsw CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
+find_package(nfd REQUIRED)
 
 # create a dependency interface library
 add_library(lyra-commons INTERFACE)
@@ -54,6 +55,7 @@ target_link_libraries(lyra-commons INTERFACE
   $<BUILD_INTERFACE:toml::toml>
 
   # misc libraries
+  $<BUILD_INTERFACE:nfd::nfd>
   $<BUILD_INTERFACE:efsw::efsw>
   $<BUILD_INTERFACE:magic_enum::magic_enum>
 
