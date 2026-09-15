@@ -1,5 +1,6 @@
 #include <imgui.h>
 #include <imgui_internal.h>
+#include <Lyra/Editor/Icons.h>
 #include <Lyra/UICore/UIControls.h>
 
 using namespace lyra;
@@ -126,13 +127,13 @@ void lyra::ui::icon_button(CString icon, CString tooltip, ButtonRole role)
 // 2. Toggle Buttons
 // =============================================================================
 
-void lyra::ui::toggle_button(CString label, bool is_active, ChangeRef<bool> on_toggle)
+void lyra::ui::toggle_button(CString label, bool is_active, ChangeRef<bool> on_toggle, Vector2 size)
 {
     internal::advance_layout_item();
     if (is_active) {
         ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyle().Colors[ImGuiCol_ButtonActive]);
     }
-    if (ImGui::Button(label)) {
+    if (ImGui::Button(label, ImVec2(size.x, size.y))) {
         on_toggle(!is_active);
     }
     if (is_active) {
@@ -140,7 +141,7 @@ void lyra::ui::toggle_button(CString label, bool is_active, ChangeRef<bool> on_t
     }
 }
 
-void lyra::ui::toggle_button(CString label, bool is_active, StatusRole active_role, ChangeRef<bool> on_toggle)
+void lyra::ui::toggle_button(CString label, bool is_active, StatusRole active_role, ChangeRef<bool> on_toggle, Vector2 size)
 {
     internal::advance_layout_item();
     ImVec4 col = to_status_color(active_role);
@@ -154,7 +155,7 @@ void lyra::ui::toggle_button(CString label, bool is_active, StatusRole active_ro
         ImGui::PushStyleColor(ImGuiCol_Text, col);
     }
 
-    if (ImGui::Button(label)) {
+    if (ImGui::Button(label, ImVec2(size.x, size.y))) {
         on_toggle(!is_active);
     }
 
@@ -185,22 +186,28 @@ void lyra::ui::checkbox(CString label, bool is_checked)
     ImGui::Checkbox(label, &val);
 }
 
-void lyra::ui::search_bar(char* buffer, size_t buffer_size, float width)
+void lyra::ui::search_bar(char* buffer, size_t buffer_size, float width, CString hint)
 {
     internal::advance_layout_item();
     if (width > 0.0f) {
         ImGui::SetNextItemWidth(width);
+    } else {
+        ImGui::SetNextItemWidth(-1.0f);
     }
-    ImGui::InputTextWithHint("##LyraSearch", "Search...", buffer, buffer_size);
+    const char* hint_str = hint ? hint : (LYRA_ICON_FILTER " Search...");
+    ImGui::InputTextWithHint("##LyraSearch", hint_str, buffer, buffer_size);
 }
 
-void lyra::ui::search_bar(char* buffer, size_t buffer_size, ChangeRef<StringView> on_search, float width)
+void lyra::ui::search_bar(char* buffer, size_t buffer_size, ChangeRef<StringView> on_search, float width, CString hint)
 {
     internal::advance_layout_item();
     if (width > 0.0f) {
         ImGui::SetNextItemWidth(width);
+    } else {
+        ImGui::SetNextItemWidth(-1.0f);
     }
-    if (ImGui::InputTextWithHint("##LyraSearch", "Search...", buffer, buffer_size)) {
+    const char* hint_str = hint ? hint : (LYRA_ICON_FILTER " Search...");
+    if (ImGui::InputTextWithHint("##LyraSearch", hint_str, buffer, buffer_size)) {
         on_search(StringView(buffer));
     }
 }
@@ -282,15 +289,41 @@ namespace
         return card_id;
     }
 
-    void finish_card(const ImVec2& pos, float size, CString label, ImGuiID card_id)
+    void finish_card(const ImVec2& pos, float size, CString label, bool is_selected, ActionRef on_click, const ActionRef* on_double_click, ImGuiID card_id)
     {
-        ImGui::SetCursorScreenPos(ImVec2(pos.x, pos.y + size + 2.0f));
-        ImGui::PushTextWrapPos(pos.x + size);
-        ImGui::TextWrapped("%s", label);
-        ImGui::PopTextWrapPos();
+        if (label && label[0] != '\0') {
+            const char* text_begin = label;
+            const char* text_end = label + strlen(label);
+            float line_y = pos.y + size + 4.0f;
+            ImFont* font = ImGui::GetFont();
+            float font_size = ImGui::GetFontSize();
+
+            while (text_begin < text_end) {
+                const char* line_end = font->CalcWordWrapPosition(font_size, text_begin, text_end, size);
+                if (line_end == text_begin) {
+                    line_end = text_begin + 1;
+                }
+                ImVec2 line_sz = font->CalcTextSizeA(font_size, FLT_MAX, -1.0f, text_begin, line_end);
+                float line_x = pos.x + std::max(0.0f, (size - line_sz.x) * 0.5f);
+                ImGui::SetCursorScreenPos(ImVec2(line_x, line_y));
+                ImGui::TextUnformatted(text_begin, line_end);
+                line_y += font_size + ImGui::GetStyle().ItemSpacing.y;
+                text_begin = line_end;
+                while (text_begin < text_end && (*text_begin == ' ' || *text_begin == '\t' || *text_begin == '\n' || *text_begin == '\r')) {
+                    text_begin++;
+                }
+            }
+        }
 
         ImGui::EndGroup();
         ImGui::PopID();
+
+        // Clicking anywhere on the card group (icon or label) triggers selection / double click
+        if (on_double_click && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+            (*on_double_click)();
+        } else if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+            on_click();
+        }
 
         GImGui->LastItemData.ID = card_id;
     }
@@ -298,7 +331,7 @@ namespace
     void draw_card_icon(const ImVec2& pos, float size, CString icon, const Vector4& icon_color)
     {
         float base_font_size = ImGui::GetFontSize();
-        float icon_scale = base_font_size > 0.0f ? std::max(1.0f, (size * 0.5f) / base_font_size) : 3.0f;
+        float icon_scale = base_font_size > 0.0f ? std::max(1.0f, (size * 0.72f) / base_font_size) : 4.5f;
 
         if (icon_color.w > 0.0f) {
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(icon_color.x, icon_color.y, icon_color.z, icon_color.w));
@@ -322,7 +355,7 @@ void lyra::ui::card(CString id, CString icon, CString label, bool is_selected, A
 
     draw_card_icon(pos, size, icon, icon_color);
 
-    finish_card(pos, size, label, card_id);
+    finish_card(pos, size, label, is_selected, on_click, nullptr, card_id);
 }
 
 void lyra::ui::card(CString id, CString icon, CString label, bool is_selected, ActionRef on_click, ActionRef on_double_click, Vector4 icon_color)
@@ -333,7 +366,7 @@ void lyra::ui::card(CString id, CString icon, CString label, bool is_selected, A
 
     draw_card_icon(pos, size, icon, icon_color);
 
-    finish_card(pos, size, label, card_id);
+    finish_card(pos, size, label, is_selected, on_click, &on_double_click, card_id);
 }
 
 void lyra::ui::card(CString id, GUITextureHandle image, Vector2 image_size, CString label, bool is_selected, ActionRef on_click)
@@ -353,7 +386,7 @@ void lyra::ui::card(CString id, GUITextureHandle image, Vector2 image_size, CStr
     ImGui::SetCursorScreenPos(ImVec2(pos.x + (size - display_size.x) * 0.5f, pos.y + (size - display_size.y) * 0.5f));
     ImGui::Image(as_type<ImTextureID>(image), display_size);
 
-    finish_card(pos, size, label, card_id);
+    finish_card(pos, size, label, is_selected, on_click, nullptr, card_id);
 }
 
 void lyra::ui::card(CString id, GUITextureHandle image, Vector2 image_size, CString label, bool is_selected, ActionRef on_click, ActionRef on_double_click)
@@ -373,5 +406,5 @@ void lyra::ui::card(CString id, GUITextureHandle image, Vector2 image_size, CStr
     ImGui::SetCursorScreenPos(ImVec2(pos.x + (size - display_size.x) * 0.5f, pos.y + (size - display_size.y) * 0.5f));
     ImGui::Image(as_type<ImTextureID>(image), display_size);
 
-    finish_card(pos, size, label, card_id);
+    finish_card(pos, size, label, is_selected, on_click, &on_double_click, card_id);
 }

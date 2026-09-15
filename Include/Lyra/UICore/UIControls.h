@@ -23,8 +23,8 @@ namespace lyra::ui
     // 2. Toggle Buttons (e.g. Play/Pause state, Log level filters T/D/I/W/E/C)
     // =========================================================================
 
-    void toggle_button(CString label, bool is_active, ChangeRef<bool> on_toggle);
-    void toggle_button(CString label, bool is_active, StatusRole active_role, ChangeRef<bool> on_toggle);
+    void toggle_button(CString label, bool is_active, ChangeRef<bool> on_toggle, Vector2 size = {0.0f, 0.0f});
+    void toggle_button(CString label, bool is_active, StatusRole active_role, ChangeRef<bool> on_toggle, Vector2 size = {0.0f, 0.0f});
 
     // =========================================================================
     // 3. Form & Search Inputs
@@ -33,8 +33,8 @@ namespace lyra::ui
     void checkbox(CString label, bool is_checked, ChangeRef<bool> on_toggle);
     void checkbox(CString label, bool is_checked);
 
-    void search_bar(char* buffer, size_t buffer_size, float width = 0.0f);
-    void search_bar(char* buffer, size_t buffer_size, ChangeRef<StringView> on_search, float width = 0.0f);
+    void search_bar(char* buffer, size_t buffer_size, float width = 0.0f, CString hint = nullptr);
+    void search_bar(char* buffer, size_t buffer_size, ChangeRef<StringView> on_search, float width = 0.0f, CString hint = nullptr);
 
     void text_field(CString label, char* buffer, size_t buffer_size);
     void text_field(CString label, char* buffer, size_t buffer_size, ActionRef on_commit);

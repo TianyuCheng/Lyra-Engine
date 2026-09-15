@@ -11,13 +11,18 @@ namespace
 {
     struct LayoutScope
     {
-        bool      in_row        = false;
-        bool      is_first_item = true;
-        Alignment align         = Alignment::Start;
-        ImGuiID   id            = 0;
+        bool      in_row             = false;
+        bool      is_first_item      = true;
+        Alignment align              = Alignment::Start;
+        ImGuiID   id                 = 0;
+        bool      has_spacer         = false;
+        bool      has_spacer_pending = false;
+        ImGuiID   spring_id          = 0;
+        float     spacer_screen_x    = 0.0f;
     };
 
     thread_local std::stack<LayoutScope> g_layout_stack;
+    thread_local int                     g_row_counter = 0;
 }
 
 namespace lyra::ui::internal
@@ -28,11 +33,18 @@ namespace lyra::ui::internal
 
         auto& current = g_layout_stack.top();
         if (current.in_row) {
-            if (!current.is_first_item) {
+            if (current.has_spacer_pending) {
+                current.has_spacer_pending = false;
+            } else if (!current.is_first_item) {
                 ImGui::SameLine();
             }
             current.is_first_item = false;
         }
+    }
+
+    void reset_layout_counters()
+    {
+        g_row_counter = 0;
     }
 }
 
@@ -43,7 +55,10 @@ void lyra::ui::row(ActionRef content)
 
 void lyra::ui::row(Alignment align, ActionRef content)
 {
-    ImGuiID row_id = ImGui::GetID("##LyraUIRow");
+    int row_idx = g_row_counter++;
+    ImGuiID row_id = ImGui::GetID(row_idx);
+    ImGui::PushID(row_id);
+
     ImGuiStorage* storage = ImGui::GetStateStorage();
     float prev_width = storage->GetFloat(row_id, 0.0f);
 
@@ -71,6 +86,20 @@ void lyra::ui::row(Alignment align, ActionRef content)
     float curr_width = ImGui::GetItemRectSize().x;
     storage->SetFloat(row_id, curr_width);
 
+    if (g_layout_stack.top().has_spacer) {
+        float post_width = ImGui::GetItemRectMax().x - g_layout_stack.top().spacer_screen_x;
+        if (post_width > 0.0f) {
+            storage->SetFloat(g_layout_stack.top().spring_id, post_width);
+        }
+
+        ImGuiWindow* window = ImGui::GetCurrentWindow();
+        float max_allowed = window->Pos.x + ImGui::GetWindowContentRegionMax().x;
+        if (window->DC.CursorMaxPos.x > max_allowed) {
+            window->DC.CursorMaxPos.x = max_allowed;
+        }
+    }
+
+    ImGui::PopID();
     g_layout_stack.pop();
 }
 
@@ -93,14 +122,20 @@ void lyra::ui::column(ActionRef content)
 void lyra::ui::toolbar(ActionRef content)
 {
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4.0f, 4.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f, 0.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f, 4.0f));
     row(Alignment::Start, content);
     ImGui::PopStyleVar(2);
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 4.0f);
 }
 
 void lyra::ui::scroll_area(CString id, ActionRef content)
 {
-    if (ImGui::BeginChild(id, ImVec2(0, 0), false)) {
+    scroll_area(id, 0.0f, content);
+}
+
+void lyra::ui::scroll_area(CString id, float reserve_bottom, ActionRef content)
+{
+    if (ImGui::BeginChild(id, ImVec2(0, -reserve_bottom), false)) {
         content();
     }
     ImGui::EndChild();
@@ -115,22 +150,27 @@ void lyra::ui::spacer()
 {
     if (g_layout_stack.empty() || !g_layout_stack.top().in_row) return;
 
-    ImGuiID spring_id = ImGui::GetID("##LyraUISpacer");
+    auto& current = g_layout_stack.top();
+    current.has_spacer = true;
+    current.has_spacer_pending = true;
+
+    current.spring_id = ImGui::GetID("##LyraUISpacer");
     ImGuiStorage* storage = ImGui::GetStateStorage();
-    float post_width = storage->GetFloat(spring_id, 0.0f);
+    float post_width = storage->GetFloat(current.spring_id, 0.0f);
+
+    if (!current.is_first_item) {
+        ImGui::SameLine();
+    }
 
     if (post_width > 0.0f) {
         float right_pos = ImGui::GetWindowContentRegionMax().x - post_width;
         if (right_pos > ImGui::GetCursorPosX()) {
-            ImGui::SameLine(right_pos);
-        } else {
-            ImGui::SameLine();
+            ImGui::SetCursorPosX(right_pos);
         }
-    } else {
-        ImGui::SameLine();
     }
 
-    g_layout_stack.top().is_first_item = false;
+    current.spacer_screen_x = ImGui::GetCursorScreenPos().x;
+    current.is_first_item = false;
 }
 
 void lyra::ui::separator()
@@ -138,9 +178,10 @@ void lyra::ui::separator()
     if (g_layout_stack.empty() || !g_layout_stack.top().in_row) {
         ImGui::Separator();
     } else {
+        internal::advance_layout_item();
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 2.0f);
         ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
-        ImGui::SameLine();
-        g_layout_stack.top().is_first_item = false;
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 2.0f);
     }
 }
 

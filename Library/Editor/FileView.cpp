@@ -74,7 +74,7 @@ void FileView::update(Blackboard& blackboard)
     ui::panel(LYRA_FILES_WINDOW_NAME, [&]() {
         handle_file_drop(blackboard);
 
-        ui::row([&]() {
+        ui::toolbar([&]() {
             show_breadcrumb();
             ui::spacer();
             ui::search_bar(search_filter, sizeof(search_filter), 250.0f);
@@ -82,7 +82,7 @@ void FileView::update(Blackboard& blackboard)
 
         ui::separator();
 
-        ui::scroll_area("FileBrowser", [&]() {
+        ui::scroll_area("FileBrowser", 32.0f, [&]() {
             show_dir_files(blackboard);
             show_context_menu(blackboard);
 
@@ -94,9 +94,28 @@ void FileView::update(Blackboard& blackboard)
         });
 
         ui::separator();
-        char count_buf[128];
-        snprintf(count_buf, sizeof(count_buf), " %zu items  |  %zu selected", files.size() + folders.size(), selection.size());
-        ui::label(count_buf, ui::StatusRole::Muted);
+        ui::row([&]() {
+            char count_buf[128];
+            snprintf(count_buf, sizeof(count_buf), " %zu items  |  %zu selected", files.size() + folders.size(), selection.size());
+            ui::label(count_buf, ui::StatusRole::Muted);
+
+            if (auto ams_ptr = blackboard.try_get<AssetServer*>()) {
+                auto ams = *ams_ptr;
+                auto stats = ams->get_pipeline_stats();
+                ui::spacer();
+                char status_buf[256];
+                if (stats.pending_count > 0) {
+                    snprintf(status_buf, sizeof(status_buf), "[Cooking: %u | %s]",
+                        stats.pending_count,
+                        stats.current_asset.empty() ? "..." : stats.current_asset.c_str());
+                    ui::label(status_buf, ui::StatusRole::Warning);
+                } else {
+                    snprintf(status_buf, sizeof(status_buf), "[Assets: %s | %u Cooked]",
+                        stats.watching ? "Watching" : "Idle", stats.completed_count);
+                    ui::label(status_buf, stats.watching ? ui::StatusRole::Success : ui::StatusRole::Muted);
+                }
+            }
+        });
     });
 }
 
@@ -104,35 +123,76 @@ void FileView::update(Blackboard& blackboard)
 
 void FileView::show_breadcrumb()
 {
-    ui::toolbar([&]() {
-        // Root / Home
-        if (curr == root) {
-            ui::icon_button(LYRA_ICON_HOME, nullptr, ui::ButtonRole::Standard);
+    // Root / Home
+    if (curr == root) {
+        ui::icon_button(LYRA_ICON_HOME, nullptr, ui::ButtonRole::Standard);
+    } else {
+        ui::icon_button(LYRA_ICON_HOME, [&]() {
+            update_directory(root);
+        }, "Go to Root");
+    }
+
+    for (size_t i = 0; i < breadcrumbs.size(); ++i) {
+        ui::label(LYRA_ICON_CARET, ui::StatusRole::Muted);
+
+        const auto& bc      = breadcrumbs[i];
+        bool        is_last = (i == breadcrumbs.size() - 1);
+
+        if (is_last) {
+            ui::label(bc.name.c_str());
         } else {
-            ui::icon_button(LYRA_ICON_HOME, [&]() {
-                update_directory(root);
-            }, "Go to Root");
+            ui::button(bc.name.c_str(), [&]() {
+                update_directory(bc.path);
+            });
         }
-
-        for (size_t i = 0; i < breadcrumbs.size(); ++i) {
-            ui::label(LYRA_ICON_CARET, ui::StatusRole::Muted);
-
-            const auto& bc      = breadcrumbs[i];
-            bool        is_last = (i == breadcrumbs.size() - 1);
-
-            if (is_last) {
-                ui::label(bc.name.c_str());
-            } else {
-                ui::button(bc.name.c_str(), [&]() {
-                    update_directory(bc.path);
-                });
-            }
-        }
-    });
+    }
 }
 
 void FileView::show_dir_files(Blackboard& blackboard)
 {
+    Vector2 mouse_pos = ui::mouse_pos();
+    ui::Rect marquee_rect;
+
+    // Explorer / Finder style background click logic:
+    // When clicking on empty background (no item hovered or active), start marquee drag selection.
+    if (ui::is_panel_hovered() && !ui::is_any_item_hovered() && !ui::is_any_item_active()) {
+        if (ui::is_mouse_clicked(0)) {
+            is_marquee_selecting = true;
+            marquee_start_pos    = mouse_pos;
+            initial_selection    = ui::is_ctrl_down() ? selection.items : Vector<String>();
+            if (!ui::is_ctrl_down()) {
+                selection.clear();
+            }
+        }
+    }
+
+    bool is_releasing = false;
+    if (is_marquee_selecting) {
+        if (ui::is_mouse_released(0)) {
+            is_releasing = true;
+        }
+        marquee_rect = ui::Rect{
+            Vector2{std::min(marquee_start_pos.x, mouse_pos.x), std::min(marquee_start_pos.y, mouse_pos.y)},
+            Vector2{std::max(marquee_start_pos.x, mouse_pos.x), std::max(marquee_start_pos.y, mouse_pos.y)}
+        };
+        if (!is_releasing) {
+            ui::draw_selection_rect(marquee_rect.min, marquee_rect.max);
+        }
+        selection.items = initial_selection;
+    }
+
+    auto handle_marquee = [&](StringView name) {
+        if (is_marquee_selecting) {
+            Vector2 pos = ui::cursor_screen_pos();
+            ui::Rect item_rect{ pos, pos + Vector2{100.0f, 130.0f} };
+            if (marquee_rect.overlaps(item_rect)) {
+                if (!selection.is_selected(name)) {
+                    selection.items.emplace_back(name);
+                }
+            }
+        }
+    };
+
     String filter(search_filter);
     auto matches_filter = [&](StringView name) {
         if (filter.empty()) return true;
@@ -147,6 +207,7 @@ void FileView::show_dir_files(Blackboard& blackboard)
         for (const auto& folder : folders) {
             if (!matches_filter(folder)) continue;
             ui::grid_item([&]() {
+                handle_marquee(folder);
                 show_item(blackboard, folder, true);
             });
         }
@@ -154,10 +215,16 @@ void FileView::show_dir_files(Blackboard& blackboard)
         for (const auto& file : files) {
             if (!matches_filter(file)) continue;
             ui::grid_item([&]() {
+                handle_marquee(file);
                 show_item(blackboard, file, false);
             });
         }
     });
+
+    if (is_releasing) {
+        is_marquee_selecting = false;
+        initial_selection.clear();
+    }
 
     load_thumbnails(blackboard);
 }
@@ -395,6 +462,8 @@ void FileView::perform_update_directory(const Path& path, bool force)
     all_items.clear();
     breadcrumbs.clear();
     selection.clear();
+    is_marquee_selecting = false;
+    initial_selection.clear();
 
     if (bboard && bboard->has<GUIRenderer*>()) {
         auto gui = bboard->get<GUIRenderer*>();

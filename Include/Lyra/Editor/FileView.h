@@ -86,6 +86,9 @@ namespace lyra
         float              notification_timer      = 0.0f;
 
         SelectionModel selection;
+        bool           is_marquee_selecting = false;
+        Vector2        marquee_start_pos    = {0.0f, 0.0f};
+        Vector<String> initial_selection    = {};
 
         HashMap<String, ThumbnailTexture> thumbnails;
         Vector<std::pair<String, String>> queued_thumbnails;

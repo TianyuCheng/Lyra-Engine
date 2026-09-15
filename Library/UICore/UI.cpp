@@ -9,8 +9,14 @@ using namespace lyra::ui;
 // 1. Panels & Viewport
 // =============================================================================
 
+namespace lyra::ui::internal
+{
+    void reset_layout_counters();
+}
+
 void lyra::ui::panel(CString title, ActionRef content)
 {
+    internal::reset_layout_counters();
     if (ImGui::Begin(title)) {
         content();
     }
@@ -19,6 +25,7 @@ void lyra::ui::panel(CString title, ActionRef content)
 
 void lyra::ui::panel(CString title, bool* p_open, ActionRef content)
 {
+    internal::reset_layout_counters();
     if (ImGui::Begin(title, p_open)) {
         content();
     }
@@ -44,9 +51,62 @@ bool lyra::ui::is_panel_hovered()
     return ImGui::IsWindowHovered(hovered_flags);
 }
 
+bool lyra::ui::is_any_item_hovered()
+{
+    return ImGui::IsAnyItemHovered();
+}
+
+bool lyra::ui::is_any_item_active()
+{
+    return ImGui::IsAnyItemActive();
+}
+
+bool lyra::ui::is_mouse_clicked(int button)
+{
+    return ImGui::IsMouseClicked(button);
+}
+
+bool lyra::ui::is_mouse_released(int button)
+{
+    return ImGui::IsMouseReleased(button);
+}
+
+bool lyra::ui::is_mouse_down(int button)
+{
+    return ImGui::IsMouseDown(button);
+}
+
 bool lyra::ui::is_ctrl_down()
 {
     return ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper;
+}
+
+Vector2 lyra::ui::mouse_pos()
+{
+    ImVec2 pos = ImGui::GetMousePos();
+    return Vector2{pos.x, pos.y};
+}
+
+Vector2 lyra::ui::cursor_screen_pos()
+{
+    ImVec2 pos = ImGui::GetCursorScreenPos();
+    return Vector2{pos.x, pos.y};
+}
+
+void lyra::ui::draw_selection_rect(Vector2 min, Vector2 max)
+{
+    ImVec2 p_min(std::min(min.x, max.x), std::min(min.y, max.y));
+    ImVec2 p_max(std::max(min.x, max.x), std::max(min.y, max.y));
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    draw_list->AddRectFilled(p_min, p_max, ImGui::GetColorU32(ImGuiCol_Header, 0.3f));
+    draw_list->AddRect(p_min, p_max, ImGui::GetColorU32(ImGuiCol_Header, 1.0f));
+}
+
+Rect lyra::ui::last_item_rect()
+{
+    ImVec2 min_pos = ImGui::GetItemRectMin();
+    ImVec2 max_pos = ImGui::GetItemRectMax();
+    return Rect{ Vector2{min_pos.x, min_pos.y}, Vector2{max_pos.x, max_pos.y} };
 }
 
 void lyra::ui::image(GUITextureHandle texture, Vector2 size)

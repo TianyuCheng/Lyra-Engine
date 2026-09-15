@@ -46,21 +46,6 @@ static void imgui_update(Blackboard& blackboard)
                 }
                 ImGui::EndMenu();
             }
-
-            auto stats = ams->get_pipeline_stats();
-            float status_width = 300.0f;
-            float right_pos    = ImGui::GetWindowWidth() - status_width;
-            if (right_pos > ImGui::GetCursorPosX()) {
-                ImGui::SameLine(right_pos);
-            }
-            if (stats.pending_count > 0) {
-                ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "[Cooking: %u | %s]",
-                    stats.pending_count,
-                    stats.current_asset.empty() ? "..." : stats.current_asset.c_str());
-            } else {
-                ImGui::TextColored(ImVec4(0.4f, 0.85f, 0.4f, 1.0f), "[Assets: %s | %u Cooked]",
-                    stats.watching ? "Watching" : "Idle", stats.completed_count);
-            }
         }
         ImGui::EndMainMenuBar();
     }

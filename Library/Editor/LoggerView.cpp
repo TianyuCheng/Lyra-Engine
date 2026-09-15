@@ -59,7 +59,7 @@ void LoggerView::show_bar()
             bool active = (level_filter & (1 << (int)level)) != 0;
             ui::toggle_button(label, active, role, [&](bool) {
                 level_filter ^= (1 << (int)level);
-            });
+            }, Vector2{26.0f, 0.0f});
         };
 
         level_button("T", LogLevel::trace, ui::StatusRole::Muted);
@@ -71,8 +71,9 @@ void LoggerView::show_bar()
 
         ui::separator();
 
-        // Search filter
-        ui::search_bar(filter, sizeof(filter));
+        // Right-aligned fixed-size search filter
+        ui::spacer();
+        ui::search_bar(filter, sizeof(filter), 250.0f);
     });
 }
 

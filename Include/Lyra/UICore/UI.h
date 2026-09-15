@@ -17,6 +17,18 @@ namespace lyra::ui
     template <typename T>
     using ChangeRef = FunctionRef<void(const T&)>;
 
+    struct Rect
+    {
+        Vector2 min = {0.0f, 0.0f};
+        Vector2 max = {0.0f, 0.0f};
+
+        bool overlaps(const Rect& other) const
+        {
+            return min.x < other.max.x && max.x > other.min.x &&
+                   min.y < other.max.y && max.y > other.min.y;
+        }
+    };
+
     // =========================================================================
     // 1. Panels (Top-level workspace panels)
     // =========================================================================
@@ -28,7 +40,16 @@ namespace lyra::ui
     auto available_space() -> Vector2;
     bool is_panel_appearing();
     bool is_panel_hovered();
+    bool is_any_item_hovered();
+    bool is_any_item_active();
+    bool is_mouse_clicked(int button = 0);
+    bool is_mouse_released(int button = 0);
+    bool is_mouse_down(int button = 0);
     bool is_ctrl_down();
+    auto mouse_pos() -> Vector2;
+    auto cursor_screen_pos() -> Vector2;
+    void draw_selection_rect(Vector2 min, Vector2 max);
+    Rect last_item_rect();
 
     // Texture / Framebuffer display
     void image(GUITextureHandle texture, Vector2 size);

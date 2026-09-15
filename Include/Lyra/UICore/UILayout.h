@@ -18,6 +18,7 @@ namespace lyra::ui
 
     // Scrollable container for logs, file browsers, etc.
     void scroll_area(CString id, ActionRef content);
+    void scroll_area(CString id, float reserve_bottom, ActionRef content);
     void scroll_to_bottom();
 
     // Dynamic flexible spacer (spring): pushes subsequent items in a row to the far right
