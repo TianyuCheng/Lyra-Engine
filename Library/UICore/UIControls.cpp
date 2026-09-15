@@ -1,6 +1,6 @@
 #include <imgui.h>
 #include <imgui_internal.h>
-#include <Lyra/Editor/Icons.h>
+#include <Lyra/UICore/UIIcons.h>
 #include <Lyra/UICore/UIControls.h>
 
 using namespace lyra;

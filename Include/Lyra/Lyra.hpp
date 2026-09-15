@@ -28,6 +28,7 @@
 #include <Lyra/Render/RHITypes.h>
 #include <Lyra/Render/RHIInits.h>
 #include <Lyra/UICore/GUITypes.h>
+#include <Lyra/UICore/UIIcons.h>
 #include <Lyra/FileIO/VFSEnums.h>
 #include <Lyra/FileIO/VFSTypes.h>
 #include <Lyra/Assets/AMSUtils.h>
@@ -58,21 +59,12 @@
 #include <Lyra/Format/TextureAsset.h>
 #include <Lyra/Format/MaterialAsset.h>
 
-// Editor files
-#include <Lyra/Editor/Canvas.h>
-#include <Lyra/Editor/Layout.h>
-#include <Lyra/Editor/FileView.h>
-#include <Lyra/Editor/TreeView.h>
-#include <Lyra/Editor/SceneView.h>
-#include <Lyra/Editor/ObjectView.h>
-#include <Lyra/Editor/LoggerView.h>
-
-// Player headers
-#include <Lyra/Player/Application.h>
-#include <Lyra/Player/AssetLayer.h>
-#include <Lyra/Player/SceneLayer.h>
-#include <Lyra/Player/CameraLayer.h>
-#include <Lyra/Player/EditorLayer.h>
-#include <Lyra/Player/TimingLayer.h>
+// Engine headers
+#include <Lyra/Engine/Application.h>
+#include <Lyra/Engine/AssetLayer.h>
+#include <Lyra/Engine/SceneLayer.h>
+#include <Lyra/Engine/CameraLayer.h>
+#include <Lyra/Engine/TimingLayer.h>
+#include <Lyra/Engine/ImGuiLayer.h>
 
 #endif // LYRA_LYRA_LYRA_HPP

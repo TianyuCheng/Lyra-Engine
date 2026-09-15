@@ -101,25 +101,13 @@ target_sources(lyra-headers INTERFACE
     Lyra/Format/TextureAsset.h
     Lyra/Format/TomlAsset.h
 
-    # editor
-    Lyra/Editor/Canvas.h
-    Lyra/Editor/Colors.h
-    Lyra/Editor/FileView.h
-    Lyra/Editor/Icons.h
-    Lyra/Editor/Layout.h
-    Lyra/Editor/LoggerView.h
-    Lyra/Editor/ObjectView.h
-    Lyra/Editor/SceneView.h
-    Lyra/Editor/SelectionModel.h
-    Lyra/Editor/TreeView.h
-
-    # player
-    Lyra/Player/Application.h
-    Lyra/Player/AssetLayer.h
-    Lyra/Player/CameraLayer.h
-    Lyra/Player/EditorLayer.h
-    Lyra/Player/SceneLayer.h
-    Lyra/Player/TimingLayer.h
+    # engine
+    Lyra/Engine/Application.h
+    Lyra/Engine/AssetLayer.h
+    Lyra/Engine/CameraLayer.h
+    Lyra/Engine/ImGuiLayer.h
+    Lyra/Engine/SceneLayer.h
+    Lyra/Engine/TimingLayer.h
 
     # scenes
     Lyra/Scenes/Camera.h
@@ -134,6 +122,7 @@ target_sources(lyra-headers INTERFACE
     Lyra/UICore/GUIEnums.h
     Lyra/UICore/GUITypes.h
     Lyra/UICore/UIEnums.h
+    Lyra/UICore/UIIcons.h
     Lyra/UICore/UI.h
     Lyra/UICore/UILayout.h
     Lyra/UICore/UIControls.h

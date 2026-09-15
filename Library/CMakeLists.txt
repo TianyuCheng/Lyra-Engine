@@ -116,23 +116,13 @@ target_sources(lyra-engine PRIVATE
   # scenes
   Scenes/SceneTree.cpp
 
-  # editor
-  Editor/TreeView.cpp
-  Editor/Layout.cpp
-  Editor/Canvas.cpp
-  Editor/FileView.cpp
-  Editor/SceneView.cpp
-  Editor/ObjectView.cpp
-  Editor/LoggerView.cpp
-  Editor/SelectionModel.cpp
-
-  # player
-  Player/Application.cpp
-  Player/AssetLayer.cpp
-  Player/SceneLayer.cpp
-  Player/CameraLayer.cpp
-  Player/EditorLayer.cpp
-  Player/TimingLayer.cpp
+  # engine
+  Engine/Application.cpp
+  Engine/AssetLayer.cpp
+  Engine/SceneLayer.cpp
+  Engine/CameraLayer.cpp
+  Engine/TimingLayer.cpp
+  Engine/ImGuiLayer.cpp
 )
 
 # link headers and common
@@ -140,11 +130,11 @@ target_link_libraries(lyra-engine PUBLIC lyra::commons)
 target_link_libraries(lyra-engine PUBLIC lyra::headers)
 
 # link builtin plugins
-target_link_libraries(lyra-engine PRIVATE lyra::imgui)
 target_link_libraries(lyra-engine PRIVATE lyra::mesh)
 target_link_libraries(lyra-engine PRIVATE lyra::model)
 target_link_libraries(lyra-engine PRIVATE lyra::scene)
-target_link_libraries(lyra-engine PRIVATE lyra::texture)
-target_link_libraries(lyra-engine PRIVATE lyra::material)
+target_link_libraries(lyra-engine PRIVATE lyra::imgui)
 target_link_libraries(lyra-engine PRIVATE lyra::loader)
 target_link_libraries(lyra-engine PRIVATE lyra::packer)
+target_link_libraries(lyra-engine PRIVATE lyra::texture)
+target_link_libraries(lyra-engine PRIVATE lyra::material)
