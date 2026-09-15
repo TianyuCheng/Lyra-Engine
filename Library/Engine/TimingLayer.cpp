@@ -22,7 +22,8 @@ void TimingLayer::update(Blackboard&)
     auto now = std::chrono::high_resolution_clock::now();
 
     // calculate actual delta time
-    auto delta      = now - last_frame_time;
+    std::chrono::duration<float> delta = now - last_frame_time;
+
     last_frame_time = now;
 
     if (clock.paused) {

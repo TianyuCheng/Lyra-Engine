@@ -475,7 +475,7 @@ struct VulkanSwapchain
     explicit VulkanSwapchain();
     explicit VulkanSwapchain(const GPUSurfaceDescriptor& desc, VkSurfaceKHR surface);
 
-    void recreate();
+    void recreate(bool force = false);
     void destroy();
 
     bool valid() const { return swapchain != VK_NULL_HANDLE; }
@@ -781,7 +781,7 @@ auto find_queue_family_indices(VkPhysicalDevice device, VkSurfaceKHR surface) ->
 // swaphain utils
 auto query_swapchain_support(VkPhysicalDevice adapter, VkSurfaceKHR surface) -> SwapchainSupportDetails;
 auto choose_swap_surface_format(const Vector<VkSurfaceFormatKHR>& availableFormats) -> VkSurfaceFormatKHR;
-auto choose_swap_present_mode(const Vector<VkPresentModeKHR>& availablePresentModes) -> VkPresentModeKHR;
+auto choose_swap_present_mode(GPUPresentMode mode, const Vector<VkPresentModeKHR>& availablePresentModes) -> VkPresentModeKHR;
 auto choose_swap_extent(const GPUSurfaceDescriptor& desc, const VkSurfaceCapabilitiesKHR& capabilities) -> VkExtent2D;
 
 // size of

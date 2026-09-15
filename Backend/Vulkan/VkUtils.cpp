@@ -217,11 +217,12 @@ VkSurfaceFormatKHR choose_swap_surface_format(const Vector<VkSurfaceFormatKHR>& 
     return availableFormats.at(0);
 }
 
-VkPresentModeKHR choose_swap_present_mode(const Vector<VkPresentModeKHR>& availablePresentModes)
+VkPresentModeKHR choose_swap_present_mode(GPUPresentMode mode, const Vector<VkPresentModeKHR>& availablePresentModes)
 {
+    VkPresentModeKHR desired = vkenum(mode);
     for (const auto& availablePresentMode : availablePresentModes) {
-        if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
-            return availablePresentMode;
+        if (availablePresentMode == desired) {
+            return desired;
         }
     }
     return VK_PRESENT_MODE_FIFO_KHR;

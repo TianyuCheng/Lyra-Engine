@@ -53,19 +53,30 @@ VulkanSwapchain::VulkanSwapchain(const GPUSurfaceDescriptor& desc, VkSurfaceKHR 
     }
 }
 
-void VulkanSwapchain::recreate()
+void VulkanSwapchain::recreate(bool force)
 {
     auto rhi = get_rhi();
 
-    SwapchainSupportDetails swapchain_support = query_swapchain_support(rhi->adapter, surface);
-    VkExtent2D              swapchain_extent  = choose_swap_extent(desc, swapchain_support.capabilities);
-    VkSurfaceFormatKHR      surface_format    = choose_swap_surface_format(swapchain_support.formats);
-    VkPresentModeKHR        present_mode      = choose_swap_present_mode(swapchain_support.present_modes);
+    auto swapchain_support = query_swapchain_support(rhi->adapter, surface);
+    auto swapchain_extent  = choose_swap_extent(desc, swapchain_support.capabilities);
+    if (swapchain_extent.width == 0 || swapchain_extent.height == 0) {
+        return;
+    }
 
-    uint32_t image_count = std::clamp(
-        desc.frames,
-        swapchain_support.capabilities.minImageCount,
-        swapchain_support.capabilities.maxImageCount);
+    if (!force && this->swapchain != VK_NULL_HANDLE &&
+        this->extent.width == swapchain_extent.width &&
+        this->extent.height == swapchain_extent.height) {
+        return;
+    }
+
+    auto surface_format = choose_swap_surface_format(swapchain_support.formats);
+    auto present_mode   = choose_swap_present_mode(desc.present_mode, swapchain_support.present_modes);
+
+    uint32_t image_count = desc.frames;
+    if (image_count < swapchain_support.capabilities.minImageCount)
+        image_count = swapchain_support.capabilities.minImageCount;
+    if (swapchain_support.capabilities.maxImageCount > 0 && image_count > swapchain_support.capabilities.maxImageCount)
+        image_count = swapchain_support.capabilities.maxImageCount;
 
     auto create_info             = VkSwapchainCreateInfoKHR{};
     create_info.sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -118,11 +129,22 @@ void VulkanSwapchain::recreate()
         rhi->set_debug_label(VK_OBJECT_TYPE_IMAGE, (uint64_t)swapchain_images.at(i), name.c_str());
     }
 
+    // clean up excess frames if any
+    for (size_t i = count; i < frames.size(); i++)
+        frames.at(i).destroy();
+
     // create swapchain data
-    assert(frames.size() == 0 || frames.size() == count);
     frames.resize(count);
     for (uint i = 0; i < count; i++)
         frames.at(i).init(swapchain_images.at(i), surface_format.format, extent);
+
+    // ensure render complete semaphores exist for all images
+    if (render_complete_semaphores.size() < count) {
+        uint old_size = static_cast<uint>(render_complete_semaphores.size());
+        render_complete_semaphores.resize(count);
+        for (uint i = old_size; i < count; i++)
+            api::create_fence(render_complete_semaphores.at(i), VK_SEMAPHORE_TYPE_BINARY);
+    }
 }
 
 void VulkanSwapchain::destroy()
@@ -302,7 +324,6 @@ bool api::acquire_next_frame(GPUSurfaceHandle surface, GPUTextureHandle& texture
     frame.frame_id                  = rhi->current_frame_index;
     frame.inflight_fence            = swp.inflight_fences.at(ind);
     frame.image_available_semaphore = swp.image_available_semaphores.at(ind);
-    frame.existing_fences.push_back(frame.inflight_fence.fence);
 
     // initialize suboptimal
     suboptimal = false;
@@ -310,14 +331,23 @@ bool api::acquire_next_frame(GPUSurfaceHandle surface, GPUTextureHandle& texture
     // acquire next frame
     auto semaphore = fetch_resource(rhi->fences, frame.image_available_semaphore);
     auto result    = rhi->vtable.vkAcquireNextImageKHR(rhi->device, swp.swapchain, UINT64_MAX, semaphore.semaphore, VK_NULL_HANDLE, &rhi->current_image_index);
-    if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR) {
-        // recreate the swapchain if window resizes or moved to other displays
+
+    while (result == VK_ERROR_OUT_OF_DATE_KHR) {
         api::wait_idle();
-        swp.recreate();
-        suboptimal = true;
-        return true;
+        swp.recreate(true);
+        if (!swp.valid()) {
+            return false;
+        }
+        result = rhi->vtable.vkAcquireNextImageKHR(rhi->device, swp.swapchain, UINT64_MAX, semaphore.semaphore, VK_NULL_HANDLE, &rhi->current_image_index);
     }
-    vk_check(result);
+
+    if (result == VK_SUBOPTIMAL_KHR) {
+        suboptimal = true;
+    } else {
+        vk_check(result);
+    }
+
+    frame.existing_fences.push_back(frame.inflight_fence.fence);
 
     // update swapchain view (this must be done after current_image_index is updated)
     auto& swap_frame = swp.frames.at(rhi->current_image_index);
@@ -380,10 +410,14 @@ bool api::present_curr_frame(GPUSurfaceHandle surface)
     present_info.pResults           = nullptr;
 
     VkResult result = rhi->vtable.vkQueuePresentKHR(rhi->present_queue, &present_info);
-    if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR) {
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         // recreate the swapchain if window resizes or moved to other displays
         api::wait_idle();
-        swp.recreate();
+        swp.recreate(true);
+        return true;
+    } else if (result == VK_SUBOPTIMAL_KHR) {
+        api::wait_idle();
+        swp.recreate(false);
         return true;
     }
 
