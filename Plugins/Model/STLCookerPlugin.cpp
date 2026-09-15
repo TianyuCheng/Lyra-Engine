@@ -4,9 +4,9 @@
 #include <Lyra/Assets/Format/ModelAsset.h>
 #include "ModelUtils.h"
 
-#include <filesystem>
-#include <fstream>
 #include <numeric>
+#include <fstream>
+#include <filesystem>
 
 using namespace lyra;
 using namespace lyra::model;
@@ -26,9 +26,9 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
 
         // Cache subdirectories
         fs::path root(caches_root);
-        fs::path models_dir   = root / "models";
-        fs::path meshes_dir   = root / "meshes";
-        fs::path textures_dir = root / "textures";
+        fs::path models_dir    = root / "models";
+        fs::path meshes_dir    = root / "meshes";
+        fs::path textures_dir  = root / "textures";
         fs::path materials_dir = root / "materials";
         fs::create_directories(models_dir);
         fs::create_directories(meshes_dir);
@@ -36,39 +36,28 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
         fs::create_directories(materials_dir);
 
         // determine if binary or ascii
-        char header[80] = {};
-        file.read(header, 80);
-        if (file.gcount() < 5) {
-            get_logger()->error("STL file too small: {}", Path(source_path).string());
-            return false;
+        std::error_code ec;
+        uintmax_t file_size = fs::file_size(source_path, ec);
+        bool is_binary = false;
+        uint32_t triangle_count = 0;
+
+        if (!ec && file_size >= 84) {
+            file.seekg(80);
+            file.read(reinterpret_cast<char*>(&triangle_count), 4);
+            if (file_size == 84 + static_cast<uint64_t>(triangle_count) * 50) {
+                is_binary = true;
+            } else {
+                file.seekg(0);
+                char header[80] = {};
+                file.read(header, 80);
+                is_binary = (std::string_view(header, 5) != "solid");
+            }
         }
-
-        bool is_binary = true;
-        if (std::string_view(header, 5) == "solid") {
-            is_binary = false;
-        }
-
-        MeshAsset mesh;
-        MeshLOD& lod = mesh.lods.emplace_back();
-        MeshAttribute& pos_attr = lod.attributes.emplace_back();
-        pos_attr.semantics = MeshSemantics::POSITION;
-        pos_attr.format = GPUVertexFormat::FLOAT32x3;
-
-        MeshAttribute& norm_attr = lod.attributes.emplace_back();
-        norm_attr.semantics = MeshSemantics::NORMAL;
-        norm_attr.format = GPUVertexFormat::FLOAT32x3;
 
         Vector<Vector3> positions;
         Vector<Vector3> normals;
 
         if (is_binary) {
-            uint32_t triangle_count = 0;
-            file.read(reinterpret_cast<char*>(&triangle_count), 4);
-            if (file.gcount() < 4) {
-                get_logger()->error("Corrupted binary STL file: {}", Path(source_path).string());
-                return false;
-            }
-
             constexpr uint32_t max_triangles = 50'000'000;
             if (triangle_count > max_triangles) {
                 get_logger()->error("STL triangle count too large ({}): {}", triangle_count, Path(source_path).string());
@@ -79,7 +68,7 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
             normals.reserve(triangle_count * 3);
 
             for (uint32_t i = 0; i < triangle_count; ++i) {
-                Vector3 n, v0, v1, v2;
+                Vector3  n, v0, v1, v2;
                 uint16_t attr_byte_count;
 
                 if (!file.read(reinterpret_cast<char*>(&n), 12) ||
@@ -91,12 +80,16 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
                     break;
                 }
 
-                normals.push_back(n); normals.push_back(n); normals.push_back(n);
-                positions.push_back(v0); positions.push_back(v1); positions.push_back(v2);
+                normals.push_back(n);
+                normals.push_back(n);
+                normals.push_back(n);
+                positions.push_back(v0);
+                positions.push_back(v1);
+                positions.push_back(v2);
             }
         } else {
             file.seekg(0);
-            String line;
+            String  line;
             Vector3 n;
             while (std::getline(file, line)) {
                 if (line.find("facet normal") != String::npos) {
@@ -116,11 +109,20 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
             return false;
         }
 
-        pos_attr.element_count = static_cast<uint>(positions.size());
+        MeshAsset mesh;
+        MeshLOD&  lod = mesh.lods.emplace_back();
+
+        MeshAttribute& pos_attr = lod.attributes.emplace_back();
+        pos_attr.semantics      = MeshSemantics::POSITION;
+        pos_attr.format         = GPUVertexFormat::FLOAT32x3;
+        pos_attr.element_count  = static_cast<uint>(positions.size());
         pos_attr.data.resize(positions.size() * sizeof(Vector3));
         memcpy(pos_attr.data.data(), positions.data(), pos_attr.data.size());
 
-        norm_attr.element_count = static_cast<uint>(normals.size());
+        MeshAttribute& norm_attr = lod.attributes.emplace_back();
+        norm_attr.semantics      = MeshSemantics::NORMAL;
+        norm_attr.format         = GPUVertexFormat::FLOAT32x3;
+        norm_attr.element_count  = static_cast<uint>(normals.size());
         norm_attr.data.resize(normals.size() * sizeof(Vector3));
         memcpy(norm_attr.data.data(), normals.data(), norm_attr.data.size());
 
@@ -129,9 +131,9 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
         uint32_t* indices = reinterpret_cast<uint32_t*>(lod.index_data.data());
         std::iota(indices, indices + positions.size(), 0);
 
-        MeshSurface& surf = lod.surfaces.emplace_back();
-        surf.slice.first_index = 0;
-        surf.slice.index_count = static_cast<uint>(positions.size());
+        MeshSurface& surf       = lod.surfaces.emplace_back();
+        surf.slice.first_index  = 0;
+        surf.slice.index_count  = static_cast<uint>(positions.size());
         surf.slice.first_vertex = 0;
         surf.slice.vertex_count = static_cast<uint>(positions.size());
 
@@ -144,8 +146,8 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
         surf.min_bounds = mesh.min_bounds;
         surf.max_bounds = mesh.max_bounds;
 
-        AssetID mesh_id = random_guid();
-        Path mesh_cache_path = meshes_dir / (std::to_string(mesh_id) + ".mesh");
+        AssetID mesh_id         = random_guid();
+        Path    mesh_cache_path = meshes_dir / (std::to_string(mesh_id) + ".mesh");
         MeshAsset::saver().save(&mesh, mesh_cache_path.c_str());
 
         ModelAsset model;
@@ -161,8 +163,8 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
             return false;
         }
 
-        AssetID model_id = metadata["guid"].get<AssetID>();
-        Path model_cache_path = models_dir / (std::to_string(model_id) + ".model");
+        AssetID model_id         = metadata["guid"].get<AssetID>();
+        Path    model_cache_path = models_dir / (std::to_string(model_id) + ".model");
         ModelAsset::saver().save(&model, model_cache_path.c_str());
 
         metadata["path"]         = "models/" + std::to_string(model_id) + ".model";
@@ -192,10 +194,10 @@ namespace lyra::stl::cooker
     void cleanup() {}
     auto create() -> AssetCookerAPI
     {
-        auto api = AssetCookerAPI{};
-        api.configure = configure_stl;
-        api.process = process_stl;
+        auto api                     = AssetCookerAPI{};
+        api.configure                = configure_stl;
+        api.process                  = process_stl;
         api.get_supported_extensions = get_stl_extensions;
         return api;
     }
-}
+} // namespace lyra::stl::cooker
