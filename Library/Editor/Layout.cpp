@@ -1,4 +1,5 @@
 #include <Lyra/Editor/Layout.h>
+#include <Lyra/UICore/UIDock.h>
 
 using namespace lyra;
 
@@ -15,8 +16,12 @@ void EditorLayout::bind(Application& app)
 
 void EditorLayout::update(Blackboard& blackboard)
 {
-    ImGuiID dockspace_id = ImGui::GetMainViewport()->ID;
-    ImGui::DockSpaceOverViewport(dockspace_id, ImGui::GetMainViewport());
+    ui::workspace::LayoutSplit split;
+    split.left   = descriptor.left;
+    split.right  = descriptor.right;
+    split.top    = descriptor.top;
+    split.bottom = descriptor.bottom;
+    ui::workspace::setup(split);
 
     // running dock builder exactly once
     lyra::execute_once([&]() {
@@ -26,22 +31,12 @@ void EditorLayout::update(Blackboard& blackboard)
 
 EditorLayoutInfo EditorLayout::init() const
 {
-    ImGuiID dockspace_id = ImGui::GetMainViewport()->ID;
-
-    // clear old layout
-    ImGui::DockBuilderRemoveNode(dockspace_id);
-    ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
-    ImGui::DockBuilderSetNodeSize(dockspace_id, ImGui::GetMainViewport()->Size);
-
-    // split the dockspace into regions
+    auto nodes = ui::workspace::get_nodes();
     EditorLayoutInfo layout{};
-    layout.main   = dockspace_id;
-    layout.top    = ImGui::DockBuilderSplitNode(layout.main, ImGuiDir_Up, descriptor.top, nullptr, &layout.main);
-    layout.left   = ImGui::DockBuilderSplitNode(layout.main, ImGuiDir_Left, descriptor.left, nullptr, &layout.main);
-    layout.bottom = ImGui::DockBuilderSplitNode(layout.main, ImGuiDir_Down, descriptor.bottom, nullptr, &layout.main);
-    layout.right  = ImGui::DockBuilderSplitNode(layout.main, ImGuiDir_Right, descriptor.right, nullptr, &layout.main);
-
-    // finish
-    ImGui::DockBuilderFinish(dockspace_id);
+    layout.main   = nodes.main;
+    layout.top    = nodes.top;
+    layout.left   = nodes.left;
+    layout.bottom = nodes.bottom;
+    layout.right  = nodes.right;
     return layout;
 }

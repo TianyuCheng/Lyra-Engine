@@ -105,7 +105,6 @@ target_sources(lyra-headers INTERFACE
     Lyra/Editor/Canvas.h
     Lyra/Editor/Colors.h
     Lyra/Editor/FileView.h
-    Lyra/Editor/IconGrid.h
     Lyra/Editor/Icons.h
     Lyra/Editor/Layout.h
     Lyra/Editor/LoggerView.h
@@ -134,6 +133,14 @@ target_sources(lyra-headers INTERFACE
     Lyra/UICore/GUIAPI.h
     Lyra/UICore/GUIEnums.h
     Lyra/UICore/GUITypes.h
+    Lyra/UICore/UIEnums.h
+    Lyra/UICore/UI.h
+    Lyra/UICore/UILayout.h
+    Lyra/UICore/UIControls.h
+    Lyra/UICore/UIProperty.h
+    Lyra/UICore/UITree.h
+    Lyra/UICore/UIDock.h
+    Lyra/UICore/UIDialog.h
 )
 
 target_include_directories(lyra-headers INTERFACE

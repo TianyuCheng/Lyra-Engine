@@ -13,59 +13,72 @@ static void configure_cooker(AssetServer* manager, const JSON& options) {}
 
 static bool process_dds(JSON& metadata, OSPath source_path, OSPath target_path)
 {
-    String source_path_str = Path(source_path).string();
+    try {
+        String source_path_str = Path(source_path).string();
 
-    // Try to load thumbnail via STB first (supports many DDS formats including DXT1/5)
-    int w, h, c;
-    stbi_uc* data = stbi_load(source_path_str.c_str(), &w, &h, &c, STBI_rgb_alpha);
-    if (data) {
-        generate_thumbnail_from_pixels(metadata, data, w, h, sizeof(uint8_t), VK_FORMAT_R8G8B8A8_UNORM, target_path);
-        stbi_image_free(data);
-    }
+        // Try to load thumbnail via STB first (supports many DDS formats including DXT1/5)
+        int w = 0, h = 0, c = 0;
+        stbi_uc* data = stbi_load(source_path_str.c_str(), &w, &h, &c, STBI_rgb_alpha);
+        if (data) {
+            generate_thumbnail_from_pixels(metadata, data, w, h, sizeof(uint8_t), VK_FORMAT_R8G8B8A8_UNORM, target_path);
+            stbi_image_free(data);
+        }
 
-    gli::texture tex = gli::load(source_path_str);
-    if (tex.empty()) {
-        get_logger()->error("Failed to load DDS file: {}", source_path_str);
-        return false;
-    }
+        gli::texture tex = gli::load(source_path_str);
+        if (tex.empty() || tex.extent().x <= 0 || tex.extent().y <= 0) {
+            get_logger()->error("Failed to load or empty DDS file: {}", source_path_str);
+            return false;
+        }
 
-    VkFormat vk_format = gli_to_vk_format(tex.format());
-    if (vk_format == VK_FORMAT_UNDEFINED) {
-        get_logger()->error("Unsupported DDS format in file: {}", source_path_str);
-        return false;
-    }
+        VkFormat vk_format = gli_to_vk_format(tex.format());
+        if (vk_format == VK_FORMAT_UNDEFINED) {
+            get_logger()->error("Unsupported DDS format in file: {}", source_path_str);
+            return false;
+        }
 
-    ktxTexture2*         ktx_tex;
-    ktxTextureCreateInfo create_info;
-    create_info.glInternalformat = 0;
-    create_info.vkFormat         = vk_format;
-    create_info.baseWidth        = tex.extent().x;
-    create_info.baseHeight       = tex.extent().y;
-    create_info.baseDepth        = tex.extent().z;
-    create_info.numDimensions    = tex.target() == gli::TARGET_1D ? 1 : (tex.target() == gli::TARGET_3D ? 3 : 2);
-    create_info.numLevels        = static_cast<uint32_t>(tex.levels());
-    create_info.numLayers        = static_cast<uint32_t>(tex.layers());
-    create_info.numFaces         = static_cast<uint32_t>(tex.faces());
-    create_info.isArray          = tex.layers() > 1 ? KTX_TRUE : KTX_FALSE;
-    create_info.generateMipmaps  = KTX_FALSE;
+        ktxTexture2*         ktx_tex = nullptr;
+        ktxTextureCreateInfo create_info;
+        create_info.glInternalformat = 0;
+        create_info.vkFormat         = vk_format;
+        create_info.baseWidth        = static_cast<uint32_t>(tex.extent().x);
+        create_info.baseHeight       = static_cast<uint32_t>(tex.extent().y);
+        create_info.baseDepth        = static_cast<uint32_t>(std::max(1, tex.extent().z));
+        create_info.numDimensions    = tex.target() == gli::TARGET_1D ? 1 : (tex.target() == gli::TARGET_3D ? 3 : 2);
+        create_info.numLevels        = static_cast<uint32_t>(tex.levels());
+        create_info.numLayers        = static_cast<uint32_t>(tex.layers());
+        create_info.numFaces         = static_cast<uint32_t>(tex.faces());
+        create_info.isArray          = tex.layers() > 1 ? KTX_TRUE : KTX_FALSE;
+        create_info.generateMipmaps  = KTX_FALSE;
 
-    KTX_error_code result = ktxTexture2_Create(&create_info, KTX_TEXTURE_CREATE_ALLOC_STORAGE, &ktx_tex);
-    if (result != KTX_SUCCESS) {
-        get_logger()->error("Failed to create KTX2 texture from DDS: {}", ktxErrorString(result));
-        return false;
-    }
+        KTX_error_code result = ktxTexture2_Create(&create_info, KTX_TEXTURE_CREATE_ALLOC_STORAGE, &ktx_tex);
+        if (result != KTX_SUCCESS || !ktx_tex) {
+            get_logger()->error("Failed to create KTX2 texture from DDS: {}", ktxErrorString(result));
+            return false;
+        }
 
-    for (size_t layer = 0; layer < tex.layers(); ++layer) {
-        for (size_t face = 0; face < tex.faces(); ++face) {
-            for (size_t level = 0; level < tex.levels(); ++level) {
-                ktxTexture_SetImageFromMemory(ktxTexture(ktx_tex), static_cast<uint32_t>(level), static_cast<uint32_t>(layer), static_cast<uint32_t>(face),
-                    static_cast<const ktx_uint8_t*>(tex.data(layer, face, level)), tex.size(level));
+        for (size_t layer = 0; layer < tex.layers(); ++layer) {
+            for (size_t face = 0; face < tex.faces(); ++face) {
+                for (size_t level = 0; level < tex.levels(); ++level) {
+                    ktxTexture_SetImageFromMemory(ktxTexture(ktx_tex), static_cast<uint32_t>(level), static_cast<uint32_t>(layer), static_cast<uint32_t>(face),
+                        static_cast<const ktx_uint8_t*>(tex.data(layer, face, level)), tex.size(level));
+                }
             }
         }
-    }
 
-    const Path final_target_path = get_texture_cache_path(metadata["guid"].get<AssetID>(), target_path);
-    return save_to_ktx2(metadata, ktx_tex, final_target_path, target_path, get_logger());
+        if (!metadata.contains("guid") || !metadata["guid"].is_number()) {
+            ktxTexture_Destroy(ktxTexture(ktx_tex));
+            return false;
+        }
+
+        const Path final_target_path = get_texture_cache_path(metadata["guid"].get<AssetID>(), target_path);
+        return save_to_ktx2(metadata, ktx_tex, final_target_path, target_path, get_logger());
+    } catch (const std::exception& e) {
+        get_logger()->error("Exception while processing DDS file {}: {}", Path(source_path).string(), e.what());
+        return false;
+    } catch (...) {
+        get_logger()->error("Unknown error while processing DDS file {}", Path(source_path).string());
+        return false;
+    }
 }
 
 static uint get_dds_extensions(CString* extensions)

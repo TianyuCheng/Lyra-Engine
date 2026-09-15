@@ -324,49 +324,93 @@ Future<AssetID> AssetServer::import_asset(const Path& path, bool force)
             current_cooking_asset = path.string();
         }
 
-        // find processor to get type_id and type_name
-        AssetTypeID type_id = lyra::execute([&]() {
-            for (auto& [tid, proc] : processors)
-                for (auto& c : proc->cookers)
-                    if (&c == cooker)
-                        return tid;
-            return AssetTypeID(0);
-        });
-
-        // populate metadata and import (preprocess) the asset
-        JSON metadata;
-        metadata["guid"]    = guid;
-        metadata["version"] = "1";
-        metadata["type"]    = type_id;
-        metadata["time"]    = get_timestamp();
-        if (!cooker->process(metadata, (OSPath)source_path.c_str(), descriptor.importer.caches_path)) {
-            spdlog::error("Failed to cook asset: {}", path.string());
-            failed_cooks++;
+        auto finish_task = [this, &path](bool success) {
+            std::lock_guard lock(pipeline_mutex);
+            if (current_cooking_asset == path.string()) {
+                current_cooking_asset.clear();
+            }
+            if (success) {
+                completed_cooks++;
+            } else {
+                failed_cooks++;
+            }
             pending_cooks--;
+        };
+
+        try {
+            // find processor to get type_id and type_name
+            AssetTypeID type_id = lyra::execute([&]() {
+                for (auto& [tid, proc] : processors)
+                    for (auto& c : proc->cookers)
+                        if (&c == cooker)
+                            return tid;
+                return AssetTypeID(0);
+            });
+
+            if (type_id == 0) {
+                spdlog::error("No processor registered for cooker cooking {}", path.string());
+                finish_task(false);
+                return AssetID(0);
+            }
+
+            // populate metadata and import (preprocess) the asset
+            JSON metadata;
+            metadata["guid"]    = guid;
+            metadata["version"] = "1";
+            metadata["type"]    = type_id;
+            metadata["time"]    = get_timestamp();
+
+            bool cook_success = false;
+            try {
+                cook_success = cooker->process(metadata, (OSPath)source_path.c_str(), descriptor.importer.caches_path);
+            } catch (const std::exception& e) {
+                spdlog::error("Exception in cooker processing {}: {}", path.string(), e.what());
+                cook_success = false;
+            } catch (...) {
+                spdlog::error("Unknown exception in cooker processing {}", path.string());
+                cook_success = false;
+            }
+
+            if (!cook_success) {
+                spdlog::error("Failed to cook asset: {}", path.string());
+                // Remove incomplete .import file if it exists so corrupt metadata is not loaded
+                std::error_code ec;
+                if (fs::exists(import_path, ec)) {
+                    fs::remove(import_path, ec);
+                }
+                finish_task(false);
+                return AssetID(0);
+            }
+
+            save_json(import_path, metadata);
+
+            Vector<AssetID> dependencies;
+            if (metadata.contains("dependencies") && metadata["dependencies"].is_array()) {
+                dependencies = metadata["dependencies"].get<Vector<AssetID>>();
+            }
+
+            // for simplicity, let's assume registry is not thread-safe and use a mutex
+            static std::mutex registry_mutex;
+            {
+                std::lock_guard lock(registry_mutex);
+                registry.update(guid, path.string(), type_id, dependencies);
+            }
+
+            finish_task(true);
+
+            // Trigger hot-reload if the asset is currently loaded in memory
+            reload_asset(guid);
+
+            return guid;
+        } catch (const std::exception& e) {
+            spdlog::error("Unexpected exception while importing {}: {}", path.string(), e.what());
+            finish_task(false);
+            return AssetID(0);
+        } catch (...) {
+            spdlog::error("Unknown fatal error while importing {}", path.string());
+            finish_task(false);
             return AssetID(0);
         }
-
-        save_json(import_path, metadata);
-
-        Vector<AssetID> dependencies;
-        if (metadata.contains("dependencies") && metadata["dependencies"].is_array()) {
-            dependencies = metadata["dependencies"].get<Vector<AssetID>>();
-        }
-
-        // for simplicity, let's assume registry is not thread-safe and use a mutex
-        static std::mutex registry_mutex;
-        {
-            std::lock_guard lock(registry_mutex);
-            registry.update(guid, path.string(), type_id, dependencies);
-        }
-
-        completed_cooks++;
-        pending_cooks--;
-
-        // Trigger hot-reload if the asset is currently loaded in memory
-        reload_asset(guid);
-
-        return guid;
     });
 }
 
@@ -393,21 +437,27 @@ void AssetServer::reload_asset(AssetID guid)
     String path = String(registry.get_path(guid));
 
     pool.detach_task([this, proc_ptr, path, record, guid, type_id]() {
-        void* new_data = proc_ptr->loader.load(descriptor.loader.assets, path.c_str());
-        if (new_data) {
-            void* old_data = nullptr;
-            {
-                std::unique_lock alock(*proc_ptr->mutex);
-                old_data     = record->data;
-                record->data = new_data;
-            }
-            if (old_data) {
-                proc_ptr->loader.unload(old_data);
-            }
-            spdlog::info("AssetServer: Hot-reloaded asset {} (GUID: {:#x})", path, guid);
+        try {
+            void* new_data = proc_ptr->loader.load(descriptor.loader.assets, path.c_str());
+            if (new_data) {
+                void* old_data = nullptr;
+                {
+                    std::unique_lock alock(*proc_ptr->mutex);
+                    old_data     = record->data;
+                    record->data = new_data;
+                }
+                if (old_data) {
+                    proc_ptr->loader.unload(old_data);
+                }
+                spdlog::info("AssetServer: Hot-reloaded asset {} (GUID: {:#x})", path, guid);
 
-            std::lock_guard lock(pipeline_mutex);
-            queued_reloaded_assets.emplace_back(guid, type_id);
+                std::lock_guard lock(pipeline_mutex);
+                queued_reloaded_assets.emplace_back(guid, type_id);
+            }
+        } catch (const std::exception& e) {
+            spdlog::error("Failed to hot-reload asset {}: {}", path, e.what());
+        } catch (...) {
+            spdlog::error("Unknown error during hot-reload of asset {}", path);
         }
     });
 }

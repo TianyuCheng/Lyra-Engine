@@ -105,12 +105,18 @@ target_sources(lyra-engine PRIVATE
 
   # uicore
   UICore/GUITypes.cpp
+  UICore/UI.cpp
+  UICore/UILayout.cpp
+  UICore/UIControls.cpp
+  UICore/UIProperty.cpp
+  UICore/UITree.cpp
+  UICore/UIDock.cpp
+  UICore/UIDialog.cpp
 
   # scenes
   Scenes/SceneTree.cpp
 
   # editor
-  Editor/IconGrid.cpp
   Editor/TreeView.cpp
   Editor/Layout.cpp
   Editor/Canvas.cpp

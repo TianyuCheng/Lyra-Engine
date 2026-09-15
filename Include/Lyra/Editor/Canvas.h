@@ -3,7 +3,7 @@
 #ifndef LYRA_LYRA_EDITOR_CANVAS_H
 #define LYRA_LYRA_EDITOR_CANVAS_H
 
-#include <Lyra/Common/GUI.h>
+#include <Lyra/Common/Math.h>
 #include <Lyra/UICore/GUITypes.h>
 #include <Lyra/Render/RHITypes.h>
 
@@ -18,11 +18,6 @@ namespace lyra
         GPUTexture     texture = GPUTexture{};
         GPUTextureView texview = GPUTextureView{};
         GPUExtent2D    extent  = GPUExtent2D{};
-
-        auto imtex() const -> ImTextureID
-        {
-            return as_type<ImTextureID>(tex_id.texid);
-        }
     };
 
     struct Canvas
@@ -51,11 +46,11 @@ namespace lyra
         void delete_frames(Blackboard& blackboard);
 
     private:
-        uint   frame_count = 0;
-        uint   frame_index = 0;
-        ImVec2 frame_extent;
-        bool   frame_changed = false;
-        bool   frame_visible = false;
+        uint    frame_count   = 0;
+        uint    frame_index   = 0;
+        Vector2 frame_extent  = {0.0f, 0.0f};
+        bool    frame_changed = false;
+        bool    frame_visible = false;
 
         Vector<CanvasFrame> frames;
     };

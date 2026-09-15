@@ -1,4 +1,5 @@
 #include <Lyra/Editor/Canvas.h>
+#include <Lyra/UICore/UI.h>
 
 using namespace lyra;
 
@@ -53,13 +54,13 @@ Backbuffer Canvas::get_backbuffer() const
 void Canvas::display() const
 {
     auto& frame = get_frame();
-    ImGui::Image(frame.imtex(), frame_extent);
+    ui::image(frame.tex_id.texid, frame_extent);
 }
 
 void Canvas::detect_window()
 {
     // detect window appearing
-    frame_visible = ImGui::IsWindowAppearing();
+    frame_visible = ui::is_panel_appearing();
     frame_changed = false;
 
     // detect new frames
@@ -67,7 +68,7 @@ void Canvas::detect_window()
         frame_changed = true;
 
     // detect window resized
-    ImVec2 curr_extent = ImGui::GetContentRegionAvail();
+    Vector2 curr_extent = ui::available_space();
     if (curr_extent.x != frame_extent.x || curr_extent.y != frame_extent.y)
         frame_changed = true;
 
@@ -104,7 +105,7 @@ void Canvas::create_frames(Blackboard& blackboard)
         frame.texview = frame.texture.create_view();
         frame.extent  = extent;
 
-        // imgui's create_texture will take over ownership of texture and texview
+        // gui's create_texture will take over ownership of texture and texview
         frame.tex_id = gui->create_texture(frame.texture, frame.texview);
         frames.push_back(frame);
     }

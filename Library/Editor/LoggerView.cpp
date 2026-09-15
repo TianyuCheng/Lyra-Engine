@@ -1,10 +1,12 @@
-#include <Lyra/Common/GUI.h>
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Common/Function.h>
+#include <Lyra/UICore/UI.h>
+#include <Lyra/UICore/UILayout.h>
+#include <Lyra/UICore/UIControls.h>
+#include <Lyra/UICore/UIDock.h>
 
 // local imports
 #include <Lyra/Editor/Icons.h>
-#include <Lyra/Editor/Colors.h>
 #include <Lyra/Editor/Layout.h>
 #include <Lyra/Editor/LoggerView.h>
 
@@ -28,118 +30,84 @@ void LoggerView::bind(Application& app)
 void LoggerView::update(Blackboard& blackboard)
 {
     lyra::execute_once([&]() {
-        auto& layout = blackboard.get<EditorLayoutInfo>();
-        ImGui::DockBuilderDockWindow(LYRA_CONSOLE_WINDOW_NAME, layout.bottom);
+        ui::workspace::dock(LYRA_CONSOLE_WINDOW_NAME, ui::Area::Bottom);
     });
 
-    ImGui::Begin(LYRA_CONSOLE_WINDOW_NAME);
-    {
+    ui::panel(LYRA_CONSOLE_WINDOW_NAME, [&]() {
         show_bar();
         show_logs();
-    }
-    ImGui::End();
+    });
 }
 
 void LoggerView::show_bar()
 {
-    // Clear button
-    if (ImGui::Button(LYRA_ICON_DELETE " Clear")) {
-        get_console_sink()->get_console().clear();
-    }
-    ImGui::SameLine();
+    ui::toolbar([&]() {
+        // Clear button
+        ui::button(LYRA_ICON_DELETE " Clear", [&]() {
+            get_console_sink()->get_console().clear();
+        });
 
-    // Auto-scroll toggle
-    bool auto_scroll_active = auto_scroll;
-    if (auto_scroll_active) ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyle().Colors[ImGuiCol_ButtonActive]);
-    if (ImGui::Button(LYRA_ICON_REFRESH " Auto-scroll")) {
-        auto_scroll = !auto_scroll;
-    }
-    if (auto_scroll_active) ImGui::PopStyleColor();
-    ImGui::SameLine();
+        // Auto-scroll toggle
+        ui::toggle_button(LYRA_ICON_REFRESH " Auto-scroll", auto_scroll, [&](bool val) {
+            auto_scroll = val;
+        });
 
-    ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
-    ImGui::SameLine();
+        ui::separator();
 
-    // toggle buttons for each log level
-    auto level_button = [&](const char* label, LogLevel level, ImVec4 color) {
-        bool active = (level_filter & (1 << (int)level));
-        if (active) {
-            ImGui::PushStyleColor(ImGuiCol_Button, color);
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(color.x * 1.1f, color.y * 1.1f, color.z * 1.1f, color.w));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(color.x * 0.9f, color.y * 0.9f, color.z * 0.9f, color.w));
-        } else {
-            ImGui::PushStyleColor(ImGuiCol_Text, color);
-        }
+        // Toggle buttons for each log level
+        auto level_button = [&](CString label, LogLevel level, ui::StatusRole role) {
+            bool active = (level_filter & (1 << (int)level)) != 0;
+            ui::toggle_button(label, active, role, [&](bool) {
+                level_filter ^= (1 << (int)level);
+            });
+        };
 
-        if (ImGui::Button(label)) {
-            level_filter ^= (1 << (int)level);
-        }
+        level_button("T", LogLevel::trace, ui::StatusRole::Muted);
+        level_button("D", LogLevel::debug, ui::StatusRole::Info);
+        level_button("I", LogLevel::info, ui::StatusRole::Success);
+        level_button("W", LogLevel::warn, ui::StatusRole::Warning);
+        level_button("E", LogLevel::err, ui::StatusRole::Error);
+        level_button("C", LogLevel::critical, ui::StatusRole::Critical);
 
-        if (active) ImGui::PopStyleColor(3);
-        else ImGui::PopStyleColor(1);
-    };
+        ui::separator();
 
-    level_button("T", LogLevel::trace, LYRA_COLOR_TRACE); ImGui::SameLine();
-    level_button("D", LogLevel::debug, LYRA_COLOR_DEBUG); ImGui::SameLine();
-    level_button("I", LogLevel::info, LYRA_COLOR_INFO); ImGui::SameLine();
-    level_button("W", LogLevel::warn, LYRA_COLOR_WARN); ImGui::SameLine();
-    level_button("E", LogLevel::err, LYRA_COLOR_ERROR); ImGui::SameLine();
-    level_button("C", LogLevel::critical, LYRA_COLOR_CRITICAL);
-
-    ImGui::SameLine();
-    ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
-    ImGui::SameLine();
-
-    // log filter
-    ImGui::SetNextItemWidth(-1);
-    ImGui::InputTextWithHint("##LogFilter", LYRA_ICON_FILTER " Filter...", filter, 1024);
+        // Search filter
+        ui::search_bar(filter, sizeof(filter));
+    });
 }
 
 void LoggerView::show_logs() const
 {
     String filter_text(filter);
 
-    // change log color
-    auto set_text_color = [&](LogLevel level) {
-        ImGuiStyle& style  = ImGui::GetStyle();
-        ImVec4*     colors = style.Colors;
-        // clang-format off
+    auto get_status_role = [](LogLevel level) -> ui::StatusRole {
         switch (level) {
-            case LogLevel::trace:    colors[ImGuiCol_Text] = LYRA_COLOR_TRACE;    break;
-            case LogLevel::debug:    colors[ImGuiCol_Text] = LYRA_COLOR_DEBUG;    break;
-            case LogLevel::info:     colors[ImGuiCol_Text] = LYRA_COLOR_INFO;     break;
-            case LogLevel::warn:     colors[ImGuiCol_Text] = LYRA_COLOR_WARN;     break;
-            case LogLevel::err:      colors[ImGuiCol_Text] = LYRA_COLOR_ERROR;    break;
-            case LogLevel::critical: colors[ImGuiCol_Text] = LYRA_COLOR_CRITICAL; break;
-            default:                 colors[ImGuiCol_Text] = LYRA_COLOR_DISABLED; break;
+            case LogLevel::trace:    return ui::StatusRole::Muted;
+            case LogLevel::debug:    return ui::StatusRole::Info;
+            case LogLevel::info:     return ui::StatusRole::Success;
+            case LogLevel::warn:     return ui::StatusRole::Warning;
+            case LogLevel::err:      return ui::StatusRole::Error;
+            case LogLevel::critical: return ui::StatusRole::Critical;
+            default:                 return ui::StatusRole::Muted;
         }
-        // clang-format on
     };
 
-    // record original text color
-    ImVec4 original_color = ImGui::GetStyle().Colors[ImGuiCol_Text];
-
-    // show filtered console logs
-    ImGui::BeginChild("Logs", ImVec2(0, 0), true, ImGuiWindowFlags_HorizontalScrollbar);
-    {
+    ui::scroll_area("Logs", [&]() {
         auto& sink = get_console_sink()->get_console();
         sink.for_each([&](const ConsoleLog& log) {
             if (level_filter & (1 << (int)log.verbosity)) {
                 if (filter_text.empty() || log.payload.find(filter_text) != String::npos) {
                     if (!log.payload.empty()) {
-                        set_text_color(log.verbosity);
-                        ImGui::TextUnformatted(log.payload.c_str());
+                        ui::label(log.payload.c_str(), get_status_role(log.verbosity));
                     }
                 }
             }
         });
         if (sink.modified()) {
             sink.reset();
-            if (auto_scroll) ImGui::SetScrollHereY(1.0f);
+            if (auto_scroll) {
+                ui::scroll_to_bottom();
+            }
         }
-    }
-    ImGui::EndChild();
-
-    // restore color
-    ImGui::GetStyle().Colors[ImGuiCol_Text] = original_color;
+    });
 }

@@ -1,4 +1,5 @@
 #include "helper.h"
+#include <fstream>
 #include <Lyra/Format/MaterialAsset.h>
 #include <Lyra/Format/ModelAsset.h>
 #include <Lyra/Format/SceneAsset.h>
@@ -275,5 +276,58 @@ TEST_CASE("ams::text_based_assets_saver")
         REQUIRE(ok);
         REQUIRE(fs::exists(server_text_file));
     }
+}
+
+TEST_CASE("ams::model_import_and_reimport")
+{
+    auto temp_dir   = fs::temp_directory_path() / "lyra_model_reimport_test";
+    auto assets_dir = temp_dir / "Assets";
+    auto caches_dir = temp_dir / "Caches";
+    fs::create_directories(assets_dir);
+    fs::create_directories(caches_dir);
+    auto registry_file = temp_dir / "Assets.toml";
+
+    FileLoader loader(FSLoader::NATIVE);
+    loader.mount("/", caches_dir.c_str(), 1);
+    loader.mount("/", assets_dir.c_str(), 0);
+
+    AMSDescriptor desc;
+    desc.importer.assets_path = assets_dir.c_str();
+    desc.importer.caches_path = caches_dir.c_str();
+    desc.loader.assets        = &loader;
+    desc.loader.caches        = &loader;
+    desc.registry             = registry_file.c_str();
+    desc.workers              = 2;
+
+    AssetServer server(desc);
+    server.register_asset<MeshAsset>();
+    server.register_asset<MaterialAsset>();
+    server.register_asset<ModelAsset>();
+    server.register_asset<ModelAsset, ModelAsset::stl>();
+    server.register_asset<ModelAsset, ModelAsset::obj>();
+    server.register_asset<ModelAsset, ModelAsset::gltf>();
+
+    // 1. Create a simple OBJ file
+    auto obj_file = assets_dir / "cube.obj";
+    {
+        std::ofstream f(obj_file);
+        f << "v 0.0 0.0 0.0\n"
+          << "v 1.0 0.0 0.0\n"
+          << "v 1.0 1.0 0.0\n"
+          << "v 0.0 1.0 0.0\n"
+          << "f 1 2 3\n"
+          << "f 1 3 4\n";
+    }
+
+    // First import
+    auto fut1 = server.import_asset("cube.obj", false);
+    auto guid1 = fut1.get();
+    CHECK_NE(guid1, 0);
+
+    // Re-import (force = true)
+    auto fut2 = server.import_asset("cube.obj", true);
+    auto guid2 = fut2.get();
+    CHECK_NE(guid2, 0);
+    CHECK_EQ(guid1, guid2);
 }
 

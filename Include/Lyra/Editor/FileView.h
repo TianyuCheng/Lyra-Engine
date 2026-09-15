@@ -8,8 +8,6 @@
 #include <Lyra/Render/RHITypes.h>
 #include <Lyra/UICore/GUITypes.h>
 
-// local imports
-#include <Lyra/Editor/IconGrid.h>
 #include <Lyra/Editor/SelectionModel.h>
 #include <Lyra/Player/Application.h>
 
@@ -30,7 +28,7 @@ namespace lyra
         // ui helpers
         void show_breadcrumb();
         void show_dir_files(Blackboard& blackboard);
-        void show_item(Blackboard& blackboard, IconGrid& grid, IconGrid::Context& ctx, StringView name, bool is_folder);
+        void show_item(Blackboard& blackboard, StringView name, bool is_folder);
         void show_context_menu(Blackboard& blackboard);
 
         // modals
@@ -52,7 +50,7 @@ namespace lyra
         void perform_update_directory(const Path& path, bool force = false);
         void handle_file_drop(Blackboard& blackboard);
 
-        auto get_thumbnail(Blackboard& blackboard, StringView name) -> std::pair<ImTextureID, ImVec2> ;
+        auto get_thumbnail(Blackboard& blackboard, StringView name) -> std::pair<GUITextureHandle, Vector2>;
         void load_thumbnails(Blackboard& blackboard);
 
     private:
@@ -88,14 +86,9 @@ namespace lyra
         float              notification_timer      = 0.0f;
 
         SelectionModel selection;
-        IconGrid       grid;
 
         HashMap<String, ThumbnailTexture> thumbnails;
         Vector<std::pair<String, String>> queued_thumbnails;
-
-        bool           is_marquee_selecting = false;
-        ImVec2         marquee_start_pos;
-        Vector<String> initial_selection; // selection state before marquee started
 
         bool show_new_file_modal   = false;
         bool show_new_folder_modal = false;

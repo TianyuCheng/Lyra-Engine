@@ -2,16 +2,18 @@
 #include <fstream>
 #include <utility>
 #include <stb_image.h>
-#include <Lyra/Common/GUI.h>
 #include <Lyra/Common/Path.h>
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Assets/AMSServer.h>
 #include <Lyra/Render/RHITypes.h>
 #include <Lyra/Render/RHIInits.h>
+#include <Lyra/UICore/UI.h>
+#include <Lyra/UICore/UILayout.h>
+#include <Lyra/UICore/UIControls.h>
+#include <Lyra/UICore/UIDock.h>
 
 // local imports
 #include <Lyra/Editor/Icons.h>
-#include <Lyra/Editor/Colors.h>
 #include <Lyra/Editor/Layout.h>
 #include <Lyra/Editor/FileView.h>
 
@@ -66,27 +68,21 @@ void FileView::update(Blackboard& blackboard)
     }
 
     lyra::execute_once([&]() {
-        auto& layout = blackboard.get<EditorLayoutInfo>();
-        ImGui::DockBuilderDockWindow(LYRA_FILES_WINDOW_NAME, layout.bottom);
+        ui::workspace::dock(LYRA_FILES_WINDOW_NAME, ui::Area::Bottom);
     });
 
-    ImGui::Begin(LYRA_FILES_WINDOW_NAME);
-    {
+    ui::panel(LYRA_FILES_WINDOW_NAME, [&]() {
         handle_file_drop(blackboard);
 
-        float start_y = ImGui::GetCursorPosY();
-        show_breadcrumb();
+        ui::row([&]() {
+            show_breadcrumb();
+            ui::spacer();
+            ui::search_bar(search_filter, sizeof(search_filter), 250.0f);
+        });
 
-        const float search_bar_width = 250.0f;
-        ImGui::SameLine();
-        ImGui::SetCursorPosY(start_y);
-        ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x - search_bar_width);
-        ImGui::SetNextItemWidth(search_bar_width);
-        ImGui::InputTextWithHint("##FileSearch", LYRA_ICON_FILTER " Search...", search_filter, sizeof(search_filter));
+        ui::separator();
 
-        ImGui::Separator();
-        ImGui::BeginChild("##FileBrowser", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()));
-        {
+        ui::scroll_area("FileBrowser", [&]() {
             show_dir_files(blackboard);
             show_context_menu(blackboard);
 
@@ -95,107 +91,50 @@ void FileView::update(Blackboard& blackboard)
             show_rename_dialog();
             show_delete_dialog(blackboard);
             show_import_indicator();
-        }
-        ImGui::EndChild();
+        });
 
-        ImGui::Separator();
-        ImGui::TextDisabled(" %zu items  |  %zu selected", files.size() + folders.size(), selection.size());
-    }
-    ImGui::End();
+        ui::separator();
+        char count_buf[128];
+        snprintf(count_buf, sizeof(count_buf), " %zu items  |  %zu selected", files.size() + folders.size(), selection.size());
+        ui::label(count_buf, ui::StatusRole::Muted);
+    });
 }
 
 // --- UI Helpers ---
 
 void FileView::show_breadcrumb()
 {
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f, 0.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-
-    // Root / Home
-    if (curr == root) {
-        ImGui::AlignTextToFramePadding();
-        ImGui::TextDisabled(LYRA_ICON_HOME);
-    } else {
-        if (ImGui::Button(LYRA_ICON_HOME)) {
-            update_directory(root);
-        }
-        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Go to Root");
-    }
-
-    for (size_t i = 0; i < breadcrumbs.size(); ++i) {
-        ImGui::SameLine();
-        ImGui::AlignTextToFramePadding();
-        ImGui::TextDisabled(LYRA_ICON_CARET);
-        ImGui::SameLine();
-
-        const auto& bc      = breadcrumbs[i];
-        bool        is_last = (i == breadcrumbs.size() - 1);
-
-        if (is_last) {
-            ImGui::TextUnformatted(bc.name.c_str());
+    ui::toolbar([&]() {
+        // Root / Home
+        if (curr == root) {
+            ui::icon_button(LYRA_ICON_HOME, nullptr, ui::ButtonRole::Standard);
         } else {
-            if (ImGui::Button(bc.name.c_str())) {
-                update_directory(bc.path);
+            ui::icon_button(LYRA_ICON_HOME, [&]() {
+                update_directory(root);
+            }, "Go to Root");
+        }
+
+        for (size_t i = 0; i < breadcrumbs.size(); ++i) {
+            ui::label(LYRA_ICON_CARET, ui::StatusRole::Muted);
+
+            const auto& bc      = breadcrumbs[i];
+            bool        is_last = (i == breadcrumbs.size() - 1);
+
+            if (is_last) {
+                ui::label(bc.name.c_str());
+            } else {
+                ui::button(bc.name.c_str(), [&]() {
+                    update_directory(bc.path);
+                });
             }
         }
-    }
-
-    ImGui::PopStyleColor();
-    ImGui::PopStyleVar(2);
+    });
 }
 
 void FileView::show_dir_files(Blackboard& blackboard)
 {
-    auto ctx = grid.begin();
-
-    ImVec2 marquee_end_pos = ImGui::GetMousePos();
-    ImRect marquee_rect;
-
-    // background click logic
-    if (ImGui::IsWindowHovered() && !ImGui::IsAnyItemActive()) {
-        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-            is_marquee_selecting = true;
-            marquee_start_pos    = ImGui::GetMousePos();
-            initial_selection    = (ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper) ? selection.items : Vector<String>();
-            if (!ImGui::GetIO().KeyCtrl && !ImGui::GetIO().KeySuper) {
-                selection.clear();
-            }
-        }
-    }
-
-    if (is_marquee_selecting) {
-        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
-            is_marquee_selecting = false;
-            initial_selection.clear();
-        } else {
-            marquee_rect = ImRect(marquee_start_pos, marquee_end_pos);
-            if (marquee_rect.Min.x > marquee_rect.Max.x) std::swap(marquee_rect.Min.x, marquee_rect.Max.x);
-            if (marquee_rect.Min.y > marquee_rect.Max.y) std::swap(marquee_rect.Min.y, marquee_rect.Max.y);
-
-            // draw marquee visual
-            ImGui::GetWindowDrawList()->AddRectFilled(marquee_rect.Min, marquee_rect.Max, ImGui::GetColorU32(ImGuiCol_Header, 0.3f));
-            ImGui::GetWindowDrawList()->AddRect(marquee_rect.Min, marquee_rect.Max, ImGui::GetColorU32(ImGuiCol_Header, 1.0f));
-
-            // start fresh from initial state for this frame's calculation
-            selection.items = initial_selection;
-        }
-    }
-
-    auto handle_marquee = [&](StringView name) {
-        if (is_marquee_selecting) {
-            ImVec2 pos = ImGui::GetCursorScreenPos();
-            ImRect item_rect(pos, ImVec2(pos.x + grid.grid_size, pos.y + grid.grid_size));
-            if (marquee_rect.Overlaps(item_rect)) {
-                if (!selection.is_selected(name)) {
-                    selection.items.emplace_back(name);
-                }
-            }
-        }
-    };
-
     String filter(search_filter);
-    auto   matches_filter = [&](StringView name) {
+    auto matches_filter = [&](StringView name) {
         if (filter.empty()) return true;
         String n(name);
         std::transform(n.begin(), n.end(), n.begin(), ::tolower);
@@ -204,108 +143,94 @@ void FileView::show_dir_files(Blackboard& blackboard)
         return n.find(f) != String::npos;
     };
 
-    for (const auto& folder : folders) {
-        if (!matches_filter(folder)) continue;
-        handle_marquee(folder);
-        show_item(blackboard, grid, ctx, folder, true);
-    }
+    ui::grid("##FilesGrid", 100.0f, [&]() {
+        for (const auto& folder : folders) {
+            if (!matches_filter(folder)) continue;
+            ui::grid_item([&]() {
+                show_item(blackboard, folder, true);
+            });
+        }
 
-    for (const auto& file : files) {
-        if (!matches_filter(file)) continue;
-        handle_marquee(file);
-        show_item(blackboard, grid, ctx, file, false);
-    }
+        for (const auto& file : files) {
+            if (!matches_filter(file)) continue;
+            ui::grid_item([&]() {
+                show_item(blackboard, file, false);
+            });
+        }
+    });
 
     load_thumbnails(blackboard);
-
-    ImGui::NewLine();
 }
 
-void FileView::show_item(Blackboard& blackboard, IconGrid& grid, IconGrid::Context& ctx, StringView name, bool is_folder)
+void FileView::show_item(Blackboard& blackboard, StringView name, bool is_folder)
 {
-    ImGui::PushID(name.data(), name.data() + name.size());
-
     bool is_sel = selection.is_selected(name);
 
-    ImTextureID tex_id     = ImTextureID_Invalid;
-    ImVec2      thumb_size = {0, 0};
-
-    if (!is_folder) {
-        auto [id, size] = get_thumbnail(blackboard, name);
-
-        tex_id     = id;
-        thumb_size = size;
-    }
-
-    int inter = 0;
-    if (tex_id != ImTextureID_Invalid) {
-        inter = grid.draw_image_item(ctx, tex_id, thumb_size, name.data(), is_sel);
-    } else {
-        inter = grid.draw_item(ctx, is_folder ? LYRA_ICON_FOLDER : LYRA_ICON_FILE, name.data(), is_sel, is_folder ? LYRA_COLOR_FOLDER : ImVec4(0, 0, 0, 0));
-    }
-
-    if (inter & IconGrid::Clicked) {
-        if (ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper)
+    auto on_click = [&]() {
+        if (ui::is_ctrl_down())
             selection.toggle(name);
         else
             selection.select_only(name);
+    };
+
+    if (is_folder) {
+        ui::card(name.data(), LYRA_ICON_FOLDER, name.data(), is_sel, on_click, [&]() {
+            update_directory(curr / name);
+        }, Vector4(1.0f, 0.75f, 0.25f, 1.0f));
+    } else {
+        auto [id, size] = get_thumbnail(blackboard, name);
+        if (id != GUITextureHandle{}) {
+            ui::card(name.data(), id, size, name.data(), is_sel, on_click);
+        } else {
+            ui::card(name.data(), LYRA_ICON_FILE, name.data(), is_sel, on_click);
+        }
     }
 
-    if ((inter & IconGrid::DoubleClicked) && is_folder) {
-        update_directory(curr / name);
-    }
-
-    if (ImGui::BeginPopupContextItem("ItemContextMenu")) {
+    ui::context_menu([&]() {
         if (!is_sel) selection.select_only(name);
 
         if (selection.size() == 1) {
-            if (ImGui::MenuItem(LYRA_ICON_RENAME " Rename")) {
+            ui::menu_item(LYRA_ICON_RENAME " Rename", [&]() {
                 show_rename_modal = true;
-                strncpy(rename_buffer, selection.items[0].c_str(), sizeof(rename_buffer) - 1);
-            }
+                strncpy_s(rename_buffer, sizeof(rename_buffer), selection.items[0].c_str(), sizeof(rename_buffer) - 1);
+            });
         }
         if (!is_folder) {
-            if (ImGui::MenuItem(LYRA_ICON_IMPORT " Re-import")) {
+            ui::menu_item(LYRA_ICON_IMPORT " Re-import", [&]() {
                 action_reimport_selected(blackboard.get<AssetServer*>());
-            }
+            });
         }
-        if (ImGui::MenuItem(LYRA_ICON_DELETE " Delete")) {
+        ui::menu_item(LYRA_ICON_DELETE " Delete", [&]() {
             show_delete_modal = true;
-        }
-        ImGui::EndPopup();
-    }
-
-    grid.next_column(ctx);
-    ImGui::PopID();
+        });
+    });
 }
 
 void FileView::show_context_menu(Blackboard& blackboard)
 {
-    if (ImGui::BeginPopupContextWindow("File Manager Context Menu", ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems)) {
-        if (ImGui::MenuItem(LYRA_ICON_REFRESH " Refresh")) {
+    ui::window_context_menu("File Manager Context Menu", [&]() {
+        ui::menu_item(LYRA_ICON_REFRESH " Refresh", [&]() {
             update_directory(curr, true);
-        }
-        ImGui::Separator();
-        if (ImGui::MenuItem(LYRA_ICON_IMPORT " Import")) {
+        });
+        ui::separator();
+        ui::menu_item(LYRA_ICON_IMPORT " Import", [&]() {
             spdlog::info("Import not implemented");
-        }
-        ImGui::Separator();
-        if (ImGui::BeginMenu(LYRA_ICON_NEW_FILE " Create")) {
-            if (ImGui::MenuItem(LYRA_ICON_NEW_FILE " Create File")) {
+        });
+        ui::separator();
+        ui::menu(LYRA_ICON_NEW_FILE " Create", [&]() {
+            ui::menu_item(LYRA_ICON_NEW_FILE " Create File", [&]() {
                 show_new_file_modal = true;
-            }
-            if (ImGui::MenuItem(LYRA_ICON_NEW_FOLDER " Create Folder")) {
+            });
+            ui::menu_item(LYRA_ICON_NEW_FOLDER " Create Folder", [&]() {
                 show_new_folder_modal = true;
-            }
-            ImGui::EndMenu();
-        }
-        ImGui::EndPopup();
-    }
+            });
+        });
+    });
 
-    if (show_new_file_modal) ImGui::OpenPopup(LYRA_ICON_NEW_FILE " New File");
-    if (show_new_folder_modal) ImGui::OpenPopup(LYRA_ICON_NEW_FOLDER " New Folder");
-    if (show_delete_modal) ImGui::OpenPopup(LYRA_ICON_DELETE " Delete");
-    if (show_rename_modal) ImGui::OpenPopup(LYRA_ICON_RENAME " Rename");
+    if (show_new_file_modal)   ui::open_modal(LYRA_ICON_NEW_FILE " New File");
+    if (show_new_folder_modal) ui::open_modal(LYRA_ICON_NEW_FOLDER " New Folder");
+    if (show_delete_modal)     ui::open_modal(LYRA_ICON_DELETE " Delete");
+    if (show_rename_modal)     ui::open_modal(LYRA_ICON_RENAME " Rename");
 }
 
 // --- Actions ---
@@ -372,124 +297,86 @@ void FileView::action_reimport_selected(AssetServer* ams)
 
 void FileView::show_new_folder_dialog()
 {
-    if (ImGui::BeginPopupModal(LYRA_ICON_NEW_FOLDER " New Folder", &show_new_folder_modal, ImGuiWindowFlags_AlwaysAutoResize)) {
-        if (ImGui::IsWindowAppearing()) {
-            ImGui::SetKeyboardFocusHere();
-            memset(new_folder_name, 0, sizeof(new_folder_name));
-        }
-
-        ImGui::Text("Enter folder name:");
-        if (ImGui::InputText("##FolderName", new_folder_name, sizeof(new_folder_name), ImGuiInputTextFlags_EnterReturnsTrue)) {
+    ui::modal(LYRA_ICON_NEW_FOLDER " New Folder", &show_new_folder_modal, [&]() {
+        ui::label("Enter folder name:");
+        ui::text_field("##FolderName", new_folder_name, sizeof(new_folder_name), [&]() {
             action_create_folder(new_folder_name);
             show_new_folder_modal = false;
-            ImGui::CloseCurrentPopup();
-        }
+            ui::close_popup();
+        });
 
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
+        ui::separator();
 
-        float width         = ImGui::GetContentRegionAvail().x;
-        float buttons_width = (120 * 2) + ImGui::GetStyle().ItemSpacing.x;
-        ImGui::SetCursorPosX(width - buttons_width);
+        ui::row(ui::Alignment::End, [&]() {
+            ui::button("Cancel", [&]() {
+                show_new_folder_modal = false;
+                ui::close_popup();
+            });
 
-        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
-            show_new_folder_modal = false;
-            ImGui::CloseCurrentPopup();
-        }
-
-        ImGui::SameLine();
-        ImGui::PushStyleColor(ImGuiCol_Button, LYRA_COLOR_INFO);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 1.0f, 0.3f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.8f, 0.1f, 1.0f));
-        if (ImGui::Button("Create", ImVec2(120, 0))) {
-            action_create_folder(new_folder_name);
-            show_new_folder_modal = false;
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::PopStyleColor(3);
-        ImGui::EndPopup();
-    }
+            ui::button("Create", [&]() {
+                action_create_folder(new_folder_name);
+                show_new_folder_modal = false;
+                ui::close_popup();
+            }, ui::ButtonRole::Primary);
+        });
+    });
 }
 
 void FileView::show_rename_dialog()
 {
-    if (ImGui::BeginPopupModal(LYRA_ICON_RENAME " Rename", &show_rename_modal, ImGuiWindowFlags_AlwaysAutoResize)) {
-        if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
-
-        ImGui::Text("Enter new name:");
-        if (ImGui::InputText("##RenameBuffer", rename_buffer, sizeof(rename_buffer), ImGuiInputTextFlags_EnterReturnsTrue)) {
+    ui::modal(LYRA_ICON_RENAME " Rename", &show_rename_modal, [&]() {
+        ui::label("Enter new name:");
+        ui::text_field("##RenameBuffer", rename_buffer, sizeof(rename_buffer), [&]() {
             action_rename(selection.items[0], rename_buffer);
             show_rename_modal = false;
-            ImGui::CloseCurrentPopup();
-        }
+            ui::close_popup();
+        });
 
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
+        ui::separator();
 
-        float width         = ImGui::GetContentRegionAvail().x;
-        float buttons_width = (120 * 2) + ImGui::GetStyle().ItemSpacing.x;
-        ImGui::SetCursorPosX(width - buttons_width);
+        ui::row(ui::Alignment::End, [&]() {
+            ui::button("Cancel", [&]() {
+                show_rename_modal = false;
+                ui::close_popup();
+            });
 
-        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
-            show_rename_modal = false;
-            ImGui::CloseCurrentPopup();
-        }
-
-        ImGui::SameLine();
-        ImGui::PushStyleColor(ImGuiCol_Button, LYRA_COLOR_DEBUG);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.8f, 1.0f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.6f, 0.9f, 1.0f));
-        if (ImGui::Button("Rename", ImVec2(120, 0))) {
-            action_rename(selection.items[0], rename_buffer);
-            show_rename_modal = false;
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::PopStyleColor(3);
-        ImGui::EndPopup();
-    }
+            ui::button("Rename", [&]() {
+                action_rename(selection.items[0], rename_buffer);
+                show_rename_modal = false;
+                ui::close_popup();
+            }, ui::ButtonRole::Primary);
+        });
+    });
 }
 
 void FileView::show_delete_dialog(Blackboard&)
 {
-    if (ImGui::BeginPopupModal(LYRA_ICON_DELETE " Delete", &show_delete_modal, ImGuiWindowFlags_AlwaysAutoResize)) {
+    ui::modal(LYRA_ICON_DELETE " Delete", &show_delete_modal, [&]() {
         if (selection.size() == 1) {
-            ImGui::Text("Are you sure you want to delete:");
-            ImGui::Indent();
-            ImGui::TextColored(LYRA_COLOR_ERROR, "'%s'", selection.items[0].c_str());
-            ImGui::Unindent();
+            ui::label("Are you sure you want to delete:");
+            ui::label(selection.items[0].c_str(), ui::StatusRole::Error);
         } else {
-            ImGui::Text("Are you sure you want to delete %zu selected items?", selection.size());
+            char del_buf[128];
+            snprintf(del_buf, sizeof(del_buf), "Are you sure you want to delete %zu selected items?", selection.size());
+            ui::label(del_buf);
         }
 
-        ImGui::Spacing();
-        ImGui::TextDisabled("This action cannot be undone.");
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
+        ui::label("This action cannot be undone.", ui::StatusRole::Muted);
+        ui::separator();
 
-        float width         = ImGui::GetContentRegionAvail().x;
-        float buttons_width = (120 * 2) + ImGui::GetStyle().ItemSpacing.x;
-        ImGui::SetCursorPosX(width - buttons_width);
+        ui::row(ui::Alignment::End, [&]() {
+            ui::button("Cancel", [&]() {
+                show_delete_modal = false;
+                ui::close_popup();
+            });
 
-        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
-            show_delete_modal = false;
-            ImGui::CloseCurrentPopup();
-        }
-
-        ImGui::SameLine();
-        ImGui::PushStyleColor(ImGuiCol_Button, LYRA_COLOR_ERROR);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.4f, 0.4f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.8f, 0.1f, 0.1f, 1.0f));
-        if (ImGui::Button("Delete", ImVec2(120, 0))) {
-            action_delete_selected();
-            show_delete_modal = false;
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::PopStyleColor(3);
-        ImGui::EndPopup();
-    }
+            ui::button("Delete", [&]() {
+                action_delete_selected();
+                show_delete_modal = false;
+                ui::close_popup();
+            }, ui::ButtonRole::Danger);
+        });
+    });
 }
 
 void FileView::update_directory(const Path& path, bool force)
@@ -551,11 +438,7 @@ void FileView::handle_file_drop(Blackboard& blackboard)
 {
     auto window = blackboard.get<Window*>();
 
-    constexpr uint hovered_flags = ImGuiHoveredFlags_AllowWhenBlockedByActiveItem |
-                                   ImGuiHoveredFlags_ChildWindows |
-                                   ImGuiHoveredFlags_AllowWhenBlockedByPopup;
-
-    if (!ImGui::IsWindowHovered(hovered_flags))
+    if (!ui::is_panel_hovered())
         return;
 
     if (!window->get_input_state().has_dropped_files())
@@ -594,8 +477,8 @@ void FileView::show_import_indicator()
         notification_timer = 0.0f;
     } else if (was_cooking) {
         was_cooking        = false;
-        session_success    = stats.completed_count - session_start_completed;
-        session_failure    = stats.failed_count - session_start_failed;
+        session_success    = stats.completed_count >= session_start_completed ? (stats.completed_count - session_start_completed) : 0;
+        session_failure    = stats.failed_count >= session_start_failed ? (stats.failed_count - session_start_failed) : 0;
         notification_timer = 5.0f;
         for (auto it = thumbnails.begin(); it != thumbnails.end();) {
             if (!it->second.valid) {
@@ -605,82 +488,58 @@ void FileView::show_import_indicator()
             }
         }
     } else if (notification_timer > 0.0f) {
-        notification_timer -= ImGui::GetIO().DeltaTime;
+        notification_timer -= 0.016f;
     }
 
     if (!was_cooking && notification_timer <= 0.0f)
         return;
 
-    ImVec2 region = ImGui::GetWindowContentRegionMax();
-    ImGui::SetCursorPos(ImVec2(region.x - 260, region.y - 55));
-    ImGui::BeginChild("##ImportIndicator", ImVec2(260, 55), true, ImGuiWindowFlags_NoScrollbar);
-    {
-        if (was_cooking) {
-            ImGui::Text(LYRA_ICON_IMPORT " Cooking %u asset%s...", stats.pending_count, stats.pending_count > 1 ? "s" : "");
-            if (!stats.current_asset.empty()) {
-                ImGui::TextDisabled("%s", stats.current_asset.c_str());
-            }
-        } else {
-            ImGui::TextColored(session_failure > 0 ? ImVec4(1, 0.4f, 0.4f, 1) : ImVec4(0.4f, 1, 0.4f, 1),
-                "Import finished: %u ok, %u failed", session_success, session_failure);
-            if (ImGui::IsWindowHovered()) notification_timer = 0.0f;
-        }
+    if (was_cooking) {
+        char buf[128];
+        snprintf(buf, sizeof(buf), LYRA_ICON_IMPORT " Cooking %u asset%s...", stats.pending_count, stats.pending_count > 1 ? "s" : "");
+        ui::badge(buf, ui::StatusRole::Info);
+    } else {
+        char buf[128];
+        snprintf(buf, sizeof(buf), "Import finished: %u ok, %u failed", session_success, session_failure);
+        ui::badge(buf, session_failure > 0 ? ui::StatusRole::Error : ui::StatusRole::Success);
     }
-    ImGui::EndChild();
 }
 
 void FileView::show_new_file_dialog()
 {
-    if (ImGui::BeginPopupModal(LYRA_ICON_NEW_FILE " New File", &show_new_file_modal, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::Text("Enter file name:");
-        static char new_file_name[256] = "";
-        if (ImGui::IsWindowAppearing()) {
-            ImGui::SetKeyboardFocusHere();
-            memset(new_file_name, 0, sizeof(new_file_name));
-        }
-
-        if (ImGui::InputText("##FileName", new_file_name, sizeof(new_file_name), ImGuiInputTextFlags_EnterReturnsTrue)) {
-            // action_create_file(new_file_name);
+    static char new_file_name[256] = "";
+    ui::modal(LYRA_ICON_NEW_FILE " New File", &show_new_file_modal, [&]() {
+        ui::label("Enter file name:");
+        ui::text_field("##FileName", new_file_name, sizeof(new_file_name), [&]() {
             show_new_file_modal = false;
-            ImGui::CloseCurrentPopup();
-        }
+            ui::close_popup();
+        });
 
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
+        ui::separator();
 
-        float width         = ImGui::GetContentRegionAvail().x;
-        float buttons_width = (120 * 2) + ImGui::GetStyle().ItemSpacing.x;
-        ImGui::SetCursorPosX(width - buttons_width);
+        ui::row(ui::Alignment::End, [&]() {
+            ui::button("Cancel", [&]() {
+                show_new_file_modal = false;
+                ui::close_popup();
+            });
 
-        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
-            show_new_file_modal = false;
-            ImGui::CloseCurrentPopup();
-        }
-
-        ImGui::SameLine();
-        ImGui::PushStyleColor(ImGuiCol_Button, LYRA_COLOR_DEBUG);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.8f, 1.0f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.6f, 0.9f, 1.0f));
-        if (ImGui::Button("Create", ImVec2(120, 0))) {
-            // action_create_file(new_file_name);
-            show_new_file_modal = false;
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::PopStyleColor(3);
-        ImGui::EndPopup();
-    }
+            ui::button("Create", [&]() {
+                show_new_file_modal = false;
+                ui::close_popup();
+            }, ui::ButtonRole::Primary);
+        });
+    });
 }
 
-std::pair<ImTextureID, ImVec2> FileView::get_thumbnail(Blackboard& blackboard, StringView name)
+std::pair<GUITextureHandle, Vector2> FileView::get_thumbnail(Blackboard& blackboard, StringView name)
 {
     auto it = thumbnails.find(String(name));
     if (it != thumbnails.end()) {
         if (it->second.valid) {
-            return {as_type<ImTextureID>(it->second.gui_texture.texid),
-                ImVec2((float)it->second.texture.width, (float)it->second.texture.height)};
+            return {it->second.gui_texture.texid,
+                Vector2((float)it->second.texture.width, (float)it->second.texture.height)};
         }
-        return {ImTextureID_Invalid, {0, 0}};
+        return {GUITextureHandle{}, Vector2(0.0f, 0.0f)};
     }
 
     // Not in cache, check if we should queue it
@@ -696,8 +555,8 @@ std::pair<ImTextureID, ImVec2> FileView::get_thumbnail(Blackboard& blackboard, S
             try {
                 std::ifstream f(import_path);
                 JSON          j = JSON::parse(f);
-                if (j.contains("thumbnail")) {
-                    queued_thumbnails.push_back({name_str, j["thumbnail"]});
+                if (j.contains("thumbnail") && j["thumbnail"].is_string()) {
+                    queued_thumbnails.push_back({name_str, j["thumbnail"].get<String>()});
                 } else {
                     // Mark as invalid so we don't check again this session
                     thumbnails[name_str] = {{}, {}, false};
@@ -710,7 +569,7 @@ std::pair<ImTextureID, ImVec2> FileView::get_thumbnail(Blackboard& blackboard, S
         }
     }
 
-    return {ImTextureID_Invalid, {0, 0}};
+    return {GUITextureHandle{}, Vector2(0.0f, 0.0f)};
 }
 
 void FileView::load_thumbnails(Blackboard& blackboard)
@@ -736,13 +595,23 @@ void FileView::load_thumbnails(Blackboard& blackboard)
     uint staging_size = 0;
     uint alignment    = adapter.properties.texture_row_pitch_alignment;
     for (const auto& [name, path] : queued_thumbnails) {
-        if (!loader->exists(path.c_str())) continue;
+        if (!loader->exists(path.c_str())) {
+            thumbnails[name] = {{}, {}, false};
+            continue;
+        }
         auto content = loader->read<uint8_t>(path.c_str());
-        if (content.empty()) continue;
+        if (content.empty()) {
+            thumbnails[name] = {{}, {}, false};
+            continue;
+        }
 
-        int      w, h, c;
+        int      w = 0, h = 0, c = 0;
         stbi_uc* data = stbi_load_from_memory(content.data(), (int)content.size(), &w, &h, &c, STBI_rgb_alpha);
-        if (!data) continue;
+        if (!data || w <= 0 || h <= 0) {
+            if (data) stbi_image_free(data);
+            thumbnails[name] = {{}, {}, false};
+            continue;
+        }
 
         uint row_pitch = (w * 4 + alignment - 1) & ~(alignment - 1);
         uint img_size  = row_pitch * h;

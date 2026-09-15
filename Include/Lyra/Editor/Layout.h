@@ -3,21 +3,22 @@
 #ifndef LYRA_LYRA_EDITOR_LAYOUT_H
 #define LYRA_LYRA_EDITOR_LAYOUT_H
 
-#include <Lyra/Common/GUI.h>
+#include <Lyra/Common/Stdint.h>
+#include <Lyra/UICore/UIDock.h>
 
 // local imports
 #include <Lyra/Player/Application.h>
 
 namespace lyra
 {
-    // ImGuiID == 0 means this panel does not exist
+    // uint32_t == 0 means this panel does not exist
     struct EditorLayoutInfo
     {
-        ImGuiID main   = 0;
-        ImGuiID left   = 0;
-        ImGuiID right  = 0;
-        ImGuiID top    = 0;
-        ImGuiID bottom = 0;
+        uint32_t main   = 0;
+        uint32_t left   = 0;
+        uint32_t right  = 0;
+        uint32_t top    = 0;
+        uint32_t bottom = 0;
     };
 
     // EditorLayoutDescriptor is used for configuring docking splits.
@@ -29,8 +30,7 @@ namespace lyra
         float bottom = 0.25f;
     };
 
-    // EditorLayout is only a wrapper for ImGui's docking builder.
-    // It is created to fit AppKit's style of data and event hanlding.
+    // EditorLayout configures the workspace layout splits.
     struct EditorLayout
     {
     public:
@@ -42,9 +42,6 @@ namespace lyra
 
     private:
         EditorLayoutInfo init() const;
-
-        // editor mode has support for docking on every direction
-        EditorLayoutInfo create_editor_layout(const EditorLayoutDescriptor& desc) const;
 
     private:
         EditorLayoutDescriptor descriptor = {};

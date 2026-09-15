@@ -1,11 +1,15 @@
-#include <algorithm>
 #include <string>
+#include <algorithm>
 
-#include <Lyra/Common/GUI.h>
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Scenes/Camera.h>
 #include <Lyra/Scenes/SceneTree.h>
 #include <Lyra/Scenes/SceneNode.h>
+#include <Lyra/UICore/UI.h>
+#include <Lyra/UICore/UITree.h>
+#include <Lyra/UICore/UIDock.h>
+#include <Lyra/UICore/UILayout.h>
+#include <Lyra/UICore/UIControls.h>
 
 // local imports
 #include <Lyra/Editor/Icons.h>
@@ -65,78 +69,45 @@ static void render_node(World& world, SceneTree& hierarchy, SceneTree::NodeIndex
         icon = LYRA_ICON_NODE;
     }
 
-    // determine expansion state
-    bool expanded = false;
-    if (world.any_of<TreeView::Expansion>(entity)) {
-        expanded = world.get_component<TreeView::Expansion>(entity).expanded;
-    }
-
-    // imgui tree node flags
-    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth;
-    if (is_leaf) {
-        flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
-    }
-    if (selected_node == node_idx) {
-        flags |= ImGuiTreeNodeFlags_Selected;
-    }
-    if (expanded || filter[0] != '\0') { // auto-expand when searching
-        ImGui::SetNextItemOpen(true, ImGuiCond_Once);
-    }
-
-    // render tree node
-    ImGui::TableNextRow();
-    ImGui::TableNextColumn();
-
-    bool is_open = ImGui::TreeNodeEx((void*)(uintptr_t)node_idx, flags, "%s %s", icon, label);
-
-    // handle selection
-    if (ImGui::IsItemClicked()) {
+    bool is_selected = (selected_node == node_idx);
+    auto on_select   = [&]() {
         selected_node                              = node_idx;
         blackboard.get<TreeView::Selection>().node = SceneNode(entity);
-    }
+    };
 
-    // update expansion state if changed
-    if (ImGui::IsItemToggledOpen()) {
-        world.add_component<TreeView::Expansion>(entity, TreeView::Expansion{is_open});
-    }
-
-    if (is_open && node.first_child != SceneTree::INVALID_NODE) {
-        SceneTree::NodeIndex child_idx = node.first_child;
-        while (child_idx != SceneTree::INVALID_NODE) {
-            render_node(world, hierarchy, child_idx, selected_node, blackboard, filter);
-            child_idx = hierarchy.at(child_idx).next_sibling;
-        }
-        ImGui::TreePop();
+    if (is_leaf) {
+        ui::tree_leaf(static_cast<uint64_t>(node_idx), icon, label, is_selected, on_select);
+    } else {
+        ui::tree_item(static_cast<uint64_t>(node_idx), icon, label, is_selected, on_select, [&]() {
+            SceneTree::NodeIndex child_idx = node.first_child;
+            while (child_idx != SceneTree::INVALID_NODE) {
+                render_node(world, hierarchy, child_idx, selected_node, blackboard, filter);
+                child_idx = hierarchy.at(child_idx).next_sibling;
+            }
+        });
     }
 }
 
 void TreeView::update(Blackboard& blackboard)
 {
     lyra::execute_once([&]() {
-        auto& layout = blackboard.get<EditorLayoutInfo>();
-        ImGui::DockBuilderDockWindow(LYRA_TREE_VIEW_WINDOW_NAME, layout.left);
+        ui::workspace::dock(LYRA_TREE_VIEW_WINDOW_NAME, ui::Area::Left);
         blackboard.add<Selection>(Selection{});
     });
 
-    ImGui::Begin(LYRA_TREE_VIEW_WINDOW_NAME);
-    {
-        ImGui::SetNextItemWidth(-1);
-        ImGui::InputTextWithHint("##HierarchySearch", LYRA_ICON_FILTER " Search...", search_filter, sizeof(search_filter));
-        ImGui::Separator();
+    ui::panel(LYRA_TREE_VIEW_WINDOW_NAME, [&]() {
+        ui::search_bar(search_filter, sizeof(search_filter));
+        ui::separator();
 
         if (auto world_ptr = blackboard.try_get<World*>()) {
             if (auto hierarchy_ptr = blackboard.try_get<SceneTree*>()) {
                 auto& world     = **world_ptr;
                 auto& hierarchy = **hierarchy_ptr;
 
-                if (ImGui::BeginTable("##HierarchyTable", 1, ImGuiTableFlags_RowBg)) {
-                    for (auto root_idx : hierarchy) {
-                        render_node(world, hierarchy, root_idx, selected_node, blackboard, search_filter);
-                    }
-                    ImGui::EndTable();
+                for (auto root_idx : hierarchy) {
+                    render_node(world, hierarchy, root_idx, selected_node, blackboard, search_filter);
                 }
             }
         }
-    }
-    ImGui::End();
+    });
 }

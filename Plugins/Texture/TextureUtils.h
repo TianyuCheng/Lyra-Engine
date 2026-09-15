@@ -53,7 +53,14 @@ namespace lyra::texture
 
     inline bool save_to_ktx2(JSON& metadata, ktxTexture2* texture, const Path& target_path, OSPath caches_root, Logger logger)
     {
-        fs::create_directories(target_path.parent_path());
+        try {
+            fs::create_directories(target_path.parent_path());
+        } catch (const std::exception& e) {
+            logger->error("Failed to create directories for {}: {}", target_path.string(), e.what());
+            ktxTexture_Destroy(ktxTexture(texture));
+            return false;
+        }
+
         KTX_error_code result = ktxTexture_WriteToNamedFile(ktxTexture(texture), target_path.string().c_str());
         ktxTexture_Destroy(ktxTexture(texture));
 
@@ -68,6 +75,15 @@ namespace lyra::texture
 
     inline bool encode_and_save_simple(JSON& metadata, void* pixels, int width, int height, size_t pixel_size, VkFormat format, OSPath caches_root, Logger logger)
     {
+        if (!pixels || width <= 0 || height <= 0) {
+            logger->error("Invalid image parameters for texture encoding (pixels={}, width={}, height={})", (void*)pixels, width, height);
+            return false;
+        }
+        if (!metadata.contains("guid") || !metadata["guid"].is_number()) {
+            logger->error("Missing or invalid GUID in metadata");
+            return false;
+        }
+
         const Path target_path = get_texture_cache_path(metadata["guid"].get<AssetID>(), caches_root);
 
         ktxTexture2*         texture;
