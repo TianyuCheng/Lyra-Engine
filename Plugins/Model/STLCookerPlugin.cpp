@@ -3,6 +3,7 @@
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/Assets/Format/ModelAsset.h>
 #include "ModelUtils.h"
+#include "ModelRasterizer.h"
 
 #include <numeric>
 #include <fstream>
@@ -169,6 +170,10 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
 
         metadata["path"]         = "models/" + std::to_string(model_id) + ".model";
         metadata["dependencies"] = JSON::array({mesh_id});
+
+        Vector<uint32_t> thumb_indices(positions.size());
+        std::iota(thumb_indices.begin(), thumb_indices.end(), 0);
+        generate_model_thumbnail(metadata, positions, normals, thumb_indices, caches_root);
 
         return true;
     } catch (const std::exception& e) {

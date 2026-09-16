@@ -3,6 +3,7 @@
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/Assets/Format/ModelAsset.h>
 #include "ModelUtils.h"
+#include "ModelRasterizer.h"
 
 #define TINYGLTF_IMPLEMENTATION
 #include <tiny_gltf.h>
@@ -104,6 +105,7 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
         }
 
         // Process Nodes and Meshes
+        Vector<RasterizerMesh> preview_meshes;
         for (size_t i = 0; i < gltf_model.nodes.size(); ++i) {
             const auto& g_node = gltf_model.nodes[i];
             ModelAsset::Node node;
@@ -262,6 +264,35 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
                 MeshAsset::saver().save(&mesh, mesh_path.c_str());
                 node.mesh = AssetHandle<MeshAsset>(mesh_id);
                 deps.push_back(mesh_id);
+
+                RasterizerMesh rmesh;
+                rmesh.transform = node.transform;
+                for (const auto& attr : lod.attributes) {
+                    if (attr.semantics == MeshSemantics::POSITION) {
+                        size_t count = attr.element_count;
+                        if (count * sizeof(Vector3) <= attr.data.size()) {
+                            rmesh.positions.resize(count);
+                            memcpy(rmesh.positions.data(), attr.data.data(), count * sizeof(Vector3));
+                        }
+                    } else if (attr.semantics == MeshSemantics::NORMAL) {
+                        size_t count = attr.element_count;
+                        if (count * sizeof(Vector3) <= attr.data.size()) {
+                            rmesh.normals.resize(count);
+                            memcpy(rmesh.normals.data(), attr.data.data(), count * sizeof(Vector3));
+                        }
+                    }
+                }
+                if (lod.index_format == GPUIndexFormat::UINT16) {
+                    size_t count = lod.index_data.size() / 2;
+                    const uint16_t* src_idx = reinterpret_cast<const uint16_t*>(lod.index_data.data());
+                    rmesh.indices.resize(count);
+                    for (size_t k = 0; k < count; ++k) rmesh.indices[k] = src_idx[k];
+                } else if (lod.index_format == GPUIndexFormat::UINT32) {
+                    size_t count = lod.index_data.size() / 4;
+                    const uint32_t* src_idx = reinterpret_cast<const uint32_t*>(lod.index_data.data());
+                    rmesh.indices.assign(src_idx, src_idx + count);
+                }
+                preview_meshes.push_back(std::move(rmesh));
             }
 
             for (int child_idx : g_node.children) {
@@ -284,6 +315,8 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
 
         metadata["path"]         = "models/" + std::to_string(model_id) + ".model";
         metadata["dependencies"] = deps;
+
+        generate_model_thumbnail(metadata, preview_meshes, caches_root);
 
         return true;
     } catch (const std::exception& e) {

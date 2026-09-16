@@ -15,25 +15,32 @@ namespace
 {
     ImVec4 to_status_color(StatusRole role)
     {
-        switch (role)
-        {
-            case StatusRole::Muted:    return ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
-            case StatusRole::Trace:    return ImVec4(0.6f, 0.6f, 0.6f, 1.0f);
-            case StatusRole::Debug:    return ImVec4(0.3f, 0.7f, 1.0f, 1.0f);
-            case StatusRole::Info:     return ImVec4(0.2f, 0.7f, 1.0f, 1.0f);
-            case StatusRole::Success:  return ImVec4(0.2f, 0.9f, 0.2f, 1.0f);
-            case StatusRole::Warning:  return ImVec4(1.0f, 0.8f, 0.2f, 1.0f);
-            case StatusRole::Error:    return ImVec4(1.0f, 0.25f, 0.25f, 1.0f);
-            case StatusRole::Critical: return ImVec4(1.0f, 0.0f, 0.8f, 1.0f);
+        switch (role) {
+            case StatusRole::Muted:
+                return ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
+            case StatusRole::Trace:
+                return ImVec4(0.6f, 0.6f, 0.6f, 1.0f);
+            case StatusRole::Debug:
+                return ImVec4(0.3f, 0.7f, 1.0f, 1.0f);
+            case StatusRole::Info:
+                return ImVec4(0.2f, 0.7f, 1.0f, 1.0f);
+            case StatusRole::Success:
+                return ImVec4(0.2f, 0.9f, 0.2f, 1.0f);
+            case StatusRole::Warning:
+                return ImVec4(1.0f, 0.8f, 0.2f, 1.0f);
+            case StatusRole::Error:
+                return ImVec4(1.0f, 0.25f, 0.25f, 1.0f);
+            case StatusRole::Critical:
+                return ImVec4(1.0f, 0.0f, 0.8f, 1.0f);
             case StatusRole::Default:
-            default:                   return ImGui::GetStyle().Colors[ImGuiCol_Text];
+            default:
+                return ImGui::GetStyle().Colors[ImGuiCol_Text];
         }
     }
 
     void apply_button_role(ButtonRole role)
     {
-        switch (role)
-        {
+        switch (role) {
             case ButtonRole::Primary:
                 ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.5f, 0.8f, 1.0f));
                 ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.6f, 0.9f, 1.0f));
@@ -71,7 +78,7 @@ namespace
             ImGui::PopStyleColor(3);
         }
     }
-}
+} // namespace
 
 // =============================================================================
 // 1. Action & Icon Buttons
@@ -232,6 +239,84 @@ void lyra::ui::text_field(CString label, char* buffer, size_t buffer_size, Actio
     }
 }
 
+void lyra::ui::slider(CString label, float* value, float min, float max, CString format, float width)
+{
+    if (!value) return;
+    internal::advance_layout_item();
+
+    ImGuiWindow* window = ImGui::GetCurrentWindow();
+    if (window->SkipItems) return;
+
+    ImGuiContext& g  = *GImGui;
+    const ImGuiID id = window->GetID(label);
+
+    float w      = width > 0.0f ? width : 100.0f;
+    float font_h = ImGui::GetFontSize();
+
+    const ImVec2 pos = window->DC.CursorPos;
+    const ImRect bb(pos, ImVec2(pos.x + w, pos.y + font_h));
+    ImGui::ItemSize(bb);
+    if (!ImGui::ItemAdd(bb, id)) return;
+
+    ImRect hit_bb = bb;
+    hit_bb.Expand(ImVec2(0.0f, 4.0f));
+
+    bool hovered = false;
+    bool held    = false;
+    ImGui::ButtonBehavior(hit_bb, id, &hovered, &held, ImGuiButtonFlags_None);
+
+    float grab_radius = (held || hovered) ? 6.0f : 5.0f;
+    float track_start = bb.Min.x + 6.0f;
+    float track_end   = bb.Max.x - 6.0f;
+
+    if (held) {
+        float mouse_x = g.IO.MousePos.x;
+        float t       = (track_end > track_start) ? std::clamp((mouse_x - track_start) / (track_end - track_start), 0.0f, 1.0f) : 0.0f;
+        *value        = min + t * (max - min);
+        ImGui::MarkItemEdited(id);
+    }
+
+    float mid_y = bb.Min.y + font_h * 0.5f;
+    float norm  = (max > min) ? std::clamp((*value - min) / (max - min), 0.0f, 1.0f) : 0.0f;
+    float dot_x = track_start + norm * (track_end - track_start);
+
+    ImDrawList* draw_list = window->DrawList;
+
+    // 1. Inactive background track (thin rounded bar)
+    float track_h  = 3.0f;
+    ImU32 track_bg = ImGui::GetColorU32(ImGuiCol_FrameBg);
+    draw_list->AddRectFilled(
+        ImVec2(track_start, mid_y - track_h * 0.5f),
+        ImVec2(track_end, mid_y + track_h * 0.5f),
+        track_bg,
+        track_h * 0.5f);
+
+    // 2. Active filled track (from start to dot)
+    ImU32 active_col = ImGui::GetColorU32(held ? ImGuiCol_SliderGrabActive : ImGuiCol_SliderGrab);
+    draw_list->AddRectFilled(
+        ImVec2(track_start, mid_y - track_h * 0.5f),
+        ImVec2(dot_x, mid_y + track_h * 0.5f),
+        active_col,
+        track_h * 0.5f);
+
+    // 3. Dot / Grab handle
+    ImU32 dot_col = ImGui::ColorConvertFloat4ToU32(ImVec4(0.92f, 0.94f, 0.97f, 1.0f));
+    if (held) {
+        dot_col = ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+    }
+    draw_list->AddCircleFilled(ImVec2(dot_x, mid_y), grab_radius, dot_col, 16);
+    draw_list->AddCircle(ImVec2(dot_x, mid_y), grab_radius, ImGui::ColorConvertFloat4ToU32(ImVec4(0.1f, 0.1f, 0.12f, 0.5f)), 16, 1.0f);
+
+    // 4. Value tooltip on hover or drag
+    if (hovered || held) {
+        if (format && format[0] != '\0') {
+            char val_str[64];
+            snprintf(val_str, sizeof(val_str), format, *value);
+            ImGui::SetTooltip("%s", val_str);
+        }
+    }
+}
+
 // =============================================================================
 // 4. Labels & Badges
 // =============================================================================
@@ -293,10 +378,10 @@ namespace
     {
         if (label && label[0] != '\0') {
             const char* text_begin = label;
-            const char* text_end = label + strlen(label);
-            float line_y = pos.y + size + 4.0f;
-            ImFont* font = ImGui::GetFont();
-            float font_size = ImGui::GetFontSize();
+            const char* text_end   = label + strlen(label);
+            float       line_y     = pos.y + size + 4.0f;
+            ImFont*     font       = ImGui::GetFont();
+            float       font_size  = ImGui::GetFontSize();
 
             while (text_begin < text_end) {
                 const char* line_end = font->CalcWordWrapPosition(font_size, text_begin, text_end, size);
@@ -304,7 +389,7 @@ namespace
                     line_end = text_begin + 1;
                 }
                 ImVec2 line_sz = font->CalcTextSizeA(font_size, FLT_MAX, -1.0f, text_begin, line_end);
-                float line_x = pos.x + std::max(0.0f, (size - line_sz.x) * 0.5f);
+                float  line_x  = pos.x + std::max(0.0f, (size - line_sz.x) * 0.5f);
                 ImGui::SetCursorScreenPos(ImVec2(line_x, line_y));
                 ImGui::TextUnformatted(text_begin, line_end);
                 line_y += font_size + ImGui::GetStyle().ItemSpacing.y;
@@ -331,7 +416,7 @@ namespace
     void draw_card_icon(const ImVec2& pos, float size, CString icon, const Vector4& icon_color)
     {
         float base_font_size = ImGui::GetFontSize();
-        float icon_scale = base_font_size > 0.0f ? std::max(1.0f, (size * 0.72f) / base_font_size) : 4.5f;
+        float icon_scale     = base_font_size > 0.0f ? std::max(1.0f, (size * 0.72f) / base_font_size) : 4.5f;
 
         if (icon_color.w > 0.0f) {
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(icon_color.x, icon_color.y, icon_color.z, icon_color.w));
@@ -345,42 +430,41 @@ namespace
             ImGui::PopStyleColor();
         }
     }
-}
+} // namespace
 
-void lyra::ui::card(CString id, CString icon, CString label, bool is_selected, ActionRef on_click, Vector4 icon_color)
+void lyra::ui::card(CString id, CString icon, CString label, bool is_selected, ActionRef on_click, Vector4 icon_color, float size)
 {
-    float size = 96.0f;
     ImGuiID card_id = draw_card_frame(id, is_selected, size, on_click, nullptr);
-    const ImVec2 pos = ImGui::GetItemRectMin();
+    ImVec2  pos     = ImGui::GetItemRectMin();
 
     draw_card_icon(pos, size, icon, icon_color);
 
     finish_card(pos, size, label, is_selected, on_click, nullptr, card_id);
 }
 
-void lyra::ui::card(CString id, CString icon, CString label, bool is_selected, ActionRef on_click, ActionRef on_double_click, Vector4 icon_color)
+void lyra::ui::card(CString id, CString icon, CString label, bool is_selected, ActionRef on_click, ActionRef on_double_click, Vector4 icon_color, float size)
 {
-    float size = 96.0f;
     ImGuiID card_id = draw_card_frame(id, is_selected, size, on_click, &on_double_click);
-    const ImVec2 pos = ImGui::GetItemRectMin();
+    ImVec2  pos     = ImGui::GetItemRectMin();
 
     draw_card_icon(pos, size, icon, icon_color);
 
     finish_card(pos, size, label, is_selected, on_click, &on_double_click, card_id);
 }
 
-void lyra::ui::card(CString id, GUITextureHandle image, Vector2 image_size, CString label, bool is_selected, ActionRef on_click)
+void lyra::ui::card(CString id, GUITextureHandle image, Vector2 image_size, CString label, bool is_selected, ActionRef on_click, float size)
 {
-    float size = 96.0f;
     ImGuiID card_id = draw_card_frame(id, is_selected, size, on_click, nullptr);
-    const ImVec2 pos = ImGui::GetItemRectMin();
+    ImVec2  pos     = ImGui::GetItemRectMin();
 
-    float max_thumb = size - 8.0f;
-    ImVec2 display_size = { max_thumb, max_thumb };
+    float  max_thumb    = size - 8.0f;
+    ImVec2 display_size = {max_thumb, max_thumb};
     if (image_size.x > 0.0f && image_size.y > 0.0f) {
         float aspect = image_size.x / image_size.y;
-        if (aspect > 1.0f) display_size.y = max_thumb / aspect;
-        else display_size.x = max_thumb * aspect;
+        if (aspect > 1.0f)
+            display_size.y = max_thumb / aspect;
+        else
+            display_size.x = max_thumb * aspect;
     }
 
     ImGui::SetCursorScreenPos(ImVec2(pos.x + (size - display_size.x) * 0.5f, pos.y + (size - display_size.y) * 0.5f));
@@ -389,18 +473,19 @@ void lyra::ui::card(CString id, GUITextureHandle image, Vector2 image_size, CStr
     finish_card(pos, size, label, is_selected, on_click, nullptr, card_id);
 }
 
-void lyra::ui::card(CString id, GUITextureHandle image, Vector2 image_size, CString label, bool is_selected, ActionRef on_click, ActionRef on_double_click)
+void lyra::ui::card(CString id, GUITextureHandle image, Vector2 image_size, CString label, bool is_selected, ActionRef on_click, ActionRef on_double_click, float size)
 {
-    float size = 96.0f;
     ImGuiID card_id = draw_card_frame(id, is_selected, size, on_click, &on_double_click);
-    const ImVec2 pos = ImGui::GetItemRectMin();
+    ImVec2  pos     = ImGui::GetItemRectMin();
 
-    float max_thumb = size - 8.0f;
-    ImVec2 display_size = { max_thumb, max_thumb };
+    float  max_thumb    = size - 8.0f;
+    ImVec2 display_size = {max_thumb, max_thumb};
     if (image_size.x > 0.0f && image_size.y > 0.0f) {
         float aspect = image_size.x / image_size.y;
-        if (aspect > 1.0f) display_size.y = max_thumb / aspect;
-        else display_size.x = max_thumb * aspect;
+        if (aspect > 1.0f)
+            display_size.y = max_thumb / aspect;
+        else
+            display_size.x = max_thumb * aspect;
     }
 
     ImGui::SetCursorScreenPos(ImVec2(pos.x + (size - display_size.x) * 0.5f, pos.y + (size - display_size.y) * 0.5f));

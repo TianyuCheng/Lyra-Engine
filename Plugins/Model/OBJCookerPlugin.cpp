@@ -3,6 +3,7 @@
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/Assets/Format/ModelAsset.h>
 #include "ModelUtils.h"
+#include "ModelRasterizer.h"
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
@@ -201,6 +202,8 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
         deps.push_back(mesh_id);
         for (auto const& [idx, id] : material_map) deps.push_back(id);
         metadata["dependencies"] = deps;
+
+        generate_model_thumbnail(metadata, positions, normals, indices, caches_root);
 
         return true;
     } catch (const std::exception& e) {

@@ -39,6 +39,8 @@ namespace lyra::ui
     void text_field(CString label, char* buffer, size_t buffer_size);
     void text_field(CString label, char* buffer, size_t buffer_size, ActionRef on_commit);
 
+    void slider(CString label, float* value, float min, float max, CString format = "%.0f", float width = 0.0f);
+
     // =========================================================================
     // 4. Labels & Badges
     // =========================================================================
@@ -51,10 +53,10 @@ namespace lyra::ui
     // 5. Selectable Cards (Grid items, asset browsers, pickers)
     // =========================================================================
 
-    void card(CString id, CString icon, CString label, bool is_selected, ActionRef on_click, Vector4 icon_color = Vector4(0.0f));
-    void card(CString id, CString icon, CString label, bool is_selected, ActionRef on_click, ActionRef on_double_click, Vector4 icon_color = Vector4(0.0f));
-    void card(CString id, GUITextureHandle image, Vector2 image_size, CString label, bool is_selected, ActionRef on_click);
-    void card(CString id, GUITextureHandle image, Vector2 image_size, CString label, bool is_selected, ActionRef on_click, ActionRef on_double_click);
+    void card(CString id, CString icon, CString label, bool is_selected, ActionRef on_click, Vector4 icon_color = Vector4(0.0f), float size = 96.0f);
+    void card(CString id, CString icon, CString label, bool is_selected, ActionRef on_click, ActionRef on_double_click, Vector4 icon_color = Vector4(0.0f), float size = 96.0f);
+    void card(CString id, GUITextureHandle image, Vector2 image_size, CString label, bool is_selected, ActionRef on_click, float size = 96.0f);
+    void card(CString id, GUITextureHandle image, Vector2 image_size, CString label, bool is_selected, ActionRef on_click, ActionRef on_double_click, float size = 96.0f);
 
 } // namespace lyra::ui
 

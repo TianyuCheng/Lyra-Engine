@@ -6,6 +6,7 @@ target_sources(lyra-model PRIVATE
     STLCookerPlugin.cpp
     OBJCookerPlugin.cpp
     GLTFCookerPlugin.cpp
+    ModelRasterizer.cpp
 )
 
 find_package(LightUSD REQUIRED)

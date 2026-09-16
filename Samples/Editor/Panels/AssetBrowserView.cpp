@@ -137,6 +137,9 @@ void AssetBrowserView::update(Blackboard& blackboard)
             }
 
             show_import_indicator();
+
+            ui::separator();
+            ui::slider("##IconSize", &icon_size, 64.0f, 128.0f, "%.0f px", 100.0f);
         });
     });
 }
@@ -205,7 +208,7 @@ void AssetBrowserView::show_dir_files(Blackboard& blackboard)
     auto handle_marquee = [&](StringView name) {
         if (is_marquee_selecting) {
             Vector2  pos = ui::cursor_screen_pos();
-            ui::Rect item_rect{pos, pos + Vector2{100.0f, 130.0f}};
+            ui::Rect item_rect{pos, pos + Vector2{icon_size + 4.0f, icon_size + 34.0f}};
             if (marquee_rect.overlaps(item_rect)) {
                 if (!selection.is_selected(name)) {
                     selection.items.emplace_back(name);
@@ -224,7 +227,7 @@ void AssetBrowserView::show_dir_files(Blackboard& blackboard)
         return n.find(f) != String::npos;
     };
 
-    ui::grid("##FilesGrid", 100.0f, [&]() {
+    ui::grid("##FilesGrid", icon_size + 4.0f, [&]() {
         for (const auto& folder : folders) {
             if (!matches_filter(folder)) continue;
             ui::grid_item([&]() {
@@ -267,22 +270,22 @@ void AssetBrowserView::show_item(Blackboard& blackboard, StringView name, bool i
                 Vector2((float)folder_icon.texture.width, (float)folder_icon.texture.height),
                 name.data(), is_sel, on_click, [&]() {
                 update_directory(curr / name);
-            });
+            }, icon_size);
         } else {
             ui::card(name.data(), LYRA_ICON_FOLDER, name.data(), is_sel, on_click, [&]() {
                 update_directory(curr / name);
-            }, Vector4(1.0f, 0.75f, 0.25f, 1.0f));
+            }, Vector4(1.0f, 0.75f, 0.25f, 1.0f), icon_size);
         }
     } else {
         auto [id, size] = get_thumbnail(blackboard, name);
         if (id != GUITextureHandle{}) {
-            ui::card(name.data(), id, size, name.data(), is_sel, on_click);
+            ui::card(name.data(), id, size, name.data(), is_sel, on_click, icon_size);
         } else if (file_icon.valid) {
             ui::card(name.data(), file_icon.gui_texture.texid,
                 Vector2((float)file_icon.texture.width, (float)file_icon.texture.height),
-                name.data(), is_sel, on_click);
+                name.data(), is_sel, on_click, icon_size);
         } else {
-            ui::card(name.data(), LYRA_ICON_FILE, name.data(), is_sel, on_click);
+            ui::card(name.data(), LYRA_ICON_FILE, name.data(), is_sel, on_click, Vector4(0.0f), icon_size);
         }
     }
 

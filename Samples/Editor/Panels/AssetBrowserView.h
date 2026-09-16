@@ -106,6 +106,7 @@ namespace lyra
         char new_folder_name[256] = "";
         char rename_buffer[256]   = "";
         char search_filter[256]   = "";
+        float icon_size           = 96.0f;
 
         Path next_path;
         bool needs_refresh = false;
