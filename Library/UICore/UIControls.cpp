@@ -493,3 +493,102 @@ void lyra::ui::card(CString id, GUITextureHandle image, Vector2 image_size, CStr
 
     finish_card(pos, size, label, is_selected, on_click, &on_double_click, card_id);
 }
+
+// =============================================================================
+// 6. Navigation & Breadcrumbs
+// =============================================================================
+
+void lyra::ui::breadcrumb(const BreadcrumbItem* items, size_t count)
+{
+    if (!items || count == 0) return;
+
+    internal::advance_layout_item();
+
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    draw_list->ChannelsSplit(2);
+    draw_list->ChannelsSetCurrent(1); // Channel 1: foreground items
+
+    ImGui::BeginGroup();
+
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(7.0f, 3.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2.0f, 0.0f));
+
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 1.0f, 1.0f, 0.09f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1.0f, 1.0f, 1.0f, 0.16f));
+
+    for (size_t i = 0; i < count; ++i) {
+        if (i > 0) {
+            ImGui::SameLine(0.0f, 2.0f);
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextColored(ImVec4(0.45f, 0.47f, 0.52f, 0.85f), LYRA_ICON_CARET);
+            ImGui::SameLine(0.0f, 2.0f);
+        }
+
+        const auto& item    = items[i];
+        bool        is_last = (i == count - 1);
+
+        String text;
+        if (item.icon && item.icon[0] != '\0') {
+            text = String(item.icon) + " " + (item.label ? item.label : "");
+        } else {
+            text = item.label ? item.label : "";
+        }
+
+        ImGui::PushID(static_cast<int>(i));
+        if (is_last) {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1.0f, 1.0f, 1.0f, 0.07f));
+            if (ImGui::Button(text.c_str())) {
+                if (item.on_click) item.on_click();
+            }
+            ImGui::PopStyleColor(2);
+        } else {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.76f, 0.78f, 0.82f, 1.0f));
+            if (ImGui::Button(text.c_str())) {
+                if (item.on_click) item.on_click();
+            }
+            ImGui::PopStyleColor();
+        }
+
+        if (item.tooltip && ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("%s", item.tooltip);
+        }
+        ImGui::PopID();
+    }
+
+    ImGui::PopStyleColor(3);
+    ImGui::PopStyleVar(3);
+
+    ImGui::EndGroup();
+
+    // Group bounding box
+    ImVec2 bb_min = ImGui::GetItemRectMin();
+    ImVec2 bb_max = ImGui::GetItemRectMax();
+
+    // Background capsule in Channel 0
+    draw_list->ChannelsSetCurrent(0);
+
+    bb_min.x -= 2.0f;
+    bb_max.x += 2.0f;
+    bb_min.y -= 1.0f;
+    bb_max.y += 1.0f;
+
+    ImU32 bg_col     = ImGui::GetColorU32(ImVec4(0.12f, 0.12f, 0.14f, 0.70f));
+    ImU32 border_col = ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 1.0f, 0.08f));
+    draw_list->AddRectFilled(bb_min, bb_max, bg_col, 5.0f);
+    draw_list->AddRect(bb_min, bb_max, border_col, 5.0f);
+
+    draw_list->ChannelsMerge();
+}
+
+void lyra::ui::breadcrumb(const Vector<BreadcrumbItem>& items)
+{
+    breadcrumb(items.data(), items.size());
+}
+
+void lyra::ui::breadcrumb(std::initializer_list<BreadcrumbItem> items)
+{
+    breadcrumb(items.begin(), items.size());
+}

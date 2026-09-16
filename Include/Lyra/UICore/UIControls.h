@@ -4,6 +4,7 @@
 #define LYRA_LYRA_UICORE_UICONTROLS_H
 
 #include <Lyra/Common/String.h>
+#include <Lyra/Common/Collections.h>
 #include <Lyra/UICore/UI.h>
 #include <Lyra/UICore/UIEnums.h>
 
@@ -57,6 +58,28 @@ namespace lyra::ui
     void card(CString id, CString icon, CString label, bool is_selected, ActionRef on_click, ActionRef on_double_click, Vector4 icon_color = Vector4(0.0f), float size = 96.0f);
     void card(CString id, GUITextureHandle image, Vector2 image_size, CString label, bool is_selected, ActionRef on_click, float size = 96.0f);
     void card(CString id, GUITextureHandle image, Vector2 image_size, CString label, bool is_selected, ActionRef on_click, ActionRef on_double_click, float size = 96.0f);
+
+    // =========================================================================
+    // 6. Navigation & Breadcrumbs
+    // =========================================================================
+
+    struct BreadcrumbItem
+    {
+        CString                label    = nullptr;
+        CString                icon     = nullptr;
+        Function<void() const> on_click = nullptr;
+        CString                tooltip  = nullptr;
+
+        BreadcrumbItem() = default;
+        BreadcrumbItem(CString label, CString icon = nullptr, Function<void() const> on_click = nullptr, CString tooltip = nullptr)
+            : label(label), icon(icon), on_click(std::move(on_click)), tooltip(tooltip)
+        {
+        }
+    };
+
+    void breadcrumb(const BreadcrumbItem* items, size_t count);
+    void breadcrumb(const Vector<BreadcrumbItem>& items);
+    void breadcrumb(std::initializer_list<BreadcrumbItem> items);
 
 } // namespace lyra::ui
 

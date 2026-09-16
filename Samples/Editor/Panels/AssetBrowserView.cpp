@@ -148,29 +148,32 @@ void AssetBrowserView::update(Blackboard& blackboard)
 
 void AssetBrowserView::show_breadcrumb()
 {
-    // Root / Home
-    if (curr == root) {
-        ui::icon_button(LYRA_ICON_HOME, nullptr, ui::ButtonRole::Standard);
-    } else {
-        ui::icon_button(LYRA_ICON_HOME, [&]() {
-            update_directory(root);
-        }, "Go to Root");
-    }
+    Vector<ui::BreadcrumbItem> items;
+    items.reserve(breadcrumbs.size() + 1);
+
+    String root_name = root.filename().string();
+    if (root_name.empty()) root_name = "Assets";
+
+    bool is_at_root = (curr == root);
+    items.push_back({
+        root_name.c_str(),
+        LYRA_ICON_HOME,
+        [&]() { update_directory(root, is_at_root); },
+        is_at_root ? "Root directory (Click to refresh)" : "Go to Root"
+    });
 
     for (size_t i = 0; i < breadcrumbs.size(); ++i) {
-        ui::label(LYRA_ICON_CARET, ui::StatusRole::Muted);
-
         const auto& bc      = breadcrumbs[i];
         bool        is_last = (i == breadcrumbs.size() - 1);
-
-        if (is_last) {
-            ui::label(bc.name.c_str());
-        } else {
-            ui::button(bc.name.c_str(), [&]() {
-                update_directory(bc.path);
-            });
-        }
+        items.push_back({
+            bc.name.c_str(),
+            is_last ? LYRA_ICON_FOLDER : nullptr,
+            [&bc, is_last, this]() { update_directory(bc.path, is_last); },
+            is_last ? "Current directory (Click to refresh)" : nullptr
+        });
     }
+
+    ui::breadcrumb(items);
 }
 
 void AssetBrowserView::show_dir_files(Blackboard& blackboard)
@@ -311,9 +314,9 @@ void AssetBrowserView::show_item(Blackboard& blackboard, StringView name, bool i
         ui::separator();
         ui::menu(LYRA_ICON_NEW_FILE " Create", [&]() {
             ui::menu_item(LYRA_ICON_NEW_FILE " Create File", [&]() {
-                new_file_name[0]      = '\0';
-                show_new_file_modal   = true;
-                open_new_file_modal   = true;
+                new_file_name[0]    = '\0';
+                show_new_file_modal = true;
+                open_new_file_modal = true;
             });
             ui::menu_item(LYRA_ICON_NEW_FOLDER " Create Folder", [&]() {
                 new_folder_name[0]    = '\0';
@@ -337,9 +340,9 @@ void AssetBrowserView::show_context_menu(Blackboard& blackboard)
         ui::separator();
         ui::menu(LYRA_ICON_NEW_FILE " Create", [&]() {
             ui::menu_item(LYRA_ICON_NEW_FILE " Create File", [&]() {
-                new_file_name[0]      = '\0';
-                show_new_file_modal   = true;
-                open_new_file_modal   = true;
+                new_file_name[0]    = '\0';
+                show_new_file_modal = true;
+                open_new_file_modal = true;
             });
             ui::menu_item(LYRA_ICON_NEW_FOLDER " Create Folder", [&]() {
                 new_folder_name[0]    = '\0';
