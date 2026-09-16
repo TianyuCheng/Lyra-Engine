@@ -118,6 +118,7 @@ LYRA_EXPORT auto create() -> ShaderAPI
     api.get_shader_blob          = get_shader_blob;
     api.get_vertex_attributes    = get_vertex_attributes;
     api.get_bind_group_layouts   = get_bind_group_layouts;
+    api.get_bind_group_location  = get_bind_group_location;
     api.get_push_constant_ranges = get_push_constant_ranges;
     return api;
 }

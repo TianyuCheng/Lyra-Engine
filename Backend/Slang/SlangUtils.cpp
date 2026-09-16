@@ -1,6 +1,4 @@
-// NOTE: This controls whether to dump verbose shader reflection debugging log.
-// #define SLANG_DEBUG
-
+#include <regex>
 #include <iostream>
 #include "SlangUtils.h"
 
@@ -13,9 +11,36 @@ module lyra;
 
 // a custom attribute to indicate if a constant buffer is dynamic uniform buffer
 // example usage: [lyra::dynamic]
+[__AttributeUsage(_AttributeTargets.Var)]
+public struct lyra_dynamicAttribute { };
+[__AttributeUsage(_AttributeTargets.Var)]
+public struct dynamicAttribute { };
+
+// a custom attribute to mark push constants
+// example usage: [[lyra::push_constant]] or [lyra::push_constant]
+[__AttributeUsage(_AttributeTargets.Var)]
+public struct lyra_push_constantAttribute { };
+[__AttributeUsage(_AttributeTargets.Var)]
+public struct push_constantAttribute { };
+
+// explicit bind group / descriptor set assignment for ParameterBlock
+// example usage: [[lyra::group(0)]] or [[lyra::set(0)]]
+[__AttributeUsage(_AttributeTargets.Var)]
+public struct lyra_groupAttribute { public int index; };
+[__AttributeUsage(_AttributeTargets.Var)]
+public struct groupAttribute { public int index; };
 
 [__AttributeUsage(_AttributeTargets.Var)]
-struct lyra_dynamicAttribute { };
+public struct lyra_setAttribute { public int index; };
+[__AttributeUsage(_AttributeTargets.Var)]
+public struct setAttribute { public int index; };
+
+// explicit binding slot assignment
+// example usage: [[lyra::binding(0)]]
+[__AttributeUsage(_AttributeTargets.Var)]
+public struct lyra_bindingAttribute { public int index; };
+[__AttributeUsage(_AttributeTargets.Var)]
+public struct bindingAttribute { public int index; };
 )""";
 
 Logger get_logger()
@@ -168,6 +193,29 @@ static CumulativeOffset calculate_cumulative_offset(slang::ParameterCategory lay
 
 static uint calculate_cumulative_space(CompileTarget target, const AccessPath& path)
 {
+    // Check if the parameter block has an explicit lyra::group or lyra::set attribute
+    auto pb_node = path.deepest_parameter_block ? path.deepest_parameter_block : path.leaf;
+    if (pb_node && pb_node->var_layout) {
+        if (auto var = pb_node->var_layout->getVariable()) {
+            auto check_attr = [&](const char* attr_name) -> int {
+                if (auto attr = var->findUserAttributeByName(GLOBAL_SESSION, attr_name)) {
+                    if (attr->getArgumentCount() > 0) {
+                        int val = 0;
+                        if (attr->getArgumentValueInt(0, &val) == SLANG_OK) {
+                            return val;
+                        }
+                    }
+                }
+                return -1;
+            };
+            int s = check_attr("lyra_group");
+            if (s < 0) s = check_attr("group");
+            if (s < 0) s = check_attr("lyra_set");
+            if (s < 0) s = check_attr("set");
+            if (s >= 0) return static_cast<uint>(s);
+        }
+    }
+
     uint space = 0;
     switch (target) {
         case CompileTarget::MSL:
@@ -385,18 +433,144 @@ void CompilerWrapper::init_builtin_module()
     diagnose_if_needed(diagnostics);
 }
 
+template <typename Callback>
+static String regex_replace_callback(const String& input, const std::regex& re, Callback&& callback)
+{
+    String result;
+    auto   words_begin = std::sregex_iterator(input.begin(), input.end(), re);
+    auto   words_end   = std::sregex_iterator();
+
+    size_t last_pos = 0;
+    for (auto it = words_begin; it != words_end; ++it) {
+        const std::smatch& match = *it;
+        result.append(input, last_pos, match.position() - last_pos);
+        result.append(callback(match));
+        last_pos = match.position() + match.length();
+    }
+    result.append(input, last_pos, input.length() - last_pos);
+    return result;
+}
+
+static String preprocess_lyra_shader_source(const String& input, CompileTarget target)
+{
+    String result = input;
+
+    auto get_reg_type = [](const String& d) -> char {
+        if (d.find("Sampler") != String::npos) return 's';
+        if (d.find("RW") != String::npos) return 'u';
+        if (d.find("ConstantBuffer") != String::npos || d.find("cbuffer") != String::npos) return 'b';
+        return 't';
+    };
+
+    // 1. Push constants: [[lyra::push_constant]] or [lyra::push_constant] or [push_constant]
+    static const std::regex pc_regex(R"((\[\[?\s*(?:lyra::)?push_constant\s*\]?\])\s*([^;]+);)");
+    result = regex_replace_callback(result, pc_regex, [&](const std::smatch& m) -> String {
+        String attr = m[1].str();
+        String decl = m[2].str();
+
+        if (target == CompileTarget::SPIRV) {
+            String prefix = "";
+            if (decl.find("vk::push_constant") == String::npos && attr.find("vk::push_constant") == String::npos) {
+                prefix = "[[vk::push_constant]] ";
+            }
+            String suffix = "";
+            if (decl.find("register") == String::npos && decl.find("PUSH_CONSTANT") == String::npos) {
+                suffix = " : register(b0, space" + std::to_string(D3D12_PushConstantRegisterSpace) + ")";
+            }
+            return prefix + attr + " " + decl + suffix + ";";
+        } else if (target == CompileTarget::DXIL) {
+            if (decl.find("register") == String::npos && decl.find("PUSH_CONSTANT") == String::npos) {
+                return attr + " " + decl + " : register(b0, space" + std::to_string(D3D12_PushConstantRegisterSpace) + ");";
+            }
+        } else if (target == CompileTarget::MSL) {
+            if (decl.find("register") == String::npos && decl.find("PUSH_CONSTANT") == String::npos) {
+                return attr + " " + decl + " : register(b" + std::to_string(METAL_PushConstantBufferIndex) + ", space" + std::to_string(METAL_PushConstantBufferIndex) + ");";
+            }
+        }
+        return m[0].str();
+    });
+
+    // 2. Two-argument binding: [[lyra::binding(binding, set)]]
+    static const std::regex binding_set_regex(R"((\[\[?\s*(?:lyra::)?binding\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)\s*\]?\])\s*([^;]+);)");
+    result = regex_replace_callback(result, binding_set_regex, [&](const std::smatch& m) -> String {
+        String attr = m[1].str();
+        String b    = m[2].str();
+        String s    = m[3].str();
+        String decl = m[4].str();
+
+        char reg = get_reg_type(decl);
+        if (target == CompileTarget::SPIRV) {
+            if (decl.find("vk::binding") == String::npos) {
+                return "[[vk::binding(" + b + ", " + s + ")]] [[lyra::group(" + s + ")]] [[lyra::binding(" + b + ")]] " + decl + ";";
+            }
+        } else if (target == CompileTarget::DXIL || target == CompileTarget::MSL) {
+            if (decl.find("register") == String::npos) {
+                return "[[lyra::group(" + s + ")]] [[lyra::binding(" + b + ")]] " + decl + " : register(" + reg + b + ", space" + s + ");";
+            }
+        }
+        return m[0].str();
+    });
+
+    // 3. Group / Set: [[lyra::group(N)]] or [[lyra::set(N)]]
+    static const std::regex group_regex(R"((\[\[?\s*(?:lyra::)?(?:group|set)\s*\(\s*(\d+)\s*\)\s*\]?\])\s*([^;]+);)");
+    result = regex_replace_callback(result, group_regex, [&](const std::smatch& m) -> String {
+        String attr = m[1].str();
+        String num  = m[2].str();
+        String decl = m[3].str();
+
+        if (target == CompileTarget::SPIRV) {
+            if (decl.find("vk::binding") == String::npos) {
+                return "[[vk::binding(0, " + num + ")]] " + attr + " " + decl + ";";
+            }
+        } else if (target == CompileTarget::DXIL) {
+            if (decl.find("register") == String::npos) {
+                return attr + " " + decl + " : register(space" + num + ");";
+            }
+        } else if (target == CompileTarget::MSL) {
+            if (decl.find("register") == String::npos) {
+                return attr + " " + decl + " : register(b" + num + ", space" + num + ");";
+            }
+        }
+        return m[0].str();
+    });
+
+    // 4. Single-argument Binding: [[lyra::binding(N)]]
+    static const std::regex binding_regex(R"((\[\[?\s*(?:lyra::)?binding\s*\(\s*(\d+)\s*\)\s*\]?\])\s*([^;]+);)");
+    result = regex_replace_callback(result, binding_regex, [&](const std::smatch& m) -> String {
+        String attr = m[1].str();
+        String num  = m[2].str();
+        String decl = m[3].str();
+
+        char reg = get_reg_type(decl);
+        if (target == CompileTarget::SPIRV) {
+            if (decl.find("vk::binding") == String::npos) {
+                return "[[vk::binding(" + num + ")]] " + attr + " " + decl + ";";
+            }
+        } else if (target == CompileTarget::DXIL || target == CompileTarget::MSL) {
+            if (decl.find("register") == String::npos) {
+                return attr + " " + decl + " : register(" + reg + num + ");";
+            }
+        }
+        return m[0].str();
+    });
+
+    return result;
+}
+
 bool CompilerWrapper::compile(const CompileDescriptor& desc, CompileResultInternal& result)
 {
     // compile result shares the session
     result.session = session;
 
+    String processed_source = preprocess_lyra_shader_source(desc.source ? desc.source : "", target);
+
     // create shader module
     ComPtr<slang::IBlob> diagnostics;
     result.module = session->loadModuleFromSourceString(
-        desc.module,             // module name
-        desc.path,               // module path
-        desc.source,             // shader source code
-        diagnostics.writeRef()); // optional diagnostic container
+        desc.module,              // module name
+        desc.path,                // module path
+        processed_source.c_str(), // shader source code
+        diagnostics.writeRef());  // optional diagnostic container
     diagnose_if_needed(diagnostics);
 
     return result.module != nullptr;
@@ -841,16 +1015,16 @@ void ReflectResultInternal::create_push_constant(const AccessPath& path, const C
 {
     auto node = path.leaf;
 
-    // enforce that we must use PUSH_CONSTANT macro to annotate the push constant constant buffer.
-    if (target != CompileTarget::MSL && offset.space != D3D12_PushConstantRegisterSpace) {
-        get_logger()->error("Please use ROOT_CONSTANT to annotate the binding register space, found {}, expected {}", offset.space, D3D12_PushConstantRegisterSpace);
+    // enforce that push constant constant buffer is in the expected space/slot.
+    if (target == CompileTarget::DXIL && offset.space != D3D12_PushConstantRegisterSpace) {
+        get_logger()->error("Please use [[lyra::push_constant]] or PUSH_CONSTANT to annotate the push constant, found space {}, expected {}", offset.space, D3D12_PushConstantRegisterSpace);
         has_error = true;
         return;
     }
 
-    // enforce that we must use PUSH_CONSTANT macro to annotate the push constant constant buffer.
+    // enforce that push constant constant buffer is in the expected space/slot.
     if (target == CompileTarget::MSL && offset.space != METAL_PushConstantBufferIndex) {
-        get_logger()->error("Please use ROOT_CONSTANT to annotate the binding register space, found {}, expected {}", offset.space, METAL_PushConstantBufferIndex);
+        get_logger()->error("Please use [[lyra::push_constant]] or PUSH_CONSTANT to annotate the push constant, found buffer slot {}, expected {}", offset.space, METAL_PushConstantBufferIndex);
         has_error = true;
         return;
     }
@@ -867,6 +1041,13 @@ void ReflectResultInternal::create_push_constant(const AccessPath& path, const C
         return;
     }
 
+    auto visibility = binding.visibility;
+    if (visibility.value == 0) {
+        for (const auto& meta : metadata) {
+            visibility.set(meta.stage);
+        }
+    }
+
     // reflect each field in the push constant block
     auto push_constant_type = node->var_layout->getTypeLayout()->getElementTypeLayout();
     for (unsigned j = 0; j < push_constant_type->getFieldCount(); j++) {
@@ -876,7 +1057,7 @@ void ReflectResultInternal::create_push_constant(const AccessPath& path, const C
         auto push_constant_range  = GPUPushConstantRange{
             static_cast<uint>(push_constant_offset),
             static_cast<uint>(push_constant_size),
-            binding.visibility, // TODO: This is a hack for now. We are populating the visibility of push constants at block level. This is not correct.
+            visibility, // TODO: This is a hack for now. We are populating the visibility of push constants at block level. This is not correct.
         };
         get_logger()->trace("[PUSH CONSTANT] NAME:{}.{}\t OFFSET:{} SIZE:{}",
             node->var_layout->getName(),
@@ -891,7 +1072,7 @@ void ReflectResultInternal::create_push_constant(const AccessPath& path, const C
         auto push_constant_range = GPUPushConstantRange{
             static_cast<uint>(0),
             static_cast<uint>(push_constant_type->getSize()),
-            binding.visibility,
+            visibility,
         };
         get_logger()->trace("[PUSH CONSTANT] NAME:{}\t OFFSET:{} SIZE:{}",
             node->var_layout->getName(),
@@ -904,6 +1085,27 @@ void ReflectResultInternal::create_push_constant(const AccessPath& path, const C
 void ReflectResultInternal::fill_binding_index(GPUBindGroupLayoutEntry& entry, CumulativeOffset offset, const AccessPath& path) const
 {
     entry.binding.index = offset.value;
+
+    if (path.leaf && path.leaf->var_layout) {
+        if (auto var = path.leaf->var_layout->getVariable()) {
+            auto check_binding = [&](const char* attr_name) -> int {
+                if (auto attr = var->findUserAttributeByName(GLOBAL_SESSION, attr_name)) {
+                    if (attr->getArgumentCount() > 0) {
+                        int val = 0;
+                        if (attr->getArgumentValueInt(0, &val) == SLANG_OK) {
+                            return val;
+                        }
+                    }
+                }
+                return -1;
+            };
+            int b = check_binding("lyra_binding");
+            if (b < 0) b = check_binding("binding");
+            if (b >= 0) {
+                entry.binding.index = static_cast<uint>(b);
+            }
+        }
+    }
 
     // Metal support binding the resource directly, or indirectly via argument buffer.
     // This cannot be derived from later code path, so we must record it now.
@@ -1232,7 +1434,9 @@ bool ReflectResultInternal::is_push_constant_buffer(const AccessPath& path) cons
         return true;
 
     auto var = node->var_layout->getVariable();
-    return var->findUserAttributeByName(GLOBAL_SESSION, "vk_push_constant");
+    return var->findUserAttributeByName(GLOBAL_SESSION, "lyra_push_constant") != nullptr ||
+           var->findUserAttributeByName(GLOBAL_SESSION, "push_constant") != nullptr ||
+           var->findUserAttributeByName(GLOBAL_SESSION, "vk_push_constant") != nullptr;
 }
 
 bool ReflectResultInternal::is_under_parameter_block(const AccessPath& node) const

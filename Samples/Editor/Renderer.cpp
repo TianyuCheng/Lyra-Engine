@@ -4,6 +4,8 @@
 #include "Panels/SceneView.h"
 
 static CString graphics_pipeline_program = R"""(
+import lyra;
+
 struct VertexInput
 {
     float3 position : POSITION;
@@ -29,8 +31,8 @@ struct PushConstants
 
 ConstantBuffer<Camera> camera;
 
-[[vk::push_constant]]
-PushConstants push_constants : PUSH_CONSTANT;
+[[lyra::push_constant]]
+PushConstants push_constants;
 
 [shader("vertex")]
 VertexOutput vsmain(VertexInput input)
