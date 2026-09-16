@@ -274,6 +274,20 @@ namespace lyra
         Future<AssetID> import_asset(const Path& path, bool force = false);
 
         /**
+         * @brief Delete an asset (source file, .import metadata, cache) and unregister it.
+         * @param path Asset path (can be relative to assets root or absolute).
+         * @return True if deletion was successful.
+         */
+        bool delete_asset(const Path& path);
+
+        /**
+         * @brief Delete an asset by its GUID (source file, .import metadata, cache) and unregister it.
+         * @param guid Asset GUID.
+         * @return True if deletion was successful.
+         */
+        bool delete_asset(AssetID guid);
+
+        /**
          * @brief Hot-reload an asset that is currently loaded in memory.
          */
         void reload_asset(AssetID guid);
@@ -349,6 +363,26 @@ namespace lyra
         void clone_asset(AssetTypeID type_id, RawAssetHandle handle);
         bool save_asset(AssetTypeID type_id, const void* asset, OSPath path);
         void handle_watch_events(const Vector<AssetWatchEvent>& events);
+        void handle_watch_rename(const AssetWatchEvent& evt);
+
+        // cooking & import helpers
+        auto find_asset_type_for_cooker(const AssetCookerAPI* cooker) const -> AssetTypeID;
+        bool is_cook_up_to_date(const Path& source_path, const Path& import_path) const;
+        auto resolve_or_create_guid(const Path& rel_path, const Path& import_path) -> AssetID;
+        bool execute_cooker(AssetCookerAPI* cooker, const Path& source_path, JSON& metadata);
+        void commit_cooked_asset(const Path& import_path, const Path& rel_path, AssetID guid, AssetTypeID type_id, const JSON& metadata);
+        auto cook_asset_task(AssetCookerAPI* cooker, const Path& source_path, const Path& import_path, const Path& rel_path, AssetID guid) -> AssetID;
+
+        // dependency helpers
+        void load_dependencies(AssetID guid);
+        void unload_dependencies(AssetID guid);
+
+        // deletion helpers
+        auto resolve_asset_path(const Path& path) const -> std::pair<Path, Path>;
+        void unload_record(AssetID guid);
+        void delete_metadata_and_caches(const Path& import_path, AssetID guid);
+        bool delete_directory_assets(const Path& dir_path);
+        bool delete_single_asset(const Path& full_path, const Path& rel_path);
 
     private:
         AMSDescriptor                             descriptor;

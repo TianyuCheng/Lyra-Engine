@@ -346,6 +346,52 @@ void AssetRegistry::update(AssetID guid, StringView path, AssetTypeID type, cons
     dirty                                    = true;
 }
 
+void AssetRegistry::remove(AssetID guid)
+{
+    auto it = guid_to_entry_index.find(guid);
+    if (it == guid_to_entry_index.end()) {
+        return;
+    }
+
+    uint entry_index = it->second;
+    if (entries[entry_index].path < string_table.size()) {
+        path_to_guid.erase(string_table[entries[entry_index].path]);
+    }
+    guid_to_entry_index.erase(it);
+
+    if (entry_index + 1 < entries.size()) {
+        entries[entry_index] = std::move(entries.back());
+        guid_to_entry_index[entries[entry_index].guid] = entry_index;
+    }
+    entries.pop_back();
+
+    dirty = true;
+}
+
+void AssetRegistry::remove(StringView path)
+{
+    auto it = path_to_guid.find(path);
+    if (it != path_to_guid.end()) {
+        remove(it->second);
+        return;
+    }
+
+    String p(path);
+    std::replace(p.begin(), p.end(), '\\', '/');
+    it = path_to_guid.find(p);
+    if (it != path_to_guid.end()) {
+        remove(it->second);
+        return;
+    }
+
+    std::replace(p.begin(), p.end(), '/', '\\');
+    it = path_to_guid.find(p);
+    if (it != path_to_guid.end()) {
+        remove(it->second);
+        return;
+    }
+}
+
 StringView AssetRegistry::get_path(AssetID guid) const
 {
     auto it = guid_to_entry_index.find(guid);

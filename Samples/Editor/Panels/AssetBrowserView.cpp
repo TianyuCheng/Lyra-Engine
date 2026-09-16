@@ -374,12 +374,28 @@ void AssetBrowserView::show_context_menu(Blackboard& blackboard)
 
 void AssetBrowserView::action_delete_selected()
 {
+    AssetServer* ams = nullptr;
+    if (bboard && bboard->has<AssetServer*>()) {
+        ams = bboard->get<AssetServer*>();
+    }
+
     for (const auto& target : selection.items) {
         Path p = curr / target;
-        try {
-            if (std::filesystem::exists(p)) std::filesystem::remove_all(p);
-        } catch (const std::exception& e) {
-            spdlog::error("Failed to delete {}: {}", p.string(), e.what());
+        if (ams) {
+            ams->delete_asset(p);
+        } else {
+            Path import_p = p;
+            import_p += ".import";
+            try {
+                if (std::filesystem::exists(p)) std::filesystem::remove_all(p);
+            } catch (const std::exception& e) {
+                spdlog::error("Failed to delete {}: {}", p.string(), e.what());
+            }
+            try {
+                if (std::filesystem::exists(import_p)) std::filesystem::remove_all(import_p);
+            } catch (const std::exception& e) {
+                spdlog::error("Failed to delete {}: {}", import_p.string(), e.what());
+            }
         }
     }
     update_directory(curr, true);

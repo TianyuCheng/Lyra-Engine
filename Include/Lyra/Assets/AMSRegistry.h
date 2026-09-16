@@ -67,6 +67,16 @@ namespace lyra
         void update(AssetID guid, StringView path, AssetTypeID type, const Vector<AssetID>& dependencies = {});
 
         /**
+         * @brief Remove an asset entry from the registry by its GUID.
+         */
+        void remove(AssetID guid);
+
+        /**
+         * @brief Remove an asset entry from the registry by its path.
+         */
+        void remove(StringView path);
+
+        /**
          * @brief Get the asset path associated with a GUID.
          */
         StringView get_path(AssetID guid) const;

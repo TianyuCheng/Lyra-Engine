@@ -159,6 +159,41 @@ TEST_CASE("ams::asset_server")
         f.close();
     }
 
+    SUBCASE("Delete Asset")
+    {
+        auto source_dir = temp_dir / "SourceDelete";
+        fs::create_directories(source_dir);
+
+        AMSDescriptor delete_desc        = desc;
+        delete_desc.importer.assets_path = source_dir.c_str();
+
+        AssetServer del_ams(delete_desc);
+        del_ams.register_asset<DummyAsset>();
+
+        auto asset_file  = source_dir / "del_test.dummy";
+        auto import_file = source_dir / "del_test.dummy.import";
+
+        {
+            std::ofstream df(asset_file);
+            df << "to be deleted";
+        }
+        {
+            JSON metadata;
+            metadata["guid"] = 987654321;
+            metadata["type"] = DummyAsset::type;
+            std::ofstream df(import_file);
+            df << metadata.dump();
+        }
+
+        REQUIRE(fs::exists(asset_file));
+        REQUIRE(fs::exists(import_file));
+
+        bool deleted = del_ams.delete_asset("del_test.dummy");
+        CHECK(deleted);
+        CHECK(!fs::exists(asset_file));
+        CHECK(!fs::exists(import_file));
+    }
+
     SUBCASE("Basic Asynchronous Loading")
     {
         auto handle = ams.load_asset<DummyAsset>("test.dummy");

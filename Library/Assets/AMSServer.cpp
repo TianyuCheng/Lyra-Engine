@@ -207,14 +207,7 @@ RawAssetHandle AssetServer::load_asset(AssetTypeID type_id, AssetID guid)
     }
 
     if (should_load_deps) {
-        // recursively load dependencies
-        const auto& deps = registry.get_dependencies(guid);
-        for (auto dep_guid : deps) {
-            AssetTypeID dep_type = registry.get_type(dep_guid);
-            if (dep_type != 0) {
-                load_asset(dep_type, dep_guid);
-            }
-        }
+        load_dependencies(guid);
     }
 
     if (is_new_entry) {
@@ -231,6 +224,28 @@ RawAssetHandle AssetServer::load_asset(AssetTypeID type_id, AssetID guid)
     }
 
     return RawAssetHandle{guid};
+}
+
+void AssetServer::load_dependencies(AssetID guid)
+{
+    const auto& deps = registry.get_dependencies(guid);
+    for (auto dep_guid : deps) {
+        AssetTypeID dep_type = registry.get_type(dep_guid);
+        if (dep_type != 0) {
+            load_asset(dep_type, dep_guid);
+        }
+    }
+}
+
+void AssetServer::unload_dependencies(AssetID guid)
+{
+    const auto& deps = registry.get_dependencies(guid);
+    for (auto dep_guid : deps) {
+        AssetTypeID dep_type = registry.get_type(dep_guid);
+        if (dep_type != 0) {
+            unload_asset(dep_type, RawAssetHandle{dep_guid});
+        }
+    }
 }
 
 void AssetServer::unload_asset(AssetTypeID type_id, RawAssetHandle handle)
@@ -254,14 +269,7 @@ void AssetServer::unload_asset(AssetTypeID type_id, RawAssetHandle handle)
     }
 
     if (should_unload_deps) {
-        // recursively unload dependencies
-        const auto& deps = registry.get_dependencies(handle.uuid);
-        for (auto dep_guid : deps) {
-            AssetTypeID dep_type = registry.get_type(dep_guid);
-            if (dep_type != 0) {
-                unload_asset(dep_type, RawAssetHandle{dep_guid});
-            }
-        }
+        unload_dependencies(handle.uuid);
     }
 }
 
@@ -279,11 +287,133 @@ void AssetServer::clone_asset(AssetTypeID type_id, RawAssetHandle handle)
     }
 }
 
+auto AssetServer::find_asset_type_for_cooker(const AssetCookerAPI* cooker) const -> AssetTypeID
+{
+    for (const auto& [tid, proc] : processors) {
+        for (const auto& c : proc->cookers) {
+            if (&c == cooker) {
+                return tid;
+            }
+        }
+    }
+    return 0;
+}
+
+bool AssetServer::is_cook_up_to_date(const Path& source_path, const Path& import_path) const
+{
+    if (!fs::exists(import_path) || !fs::exists(source_path)) {
+        return false;
+    }
+    time_t meta_time = load_metadata_time(import_path);
+    time_t file_time = get_file_mtime(source_path);
+    return meta_time > 0 && meta_time >= file_time;
+}
+
+auto AssetServer::resolve_or_create_guid(const Path& rel_path, const Path& import_path) -> AssetID
+{
+    AssetID guid = registry.get_guid(rel_path.string());
+    if (guid == 0 && fs::exists(import_path)) {
+        guid = load_guid(import_path);
+    }
+    if (guid == 0) {
+        guid = registry.generate_guid();
+    }
+    return guid;
+}
+
+bool AssetServer::execute_cooker(AssetCookerAPI* cooker, const Path& source_path, JSON& metadata)
+{
+    try {
+        return cooker->process(metadata, (OSPath)source_path.c_str(), descriptor.importer.caches_path);
+    } catch (const std::exception& e) {
+        spdlog::error("Exception in cooker processing {}: {}", source_path.string(), e.what());
+        return false;
+    } catch (...) {
+        spdlog::error("Unknown exception in cooker processing {}", source_path.string());
+        return false;
+    }
+}
+
+void AssetServer::commit_cooked_asset(const Path& import_path, const Path& rel_path, AssetID guid, AssetTypeID type_id, const JSON& metadata)
+{
+    save_json(import_path, metadata);
+
+    Vector<AssetID> dependencies;
+    if (metadata.contains("dependencies") && metadata["dependencies"].is_array()) {
+        dependencies = metadata["dependencies"].get<Vector<AssetID>>();
+    }
+
+    static std::mutex registry_mutex;
+    {
+        std::lock_guard lock(registry_mutex);
+        registry.update(guid, rel_path.string(), type_id, dependencies);
+    }
+
+    reload_asset(guid);
+}
+
+auto AssetServer::cook_asset_task(AssetCookerAPI* cooker, const Path& source_path, const Path& import_path, const Path& rel_path, AssetID guid) -> AssetID
+{
+    {
+        std::lock_guard lock(pipeline_mutex);
+        current_cooking_asset = rel_path.string();
+    }
+
+    auto finish_task = [this, &rel_path](bool success) {
+        std::lock_guard lock(pipeline_mutex);
+        if (current_cooking_asset == rel_path.string()) {
+            current_cooking_asset.clear();
+        }
+        if (success) {
+            completed_cooks++;
+        } else {
+            failed_cooks++;
+        }
+        pending_cooks--;
+    };
+
+    try {
+        AssetTypeID type_id = find_asset_type_for_cooker(cooker);
+        if (type_id == 0) {
+            spdlog::error("No processor registered for cooker cooking {}", rel_path.string());
+            finish_task(false);
+            return 0;
+        }
+
+        JSON metadata;
+        metadata["guid"]    = guid;
+        metadata["version"] = "1";
+        metadata["type"]    = type_id;
+        metadata["time"]    = get_timestamp();
+
+        if (!execute_cooker(cooker, source_path, metadata)) {
+            spdlog::error("Failed to cook asset: {}", rel_path.string());
+            std::error_code ec;
+            if (fs::exists(import_path, ec)) {
+                fs::remove(import_path, ec);
+            }
+            finish_task(false);
+            return 0;
+        }
+
+        commit_cooked_asset(import_path, rel_path, guid, type_id, metadata);
+        finish_task(true);
+        return guid;
+    } catch (const std::exception& e) {
+        spdlog::error("Unexpected exception while importing {}: {}", rel_path.string(), e.what());
+        finish_task(false);
+        return 0;
+    } catch (...) {
+        spdlog::error("Unknown fatal error while importing {}", rel_path.string());
+        finish_task(false);
+        return 0;
+    }
+}
+
 Future<AssetID> AssetServer::import_asset(const Path& path, bool force)
 {
     auto ext = absl::AsciiStrToLower(path.extension().string());
-
-    auto it = cooker_extensions.find(ext);
+    auto it  = cooker_extensions.find(ext);
     if (it == cooker_extensions.end()) {
         spdlog::error("No cooker found for extension: {}", ext);
         Promise<AssetID> p;
@@ -291,127 +421,202 @@ Future<AssetID> AssetServer::import_asset(const Path& path, bool force)
         return p.get_future();
     }
 
-    auto cooker = it->second;
+    Path    source_path = Path(descriptor.importer.assets_path) / path;
+    Path    import_path = get_metadata_path(source_path);
+    AssetID guid        = resolve_or_create_guid(path, import_path);
 
-    Path source_path = Path(descriptor.importer.assets_path) / path;
-    Path import_path = get_metadata_path(source_path);
-
-    AssetID guid = registry.get_guid(path.string());
-
-    if (guid == 0 && fs::exists(import_path))
-        guid = load_guid(import_path);
-
-    if (guid == 0)
-        guid = registry.generate_guid();
-
-    // Incremental cooking check
-    if (!force && fs::exists(import_path) && fs::exists(source_path)) {
-        time_t meta_time = load_metadata_time(import_path);
-        time_t file_time = get_file_mtime(source_path);
-        if (meta_time > 0 && meta_time >= file_time) {
-            Promise<AssetID> p;
-            p.set_value(guid);
-            return p.get_future();
-        }
+    if (!force && is_cook_up_to_date(source_path, import_path)) {
+        Promise<AssetID> p;
+        p.set_value(guid);
+        return p.get_future();
     }
 
     pending_cooks++;
 
-    // we use a separate task for cooking
-    return pool.submit_task([this, cooker, source_path, import_path, path, guid]() -> AssetID {
-        {
-            std::lock_guard lock(pipeline_mutex);
-            current_cooking_asset = path.string();
-        }
-
-        auto finish_task = [this, &path](bool success) {
-            std::lock_guard lock(pipeline_mutex);
-            if (current_cooking_asset == path.string()) {
-                current_cooking_asset.clear();
-            }
-            if (success) {
-                completed_cooks++;
-            } else {
-                failed_cooks++;
-            }
-            pending_cooks--;
-        };
-
-        try {
-            // find processor to get type_id and type_name
-            AssetTypeID type_id = lyra::execute([&]() {
-                for (auto& [tid, proc] : processors)
-                    for (auto& c : proc->cookers)
-                        if (&c == cooker)
-                            return tid;
-                return AssetTypeID(0);
-            });
-
-            if (type_id == 0) {
-                spdlog::error("No processor registered for cooker cooking {}", path.string());
-                finish_task(false);
-                return AssetID(0);
-            }
-
-            // populate metadata and import (preprocess) the asset
-            JSON metadata;
-            metadata["guid"]    = guid;
-            metadata["version"] = "1";
-            metadata["type"]    = type_id;
-            metadata["time"]    = get_timestamp();
-
-            bool cook_success = false;
-            try {
-                cook_success = cooker->process(metadata, (OSPath)source_path.c_str(), descriptor.importer.caches_path);
-            } catch (const std::exception& e) {
-                spdlog::error("Exception in cooker processing {}: {}", path.string(), e.what());
-                cook_success = false;
-            } catch (...) {
-                spdlog::error("Unknown exception in cooker processing {}", path.string());
-                cook_success = false;
-            }
-
-            if (!cook_success) {
-                spdlog::error("Failed to cook asset: {}", path.string());
-                // Remove incomplete .import file if it exists so corrupt metadata is not loaded
-                std::error_code ec;
-                if (fs::exists(import_path, ec)) {
-                    fs::remove(import_path, ec);
-                }
-                finish_task(false);
-                return AssetID(0);
-            }
-
-            save_json(import_path, metadata);
-
-            Vector<AssetID> dependencies;
-            if (metadata.contains("dependencies") && metadata["dependencies"].is_array()) {
-                dependencies = metadata["dependencies"].get<Vector<AssetID>>();
-            }
-
-            // for simplicity, let's assume registry is not thread-safe and use a mutex
-            static std::mutex registry_mutex;
-            {
-                std::lock_guard lock(registry_mutex);
-                registry.update(guid, path.string(), type_id, dependencies);
-            }
-
-            finish_task(true);
-
-            // Trigger hot-reload if the asset is currently loaded in memory
-            reload_asset(guid);
-
-            return guid;
-        } catch (const std::exception& e) {
-            spdlog::error("Unexpected exception while importing {}: {}", path.string(), e.what());
-            finish_task(false);
-            return AssetID(0);
-        } catch (...) {
-            spdlog::error("Unknown fatal error while importing {}", path.string());
-            finish_task(false);
-            return AssetID(0);
-        }
+    return pool.submit_task([this, cooker = it->second, source_path, import_path, path, guid]() {
+        return cook_asset_task(cooker, source_path, import_path, path, guid);
     });
+}
+
+auto AssetServer::resolve_asset_path(const Path& path) const -> std::pair<Path, Path>
+{
+    Path full_path;
+    Path rel_path;
+
+    if (path.is_absolute()) {
+        full_path = path;
+        if (descriptor.importer.assets_path) {
+            std::error_code ec;
+            rel_path = fs::relative(full_path, Path(descriptor.importer.assets_path), ec);
+            if (ec) rel_path = full_path;
+        } else {
+            rel_path = full_path;
+        }
+    } else {
+        if (descriptor.importer.assets_path) {
+            full_path = Path(descriptor.importer.assets_path) / path;
+            rel_path  = path;
+        } else {
+            full_path = path;
+            rel_path  = path;
+        }
+    }
+
+    if (full_path.extension() == ".import") {
+        full_path.replace_extension("");
+        if (rel_path.extension() == ".import") {
+            rel_path.replace_extension("");
+        }
+    }
+
+    return {full_path, rel_path};
+}
+
+void AssetServer::unload_record(AssetID guid)
+{
+    if (guid == 0) return;
+
+    for (auto& [type_id, processor] : processors) {
+        std::unique_lock alock(*processor->mutex);
+        auto             it = processor->assets.find(guid);
+        if (it != processor->assets.end()) {
+            auto record = it->second;
+            if (record->data) {
+                processor->loader.unload(record->data);
+            }
+            delete record;
+            processor->assets.erase(it);
+        }
+    }
+}
+
+void AssetServer::delete_metadata_and_caches(const Path& import_path, AssetID guid)
+{
+    std::error_code ec;
+
+    if (guid == 0 && fs::exists(import_path, ec)) {
+        guid = load_guid(import_path);
+    }
+
+    if (guid != 0) {
+        unload_record(guid);
+        static std::mutex registry_mutex;
+        std::lock_guard   lock(registry_mutex);
+        registry.remove(guid);
+    }
+
+    if (fs::exists(import_path, ec)) {
+        try {
+            std::ifstream sf(import_path);
+            if (sf.good() && sf.peek() != std::ifstream::traits_type::eof()) {
+                JSON meta = JSON::parse(sf);
+                if (descriptor.importer.caches_path) {
+                    if (meta.contains("thumbnail") && meta["thumbnail"].is_string()) {
+                        Path thumb = Path(descriptor.importer.caches_path) / meta["thumbnail"].get<String>();
+                        fs::remove(thumb, ec);
+                    }
+                    if (meta.contains("path") && meta["path"].is_string()) {
+                        Path cache = Path(descriptor.importer.caches_path) / meta["path"].get<String>();
+                        fs::remove(cache, ec);
+                    }
+                }
+            }
+        } catch (...) {
+        }
+
+        fs::remove(import_path, ec);
+    }
+}
+
+bool AssetServer::delete_directory_assets(const Path& dir_path)
+{
+    std::error_code ec;
+    Vector<Path>    import_files;
+
+    for (const auto& entry : fs::recursive_directory_iterator(dir_path, fs::directory_options::skip_permission_denied, ec)) {
+        if (entry.is_regular_file(ec) && entry.path().extension() == ".import") {
+            import_files.push_back(entry.path());
+        }
+    }
+
+    for (const auto& import_file : import_files) {
+        delete_metadata_and_caches(import_file, 0);
+    }
+
+    fs::remove_all(dir_path, ec);
+
+    Path dir_import = get_metadata_path(dir_path);
+    if (fs::exists(dir_import, ec)) {
+        fs::remove(dir_import, ec);
+    }
+
+    return !ec;
+}
+
+bool AssetServer::delete_single_asset(const Path& full_path, const Path& rel_path)
+{
+    std::error_code ec;
+    Path            import_path = get_metadata_path(full_path);
+
+    AssetID guid = 0;
+    if (fs::exists(import_path, ec)) {
+        guid = load_guid(import_path);
+    }
+    if (guid == 0) {
+        guid = registry.get_guid(rel_path.string());
+    }
+    if (guid == 0) {
+        guid = registry.get_guid(rel_path.generic_string());
+    }
+
+    delete_metadata_and_caches(import_path, guid);
+
+    if (guid == 0) {
+        static std::mutex registry_mutex;
+        std::lock_guard   lock(registry_mutex);
+        registry.remove(rel_path.string());
+        registry.remove(rel_path.generic_string());
+    }
+
+    if (fs::exists(full_path, ec)) {
+        fs::remove(full_path, ec);
+    }
+
+    return true;
+}
+
+bool AssetServer::delete_asset(const Path& path)
+{
+    auto [full_path, rel_path] = resolve_asset_path(path);
+
+    std::error_code ec;
+
+    bool success = false;
+    if (fs::is_directory(full_path, ec)) {
+        success = delete_directory_assets(full_path);
+    } else {
+        success = delete_single_asset(full_path, rel_path);
+    }
+
+    flush();
+    return success;
+}
+
+bool AssetServer::delete_asset(AssetID guid)
+{
+    StringView p = registry.get_path(guid);
+    if (!p.empty()) {
+        return delete_asset(Path(String(p)));
+    }
+
+    unload_record(guid);
+
+    static std::mutex registry_mutex;
+    std::lock_guard   lock(registry_mutex);
+    registry.remove(guid);
+
+    flush();
+    return true;
 }
 
 void AssetServer::reload_asset(AssetID guid)
@@ -567,6 +772,29 @@ void AssetServer::set_on_filesystem_changed(FileSystemChangeCallback callback)
     on_fs_changed = std::move(callback);
 }
 
+void AssetServer::handle_watch_rename(const AssetWatchEvent& evt)
+{
+    spdlog::info("AssetServer: Watcher detected rename from {} to {}",
+        evt.old_path.string(), evt.path.string());
+
+    if (evt.old_path.empty()) return;
+
+    AssetID guid = registry.get_guid(evt.old_path.string());
+    if (guid == 0) return;
+
+    static std::mutex reg_mut;
+    std::lock_guard   lock(reg_mut);
+    registry.update(guid, evt.path.string(), registry.get_type(guid), registry.get_dependencies(guid));
+
+    // Rename .import sidecar if it exists
+    Path            old_import = get_metadata_path(Path(descriptor.importer.assets_path) / evt.old_path);
+    Path            new_import = get_metadata_path(Path(descriptor.importer.assets_path) / evt.path);
+    std::error_code ec;
+    if (fs::exists(old_import)) {
+        fs::rename(old_import, new_import, ec);
+    }
+}
+
 void AssetServer::handle_watch_events(const Vector<AssetWatchEvent>& events)
 {
     bool fs_changed = false;
@@ -581,25 +809,7 @@ void AssetServer::handle_watch_events(const Vector<AssetWatchEvent>& events)
             }
             fs_changed = true;
         } else if (evt.action == AssetWatchAction::Renamed) {
-            spdlog::info("AssetServer: Watcher detected rename from {} to {}",
-                evt.old_path.string(), evt.path.string());
-
-            if (!evt.old_path.empty()) {
-                AssetID guid = registry.get_guid(evt.old_path.string());
-                if (guid != 0) {
-                    static std::mutex reg_mut;
-                    std::lock_guard   lock(reg_mut);
-                    registry.update(guid, evt.path.string(), registry.get_type(guid), registry.get_dependencies(guid));
-
-                    // Rename .import sidecar if it exists
-                    Path            old_import = get_metadata_path(Path(descriptor.importer.assets_path) / evt.old_path);
-                    Path            new_import = get_metadata_path(Path(descriptor.importer.assets_path) / evt.path);
-                    std::error_code ec;
-                    if (fs::exists(old_import)) {
-                        fs::rename(old_import, new_import, ec);
-                    }
-                }
-            }
+            handle_watch_rename(evt);
             fs_changed = true;
         } else if (evt.action == AssetWatchAction::Removed) {
             spdlog::info("AssetServer: Watcher detected file removed: {}", evt.path.string());
