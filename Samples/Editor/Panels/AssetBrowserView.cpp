@@ -90,7 +90,6 @@ void AssetBrowserView::update(Blackboard& blackboard)
             show_new_folder_dialog();
             show_rename_dialog();
             show_delete_dialog(blackboard);
-            show_import_indicator();
         });
 
         ui::separator();
@@ -99,22 +98,18 @@ void AssetBrowserView::update(Blackboard& blackboard)
             snprintf(count_buf, sizeof(count_buf), " %zu items  |  %zu selected", files.size() + folders.size(), selection.size());
             ui::label(count_buf, ui::StatusRole::Muted);
 
+            ui::spacer();
+
             if (auto ams_ptr = blackboard.try_get<AssetServer*>()) {
                 auto ams = *ams_ptr;
                 auto stats = ams->get_pipeline_stats();
-                ui::spacer();
                 char status_buf[256];
-                if (stats.pending_count > 0) {
-                    snprintf(status_buf, sizeof(status_buf), "[Cooking: %u | %s]",
-                        stats.pending_count,
-                        stats.current_asset.empty() ? "..." : stats.current_asset.c_str());
-                    ui::label(status_buf, ui::StatusRole::Warning);
-                } else {
-                    snprintf(status_buf, sizeof(status_buf), "[Assets: %s | %u Cooked]",
-                        stats.watching ? "Watching" : "Idle", stats.completed_count);
-                    ui::label(status_buf, stats.watching ? ui::StatusRole::Success : ui::StatusRole::Muted);
-                }
+                snprintf(status_buf, sizeof(status_buf), "[Assets: %s | %u Cooked]",
+                    stats.watching ? "Watching" : "Idle", stats.completed_count);
+                ui::label(status_buf, stats.watching ? ui::StatusRole::Success : ui::StatusRole::Muted);
             }
+
+            show_import_indicator();
         });
     });
 }
@@ -565,7 +560,11 @@ void AssetBrowserView::show_import_indicator()
 
     if (was_cooking) {
         char buf[128];
-        snprintf(buf, sizeof(buf), LYRA_ICON_IMPORT " Cooking %u asset%s...", stats.pending_count, stats.pending_count > 1 ? "s" : "");
+        if (!stats.current_asset.empty()) {
+            snprintf(buf, sizeof(buf), LYRA_ICON_IMPORT " Cooking %u (%s)...", stats.pending_count, stats.current_asset.c_str());
+        } else {
+            snprintf(buf, sizeof(buf), LYRA_ICON_IMPORT " Cooking %u asset%s...", stats.pending_count, stats.pending_count > 1 ? "s" : "");
+        }
         ui::badge(buf, ui::StatusRole::Info);
     } else {
         char buf[128];
