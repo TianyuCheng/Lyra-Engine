@@ -26,8 +26,6 @@ namespace lyra
         char    filter[1024];
         bool    auto_scroll = true;
     };
-
-    using LoggerView = ConsoleView;
 } // namespace lyra
 
 #endif // LYRA_EDITOR_PANELS_CONSOLE_VIEW_H

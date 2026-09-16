@@ -1,7 +1,7 @@
-#include <algorithm>
 #include <fstream>
-#include <utility>
+#include <algorithm>
 #include <stb_image.h>
+#include <cmrc/cmrc.hpp>
 #include <Lyra/Common/Path.h>
 #include <Lyra/Common/Logger.h>
 #include <Lyra/Assets/AMSServer.h>
@@ -14,8 +14,9 @@
 
 // local imports
 #include <Lyra/UICore/UIIcons.h>
-#include "Common/EditorLayout.h"
 #include "AssetBrowserView.h"
+
+CMRC_DECLARE(editor);
 
 #define LYRA_FILES_WINDOW_NAME (LYRA_ICON_FOLDER " Files")
 
@@ -26,6 +27,27 @@ AssetBrowserView::AssetBrowserView(const Path& root)
 {
     assert(std::filesystem::exists(root));
     assert(std::filesystem::is_directory(root));
+}
+
+AssetBrowserView::~AssetBrowserView()
+{
+    if (bboard && bboard->has<GUIRenderer*>()) {
+        auto gui = bboard->get<GUIRenderer*>();
+        if (folder_icon.valid) {
+            gui->delete_texture(folder_icon.gui_texture);
+            folder_icon.valid = false;
+        }
+        if (file_icon.valid) {
+            gui->delete_texture(file_icon.gui_texture);
+            file_icon.valid = false;
+        }
+        for (auto& [name, thumb] : thumbnails) {
+            if (thumb.valid) {
+                gui->delete_texture(thumb.gui_texture);
+            }
+        }
+    }
+    thumbnails.clear();
 }
 
 void AssetBrowserView::bind(Application& app)
@@ -40,10 +62,15 @@ void AssetBrowserView::bind(Application& app)
     }
     app.bind<AppEvent::UPDATE, &AssetBrowserView::update>(*this);
     update_directory(root, true);
+    load_editor_icons();
 }
 
 void AssetBrowserView::update(Blackboard& blackboard)
 {
+    if ((!folder_icon.valid || !file_icon.valid) && bboard && bboard->has<GUIRenderer*>()) {
+        load_editor_icons();
+    }
+
     if (bboard) {
         if (auto ams = bboard->try_get<AssetServer*>()) {
             auto stats = (*ams)->get_pipeline_stats();
@@ -101,7 +128,7 @@ void AssetBrowserView::update(Blackboard& blackboard)
             ui::spacer();
 
             if (auto ams_ptr = blackboard.try_get<AssetServer*>()) {
-                auto ams = *ams_ptr;
+                auto ams   = *ams_ptr;
                 auto stats = ams->get_pipeline_stats();
                 char status_buf[256];
                 snprintf(status_buf, sizeof(status_buf), "[Assets: %s | %u Cooked]",
@@ -145,7 +172,7 @@ void AssetBrowserView::show_breadcrumb()
 
 void AssetBrowserView::show_dir_files(Blackboard& blackboard)
 {
-    Vector2 mouse_pos = ui::mouse_pos();
+    Vector2  mouse_pos = ui::mouse_pos();
     ui::Rect marquee_rect;
 
     // Explorer / Finder style background click logic:
@@ -168,8 +195,7 @@ void AssetBrowserView::show_dir_files(Blackboard& blackboard)
         }
         marquee_rect = ui::Rect{
             Vector2{std::min(marquee_start_pos.x, mouse_pos.x), std::min(marquee_start_pos.y, mouse_pos.y)},
-            Vector2{std::max(marquee_start_pos.x, mouse_pos.x), std::max(marquee_start_pos.y, mouse_pos.y)}
-        };
+            Vector2{std::max(marquee_start_pos.x, mouse_pos.x), std::max(marquee_start_pos.y, mouse_pos.y)}};
         if (!is_releasing) {
             ui::draw_selection_rect(marquee_rect.min, marquee_rect.max);
         }
@@ -178,8 +204,8 @@ void AssetBrowserView::show_dir_files(Blackboard& blackboard)
 
     auto handle_marquee = [&](StringView name) {
         if (is_marquee_selecting) {
-            Vector2 pos = ui::cursor_screen_pos();
-            ui::Rect item_rect{ pos, pos + Vector2{100.0f, 130.0f} };
+            Vector2  pos = ui::cursor_screen_pos();
+            ui::Rect item_rect{pos, pos + Vector2{100.0f, 130.0f}};
             if (marquee_rect.overlaps(item_rect)) {
                 if (!selection.is_selected(name)) {
                     selection.items.emplace_back(name);
@@ -189,7 +215,7 @@ void AssetBrowserView::show_dir_files(Blackboard& blackboard)
     };
 
     String filter(search_filter);
-    auto matches_filter = [&](StringView name) {
+    auto   matches_filter = [&](StringView name) {
         if (filter.empty()) return true;
         String n(name);
         std::transform(n.begin(), n.end(), n.begin(), ::tolower);
@@ -236,13 +262,25 @@ void AssetBrowserView::show_item(Blackboard& blackboard, StringView name, bool i
     };
 
     if (is_folder) {
-        ui::card(name.data(), LYRA_ICON_FOLDER, name.data(), is_sel, on_click, [&]() {
-            update_directory(curr / name);
-        }, Vector4(1.0f, 0.75f, 0.25f, 1.0f));
+        if (folder_icon.valid) {
+            ui::card(name.data(), folder_icon.gui_texture.texid,
+                Vector2((float)folder_icon.texture.width, (float)folder_icon.texture.height),
+                name.data(), is_sel, on_click, [&]() {
+                update_directory(curr / name);
+            });
+        } else {
+            ui::card(name.data(), LYRA_ICON_FOLDER, name.data(), is_sel, on_click, [&]() {
+                update_directory(curr / name);
+            }, Vector4(1.0f, 0.75f, 0.25f, 1.0f));
+        }
     } else {
         auto [id, size] = get_thumbnail(blackboard, name);
         if (id != GUITextureHandle{}) {
             ui::card(name.data(), id, size, name.data(), is_sel, on_click);
+        } else if (file_icon.valid) {
+            ui::card(name.data(), file_icon.gui_texture.texid,
+                Vector2((float)file_icon.texture.width, (float)file_icon.texture.height),
+                name.data(), is_sel, on_click);
         } else {
             ui::card(name.data(), LYRA_ICON_FILE, name.data(), is_sel, on_click);
         }
@@ -289,10 +327,10 @@ void AssetBrowserView::show_context_menu(Blackboard& blackboard)
         });
     });
 
-    if (show_new_file_modal)   ui::open_modal(LYRA_ICON_NEW_FILE " New File");
+    if (show_new_file_modal) ui::open_modal(LYRA_ICON_NEW_FILE " New File");
     if (show_new_folder_modal) ui::open_modal(LYRA_ICON_NEW_FOLDER " New Folder");
-    if (show_delete_modal)     ui::open_modal(LYRA_ICON_DELETE " Delete");
-    if (show_rename_modal)     ui::open_modal(LYRA_ICON_RENAME " Rename");
+    if (show_delete_modal) ui::open_modal(LYRA_ICON_DELETE " Delete");
+    if (show_rename_modal) ui::open_modal(LYRA_ICON_RENAME " Rename");
 }
 
 // --- Actions ---
@@ -745,4 +783,92 @@ void AssetBrowserView::load_thumbnails(Blackboard& blackboard)
 
     staging.destroy();
     queued_thumbnails.clear();
+}
+
+auto AssetBrowserView::create_texture_from_memory(const void* data, size_t size, GUIRenderer* gui) -> ThumbnailTexture
+{
+    if (!data || size == 0 || !gui) {
+        return {};
+    }
+
+    int      w = 0, h = 0, c = 0;
+    stbi_uc* pixels = stbi_load_from_memory(static_cast<const stbi_uc*>(data), static_cast<int>(size), &w, &h, &c, STBI_rgb_alpha);
+    if (!pixels || w <= 0 || h <= 0) {
+        if (pixels) stbi_image_free(pixels);
+        return {};
+    }
+
+    auto& device  = RHI::get_current_device();
+    auto& adapter = RHI::get_current_adapter();
+
+    uint alignment = adapter.properties.texture_row_pitch_alignment;
+    uint row_pitch = (w * 4 + alignment - 1) & ~(alignment - 1);
+    uint img_size  = row_pitch * h;
+
+    GPUBufferDescriptor buf_desc{};
+    buf_desc.size     = img_size;
+    buf_desc.usage    = GPUBufferUsage::COPY_SRC | GPUBufferUsage::MAP_WRITE;
+    GPUBuffer staging = device.create_buffer(buf_desc);
+
+    staging.map(GPUMapMode::WRITE);
+    auto mapped = staging.get_mapped_range();
+    for (int i = 0; i < h; i++) {
+        std::memcpy(mapped.data + row_pitch * i, pixels + w * 4 * i, w * 4);
+    }
+    staging.unmap();
+
+    GPUCommandBuffer cmdbuffer = execute([&]() {
+        auto desc = GPUCommandBufferDescriptor{};
+        return device.create_command_buffer(desc);
+    });
+
+    GPUTextureDescriptor tex_desc{};
+    tex_desc.size      = {(uint)w, (uint)h, 1};
+    tex_desc.format    = GPUTextureFormat::RGBA8UNORM;
+    tex_desc.usage     = GPUTextureUsage::COPY_DST | GPUTextureUsage::TEXTURE_BINDING;
+    GPUTexture texture = device.create_texture(tex_desc);
+
+    GPUTexelCopyBufferInfo src_info{};
+    src_info.buffer         = staging;
+    src_info.offset         = 0;
+    src_info.bytes_per_row  = row_pitch;
+    src_info.rows_per_image = (uint)h;
+
+    GPUTexelCopyTextureInfo dst_info{};
+    dst_info.texture = texture;
+    dst_info.aspect  = GPUTextureAspect::COLOR;
+
+    cmdbuffer.resource_barrier(state_transition(texture, undefined_state(), copy_dst_state()));
+    cmdbuffer.copy_buffer_to_texture(src_info, dst_info, {(uint)w, (uint)h, 1});
+    cmdbuffer.resource_barrier(state_transition(texture, copy_dst_state(), shader_resource_state(GPUBarrierSync::PIXEL_SHADING)));
+
+    cmdbuffer.submit();
+    device.wait();
+
+    staging.destroy();
+    stbi_image_free(pixels);
+
+    GUITexture gui_tex = gui->create_texture(texture, texture.create_view());
+    return {texture, gui_tex, true};
+}
+
+void AssetBrowserView::load_editor_icons()
+{
+    if (folder_icon.valid && file_icon.valid) return;
+    if (!bboard || !bboard->has<GUIRenderer*>()) return;
+    auto gui = bboard->get<GUIRenderer*>();
+
+    try {
+        auto fs = cmrc::editor::get_filesystem();
+        if (!folder_icon.valid && fs.exists("Icons/folder.png")) {
+            auto f      = fs.open("Icons/folder.png");
+            folder_icon = create_texture_from_memory(f.begin(), f.size(), gui);
+        }
+        if (!file_icon.valid && fs.exists("Icons/file.png")) {
+            auto f    = fs.open("Icons/file.png");
+            file_icon = create_texture_from_memory(f.begin(), f.size(), gui);
+        }
+    } catch (const std::exception& e) {
+        spdlog::warn("Failed to load editor icons from CMRC: {}", e.what());
+    }
 }

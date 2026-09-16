@@ -34,8 +34,6 @@ namespace lyra
         SceneTree::NodeIndex selected_node      = SceneTree::INVALID_NODE;
         char                 search_filter[256] = "";
     };
-
-    using TreeView = HierarchyView;
 } // namespace lyra
 
 #endif // LYRA_EDITOR_PANELS_HIERARCHY_VIEW_H

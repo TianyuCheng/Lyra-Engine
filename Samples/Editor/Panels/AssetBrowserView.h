@@ -19,6 +19,7 @@ namespace lyra
     {
     public:
         explicit AssetBrowserView(const Path& root);
+        virtual ~AssetBrowserView();
 
         void bind(Application& app);
 
@@ -52,8 +53,14 @@ namespace lyra
 
         auto get_thumbnail(Blackboard& blackboard, StringView name) -> std::pair<GUITextureHandle, Vector2>;
         void load_thumbnails(Blackboard& blackboard);
+        void load_editor_icons();
 
     private:
+        struct Breadcrumb
+        {
+            String name;
+            Path   path;
+        };
 
         struct ThumbnailTexture
         {
@@ -62,21 +69,17 @@ namespace lyra
             bool       valid = false;
         };
 
-        struct Breadcrumb
-        {
-            String name;
-            Path   path;
-        };
+        static auto create_texture_from_memory(const void* data, size_t size, GUIRenderer* gui) -> ThumbnailTexture;
 
     private:
         Path        root;
         Path        curr;
         Blackboard* bboard = nullptr;
 
-        Vector<String>          files       = {};
-        Vector<String>          folders     = {};
-        Vector<String>     all_items            = {}; // Cached combined list
-        Vector<Breadcrumb> breadcrumbs          = {};
+        Vector<String>     files                   = {};
+        Vector<String>     folders                 = {};
+        Vector<String>     all_items               = {}; // Cached combined list
+        Vector<Breadcrumb> breadcrumbs             = {};
         uint32_t           session_success         = 0;
         uint32_t           session_failure         = 0;
         uint32_t           session_start_completed = 0;
@@ -90,6 +93,8 @@ namespace lyra
         Vector2        marquee_start_pos    = {0.0f, 0.0f};
         Vector<String> initial_selection    = {};
 
+        ThumbnailTexture                  folder_icon;
+        ThumbnailTexture                  file_icon;
         HashMap<String, ThumbnailTexture> thumbnails;
         Vector<std::pair<String, String>> queued_thumbnails;
 
@@ -106,7 +111,6 @@ namespace lyra
         bool needs_refresh = false;
         bool force_refresh = false;
     };
-    using FileView = AssetBrowserView;
 } // namespace lyra
 
 #endif // LYRA_EDITOR_PANELS_ASSET_BROWSER_VIEW_H

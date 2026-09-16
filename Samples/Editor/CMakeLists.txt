@@ -2,6 +2,13 @@ lyra_sample(editor)
 find_package(cxxopts REQUIRED)
 target_include_directories(lyra-editor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
+cmrc_add_resource_library(
+  editor-resources
+  NAMESPACE editor
+  Icons/file.png
+  Icons/folder.png
+)
+
 target_sources(lyra-editor PRIVATE
   Main.cpp
   Renderer.h
@@ -26,3 +33,6 @@ target_sources(lyra-editor PRIVATE
   Panels/SceneView.h
   Panels/SceneView.cpp
 )
+
+target_link_libraries(lyra-editor PRIVATE editor-resources)
+set_target_properties(editor-resources PROPERTIES FOLDER "Resources")

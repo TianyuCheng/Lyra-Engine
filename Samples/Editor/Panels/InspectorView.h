@@ -20,8 +20,6 @@ namespace lyra
     private:
         void draw_inspector(World& world, SceneNode node);
     };
-
-    using ObjectView = InspectorView;
 } // namespace lyra
 
 #endif // LYRA_EDITOR_PANELS_INSPECTOR_VIEW_H
