@@ -43,6 +43,7 @@ namespace lyra
         void action_delete_selected();
         void action_rename(StringView old_name, StringView new_name);
         void action_create_folder(StringView name);
+        void action_create_file(StringView name);
         void action_reimport_selected(AssetServer* ams);
 
     private:
@@ -103,6 +104,12 @@ namespace lyra
         bool show_delete_modal     = false;
         bool show_rename_modal     = false;
 
+        bool open_new_file_modal   = false;
+        bool open_new_folder_modal = false;
+        bool open_delete_modal     = false;
+        bool open_rename_modal     = false;
+
+        char new_file_name[256]   = "";
         char new_folder_name[256] = "";
         char rename_buffer[256]   = "";
         char search_filter[256]   = "";

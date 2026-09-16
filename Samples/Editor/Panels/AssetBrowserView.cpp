@@ -295,6 +295,7 @@ void AssetBrowserView::show_item(Blackboard& blackboard, StringView name, bool i
         if (selection.size() == 1) {
             ui::menu_item(LYRA_ICON_RENAME " Rename", [&]() {
                 show_rename_modal = true;
+                open_rename_modal = true;
                 strncpy_s(rename_buffer, sizeof(rename_buffer), selection.items[0].c_str(), sizeof(rename_buffer) - 1);
             });
         }
@@ -305,6 +306,20 @@ void AssetBrowserView::show_item(Blackboard& blackboard, StringView name, bool i
         }
         ui::menu_item(LYRA_ICON_DELETE " Delete", [&]() {
             show_delete_modal = true;
+            open_delete_modal = true;
+        });
+        ui::separator();
+        ui::menu(LYRA_ICON_NEW_FILE " Create", [&]() {
+            ui::menu_item(LYRA_ICON_NEW_FILE " Create File", [&]() {
+                new_file_name[0]      = '\0';
+                show_new_file_modal   = true;
+                open_new_file_modal   = true;
+            });
+            ui::menu_item(LYRA_ICON_NEW_FOLDER " Create Folder", [&]() {
+                new_folder_name[0]    = '\0';
+                show_new_folder_modal = true;
+                open_new_folder_modal = true;
+            });
         });
     });
 }
@@ -322,18 +337,34 @@ void AssetBrowserView::show_context_menu(Blackboard& blackboard)
         ui::separator();
         ui::menu(LYRA_ICON_NEW_FILE " Create", [&]() {
             ui::menu_item(LYRA_ICON_NEW_FILE " Create File", [&]() {
-                show_new_file_modal = true;
+                new_file_name[0]      = '\0';
+                show_new_file_modal   = true;
+                open_new_file_modal   = true;
             });
             ui::menu_item(LYRA_ICON_NEW_FOLDER " Create Folder", [&]() {
+                new_folder_name[0]    = '\0';
                 show_new_folder_modal = true;
+                open_new_folder_modal = true;
             });
         });
     });
 
-    if (show_new_file_modal) ui::open_modal(LYRA_ICON_NEW_FILE " New File");
-    if (show_new_folder_modal) ui::open_modal(LYRA_ICON_NEW_FOLDER " New Folder");
-    if (show_delete_modal) ui::open_modal(LYRA_ICON_DELETE " Delete");
-    if (show_rename_modal) ui::open_modal(LYRA_ICON_RENAME " Rename");
+    if (open_new_file_modal) {
+        ui::open_modal(LYRA_ICON_NEW_FILE " New File");
+        open_new_file_modal = false;
+    }
+    if (open_new_folder_modal) {
+        ui::open_modal(LYRA_ICON_NEW_FOLDER " New Folder");
+        open_new_folder_modal = false;
+    }
+    if (open_delete_modal) {
+        ui::open_modal(LYRA_ICON_DELETE " Delete");
+        open_delete_modal = false;
+    }
+    if (open_rename_modal) {
+        ui::open_modal(LYRA_ICON_RENAME " Rename");
+        open_rename_modal = false;
+    }
 }
 
 // --- Actions ---
@@ -370,11 +401,53 @@ void AssetBrowserView::action_rename(StringView old_name, StringView new_name)
 
 void AssetBrowserView::action_create_folder(StringView name)
 {
-    Path p = curr / name;
+    auto trim = [](StringView s) -> StringView {
+        size_t first = s.find_first_not_of(" \t\n\r");
+        if (first == StringView::npos) return "";
+        size_t last = s.find_last_not_of(" \t\n\r");
+        return s.substr(first, (last - first + 1));
+    };
+    StringView trimmed = trim(name);
+    if (trimmed.empty()) return;
+
+    Path p = curr / trimmed;
     try {
-        if (std::filesystem::create_directory(p)) update_directory(curr, true);
+        if (std::filesystem::exists(p)) {
+            spdlog::error("Folder create error: Destination exists ({})", p.string());
+        } else if (std::filesystem::create_directory(p)) {
+            update_directory(curr, true);
+        }
     } catch (const std::exception& e) {
         spdlog::error("Folder create error: {}", e.what());
+    }
+}
+
+void AssetBrowserView::action_create_file(StringView name)
+{
+    auto trim = [](StringView s) -> StringView {
+        size_t first = s.find_first_not_of(" \t\n\r");
+        if (first == StringView::npos) return "";
+        size_t last = s.find_last_not_of(" \t\n\r");
+        return s.substr(first, (last - first + 1));
+    };
+    StringView trimmed = trim(name);
+    if (trimmed.empty()) return;
+
+    Path p = curr / trimmed;
+    try {
+        if (std::filesystem::exists(p)) {
+            spdlog::error("File create error: Destination exists ({})", p.string());
+        } else {
+            std::ofstream f(p);
+            if (f.is_open()) {
+                f.close();
+                update_directory(curr, true);
+            } else {
+                spdlog::error("Failed to create file: {}", p.string());
+            }
+        }
+    } catch (const std::exception& e) {
+        spdlog::error("File create error: {}", e.what());
     }
 }
 
@@ -616,10 +689,10 @@ void AssetBrowserView::show_import_indicator()
 
 void AssetBrowserView::show_new_file_dialog()
 {
-    static char new_file_name[256] = "";
     ui::modal(LYRA_ICON_NEW_FILE " New File", &show_new_file_modal, [&]() {
         ui::label("Enter file name:");
         ui::text_field("##FileName", new_file_name, sizeof(new_file_name), [&]() {
+            action_create_file(new_file_name);
             show_new_file_modal = false;
             ui::close_popup();
         });
@@ -633,6 +706,7 @@ void AssetBrowserView::show_new_file_dialog()
             });
 
             ui::button("Create", [&]() {
+                action_create_file(new_file_name);
                 show_new_file_modal = false;
                 ui::close_popup();
             }, ui::ButtonRole::Primary);
