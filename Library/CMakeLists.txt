@@ -123,7 +123,7 @@ target_sources(lyra-engine PRIVATE
   Engine/Application.cpp
   Engine/AssetLayer.cpp
   Engine/SceneLayer.cpp
-  Engine/CameraLayer.cpp
+  Engine/RenderLayer.cpp
   Engine/TimingLayer.cpp
   Engine/ImGuiLayer.cpp
 )

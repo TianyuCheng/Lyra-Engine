@@ -64,7 +64,7 @@ FrameGraphResource FrameGraphBuilder::present(FrameGraphResource resource)
     return read(resource, FrameGraphReadOp::PRESENT);
 }
 
-Own<FrameGraph> FrameGraphBuilder::FrameGraphBuilder::build()
+Own<FrameGraph> FrameGraphBuilder::build()
 {
     // NOTE: FrameGraph must NOT contain any cycles.
     assert(!graph->has_cycles());

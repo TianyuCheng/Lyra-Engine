@@ -65,8 +65,10 @@ void FrameGraph::compile()
 {
     // adding the resources to pass deletes
     for (auto& resource : resources) {
-        auto& pass = passes.at(resource.last_pass);
-        pass.deletes.push_back(resource.rsid);
+        if (resource.last_pass != ~0u) {
+            auto& pass = passes.at(resource.last_pass);
+            pass.deletes.push_back(resource.rsid);
+        }
     }
 
     // pass.refcnt++ for every resource write
@@ -131,7 +133,6 @@ bool FrameGraph::has_cycles(HashSet<uint>& visited_passes, HashSet<uint>& recurs
                 return true;
             }
         }
-        return false;
     }
     recursion_set.erase(psid);
     return false;

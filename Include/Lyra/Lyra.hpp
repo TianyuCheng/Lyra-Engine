@@ -67,7 +67,7 @@
 #include <Lyra/Engine/Application.h>
 #include <Lyra/Engine/AssetLayer.h>
 #include <Lyra/Engine/SceneLayer.h>
-#include <Lyra/Engine/CameraLayer.h>
+#include <Lyra/Engine/RenderLayer.h>
 #include <Lyra/Engine/TimingLayer.h>
 #include <Lyra/Engine/ImGuiLayer.h>
 

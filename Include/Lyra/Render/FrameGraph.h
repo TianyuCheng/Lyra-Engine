@@ -3,6 +3,7 @@
 #ifndef LYRA_LYRA_RENDER_FRAME_GRAPH_H
 #define LYRA_LYRA_RENDER_FRAME_GRAPH_H
 
+#include <utility>
 #include <type_traits>
 
 #include <Lyra/Common/Hash.h>
@@ -58,9 +59,12 @@ namespace lyra
     };
 
     template <typename T>
-    struct has_pre_read<T, typename std::enable_if<std::is_member_function_pointer<decltype(&T::pre_read)>::value>::type> : std::true_type
+    struct has_pre_read<T, std::void_t<decltype(&T::pre_read)>> : std::true_type
     {
     };
+
+    template <typename T>
+    inline constexpr bool has_pre_read_v = has_pre_read<T>::value;
 
     template <typename T, typename = void>
     struct has_pre_write : std::false_type
@@ -68,9 +72,12 @@ namespace lyra
     };
 
     template <typename T>
-    struct has_pre_write<T, typename std::enable_if<std::is_member_function_pointer<decltype(&T::pre_write)>::value>::type> : std::true_type
+    struct has_pre_write<T, std::void_t<decltype(&T::pre_write)>> : std::true_type
     {
     };
+
+    template <typename T>
+    inline constexpr bool has_pre_write_v = has_pre_write<T>::value;
 
     // -------------------------------------------------------------------------
     // resource
@@ -113,13 +120,13 @@ namespace lyra
 
         void pre_read(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphReadOp op) override
         {
-            if constexpr (has_pre_read<T>::value)
+            if constexpr (has_pre_read_v<T>)
                 value.pre_read(context, pass, op);
         }
 
         void pre_write(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphWriteOp op) override
         {
-            if constexpr (has_pre_write<T>::value)
+            if constexpr (has_pre_write_v<T>)
                 value.pre_write(context, pass, op);
         }
     };
@@ -129,7 +136,7 @@ namespace lyra
         FrameGraphResourceModel* entry     = nullptr;
         uint                     rsid      = 0;
         uint                     refcnt    = 0;
-        uint                     last_pass = 0;
+        uint                     last_pass = ~0u;
         bool                     duplicate = false;
         Vector<uint>             consumers = {};
         Vector<uint>             producers = {};
@@ -142,22 +149,24 @@ namespace lyra
 
         void put(FrameGraphResource rsid, FrameGraphResourceModel* resource)
         {
+            if (rsid >= data.size())
+                data.resize(rsid + 1, nullptr);
             data[rsid] = resource;
         }
 
         template <typename T>
         const T* get(FrameGraphResource rsid) const
         {
-            auto it = data.find(rsid);
-            if (it == data.end())
+            if (rsid >= data.size() || !data[rsid])
                 return nullptr;
 
-            auto resource = dynamic_cast<FrameGraphResourceEntry<T>*>(it->second);
-            return &resource->value;
+            auto resource = dynamic_cast<FrameGraphResourceEntry<T>*>(data[rsid]);
+            assert(resource && "FrameGraphResources::get<T>: resource type mismatch!");
+            return resource ? &resource->value : nullptr;
         }
 
     private:
-        HashMap<FrameGraphResource, FrameGraphResourceModel*> data = {};
+        Vector<FrameGraphResourceModel*> data = {};
     };
 
     // -------------------------------------------------------------------------
@@ -193,7 +202,7 @@ namespace lyra
         template <typename T>
         auto compile(CompileCallback<T>&& f) -> T { return f(*this); }
 
-        using ExecuteCallback = std::function<void(FrameGraphResources&, FrameGraphContext* ctx)>;
+        using ExecuteCallback = Function<void(FrameGraphResources&, FrameGraphContext* ctx)>;
         void execute(ExecuteCallback&& f) { this->callback = std::move(f); }
 
         // prevent from being culled
@@ -240,8 +249,8 @@ namespace lyra
         bool used = false;
     };
 
-    using FGBufferObject  = GPUBufferHandle;
-    using FGBufferVector  = Vector<FrameGraphAllocatorEntry<FGBufferObject>>;
+    using FGBufferObject = GPUBufferHandle;
+    using FGBufferVector = Vector<FrameGraphAllocatorEntry<FGBufferObject>>;
 
     using FGTextureObject = std::pair<GPUTextureHandle, GPUTextureViewHandle>;
     using FGTextureVector = Vector<FrameGraphAllocatorEntry<FGTextureObject>>;
@@ -417,7 +426,7 @@ namespace lyra
             // save this resource
             graph->resources.push_back(resource);
 
-            // mark the resource to be created at the current pass
+            // mark the resource to be registered in registry at the current pass
             auto& pass_node = graph->passes.at(pass);
             pass_node.creates.push_back(index);
             return index;
@@ -461,19 +470,19 @@ namespace lyra
             // save this resource
             graph->resources.push_back(resource);
 
-            // mark the resource to be created at the current pass
+            // mark the resource to be registered at the current pass
             auto& pass_node = graph->passes.at(pass);
             pass_node.creates.push_back(index);
             return index;
         }
 
-        [[nodiscard]] FrameGraphPass&     create_pass(StringView name);
+        [[nodiscard]] FrameGraphPass& create_pass(StringView name);
 
-        [[nodiscard]] FrameGraphResource  read(FrameGraphResource resource, FrameGraphReadOp op = FrameGraphReadOp::READ);
-        [[nodiscard]] FrameGraphResource  write(FrameGraphResource resource, FrameGraphWriteOp op = FrameGraphWriteOp::WRITE);
-        [[nodiscard]] FrameGraphResource  render(FrameGraphResource resource);
-        [[nodiscard]] FrameGraphResource  sample(FrameGraphResource resource);
-        [[nodiscard]] FrameGraphResource  present(FrameGraphResource resource);
+        [[nodiscard]] FrameGraphResource read(FrameGraphResource resource, FrameGraphReadOp op = FrameGraphReadOp::READ);
+        [[nodiscard]] FrameGraphResource write(FrameGraphResource resource, FrameGraphWriteOp op = FrameGraphWriteOp::WRITE);
+        [[nodiscard]] FrameGraphResource render(FrameGraphResource resource);
+        [[nodiscard]] FrameGraphResource sample(FrameGraphResource resource);
+        [[nodiscard]] FrameGraphResource present(FrameGraphResource resource);
 
         [[nodiscard]] auto build() -> Own<FrameGraph>;
 

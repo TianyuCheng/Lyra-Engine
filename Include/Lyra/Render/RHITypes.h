@@ -5,6 +5,8 @@
 
 // reference: https://gpuweb.github.io/gpuweb/#
 
+#include <type_traits>
+
 #include <Lyra/Common/Macros.h>
 #include <Lyra/Common/Pointer.h>
 #include <Lyra/Render/RHIEnums.h>
@@ -455,10 +457,6 @@ namespace lyra
         RHIBackend   backend;
         WindowHandle window = {};
 
-        static auto get_current_adapter() -> GPUAdapter&;
-
-        static auto get_current_device() -> GPUDevice&;
-
         static auto init(const RHIDescriptor& descriptor) -> OwnedResource<RHI>;
 
         static auto api() -> RenderAPI*;
@@ -466,14 +464,28 @@ namespace lyra
         static void wait();
 
         static void new_frame();
-
         static void end_frame();
+
+        static auto get_current_adapter() -> GPUAdapter&;
+        static auto get_current_device() -> GPUDevice&;
 
         auto request_adapter(const GPUAdapterDescriptor& descriptor = {}) const -> GPUAdapter;
         auto request_surface(const GPUSurfaceDescriptor& descriptor = {}) const -> GPUSurface;
 
         auto destroy() const -> void;
     };
+
+    // -------------------------------------------------------------------------
+    // gpu object type traits
+    // -------------------------------------------------------------------------
+
+    template <typename T>
+    struct is_gpu_object : std::bool_constant<std::is_base_of_v<GPUObjectBase, std::decay_t<T>> && !std::is_same_v<GPUObjectBase, std::decay_t<T>>>
+    {
+    };
+
+    template <typename T>
+    inline constexpr bool is_gpu_object_v = is_gpu_object<T>::value;
 
 } // namespace lyra
 

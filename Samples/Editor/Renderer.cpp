@@ -185,44 +185,40 @@ void SampleCubeRenderer::bind(Application& app)
 
 void SampleCubeRenderer::render(const Backbuffer& backbuffer, Blackboard& blackboard, GPUCommandBuffer command)
 {
-    if (auto world_ptr = blackboard.try_get<World*>()) {
-        auto& world = **world_ptr;
+    // color attachments
+    auto color_attachment        = GPURenderPassColorAttachment{};
+    color_attachment.clear_value = GPUColor{0.12f, 0.12f, 0.14f, 1.0f};
+    color_attachment.load_op     = GPULoadOp::CLEAR;
+    color_attachment.store_op    = GPUStoreOp::STORE;
+    color_attachment.view        = backbuffer.texview;
 
-        // color attachments
-        auto color_attachment        = GPURenderPassColorAttachment{};
-        color_attachment.clear_value = GPUColor{0.12f, 0.12f, 0.14f, 1.0f};
-        color_attachment.load_op     = GPULoadOp::CLEAR;
-        color_attachment.store_op    = GPUStoreOp::STORE;
-        color_attachment.view        = backbuffer.texview;
+    // depth attachments
+    auto depth_attachment              = GPURenderPassDepthStencilAttachment{};
+    depth_attachment.view              = depth_view;
+    depth_attachment.depth_load_op     = GPULoadOp::CLEAR;
+    depth_attachment.depth_store_op    = GPUStoreOp::STORE;
+    depth_attachment.depth_clear_value = 1.0f;
 
-        // depth attachments
-        auto depth_attachment              = GPURenderPassDepthStencilAttachment{};
-        depth_attachment.view              = depth_view;
-        depth_attachment.depth_load_op     = GPULoadOp::CLEAR;
-        depth_attachment.depth_store_op    = GPUStoreOp::STORE;
-        depth_attachment.depth_clear_value = 1.0f;
+    // render pass info
+    auto render_pass                     = GPURenderPassDescriptor{};
+    render_pass.color_attachments        = color_attachment;
+    render_pass.depth_stencil_attachment = depth_attachment;
 
-        // render pass info
-        auto render_pass                     = GPURenderPassDescriptor{};
-        render_pass.color_attachments        = color_attachment;
-        render_pass.depth_stencil_attachment = depth_attachment;
+    command.push_debug_group("Renderer");
+    command.resource_barrier(state_transition(backbuffer.texture, undefined_state(), color_attachment_state()));
+    command.resource_barrier(state_transition(depth_texture, undefined_state(), depth_stencil_attachment_state()));
+    command.begin_render_pass(render_pass);
+    command.set_viewport(0, 0, static_cast<float>(backbuffer.extent.width), static_cast<float>(backbuffer.extent.height));
+    command.set_scissor_rect(0, 0, backbuffer.extent.width, backbuffer.extent.height);
+    command.set_pipeline(pipeline);
+    command.set_bind_group(0, bind_group);
 
-        command.push_debug_group("Renderer");
-        command.resource_barrier(state_transition(backbuffer.texture, undefined_state(), color_attachment_state()));
-        command.resource_barrier(state_transition(depth_texture, undefined_state(), depth_stencil_attachment_state()));
-        command.begin_render_pass(render_pass);
-        command.set_viewport(0, 0, static_cast<float>(backbuffer.extent.width), static_cast<float>(backbuffer.extent.height));
-        command.set_scissor_rect(0, 0, backbuffer.extent.width, backbuffer.extent.height);
-        command.set_pipeline(pipeline);
-        command.set_bind_group(0, bind_group);
+    // render infinite grid plane (fullscreen quad, procedural vertices)
+    command.draw(6, 1, 0, 0);
 
-        // render infinite grid plane (fullscreen quad, procedural vertices)
-        command.draw(6, 1, 0, 0);
-
-        command.end_render_pass();
-        command.resource_barrier(state_transition(backbuffer.texture, color_attachment_state(), shader_resource_state(GPUBarrierSync::ALL_SHADING)));
-        command.pop_debug_group();
-    }
+    command.end_render_pass();
+    command.resource_barrier(state_transition(backbuffer.texture, color_attachment_state(), shader_resource_state(GPUBarrierSync::ALL_SHADING)));
+    command.pop_debug_group();
 }
 
 void SampleCubeRenderer::init(Blackboard& blackboard)
@@ -312,7 +308,7 @@ void SampleCubeRenderer::update(Blackboard& blackboard)
     auto& cam_perspective  = world.get_component<PerspectiveCamera>(camera_node);
     cam_perspective.aspect = aspect;
 
-    // get updated projection from CameraLayer (note: this might be 1 frame late if aspect ratio just changed)
+    // get updated projection from RenderLayer (note: this might be 1 frame late if aspect ratio just changed)
     auto& cam_projection = world.get_component<CameraProjection>(camera_node);
 
     auto camera           = ubuffer.get_mapped_range<Camera>();

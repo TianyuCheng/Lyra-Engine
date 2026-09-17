@@ -68,6 +68,7 @@ target_sources(lyra-headers INTERFACE
     Lyra/Render/FrameGraphResource.h
     Lyra/Render/FrameGraphTexture.h
     Lyra/Render/FrameGraphTraits.h
+    Lyra/Render/GPUDeletionQueue.h
 
     # shader / compiler
     Lyra/Shader/SLCAPI.h
@@ -103,7 +104,7 @@ target_sources(lyra-headers INTERFACE
     # engine
     Lyra/Engine/Application.h
     Lyra/Engine/AssetLayer.h
-    Lyra/Engine/CameraLayer.h
+    Lyra/Engine/RenderLayer.h
     Lyra/Engine/ImGuiLayer.h
     Lyra/Engine/SceneLayer.h
     Lyra/Engine/TimingLayer.h
