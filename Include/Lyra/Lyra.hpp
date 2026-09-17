@@ -45,11 +45,6 @@
 
 // Render headers
 #include <Lyra/Render/FrameGraph.h>
-#include <Lyra/Render/FrameGraphPass.h>
-#include <Lyra/Render/FrameGraphEnums.h>
-#include <Lyra/Render/FrameGraphContext.h>
-#include <Lyra/Render/FrameGraphBuilder.h>
-#include <Lyra/Render/FrameGraphResource.h>
 
 // Scenes headers
 #include <Lyra/Scenes/World.h>

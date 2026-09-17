@@ -403,7 +403,7 @@ namespace
         ImGui::EndGroup();
         ImGui::PopID();
 
-        // Clicking anywhere on the card group (icon or label) triggers selection / double click
+        // clicking anywhere on the card group (icon or label) triggers selection / double click
         if (on_double_click && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
             (*on_double_click)();
         } else if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
@@ -563,11 +563,11 @@ void lyra::ui::breadcrumb(const BreadcrumbItem* items, size_t count)
 
     ImGui::EndGroup();
 
-    // Group bounding box
+    // group bounding box
     ImVec2 bb_min = ImGui::GetItemRectMin();
     ImVec2 bb_max = ImGui::GetItemRectMax();
 
-    // Background capsule in Channel 0
+    // background capsule in channel 0
     draw_list->ChannelsSetCurrent(0);
 
     bb_min.x -= 2.0f;

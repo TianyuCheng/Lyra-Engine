@@ -8,7 +8,7 @@
 
 namespace lyra::ui
 {
-    // Hierarchical expandable tree node with icon, label, and selection state.
+    // hierarchical expandable tree node with icon, label, and selection state.
     // 'content' is invoked only when the item is expanded.
     bool tree_item(uint64_t id, CString icon, CString label, bool is_selected, ActionRef on_select);
     bool tree_item(uint64_t id, CString icon, CString label, bool is_selected, ActionRef on_select, ActionRef content);
@@ -16,7 +16,7 @@ namespace lyra::ui
     bool tree_item(CString id_str, CString icon, CString label, bool is_selected, ActionRef on_select);
     bool tree_item(CString id_str, CString icon, CString label, bool is_selected, ActionRef on_select, ActionRef content);
 
-    // Terminal leaf node (non-expandable)
+    // terminal leaf node (non-expandable)
     void tree_leaf(uint64_t id, CString icon, CString label, bool is_selected, ActionRef on_select);
     void tree_leaf(CString id_str, CString icon, CString label, bool is_selected, ActionRef on_select);
 

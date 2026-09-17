@@ -51,7 +51,7 @@ VkDescriptorType infer_descriptor_type(const GPUBindGroupLayoutEntry& entry)
     }
 }
 
-// NOTE: A possible optimization is that we could hash the layout
+// NOTE: a possible optimization is that we could hash the layout
 // to avoid creating identical layouts, not sure if this is useful.
 
 VulkanBindGroupLayout::VulkanBindGroupLayout() : layout(VK_NULL_HANDLE)

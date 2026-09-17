@@ -42,19 +42,19 @@ void ConsoleView::update(Blackboard& blackboard)
 void ConsoleView::show_bar()
 {
     ui::toolbar([&]() {
-        // Clear button
+        // clear button
         ui::button(LYRA_ICON_DELETE " Clear", [&]() {
             get_console_sink()->get_console().clear();
         });
 
-        // Auto-scroll toggle
+        // auto-scroll toggle
         ui::toggle_button(LYRA_ICON_REFRESH " Auto-scroll", auto_scroll, [&](bool val) {
             auto_scroll = val;
         });
 
         ui::separator();
 
-        // Toggle buttons for each log level
+        // toggle buttons for each log level
         auto level_button = [&](CString label, LogLevel level, ui::StatusRole role) {
             bool active = (level_filter & (1 << (int)level)) != 0;
             ui::toggle_button(label, active, role, [&](bool) {
@@ -71,7 +71,7 @@ void ConsoleView::show_bar()
 
         ui::separator();
 
-        // Right-aligned fixed-size search filter
+        // right-aligned fixed-size search filter
         ui::spacer();
         ui::search_bar(filter, sizeof(filter), 250.0f);
     });

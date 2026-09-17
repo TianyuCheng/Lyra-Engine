@@ -381,7 +381,7 @@ void AssetServer::commit_cooked_asset(const Path& import_path, const Path& rel_p
         }
     }
 
-    // Orphan cleanup: if prev_meta had dependencies that are no longer present
+    // orphan cleanup: if prev_meta had dependencies that are no longer present
     if (prev_meta.contains("dependencies") && prev_meta["dependencies"].is_array()) {
         for (const auto& item : prev_meta["dependencies"]) {
             if (item.is_object() && item.contains("guid")) {
@@ -437,7 +437,7 @@ auto AssetServer::cook_asset_task(AssetCookerAPI* cooker, const Path& source_pat
         metadata["type"]    = to_string(type_id);
         metadata["time"]    = get_timestamp();
 
-        // If import_path already exists, read existing dependencies into metadata so cooker can reuse them
+        // if import_path already exists, read existing dependencies into metadata so cooker can reuse them
         std::error_code ec;
         if (fs::exists(import_path, ec)) {
             try {
@@ -1032,7 +1032,7 @@ void AssetServer::handle_watch_rename(const AssetWatchEvent& evt)
     std::lock_guard   lock(reg_mut);
     registry.update(guid, evt.path.string(), registry.get_type(guid), registry.get_dependencies(guid));
 
-    // Rename .import sidecar if it exists
+    // rename .import sidecar if it exists
     Path            old_import = get_metadata_path(Path(descriptor.importer.assets_path) / evt.old_path);
     Path            new_import = get_metadata_path(Path(descriptor.importer.assets_path) / evt.path);
     std::error_code ec;

@@ -193,7 +193,7 @@ static CumulativeOffset calculate_cumulative_offset(slang::ParameterCategory lay
 
 static uint calculate_cumulative_space(CompileTarget target, const AccessPath& path)
 {
-    // Check if the parameter block has an explicit lyra::group or lyra::set attribute
+    // check if the parameter block has an explicit lyra::group or lyra::set attribute
     auto pb_node = path.deepest_parameter_block ? path.deepest_parameter_block : path.leaf;
     if (pb_node && pb_node->var_layout) {
         if (auto var = pb_node->var_layout->getVariable()) {
@@ -219,7 +219,7 @@ static uint calculate_cumulative_space(CompileTarget target, const AccessPath& p
     uint space = 0;
     switch (target) {
         case CompileTarget::MSL:
-            // In Metal, there is no descriptor table, so constant buffer is used to differentiate between bindings (argument buffer),
+            // in Metal, there is no descriptor table, so constant buffer is used to differentiate between bindings (argument buffer),
             // since there is no notion of register spaces or descriptor set, it contributes to the value/offset, instead of space.
             space += calculate_cumulative_offset(slang::ParameterCategory::ConstantBuffer, path).value;
             break;
@@ -879,10 +879,10 @@ void ReflectResultInternal::init_bindings(slang::ProgramLayout* program_layout)
         auto typ_layout = path.leaf->var_layout->getTypeLayout();
         switch (typ_layout->getKind()) {
             case slang::TypeReflection::Kind::ParameterBlock:
-                // ParameterBlock has a name, we record it for bind group retrieval
+                // parameter block has a name, we record it for bind group retrieval
                 record_parameter_block_space(path);
 
-                // ParameterBlock will automatically introduce a constant buffer binding if ordinary types are observed.
+                // parameter block will automatically introduce a constant buffer binding if ordinary types are observed.
                 if (typ_layout->getElementTypeLayout()->getSize())
                     create_automatic_constant_buffer(path);
 
@@ -1107,8 +1107,8 @@ void ReflectResultInternal::fill_binding_index(GPUBindGroupLayoutEntry& entry, C
         }
     }
 
-    // Metal support binding the resource directly, or indirectly via argument buffer.
-    // This cannot be derived from later code path, so we must record it now.
+    // metal supports binding the resource directly, or indirectly via argument buffer.
+    // this cannot be derived from later code path, so we must record it now.
     if (target == CompileTarget::MSL) {
         // when a binding is placed inside a parameter block
         entry.binding.from_argument_buffer = is_under_parameter_block(path);
@@ -1132,7 +1132,7 @@ void ReflectResultInternal::fill_binding_count(GPUBindGroupLayoutEntry& entry, s
 void ReflectResultInternal::fill_binding_stages(GPUBindGroupLayoutEntry& entry, const AccessPath& path) const
 {
     // for Metal shading language, the shader stage visibility is implicit from the shader entry arguments.
-    // MSL has a different binding model than SPIRV/DXIL, it uses argument buffer instead of descriptor table slot,
+    // msl has a different binding model than SPIRV/DXIL, it uses argument buffer instead of descriptor table slot,
     // or subelement register space. The visibility is operated at the argument buffer level.
     if (target == CompileTarget::MSL)
         return;

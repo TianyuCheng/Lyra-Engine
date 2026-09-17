@@ -79,7 +79,7 @@ namespace lyra
 
         Vector<String>     files                   = {};
         Vector<String>     folders                 = {};
-        Vector<String>     all_items               = {}; // Cached combined list
+        Vector<String>     all_items               = {}; // cached combined list
         Vector<Breadcrumb> breadcrumbs             = {};
         uint32_t           session_success         = 0;
         uint32_t           session_failure         = 0;

@@ -123,7 +123,7 @@ static Vector<fs::path> resolve_read_paths(NativeFSLoader* loader, FSPath cpath)
 }
 
 // -----------------------------------------------------------------------------
-// API functions
+// api functions
 // -----------------------------------------------------------------------------
 
 static CString get_api_name()

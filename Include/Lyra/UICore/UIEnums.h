@@ -7,7 +7,7 @@
 
 namespace lyra::ui
 {
-    // Semantic button roles (dictates uniform styling across the engine)
+    // semantic button roles (dictates uniform styling across the engine)
     enum struct ButtonRole : uint8_t
     {
         Standard,
@@ -18,7 +18,7 @@ namespace lyra::ui
         Ghost       // Borderless / Minimal (e.g. toolbars, breadcrumbs)
     };
 
-    // Semantic status roles for text, badges, and filters
+    // semantic status roles for text, badges, and filters
     enum struct StatusRole : uint8_t
     {
         Default,
@@ -32,7 +32,7 @@ namespace lyra::ui
         Critical
     };
 
-    // Directional alignment along layout axes
+    // directional alignment along layout axes
     enum struct Alignment : uint8_t
     {
         Start,
@@ -40,7 +40,7 @@ namespace lyra::ui
         End
     };
 
-    // Docking workspace areas
+    // docking workspace areas
     enum struct Area : uint8_t
     {
         Main,

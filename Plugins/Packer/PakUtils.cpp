@@ -32,7 +32,7 @@ String PakArchive::normalize_path(FSPath vpath)
     while (!s.empty() && s.front() == '/')
         s.erase(0, 1);
 
-    // PAK format has a 56-byte filename field (55 chars + null terminator max)
+    // pak format has a 56-byte filename field (55 chars + null terminator max)
     if (s.length() > 55) {
         get_logger()->warn("normalize_pak_path: truncating path '{}' to 55 characters", s);
         s = s.substr(0, 55);

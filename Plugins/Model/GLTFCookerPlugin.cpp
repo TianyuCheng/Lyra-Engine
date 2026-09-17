@@ -38,7 +38,7 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
         if (!err.empty())  get_logger()->error("tinygltf: {}", err);
         if (!ret) return false;
 
-        // Cache subdirectories
+        // cache subdirectories
         fs::path root(caches_root);
         fs::path models_dir    = root / "models";
         fs::path meshes_dir    = root / "meshes";
@@ -67,7 +67,7 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
 
         TreeMap<int, AssetID> material_map;
 
-        // Process Materials
+        // process materials
         for (size_t i = 0; i < gltf_model.materials.size(); ++i) {
             const auto& g_mat = gltf_model.materials[i];
             MaterialAsset mat;
@@ -111,7 +111,7 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
             material_map[static_cast<int>(i)] = mat_id;
         }
 
-        // Process Nodes and Meshes
+        // process nodes and meshes
         HashSet<int> saved_meshes;
         Vector<RasterizerMesh> preview_meshes;
         for (size_t i = 0; i < gltf_model.nodes.size(); ++i) {
@@ -315,7 +315,7 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
             model.nodes.push_back(std::move(node));
         }
 
-        // Save ModelAsset (USDA format)
+        // save model asset (USDA format)
         Path model_cache_path = models_dir / (std::to_string(model_id) + ".model");
         ModelAsset::saver().save(&model, model_cache_path.c_str());
 

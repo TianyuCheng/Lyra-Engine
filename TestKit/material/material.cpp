@@ -33,11 +33,11 @@ TEST_CASE("mat::material_usd_serialization")
     original.depth_write        = false;
     original.depth_test         = true;
 
-    // Save to .material USDA via AssetSaverAPI
+    // save to .material USDA via AssetSaverAPI
     bool save_ok = MaterialAsset::saver().save(&original, mat_path.c_str());
     REQUIRE(save_ok);
 
-    // Load via FileLoader and MaterialAsset::loader()
+    // load via FileLoader and MaterialAsset::loader()
     FileLoader loader(FSLoader::NATIVE);
     loader.mount("/", temp_dir.c_str(), 0);
 
@@ -319,18 +319,18 @@ TEST_CASE("ams::model_import_and_reimport")
           << "f 1 3 4\n";
     }
 
-    // First import
+    // first import
     auto fut1 = server.import_asset("cube.obj", false);
     auto guid1 = fut1.get();
     CHECK_NE(guid1, 0);
 
-    // Re-import (force = true)
+    // re-import (force = true)
     auto fut2 = server.import_asset("cube.obj", true);
     auto guid2 = fut2.get();
     CHECK_NE(guid2, 0);
     CHECK_EQ(guid1, guid2);
 
-    // STL import test
+    // stl import test
     auto bunny_src = lyra::git_root() / "Scratch" / "project" / "Assets" / "Stanford_Bunny.stl";
     if (fs::exists(bunny_src)) {
         fs::copy_file(bunny_src, assets_dir / "Stanford_Bunny.stl", fs::copy_options::overwrite_existing);

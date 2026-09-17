@@ -309,7 +309,7 @@ void test_shader_explicit_group_and_binding_reflection(CompileTarget target, Com
     [[lyra::push_constant]]
     ConstantBuffer<Xform> xform;
 
-    // Declared out of order: material is explicitly group 2, scene is explicitly group 0
+    // declared out of order: material is explicitly group 2, scene is explicitly group 0
     [[lyra::group(2)]]
     ParameterBlock<Material> material;
 
@@ -373,7 +373,7 @@ void test_shader_explicit_group_and_binding_reflection(CompileTarget target, Com
     auto bindgroups = reflection->get_bind_group_layouts();
     CHECK_EQ(bindgroups.size(), 2);
 
-    // Verify material group (group 2) and its explicit bindings
+    // verify material group (group 2) and its explicit bindings
     auto mat_bg_it = std::find_if(bindgroups.begin(), bindgroups.end(), [](const auto& bg) {
         return bg.label && strcmp(bg.label, "material") == 0;
     });

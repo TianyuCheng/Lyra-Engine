@@ -16,7 +16,7 @@ using namespace lyra::packer::pak;
 static Vector<FilePackerHandle> g_packers;
 
 // -----------------------------------------------------------------------------
-// API functions
+// api functions
 // -----------------------------------------------------------------------------
 
 static CString get_api_name() { return "PakBuilder"; }

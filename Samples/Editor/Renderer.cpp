@@ -33,7 +33,7 @@ ConstantBuffer<Camera> camera;
 [shader("vertex")]
 VertexOutput vsmain(uint vertex_id : SV_VertexID)
 {
-    // Fullscreen quad in NDC [-1, 1] using 6 vertices (2 triangles)
+    // fullscreen quad in NDC [-1, 1] using 6 vertices (2 triangles)
     static const float2 quad_vertices[6] = {
         float2(-1.0, -1.0),
         float2( 1.0, -1.0),
@@ -63,7 +63,7 @@ float compute_grid(float2 coord, float scale, float line_width)
 [shader("fragment")]
 FragmentOutput fsmain(VertexOutput input)
 {
-    // Unproject near and far points from NDC (-1 to 1) to view then world space
+    // unproject near and far points from NDC (-1 to 1) to view then world space
     float4 p_near_clip = float4(input.uv, 0.0, 1.0);
     float4 p_far_clip  = float4(input.uv, 1.0, 1.0);
 
@@ -79,24 +79,24 @@ FragmentOutput fsmain(VertexOutput input)
     if (abs(ray_dir.y) < 1e-6)
         discard;
 
-    // Intersection with ground plane Y = 0
+    // intersection with ground plane Y = 0
     float t = -p_near_world.y / ray_dir.y;
     if (t <= 0.0)
         discard;
 
     float3 world_pos = p_near_world + t * ray_dir;
 
-    // Compute clip-space depth for depth buffer
+    // compute clip-space depth for depth buffer
     float4 clip_pos = mul(mul(float4(world_pos, 1.0), camera.view), camera.proj);
     float depth = clip_pos.z / clip_pos.w;
 
     if (depth < 0.0 || depth > 1.0)
         discard;
 
-    // Screen-space derivatives for anti-aliasing
+    // screen-space derivatives for anti-aliasing
     float2 d_coord = max(fwidth(world_pos.xz), float2(1e-6, 1e-6));
 
-    // Distance-based radial LOD calculation (uniform around the camera, avoiding elliptical artifacts)
+    // distance-based radial LOD calculation (uniform around the camera, avoiding elliptical artifacts)
     float dist = length(world_pos - camera.pos);
     float cam_alt = max(abs(camera.pos.y), 1.5);
 
@@ -114,26 +114,26 @@ FragmentOutput fsmain(VertexOutput input)
     float sub_weight = smoothstep(2.0, 0.6, abs(camera.pos.y));
     float sub_lod    = (1.0 - smoothstep(2.0, 8.0, dist)) * sub_weight;
 
-    // Compute grid lines for active levels
+    // compute grid lines for active levels
     float line_01m = (sub_lod > 0.001)    ? compute_grid(world_pos.xz, 0.1,  0.8)  : 0.0;
     float line_1m  = (fine_lod > 0.001)   ? compute_grid(world_pos.xz, 1.0,  1.0)  : 0.0;
     float line_10m = (coarse_lod > 0.001) ? compute_grid(world_pos.xz, 10.0, 1.25) : 0.0;
 
-    // Opacities for each level
+    // opacities for each level
     float alpha_01m = line_01m * 0.15 * sub_lod;
     float alpha_1m  = line_1m  * 0.30 * fine_lod;
     float alpha_10m = line_10m * 0.60 * coarse_lod;
 
-    // Maximum blending: major 10m lines stay solid while intermediate 1m lines dissolve seamlessly
+    // maximum blending: major 10m lines stay solid while intermediate 1m lines dissolve seamlessly
     float alpha = max(alpha_01m, max(alpha_1m, alpha_10m));
 
-    // Color grading from fine lines to major subdivision lines
+    // color grading from fine lines to major subdivision lines
     float3 col = float3(0.48, 0.48, 0.52);
     if (line_10m > 0.01 && coarse_lod > 0.01) {
         col = lerp(col, float3(0.72, 0.72, 0.76), line_10m * coarse_lod);
     }
 
-    // Coordinate axes: X axis (Z == 0) in Red, Z axis (X == 0) in Blue
+    // coordinate axes: X axis (Z == 0) in Red, Z axis (X == 0) in Blue
     float x_axis_dist = abs(world_pos.z) / d_coord.y;
     float is_x_axis = 1.0 - min(x_axis_dist / 1.5, 1.0);
 
@@ -149,7 +149,7 @@ FragmentOutput fsmain(VertexOutput input)
         alpha = max(alpha, is_z_axis * 0.90 * coarse_lod);
     }
 
-    // Soft grazing angle fade near the horizon to avoid edge shimmer
+    // soft grazing angle fade near the horizon to avoid edge shimmer
     float3 view_dir = normalize(world_pos - camera.pos);
     float angle_fade = smoothstep(0.005, 0.05, abs(view_dir.y));
     alpha *= angle_fade;

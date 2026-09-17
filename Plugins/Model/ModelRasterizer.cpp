@@ -30,7 +30,7 @@ bool lyra::model::generate_model_thumbnail(
     const Vector<RasterizerMesh>& meshes,
     OSPath                        caches_root)
 {
-    // 1. Calculate cumulative bounding box
+    // 1. calculate cumulative bounding box
     Vector3 aabb_min(std::numeric_limits<float>::max());
     Vector3 aabb_max(std::numeric_limits<float>::lowest());
     size_t  total_indices = 0;
@@ -56,13 +56,13 @@ bool lyra::model::generate_model_thumbnail(
         return false;
     }
 
-    // 2. Normalization transform (center at origin, scale largest extent to [-1, 1])
+    // 2. normalization transform (center at origin, scale largest extent to [-1, 1])
     float norm_scale = 2.0f / max_extent;
 
-    // 3. Setup Camera (canonical 3/4 perspective)
+    // 3. setup camera (canonical 3/4 perspective)
     constexpr float fov_deg = 35.0f;
     float           fov_rad = glm::radians(fov_deg);
-    // Distance to frame bounding sphere of radius ~1.732 (sqrt(3)) with 15% safety margin
+    // distance to frame bounding sphere of radius ~1.732 (sqrt(3)) with 15% safety margin
     float dist = (1.732f / std::tan(fov_rad * 0.5f)) * 1.15f;
 
     float   pitch = glm::radians(25.0f);
@@ -78,7 +78,7 @@ bool lyra::model::generate_model_thumbnail(
     Matrix4x4 proj = glm::perspective(fov_rad, 1.0f, 0.1f, dist * 4.0f);
     Matrix4x4 vp   = proj * view;
 
-    // 4. Rasterization setup (Render at 256x256 for 2x SSAA, downsample to 128x128)
+    // 4. rasterization setup (render at 256x256 for 2x SSAA, downsample to 128x128)
     constexpr int RENDER_W = 256;
     constexpr int RENDER_H = 256;
     constexpr int THUMB_W  = 128;
@@ -91,11 +91,11 @@ bool lyra::model::generate_model_thumbnail(
     Vector3 light_fill = glm::normalize(Vector3(-0.577f, -0.2f, -0.707f));
     Vector3 clay_color = Vector3(0.78f, 0.81f, 0.86f);
 
-    // Process each mesh
+    // process each mesh
     for (const auto& mesh : meshes) {
         if (mesh.indices.empty() || mesh.positions.empty()) continue;
 
-        // Combined model matrix: Normalize(Translate * MeshTransform)
+        // combined model matrix: normalize(translate * mesh_transform)
         Matrix4x4 model = glm::scale(Matrix4x4(1.0f), Vector3(norm_scale)) *
                           glm::translate(Matrix4x4(1.0f), -center) *
                           mesh.transform;
@@ -116,17 +116,17 @@ bool lyra::model::generate_model_thumbnail(
             Vector4 p1 = mvp * Vector4(mesh.positions[i1], 1.0f);
             Vector4 p2 = mvp * Vector4(mesh.positions[i2], 1.0f);
 
-            // Near plane clip
+            // near plane clip
             if (p0.w <= 0.001f || p1.w <= 0.001f || p2.w <= 0.001f) {
                 continue;
             }
 
-            // Perspective divide to NDC
+            // perspective divide to NDC
             Vector3 ndc0 = Vector3(p0) / p0.w;
             Vector3 ndc1 = Vector3(p1) / p1.w;
             Vector3 ndc2 = Vector3(p2) / p2.w;
 
-            // Frustum culling
+            // frustum culling
             if ((ndc0.x < -1.0f && ndc1.x < -1.0f && ndc2.x < -1.0f) ||
                 (ndc0.x > 1.0f && ndc1.x > 1.0f && ndc2.x > 1.0f) ||
                 (ndc0.y < -1.0f && ndc1.y < -1.0f && ndc2.y < -1.0f) ||
@@ -136,7 +136,7 @@ bool lyra::model::generate_model_thumbnail(
                 continue;
             }
 
-            // Screen coordinates
+            // screen coordinates
             float sx0 = (ndc0.x + 1.0f) * 0.5f * (RENDER_W - 1);
             float sy0 = (1.0f - ndc0.y) * 0.5f * (RENDER_H - 1);
             float sx1 = (ndc1.x + 1.0f) * 0.5f * (RENDER_W - 1);
@@ -149,7 +149,7 @@ bool lyra::model::generate_model_thumbnail(
                 continue;
             }
 
-            // Normals
+            // normals
             Vector3 n0, n1, n2;
             if (!mesh.normals.empty() && i0 < mesh.normals.size() && i1 < mesh.normals.size() && i2 < mesh.normals.size()) {
                 n0 = glm::normalize(normal_matrix * mesh.normals[i0]);
@@ -187,7 +187,7 @@ bool lyra::model::generate_model_thumbnail(
                             depth_buffer[pixel_idx] = z;
 
                             Vector3 norm = glm::normalize(w0 * n0 + w1 * n1 + w2 * n2);
-                            // Two-sided shading: flip normal if pointing away from camera
+                            // two-sided shading: flip normal if pointing away from camera
                             Vector3 view_dir = glm::normalize(eye);
                             if (glm::dot(norm, view_dir) < 0.0f) {
                                 norm = -norm;

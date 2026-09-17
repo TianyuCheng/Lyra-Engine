@@ -17,7 +17,7 @@ namespace lyra::detail
     template <typename T>
     struct typed_view
     {
-        // Iterator type aliases
+        // iterator type aliases
         using iterator               = T*;
         using const_iterator         = const T*;
         using reverse_iterator       = std::reverse_iterator<iterator>;
@@ -54,7 +54,7 @@ namespace lyra::detail
 
         size_t size() const { return count; }
 
-        // Forward iterator methods
+        // forward iterator methods
         iterator begin() noexcept { return data_; }
         iterator end() noexcept { return data_ + count; }
 
@@ -64,7 +64,7 @@ namespace lyra::detail
         const_iterator cbegin() const noexcept { return data_; }
         const_iterator cend() const noexcept { return data_ + count; }
 
-        // Reverse iterator methods
+        // reverse iterator methods
         reverse_iterator rbegin() noexcept { return reverse_iterator(end()); }
         reverse_iterator rend() noexcept { return reverse_iterator(begin()); }
 

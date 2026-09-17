@@ -347,10 +347,10 @@ struct VulkanCommandBuffer
     // frame id must match VulkanFrame's id
     uint32_t frame_id = 0u;
 
-    // CPU/GPU synchronization
+    // cpu/gpu synchronization
     VulkanFence fence;
 
-    // Query sets
+    // query sets
     VulkanQuerySet     query_set;
     Optional<uint32_t> query_index;
 
@@ -362,7 +362,7 @@ struct VulkanCommandBuffer
     VkPipelineLayout    last_bound_layout   = VK_NULL_HANDLE;
     VkPipelineBindPoint last_bound_point    = VK_PIPELINE_BIND_POINT_COMPUTE;
 
-    // GPU/GPU synchronization
+    // gpu/gpu synchronization
     Vector<VkSemaphoreSubmitInfo> wait_semaphores   = {};
     Vector<VkSemaphoreSubmitInfo> signal_semaphores = {};
 
@@ -409,7 +409,7 @@ struct VulkanFrame
     uint32_t frame_id = 0u;
 
     // NOTE: VulkanFrame does NOT own these synchronization primitives.
-    // These should be copied from VulkanSwapchain::Frame when frame is selected.
+    // these should be copied from VulkanSwapchain::Frame when frame is selected.
     VulkanFence     inflight_fence; // only the most recent one
     GPUFenceHandle  image_available_semaphore;
     GPUFenceHandle  render_complete_semaphore;
@@ -562,7 +562,7 @@ struct VulkanRHI
     }
 };
 
-// These are the functions that implements the plugin.
+// these are the functions that implements the plugin.
 namespace api
 {
     // instance apis

@@ -25,13 +25,13 @@ namespace lyra::ui::workspace
         uint32_t bottom = 0;
     };
 
-    // Initialize/configure the editor workspace layout splits
+    // initialize/configure the editor workspace layout splits
     void setup(const LayoutSplit& split = {});
 
-    // Dock a panel to a specific area of the workspace
+    // dock a panel to a specific area of the workspace
     void dock(CString panel_title, Area area);
 
-    // Get the IDs of the split regions
+    // get the IDs of the split regions
     auto get_nodes() -> LayoutNodes;
 
 } // namespace lyra::ui::workspace

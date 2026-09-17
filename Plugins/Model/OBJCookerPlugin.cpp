@@ -37,7 +37,7 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
             get_logger()->warn("tinyobjreader: {}", reader.Warning());
         }
 
-        // Cache subdirectories
+        // cache subdirectories
         fs::path root(caches_root);
         fs::path models_dir    = root / "models";
         fs::path meshes_dir    = root / "meshes";

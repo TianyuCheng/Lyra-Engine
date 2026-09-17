@@ -133,8 +133,8 @@ namespace lyra::imgui
         void begin_render_pass(GPUCommandBuffer cmdbuffer, GPUTextureViewHandle backbuffer) const;
         void end_render_pass(GPUCommandBuffer cmdbuffer) const;
 
-        // ImGuiContext* is initialized inside engine DLLs.
-        // User application needs the same context in order to use ImGui.
+        // imgui context is initialized inside engine DLLs.
+        // user application needs the same context in order to use ImGui.
         auto context() const -> ImGuiContext*;
 
     private:

@@ -3,16 +3,327 @@
 #ifndef LYRA_LYRA_RENDER_FRAME_GRAPH_H
 #define LYRA_LYRA_RENDER_FRAME_GRAPH_H
 
-#include <Lyra/Render/FrameGraphCommon.h> // IWYU pragma: keep
-#include <Lyra/Render/FrameGraphPass.h>
-#include <Lyra/Render/FrameGraphContext.h>
-#include <Lyra/Render/FrameGraphAllocator.h>
-#include <Lyra/Render/FrameGraphResource.h>
-#include <Lyra/Render/FrameGraphTexture.h>
-#include <Lyra/Render/FrameGraphBuffer.h>
+#include <type_traits>
+
+#include <Lyra/Common/Hash.h>
+#include <Lyra/Common/Stdint.h>
+#include <Lyra/Common/String.h>
+#include <Lyra/Common/Pointer.h>
+#include <Lyra/Common/Function.h>
+#include <Lyra/Common/Collections.h>
+
+#include <Lyra/Render/RHIHash.h>
+#include <Lyra/Render/RHIDescs.h>
+#include <Lyra/Render/RHIInits.h>
+#include <Lyra/Render/RHITypes.h>
 
 namespace lyra
 {
+    // -------------------------------------------------------------------------
+    // enums
+    // -------------------------------------------------------------------------
+
+    enum struct FrameGraphResourceType
+    {
+        TRANSIENT,
+        IMPORTED,
+    };
+
+    enum struct FrameGraphReadOp
+    {
+        NOP, // no specific action required
+        READ,
+        SAMPLE,
+        PRESENT,
+    };
+
+    enum struct FrameGraphWriteOp
+    {
+        NOP, // no specific action required
+        WRITE,
+        RENDER,
+    };
+
+    using FGReadOp       = FrameGraphReadOp;
+    using FGWriteOp      = FrameGraphWriteOp;
+    using FGResourceType = FrameGraphResourceType;
+
+    // -------------------------------------------------------------------------
+    // traits
+    // -------------------------------------------------------------------------
+
+    template <typename T, typename = void>
+    struct has_pre_read : std::false_type
+    {
+    };
+
+    template <typename T>
+    struct has_pre_read<T, typename std::enable_if<std::is_member_function_pointer<decltype(&T::pre_read)>::value>::type> : std::true_type
+    {
+    };
+
+    template <typename T, typename = void>
+    struct has_pre_write : std::false_type
+    {
+    };
+
+    template <typename T>
+    struct has_pre_write<T, typename std::enable_if<std::is_member_function_pointer<decltype(&T::pre_write)>::value>::type> : std::true_type
+    {
+    };
+
+    // -------------------------------------------------------------------------
+    // resource
+    // -------------------------------------------------------------------------
+
+    using FrameGraphResource = std::uint32_t;
+
+    struct FrameGraphPass;
+    struct FrameGraphContext;
+    struct FrameGraphAllocator;
+
+    struct FrameGraphResourceModel
+    {
+        FrameGraphResourceType type = FrameGraphResourceType::TRANSIENT;
+
+        virtual ~FrameGraphResourceModel()                                                             = default;
+        virtual void create(FrameGraphAllocator* allocator)                                            = 0;
+        virtual void destroy(FrameGraphAllocator* allocator)                                           = 0;
+        virtual void pre_read(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphReadOp op)   = 0;
+        virtual void pre_write(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphWriteOp op) = 0;
+    };
+
+    template <typename T>
+    struct FrameGraphResourceEntry : public FrameGraphResourceModel
+    {
+        typename T::Descriptor desc;
+        T                      value;
+
+        void create(FrameGraphAllocator* allocator) override
+        {
+            if (type == FrameGraphResourceType::TRANSIENT)
+                value.create(allocator, desc);
+        }
+
+        void destroy(FrameGraphAllocator* allocator) override
+        {
+            if (type == FrameGraphResourceType::TRANSIENT)
+                value.destroy(allocator, desc);
+        }
+
+        void pre_read(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphReadOp op) override
+        {
+            if constexpr (has_pre_read<T>::value)
+                value.pre_read(context, pass, op);
+        }
+
+        void pre_write(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphWriteOp op) override
+        {
+            if constexpr (has_pre_write<T>::value)
+                value.pre_write(context, pass, op);
+        }
+    };
+
+    struct FrameGraphResourceNode
+    {
+        FrameGraphResourceModel* entry     = nullptr;
+        uint                     rsid      = 0;
+        uint                     refcnt    = 0;
+        uint                     last_pass = 0;
+        bool                     duplicate = false;
+        Vector<uint>             consumers = {};
+        Vector<uint>             producers = {};
+    };
+
+    struct FrameGraphResources
+    {
+    public:
+        friend struct FrameGraph;
+
+        void put(FrameGraphResource rsid, FrameGraphResourceModel* resource)
+        {
+            data[rsid] = resource;
+        }
+
+        template <typename T>
+        const T* get(FrameGraphResource rsid) const
+        {
+            auto it = data.find(rsid);
+            if (it == data.end())
+                return nullptr;
+
+            auto resource = dynamic_cast<FrameGraphResourceEntry<T>*>(it->second);
+            return &resource->value;
+        }
+
+    private:
+        HashMap<FrameGraphResource, FrameGraphResourceModel*> data = {};
+    };
+
+    // -------------------------------------------------------------------------
+    // pass
+    // -------------------------------------------------------------------------
+
+    struct FrameGraphReadResource
+    {
+        FrameGraphResource resource;
+        FrameGraphReadOp   read_op;
+    };
+
+    struct FrameGraphWriteResource
+    {
+        FrameGraphResource resource;
+        FrameGraphWriteOp  write_op;
+    };
+
+    struct FrameGraphPass
+    {
+    public:
+        friend struct FrameGraph;
+        friend struct FrameGraphBuilder;
+        friend struct FrameGraphPassNode;
+
+        FrameGraphPass(StringView name) : name(name) {}
+        FrameGraphPass(FrameGraphPass&&)      = delete;
+        FrameGraphPass(const FrameGraphPass&) = delete;
+
+        template <typename T>
+        using CompileCallback = typename std::function<T(FrameGraphPass&)>;
+
+        template <typename T>
+        auto compile(CompileCallback<T>&& f) -> T { return f(*this); }
+
+        using ExecuteCallback = std::function<void(FrameGraphResources&, FrameGraphContext* ctx)>;
+        void execute(ExecuteCallback&& f) { this->callback = std::move(f); }
+
+        // prevent from being culled
+        void preserve() { preserved = true; }
+
+    private:
+        String          name      = "";
+        bool            preserved = false;
+        ExecuteCallback callback;
+    }; // end of FrameGraphPass
+
+    struct FrameGraphPassNode
+    {
+        FrameGraphPass*                 entry   = {};
+        uint                            psid    = 0;
+        uint                            refcnt  = 0;
+        Vector<FrameGraphReadResource>  reads   = {};
+        Vector<FrameGraphWriteResource> writes  = {};
+        Vector<FrameGraphResource>      creates = {};
+        Vector<FrameGraphResource>      deletes = {};
+
+        bool active() const { return refcnt != 0 || entry->preserved; }
+    };
+
+    // -------------------------------------------------------------------------
+    // context
+    // -------------------------------------------------------------------------
+
+    struct FrameGraphContext
+    {
+        GPUDevice        device;
+        GPUSurface       surface;
+        GPUCommandBuffer cmdlist;
+    };
+
+    // -------------------------------------------------------------------------
+    // allocator
+    // -------------------------------------------------------------------------
+
+    template <typename T>
+    struct FrameGraphAllocatorEntry
+    {
+        T    data;
+        bool used = false;
+    };
+
+    using FGBufferObject  = GPUBufferHandle;
+    using FGBufferVector  = Vector<FrameGraphAllocatorEntry<FGBufferObject>>;
+
+    using FGTextureObject = std::pair<GPUTextureHandle, GPUTextureViewHandle>;
+    using FGTextureVector = Vector<FrameGraphAllocatorEntry<FGTextureObject>>;
+
+    struct FrameGraphAllocator
+    {
+    public:
+        auto allocate(const GPUBufferDescriptor& descriptor) -> FGBufferObject;
+        void recycle(const GPUBufferDescriptor& descriptor, FGBufferObject buffer);
+
+        auto allocate(const GPUTextureDescriptor& descriptor) -> FGTextureObject;
+        void recycle(const GPUTextureDescriptor& descriptor, FGTextureObject texture);
+
+    private:
+        HashMap<GPUBufferDescriptor, FGBufferVector>   buffers;
+        HashMap<GPUTextureDescriptor, FGTextureVector> textures;
+    };
+
+    // -------------------------------------------------------------------------
+    // built-in resource types
+    // -------------------------------------------------------------------------
+
+    struct FrameGraphTexture
+    {
+        using Self       = FrameGraphTexture;
+        using Descriptor = GPUTextureDescriptor;
+
+        void create(FrameGraphAllocator* allocator, const Descriptor& descriptor)
+        {
+            auto handle = allocator->allocate(descriptor);
+            texture     = handle.first;
+            view        = handle.second;
+            state       = undefined_state();
+            format      = descriptor.format;
+            layers      = descriptor.array_layers;
+            levels      = descriptor.mip_level_count;
+        }
+
+        void destroy(FrameGraphAllocator* allocator, const Descriptor& descriptor)
+        {
+            auto handle = std::make_pair(texture, view);
+            allocator->recycle(descriptor, handle);
+            texture.reset();
+            view.reset();
+        }
+
+        void pre_read(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphReadOp op);
+        void pre_write(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphWriteOp op);
+
+        // related texture handles
+        GPUTextureHandle     texture;
+        GPUTextureViewHandle view;
+        GPUTextureFormat     format;
+        uint                 layers = 1;
+        uint                 levels = 1;
+        TransitionState      state  = undefined_state();
+    };
+
+    struct FrameGraphBuffer
+    {
+        using Self       = FrameGraphBuffer;
+        using Descriptor = GPUBufferDescriptor;
+
+        void create(FrameGraphAllocator* allocator, const Descriptor& descriptor)
+        {
+            buffer = allocator->allocate(descriptor);
+        }
+
+        void destroy(FrameGraphAllocator* allocator, const Descriptor& descriptor)
+        {
+            allocator->recycle(descriptor, buffer);
+            buffer.reset();
+        }
+
+        // related buffer handles
+        GPUBufferHandle buffer;
+    };
+
+    // -------------------------------------------------------------------------
+    // graph
+    // -------------------------------------------------------------------------
+
     struct FrameGraphBuilder;
 
     struct FrameGraph
@@ -75,6 +386,104 @@ namespace lyra
         Vector<FrameGraphResourceNode> resources;
         FrameGraphResources            registry;
     }; // end of FrameGraph
+
+    // -------------------------------------------------------------------------
+    // builder
+    // -------------------------------------------------------------------------
+
+    struct FrameGraphBuilder
+    {
+    public:
+        explicit FrameGraphBuilder() { graph = std::make_unique<FrameGraph>(); }
+        explicit FrameGraphBuilder(FrameGraphBuilder&&)      = delete;
+        explicit FrameGraphBuilder(const FrameGraphBuilder&) = delete;
+        virtual ~FrameGraphBuilder()                         = default;
+
+        FrameGraphBuilder&  operator=(const FrameGraphBuilder&) = delete;
+        FrameGraphBuilder&& operator=(FrameGraphBuilder&&)      = delete;
+
+        template <typename T>
+        [[nodiscard]] FrameGraphResource import(const T& entry)
+        {
+            uint index           = static_cast<uint>(graph->resources.size());
+            auto resource        = FrameGraphResourceNode{};
+            resource.rsid        = index;
+            resource.entry       = new FrameGraphResourceEntry<T>{};
+            resource.entry->type = FrameGraphResourceType::IMPORTED;
+
+            // imported resources directly stores the resource entry
+            reinterpret_cast<FrameGraphResourceEntry<T>*>(resource.entry)->value = entry;
+
+            // save this resource
+            graph->resources.push_back(resource);
+
+            // mark the resource to be created at the current pass
+            auto& pass_node = graph->passes.at(pass);
+            pass_node.creates.push_back(index);
+            return index;
+        }
+
+        template <typename T>
+        [[nodiscard]] FrameGraphResource create(const typename T::Descriptor& desc)
+        {
+            uint index           = static_cast<uint>(graph->resources.size());
+            auto resource        = FrameGraphResourceNode{};
+            resource.rsid        = index;
+            resource.entry       = new FrameGraphResourceEntry<T>{};
+            resource.entry->type = FrameGraphResourceType::TRANSIENT;
+
+            // transient resources needs to remember the descriptor
+            reinterpret_cast<FrameGraphResourceEntry<T>*>(resource.entry)->desc = desc;
+
+            // save this resource
+            graph->resources.push_back(resource);
+
+            // mark the resource to be created at the current pass
+            auto& pass_node = graph->passes.at(pass);
+            pass_node.creates.push_back(index);
+            return index;
+        }
+
+        // NOTE: Sometimes we need to read/write to the same resource in a single pass,
+        // for example, updating a buffer in place. FrameGraph does not allow cycles,
+        // therefore we will need to duplicate a resource logically, but under the hood
+        // they are pointing to the same actual resource.
+        [[nodiscard]] FrameGraphResource duplicate(FrameGraphResource rsid)
+        {
+            auto& from_resource = graph->resources.at(rsid);
+
+            uint index         = static_cast<uint>(graph->resources.size());
+            auto resource      = FrameGraphResourceNode{};
+            resource.rsid      = index;
+            resource.entry     = from_resource.entry;
+            resource.duplicate = true; // explicitly mark the resource as a duplicated resource
+
+            // save this resource
+            graph->resources.push_back(resource);
+
+            // mark the resource to be created at the current pass
+            auto& pass_node = graph->passes.at(pass);
+            pass_node.creates.push_back(index);
+            return index;
+        }
+
+        [[nodiscard]] FrameGraphPass&     create_pass(StringView name);
+
+        [[nodiscard]] FrameGraphResource  read(FrameGraphResource resource, FrameGraphReadOp op = FrameGraphReadOp::READ);
+        [[nodiscard]] FrameGraphResource  write(FrameGraphResource resource, FrameGraphWriteOp op = FrameGraphWriteOp::WRITE);
+        [[nodiscard]] FrameGraphResource  render(FrameGraphResource resource);
+        [[nodiscard]] FrameGraphResource  sample(FrameGraphResource resource);
+        [[nodiscard]] FrameGraphResource  present(FrameGraphResource resource);
+
+        [[nodiscard]] auto build() -> Own<FrameGraph>;
+
+    private:
+        bool is_pass_valid() const { return pass != 0xFFFFFFFFu; }
+
+    private:
+        Own<FrameGraph> graph = nullptr;
+        uint            pass  = 0xFFFFFFFFu;
+    }; // end of FrameGraphBuilder
 
 } // namespace lyra
 

@@ -225,13 +225,13 @@ static bool save_mesh_asset(const void* raw_asset, OSPath path)
     write_uint(MeshAsset::MESH_MAGIC);
     write_uint(MeshAsset::MESH_ASSET_VERSION);
 
-    // BBOX chunk
+    // bbox chunk
     write_chunk(MeshAsset::CHUNK_BBOX, [&]() {
         write_raw(&asset->min_bounds, sizeof(asset->min_bounds));
         write_raw(&asset->max_bounds, sizeof(asset->max_bounds));
     });
 
-    // LODS chunk
+    // lods chunk
     write_chunk(MeshAsset::CHUNK_LODS, [&]() {
         write_uint(static_cast<uint>(asset->lods.size()));
         for (const auto& lod : asset->lods) {

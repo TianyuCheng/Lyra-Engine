@@ -43,7 +43,7 @@ namespace lyra
         hash_bytes(&parent_guid, sizeof(parent_guid));
         hash_bytes(name.data(), name.size());
 
-        // SplitMix64 avalanche mixer
+        // splitmix64 avalanche mixer
         hash ^= hash >> 30;
         hash *= 0xbf58476d1ce4e5b9ull;
         hash ^= hash >> 27;

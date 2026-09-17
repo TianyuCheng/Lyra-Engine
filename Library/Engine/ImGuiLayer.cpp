@@ -6,8 +6,8 @@ ImGuiLayer::ImGuiLayer(const GUIDescriptor& descriptor) : descriptor(descriptor)
 {
     gui = GUIRenderer::init(descriptor);
 
-    // NOTE: This call will properly setup ImGuiContext* in the lyra-engine shared library.
-    // Users should still call it again in the user application as well for the same reason
+    // NOTE: this call will properly setup ImGuiContext* in the lyra-engine shared library.
+    // users should still call it again in the user application as well for the same reason
     // if they intend to directly call ImGui functions in their executable.
     apply_context();
 }

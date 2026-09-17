@@ -14,7 +14,7 @@
 
 namespace lyra
 {
-    // UUID is 128 bit integer
+    // uuid is 128 bit integer
     static constexpr uint UUID_BYTES        = 16;
     static constexpr uint UUID_STRING_BYTES = 36;
     static constexpr uint UUID_STRING_COUNT = UUID_STRING_BYTES + 1;

@@ -21,7 +21,7 @@ namespace lyra
         uint32_t bottom = 0;
     };
 
-    // EditorLayoutDescriptor is used for configuring docking splits.
+    // editor layout descriptor is used for configuring docking splits.
     struct EditorLayoutDescriptor
     {
         float left   = 0.25f;
@@ -30,7 +30,7 @@ namespace lyra
         float bottom = 0.25f;
     };
 
-    // EditorLayout configures the workspace layout splits.
+    // editor layout configures the workspace layout splits.
     struct EditorLayout
     {
     public:

@@ -14,7 +14,7 @@ using namespace lyra;
 namespace lyra::packer::pak
 {
 
-// PAK file format structures (little-endian)
+// pak file format structures (little-endian)
 #pragma pack(push, 1)
     struct PakHeader
     {

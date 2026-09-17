@@ -160,8 +160,8 @@ namespace lyra::detail
     inline void MemoryArena::destroy()
     {
         for (const auto& page : _pages) {
-            // This is problematic. We need to know the alignment used for allocation.
-            // PMR requires the same alignment for deallocation. Let's assume a max alignment.
+            // this is problematic. We need to know the alignment used for allocation.
+            // pmr requires the same alignment for deallocation. Let's assume a max alignment.
             constexpr size_t max_alignment = 16;
             _upstream->deallocate(page.memory, page.capacity, max_alignment);
         }

@@ -76,7 +76,7 @@ void AssetBrowserView::update(Blackboard& blackboard)
             auto stats = (*ams)->get_pipeline_stats();
             if (stats.completed_count != last_completed_cooks) {
                 last_completed_cooks = stats.completed_count;
-                // Invalidate failed/pending thumbnail cache entries so newly generated .import thumbnails load automatically
+                // invalidate failed/pending thumbnail cache entries so newly generated .import thumbnails load automatically
                 for (auto it = thumbnails.begin(); it != thumbnails.end();) {
                     if (!it->second.valid) {
                         thumbnails.erase(it++);
@@ -181,8 +181,8 @@ void AssetBrowserView::show_dir_files(Blackboard& blackboard)
     Vector2  mouse_pos = ui::mouse_pos();
     ui::Rect marquee_rect;
 
-    // Explorer / Finder style background click logic:
-    // When clicking on empty background (no item hovered or active), start marquee drag selection.
+    // explorer / finder style background click logic:
+    // when clicking on empty background (no item hovered or active), start marquee drag selection.
     if (ui::is_panel_hovered() && !ui::is_any_item_hovered() && !ui::is_any_item_active()) {
         if (ui::is_mouse_clicked(0)) {
             is_marquee_selecting = true;
@@ -763,14 +763,14 @@ std::pair<GUITextureHandle, Vector2> AssetBrowserView::get_thumbnail(Blackboard&
         return {GUITextureHandle{}, Vector2(0.0f, 0.0f)};
     }
 
-    // Not in cache, check if we should queue it
+    // not in cache, check if we should queue it
     auto name_str = String(name);
     auto q_it     = std::find_if(queued_thumbnails.begin(), queued_thumbnails.end(), [&](const auto& p) {
         return p.first == name_str;
     });
 
     if (q_it == queued_thumbnails.end()) {
-        // Not in queue, check .import file
+        // not in queue, check .import file
         Path import_path = curr / (name_str + ".import");
         if (std::filesystem::exists(import_path)) {
             try {
@@ -779,7 +779,7 @@ std::pair<GUITextureHandle, Vector2> AssetBrowserView::get_thumbnail(Blackboard&
                 if (j.contains("thumbnail") && j["thumbnail"].is_string()) {
                     queued_thumbnails.push_back({name_str, j["thumbnail"].get<String>()});
                 } else {
-                    // Mark as invalid so we don't check again this session
+                    // mark as invalid so we don't check again this session
                     thumbnails[name_str] = {{}, {}, false};
                 }
             } catch (...) {

@@ -25,7 +25,7 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
             return false;
         }
 
-        // Cache subdirectories
+        // cache subdirectories
         fs::path root(caches_root);
         fs::path models_dir    = root / "models";
         fs::path meshes_dir    = root / "meshes";

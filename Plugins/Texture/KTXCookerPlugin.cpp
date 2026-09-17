@@ -33,7 +33,7 @@ static bool process_ktx(JSON& metadata, OSPath source_path, OSPath target_path)
                 if (!gli::is_compressed(tex.format())) {
                     if (tex.target() == gli::TARGET_2D) {
                         gli::texture2d tex2d(tex);
-                        // For uncompressed, we only handle RGBA8 for thumbnail for now to avoid gli::convert ambiguity
+                        // for uncompressed, we only handle RGBA8 for thumbnail for now to avoid gli::convert ambiguity
                         if (tex2d.format() == gli::FORMAT_RGBA8_UNORM_PACK8 && tex2d.extent(0).x > 0 && tex2d.extent(0).y > 0) {
                             generate_thumbnail_from_pixels(metadata, tex2d.data(0, 0, 0), tex2d.extent(0).x, tex2d.extent(0).y, sizeof(uint8_t), VK_FORMAT_R8G8B8A8_UNORM, target_path);
                         }

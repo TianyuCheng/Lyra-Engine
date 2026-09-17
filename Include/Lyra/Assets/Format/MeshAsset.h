@@ -78,7 +78,7 @@ namespace lyra
         Vector3             min_bounds;
         Vector3             max_bounds;
 
-        // Space for Meshlet info (placeholder)
+        // space for meshlet info (placeholder)
         uint32_t first_meshlet = 0;
         uint32_t meshlet_count = 0;
     };
@@ -123,7 +123,7 @@ namespace lyra
         Vector3 min_bounds; ///< Global AABB min.
         Vector3 max_bounds;
 
-        // Future room for Skeleton (placeholder)
+        // future room for skeleton (placeholder)
         // AssetHandle<SkeletonAsset> skeleton;
     };
 

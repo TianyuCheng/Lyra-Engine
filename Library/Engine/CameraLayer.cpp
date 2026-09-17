@@ -28,9 +28,8 @@ void CameraLayer::update_perspective(World& world)
 {
     auto view = world.view<PerspectiveCamera, CameraProjection>();
     for (auto entity : view) {
-        auto& camera     = view.get<PerspectiveCamera>(entity);
-        auto& projection = view.get<CameraProjection>(entity);
-
+        auto& camera          = view.get<PerspectiveCamera>(entity);
+        auto& projection      = view.get<CameraProjection>(entity);
         projection.projection = glm::perspective(glm::radians(camera.fov), camera.aspect, camera.near_plane, camera.far_plane);
     }
 }
@@ -39,9 +38,8 @@ void CameraLayer::update_orthographic(World& world)
 {
     auto view = world.view<OrthographicCamera, CameraProjection>();
     for (auto entity : view) {
-        auto& camera     = view.get<OrthographicCamera>(entity);
-        auto& projection = view.get<CameraProjection>(entity);
-
+        auto& camera          = view.get<OrthographicCamera>(entity);
+        auto& projection      = view.get<CameraProjection>(entity);
         float half_size       = camera.size * 0.5f;
         projection.projection = glm::ortho(-half_size * camera.aspect, half_size * camera.aspect, -half_size, half_size, camera.near_plane, camera.far_plane);
     }

@@ -8,13 +8,13 @@ static bool is_ignored_path(const Path& path)
     auto filename = path.filename().string();
     if (filename.empty()) return true;
 
-    // Ignore hidden files and directories
+    // ignore hidden files and directories
     if (filename.front() == '.') return true;
 
-    // Ignore .import sidecar files to avoid feedback loops with cookers
+    // ignore .import sidecar files to avoid feedback loops with cookers
     if (path.extension() == ".import") return true;
 
-    // Ignore common temporary and swap files
+    // ignore common temporary and swap files
     auto ext = path.extension().string();
     if (ext == ".tmp" || ext == ".crswap" || ext == ".swp" || ext == ".lock") return true;
     if (filename.front() == '~' || filename.back() == '~') return true;

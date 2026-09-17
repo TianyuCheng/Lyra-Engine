@@ -219,12 +219,12 @@ static void imgui_delete_texture(GUIPipelineData* pipeline_data, GUIRendererData
     auto* texinfo = renderer_data->textures.find(texid);
     if (!texinfo) return;
 
-    // Avoid duplicate queueing
+    // avoid duplicate queueing
     for (const auto& garbage : renderer_data->garbage_textures) {
         if (garbage.texid == texid) return;
     }
 
-    // Defer deletion: keep texture in textures slotmap so current and in-flight frames
+    // defer deletion: keep texture in textures slotmap so current and in-flight frames
     // can continue to render it. The GPU resources and slotmap entry will be reclaimed
     // when garbage_textures frame delay expires.
     renderer_data->garbage_textures.push_back(GUIGarbageTexture{texid, *texinfo, 0});
@@ -287,7 +287,7 @@ static void imgui_setup_render_state(GPUCommandBuffer cmdbuffer, GUIPipelineData
 
     // setup scale and translation:
     // our visible imgui space lies from draw_data->DisplayPps (top left) to draw_data->DisplayPos + data_data->DisplaySize (bottom right).
-    // DisplayPos is (0,0) for single viewport apps.
+    // display pos is (0,0) for single viewport apps.
     {
         float L = draw_data->DisplayPos.x;
         float R = draw_data->DisplayPos.x + draw_data->DisplaySize.x;
@@ -607,7 +607,7 @@ static ImGuiKey to_imgui_key_button(KeyButton button)
         case KeyButton::SHIFT:         return ImGuiKey_ModShift;
         case KeyButton::SUPER:         return ImGuiKey_ModSuper;
 
-        // ASCII keys
+        // ascii keys
         case KeyButton::A:             return ImGuiKey_A;
         case KeyButton::B:             return ImGuiKey_B;
         case KeyButton::C:             return ImGuiKey_C;
@@ -889,7 +889,7 @@ void GUIRenderer::new_frame()
 
 void GUIRenderer::end_frame()
 {
-    // ImGui::Render() will automatically call ImGui::EndFrame
+    // imgui render will automatically call ImGui::EndFrame
     ImGui::Render();
 }
 

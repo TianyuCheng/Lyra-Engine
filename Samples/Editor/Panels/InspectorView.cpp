@@ -68,7 +68,7 @@ void InspectorView::draw_inspector(World& world, SceneNode node)
         return;
     }
 
-    // Header section
+    // header section
     {
         char buffer[256];
         memset(buffer, 0, sizeof(buffer));
@@ -87,7 +87,7 @@ void InspectorView::draw_inspector(World& world, SceneNode node)
         });
     }
 
-    // Components
+    // components
     draw_component<TransformLocal>("Transform", LYRA_ICON_NODE, world, node, [&](TransformLocal& transform) {
         ui::vec3("Position", transform.position, [&]() {
             transform.flags.set(TransformFlag::LOCAL_DIRTY);

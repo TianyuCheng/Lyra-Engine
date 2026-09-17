@@ -40,23 +40,23 @@ namespace lyra
         static auto saver() -> AssetSaverAPI;
         static auto loader() -> AssetLoaderAPI;
 
-        // PBR parameters
+        // pbr parameters
         Vector4 base_color_factor  = Vector4(1.0f);
+        Vector3 emissive_factor    = Vector3(0.0f);
         float   metallic_factor    = 0.0f;
         float   roughness_factor   = 1.0f;
-        Vector3 emissive_factor    = Vector3(0.0f);
         float   alpha_cutoff       = 0.5f;
         float   occlusion_strength = 1.0f;
         float   normal_scale       = 1.0f;
 
-        // Texture maps
+        // texture maps
         TextureAssetHandle albedo_map;
         TextureAssetHandle normal_map;
         TextureAssetHandle metallic_roughness_map;
         TextureAssetHandle emissive_map;
         TextureAssetHandle occlusion_map;
 
-        // Pipeline state
+        // pipeline state
         MaterialBlendMode blend_mode  = MaterialBlendMode::OPAQUE;
         GPUCullMode       cull_mode   = GPUCullMode::BACK;
         bool              depth_write = true;

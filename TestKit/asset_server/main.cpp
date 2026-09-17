@@ -223,7 +223,7 @@ TEST_CASE("ams::asset_server")
         REQUIRE(fs::exists(asset_file));
         REQUIRE(fs::exists(import_file));
 
-        // Test rename in same folder
+        // test rename in same folder
         bool moved = move_ams.move_asset("orig.dummy", "renamed.dummy");
         CHECK(moved);
         CHECK(!fs::exists(asset_file));
@@ -235,7 +235,7 @@ TEST_CASE("ams::asset_server")
         CHECK(fs::exists(moved_import));
         CHECK_EQ(move_ams.get_guid("renamed.dummy"), 555666777);
 
-        // Test moving into a subfolder
+        // test moving into a subfolder
         auto sub_dir = source_dir / "Sub";
         fs::create_directories(sub_dir);
 
@@ -389,7 +389,7 @@ TEST_CASE("ams::asset_dependencies")
 
     auto registry = temp_dir / "Assets.bin";
 
-    // Setup parent and child metadata
+    // setup parent and child metadata
     {
         JSON child_meta;
         child_meta["guid"] = 2001;
@@ -405,7 +405,7 @@ TEST_CASE("ams::asset_dependencies")
         std::ofstream f(temp_dir / "parent.dummy.import");
         f << parent_meta.dump();
     }
-    // Create actual dummy files
+    // create actual dummy files
     {
         std::ofstream f(temp_dir / "parent.dummy");
         f << "p";
@@ -430,10 +430,10 @@ TEST_CASE("ams::asset_dependencies")
         auto parent_handle = ams.load_asset<DummyAsset>("parent.dummy");
         CHECK(parent_handle.valid());
 
-        // Child should also be loading automatically
+        // child should also be loading automatically
         AssetHandle<DummyAsset> child_handle{2001};
 
-        // Wait for both to load
+        // wait for both to load
         int timeout = 100;
         while ((ams.get_asset(parent_handle) == nullptr || ams.get_asset(child_handle) == nullptr) && timeout-- > 0) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -448,18 +448,18 @@ TEST_CASE("ams::asset_dependencies")
         auto                    parent_handle = ams.load_asset<DummyAsset>("parent.dummy");
         AssetHandle<DummyAsset> child_handle{2001};
 
-        // Wait for load
+        // wait for load
         while (ams.get_asset(parent_handle) == nullptr || ams.get_asset(child_handle) == nullptr) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
 
-        // Unload parent
+        // unload parent
         ams.unload_asset(parent_handle);
 
-        // Purge
+        // purge
         ams.purge();
 
-        // Both should be gone if child refcnt dropped to 0
+        // both should be gone if child refcnt dropped to 0
         CHECK_EQ(ams.get_asset(parent_handle), nullptr);
         CHECK_EQ(ams.get_asset(child_handle), nullptr);
     }

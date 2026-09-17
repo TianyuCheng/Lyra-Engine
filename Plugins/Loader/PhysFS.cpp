@@ -85,7 +85,7 @@ static void rebuild_mounts(PhysFSLoader* loader)
 }
 
 // -----------------------------------------------------------------------------
-// API functions
+// api functions
 // -----------------------------------------------------------------------------
 
 static CString get_api_name() { return "PhysFS"; }

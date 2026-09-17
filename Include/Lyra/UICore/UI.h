@@ -11,7 +11,7 @@
 
 namespace lyra::ui
 {
-    // High-performance zero-allocation stack references for synchronous callbacks
+    // high-performance zero-allocation stack references for synchronous callbacks
     using ActionRef = FunctionRef<void()>;
 
     template <typename T>
@@ -36,7 +36,7 @@ namespace lyra::ui
     void panel(CString title, ActionRef content);
     void panel(CString title, bool* p_open, ActionRef content);
 
-    // Context & Viewport metrics
+    // context & viewport metrics
     auto available_space() -> Vector2;
     bool is_panel_appearing();
     bool is_panel_hovered();
@@ -51,7 +51,7 @@ namespace lyra::ui
     void draw_selection_rect(Vector2 min, Vector2 max);
     Rect last_item_rect();
 
-    // Texture / Framebuffer display
+    // texture / framebuffer display
     void image(GUITextureHandle texture, Vector2 size);
 
     // =========================================================================
