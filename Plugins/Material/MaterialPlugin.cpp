@@ -278,19 +278,19 @@ static bool save_material_asset(const void* raw_asset, OSPath path)
          << "        token outputs:surface\n\n";
 
     if (asset->albedo_map.valid()) {
-        file << "        custom string lyra:albedoMap = \"" << std::to_string(asset->albedo_map.uuid) << "\"\n";
+        file << "        custom string lyra:albedoMap = \"" << std::to_string(asset->albedo_map.guid) << "\"\n";
     }
     if (asset->normal_map.valid()) {
-        file << "        custom string lyra:normalMap = \"" << std::to_string(asset->normal_map.uuid) << "\"\n";
+        file << "        custom string lyra:normalMap = \"" << std::to_string(asset->normal_map.guid) << "\"\n";
     }
     if (asset->metallic_roughness_map.valid()) {
-        file << "        custom string lyra:metallicRoughnessMap = \"" << std::to_string(asset->metallic_roughness_map.uuid) << "\"\n";
+        file << "        custom string lyra:metallicRoughnessMap = \"" << std::to_string(asset->metallic_roughness_map.guid) << "\"\n";
     }
     if (asset->emissive_map.valid()) {
-        file << "        custom string lyra:emissiveMap = \"" << std::to_string(asset->emissive_map.uuid) << "\"\n";
+        file << "        custom string lyra:emissiveMap = \"" << std::to_string(asset->emissive_map.guid) << "\"\n";
     }
     if (asset->occlusion_map.valid()) {
-        file << "        custom string lyra:occlusionMap = \"" << std::to_string(asset->occlusion_map.uuid) << "\"\n";
+        file << "        custom string lyra:occlusionMap = \"" << std::to_string(asset->occlusion_map.guid) << "\"\n";
     }
 
     file << "        custom float lyra:normalScale = " << asset->normal_scale << "\n"

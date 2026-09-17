@@ -163,11 +163,11 @@ static bool save_scene_asset(const void* raw_asset, OSPath path)
              << pad << "{\n"
              << child_pad << "custom string lyra:name = \"" << node.name << "\"\n";
         if (node.model.valid())
-            file << child_pad << "custom string lyra:model = \"" << std::to_string(node.model.uuid) << "\"\n";
+            file << child_pad << "custom string lyra:model = \"" << std::to_string(node.model.guid) << "\"\n";
         if (node.mesh.valid())
-            file << child_pad << "custom string lyra:mesh = \"" << std::to_string(node.mesh.uuid) << "\"\n";
+            file << child_pad << "custom string lyra:mesh = \"" << std::to_string(node.mesh.guid) << "\"\n";
         if (node.material.valid())
-            file << child_pad << "custom string lyra:material = \"" << std::to_string(node.material.uuid) << "\"\n";
+            file << child_pad << "custom string lyra:material = \"" << std::to_string(node.material.guid) << "\"\n";
         file << child_pad << "matrix4d xformOp:transform = ( ";
         for (int r = 0; r < 4; ++r) {
             file << "(";

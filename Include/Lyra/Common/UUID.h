@@ -24,7 +24,13 @@ namespace lyra
         ulong hi = 0;
         ulong lo = 0;
 
+        constexpr UUID() = default;
+        constexpr UUID(ulong hi, ulong lo) : hi(hi), lo(lo) {}
+        constexpr UUID(uint64_t val) : hi(0), lo(val) {}
+
         bool valid() const { return hi != 0 || lo != 0; }
+
+        explicit operator bool() const { return valid(); }
 
         friend bool operator==(const UUID& lhs, const UUID& rhs)
         {
@@ -34,6 +40,32 @@ namespace lyra
         friend bool operator!=(const UUID& lhs, const UUID& rhs)
         {
             return !(lhs == rhs);
+        }
+
+        friend bool operator<(const UUID& lhs, const UUID& rhs)
+        {
+            if (lhs.hi != rhs.hi) return lhs.hi < rhs.hi;
+            return lhs.lo < rhs.lo;
+        }
+
+        friend bool operator==(const UUID& lhs, uint64_t rhs)
+        {
+            return lhs.hi == 0 && lhs.lo == rhs;
+        }
+
+        friend bool operator!=(const UUID& lhs, uint64_t rhs)
+        {
+            return !(lhs == rhs);
+        }
+
+        friend bool operator==(uint64_t lhs, const UUID& rhs)
+        {
+            return rhs == lhs;
+        }
+
+        friend bool operator!=(uint64_t lhs, const UUID& rhs)
+        {
+            return !(rhs == lhs);
         }
     };
 
@@ -74,6 +106,24 @@ namespace lyra
     constexpr UUID make_uuid(const char (&str)[UUID_STRING_COUNT])
     {
         return detail::make_uuid_impl(str, std::make_index_sequence<0>{});
+    }
+
+    inline UUID parse_uuid(std::string_view str)
+    {
+        uint64_t hi = 0, lo = 0;
+        int      hex_count = 0;
+        for (char c : str) {
+            int val = detail::hexdigit_to_value(c);
+            if (val >= 0) {
+                if (hex_count < 16) {
+                    hi = (hi << 4) | static_cast<uint64_t>(val);
+                } else if (hex_count < 32) {
+                    lo = (lo << 4) | static_cast<uint64_t>(val);
+                }
+                hex_count++;
+            }
+        }
+        return UUID{hi, lo};
     }
 
     FORCE_INLINE String to_string(const UUID& uuid)

@@ -35,7 +35,7 @@ namespace lyra
     {
         static constexpr CString name = "MaterialAsset";
 
-        static constexpr AssetTypeID type = 0xe3473e70;
+        static constexpr AssetTypeID type = make_uuid("e3473e70-0002-4b21-8891-2719a9c8f002");
 
         static auto saver() -> AssetSaverAPI;
         static auto loader() -> AssetLoaderAPI;

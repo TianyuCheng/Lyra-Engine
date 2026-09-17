@@ -118,13 +118,13 @@ bool AssetRegistry::load_binary(const OSPath& bin_path)
         AssetEntry entry;
 
         // base fields
-        if (ptr + sizeof(AssetID) + sizeof(AssetTypeID) + sizeof(uint32_t) > end) return false;
+        if (ptr + sizeof(AssetID) + sizeof(AssetTypeID) + sizeof(uint) > end) return false;
         entry.guid = *reinterpret_cast<const AssetID*>(ptr);
         ptr += sizeof(AssetID);
         entry.type = *reinterpret_cast<const AssetTypeID*>(ptr);
         ptr += sizeof(AssetTypeID);
-        entry.path = *reinterpret_cast<const uint32_t*>(ptr);
-        ptr += sizeof(uint32_t);
+        entry.path = *reinterpret_cast<const uint*>(ptr);
+        ptr += sizeof(uint);
 
         // dependencies
         if (ptr + sizeof(uint) > end) return false;
@@ -177,7 +177,7 @@ bool AssetRegistry::save_binary(const OSPath& bin_path)
     for (const auto& entry : entries) {
         f.write(reinterpret_cast<const char*>(&entry.guid), sizeof(AssetID));
         f.write(reinterpret_cast<const char*>(&entry.type), sizeof(AssetTypeID));
-        f.write(reinterpret_cast<const char*>(&entry.path), sizeof(uint32_t));
+        f.write(reinterpret_cast<const char*>(&entry.path), sizeof(uint));
 
         uint dep_count = static_cast<uint>(entry.dependencies.size());
         f.write(reinterpret_cast<const char*>(&dep_count), sizeof(uint));
@@ -209,7 +209,14 @@ bool AssetRegistry::load_toml(const OSPath& toml_path)
             for (auto& entry_node : *arr) {
                 if (auto e = entry_node.as_array()) {
                     AssetID     guid = e->get(0)->as_integer()->get();
-                    AssetTypeID type = static_cast<AssetTypeID>(e->get(1)->as_integer()->get());
+                    AssetTypeID type{};
+                    if (auto type_node = e->get(1)) {
+                        if (auto str = type_node->as_string()) {
+                            type = parse_uuid(str->get());
+                        } else if (auto num = type_node->as_integer()) {
+                            type = AssetTypeID(static_cast<ulong>(num->get()));
+                        }
+                    }
                     String      path = e->get(2)->as_string()->get();
 
                     Vector<AssetID> deps;
@@ -244,7 +251,7 @@ bool AssetRegistry::save_toml(const OSPath& toml_path)
     for (const auto& entry : entries) {
         toml::array e;
         e.push_back(static_cast<int64_t>(entry.guid));
-        e.push_back(static_cast<int64_t>(entry.type));
+        e.push_back(to_string(entry.type));
         e.push_back(string_table[entry.path]);
 
         if (!entry.dependencies.empty()) {
@@ -290,20 +297,41 @@ void AssetRegistry::rebuild(const OSPath& assets_dir)
                 JSON metadata = JSON::parse(f);
                 if (metadata.contains("guid")) {
                     AssetID     guid = metadata["guid"].get<AssetID>();
-                    AssetTypeID type = 0;
-                    if (metadata.contains("type") && metadata["type"].is_number()) {
-                        type = metadata["type"].get<AssetTypeID>();
-                    }
-
-                    Vector<AssetID> dependencies;
-                    if (metadata.contains("dependencies") && metadata["dependencies"].is_array()) {
-                        dependencies = metadata["dependencies"].get<Vector<AssetID>>();
+                    AssetTypeID type{};
+                    if (metadata.contains("type")) {
+                        if (metadata["type"].is_string()) {
+                            type = parse_uuid(metadata["type"].get<String>());
+                        } else if (metadata["type"].is_number()) {
+                            type = AssetTypeID(metadata["type"].get<ulong>());
+                        }
                     }
 
                     // path relative to assets_dir, without .import
-                    String relative_path = fs::relative(import_path, assets_dir).string();
+                    String relative_path = fs::relative(import_path, assets_dir).generic_string();
                     // remove .import
                     relative_path = relative_path.substr(0, relative_path.find_last_of('.'));
+
+                    Vector<AssetID> dependencies;
+                    if (metadata.contains("dependencies") && metadata["dependencies"].is_array()) {
+                        for (const auto& item : metadata["dependencies"]) {
+                            if (item.is_number()) {
+                                dependencies.push_back(item.get<AssetID>());
+                            } else if (item.is_object() && item.contains("guid")) {
+                                AssetID dep_guid = item["guid"].get<AssetID>();
+                                dependencies.push_back(dep_guid);
+                                if (item.contains("name") && item.contains("type")) {
+                                    String dep_name = item["name"].get<String>();
+                                    AssetTypeID dep_type{};
+                                    if (item["type"].is_string()) {
+                                        dep_type = parse_uuid(item["type"].get<String>());
+                                    } else if (item["type"].is_number()) {
+                                        dep_type = AssetTypeID(item["type"].get<ulong>());
+                                    }
+                                    update(dep_guid, relative_path + "#" + dep_name, dep_type, {});
+                                }
+                            }
+                        }
+                    }
 
                     update(guid, relative_path, type, dependencies);
                 }
@@ -344,6 +372,20 @@ void AssetRegistry::update(AssetID guid, StringView path, AssetTypeID type, cons
 
     path_to_guid[string_table[string_index]] = guid;
     dirty                                    = true;
+}
+
+bool AssetRegistry::is_guid_available(AssetID guid, StringView expected_path) const
+{
+    if (guid == 0) return false;
+    auto it = guid_to_entry_index.find(guid);
+    if (it == guid_to_entry_index.end()) return true;
+    if (!expected_path.empty()) {
+        uint path_idx = entries[it->second].path;
+        if (path_idx < string_table.size() && string_table[path_idx] == expected_path) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void AssetRegistry::remove(AssetID guid)

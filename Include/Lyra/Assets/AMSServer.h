@@ -32,11 +32,11 @@ namespace lyra
      */
     struct AssetPipelineStats
     {
-        uint32_t pending_count   = 0;
-        uint32_t completed_count = 0;
-        uint32_t failed_count    = 0;
-        String   current_asset   = "";
-        bool     watching        = false;
+        uint   pending_count   = 0;
+        uint   completed_count = 0;
+        uint   failed_count    = 0;
+        String current_asset   = "";
+        bool   watching        = false;
     };
 
     using AssetReloadCallback      = Function<void(AssetID, AssetTypeID)>;
@@ -208,7 +208,7 @@ namespace lyra
         auto load_asset(FSPath path) -> AssetHandle<AssetType>
         {
             auto handle = load_asset(AssetType::type, path);
-            return AssetHandle<AssetType>{handle.uuid};
+            return AssetHandle<AssetType>{handle.guid};
         }
 
         /**
@@ -218,7 +218,7 @@ namespace lyra
         auto load_asset(AssetID guid) -> AssetHandle<AssetType>
         {
             auto handle = load_asset(AssetType::type, guid);
-            return AssetHandle<AssetType>{handle.uuid};
+            return AssetHandle<AssetType>{handle.guid};
         }
 
         /**
@@ -351,8 +351,8 @@ namespace lyra
     private:
         struct AssetRecord
         {
-            void*                 data   = nullptr;
-            std::atomic<uint32_t> refcnt = 0;
+            void*              data   = nullptr;
+            std::atomic<uint>  refcnt = 0;
         };
 
         struct AssetProcessor
@@ -415,9 +415,9 @@ namespace lyra
         HashMap<String, AssetCookerAPI*>          cooker_extensions;
 
         Own<AssetWatcher>                       watcher;
-        std::atomic<uint32_t>                   pending_cooks{0};
-        std::atomic<uint32_t>                   completed_cooks{0};
-        std::atomic<uint32_t>                   failed_cooks{0};
+        std::atomic<uint>                       pending_cooks{0};
+        std::atomic<uint>                       completed_cooks{0};
+        std::atomic<uint>                       failed_cooks{0};
         mutable std::mutex                      pipeline_mutex;
         String                                  current_cooking_asset;
         Deque<AssetWatchEvent>                  queued_fs_events;

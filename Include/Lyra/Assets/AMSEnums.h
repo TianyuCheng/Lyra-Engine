@@ -5,6 +5,7 @@
 
 #include <Lyra/Common/Enums.h>
 #include <Lyra/Common/Stdint.h>
+#include <Lyra/Common/UUID.h>
 
 /**
  * @file AMSEnums.h
@@ -14,7 +15,7 @@
 namespace lyra
 {
 
-    using AssetTypeID = uint;
+    using AssetTypeID = lyra::UUID;
 
     enum struct AssetWatchAction : uint8_t
     {

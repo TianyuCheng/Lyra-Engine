@@ -49,6 +49,13 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
         fs::create_directories(textures_dir);
         fs::create_directories(materials_dir);
 
+        if (!metadata.contains("guid") || !metadata["guid"].is_number()) {
+            return false;
+        }
+
+        AssetID model_id = metadata["guid"].get<AssetID>();
+        AssetDependencyScope deps(metadata, source_path, caches_root);
+
         ModelAsset model;
         if (gltf_model.defaultScene >= 0 && static_cast<size_t>(gltf_model.defaultScene) < gltf_model.scenes.size() && !gltf_model.scenes[gltf_model.defaultScene].nodes.empty()) {
             model.root = static_cast<uint>(gltf_model.scenes[gltf_model.defaultScene].nodes[0]);
@@ -58,7 +65,6 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
             model.root = 0;
         }
 
-        JSON deps = JSON::array();
         TreeMap<int, AssetID> material_map;
 
         // Process Materials
@@ -97,14 +103,16 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
                 mat.cull_mode = GPUCullMode::NONE;
             }
 
-            AssetID mat_id = random_guid();
+            String mat_name = "material/" + (g_mat.name.empty() ? std::to_string(i) : g_mat.name);
+            AssetID mat_id = deps.resolve(model_id, mat_name, MaterialAsset::type);
+            deps.set_path(mat_id, "materials/" + std::to_string(mat_id) + ".material");
             Path mat_path = materials_dir / (std::to_string(mat_id) + ".material");
             MaterialAsset::saver().save(&mat, mat_path.c_str());
             material_map[static_cast<int>(i)] = mat_id;
-            deps.push_back(mat_id);
         }
 
         // Process Nodes and Meshes
+        HashSet<int> saved_meshes;
         Vector<RasterizerMesh> preview_meshes;
         for (size_t i = 0; i < gltf_model.nodes.size(); ++i) {
             const auto& g_node = gltf_model.nodes[i];
@@ -244,7 +252,7 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
 
                         size_t req_bytes = view.byteOffset + accessor.byteOffset + (accessor.count > 0 ? (accessor.count - 1) * stride + elem_size : 0);
                         if (buffer.data.size() >= req_bytes && accessor.count > 0 && elem_size > 0) {
-                            attr->element_count += static_cast<uint32_t>(accessor.count);
+                            attr->element_count += static_cast<uint>(accessor.count);
                             attr->data.resize(attr->data.size() + accessor.count * elem_size);
 
                             uint8_t* dst = attr->data.data() + surface.slice.first_vertex * elem_size;
@@ -259,11 +267,14 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
                     lod.surfaces.push_back(surface);
                 }
 
-                AssetID mesh_id = random_guid();
-                Path mesh_path = meshes_dir / (std::to_string(mesh_id) + ".mesh");
-                MeshAsset::saver().save(&mesh, mesh_path.c_str());
+                String mesh_name = "mesh/" + (g_mesh.name.empty() ? std::to_string(g_node.mesh) : g_mesh.name);
+                AssetID mesh_id = deps.resolve(model_id, mesh_name, MeshAsset::type);
+                deps.set_path(mesh_id, "meshes/" + std::to_string(mesh_id) + ".mesh");
+                if (saved_meshes.insert(g_node.mesh).second) {
+                    Path mesh_path = meshes_dir / (std::to_string(mesh_id) + ".mesh");
+                    MeshAsset::saver().save(&mesh, mesh_path.c_str());
+                }
                 node.mesh = AssetHandle<MeshAsset>(mesh_id);
-                deps.push_back(mesh_id);
 
                 RasterizerMesh rmesh;
                 rmesh.transform = node.transform;
@@ -284,12 +295,12 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
                 }
                 if (lod.index_format == GPUIndexFormat::UINT16) {
                     size_t count = lod.index_data.size() / 2;
-                    const uint16_t* src_idx = reinterpret_cast<const uint16_t*>(lod.index_data.data());
+                    const ushort* src_idx = reinterpret_cast<const ushort*>(lod.index_data.data());
                     rmesh.indices.resize(count);
                     for (size_t k = 0; k < count; ++k) rmesh.indices[k] = src_idx[k];
                 } else if (lod.index_format == GPUIndexFormat::UINT32) {
                     size_t count = lod.index_data.size() / 4;
-                    const uint32_t* src_idx = reinterpret_cast<const uint32_t*>(lod.index_data.data());
+                    const uint* src_idx = reinterpret_cast<const uint*>(lod.index_data.data());
                     rmesh.indices.assign(src_idx, src_idx + count);
                 }
                 preview_meshes.push_back(std::move(rmesh));
@@ -304,17 +315,12 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
             model.nodes.push_back(std::move(node));
         }
 
-        if (!metadata.contains("guid") || !metadata["guid"].is_number()) {
-            return false;
-        }
-
         // Save ModelAsset (USDA format)
-        AssetID model_id = metadata["guid"].get<AssetID>();
         Path model_cache_path = models_dir / (std::to_string(model_id) + ".model");
         ModelAsset::saver().save(&model, model_cache_path.c_str());
 
-        metadata["path"]         = "models/" + std::to_string(model_id) + ".model";
-        metadata["dependencies"] = deps;
+        metadata["path"] = "models/" + std::to_string(model_id) + ".model";
+        deps.commit();
 
         generate_model_thumbnail(metadata, preview_meshes, caches_root);
 

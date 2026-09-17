@@ -15,7 +15,7 @@ namespace lyra
     {
         static constexpr CString name = "TextureAsset";
 
-        static constexpr AssetTypeID type = 0xca9028ca;
+        static constexpr AssetTypeID type = make_uuid("5a18a8b0-0004-4d43-b221-4930a9c8f004");
 
         static auto loader() -> AssetLoaderAPI;
 

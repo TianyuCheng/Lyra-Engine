@@ -155,7 +155,7 @@ TEST_CASE("ams::asset_server")
         std::ifstream f(expected_metadata);
         JSON          metadata = JSON::parse(f);
         CHECK_EQ(metadata["guid"].get<lyra::GUID>(), guid);
-        CHECK_EQ(metadata["type"].get<lyra::AssetTypeID>(), DummyAsset::type);
+        CHECK_EQ(parse_uuid(metadata["type"].get<String>()), DummyAsset::type);
         f.close();
     }
 
@@ -180,7 +180,7 @@ TEST_CASE("ams::asset_server")
         {
             JSON metadata;
             metadata["guid"] = 987654321;
-            metadata["type"] = DummyAsset::type;
+            metadata["type"] = to_string(DummyAsset::type);
             std::ofstream df(import_file);
             df << metadata.dump();
         }
@@ -215,7 +215,7 @@ TEST_CASE("ams::asset_server")
         {
             JSON metadata;
             metadata["guid"] = 555666777;
-            metadata["type"] = DummyAsset::type;
+            metadata["type"] = to_string(DummyAsset::type);
             std::ofstream mf(import_file);
             mf << metadata.dump();
         }
@@ -276,7 +276,7 @@ TEST_CASE("ams::asset_server")
         auto handle1 = ams.load_asset<DummyAsset>("test.dummy");
         auto handle2 = ams.load_asset<DummyAsset>("test.dummy");
 
-        CHECK_EQ(handle1.uuid, handle2.uuid);
+        CHECK_EQ(handle1.guid, handle2.guid);
 
         // wait for load
         while (ams.get_asset(handle1) == nullptr) {
@@ -313,7 +313,7 @@ TEST_CASE("ams::asset_server")
 
         for (int i = 0; i < num_threads; ++i) {
             CHECK(handles[i].valid());
-            CHECK_EQ(handles[i].uuid, handles[0].uuid);
+            CHECK_EQ(handles[i].guid, handles[0].guid);
         }
 
         // wait for load
@@ -393,14 +393,14 @@ TEST_CASE("ams::asset_dependencies")
     {
         JSON child_meta;
         child_meta["guid"] = 2001;
-        child_meta["type"] = DummyAsset::type;
+        child_meta["type"] = to_string(DummyAsset::type);
         std::ofstream f(temp_dir / "child.dummy.import");
         f << child_meta.dump();
     }
     {
         JSON parent_meta;
         parent_meta["guid"]         = 1001;
-        parent_meta["type"]         = DummyAsset::type;
+        parent_meta["type"]         = to_string(DummyAsset::type);
         parent_meta["dependencies"] = {2001};
         std::ofstream f(temp_dir / "parent.dummy.import");
         f << parent_meta.dump();

@@ -79,7 +79,7 @@ namespace lyra::ui
 
     void breadcrumb(const BreadcrumbItem* items, size_t count);
     void breadcrumb(const Vector<BreadcrumbItem>& items);
-    void breadcrumb(std::initializer_list<BreadcrumbItem> items);
+    void breadcrumb(InitList<BreadcrumbItem> items);
 
 } // namespace lyra::ui
 

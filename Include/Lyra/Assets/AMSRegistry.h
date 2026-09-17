@@ -18,10 +18,10 @@ namespace lyra
      */
     struct AssetEntry
     {
-        AssetID           guid;         ///< Globally unique identifier for the asset.
-        AssetTypeID       type;         ///< Enum-based asset type.
-        uint32_t          path;         ///< Index into the string table for the asset path.
-        Vector<AssetID>   dependencies; ///< List of GUIDs this asset depends on.
+        AssetID         guid;         ///< Globally unique identifier for the asset.
+        AssetTypeID     type;         ///< Enum-based asset type.
+        uint            path;         ///< Index into the string table for the asset path.
+        Vector<AssetID> dependencies; ///< List of GUIDs this asset depends on.
     };
 
     /**
@@ -65,6 +65,11 @@ namespace lyra
          * @brief Update or add an asset entry in the registry.
          */
         void update(AssetID guid, StringView path, AssetTypeID type, const Vector<AssetID>& dependencies = {});
+
+        /**
+         * @brief Check if a GUID is available (either not registered, or already registered to expected_path).
+         */
+        bool is_guid_available(AssetID guid, StringView expected_path = "") const;
 
         /**
          * @brief Remove an asset entry from the registry by its GUID.
@@ -120,7 +125,7 @@ namespace lyra
         Vector<AssetEntry> entries;
         Deque<String>      string_table;
 
-        HashMap<AssetID, uint32_t>   guid_to_entry_index;
+        HashMap<AssetID, uint>       guid_to_entry_index;
         HashMap<StringView, AssetID> path_to_guid;
 
         bool dirty = false;

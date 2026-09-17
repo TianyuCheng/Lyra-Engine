@@ -61,7 +61,14 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
         Vector<Vector3> positions;
         Vector<Vector3> normals;
         Vector<Vector2> texcoords;
-        Vector<uint32_t> indices;
+        Vector<uint>    indices;
+
+        if (!metadata.contains("guid") || !metadata["guid"].is_number()) {
+            return false;
+        }
+
+        AssetID model_id = metadata["guid"].get<AssetID>();
+        AssetDependencyScope deps(metadata, source_path, caches_root);
 
         ModelAsset model;
         model.root = 0;
@@ -70,7 +77,8 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
         root_node.name = "OBJ_Root";
         root_node.transform = Matrix4x4(1.0f);
 
-        AssetID mesh_id = random_guid();
+        AssetID mesh_id = deps.resolve(model_id, "mesh/0", MeshAsset::type);
+        deps.set_path(mesh_id, "meshes/" + std::to_string(mesh_id) + ".mesh");
         root_node.mesh = AssetHandle<MeshAsset>(mesh_id);
 
         TreeMap<int, AssetID> material_map;
@@ -119,7 +127,7 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
                         texcoords.push_back(tex);
                     }
 
-                    indices.push_back(static_cast<uint32_t>(indices.size()));
+                    indices.push_back(static_cast<uint>(indices.size()));
                 }
                 index_offset += fv;
             }
@@ -132,13 +140,16 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
             if (mat_idx >= 0) {
                 if (material_map.find(mat_idx) == material_map.end()) {
                     MaterialAsset mat;
+                    String mat_name = "material/" + std::to_string(mat_idx);
                     if (static_cast<size_t>(mat_idx) < materials.size()) {
                         const auto& m = materials[mat_idx];
+                        if (!m.name.empty()) mat_name = "material/" + m.name;
                         mat.base_color_factor = Vector4(m.diffuse[0], m.diffuse[1], m.diffuse[2], 1.0f);
                         mat.roughness_factor  = 1.0f - (m.shininess / 1000.0f);
                         if (mat.roughness_factor < 0.05f) mat.roughness_factor = 0.05f;
                     }
-                    AssetID mat_id = random_guid();
+                    AssetID mat_id = deps.resolve(model_id, mat_name, MaterialAsset::type);
+                    deps.set_path(mat_id, "materials/" + std::to_string(mat_id) + ".material");
                     Path mat_path = materials_dir / (std::to_string(mat_id) + ".material");
                     MaterialAsset::saver().save(&mat, mat_path.c_str());
                     material_map[mat_idx] = mat_id;
@@ -180,7 +191,7 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
         }
 
         lod.index_format = GPUIndexFormat::UINT32;
-        lod.index_data.resize(indices.size() * sizeof(uint32_t));
+        lod.index_data.resize(indices.size() * sizeof(uint));
         memcpy(lod.index_data.data(), indices.data(), lod.index_data.size());
 
         Path mesh_cache_path = meshes_dir / (std::to_string(mesh_id) + ".mesh");
@@ -188,20 +199,11 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
 
         model.nodes.push_back(root_node);
 
-        if (!metadata.contains("guid") || !metadata["guid"].is_number()) {
-            return false;
-        }
-
-        AssetID model_id = metadata["guid"].get<AssetID>();
         Path model_cache_path = models_dir / (std::to_string(model_id) + ".model");
         ModelAsset::saver().save(&model, model_cache_path.c_str());
 
         metadata["path"] = "models/" + std::to_string(model_id) + ".model";
-
-        JSON deps = JSON::array();
-        deps.push_back(mesh_id);
-        for (auto const& [idx, id] : material_map) deps.push_back(id);
-        metadata["dependencies"] = deps;
+        deps.commit();
 
         generate_model_thumbnail(metadata, positions, normals, indices, caches_root);
 

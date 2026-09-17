@@ -71,6 +71,7 @@ target_sources(lyra-engine PRIVATE
   Assets/AMSServer.cpp
   Assets/AMSRegistry.cpp
   Assets/AMSWatcher.cpp
+  Assets/AMSUtils.cpp
 
   # common
   Common/Logger.cpp

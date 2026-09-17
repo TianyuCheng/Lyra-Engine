@@ -588,7 +588,7 @@ void lyra::ui::breadcrumb(const Vector<BreadcrumbItem>& items)
     breadcrumb(items.data(), items.size());
 }
 
-void lyra::ui::breadcrumb(std::initializer_list<BreadcrumbItem> items)
+void lyra::ui::breadcrumb(InitList<BreadcrumbItem> items)
 {
     breadcrumb(items.begin(), items.size());
 }

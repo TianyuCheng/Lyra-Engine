@@ -13,10 +13,10 @@ namespace lyra::model
      */
     struct RasterizerMesh
     {
-        Vector<Vector3>  positions;
-        Vector<Vector3>  normals;
-        Vector<uint32_t> indices;
-        Matrix4x4        transform = Matrix4x4(1.0f);
+        Vector<Vector3> positions;
+        Vector<Vector3> normals;
+        Vector<uint>    indices;
+        Matrix4x4       transform = Matrix4x4(1.0f);
     };
 
     /**
@@ -35,9 +35,9 @@ namespace lyra::model
      * @brief Convenience overload for a single mesh (e.g. OBJ / STL).
      */
     bool generate_model_thumbnail(
-        JSON&                   metadata,
-        const Vector<Vector3>&  positions,
-        const Vector<Vector3>&  normals,
-        const Vector<uint32_t>& indices,
-        OSPath                  caches_root);
+        JSON&                  metadata,
+        const Vector<Vector3>& positions,
+        const Vector<Vector3>& normals,
+        const Vector<uint>&    indices,
+        OSPath                 caches_root);
 } // namespace lyra::model

@@ -11,11 +11,11 @@ using namespace lyra;
 using namespace lyra::model;
 
 bool lyra::model::generate_model_thumbnail(
-    JSON&                   metadata,
-    const Vector<Vector3>&  positions,
-    const Vector<Vector3>&  normals,
-    const Vector<uint32_t>& indices,
-    OSPath                  caches_root)
+    JSON&                  metadata,
+    const Vector<Vector3>& positions,
+    const Vector<Vector3>& normals,
+    const Vector<uint>&    indices,
+    OSPath                 caches_root)
 {
     RasterizerMesh mesh;
     mesh.positions = positions;
@@ -221,7 +221,7 @@ bool lyra::model::generate_model_thumbnail(
             int src_x = x * 2;
             int src_y = y * 2;
 
-            uint32_t r = 0, g = 0, b = 0, a = 0;
+            uint r = 0, g = 0, b = 0, a = 0;
             for (int dy = 0; dy < 2; ++dy) {
                 for (int dx = 0; dx < 2; ++dx) {
                     size_t idx = static_cast<size_t>((src_y + dy) * RENDER_W + (src_x + dx)) * 4;

@@ -36,10 +36,10 @@ static uint extract_model_nodes(
         const auto& attr = prop.get_attribute();
 
         if (prop_name == "lyra:name") {
-            std::string s;
+            String s;
             if (attr.get_value(&s)) node.name = s;
         } else if (prop_name == "lyra:mesh") {
-            std::string s;
+            String s;
             if (attr.get_value(&s) && !s.empty()) {
                 try {
                     node.mesh = MeshAssetHandle(std::stoull(s));
@@ -47,7 +47,7 @@ static uint extract_model_nodes(
                 }
             }
         } else if (prop_name == "lyra:material") {
-            std::string s;
+            String s;
             if (attr.get_value(&s) && !s.empty()) {
                 try {
                     node.material = MaterialAssetHandle(std::stoull(s));
@@ -130,7 +130,7 @@ static bool save_model_asset(const void* raw_asset, OSPath path)
     std::ofstream file(path);
     if (!file.is_open()) return false;
 
-    std::string default_prim = asset->nodes.empty() ? "node_0" : ("node_" + std::to_string(asset->root));
+    String default_prim = asset->nodes.empty() ? "node_0" : ("node_" + std::to_string(asset->root));
     file << "#usda 1.0\n"
          << "(\n"
          << "    defaultPrim = \"" << default_prim << "\"\n"
@@ -139,21 +139,21 @@ static bool save_model_asset(const void* raw_asset, OSPath path)
          << "    }\n"
          << ")\n\n";
 
-    std::function<void(uint, int)> write_node = [&](uint idx, int indent) {
+    auto write_node = [&](auto& self, uint idx, int indent) -> void {
         if (idx >= asset->nodes.size()) return;
         const auto& node = asset->nodes[idx];
-        std::string pad(indent * 4, ' ');
-        std::string child_pad((indent + 1) * 4, ' ');
+        String pad(indent * 4, ' ');
+        String child_pad((indent + 1) * 4, ' ');
 
-        std::string prim_name = "node_" + std::to_string(idx);
+        String prim_name = "node_" + std::to_string(idx);
 
         file << pad << "def Xform \"" << prim_name << "\"\n"
              << pad << "{\n"
              << child_pad << "custom string lyra:name = \"" << node.name << "\"\n";
         if (node.mesh.valid())
-            file << child_pad << "custom string lyra:mesh = \"" << std::to_string(node.mesh.uuid) << "\"\n";
+            file << child_pad << "custom string lyra:mesh = \"" << std::to_string(node.mesh.guid) << "\"\n";
         if (node.material.valid())
-            file << child_pad << "custom string lyra:material = \"" << std::to_string(node.material.uuid) << "\"\n";
+            file << child_pad << "custom string lyra:material = \"" << std::to_string(node.material.guid) << "\"\n";
         file << child_pad << "matrix4d xformOp:transform = ( ";
         for (int r = 0; r < 4; ++r) {
             file << "(";
@@ -169,13 +169,13 @@ static bool save_model_asset(const void* raw_asset, OSPath path)
 
         for (uint child_idx : node.children) {
             file << "\n";
-            write_node(child_idx, indent + 1);
+            self(self, child_idx, indent + 1);
         }
         file << pad << "}\n";
     };
 
     if (!asset->nodes.empty()) {
-        write_node(asset->root, 0);
+        write_node(write_node, asset->root, 0);
     }
 
     file.close();

@@ -24,7 +24,7 @@ namespace lyra
     struct SceneAsset
     {
         static constexpr CString     name = "SceneAsset";
-        static constexpr AssetTypeID type = 0xf1a23b4c;
+        static constexpr AssetTypeID type = make_uuid("f1a23b4c-0008-4187-f665-8374a9c8f008");
 
         static auto loader() -> AssetLoaderAPI;
         static auto saver() -> AssetSaverAPI;

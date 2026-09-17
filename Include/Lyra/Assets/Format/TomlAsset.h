@@ -14,7 +14,7 @@ namespace lyra
     {
         static constexpr CString name = "TomlAsset";
 
-        static constexpr AssetTypeID type = 0xc8e8e7c7;
+        static constexpr AssetTypeID type = make_uuid("c8e8e7c7-0007-4076-e554-7263a9c8f007");
 
         static auto saver() -> AssetSaverAPI;
 

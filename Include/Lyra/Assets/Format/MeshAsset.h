@@ -101,7 +101,7 @@ namespace lyra
     {
         static constexpr CString name = "MeshAsset";
 
-        static constexpr AssetTypeID type = 0xc599b40c;
+        static constexpr AssetTypeID type = make_uuid("a9c372f8-0001-4f6e-9821-3810a9c8f001");
 
         static constexpr uint MESH_ASSET_VERSION = 0;
 

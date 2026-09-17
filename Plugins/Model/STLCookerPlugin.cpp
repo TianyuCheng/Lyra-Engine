@@ -40,18 +40,18 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
         std::error_code ec;
         uintmax_t file_size = fs::file_size(source_path, ec);
         bool is_binary = false;
-        uint32_t triangle_count = 0;
+        uint triangle_count = 0;
 
         if (!ec && file_size >= 84) {
             file.seekg(80);
             file.read(reinterpret_cast<char*>(&triangle_count), 4);
-            if (file_size == 84 + static_cast<uint64_t>(triangle_count) * 50) {
+            if (file_size == 84 + static_cast<ulong>(triangle_count) * 50) {
                 is_binary = true;
             } else {
                 file.seekg(0);
                 char header[80] = {};
                 file.read(header, 80);
-                is_binary = (std::string_view(header, 5) != "solid");
+                is_binary = (StringView(header, 5) != "solid");
             }
         }
 
@@ -59,7 +59,7 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
         Vector<Vector3> normals;
 
         if (is_binary) {
-            constexpr uint32_t max_triangles = 50'000'000;
+            constexpr uint max_triangles = 50'000'000;
             if (triangle_count > max_triangles) {
                 get_logger()->error("STL triangle count too large ({}): {}", triangle_count, Path(source_path).string());
                 return false;
@@ -68,9 +68,9 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
             positions.reserve(triangle_count * 3);
             normals.reserve(triangle_count * 3);
 
-            for (uint32_t i = 0; i < triangle_count; ++i) {
-                Vector3  n, v0, v1, v2;
-                uint16_t attr_byte_count;
+            for (uint i = 0; i < triangle_count; ++i) {
+                Vector3 n, v0, v1, v2;
+                ushort  attr_byte_count;
 
                 if (!file.read(reinterpret_cast<char*>(&n), 12) ||
                     !file.read(reinterpret_cast<char*>(&v0), 12) ||
@@ -128,8 +128,8 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
         memcpy(norm_attr.data.data(), normals.data(), norm_attr.data.size());
 
         lod.index_format = GPUIndexFormat::UINT32;
-        lod.index_data.resize(positions.size() * sizeof(uint32_t));
-        uint32_t* indices = reinterpret_cast<uint32_t*>(lod.index_data.data());
+        lod.index_data.resize(positions.size() * sizeof(uint));
+        uint* indices = reinterpret_cast<uint*>(lod.index_data.data());
         std::iota(indices, indices + positions.size(), 0);
 
         MeshSurface& surf       = lod.surfaces.emplace_back();
@@ -147,8 +147,17 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
         surf.min_bounds = mesh.min_bounds;
         surf.max_bounds = mesh.max_bounds;
 
-        AssetID mesh_id         = random_guid();
-        Path    mesh_cache_path = meshes_dir / (std::to_string(mesh_id) + ".mesh");
+        if (!metadata.contains("guid") || !metadata["guid"].is_number()) {
+            return false;
+        }
+
+        AssetID model_id = metadata["guid"].get<AssetID>();
+
+        AssetDependencyScope deps(metadata, source_path, caches_root);
+        AssetID mesh_id = deps.resolve(model_id, "default", MeshAsset::type);
+        deps.set_path(mesh_id, "meshes/" + std::to_string(mesh_id) + ".mesh");
+
+        Path mesh_cache_path = meshes_dir / (std::to_string(mesh_id) + ".mesh");
         MeshAsset::saver().save(&mesh, mesh_cache_path.c_str());
 
         ModelAsset model;
@@ -160,18 +169,13 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
         root_node.transform = Matrix4x4(1.0f);
         model.nodes.push_back(root_node);
 
-        if (!metadata.contains("guid") || !metadata["guid"].is_number()) {
-            return false;
-        }
-
-        AssetID model_id         = metadata["guid"].get<AssetID>();
-        Path    model_cache_path = models_dir / (std::to_string(model_id) + ".model");
+        Path model_cache_path = models_dir / (std::to_string(model_id) + ".model");
         ModelAsset::saver().save(&model, model_cache_path.c_str());
 
-        metadata["path"]         = "models/" + std::to_string(model_id) + ".model";
-        metadata["dependencies"] = JSON::array({mesh_id});
+        metadata["path"] = "models/" + std::to_string(model_id) + ".model";
+        deps.commit();
 
-        Vector<uint32_t> thumb_indices(positions.size());
+        Vector<uint> thumb_indices(positions.size());
         std::iota(thumb_indices.begin(), thumb_indices.end(), 0);
         generate_model_thumbnail(metadata, positions, normals, thumb_indices, caches_root);
 

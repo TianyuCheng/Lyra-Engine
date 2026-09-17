@@ -167,7 +167,7 @@ void* AssetServer::get_asset(AssetTypeID type_id, RawAssetHandle handle)
 
     std::shared_lock alock(*processor->mutex);
 
-    const auto it2 = processor->assets.find(handle.uuid);
+    const auto it2 = processor->assets.find(handle.guid);
     if (it2 == processor->assets.end()) return nullptr;
     return it2->second->data;
 }
@@ -259,7 +259,7 @@ void AssetServer::unload_asset(AssetTypeID type_id, RawAssetHandle handle)
     {
         std::unique_lock alock(*processor->mutex);
 
-        auto it2 = processor->assets.find(handle.uuid);
+        auto it2 = processor->assets.find(handle.guid);
         if (it2 != processor->assets.end()) {
             it2->second->refcnt--;
             if (it2->second->refcnt == 0) {
@@ -269,7 +269,7 @@ void AssetServer::unload_asset(AssetTypeID type_id, RawAssetHandle handle)
     }
 
     if (should_unload_deps) {
-        unload_dependencies(handle.uuid);
+        unload_dependencies(handle.guid);
     }
 }
 
@@ -281,7 +281,7 @@ void AssetServer::clone_asset(AssetTypeID type_id, RawAssetHandle handle)
 
     std::unique_lock alock(*processor->mutex);
 
-    auto it2 = processor->assets.find(handle.uuid);
+    auto it2 = processor->assets.find(handle.guid);
     if (it2 != processor->assets.end()) {
         it2->second->refcnt++;
     }
@@ -336,18 +336,69 @@ bool AssetServer::execute_cooker(AssetCookerAPI* cooker, const Path& source_path
 
 void AssetServer::commit_cooked_asset(const Path& import_path, const Path& rel_path, AssetID guid, AssetTypeID type_id, const JSON& metadata)
 {
+    std::error_code ec;
+    JSON prev_meta;
+    if (fs::exists(import_path, ec)) {
+        try {
+            std::ifstream sf(import_path);
+            if (sf.good() && sf.peek() != std::ifstream::traits_type::eof()) {
+                prev_meta = JSON::parse(sf);
+            }
+        } catch (...) {
+        }
+    }
+
     save_json(import_path, metadata);
 
-    Vector<AssetID> dependencies;
-    if (metadata.contains("dependencies") && metadata["dependencies"].is_array()) {
-        dependencies = metadata["dependencies"].get<Vector<AssetID>>();
-    }
+    HashSet<AssetID> current_dep_guids;
+    Vector<AssetID>  dependency_guids;
 
     static std::mutex registry_mutex;
-    {
-        std::lock_guard lock(registry_mutex);
-        registry.update(guid, rel_path.string(), type_id, dependencies);
+    std::lock_guard   lock(registry_mutex);
+
+    if (metadata.contains("dependencies") && metadata["dependencies"].is_array()) {
+        for (const auto& item : metadata["dependencies"]) {
+            if (item.is_number()) {
+                AssetID dep_guid = item.get<AssetID>();
+                dependency_guids.push_back(dep_guid);
+                current_dep_guids.insert(dep_guid);
+            } else if (item.is_object() && item.contains("guid")) {
+                AssetID dep_guid = item["guid"].get<AssetID>();
+                dependency_guids.push_back(dep_guid);
+                current_dep_guids.insert(dep_guid);
+                if (item.contains("name") && item.contains("type")) {
+                    String      dep_name = item["name"].get<String>();
+                    AssetTypeID dep_type{};
+                    if (item["type"].is_string()) {
+                        dep_type = parse_uuid(item["type"].get<String>());
+                    } else if (item["type"].is_number()) {
+                        dep_type = AssetTypeID(item["type"].get<ulong>());
+                    }
+                    String dep_vpath = rel_path.generic_string() + "#" + dep_name;
+                    registry.update(dep_guid, dep_vpath, dep_type, {});
+                }
+            }
+        }
     }
+
+    // Orphan cleanup: if prev_meta had dependencies that are no longer present
+    if (prev_meta.contains("dependencies") && prev_meta["dependencies"].is_array()) {
+        for (const auto& item : prev_meta["dependencies"]) {
+            if (item.is_object() && item.contains("guid")) {
+                AssetID prev_guid = item["guid"].get<AssetID>();
+                if (current_dep_guids.find(prev_guid) == current_dep_guids.end()) {
+                    if (descriptor.importer.caches_path && item.contains("path") && item["path"].is_string()) {
+                        Path old_cache = Path(descriptor.importer.caches_path) / item["path"].get<String>();
+                        fs::remove(old_cache, ec);
+                    }
+                    unload_record(prev_guid);
+                    registry.remove(prev_guid);
+                }
+            }
+        }
+    }
+
+    registry.update(guid, rel_path.generic_string(), type_id, dependency_guids);
 
     reload_asset(guid);
 }
@@ -383,12 +434,26 @@ auto AssetServer::cook_asset_task(AssetCookerAPI* cooker, const Path& source_pat
         JSON metadata;
         metadata["guid"]    = guid;
         metadata["version"] = "1";
-        metadata["type"]    = type_id;
+        metadata["type"]    = to_string(type_id);
         metadata["time"]    = get_timestamp();
+
+        // If import_path already exists, read existing dependencies into metadata so cooker can reuse them
+        std::error_code ec;
+        if (fs::exists(import_path, ec)) {
+            try {
+                std::ifstream sf(import_path);
+                if (sf.good() && sf.peek() != std::ifstream::traits_type::eof()) {
+                    JSON prev_meta = JSON::parse(sf);
+                    if (prev_meta.contains("dependencies")) {
+                        metadata["dependencies"] = prev_meta["dependencies"];
+                    }
+                }
+            } catch (...) {
+            }
+        }
 
         if (!execute_cooker(cooker, source_path, metadata)) {
             spdlog::error("Failed to cook asset: {}", rel_path.string());
-            std::error_code ec;
             if (fs::exists(import_path, ec)) {
                 fs::remove(import_path, ec);
             }
@@ -518,6 +583,21 @@ void AssetServer::delete_metadata_and_caches(const Path& import_path, AssetID gu
                     if (meta.contains("path") && meta["path"].is_string()) {
                         Path cache = Path(descriptor.importer.caches_path) / meta["path"].get<String>();
                         fs::remove(cache, ec);
+                    }
+                    if (meta.contains("dependencies") && meta["dependencies"].is_array()) {
+                        for (const auto& dep : meta["dependencies"]) {
+                            if (dep.is_object() && dep.contains("guid")) {
+                                AssetID dep_guid = dep["guid"].get<AssetID>();
+                                if (dep.contains("path") && dep["path"].is_string()) {
+                                    Path dep_cache = Path(descriptor.importer.caches_path) / dep["path"].get<String>();
+                                    fs::remove(dep_cache, ec);
+                                }
+                                unload_record(dep_guid);
+                                static std::mutex registry_mutex;
+                                std::lock_guard   lock(registry_mutex);
+                                registry.remove(dep_guid);
+                            }
+                        }
                     }
                 }
             }
@@ -995,13 +1075,13 @@ bool AssetServer::save_asset(AssetTypeID type_id, const void* asset, OSPath path
 {
     auto it = processors.find(type_id);
     if (it == processors.end() || !it->second->saver.has_value()) {
-        spdlog::error("No saver registered for asset type ID: {:#x}", type_id);
+        spdlog::error("No saver registered for asset type ID: {}", to_string(type_id));
         return false;
     }
 
     const auto& saver = it->second->saver.value();
     if (!saver.save) {
-        spdlog::error("Saver for asset type ID {:#x} has no save function defined", type_id);
+        spdlog::error("Saver for asset type ID {} has no save function defined", to_string(type_id));
         return false;
     }
 

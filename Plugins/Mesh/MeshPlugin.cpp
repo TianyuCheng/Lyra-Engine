@@ -254,7 +254,7 @@ static bool save_mesh_asset(const void* raw_asset, OSPath path)
             write_uint(static_cast<uint>(lod.surfaces.size()));
             for (const auto& surf : lod.surfaces) {
                 write_raw(&surf.slice, sizeof(surf.slice));
-                write_raw(&surf.material.uuid, sizeof(surf.material.uuid));
+                write_raw(&surf.material.guid, sizeof(surf.material.guid));
                 write_raw(&surf.min_bounds, sizeof(surf.min_bounds));
                 write_raw(&surf.max_bounds, sizeof(surf.max_bounds));
                 write_uint(surf.first_meshlet);

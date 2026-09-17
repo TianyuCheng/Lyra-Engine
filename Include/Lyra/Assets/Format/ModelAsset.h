@@ -23,7 +23,7 @@ namespace lyra
     struct ModelAsset
     {
         static constexpr CString    name = "ModelAsset";
-        static constexpr AssetTypeID type = 0xd32a1ea4;
+        static constexpr AssetTypeID type = make_uuid("dda828d0-0003-4c32-a110-1829a9c8f003");
 
         static auto loader() -> AssetLoaderAPI;
         static auto saver()  -> AssetSaverAPI;
