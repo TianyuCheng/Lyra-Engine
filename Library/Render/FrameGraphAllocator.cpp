@@ -53,7 +53,7 @@ FGTextureObject FrameGraphAllocator::allocate(const GPUTextureDescriptor& descri
     auto device  = RHI::get_current_device();
     auto texture = device.create_texture(descriptor);
     auto view    = texture.create_view();
-    auto handle  = std::make_pair(texture.handle, view.handle);
+    auto handle  = FGTextureObject{texture.handle, view.handle};
     objects.push_back({handle, true});
     return handle;
 }

@@ -122,7 +122,7 @@ namespace lyra
 
         FORCE_INLINE void set_name(const SceneNode node, const String& name)
         {
-            registry.emplace<NodeName>(node, name);
+            registry.emplace_or_replace<NodeName>(node, name);
         }
 
         /**

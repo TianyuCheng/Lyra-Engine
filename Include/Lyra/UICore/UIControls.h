@@ -37,10 +37,10 @@ namespace lyra::ui
     void search_bar(char* buffer, size_t buffer_size, float width = 0.0f, CString hint = nullptr);
     void search_bar(char* buffer, size_t buffer_size, ChangeRef<StringView> on_search, float width = 0.0f, CString hint = nullptr);
 
-    void text_field(CString label, char* buffer, size_t buffer_size);
-    void text_field(CString label, char* buffer, size_t buffer_size, ActionRef on_commit);
+    void text_field(CString id, char* buffer, size_t buffer_size);
+    void text_field(CString id, char* buffer, size_t buffer_size, ActionRef on_commit);
 
-    void slider(CString label, float* value, float min, float max, CString format = "%.0f", float width = 0.0f);
+    void slider(CString id, float* value, float min, float max, CString format = "%.0f", float width = 0.0f);
 
     // =========================================================================
     // 4. Labels & Badges

@@ -219,27 +219,27 @@ void lyra::ui::search_bar(char* buffer, size_t buffer_size, ChangeRef<StringView
     }
 }
 
-void lyra::ui::text_field(CString label, char* buffer, size_t buffer_size)
+void lyra::ui::text_field(CString id, char* buffer, size_t buffer_size)
 {
     internal::advance_layout_item();
-    if (label && label[0] == '#' && label[1] == '#') {
-        ImGui::SetNextItemWidth(-1.0f);
-    }
-    ImGui::InputText(label, buffer, buffer_size);
+    ImGui::PushID(id);
+    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::InputText("##text_input", buffer, buffer_size);
+    ImGui::PopID();
 }
 
-void lyra::ui::text_field(CString label, char* buffer, size_t buffer_size, ActionRef on_commit)
+void lyra::ui::text_field(CString id, char* buffer, size_t buffer_size, ActionRef on_commit)
 {
     internal::advance_layout_item();
-    if (label && label[0] == '#' && label[1] == '#') {
-        ImGui::SetNextItemWidth(-1.0f);
-    }
-    if (ImGui::InputText(label, buffer, buffer_size, ImGuiInputTextFlags_EnterReturnsTrue)) {
+    ImGui::PushID(id);
+    ImGui::SetNextItemWidth(-1.0f);
+    if (ImGui::InputText("##text_input", buffer, buffer_size, ImGuiInputTextFlags_EnterReturnsTrue)) {
         on_commit();
     }
+    ImGui::PopID();
 }
 
-void lyra::ui::slider(CString label, float* value, float min, float max, CString format, float width)
+void lyra::ui::slider(CString id, float* value, float min, float max, CString format, float width)
 {
     if (!value) return;
     internal::advance_layout_item();
@@ -247,8 +247,8 @@ void lyra::ui::slider(CString label, float* value, float min, float max, CString
     ImGuiWindow* window = ImGui::GetCurrentWindow();
     if (window->SkipItems) return;
 
-    ImGuiContext& g  = *GImGui;
-    const ImGuiID id = window->GetID(label);
+    ImGuiContext& g         = *GImGui;
+    const ImGuiID widget_id = window->GetID(id);
 
     float w      = width > 0.0f ? width : 100.0f;
     float font_h = ImGui::GetFontSize();
@@ -256,14 +256,14 @@ void lyra::ui::slider(CString label, float* value, float min, float max, CString
     const ImVec2 pos = window->DC.CursorPos;
     const ImRect bb(pos, ImVec2(pos.x + w, pos.y + font_h));
     ImGui::ItemSize(bb);
-    if (!ImGui::ItemAdd(bb, id)) return;
+    if (!ImGui::ItemAdd(bb, widget_id)) return;
 
     ImRect hit_bb = bb;
     hit_bb.Expand(ImVec2(0.0f, 4.0f));
 
     bool hovered = false;
     bool held    = false;
-    ImGui::ButtonBehavior(hit_bb, id, &hovered, &held, ImGuiButtonFlags_None);
+    ImGui::ButtonBehavior(hit_bb, widget_id, &hovered, &held, ImGuiButtonFlags_None);
 
     float grab_radius = (held || hovered) ? 6.0f : 5.0f;
     float track_start = bb.Min.x + 6.0f;
@@ -273,7 +273,7 @@ void lyra::ui::slider(CString label, float* value, float min, float max, CString
         float mouse_x = g.IO.MousePos.x;
         float t       = (track_end > track_start) ? std::clamp((mouse_x - track_start) / (track_end - track_start), 0.0f, 1.0f) : 0.0f;
         *value        = min + t * (max - min);
-        ImGui::MarkItemEdited(id);
+        ImGui::MarkItemEdited(widget_id);
     }
 
     float mid_y = bb.Min.y + font_h * 0.5f;

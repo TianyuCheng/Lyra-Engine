@@ -6,6 +6,7 @@
 #include <Lyra/Common/Math.h>
 #include <Lyra/Common/String.h>
 #include <Lyra/Common/Function.h>
+#include <Lyra/Window/WSIEnums.h>
 #include <Lyra/UICore/GUIAPI.h>
 #include <Lyra/UICore/UIEnums.h>
 
@@ -17,18 +18,6 @@ namespace lyra::ui
     template <typename T>
     using ChangeRef = FunctionRef<void(const T&)>;
 
-    struct Rect
-    {
-        Vector2 min = {0.0f, 0.0f};
-        Vector2 max = {0.0f, 0.0f};
-
-        bool overlaps(const Rect& other) const
-        {
-            return min.x < other.max.x && max.x > other.min.x &&
-                   min.y < other.max.y && max.y > other.min.y;
-        }
-    };
-
     // =========================================================================
     // 1. Panels (Top-level workspace panels)
     // =========================================================================
@@ -36,26 +25,36 @@ namespace lyra::ui
     void panel(CString title, ActionRef content);
     void panel(CString title, bool* p_open, ActionRef content);
 
-    // context & viewport metrics
+    // panel context & state
     auto available_space() -> Vector2;
     bool is_panel_appearing();
     bool is_panel_hovered();
+    bool is_panel_focused();
     bool is_any_item_hovered();
     bool is_any_item_active();
-    bool is_mouse_clicked(int button = 0);
-    bool is_mouse_released(int button = 0);
-    bool is_mouse_down(int button = 0);
-    bool is_ctrl_down();
     auto mouse_pos() -> Vector2;
-    auto cursor_screen_pos() -> Vector2;
-    void draw_selection_rect(Vector2 min, Vector2 max);
-    Rect last_item_rect();
 
-    // texture / framebuffer display
+    // =========================================================================
+    // 2. Input Queries
+    // =========================================================================
+
+    bool is_mouse_down(MouseButton button = MouseButton::LEFT);
+    bool is_mouse_clicked(MouseButton button = MouseButton::LEFT);
+    bool is_mouse_released(MouseButton button = MouseButton::LEFT);
+    bool is_mouse_double_clicked(MouseButton button = MouseButton::LEFT);
+
+    bool is_key_down(KeyButton key);
+    bool is_key_pressed(KeyButton key);
+    bool is_key_released(KeyButton key);
+
+    // =========================================================================
+    // 3. Texture & Image Display
+    // =========================================================================
+
     void image(GUITextureHandle texture, Vector2 size);
 
     // =========================================================================
-    // 2. Application Menus
+    // 4. Application Menus
     // =========================================================================
 
     void menubar(ActionRef content);
@@ -65,16 +64,19 @@ namespace lyra::ui
     void menu_check_item(CString title, bool is_checked, ChangeRef<bool> on_toggle);
 
     // =========================================================================
-    // 3. Popups & Modals
+    // 5. Context Menus (Right-Click Flyouts)
     // =========================================================================
 
-    void open_modal(CString title);
-    void open_popup(CString id);
-    void context_menu(ActionRef content);
-    void context_menu(CString id, ActionRef content);
-    void window_context_menu(CString id, ActionRef content);
-    void modal(CString title, bool* p_open, ActionRef content);
-    void close_popup();
+    void item_context_menu(ActionRef content);
+    void panel_context_menu(ActionRef content);
+
+    // =========================================================================
+    // 6. Modals (Blocking Dialogs)
+    // =========================================================================
+
+    void modal(CString id, bool* p_open, ActionRef content);
+    void open_modal(CString id);
+    void close_modal();
 
 } // namespace lyra::ui
 

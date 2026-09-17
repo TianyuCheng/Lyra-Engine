@@ -8,10 +8,20 @@
 
 namespace lyra::ui
 {
+    struct RowDescriptor
+    {
+        Alignment align    = Alignment::Start;
+        VAlign    vertical = VAlign::Center;
+        float     spacing  = -1.0f;
+    };
+
     // directional flow
     void row(ActionRef content);
     void row(Alignment align, ActionRef content);
+    void row(Alignment align, VAlign vertical, ActionRef content);
+    void row(const RowDescriptor& desc, ActionRef content);
     void column(ActionRef content);
+    void align_text_to_frame_padding();
 
     // standardized toolbar (action buttons, level toggles, search)
     void toolbar(ActionRef content);

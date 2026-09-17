@@ -110,6 +110,13 @@ void AssetBrowserView::update(Blackboard& blackboard)
         ui::separator();
 
         ui::scroll_area("FileBrowser", 32.0f, [&]() {
+            if (!selection.empty() && !show_rename_modal && !show_new_file_modal && !show_new_folder_modal && !show_delete_modal) {
+                if (ui::is_panel_hovered() && !ui::is_any_item_active() && (ui::is_key_pressed(KeyButton::DEL) || ui::is_key_pressed(KeyButton::BACKSPACE))) {
+                    show_delete_modal = true;
+                    open_delete_modal = true;
+                }
+            }
+
             show_dir_files(blackboard);
             show_context_menu(blackboard);
 
@@ -139,7 +146,7 @@ void AssetBrowserView::update(Blackboard& blackboard)
             show_import_indicator();
 
             ui::separator();
-            ui::slider("##IconSize", &icon_size, 64.0f, 128.0f, "%.0f px", 100.0f);
+            ui::slider("icon_size", &icon_size, 64.0f, 128.0f, "%.0f px", 100.0f);
         });
     });
 }
@@ -178,47 +185,15 @@ void AssetBrowserView::show_breadcrumb()
 
 void AssetBrowserView::show_dir_files(Blackboard& blackboard)
 {
-    Vector2  mouse_pos = ui::mouse_pos();
-    ui::Rect marquee_rect;
-
     // explorer / finder style background click logic:
-    // when clicking on empty background (no item hovered or active), start marquee drag selection.
+    // when clicking on empty background (no item hovered or active), deselect
     if (ui::is_panel_hovered() && !ui::is_any_item_hovered() && !ui::is_any_item_active()) {
-        if (ui::is_mouse_clicked(0)) {
-            is_marquee_selecting = true;
-            marquee_start_pos    = mouse_pos;
-            initial_selection    = ui::is_ctrl_down() ? selection.items : Vector<String>();
-            if (!ui::is_ctrl_down()) {
+        if (ui::is_mouse_clicked(MouseButton::LEFT)) {
+            if (!ui::is_key_down(KeyButton::CTRL)) {
                 selection.clear();
             }
         }
     }
-
-    bool is_releasing = false;
-    if (is_marquee_selecting) {
-        if (ui::is_mouse_released(0)) {
-            is_releasing = true;
-        }
-        marquee_rect = ui::Rect{
-            Vector2{std::min(marquee_start_pos.x, mouse_pos.x), std::min(marquee_start_pos.y, mouse_pos.y)},
-            Vector2{std::max(marquee_start_pos.x, mouse_pos.x), std::max(marquee_start_pos.y, mouse_pos.y)}};
-        if (!is_releasing) {
-            ui::draw_selection_rect(marquee_rect.min, marquee_rect.max);
-        }
-        selection.items = initial_selection;
-    }
-
-    auto handle_marquee = [&](StringView name) {
-        if (is_marquee_selecting) {
-            Vector2  pos = ui::cursor_screen_pos();
-            ui::Rect item_rect{pos, pos + Vector2{icon_size + 4.0f, icon_size + 34.0f}};
-            if (marquee_rect.overlaps(item_rect)) {
-                if (!selection.is_selected(name)) {
-                    selection.items.emplace_back(name);
-                }
-            }
-        }
-    };
 
     String filter(search_filter);
     auto   matches_filter = [&](StringView name) {
@@ -230,11 +205,10 @@ void AssetBrowserView::show_dir_files(Blackboard& blackboard)
         return n.find(f) != String::npos;
     };
 
-    ui::grid("##FilesGrid", icon_size + 4.0f, [&]() {
+    ui::grid("files_grid", icon_size + 4.0f, [&]() {
         for (const auto& folder : folders) {
             if (!matches_filter(folder)) continue;
             ui::grid_item([&]() {
-                handle_marquee(folder);
                 show_item(blackboard, folder, true);
             });
         }
@@ -242,16 +216,10 @@ void AssetBrowserView::show_dir_files(Blackboard& blackboard)
         for (const auto& file : files) {
             if (!matches_filter(file)) continue;
             ui::grid_item([&]() {
-                handle_marquee(file);
                 show_item(blackboard, file, false);
             });
         }
     });
-
-    if (is_releasing) {
-        is_marquee_selecting = false;
-        initial_selection.clear();
-    }
 
     load_thumbnails(blackboard);
 }
@@ -261,7 +229,7 @@ void AssetBrowserView::show_item(Blackboard& blackboard, StringView name, bool i
     bool is_sel = selection.is_selected(name);
 
     auto on_click = [&]() {
-        if (ui::is_ctrl_down())
+        if (ui::is_key_down(KeyButton::CTRL))
             selection.toggle(name);
         else
             selection.select_only(name);
@@ -292,7 +260,7 @@ void AssetBrowserView::show_item(Blackboard& blackboard, StringView name, bool i
         }
     }
 
-    ui::context_menu([&]() {
+    ui::item_context_menu([&]() {
         if (!is_sel) selection.select_only(name);
 
         if (selection.size() == 1) {
@@ -329,7 +297,7 @@ void AssetBrowserView::show_item(Blackboard& blackboard, StringView name, bool i
 
 void AssetBrowserView::show_context_menu(Blackboard& blackboard)
 {
-    ui::window_context_menu("File Manager Context Menu", [&]() {
+    ui::panel_context_menu([&]() {
         ui::menu_item(LYRA_ICON_REFRESH " Refresh", [&]() {
             update_directory(curr, true);
         });
@@ -380,10 +348,13 @@ void AssetBrowserView::action_delete_selected()
     }
 
     for (const auto& target : selection.items) {
-        Path p = curr / target;
+        Path p   = curr / target;
+        Path rel = std::filesystem::relative(p, root);
+        bool deleted = false;
         if (ams) {
-            ams->delete_asset(p);
-        } else {
+            deleted = ams->delete_asset(rel);
+        }
+        if (!deleted || std::filesystem::exists(p)) {
             Path import_p = p;
             import_p += ".import";
             try {
@@ -397,7 +368,16 @@ void AssetBrowserView::action_delete_selected()
                 spdlog::error("Failed to delete {}: {}", import_p.string(), e.what());
             }
         }
+        auto it = thumbnails.find(target);
+        if (it != thumbnails.end()) {
+            if (it->second.valid && bboard && bboard->has<GUIRenderer*>()) {
+                auto gui = bboard->get<GUIRenderer*>();
+                gui->delete_texture(it->second.gui_texture);
+            }
+            thumbnails.erase(it);
+        }
     }
+    selection.clear();
     update_directory(curr, true);
 }
 
@@ -413,7 +393,9 @@ void AssetBrowserView::action_rename(StringView old_name, StringView new_name)
     }
 
     if (ams) {
-        if (!ams->move_asset(op, np)) {
+        Path rel_op = std::filesystem::relative(op, root);
+        Path rel_np = std::filesystem::relative(np, root);
+        if (!ams->move_asset(rel_op, rel_np)) {
             spdlog::error("Failed to move/rename asset: {} to {}", op.string(), np.string());
         }
     } else {
@@ -513,10 +495,10 @@ void AssetBrowserView::show_new_folder_dialog()
 {
     ui::modal(LYRA_ICON_NEW_FOLDER " New Folder", &show_new_folder_modal, [&]() {
         ui::label("Enter folder name:");
-        ui::text_field("##FolderName", new_folder_name, sizeof(new_folder_name), [&]() {
+        ui::text_field("folder_name", new_folder_name, sizeof(new_folder_name), [&]() {
             action_create_folder(new_folder_name);
             show_new_folder_modal = false;
-            ui::close_popup();
+            ui::close_modal();
         });
 
         ui::separator();
@@ -524,13 +506,13 @@ void AssetBrowserView::show_new_folder_dialog()
         ui::row(ui::Alignment::End, [&]() {
             ui::button("Cancel", [&]() {
                 show_new_folder_modal = false;
-                ui::close_popup();
+                ui::close_modal();
             });
 
             ui::button("Create", [&]() {
                 action_create_folder(new_folder_name);
                 show_new_folder_modal = false;
-                ui::close_popup();
+                ui::close_modal();
             }, ui::ButtonRole::Primary);
         });
     });
@@ -540,10 +522,10 @@ void AssetBrowserView::show_rename_dialog()
 {
     ui::modal(LYRA_ICON_RENAME " Rename", &show_rename_modal, [&]() {
         ui::label("Enter new name:");
-        ui::text_field("##RenameBuffer", rename_buffer, sizeof(rename_buffer), [&]() {
+        ui::text_field("rename_buffer", rename_buffer, sizeof(rename_buffer), [&]() {
             action_rename(selection.items[0], rename_buffer);
             show_rename_modal = false;
-            ui::close_popup();
+            ui::close_modal();
         });
 
         ui::separator();
@@ -551,13 +533,13 @@ void AssetBrowserView::show_rename_dialog()
         ui::row(ui::Alignment::End, [&]() {
             ui::button("Cancel", [&]() {
                 show_rename_modal = false;
-                ui::close_popup();
+                ui::close_modal();
             });
 
             ui::button("Rename", [&]() {
                 action_rename(selection.items[0], rename_buffer);
                 show_rename_modal = false;
-                ui::close_popup();
+                ui::close_modal();
             }, ui::ButtonRole::Primary);
         });
     });
@@ -581,13 +563,13 @@ void AssetBrowserView::show_delete_dialog(Blackboard&)
         ui::row(ui::Alignment::End, [&]() {
             ui::button("Cancel", [&]() {
                 show_delete_modal = false;
-                ui::close_popup();
+                ui::close_modal();
             });
 
             ui::button("Delete", [&]() {
                 action_delete_selected();
                 show_delete_modal = false;
-                ui::close_popup();
+                ui::close_modal();
             }, ui::ButtonRole::Danger);
         });
     });
@@ -609,8 +591,6 @@ void AssetBrowserView::perform_update_directory(const Path& path, bool force)
     all_items.clear();
     breadcrumbs.clear();
     selection.clear();
-    is_marquee_selecting = false;
-    initial_selection.clear();
 
     if (bboard && bboard->has<GUIRenderer*>()) {
         auto gui = bboard->get<GUIRenderer*>();
@@ -729,10 +709,10 @@ void AssetBrowserView::show_new_file_dialog()
 {
     ui::modal(LYRA_ICON_NEW_FILE " New File", &show_new_file_modal, [&]() {
         ui::label("Enter file name:");
-        ui::text_field("##FileName", new_file_name, sizeof(new_file_name), [&]() {
+        ui::text_field("file_name", new_file_name, sizeof(new_file_name), [&]() {
             action_create_file(new_file_name);
             show_new_file_modal = false;
-            ui::close_popup();
+            ui::close_modal();
         });
 
         ui::separator();
@@ -740,13 +720,13 @@ void AssetBrowserView::show_new_file_dialog()
         ui::row(ui::Alignment::End, [&]() {
             ui::button("Cancel", [&]() {
                 show_new_file_modal = false;
-                ui::close_popup();
+                ui::close_modal();
             });
 
             ui::button("Create", [&]() {
                 action_create_file(new_file_name);
                 show_new_file_modal = false;
-                ui::close_popup();
+                ui::close_modal();
             }, ui::ButtonRole::Primary);
         });
     });

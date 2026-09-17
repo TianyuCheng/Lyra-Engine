@@ -14,6 +14,7 @@ namespace
         bool      in_row             = false;
         bool      is_first_item      = true;
         Alignment align              = Alignment::Start;
+        VAlign    vertical           = VAlign::Center;
         ImGuiID   id                 = 0;
         bool      has_spacer         = false;
         bool      has_spacer_pending = false;
@@ -38,6 +39,9 @@ namespace lyra::ui::internal
             } else if (!current.is_first_item) {
                 ImGui::SameLine();
             }
+            if (current.vertical == VAlign::Center || current.vertical == VAlign::Baseline) {
+                ImGui::AlignTextToFramePadding();
+            }
             current.is_first_item = false;
         }
     }
@@ -50,10 +54,25 @@ namespace lyra::ui::internal
 
 void lyra::ui::row(ActionRef content)
 {
-    row(Alignment::Start, content);
+    row(RowDescriptor{}, content);
 }
 
 void lyra::ui::row(Alignment align, ActionRef content)
+{
+    RowDescriptor desc;
+    desc.align = align;
+    row(desc, content);
+}
+
+void lyra::ui::row(Alignment align, VAlign vertical, ActionRef content)
+{
+    RowDescriptor desc;
+    desc.align    = align;
+    desc.vertical = vertical;
+    row(desc, content);
+}
+
+void lyra::ui::row(const RowDescriptor& desc, ActionRef content)
 {
     int row_idx = g_row_counter++;
     ImGuiID row_id = ImGui::GetID(row_idx);
@@ -62,20 +81,25 @@ void lyra::ui::row(Alignment align, ActionRef content)
     ImGuiStorage* storage = ImGui::GetStateStorage();
     float prev_width = storage->GetFloat(row_id, 0.0f);
 
-    if (align == Alignment::Center && prev_width > 0.0f) {
+    if (desc.align == Alignment::Center && prev_width > 0.0f) {
         float avail = ImGui::GetContentRegionAvail().x;
         float offset = std::max(0.0f, (avail - prev_width) * 0.5f);
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offset);
-    } else if (align == Alignment::End && prev_width > 0.0f) {
+    } else if (desc.align == Alignment::End && prev_width > 0.0f) {
         float avail = ImGui::GetContentRegionAvail().x;
         float offset = std::max(0.0f, avail - prev_width);
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offset);
     }
 
+    if (desc.vertical == VAlign::Center || desc.vertical == VAlign::Baseline) {
+        ImGui::AlignTextToFramePadding();
+    }
+
     LayoutScope scope;
     scope.in_row        = true;
     scope.is_first_item = true;
-    scope.align         = align;
+    scope.align         = desc.align;
+    scope.vertical      = desc.vertical;
     scope.id            = row_id;
     g_layout_stack.push(scope);
 
@@ -101,6 +125,11 @@ void lyra::ui::row(Alignment align, ActionRef content)
 
     ImGui::PopID();
     g_layout_stack.pop();
+}
+
+void lyra::ui::align_text_to_frame_padding()
+{
+    ImGui::AlignTextToFramePadding();
 }
 
 void lyra::ui::column(ActionRef content)

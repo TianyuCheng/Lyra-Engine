@@ -40,6 +40,15 @@ namespace lyra::ui
         End
     };
 
+    // vertical alignment along cross-layout axes
+    enum struct VAlign : uint8_t
+    {
+        Top,
+        Center,
+        Bottom,
+        Baseline
+    };
+
     // docking workspace areas
     enum struct Area : uint8_t
     {

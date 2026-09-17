@@ -2,11 +2,11 @@
 
 using namespace lyra;
 
-void FrameGraphTexture::pre_read(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphReadOp op)
+void FrameGraphTexture::pre_read(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphReadOp op, FrameGraphBarrierBatch* barriers)
 {
     auto& src_state = state;
 
-    (void)pass; // TODO: How do we use pass to deduce more barrier sync info?
+    (void)pass;
 
     TransitionState dst_state{};
     switch (op) {
@@ -22,11 +22,15 @@ void FrameGraphTexture::pre_read(FrameGraphContext* context, FrameGraphPass* pas
             dst_state = present_src_state();
             break;
     }
-    context->cmdlist.resource_barrier(state_transition(texture, src_state, dst_state, 0, layers, 0, levels));
+    if (barriers) {
+        barriers->add_texture_barrier(state_transition(texture, src_state, dst_state, 0, layers, 0, levels));
+    } else {
+        context->cmdlist.resource_barrier(state_transition(texture, src_state, dst_state, 0, layers, 0, levels));
+    }
     state = dst_state;
 }
 
-void FrameGraphTexture::pre_write(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphWriteOp op)
+void FrameGraphTexture::pre_write(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphWriteOp op, FrameGraphBarrierBatch* barriers)
 {
     auto& src_state = state;
 
@@ -43,6 +47,26 @@ void FrameGraphTexture::pre_write(FrameGraphContext* context, FrameGraphPass* pa
                             : color_attachment_state();
             break;
     }
-    context->cmdlist.resource_barrier(state_transition(texture, src_state, dst_state, 0, layers, 0, levels));
+    if (barriers) {
+        barriers->add_texture_barrier(state_transition(texture, src_state, dst_state, 0, layers, 0, levels));
+    } else {
+        context->cmdlist.resource_barrier(state_transition(texture, src_state, dst_state, 0, layers, 0, levels));
+    }
     state = dst_state;
+}
+
+void FrameGraphBuffer::pre_read(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphReadOp op, FrameGraphBarrierBatch* barriers)
+{
+    (void)context;
+    (void)pass;
+    (void)op;
+    (void)barriers;
+}
+
+void FrameGraphBuffer::pre_write(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphWriteOp op, FrameGraphBarrierBatch* barriers)
+{
+    (void)context;
+    (void)pass;
+    (void)op;
+    (void)barriers;
 }

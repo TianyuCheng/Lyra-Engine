@@ -5,56 +5,53 @@
 
 using namespace lyra;
 
-FrameGraph::~FrameGraph()
-{
-    for (auto& pass : passes)
-        delete pass.entry;
-
-    for (auto& resource : resources)
-        // duplicated resources shares the entry with some other resources (avoid double deletion)
-        if (!resource.duplicate)
-            delete resource.entry;
-
-    passes.clear();
-    resources.clear();
-}
+FrameGraph::~FrameGraph() = default;
 
 void FrameGraph::execute(FrameGraphContext* context, FrameGraphAllocator* allocator)
 {
-    for (auto& pass : passes) {
-        // skip culled passes
+    registry.reset(resources.size());
+
+    FrameGraphBarrierBatch barriers;
+
+    for (uint psid : execution_order) {
+        auto& pass = passes.at(psid);
         if (!pass.active()) continue;
 
         // create resources
         for (auto& rsid : pass.creates) {
-            auto& resource = resources.at(rsid);
+            auto& resource = resources.at(rsid.id);
 
-            // duplicated resources shares the entry with some other resources (avoid double creation)
+            // duplicated resources share the entry with some other resources (avoid double creation)
             if (!resource.duplicate)
                 resource.entry->create(allocator);
-            registry.put(rsid, resource.entry);
+            registry.put(rsid.id, resource.entry);
         }
 
         // pre-read
         for (auto& read : pass.reads) {
-            auto& resource = resources.at(read.resource);
-            resource.entry->pre_read(context, pass.entry, read.read_op);
+            auto& resource = resources.at(read.resource.id);
+            resource.entry->pre_read(context, pass.entry.get(), read.read_op, &barriers);
         }
 
         // pre-write
         for (auto& write : pass.writes) {
-            auto& resource = resources.at(write.resource);
-            resource.entry->pre_write(context, pass.entry, write.write_op);
+            auto& resource = resources.at(write.resource.id);
+            resource.entry->pre_write(context, pass.entry.get(), write.write_op, &barriers);
         }
 
+        // flush batched barriers before executing the pass
+        barriers.submit(context->cmdlist);
+
         // execute pass callback
-        std::invoke(pass.entry->callback, registry, context);
+        if (pass.entry && pass.entry->callback) {
+            std::invoke(pass.entry->callback, registry, context);
+        }
 
         // delete resources
         for (auto& rsid : pass.deletes) {
-            auto& resource = resources.at(rsid);
+            auto& resource = resources.at(rsid.id);
 
-            // duplicated resources shares the entry with some other resources (avoid double deletion)
+            // duplicated resources share the entry with some other resources (avoid double deletion)
             if (!resource.duplicate)
                 resource.entry->destroy(allocator);
         }
@@ -63,14 +60,6 @@ void FrameGraph::execute(FrameGraphContext* context, FrameGraphAllocator* alloca
 
 void FrameGraph::compile()
 {
-    // adding the resources to pass deletes
-    for (auto& resource : resources) {
-        if (resource.last_pass != ~0u) {
-            auto& pass = passes.at(resource.last_pass);
-            pass.deletes.push_back(resource.rsid);
-        }
-    }
-
     // pass.refcnt++ for every resource write
     for (auto& pass : passes)
         pass.refcnt = static_cast<uint>(pass.writes.size());
@@ -93,16 +82,111 @@ void FrameGraph::compile()
         // pop a resource and decrement refcnt of its producer
         auto& resource = resources.at(rsid);
         for_all_producers(resource, [&](auto& pass) {
+            if (pass.entry && pass.entry->is_preserved()) return;
             if (--pass.refcnt > 0) return;
 
             // decrement ref counts of resources that it reads if producer.refcnt == 0
-            // add them to the stack when their refcnt == 0
             for (auto& res : pass.reads) {
-                auto& resource = resources.at(res.resource);
-                if (--resource.refcnt == 0)
-                    unused_resources.push(resource.rsid);
+                auto& res_node = resources.at(res.resource.id);
+                if (--res_node.refcnt == 0)
+                    unused_resources.push(res_node.rsid);
             }
         });
+    }
+
+    // topological sort on active passes using Kahn's algorithm
+    Vector<uint> in_degree(passes.size(), 0);
+    HashMap<uint, HashSet<uint>> adj;
+
+    for (uint p = 0; p < passes.size(); ++p) {
+        auto& pass = passes[p];
+        if (!pass.active()) continue;
+
+        // pass reads resources produced by other passes
+        for (auto& read : pass.reads) {
+            auto& res = resources.at(read.resource.id);
+            for (uint prod : res.producers) {
+                if (prod != p && passes.at(prod).active()) {
+                    if (adj[prod].insert(p).second) {
+                        in_degree[p]++;
+                    }
+                }
+            }
+        }
+
+        // write-after-read hazards: if a pass writes to a resource already read by previous passes
+        for (auto& write : pass.writes) {
+            auto& res = resources.at(write.resource.id);
+            for (uint consumer : res.consumers) {
+                if (consumer != p && consumer < p && passes.at(consumer).active()) {
+                    if (adj[consumer].insert(p).second) {
+                        in_degree[p]++;
+                    }
+                }
+            }
+        }
+    }
+
+    Deque<uint> q;
+    for (uint p = 0; p < passes.size(); ++p) {
+        if (passes[p].active() && in_degree[p] == 0) {
+            q.push_back(p);
+        }
+    }
+
+    execution_order.clear();
+    while (!q.empty()) {
+        uint u = q.front();
+        q.pop_front();
+        execution_order.push_back(u);
+
+        if (auto it = adj.find(u); it != adj.end()) {
+            for (uint v : it->second) {
+                if (--in_degree[v] == 0) {
+                    q.push_back(v);
+                }
+            }
+        }
+    }
+
+    // verify all active passes were scheduled (DAG cycle detection)
+    uint active_count = 0;
+    for (auto& pass : passes) {
+        if (pass.active()) active_count++;
+    }
+    assert(execution_order.size() == active_count && "FrameGraph: Cycle detected in render pass dependencies!");
+
+    // determine resource lifetimes based on actual execution order
+    for (auto& pass : passes) {
+        pass.creates.clear();
+        pass.deletes.clear();
+    }
+
+    HashSet<uint> active_resources;
+    HashMap<uint, uint> resource_last_pass;
+
+    for (uint psid : execution_order) {
+        auto& pass = passes.at(psid);
+        for (auto& read : pass.reads) {
+            uint rsid = read.resource.id;
+            active_resources.insert(rsid);
+            resource_last_pass[rsid] = psid;
+        }
+        for (auto& write : pass.writes) {
+            uint rsid = write.resource.id;
+            active_resources.insert(rsid);
+            resource_last_pass[rsid] = psid;
+        }
+    }
+
+    for (uint rsid : active_resources) {
+        auto& res = resources.at(rsid);
+        if (passes.at(res.creator_pass).active()) {
+            passes.at(res.creator_pass).creates.push_back(FrameGraphResource{rsid});
+        }
+        if (auto it = resource_last_pass.find(rsid); it != resource_last_pass.end()) {
+            passes.at(it->second).deletes.push_back(FrameGraphResource{rsid});
+        }
     }
 }
 
@@ -124,7 +208,7 @@ bool FrameGraph::has_cycles(HashSet<uint>& visited_passes, HashSet<uint>& recurs
 
     const auto& pass = passes.at(psid);
     for (auto& write : pass.writes) {
-        const auto& resource = resources.at(write.resource);
+        const auto& resource = resources.at(write.resource.id);
         for (auto& consumer : resource.consumers) {
             if (visited_passes.find(consumer) == visited_passes.end()) {
                 if (has_cycles(visited_passes, recursion_set, consumer))

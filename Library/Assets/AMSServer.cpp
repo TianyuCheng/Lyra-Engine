@@ -337,7 +337,7 @@ bool AssetServer::execute_cooker(AssetCookerAPI* cooker, const Path& source_path
 void AssetServer::commit_cooked_asset(const Path& import_path, const Path& rel_path, AssetID guid, AssetTypeID type_id, const JSON& metadata)
 {
     std::error_code ec;
-    JSON prev_meta;
+    JSON            prev_meta;
     if (fs::exists(import_path, ec)) {
         try {
             std::ifstream sf(import_path);
@@ -519,8 +519,17 @@ auto AssetServer::resolve_asset_path(const Path& path) const -> std::pair<Path, 
         }
     } else {
         if (descriptor.importer.assets_path) {
-            full_path = Path(descriptor.importer.assets_path) / path;
-            rel_path  = path;
+            std::error_code ec;
+
+            Path base = Path(descriptor.importer.assets_path);
+            auto rel  = fs::relative(path, base, ec);
+            if (!ec && !rel.empty() && *rel.begin() != "..") {
+                full_path = path;
+                rel_path  = rel;
+            } else {
+                full_path = base / path;
+                rel_path  = path;
+            }
         } else {
             full_path = path;
             rel_path  = path;
@@ -611,8 +620,8 @@ void AssetServer::delete_metadata_and_caches(const Path& import_path, AssetID gu
 bool AssetServer::delete_directory_assets(const Path& dir_path)
 {
     std::error_code ec;
-    Vector<Path>    import_files;
 
+    Vector<Path> import_files;
     for (const auto& entry : fs::recursive_directory_iterator(dir_path, fs::directory_options::skip_permission_denied, ec)) {
         if (entry.is_regular_file(ec) && entry.path().extension() == ".import") {
             import_files.push_back(entry.path());
@@ -636,7 +645,8 @@ bool AssetServer::delete_directory_assets(const Path& dir_path)
 bool AssetServer::delete_single_asset(const Path& full_path, const Path& rel_path)
 {
     std::error_code ec;
-    Path            import_path = get_metadata_path(full_path);
+
+    Path import_path = get_metadata_path(full_path);
 
     AssetID guid = 0;
     if (fs::exists(import_path, ec)) {
@@ -708,7 +718,14 @@ auto AssetServer::resolve_destination_path(const Path& src_full, const Path& des
         dst_full = destination;
     } else {
         if (descriptor.importer.assets_path) {
-            dst_full = Path(descriptor.importer.assets_path) / destination;
+            Path            assets_base = Path(descriptor.importer.assets_path);
+            std::error_code ec;
+            auto            rel = fs::relative(destination, assets_base, ec);
+            if (!ec && !rel.empty() && *rel.begin() != "..") {
+                dst_full = destination;
+            } else {
+                dst_full = assets_base / destination;
+            }
         } else {
             dst_full = destination;
         }
@@ -981,8 +998,8 @@ bool AssetServer::has_cooker_for(const Path& path) const
 void AssetServer::poll_events()
 {
     Vector<std::pair<AssetID, AssetTypeID>> reloads;
-    bool                                    has_fs_changes = false;
 
+    bool has_fs_changes = false;
     {
         std::lock_guard lock(pipeline_mutex);
         if (!queued_reloaded_assets.empty()) {
@@ -1033,8 +1050,9 @@ void AssetServer::handle_watch_rename(const AssetWatchEvent& evt)
     registry.update(guid, evt.path.string(), registry.get_type(guid), registry.get_dependencies(guid));
 
     // rename .import sidecar if it exists
-    Path            old_import = get_metadata_path(Path(descriptor.importer.assets_path) / evt.old_path);
-    Path            new_import = get_metadata_path(Path(descriptor.importer.assets_path) / evt.path);
+    Path old_import = get_metadata_path(Path(descriptor.importer.assets_path) / evt.old_path);
+    Path new_import = get_metadata_path(Path(descriptor.importer.assets_path) / evt.path);
+
     std::error_code ec;
     if (fs::exists(old_import)) {
         fs::rename(old_import, new_import, ec);

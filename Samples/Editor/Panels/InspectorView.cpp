@@ -81,7 +81,7 @@ void InspectorView::draw_inspector(World& world, SceneNode node)
 
         ui::row([&]() {
             ui::label(LYRA_ICON_SCENE);
-            ui::text_field("##Name", buffer, sizeof(buffer), [&]() {
+            ui::text_field("name", buffer, sizeof(buffer), [&]() {
                 world.set_name(node, buffer);
             });
         });
