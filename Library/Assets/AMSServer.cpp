@@ -619,6 +619,172 @@ bool AssetServer::delete_asset(AssetID guid)
     return true;
 }
 
+auto AssetServer::resolve_destination_path(const Path& src_full, const Path& destination) const -> std::pair<Path, Path>
+{
+    Path dst_full;
+    Path dst_rel;
+
+    if (destination.is_absolute()) {
+        dst_full = destination;
+    } else {
+        if (descriptor.importer.assets_path) {
+            dst_full = Path(descriptor.importer.assets_path) / destination;
+        } else {
+            dst_full = destination;
+        }
+    }
+
+    std::error_code ec;
+    if (fs::is_directory(dst_full, ec)) {
+        dst_full /= src_full.filename();
+    }
+
+    if (dst_full.extension() == ".import") {
+        dst_full.replace_extension("");
+    }
+
+    if (descriptor.importer.assets_path) {
+        dst_rel = fs::relative(dst_full, Path(descriptor.importer.assets_path), ec);
+        if (ec) dst_rel = dst_full;
+    } else {
+        dst_rel = dst_full;
+    }
+
+    return {dst_full, dst_rel};
+}
+
+bool AssetServer::move_directory_assets(const Path& src_full, const Path& src_rel, const Path& dst_full, const Path& dst_rel)
+{
+    std::error_code ec;
+
+    struct MovedEntry
+    {
+        AssetID guid;
+        String  new_rel_path;
+    };
+    Vector<MovedEntry> moved_entries;
+
+    for (const auto& entry : fs::recursive_directory_iterator(src_full, fs::directory_options::skip_permission_denied, ec)) {
+        if (entry.is_regular_file(ec) && entry.path().extension() == ".import") {
+            AssetID guid = load_guid(entry.path());
+            if (guid != 0) {
+                Path asset_path = entry.path();
+                asset_path.replace_extension("");
+                Path rel_to_src = fs::relative(asset_path, src_full, ec);
+                if (!ec) {
+                    Path new_rel = dst_rel / rel_to_src;
+                    moved_entries.push_back({guid, new_rel.string()});
+                }
+            }
+        }
+    }
+
+    fs::rename(src_full, dst_full, ec);
+    if (ec) {
+        spdlog::error("AssetServer: Failed to move directory {} to {}: {}", src_full.string(), dst_full.string(), ec.message());
+        return false;
+    }
+
+    Path src_dir_import = get_metadata_path(src_full);
+    Path dst_dir_import = get_metadata_path(dst_full);
+    if (fs::exists(src_dir_import, ec)) {
+        fs::rename(src_dir_import, dst_dir_import, ec);
+    }
+
+    static std::mutex reg_mut;
+    std::lock_guard   lock(reg_mut);
+    for (const auto& item : moved_entries) {
+        registry.update(item.guid, item.new_rel_path, registry.get_type(item.guid), registry.get_dependencies(item.guid));
+    }
+
+    return true;
+}
+
+bool AssetServer::move_single_asset(const Path& src_full, const Path& src_rel, const Path& dst_full, const Path& dst_rel)
+{
+    std::error_code ec;
+
+    Path src_import = get_metadata_path(src_full);
+    Path dst_import = get_metadata_path(dst_full);
+
+    AssetID guid = 0;
+    if (fs::exists(src_import, ec)) {
+        guid = load_guid(src_import);
+    }
+    if (guid == 0) {
+        guid = registry.get_guid(src_rel.string());
+    }
+    if (guid == 0) {
+        guid = registry.get_guid(src_rel.generic_string());
+    }
+
+    fs::rename(src_full, dst_full, ec);
+    if (ec) {
+        spdlog::error("AssetServer: Failed to move file {} to {}: {}", src_full.string(), dst_full.string(), ec.message());
+        return false;
+    }
+
+    if (fs::exists(src_import, ec)) {
+        fs::rename(src_import, dst_import, ec);
+    }
+
+    if (guid != 0) {
+        static std::mutex reg_mut;
+        std::lock_guard   lock(reg_mut);
+        registry.update(guid, dst_rel.string(), registry.get_type(guid), registry.get_dependencies(guid));
+    }
+
+    return true;
+}
+
+bool AssetServer::move_asset(const Path& source_path, const Path& destination_path)
+{
+    auto [src_full, src_rel] = resolve_asset_path(source_path);
+
+    std::error_code ec;
+    if (!fs::exists(src_full, ec)) {
+        spdlog::error("AssetServer: Cannot move asset {}: source does not exist", src_full.string());
+        return false;
+    }
+
+    auto [dst_full, dst_rel] = resolve_destination_path(src_full, destination_path);
+
+    if (src_full == dst_full) {
+        return true;
+    }
+
+    if (fs::exists(dst_full, ec)) {
+        spdlog::error("AssetServer: Cannot move asset to {}: destination already exists", dst_full.string());
+        return false;
+    }
+
+    if (dst_full.has_parent_path()) {
+        fs::create_directories(dst_full.parent_path(), ec);
+    }
+
+    bool success = false;
+    if (fs::is_directory(src_full, ec)) {
+        success = move_directory_assets(src_full, src_rel, dst_full, dst_rel);
+    } else {
+        success = move_single_asset(src_full, src_rel, dst_full, dst_rel);
+    }
+
+    if (success) {
+        flush();
+    }
+    return success;
+}
+
+bool AssetServer::move_asset(AssetID guid, const Path& destination_path)
+{
+    StringView p = registry.get_path(guid);
+    if (p.empty()) {
+        spdlog::error("AssetServer: Cannot move asset with GUID {:#x}: not found in registry", guid);
+        return false;
+    }
+    return move_asset(Path(String(p)), destination_path);
+}
+
 void AssetServer::reload_asset(AssetID guid)
 {
     AssetTypeID type_id = registry.get_type(guid);

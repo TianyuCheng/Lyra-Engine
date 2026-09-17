@@ -194,6 +194,62 @@ TEST_CASE("ams::asset_server")
         CHECK(!fs::exists(import_file));
     }
 
+    SUBCASE("Move Asset")
+    {
+        auto source_dir = temp_dir / "SourceMove";
+        fs::create_directories(source_dir);
+
+        AMSDescriptor move_desc        = desc;
+        move_desc.importer.assets_path = source_dir.c_str();
+
+        AssetServer move_ams(move_desc);
+        move_ams.register_asset<DummyAsset>();
+
+        auto asset_file  = source_dir / "orig.dummy";
+        auto import_file = source_dir / "orig.dummy.import";
+
+        {
+            std::ofstream mf(asset_file);
+            mf << "move test content";
+        }
+        {
+            JSON metadata;
+            metadata["guid"] = 555666777;
+            metadata["type"] = DummyAsset::type;
+            std::ofstream mf(import_file);
+            mf << metadata.dump();
+        }
+
+        REQUIRE(fs::exists(asset_file));
+        REQUIRE(fs::exists(import_file));
+
+        // Test rename in same folder
+        bool moved = move_ams.move_asset("orig.dummy", "renamed.dummy");
+        CHECK(moved);
+        CHECK(!fs::exists(asset_file));
+        CHECK(!fs::exists(import_file));
+
+        auto moved_asset  = source_dir / "renamed.dummy";
+        auto moved_import = source_dir / "renamed.dummy.import";
+        CHECK(fs::exists(moved_asset));
+        CHECK(fs::exists(moved_import));
+        CHECK_EQ(move_ams.get_guid("renamed.dummy"), 555666777);
+
+        // Test moving into a subfolder
+        auto sub_dir = source_dir / "Sub";
+        fs::create_directories(sub_dir);
+
+        bool moved_sub = move_ams.move_asset("renamed.dummy", "Sub");
+        CHECK(moved_sub);
+        CHECK(!fs::exists(moved_asset));
+        CHECK(!fs::exists(moved_import));
+
+        auto sub_asset  = sub_dir / "renamed.dummy";
+        auto sub_import = sub_dir / "renamed.dummy.import";
+        CHECK(fs::exists(sub_asset));
+        CHECK(fs::exists(sub_import));
+    }
+
     SUBCASE("Basic Asynchronous Loading")
     {
         auto handle = ams.load_asset<DummyAsset>("test.dummy");

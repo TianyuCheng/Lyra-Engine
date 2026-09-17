@@ -406,16 +406,35 @@ void AssetBrowserView::action_rename(StringView old_name, StringView new_name)
     if (old_name == new_name) return;
     Path op = curr / old_name;
     Path np = curr / new_name;
-    try {
-        if (std::filesystem::exists(np))
-            spdlog::error("Rename failed: Destination exists");
-        else {
-            std::filesystem::rename(op, np);
-            update_directory(curr, true);
-        }
-    } catch (const std::exception& e) {
-        spdlog::error("Rename error: {}", e.what());
+
+    AssetServer* ams = nullptr;
+    if (bboard && bboard->has<AssetServer*>()) {
+        ams = bboard->get<AssetServer*>();
     }
+
+    if (ams) {
+        if (!ams->move_asset(op, np)) {
+            spdlog::error("Failed to move/rename asset: {} to {}", op.string(), np.string());
+        }
+    } else {
+        try {
+            if (std::filesystem::exists(np)) {
+                spdlog::error("Rename failed: Destination exists");
+            } else {
+                std::filesystem::rename(op, np);
+                Path old_import = op;
+                old_import += ".import";
+                Path new_import = np;
+                new_import += ".import";
+                if (std::filesystem::exists(old_import)) {
+                    std::filesystem::rename(old_import, new_import);
+                }
+            }
+        } catch (const std::exception& e) {
+            spdlog::error("Rename error: {}", e.what());
+        }
+    }
+    update_directory(curr, true);
 }
 
 void AssetBrowserView::action_create_folder(StringView name)

@@ -288,6 +288,22 @@ namespace lyra
         bool delete_asset(AssetID guid);
 
         /**
+         * @brief Move or rename an asset (including source file and .import metadata) and update registry.
+         * @param source_path Path to source asset (relative to assets root or absolute).
+         * @param destination_path Path to destination asset or target directory.
+         * @return True if move was successful.
+         */
+        bool move_asset(const Path& source_path, const Path& destination_path);
+
+        /**
+         * @brief Move or rename an asset by GUID (including source file and .import metadata) and update registry.
+         * @param guid GUID of the asset to move.
+         * @param destination_path Destination path (file or directory).
+         * @return True if move was successful.
+         */
+        bool move_asset(AssetID guid, const Path& destination_path);
+
+        /**
          * @brief Hot-reload an asset that is currently loaded in memory.
          */
         void reload_asset(AssetID guid);
@@ -383,6 +399,11 @@ namespace lyra
         void delete_metadata_and_caches(const Path& import_path, AssetID guid);
         bool delete_directory_assets(const Path& dir_path);
         bool delete_single_asset(const Path& full_path, const Path& rel_path);
+
+        // move helpers
+        auto resolve_destination_path(const Path& src_full, const Path& destination) const -> std::pair<Path, Path>;
+        bool move_directory_assets(const Path& src_full, const Path& src_rel, const Path& dst_full, const Path& dst_rel);
+        bool move_single_asset(const Path& src_full, const Path& src_rel, const Path& dst_full, const Path& dst_rel);
 
     private:
         AMSDescriptor                             descriptor;
