@@ -27,8 +27,17 @@
 #include <Lyra/Render/RHIDescs.h>
 #include <Lyra/Render/RHITypes.h>
 #include <Lyra/Render/RHIInits.h>
+#include <Lyra/UICore/GUIEnums.h>
 #include <Lyra/UICore/GUITypes.h>
+#include <Lyra/UICore/UIEnums.h>
 #include <Lyra/UICore/UIIcons.h>
+#include <Lyra/UICore/UI.h>
+#include <Lyra/UICore/UILayout.h>
+#include <Lyra/UICore/UIControls.h>
+#include <Lyra/UICore/UIProperty.h>
+#include <Lyra/UICore/UITree.h>
+#include <Lyra/UICore/UIDock.h>
+#include <Lyra/UICore/UIDialog.h>
 #include <Lyra/FileIO/VFSEnums.h>
 #include <Lyra/FileIO/VFSTypes.h>
 #include <Lyra/Assets/AMSUtils.h>

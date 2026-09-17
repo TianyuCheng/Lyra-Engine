@@ -1,5 +1,8 @@
+#include <cctype>
+#include <algorithm>
 #include <cxxopts.hpp>
 #include <Lyra/Lyra.hpp>
+
 #include "Renderer.h"
 #include "Common/EditorLayout.h"
 #include "Panels/AssetBrowserView.h"
@@ -21,43 +24,35 @@ static void render_scene(Blackboard& blackboard, GPUCommandBuffer command)
 
 static void imgui_update(Blackboard& blackboard)
 {
-    if (ImGui::BeginMainMenuBar()) {
-        if (ImGui::BeginMenu("Project")) {
-            if (ImGui::MenuItem("New")) {
-            }
-            if (ImGui::MenuItem("Load", "Ctrl+O")) {
-            }
-            if (ImGui::MenuItem("Save", "Ctrl+S")) {
-            }
-            ImGui::EndMenu();
-        }
+    ui::menubar([&]() {
+        ui::menu("Project", [&]() {
+            ui::menu_item("New", [&]() {});
+            ui::menu_item("Load", "Ctrl+O", [&]() {});
+            ui::menu_item("Save", "Ctrl+S", [&]() {});
+        });
 
         if (auto ams_ptr = blackboard.try_get<AssetServer*>()) {
             auto ams = *ams_ptr;
-            if (ImGui::BeginMenu("Assets")) {
-                if (ImGui::MenuItem("Reimport All (Force)")) {
+            ui::menu("Assets", [&]() {
+                ui::menu_item("Reimport All (Force)", [&]() {
                     ams->reimport_all(true);
-                }
-                if (ImGui::MenuItem("Purge Unused Assets")) {
+                });
+                ui::menu_item("Purge Unused Assets", [&]() {
                     ams->purge();
-                }
-                if (ImGui::MenuItem("Flush Registry to Disk")) {
+                });
+                ui::menu_item("Flush Registry to Disk", [&]() {
                     ams->flush();
-                }
-                ImGui::Separator();
-                bool watching = ams->is_watching();
-                if (ImGui::MenuItem("Watch Source Directory", nullptr, &watching)) {
+                });
+                ui::separator();
+                ui::menu_check_item("Watch Source Directory", ams->is_watching(), [&](const bool& watching) {
                     ams->set_watching(watching);
-                }
-                ImGui::EndMenu();
-            }
+                });
+            });
         }
-        ImGui::EndMainMenuBar();
-    }
+    });
 
     lyra::execute_once([&]() {
-        auto& layout = blackboard.get<EditorLayoutInfo>();
-        ImGui::DockBuilderDockWindow("Dear ImGui Demo", layout.main);
+        ui::workspace::dock("Dear ImGui Demo", ui::Area::Main);
     });
 
     ImGui::ShowDemoWindow();
@@ -104,6 +99,7 @@ int main(int argc, const char* argv[])
     cxxopts::Options options("Lyra::Editor", "Lyra engine editor program.");
     options.add_options()
         ("p,project", "project root directory", cxxopts::value<std::filesystem::path>())
+        ("gfxapi", "graphics API backend (vulkan, d3d12, metal)", cxxopts::value<std::string>()->default_value("vulkan"))
         ("h,help", "print usage")
     ;
     // clang-format on
@@ -113,6 +109,20 @@ int main(int argc, const char* argv[])
     if (args.count("help")) {
         spdlog::error("{}", options.help());
         exit(0);
+    }
+
+    auto gfxapi = args["gfxapi"].as<std::string>();
+    std::transform(gfxapi.begin(), gfxapi.end(), gfxapi.begin(), ::tolower);
+
+    auto backend = RHIBackend::VULKAN;
+    if (gfxapi == "d3d12") {
+        backend = RHIBackend::D3D12;
+    } else if (gfxapi == "metal") {
+        backend = RHIBackend::METAL;
+    } else if (gfxapi == "vulkan") {
+        backend = RHIBackend::VULKAN;
+    } else {
+        spdlog::warn("Unknown graphics API '{}', defaulting to vulkan", gfxapi);
     }
 
     // common paths
@@ -136,7 +146,7 @@ int main(int argc, const char* argv[])
         desc.with_title("Lyra Engine :: Editor");
         desc.with_window_extent(1920, 1080);
         desc.with_window_maximized();
-        desc.with_graphics_backend(RHIBackend::VULKAN);
+        desc.with_graphics_backend(backend);
         desc.with_graphics_validation(true, true);
         return std::make_unique<Application>(desc);
     });

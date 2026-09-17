@@ -26,8 +26,6 @@ private:
     GPUPipelineLayout playout;
     GPUShaderModule   vshader;
     GPUShaderModule   fshader;
-    GPUBuffer         vbuffer;
-    GPUBuffer         ibuffer;
     GPUBuffer         ubuffer;
     GPUTexture        depth_texture;
     GPUTextureView    depth_view;
@@ -35,8 +33,6 @@ private:
     Vector<GPUBindGroupLayoutHandle> blayouts;
 
     SceneNode camera_node;
-    SceneNode parent_node;
-    SceneNode child_node;
 };
 
 #endif // LYRA_SAMPLES_EDITOR_RENDERER_H
