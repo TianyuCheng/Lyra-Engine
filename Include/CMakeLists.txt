@@ -121,8 +121,10 @@ target_sources(lyra-headers INTERFACE
     Lyra/UICore/GUIAPI.h
     Lyra/UICore/GUIEnums.h
     Lyra/UICore/GUITypes.h
+    Lyra/UICore/ImGui.h
     Lyra/UICore/UIEnums.h
     Lyra/UICore/UIIcons.h
+    Lyra/UICore/UIInternals.h
     Lyra/UICore/UI.h
     Lyra/UICore/UILayout.h
     Lyra/UICore/UIControls.h

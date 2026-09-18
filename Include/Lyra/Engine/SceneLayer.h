@@ -3,7 +3,6 @@
 #ifndef LYRA_LYRA_PLAYER_SCENE_LAYER_H
 #define LYRA_LYRA_PLAYER_SCENE_LAYER_H
 
-#include <Lyra/Common/GUI.h>
 #include <Lyra/Scenes/World.h>
 #include <Lyra/Scenes/SceneTree.h>
 

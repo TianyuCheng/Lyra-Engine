@@ -112,6 +112,7 @@ target_sources(lyra-engine PRIVATE
   UICore/UI.cpp
   UICore/UILayout.cpp
   UICore/UIControls.cpp
+  UICore/UIInternals.cpp
   UICore/UIProperty.cpp
   UICore/UITree.cpp
   UICore/UIDock.cpp

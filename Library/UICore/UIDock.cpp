@@ -10,16 +10,16 @@ namespace
 {
     struct WorkspaceState
     {
-        ImGuiID main   = 0;
-        ImGuiID left   = 0;
-        ImGuiID right  = 0;
-        ImGuiID top    = 0;
-        ImGuiID bottom = 0;
+        ImGuiID main        = 0;
+        ImGuiID left        = 0;
+        ImGuiID right       = 0;
+        ImGuiID top         = 0;
+        ImGuiID bottom      = 0;
         bool    initialized = false;
     };
 
     WorkspaceState g_workspace;
-}
+} // namespace
 
 void lyra::ui::workspace::setup(const LayoutSplit& split)
 {
@@ -45,6 +45,8 @@ void lyra::ui::workspace::setup(const LayoutSplit& split)
 void lyra::ui::workspace::dock(CString panel_title, Area area)
 {
     ImGuiID target_id = 0;
+
+    // clang-format off
     switch (area)
     {
         case Area::Main:   target_id = g_workspace.main; break;
@@ -53,6 +55,7 @@ void lyra::ui::workspace::dock(CString panel_title, Area area)
         case Area::Top:    target_id = g_workspace.top; break;
         case Area::Bottom: target_id = g_workspace.bottom; break;
     }
+    // clang-format on
 
     if (target_id != 0) {
         ImGui::DockBuilderDockWindow(panel_title, target_id);

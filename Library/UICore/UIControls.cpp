@@ -1,15 +1,9 @@
-#include <imgui.h>
-#include <imgui_internal.h>
 #include <Lyra/UICore/UIIcons.h>
 #include <Lyra/UICore/UIControls.h>
+#include <Lyra/UICore/UIInternals.h>
 
 using namespace lyra;
 using namespace lyra::ui;
-
-namespace lyra::ui::internal
-{
-    extern void advance_layout_item();
-}
 
 namespace
 {
@@ -250,16 +244,16 @@ void lyra::ui::slider(CString id, float* value, float min, float max, CString fo
     ImGuiContext& g         = *GImGui;
     const ImGuiID widget_id = window->GetID(id);
 
-    float w      = width > 0.0f ? width : 100.0f;
-    float font_h = ImGui::GetFontSize();
+    float w       = width > 0.0f ? width : 100.0f;
+    float frame_h = ImGui::GetFrameHeight();
 
     const ImVec2 pos = window->DC.CursorPos;
-    const ImRect bb(pos, ImVec2(pos.x + w, pos.y + font_h));
+    const ImRect bb(pos, ImVec2(pos.x + w, pos.y + frame_h));
     ImGui::ItemSize(bb);
     if (!ImGui::ItemAdd(bb, widget_id)) return;
 
     ImRect hit_bb = bb;
-    hit_bb.Expand(ImVec2(0.0f, 4.0f));
+    hit_bb.Expand(ImVec2(0.0f, 2.0f));
 
     bool hovered = false;
     bool held    = false;
@@ -276,7 +270,7 @@ void lyra::ui::slider(CString id, float* value, float min, float max, CString fo
         ImGui::MarkItemEdited(widget_id);
     }
 
-    float mid_y = bb.Min.y + font_h * 0.5f;
+    float mid_y = bb.Min.y + frame_h * 0.5f;
     float norm  = (max > min) ? std::clamp((*value - min) / (max - min), 0.0f, 1.0f) : 0.0f;
     float dot_x = track_start + norm * (track_end - track_start);
 
@@ -324,12 +318,18 @@ void lyra::ui::slider(CString id, float* value, float min, float max, CString fo
 void lyra::ui::label(CString text)
 {
     internal::advance_layout_item();
+    if (internal::is_vertically_centered()) {
+        ImGui::AlignTextToFramePadding();
+    }
     ImGui::TextUnformatted(text);
 }
 
 void lyra::ui::label(CString text, StatusRole role)
 {
     internal::advance_layout_item();
+    if (internal::is_vertically_centered()) {
+        ImGui::AlignTextToFramePadding();
+    }
     ImGui::TextColored(to_status_color(role), "%s", text);
 }
 

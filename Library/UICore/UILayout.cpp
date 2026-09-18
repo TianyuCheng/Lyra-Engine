@@ -1,56 +1,11 @@
 #include <stack>
 #include <algorithm>
-#include <imgui.h>
-#include <imgui_internal.h>
 #include <Lyra/UICore/UILayout.h>
+#include <Lyra/UICore/UIInternals.h>
 
 using namespace lyra;
 using namespace lyra::ui;
-
-namespace
-{
-    struct LayoutScope
-    {
-        bool      in_row             = false;
-        bool      is_first_item      = true;
-        Alignment align              = Alignment::Start;
-        VAlign    vertical           = VAlign::Center;
-        ImGuiID   id                 = 0;
-        bool      has_spacer         = false;
-        bool      has_spacer_pending = false;
-        ImGuiID   spring_id          = 0;
-        float     spacer_screen_x    = 0.0f;
-    };
-
-    thread_local std::stack<LayoutScope> g_layout_stack;
-    thread_local int                     g_row_counter = 0;
-}
-
-namespace lyra::ui::internal
-{
-    void advance_layout_item()
-    {
-        if (g_layout_stack.empty()) return;
-
-        auto& current = g_layout_stack.top();
-        if (current.in_row) {
-            if (current.has_spacer_pending) {
-                current.has_spacer_pending = false;
-            } else if (!current.is_first_item) {
-                ImGui::SameLine();
-            }
-            if (current.vertical == VAlign::Center || current.vertical == VAlign::Baseline) {
-                ImGui::AlignTextToFramePadding();
-            }
-            current.is_first_item = false;
-        }
-    }
-
-    void reset_layout_counters()
-    {
-        g_row_counter = 0;
-    }
-}
+using namespace lyra::ui::internal;
 
 void lyra::ui::row(ActionRef content)
 {
@@ -74,19 +29,19 @@ void lyra::ui::row(Alignment align, VAlign vertical, ActionRef content)
 
 void lyra::ui::row(const RowDescriptor& desc, ActionRef content)
 {
-    int row_idx = g_row_counter++;
-    ImGuiID row_id = ImGui::GetID(row_idx);
+    int     row_idx = g_row_counter++;
+    ImGuiID row_id  = ImGui::GetID(row_idx);
     ImGui::PushID(row_id);
 
-    ImGuiStorage* storage = ImGui::GetStateStorage();
+    auto  storage    = ImGui::GetStateStorage();
     float prev_width = storage->GetFloat(row_id, 0.0f);
 
     if (desc.align == Alignment::Center && prev_width > 0.0f) {
-        float avail = ImGui::GetContentRegionAvail().x;
+        float avail  = ImGui::GetContentRegionAvail().x;
         float offset = std::max(0.0f, (avail - prev_width) * 0.5f);
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offset);
     } else if (desc.align == Alignment::End && prev_width > 0.0f) {
-        float avail = ImGui::GetContentRegionAvail().x;
+        float avail  = ImGui::GetContentRegionAvail().x;
         float offset = std::max(0.0f, avail - prev_width);
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offset);
     }
@@ -116,7 +71,7 @@ void lyra::ui::row(const RowDescriptor& desc, ActionRef content)
             storage->SetFloat(g_layout_stack.top().spring_id, post_width);
         }
 
-        ImGuiWindow* window = ImGui::GetCurrentWindow();
+        auto  window      = ImGui::GetCurrentWindow();
         float max_allowed = window->Pos.x + ImGui::GetWindowContentRegionMax().x;
         if (window->DC.CursorMaxPos.x > max_allowed) {
             window->DC.CursorMaxPos.x = max_allowed;
@@ -179,13 +134,13 @@ void lyra::ui::spacer()
 {
     if (g_layout_stack.empty() || !g_layout_stack.top().in_row) return;
 
-    auto& current = g_layout_stack.top();
-    current.has_spacer = true;
+    auto& current              = g_layout_stack.top();
+    current.has_spacer         = true;
     current.has_spacer_pending = true;
 
-    current.spring_id = ImGui::GetID("##LyraUISpacer");
-    ImGuiStorage* storage = ImGui::GetStateStorage();
-    float post_width = storage->GetFloat(current.spring_id, 0.0f);
+    current.spring_id        = ImGui::GetID("##LyraUISpacer");
+    ImGuiStorage* storage    = ImGui::GetStateStorage();
+    float         post_width = storage->GetFloat(current.spring_id, 0.0f);
 
     if (!current.is_first_item) {
         ImGui::SameLine();
@@ -199,7 +154,7 @@ void lyra::ui::spacer()
     }
 
     current.spacer_screen_x = ImGui::GetCursorScreenPos().x;
-    current.is_first_item = false;
+    current.is_first_item   = false;
 }
 
 void lyra::ui::separator()
@@ -208,9 +163,18 @@ void lyra::ui::separator()
         ImGui::Separator();
     } else {
         internal::advance_layout_item();
-        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 2.0f);
-        ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
-        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 2.0f);
+        auto  window  = ImGui::GetCurrentWindow();
+        float frame_h = ImGui::GetFrameHeight();
+        float pad_x   = 4.0f;
+        float x       = window->DC.CursorPos.x + pad_x;
+        float y_top   = window->DC.CursorPos.y + 3.0f;
+        float y_bot   = window->DC.CursorPos.y + frame_h - 3.0f;
+
+        const ImRect bb(window->DC.CursorPos, ImVec2(window->DC.CursorPos.x + pad_x * 2.0f + 1.0f, window->DC.CursorPos.y + frame_h));
+        ImGui::ItemSize(bb);
+        if (ImGui::ItemAdd(bb, 0)) {
+            window->DrawList->AddLine(ImVec2(x, y_top), ImVec2(x, y_bot), ImGui::GetColorU32(ImGuiCol_Separator));
+        }
     }
 }
 
@@ -218,7 +182,7 @@ void lyra::ui::grid(CString id, float item_width, ActionRef content)
 {
     float avail_x = ImGui::GetContentRegionAvail().x;
     float spacing = ImGui::GetStyle().ItemSpacing.x;
-    int cols = std::max(1, static_cast<int>(avail_x / (item_width + spacing)));
+    int   cols    = std::max(1, static_cast<int>(avail_x / (item_width + spacing)));
 
     if (ImGui::BeginTable(id, cols, ImGuiTableFlags_SizingFixedFit)) {
         content();

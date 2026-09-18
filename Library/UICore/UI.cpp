@@ -1,6 +1,5 @@
-#include <imgui.h>
-#include <imgui_internal.h>
 #include <Lyra/UICore/UI.h>
+#include <Lyra/UICore/UIInternals.h>
 
 using namespace lyra;
 using namespace lyra::ui;
@@ -8,11 +7,6 @@ using namespace lyra::ui;
 // =============================================================================
 // 1. Panels & Viewport
 // =============================================================================
-
-namespace lyra::ui::internal
-{
-    void reset_layout_counters();
-}
 
 void lyra::ui::panel(CString title, ActionRef content)
 {
@@ -66,123 +60,118 @@ bool lyra::ui::is_any_item_active()
     return ImGui::IsAnyItemActive();
 }
 
-Vector2 lyra::ui::mouse_pos()
-{
-    ImVec2 pos = ImGui::GetMousePos();
-    return Vector2{pos.x, pos.y};
-}
-
 // =============================================================================
 // 2. Input Queries
 // =============================================================================
 
-namespace
+static ImGuiMouseButton to_imgui_mouse_button(MouseButton button)
 {
-    ImGuiMouseButton to_imgui_mouse_button(MouseButton button)
-    {
-        switch (button) {
-            case MouseButton::LEFT:   return ImGuiMouseButton_Left;
-            case MouseButton::RIGHT:  return ImGuiMouseButton_Right;
-            case MouseButton::MIDDLE: return ImGuiMouseButton_Middle;
-            default:                  return ImGuiMouseButton_Left;
-        }
+    // clang-format off
+    switch (button) {
+        case MouseButton::LEFT:   return ImGuiMouseButton_Left;
+        case MouseButton::RIGHT:  return ImGuiMouseButton_Right;
+        case MouseButton::MIDDLE: return ImGuiMouseButton_Middle;
+        default:                  return ImGuiMouseButton_Left;
     }
+    // clang-format on
+}
 
-    ImGuiKey to_imgui_key_button(KeyButton button)
-    {
-        switch (button) {
-            case KeyButton::TAB:           return ImGuiKey_Tab;
-            case KeyButton::ESC:           return ImGuiKey_Escape;
-            case KeyButton::SPACE:         return ImGuiKey_Space;
-            case KeyButton::BACKSPACE:     return ImGuiKey_Backspace;
-            case KeyButton::DEL:           return ImGuiKey_Delete;
-            case KeyButton::ENTER:         return ImGuiKey_Enter;
-            case KeyButton::PAGE_UP:       return ImGuiKey_PageUp;
-            case KeyButton::PAGE_DOWN:     return ImGuiKey_PageDown;
-            case KeyButton::HOME:          return ImGuiKey_Home;
-            case KeyButton::END:           return ImGuiKey_End;
-            case KeyButton::PAUSE:         return ImGuiKey_Pause;
-            case KeyButton::NUM_LOCK:      return ImGuiKey_NumLock;
-            case KeyButton::CAPS_LOCK:     return ImGuiKey_CapsLock;
-            case KeyButton::SCROLL_LOCK:   return ImGuiKey_ScrollLock;
+static ImGuiKey to_imgui_key_button(KeyButton button)
+{
+    // clang-format off
+    switch (button) {
+        case KeyButton::TAB:           return ImGuiKey_Tab;
+        case KeyButton::ESC:           return ImGuiKey_Escape;
+        case KeyButton::SPACE:         return ImGuiKey_Space;
+        case KeyButton::BACKSPACE:     return ImGuiKey_Backspace;
+        case KeyButton::DEL:           return ImGuiKey_Delete;
+        case KeyButton::ENTER:         return ImGuiKey_Enter;
+        case KeyButton::PAGE_UP:       return ImGuiKey_PageUp;
+        case KeyButton::PAGE_DOWN:     return ImGuiKey_PageDown;
+        case KeyButton::HOME:          return ImGuiKey_Home;
+        case KeyButton::END:           return ImGuiKey_End;
+        case KeyButton::PAUSE:         return ImGuiKey_Pause;
+        case KeyButton::NUM_LOCK:      return ImGuiKey_NumLock;
+        case KeyButton::CAPS_LOCK:     return ImGuiKey_CapsLock;
+        case KeyButton::SCROLL_LOCK:   return ImGuiKey_ScrollLock;
 
-            case KeyButton::ALT:           return ImGuiKey_ModAlt;
-            case KeyButton::CTRL:          return ImGuiKey_ModCtrl;
-            case KeyButton::SHIFT:         return ImGuiKey_ModShift;
-            case KeyButton::SUPER:         return ImGuiKey_ModSuper;
+        case KeyButton::ALT:           return ImGuiKey_ModAlt;
+        case KeyButton::CTRL:          return ImGuiKey_ModCtrl;
+        case KeyButton::SHIFT:         return ImGuiKey_ModShift;
+        case KeyButton::SUPER:         return ImGuiKey_ModSuper;
 
-            case KeyButton::A:             return ImGuiKey_A;
-            case KeyButton::B:             return ImGuiKey_B;
-            case KeyButton::C:             return ImGuiKey_C;
-            case KeyButton::D:             return ImGuiKey_D;
-            case KeyButton::E:             return ImGuiKey_E;
-            case KeyButton::F:             return ImGuiKey_F;
-            case KeyButton::G:             return ImGuiKey_G;
-            case KeyButton::H:             return ImGuiKey_H;
-            case KeyButton::I:             return ImGuiKey_I;
-            case KeyButton::J:             return ImGuiKey_J;
-            case KeyButton::K:             return ImGuiKey_K;
-            case KeyButton::L:             return ImGuiKey_L;
-            case KeyButton::M:             return ImGuiKey_M;
-            case KeyButton::N:             return ImGuiKey_N;
-            case KeyButton::O:             return ImGuiKey_O;
-            case KeyButton::P:             return ImGuiKey_P;
-            case KeyButton::Q:             return ImGuiKey_Q;
-            case KeyButton::R:             return ImGuiKey_R;
-            case KeyButton::S:             return ImGuiKey_S;
-            case KeyButton::T:             return ImGuiKey_T;
-            case KeyButton::U:             return ImGuiKey_U;
-            case KeyButton::V:             return ImGuiKey_V;
-            case KeyButton::W:             return ImGuiKey_W;
-            case KeyButton::X:             return ImGuiKey_X;
-            case KeyButton::Y:             return ImGuiKey_Y;
-            case KeyButton::Z:             return ImGuiKey_Z;
+        case KeyButton::A:             return ImGuiKey_A;
+        case KeyButton::B:             return ImGuiKey_B;
+        case KeyButton::C:             return ImGuiKey_C;
+        case KeyButton::D:             return ImGuiKey_D;
+        case KeyButton::E:             return ImGuiKey_E;
+        case KeyButton::F:             return ImGuiKey_F;
+        case KeyButton::G:             return ImGuiKey_G;
+        case KeyButton::H:             return ImGuiKey_H;
+        case KeyButton::I:             return ImGuiKey_I;
+        case KeyButton::J:             return ImGuiKey_J;
+        case KeyButton::K:             return ImGuiKey_K;
+        case KeyButton::L:             return ImGuiKey_L;
+        case KeyButton::M:             return ImGuiKey_M;
+        case KeyButton::N:             return ImGuiKey_N;
+        case KeyButton::O:             return ImGuiKey_O;
+        case KeyButton::P:             return ImGuiKey_P;
+        case KeyButton::Q:             return ImGuiKey_Q;
+        case KeyButton::R:             return ImGuiKey_R;
+        case KeyButton::S:             return ImGuiKey_S;
+        case KeyButton::T:             return ImGuiKey_T;
+        case KeyButton::U:             return ImGuiKey_U;
+        case KeyButton::V:             return ImGuiKey_V;
+        case KeyButton::W:             return ImGuiKey_W;
+        case KeyButton::X:             return ImGuiKey_X;
+        case KeyButton::Y:             return ImGuiKey_Y;
+        case KeyButton::Z:             return ImGuiKey_Z;
 
-            case KeyButton::UP:            return ImGuiKey_UpArrow;
-            case KeyButton::DOWN:          return ImGuiKey_DownArrow;
-            case KeyButton::LEFT:          return ImGuiKey_LeftArrow;
-            case KeyButton::RIGHT:         return ImGuiKey_RightArrow;
+        case KeyButton::UP:            return ImGuiKey_UpArrow;
+        case KeyButton::DOWN:          return ImGuiKey_DownArrow;
+        case KeyButton::LEFT:          return ImGuiKey_LeftArrow;
+        case KeyButton::RIGHT:         return ImGuiKey_RightArrow;
 
-            case KeyButton::D0:            return ImGuiKey_0;
-            case KeyButton::D1:            return ImGuiKey_1;
-            case KeyButton::D2:            return ImGuiKey_2;
-            case KeyButton::D3:            return ImGuiKey_3;
-            case KeyButton::D4:            return ImGuiKey_4;
-            case KeyButton::D5:            return ImGuiKey_5;
-            case KeyButton::D6:            return ImGuiKey_6;
-            case KeyButton::D7:            return ImGuiKey_7;
-            case KeyButton::D8:            return ImGuiKey_8;
-            case KeyButton::D9:            return ImGuiKey_9;
+        case KeyButton::D0:            return ImGuiKey_0;
+        case KeyButton::D1:            return ImGuiKey_1;
+        case KeyButton::D2:            return ImGuiKey_2;
+        case KeyButton::D3:            return ImGuiKey_3;
+        case KeyButton::D4:            return ImGuiKey_4;
+        case KeyButton::D5:            return ImGuiKey_5;
+        case KeyButton::D6:            return ImGuiKey_6;
+        case KeyButton::D7:            return ImGuiKey_7;
+        case KeyButton::D8:            return ImGuiKey_8;
+        case KeyButton::D9:            return ImGuiKey_9;
 
-            case KeyButton::F1:            return ImGuiKey_F1;
-            case KeyButton::F2:            return ImGuiKey_F2;
-            case KeyButton::F3:            return ImGuiKey_F3;
-            case KeyButton::F4:            return ImGuiKey_F4;
-            case KeyButton::F5:            return ImGuiKey_F5;
-            case KeyButton::F6:            return ImGuiKey_F6;
-            case KeyButton::F7:            return ImGuiKey_F7;
-            case KeyButton::F8:            return ImGuiKey_F8;
-            case KeyButton::F9:            return ImGuiKey_F9;
-            case KeyButton::F10:           return ImGuiKey_F10;
-            case KeyButton::F11:           return ImGuiKey_F11;
-            case KeyButton::F12:           return ImGuiKey_F12;
+        case KeyButton::F1:            return ImGuiKey_F1;
+        case KeyButton::F2:            return ImGuiKey_F2;
+        case KeyButton::F3:            return ImGuiKey_F3;
+        case KeyButton::F4:            return ImGuiKey_F4;
+        case KeyButton::F5:            return ImGuiKey_F5;
+        case KeyButton::F6:            return ImGuiKey_F6;
+        case KeyButton::F7:            return ImGuiKey_F7;
+        case KeyButton::F8:            return ImGuiKey_F8;
+        case KeyButton::F9:            return ImGuiKey_F9;
+        case KeyButton::F10:           return ImGuiKey_F10;
+        case KeyButton::F11:           return ImGuiKey_F11;
+        case KeyButton::F12:           return ImGuiKey_F12;
 
-            case KeyButton::APOSTROPHE:    return ImGuiKey_Apostrophe;
-            case KeyButton::COMMA:         return ImGuiKey_Comma;
-            case KeyButton::MINUS:         return ImGuiKey_Minus;
-            case KeyButton::PERIOD:        return ImGuiKey_Period;
-            case KeyButton::SLASH:         return ImGuiKey_Slash;
-            case KeyButton::BACKSLASH:     return ImGuiKey_Backslash;
-            case KeyButton::SEMICOLON:     return ImGuiKey_Semicolon;
-            case KeyButton::EQUAL:         return ImGuiKey_Equal;
-            case KeyButton::LEFT_BRACKET:  return ImGuiKey_LeftBracket;
-            case KeyButton::RIGHT_BRACKET: return ImGuiKey_RightBracket;
-            case KeyButton::GRAVE_ACCENT:  return ImGuiKey_GraveAccent;
+        case KeyButton::APOSTROPHE:    return ImGuiKey_Apostrophe;
+        case KeyButton::COMMA:         return ImGuiKey_Comma;
+        case KeyButton::MINUS:         return ImGuiKey_Minus;
+        case KeyButton::PERIOD:        return ImGuiKey_Period;
+        case KeyButton::SLASH:         return ImGuiKey_Slash;
+        case KeyButton::BACKSLASH:     return ImGuiKey_Backslash;
+        case KeyButton::SEMICOLON:     return ImGuiKey_Semicolon;
+        case KeyButton::EQUAL:         return ImGuiKey_Equal;
+        case KeyButton::LEFT_BRACKET:  return ImGuiKey_LeftBracket;
+        case KeyButton::RIGHT_BRACKET: return ImGuiKey_RightBracket;
+        case KeyButton::GRAVE_ACCENT:  return ImGuiKey_GraveAccent;
 
-            default:                       return ImGuiKey_None;
-        }
+        default:                       return ImGuiKey_None;
     }
-} // namespace
+    // clang-format on
+}
 
 bool lyra::ui::is_mouse_down(MouseButton button)
 {

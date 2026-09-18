@@ -11,6 +11,7 @@
 #include <Lyra/UICore/UILayout.h>
 #include <Lyra/UICore/UIControls.h>
 #include <Lyra/UICore/UIDock.h>
+#include <Lyra/UICore/ImGui.h>
 
 // local imports
 #include <Lyra/UICore/UIIcons.h>
@@ -109,7 +110,7 @@ void AssetBrowserView::update(Blackboard& blackboard)
 
         ui::separator();
 
-        ui::scroll_area("FileBrowser", 32.0f, [&]() {
+        ui::scroll_area("FileBrowser", 40.0f, [&]() {
             if (!selection.empty() && !show_rename_modal && !show_new_file_modal && !show_new_folder_modal && !show_delete_modal) {
                 if (ui::is_panel_hovered() && !ui::is_any_item_active() && (ui::is_key_pressed(KeyButton::DEL) || ui::is_key_pressed(KeyButton::BACKSPACE))) {
                     show_delete_modal = true;
@@ -181,15 +182,44 @@ void AssetBrowserView::show_breadcrumb()
 
 void AssetBrowserView::show_dir_files(Blackboard& blackboard)
 {
+    ImVec2 mouse_pos = ImGui::GetMousePos();
+    ImRect marquee_rect;
+
     // explorer / finder style background click logic:
-    // when clicking on empty background (no item hovered or active), deselect
+    // when clicking on empty background (no item hovered or active), start marquee drag selection
     if (ui::is_panel_hovered() && !ui::is_any_item_hovered() && !ui::is_any_item_active()) {
-        if (ui::is_mouse_clicked(MouseButton::LEFT)) {
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+            is_marquee_selecting = true;
+            marquee_start_pos    = Vector2(mouse_pos.x, mouse_pos.y);
+            initial_selection    = ui::is_key_down(KeyButton::CTRL) ? selection.items : Vector<String>();
             if (!ui::is_key_down(KeyButton::CTRL)) {
                 selection.clear();
             }
         }
     }
+
+    bool is_releasing = false;
+    if (is_marquee_selecting) {
+        if (!ImGui::IsMouseDown(ImGuiMouseButton_Left) || ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+            is_releasing = true;
+        }
+        marquee_rect = ImRect(
+            ImVec2(std::min(marquee_start_pos.x, mouse_pos.x), std::min(marquee_start_pos.y, mouse_pos.y)),
+            ImVec2(std::max(marquee_start_pos.x, mouse_pos.x), std::max(marquee_start_pos.y, mouse_pos.y)));
+        selection.items = initial_selection;
+    }
+
+    auto handle_marquee = [&](StringView name) {
+        if (is_marquee_selecting) {
+            ImVec2 pos = ImGui::GetCursorScreenPos();
+            ImRect item_rect(pos, ImVec2(pos.x + icon_size + 4.0f, pos.y + icon_size + 34.0f));
+            if (marquee_rect.Overlaps(item_rect)) {
+                if (!selection.is_selected(name)) {
+                    selection.items.emplace_back(name);
+                }
+            }
+        }
+    };
 
     String filter(search_filter);
     auto   matches_filter = [&](StringView name) {
@@ -205,6 +235,7 @@ void AssetBrowserView::show_dir_files(Blackboard& blackboard)
         for (const auto& folder : folders) {
             if (!matches_filter(folder)) continue;
             ui::grid_item([&]() {
+                handle_marquee(folder);
                 show_item(blackboard, folder, true);
             });
         }
@@ -212,10 +243,22 @@ void AssetBrowserView::show_dir_files(Blackboard& blackboard)
         for (const auto& file : files) {
             if (!matches_filter(file)) continue;
             ui::grid_item([&]() {
+                handle_marquee(file);
                 show_item(blackboard, file, false);
             });
         }
     });
+
+    if (is_marquee_selecting && !is_releasing && (marquee_rect.GetWidth() > 1.0f || marquee_rect.GetHeight() > 1.0f)) {
+        ImDrawList* draw_list = ImGui::GetWindowDrawList();
+        draw_list->AddRectFilled(marquee_rect.Min, marquee_rect.Max, ImGui::GetColorU32(ImGuiCol_Header, 0.3f));
+        draw_list->AddRect(marquee_rect.Min, marquee_rect.Max, ImGui::GetColorU32(ImGuiCol_Header, 1.0f));
+    }
+
+    if (is_releasing) {
+        is_marquee_selecting = false;
+        initial_selection.clear();
+    }
 
     load_thumbnails(blackboard);
 }
@@ -587,6 +630,8 @@ void AssetBrowserView::perform_update_directory(const Path& path, bool force)
     all_items.clear();
     breadcrumbs.clear();
     selection.clear();
+    is_marquee_selecting = false;
+    initial_selection.clear();
 
     if (bboard && bboard->has<GUIRenderer*>()) {
         auto gui = bboard->get<GUIRenderer*>();
