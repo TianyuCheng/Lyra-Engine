@@ -6,6 +6,7 @@
 #include <absl/strings/ascii.h>
 #include <Lyra/Common/Function.h>
 #include <Lyra/Assets/AMSServer.h>
+#include <Lyra/Assets/AMSPreview.h>
 
 using namespace lyra;
 
@@ -103,6 +104,17 @@ AssetServer::AssetServer(const AMSDescriptor& descriptor)
 
     if (descriptor.watch && descriptor.importer.assets_path) {
         set_watching(true);
+    }
+
+    // configure preview generator
+    JSON preview_opts;
+    if (descriptor.importer.caches_path) {
+        preview_opts["caches_root"] = Path(descriptor.importer.caches_path).string();
+    }
+    preview_opts["width"]  = 128;
+    preview_opts["height"] = 128;
+    if (preview_api().configure) {
+        preview_api().configure(this, preview_opts);
     }
 }
 
@@ -1021,6 +1033,11 @@ void AssetServer::poll_events()
     if (has_fs_changes && on_fs_changed) {
         on_fs_changed();
     }
+}
+
+auto AssetServer::preview(const PreviewScene& scene, JSON& metadata) -> Future<Path>
+{
+    return preview_api().generate_thumbnail(scene, metadata);
 }
 
 void AssetServer::set_on_asset_reloaded(AssetReloadCallback callback)

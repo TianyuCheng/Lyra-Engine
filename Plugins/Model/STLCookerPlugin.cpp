@@ -1,13 +1,13 @@
-#include <Lyra/Common/Logger.h>
-#include <Lyra/Common/Plugin.h>
-#include <Lyra/Assets/AMSAPI.h>
-#include <Lyra/Assets/Format/ModelAsset.h>
-#include "ModelUtils.h"
-#include "ModelRasterizer.h"
-
 #include <numeric>
 #include <fstream>
 #include <filesystem>
+
+#include <Lyra/Common/Logger.h>
+#include <Lyra/Common/Plugin.h>
+#include <Lyra/Assets/AMSAPI.h>
+#include <Lyra/Assets/AMSPreview.h>
+#include <Lyra/Assets/Format/ModelAsset.h>
+#include "ModelUtils.h"
 
 using namespace lyra;
 using namespace lyra::model;
@@ -38,9 +38,9 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
 
         // determine if binary or ascii
         std::error_code ec;
-        uintmax_t file_size = fs::file_size(source_path, ec);
-        bool is_binary = false;
-        uint triangle_count = 0;
+        uintmax_t       file_size      = fs::file_size(source_path, ec);
+        bool            is_binary      = false;
+        uint            triangle_count = 0;
 
         if (!ec && file_size >= 84) {
             file.seekg(80);
@@ -110,6 +110,29 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
             return false;
         }
 
+        // STL is a 3D printing / CAD format with Z-up convention.
+        // Convert Z-up to engine-native Y-up (-90 deg rotation around X).
+        bool convert_z_up = true;
+        if (metadata.contains("z_up") && metadata["z_up"].is_boolean()) {
+            convert_z_up = metadata["z_up"].get<bool>();
+        }
+
+        if (convert_z_up) {
+            float yaw_adjust = 90.0f;
+            if (metadata.contains("rotation_y") && metadata["rotation_y"].is_number()) {
+                yaw_adjust = metadata["rotation_y"].get<float>();
+            }
+            Matrix4x4 rot = glm::rotate(Matrix4x4(1.0f), glm::radians(yaw_adjust), Vector3(0.0f, 1.0f, 0.0f)) *
+                            glm::rotate(Matrix4x4(1.0f), glm::radians(-90.0f), Vector3(1.0f, 0.0f, 0.0f));
+            Matrix3x3 norm_rot = Matrix3x3(rot);
+            for (auto& v : positions) {
+                v = Vector3(rot * Vector4(v, 1.0f));
+            }
+            for (auto& n : normals) {
+                n = glm::normalize(norm_rot * n);
+            }
+        }
+
         MeshAsset mesh;
         MeshLOD&  lod = mesh.lods.emplace_back();
 
@@ -154,7 +177,7 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
         AssetID model_id = metadata["guid"].get<AssetID>();
 
         AssetDependencyScope deps(metadata, source_path, caches_root);
-        AssetID mesh_id = deps.resolve(model_id, "default", MeshAsset::type);
+        AssetID              mesh_id = deps.resolve(model_id, "default", MeshAsset::type);
         deps.set_path(mesh_id, "meshes/" + std::to_string(mesh_id) + ".mesh");
 
         Path mesh_cache_path = meshes_dir / (std::to_string(mesh_id) + ".mesh");
@@ -177,7 +200,7 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
 
         Vector<uint> thumb_indices(positions.size());
         std::iota(thumb_indices.begin(), thumb_indices.end(), 0);
-        generate_model_thumbnail(metadata, positions, normals, thumb_indices, caches_root);
+        preview_api().generate_thumbnail(PreviewScene::make_mesh(positions, normals, {}, thumb_indices), metadata);
 
         return true;
     } catch (const std::exception& e) {

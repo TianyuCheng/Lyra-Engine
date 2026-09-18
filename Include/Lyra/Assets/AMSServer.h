@@ -339,6 +339,12 @@ namespace lyra
         void poll_events();
 
         /**
+         * @brief Generate a preview/thumbnail for an asset from a preview scene and write to cache.
+         * @return Future<Path> resolving to relative thumbnail path, or empty path on failure.
+         */
+        auto preview(const PreviewScene& scene, JSON& metadata) -> Future<Path>;
+
+        /**
          * @brief Set callback for hot-reloaded assets.
          */
         void set_on_asset_reloaded(AssetReloadCallback callback);

@@ -331,18 +331,38 @@ TEST_CASE("ams::model_import_and_reimport")
     CHECK_EQ(guid1, guid2);
 
     // stl import test
-    auto bunny_src = lyra::git_root() / "Scratch" / "project" / "Assets" / "Stanford_Bunny.stl";
-    if (fs::exists(bunny_src)) {
-        fs::copy_file(bunny_src, assets_dir / "Stanford_Bunny.stl", fs::copy_options::overwrite_existing);
-        auto stl_fut1 = server.import_asset("Stanford_Bunny.stl", false);
-        auto stl_guid1 = stl_fut1.get();
-        CHECK_NE(stl_guid1, 0);
-
-        auto stl_fut2 = server.import_asset("Stanford_Bunny.stl", true);
-        auto stl_guid2 = stl_fut2.get();
-        CHECK_NE(stl_guid2, 0);
-        CHECK_EQ(stl_guid1, stl_guid2);
+    auto stl_file = assets_dir / "cube.stl";
+    {
+        std::ofstream f(stl_file);
+        f << "solid cube\n"
+          << "  facet normal 0.0 0.0 1.0\n"
+          << "    outer loop\n"
+          << "      vertex 0.0 0.0 0.0\n"
+          << "      vertex 1.0 0.0 0.0\n"
+          << "      vertex 1.0 1.0 0.0\n"
+          << "    endloop\n"
+          << "  endfacet\n"
+          << "  facet normal 0.0 0.0 1.0\n"
+          << "    outer loop\n"
+          << "      vertex 0.0 0.0 0.0\n"
+          << "      vertex 1.0 1.0 0.0\n"
+          << "      vertex 0.0 1.0 0.0\n"
+          << "    endloop\n"
+          << "  endfacet\n"
+          << "endsolid cube\n";
     }
+
+    auto stl_fut1 = server.import_asset("cube.stl", false);
+    auto stl_guid1 = stl_fut1.get();
+    CHECK_NE(stl_guid1, 0);
+
+    auto stl_fut2 = server.import_asset("cube.stl", true);
+    auto stl_guid2 = stl_fut2.get();
+    CHECK_NE(stl_guid2, 0);
+    CHECK_EQ(stl_guid1, stl_guid2);
+
+    auto thumb_file = caches_dir / "thumbnails" / (std::to_string(stl_guid1) + ".thumb.png");
+    CHECK(fs::exists(thumb_file));
 
     fs::remove_all(temp_dir);
 }

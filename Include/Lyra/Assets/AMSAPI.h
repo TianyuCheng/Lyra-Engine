@@ -7,12 +7,15 @@
 #include <Lyra/Common/String.h>
 #include <Lyra/Common/Stdint.h>
 #include <Lyra/Common/Handle.h>
+#include <Lyra/Common/Promise.h>
 #include <Lyra/FileIO/VFSAPI.h>
 #include <Lyra/Assets/AMSUtils.h>
 
 namespace lyra
 {
     struct AssetServer;
+    struct PreviewScene;
+    struct PreviewTexture;
 
     /**
      * @brief The AssetLoaderAPI struct defines the interface for loading engine-ready assets.
@@ -99,6 +102,28 @@ namespace lyra
          * @return uint The number of supported extensions.
          */
         uint (*get_supported_extensions)(CString* extensions);
+    };
+
+    /**
+     * @brief The AssetPreviewAPI struct defines the interface for generating asset previews and thumbnails.
+     */
+    struct AssetPreviewAPI
+    {
+        /**
+         * @brief Configure the preview generator with pipeline-wide options (caches_root, width, height, SSAA, etc.).
+         */
+        void (*configure)(AssetServer* manager, const JSON& options);
+
+        /**
+         * @brief Render a preview scene offline to an in-memory pixel buffer.
+         */
+        PreviewTexture (*render_scene)(const PreviewScene& scene);
+
+        /**
+         * @brief Generate a thumbnail for an asset from a preview scene and write to cache.
+         * @return Future<Path> resolving to relative thumbnail path, or empty path on failure.
+         */
+        Future<Path> (*generate_thumbnail)(const PreviewScene& scene, JSON& metadata);
     };
 
 } // namespace lyra

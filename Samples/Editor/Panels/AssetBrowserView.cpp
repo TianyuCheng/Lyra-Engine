@@ -162,22 +162,18 @@ void AssetBrowserView::show_breadcrumb()
     if (root_name.empty()) root_name = "Assets";
 
     bool is_at_root = (curr == root);
-    items.push_back({
-        root_name.c_str(),
+    items.push_back({root_name.c_str(),
         LYRA_ICON_HOME,
         [&]() { update_directory(root, is_at_root); },
-        is_at_root ? "Root directory (Click to refresh)" : "Go to Root"
-    });
+        is_at_root ? "Root directory (Click to refresh)" : "Go to Root"});
 
     for (size_t i = 0; i < breadcrumbs.size(); ++i) {
         const auto& bc      = breadcrumbs[i];
         bool        is_last = (i == breadcrumbs.size() - 1);
-        items.push_back({
-            bc.name.c_str(),
+        items.push_back({bc.name.c_str(),
             is_last ? LYRA_ICON_FOLDER : nullptr,
             [&bc, is_last, this]() { update_directory(bc.path, is_last); },
-            is_last ? "Current directory (Click to refresh)" : nullptr
-        });
+            is_last ? "Current directory (Click to refresh)" : nullptr});
     }
 
     ui::breadcrumb(items);
@@ -348,8 +344,8 @@ void AssetBrowserView::action_delete_selected()
     }
 
     for (const auto& target : selection.items) {
-        Path p   = curr / target;
-        Path rel = std::filesystem::relative(p, root);
+        Path p       = curr / target;
+        Path rel     = std::filesystem::relative(p, root);
         bool deleted = false;
         if (ams) {
             deleted = ams->delete_asset(rel);
@@ -755,19 +751,23 @@ std::pair<GUITextureHandle, Vector2> AssetBrowserView::get_thumbnail(Blackboard&
         if (std::filesystem::exists(import_path)) {
             try {
                 std::ifstream f(import_path);
-                JSON          j = JSON::parse(f);
+
+                JSON j = JSON::parse(f);
                 if (j.contains("thumbnail") && j["thumbnail"].is_string()) {
-                    queued_thumbnails.push_back({name_str, j["thumbnail"].get<String>()});
+                    auto thumb_rel = j["thumbnail"].get<String>();
+                    auto loader    = blackboard.try_get<FileLoader*>();
+                    if (loader && *loader && (*loader)->exists(thumb_rel.c_str())) {
+                        queued_thumbnails.push_back({name_str, thumb_rel});
+                    }
+                    // if file not ready on disk yet, do not mark invalid; retry next frame
                 } else {
-                    // mark as invalid so we don't check again this session
+                    // .import has no thumbnail field; mark as invalid for this session
                     thumbnails[name_str] = {{}, {}, false};
                 }
             } catch (...) {
-                thumbnails[name_str] = {{}, {}, false};
             }
-        } else {
-            thumbnails[name_str] = {{}, {}, false};
         }
+        // if .import doesn't exist yet, do not mark invalid so it loads once cooked
     }
 
     return {GUITextureHandle{}, Vector2(0.0f, 0.0f)};
@@ -797,7 +797,6 @@ void AssetBrowserView::load_thumbnails(Blackboard& blackboard)
     uint alignment    = adapter.properties.texture_row_pitch_alignment;
     for (const auto& [name, path] : queued_thumbnails) {
         if (!loader->exists(path.c_str())) {
-            thumbnails[name] = {{}, {}, false};
             continue;
         }
         auto content = loader->read<uint8_t>(path.c_str());

@@ -72,6 +72,7 @@ target_sources(lyra-engine PRIVATE
   Assets/AMSRegistry.cpp
   Assets/AMSWatcher.cpp
   Assets/AMSUtils.cpp
+  Assets/AMSPreview.cpp
 
   # common
   Common/Logger.cpp
@@ -141,3 +142,4 @@ target_link_libraries(lyra-engine PRIVATE lyra::loader)
 target_link_libraries(lyra-engine PRIVATE lyra::packer)
 target_link_libraries(lyra-engine PRIVATE lyra::texture)
 target_link_libraries(lyra-engine PRIVATE lyra::material)
+target_link_libraries(lyra-engine PRIVATE lyra::preview)

@@ -1,15 +1,14 @@
-#include <Lyra/Common/Logger.h>
-#include <Lyra/Common/Plugin.h>
-#include <Lyra/Assets/AMSAPI.h>
-#include <Lyra/Assets/Format/ModelAsset.h>
-#include "ModelUtils.h"
-#include "ModelRasterizer.h"
+#include <filesystem>
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 
-#include <filesystem>
-#include <fstream>
+#include <Lyra/Common/Logger.h>
+#include <Lyra/Common/Plugin.h>
+#include <Lyra/Assets/AMSAPI.h>
+#include <Lyra/Assets/AMSPreview.h>
+#include <Lyra/Assets/Format/ModelAsset.h>
+#include "ModelUtils.h"
 
 using namespace lyra;
 using namespace lyra::model;
@@ -53,7 +52,7 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
         auto& materials = reader.GetMaterials();
 
         MeshAsset mesh;
-        MeshLOD& lod = mesh.lods.emplace_back();
+        MeshLOD&  lod = mesh.lods.emplace_back();
 
         mesh.min_bounds = Vector3(std::numeric_limits<float>::max());
         mesh.max_bounds = Vector3(std::numeric_limits<float>::lowest());
@@ -67,14 +66,14 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
             return false;
         }
 
-        AssetID model_id = metadata["guid"].get<AssetID>();
+        AssetID              model_id = metadata["guid"].get<AssetID>();
         AssetDependencyScope deps(metadata, source_path, caches_root);
 
         ModelAsset model;
         model.root = 0;
 
         ModelAsset::Node root_node;
-        root_node.name = "OBJ_Root";
+        root_node.name      = "OBJ_Root";
         root_node.transform = Matrix4x4(1.0f);
 
         AssetID mesh_id = deps.resolve(model_id, "mesh/0", MeshAsset::type);
@@ -86,8 +85,8 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
         for (size_t s = 0; s < shapes.size(); s++) {
             MeshSurface surface;
             surface.slice.first_index = static_cast<uint>(indices.size());
-            surface.min_bounds = Vector3(std::numeric_limits<float>::max());
-            surface.max_bounds = Vector3(std::numeric_limits<float>::lowest());
+            surface.min_bounds        = Vector3(std::numeric_limits<float>::max());
+            surface.max_bounds        = Vector3(std::numeric_limits<float>::lowest());
 
             size_t index_offset = 0;
             for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
@@ -107,8 +106,8 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
                     pos.z = attrib.vertices[3 * size_t(idx.vertex_index) + 2];
                     positions.push_back(pos);
 
-                    mesh.min_bounds = Vector3(std::min(mesh.min_bounds.x, pos.x), std::min(mesh.min_bounds.y, pos.y), std::min(mesh.min_bounds.z, pos.z));
-                    mesh.max_bounds = Vector3(std::max(mesh.max_bounds.x, pos.x), std::max(mesh.max_bounds.y, pos.y), std::max(mesh.max_bounds.z, pos.z));
+                    mesh.min_bounds    = Vector3(std::min(mesh.min_bounds.x, pos.x), std::min(mesh.min_bounds.y, pos.y), std::min(mesh.min_bounds.z, pos.z));
+                    mesh.max_bounds    = Vector3(std::max(mesh.max_bounds.x, pos.x), std::max(mesh.max_bounds.y, pos.y), std::max(mesh.max_bounds.z, pos.z));
                     surface.min_bounds = Vector3(std::min(surface.min_bounds.x, pos.x), std::min(surface.min_bounds.y, pos.y), std::min(surface.min_bounds.z, pos.z));
                     surface.max_bounds = Vector3(std::max(surface.max_bounds.x, pos.x), std::max(surface.max_bounds.y, pos.y), std::max(surface.max_bounds.z, pos.z));
 
@@ -140,7 +139,7 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
             if (mat_idx >= 0) {
                 if (material_map.find(mat_idx) == material_map.end()) {
                     MaterialAsset mat;
-                    String mat_name = "material/" + std::to_string(mat_idx);
+                    String        mat_name = "material/" + std::to_string(mat_idx);
                     if (static_cast<size_t>(mat_idx) < materials.size()) {
                         const auto& m = materials[mat_idx];
                         if (!m.name.empty()) mat_name = "material/" + m.name;
@@ -166,26 +165,26 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
         }
 
         MeshAttribute& pos_attr = lod.attributes.emplace_back();
-        pos_attr.semantics     = MeshSemantics::POSITION;
-        pos_attr.format        = GPUVertexFormat::FLOAT32x3;
-        pos_attr.element_count = static_cast<uint>(positions.size());
+        pos_attr.semantics      = MeshSemantics::POSITION;
+        pos_attr.format         = GPUVertexFormat::FLOAT32x3;
+        pos_attr.element_count  = static_cast<uint>(positions.size());
         pos_attr.data.resize(positions.size() * sizeof(Vector3));
         memcpy(pos_attr.data.data(), positions.data(), pos_attr.data.size());
 
         if (!normals.empty()) {
             MeshAttribute& norm_attr = lod.attributes.emplace_back();
-            norm_attr.semantics     = MeshSemantics::NORMAL;
-            norm_attr.format        = GPUVertexFormat::FLOAT32x3;
-            norm_attr.element_count = static_cast<uint>(normals.size());
+            norm_attr.semantics      = MeshSemantics::NORMAL;
+            norm_attr.format         = GPUVertexFormat::FLOAT32x3;
+            norm_attr.element_count  = static_cast<uint>(normals.size());
             norm_attr.data.resize(normals.size() * sizeof(Vector3));
             memcpy(norm_attr.data.data(), normals.data(), norm_attr.data.size());
         }
 
         if (!texcoords.empty()) {
             MeshAttribute& tex_attr = lod.attributes.emplace_back();
-            tex_attr.semantics     = MeshSemantics::TEXCOORD0;
-            tex_attr.format        = GPUVertexFormat::FLOAT32x2;
-            tex_attr.element_count = static_cast<uint>(texcoords.size());
+            tex_attr.semantics      = MeshSemantics::TEXCOORD0;
+            tex_attr.format         = GPUVertexFormat::FLOAT32x2;
+            tex_attr.element_count  = static_cast<uint>(texcoords.size());
             tex_attr.data.resize(texcoords.size() * sizeof(Vector2));
             memcpy(tex_attr.data.data(), texcoords.data(), tex_attr.data.size());
         }
@@ -205,7 +204,7 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
         metadata["path"] = "models/" + std::to_string(model_id) + ".model";
         deps.commit();
 
-        generate_model_thumbnail(metadata, positions, normals, indices, caches_root);
+        preview_api().generate_thumbnail(PreviewScene::make_mesh(positions, normals, texcoords, indices), metadata);
 
         return true;
     } catch (const std::exception& e) {
@@ -231,10 +230,10 @@ namespace lyra::obj::cooker
     void cleanup() {}
     auto create() -> AssetCookerAPI
     {
-        auto api = AssetCookerAPI{};
-        api.configure = configure_obj;
-        api.process = process_obj;
+        auto api                     = AssetCookerAPI{};
+        api.configure                = configure_obj;
+        api.process                  = process_obj;
         api.get_supported_extensions = get_obj_extensions;
         return api;
     }
-}
+} // namespace lyra::obj::cooker
