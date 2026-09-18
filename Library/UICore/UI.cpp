@@ -32,6 +32,12 @@ Vector2 lyra::ui::available_space()
     return Vector2{s.x, s.y};
 }
 
+Vector2 lyra::ui::mouse_pos()
+{
+    ImVec2 pos = ImGui::GetMousePos();
+    return Vector2{pos.x, pos.y};
+}
+
 bool lyra::ui::is_panel_appearing()
 {
     return ImGui::IsWindowAppearing();

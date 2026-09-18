@@ -27,12 +27,13 @@ namespace lyra::ui
 
     // panel context & state
     auto available_space() -> Vector2;
+    auto mouse_pos() -> Vector2;
+
     bool is_panel_appearing();
     bool is_panel_hovered();
     bool is_panel_focused();
     bool is_any_item_hovered();
     bool is_any_item_active();
-    auto mouse_pos() -> Vector2;
 
     // =========================================================================
     // 2. Input Queries

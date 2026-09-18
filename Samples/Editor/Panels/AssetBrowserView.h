@@ -27,10 +27,14 @@ namespace lyra
 
     private:
         // ui helpers
+        void show_header_toolbar();
         void show_breadcrumb();
         void show_dir_files(Blackboard& blackboard);
         void show_item(Blackboard& blackboard, StringView name, bool is_folder);
         void show_context_menu(Blackboard& blackboard);
+        void show_create_menu();
+        void show_status_bar(Blackboard& blackboard);
+        void show_modals(Blackboard& blackboard);
 
         // modals
         void show_new_file_dialog();
@@ -38,6 +42,7 @@ namespace lyra
         void show_rename_dialog();
         void show_delete_dialog(Blackboard& blackboard);
         void show_import_indicator();
+        void show_input_modal(CString title, bool* p_open, CString prompt, char* buffer, size_t buffer_size, CString action_label, FunctionRef<void(StringView)> on_submit);
 
         // actions
         void action_delete_selected();
@@ -51,6 +56,9 @@ namespace lyra
         void update_directory(const Path& path, bool force = false);
         void perform_update_directory(const Path& path, bool force = false);
         void handle_file_drop(Blackboard& blackboard);
+
+        auto get_gui_renderer() const -> GUIRenderer*;
+        auto get_asset_server() const -> AssetServer*;
 
         auto get_thumbnail(Blackboard& blackboard, StringView name) -> std::pair<GUITextureHandle, Vector2>;
         void load_thumbnails(Blackboard& blackboard);
@@ -70,6 +78,16 @@ namespace lyra
             bool       valid = false;
         };
 
+        struct TextureUploadEntry
+        {
+            String   name;
+            int      width  = 0;
+            int      height = 0;
+            uint8_t* pixels = nullptr;
+        };
+
+        static auto upload_rgba_textures(Vector<TextureUploadEntry>& entries, GUIRenderer* gui)
+            -> Vector<std::pair<String, ThumbnailTexture>>;
         static auto create_texture_from_memory(const void* data, size_t size, GUIRenderer* gui) -> ThumbnailTexture;
 
     private:

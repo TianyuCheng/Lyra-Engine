@@ -11,10 +11,11 @@
 #include <Lyra/UICore/UILayout.h>
 #include <Lyra/UICore/UIControls.h>
 #include <Lyra/UICore/UIDock.h>
+#include <Lyra/UICore/UIDialog.h>
+#include <Lyra/UICore/UIIcons.h>
 #include <Lyra/UICore/ImGui.h>
 
 // local imports
-#include <Lyra/UICore/UIIcons.h>
 #include "AssetBrowserView.h"
 
 CMRC_DECLARE(editor);
@@ -22,6 +23,14 @@ CMRC_DECLARE(editor);
 #define LYRA_FILES_WINDOW_NAME (LYRA_ICON_FOLDER " Files")
 
 using namespace lyra;
+
+static StringView trim_whitespace(StringView s)
+{
+    size_t first = s.find_first_not_of(" \t\n\r");
+    if (first == StringView::npos) return "";
+    size_t last = s.find_last_not_of(" \t\n\r");
+    return s.substr(first, (last - first + 1));
+}
 
 AssetBrowserView::AssetBrowserView(const Path& root)
     : root(root), curr(root)
@@ -32,8 +41,7 @@ AssetBrowserView::AssetBrowserView(const Path& root)
 
 AssetBrowserView::~AssetBrowserView()
 {
-    if (bboard && bboard->has<GUIRenderer*>()) {
-        auto gui = bboard->get<GUIRenderer*>();
+    if (auto gui = get_gui_renderer()) {
         if (folder_icon.valid) {
             gui->delete_texture(folder_icon.gui_texture);
             folder_icon.valid = false;
@@ -51,12 +59,27 @@ AssetBrowserView::~AssetBrowserView()
     thumbnails.clear();
 }
 
+auto AssetBrowserView::get_gui_renderer() const -> GUIRenderer*
+{
+    return (bboard && bboard->has<GUIRenderer*>()) ? bboard->get<GUIRenderer*>() : nullptr;
+}
+
+auto AssetBrowserView::get_asset_server() const -> AssetServer*
+{
+    if (bboard) {
+        if (auto ams = bboard->try_get<AssetServer*>()) {
+            return *ams;
+        }
+    }
+    return nullptr;
+}
+
 void AssetBrowserView::bind(Application& app)
 {
     bboard = &app.get_blackboard();
-    if (auto ams_ptr = app.get_blackboard().try_get<AssetServer*>()) {
-        last_completed_cooks = (*ams_ptr)->get_pipeline_stats().completed_count;
-        (*ams_ptr)->set_on_filesystem_changed([this]() {
+    if (auto ams = get_asset_server()) {
+        last_completed_cooks = ams->get_pipeline_stats().completed_count;
+        ams->set_on_filesystem_changed([this]() {
             needs_refresh = true;
             force_refresh = true;
         });
@@ -68,22 +91,20 @@ void AssetBrowserView::bind(Application& app)
 
 void AssetBrowserView::update(Blackboard& blackboard)
 {
-    if ((!folder_icon.valid || !file_icon.valid) && bboard && bboard->has<GUIRenderer*>()) {
+    if ((!folder_icon.valid || !file_icon.valid) && get_gui_renderer()) {
         load_editor_icons();
     }
 
-    if (bboard) {
-        if (auto ams = bboard->try_get<AssetServer*>()) {
-            auto stats = (*ams)->get_pipeline_stats();
-            if (stats.completed_count != last_completed_cooks) {
-                last_completed_cooks = stats.completed_count;
-                // invalidate failed/pending thumbnail cache entries so newly generated .import thumbnails load automatically
-                for (auto it = thumbnails.begin(); it != thumbnails.end();) {
-                    if (!it->second.valid) {
-                        thumbnails.erase(it++);
-                    } else {
-                        ++it;
-                    }
+    if (auto ams = get_asset_server()) {
+        auto stats = ams->get_pipeline_stats();
+        if (stats.completed_count != last_completed_cooks) {
+            last_completed_cooks = stats.completed_count;
+            // invalidate failed/pending thumbnail cache entries so newly generated .import thumbnails load automatically
+            for (auto it = thumbnails.begin(); it != thumbnails.end();) {
+                if (!it->second.valid) {
+                    thumbnails.erase(it++);
+                } else {
+                    ++it;
                 }
             }
         }
@@ -101,13 +122,7 @@ void AssetBrowserView::update(Blackboard& blackboard)
 
     ui::panel(LYRA_FILES_WINDOW_NAME, [&]() {
         handle_file_drop(blackboard);
-
-        ui::toolbar([&]() {
-            show_breadcrumb();
-            ui::spacer();
-            ui::search_bar(search_filter, sizeof(search_filter), 250.0f);
-        });
-
+        show_header_toolbar();
         ui::separator();
 
         ui::scroll_area("FileBrowser", 40.0f, [&]() {
@@ -120,39 +135,56 @@ void AssetBrowserView::update(Blackboard& blackboard)
 
             show_dir_files(blackboard);
             show_context_menu(blackboard);
-
-            show_new_file_dialog();
-            show_new_folder_dialog();
-            show_rename_dialog();
-            show_delete_dialog(blackboard);
+            show_modals(blackboard);
         });
 
         ui::separator();
-        ui::row([&]() {
-            char count_buf[128];
-            snprintf(count_buf, sizeof(count_buf), " %zu items  |  %zu selected", files.size() + folders.size(), selection.size());
-            ui::label(count_buf, ui::StatusRole::Muted);
-
-            ui::spacer();
-
-            if (auto ams_ptr = blackboard.try_get<AssetServer*>()) {
-                auto ams   = *ams_ptr;
-                auto stats = ams->get_pipeline_stats();
-                char status_buf[256];
-                snprintf(status_buf, sizeof(status_buf), "[Assets: %s | %u Cooked]",
-                    stats.watching ? "Watching" : "Idle", stats.completed_count);
-                ui::label(status_buf, stats.watching ? ui::StatusRole::Success : ui::StatusRole::Muted);
-            }
-
-            show_import_indicator();
-
-            ui::separator();
-            ui::slider("icon_size", &icon_size, 64.0f, 128.0f, "%.0f px", 100.0f);
-        });
+        show_status_bar(blackboard);
     });
 }
 
 // --- UI Helpers ---
+
+void AssetBrowserView::show_header_toolbar()
+{
+    ui::toolbar([&]() {
+        show_breadcrumb();
+        ui::spacer();
+        ui::search_bar(search_filter, sizeof(search_filter), 250.0f);
+    });
+}
+
+void AssetBrowserView::show_status_bar(Blackboard& blackboard)
+{
+    ui::row([&]() {
+        char count_buf[128];
+        snprintf(count_buf, sizeof(count_buf), " %zu items  |  %zu selected", files.size() + folders.size(), selection.size());
+        ui::label(count_buf, ui::StatusRole::Muted);
+
+        ui::spacer();
+
+        if (auto ams = get_asset_server()) {
+            auto stats = ams->get_pipeline_stats();
+            char status_buf[256];
+            snprintf(status_buf, sizeof(status_buf), "[Assets: %s | %u Cooked]",
+                stats.watching ? "Watching" : "Idle", stats.completed_count);
+            ui::label(status_buf, stats.watching ? ui::StatusRole::Success : ui::StatusRole::Muted);
+        }
+
+        show_import_indicator();
+
+        ui::separator();
+        ui::slider("icon_size", &icon_size, 64.0f, 128.0f, "%.0f px", 100.0f);
+    });
+}
+
+void AssetBrowserView::show_modals(Blackboard& blackboard)
+{
+    show_new_file_dialog();
+    show_new_folder_dialog();
+    show_rename_dialog();
+    show_delete_dialog(blackboard);
+}
 
 void AssetBrowserView::show_breadcrumb()
 {
@@ -170,7 +202,7 @@ void AssetBrowserView::show_breadcrumb()
 
     for (size_t i = 0; i < breadcrumbs.size(); ++i) {
         const auto& bc      = breadcrumbs[i];
-        bool        is_last = (i == breadcrumbs.size() - 1);
+        const bool  is_last = (i == breadcrumbs.size() - 1);
         items.push_back({bc.name.c_str(),
             is_last ? LYRA_ICON_FOLDER : nullptr,
             [&bc, is_last, this]() { update_directory(bc.path, is_last); },
@@ -182,15 +214,15 @@ void AssetBrowserView::show_breadcrumb()
 
 void AssetBrowserView::show_dir_files(Blackboard& blackboard)
 {
-    ImVec2 mouse_pos = ImGui::GetMousePos();
-    ImRect marquee_rect;
+    Vector2 mouse_pos = ui::mouse_pos();
+    ImRect  marquee_rect;
 
     // explorer / finder style background click logic:
     // when clicking on empty background (no item hovered or active), start marquee drag selection
     if (ui::is_panel_hovered() && !ui::is_any_item_hovered() && !ui::is_any_item_active()) {
-        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        if (ui::is_mouse_clicked(MouseButton::LEFT)) {
             is_marquee_selecting = true;
-            marquee_start_pos    = Vector2(mouse_pos.x, mouse_pos.y);
+            marquee_start_pos    = mouse_pos;
             initial_selection    = ui::is_key_down(KeyButton::CTRL) ? selection.items : Vector<String>();
             if (!ui::is_key_down(KeyButton::CTRL)) {
                 selection.clear();
@@ -200,7 +232,7 @@ void AssetBrowserView::show_dir_files(Blackboard& blackboard)
 
     bool is_releasing = false;
     if (is_marquee_selecting) {
-        if (!ImGui::IsMouseDown(ImGuiMouseButton_Left) || ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+        if (!ui::is_mouse_down(MouseButton::LEFT) || ui::is_mouse_released(MouseButton::LEFT)) {
             is_releasing = true;
         }
         marquee_rect = ImRect(
@@ -263,6 +295,22 @@ void AssetBrowserView::show_dir_files(Blackboard& blackboard)
     load_thumbnails(blackboard);
 }
 
+void AssetBrowserView::show_create_menu()
+{
+    ui::menu(LYRA_ICON_NEW_FILE " Create", [&]() {
+        ui::menu_item(LYRA_ICON_NEW_FILE " Create File", [&]() {
+            new_file_name[0]    = '\0';
+            show_new_file_modal = true;
+            open_new_file_modal = true;
+        });
+        ui::menu_item(LYRA_ICON_NEW_FOLDER " Create Folder", [&]() {
+            new_folder_name[0]    = '\0';
+            show_new_folder_modal = true;
+            open_new_folder_modal = true;
+        });
+    });
+}
+
 void AssetBrowserView::show_item(Blackboard& blackboard, StringView name, bool is_folder)
 {
     bool is_sel = selection.is_selected(name);
@@ -311,7 +359,7 @@ void AssetBrowserView::show_item(Blackboard& blackboard, StringView name, bool i
         }
         if (!is_folder) {
             ui::menu_item(LYRA_ICON_IMPORT " Re-import", [&]() {
-                action_reimport_selected(blackboard.get<AssetServer*>());
+                action_reimport_selected(get_asset_server());
             });
         }
         ui::menu_item(LYRA_ICON_DELETE " Delete", [&]() {
@@ -319,22 +367,11 @@ void AssetBrowserView::show_item(Blackboard& blackboard, StringView name, bool i
             open_delete_modal = true;
         });
         ui::separator();
-        ui::menu(LYRA_ICON_NEW_FILE " Create", [&]() {
-            ui::menu_item(LYRA_ICON_NEW_FILE " Create File", [&]() {
-                new_file_name[0]    = '\0';
-                show_new_file_modal = true;
-                open_new_file_modal = true;
-            });
-            ui::menu_item(LYRA_ICON_NEW_FOLDER " Create Folder", [&]() {
-                new_folder_name[0]    = '\0';
-                show_new_folder_modal = true;
-                open_new_folder_modal = true;
-            });
-        });
+        show_create_menu();
     });
 }
 
-void AssetBrowserView::show_context_menu(Blackboard& blackboard)
+void AssetBrowserView::show_context_menu(Blackboard&)
 {
     ui::panel_context_menu([&]() {
         ui::menu_item(LYRA_ICON_REFRESH " Refresh", [&]() {
@@ -345,18 +382,7 @@ void AssetBrowserView::show_context_menu(Blackboard& blackboard)
             spdlog::info("Import not implemented");
         });
         ui::separator();
-        ui::menu(LYRA_ICON_NEW_FILE " Create", [&]() {
-            ui::menu_item(LYRA_ICON_NEW_FILE " Create File", [&]() {
-                new_file_name[0]    = '\0';
-                show_new_file_modal = true;
-                open_new_file_modal = true;
-            });
-            ui::menu_item(LYRA_ICON_NEW_FOLDER " Create Folder", [&]() {
-                new_folder_name[0]    = '\0';
-                show_new_folder_modal = true;
-                open_new_folder_modal = true;
-            });
-        });
+        show_create_menu();
     });
 
     if (open_new_file_modal) {
@@ -381,10 +407,7 @@ void AssetBrowserView::show_context_menu(Blackboard& blackboard)
 
 void AssetBrowserView::action_delete_selected()
 {
-    AssetServer* ams = nullptr;
-    if (bboard && bboard->has<AssetServer*>()) {
-        ams = bboard->get<AssetServer*>();
-    }
+    auto ams = get_asset_server();
 
     for (const auto& target : selection.items) {
         Path p       = curr / target;
@@ -409,9 +432,10 @@ void AssetBrowserView::action_delete_selected()
         }
         auto it = thumbnails.find(target);
         if (it != thumbnails.end()) {
-            if (it->second.valid && bboard && bboard->has<GUIRenderer*>()) {
-                auto gui = bboard->get<GUIRenderer*>();
-                gui->delete_texture(it->second.gui_texture);
+            if (it->second.valid) {
+                if (auto gui = get_gui_renderer()) {
+                    gui->delete_texture(it->second.gui_texture);
+                }
             }
             thumbnails.erase(it);
         }
@@ -426,10 +450,7 @@ void AssetBrowserView::action_rename(StringView old_name, StringView new_name)
     Path op = curr / old_name;
     Path np = curr / new_name;
 
-    AssetServer* ams = nullptr;
-    if (bboard && bboard->has<AssetServer*>()) {
-        ams = bboard->get<AssetServer*>();
-    }
+    auto ams = get_asset_server();
 
     if (ams) {
         Path rel_op = std::filesystem::relative(op, root);
@@ -460,13 +481,7 @@ void AssetBrowserView::action_rename(StringView old_name, StringView new_name)
 
 void AssetBrowserView::action_create_folder(StringView name)
 {
-    auto trim = [](StringView s) -> StringView {
-        size_t first = s.find_first_not_of(" \t\n\r");
-        if (first == StringView::npos) return "";
-        size_t last = s.find_last_not_of(" \t\n\r");
-        return s.substr(first, (last - first + 1));
-    };
-    StringView trimmed = trim(name);
+    StringView trimmed = trim_whitespace(name);
     if (trimmed.empty()) return;
 
     Path p = curr / trimmed;
@@ -483,13 +498,7 @@ void AssetBrowserView::action_create_folder(StringView name)
 
 void AssetBrowserView::action_create_file(StringView name)
 {
-    auto trim = [](StringView s) -> StringView {
-        size_t first = s.find_first_not_of(" \t\n\r");
-        if (first == StringView::npos) return "";
-        size_t last = s.find_last_not_of(" \t\n\r");
-        return s.substr(first, (last - first + 1));
-    };
-    StringView trimmed = trim(name);
+    StringView trimmed = trim_whitespace(name);
     if (trimmed.empty()) return;
 
     Path p = curr / trimmed;
@@ -513,7 +522,7 @@ void AssetBrowserView::action_create_file(StringView name)
 void AssetBrowserView::action_reimport_selected(AssetServer* ams)
 {
     if (!ams) return;
-    auto gui = (bboard && bboard->has<GUIRenderer*>()) ? bboard->get<GUIRenderer*>() : nullptr;
+    auto gui = get_gui_renderer();
     for (const auto& sel : selection.items) {
         if (std::find(files.begin(), files.end(), sel) != files.end()) {
             ams->import_asset(std::filesystem::relative(curr / sel, root), true);
@@ -530,13 +539,13 @@ void AssetBrowserView::action_reimport_selected(AssetServer* ams)
 
 // --- Modals ---
 
-void AssetBrowserView::show_new_folder_dialog()
+void AssetBrowserView::show_input_modal(CString title, bool* p_open, CString prompt, char* buffer, size_t buffer_size, CString action_label, FunctionRef<void(StringView)> on_submit)
 {
-    ui::modal(LYRA_ICON_NEW_FOLDER " New Folder", &show_new_folder_modal, [&]() {
-        ui::label("Enter folder name:");
-        ui::text_field("folder_name", new_folder_name, sizeof(new_folder_name), [&]() {
-            action_create_folder(new_folder_name);
-            show_new_folder_modal = false;
+    ui::modal(title, p_open, [&]() {
+        ui::label(prompt);
+        ui::text_field(title, buffer, buffer_size, [&]() {
+            on_submit(buffer);
+            *p_open = false;
             ui::close_modal();
         });
 
@@ -544,43 +553,42 @@ void AssetBrowserView::show_new_folder_dialog()
 
         ui::row(ui::Alignment::End, [&]() {
             ui::button("Cancel", [&]() {
-                show_new_folder_modal = false;
+                *p_open = false;
                 ui::close_modal();
             });
 
-            ui::button("Create", [&]() {
-                action_create_folder(new_folder_name);
-                show_new_folder_modal = false;
+            ui::button(action_label, [&]() {
+                on_submit(buffer);
+                *p_open = false;
                 ui::close_modal();
             }, ui::ButtonRole::Primary);
         });
     });
 }
 
+void AssetBrowserView::show_new_folder_dialog()
+{
+    show_input_modal(LYRA_ICON_NEW_FOLDER " New Folder", &show_new_folder_modal, "Enter folder name:",
+        new_folder_name, sizeof(new_folder_name), "Create", [&](StringView name) {
+        action_create_folder(name);
+    });
+}
+
+void AssetBrowserView::show_new_file_dialog()
+{
+    show_input_modal(LYRA_ICON_NEW_FILE " New File", &show_new_file_modal, "Enter file name:",
+        new_file_name, sizeof(new_file_name), "Create", [&](StringView name) {
+        action_create_file(name);
+    });
+}
+
 void AssetBrowserView::show_rename_dialog()
 {
-    ui::modal(LYRA_ICON_RENAME " Rename", &show_rename_modal, [&]() {
-        ui::label("Enter new name:");
-        ui::text_field("rename_buffer", rename_buffer, sizeof(rename_buffer), [&]() {
-            action_rename(selection.items[0], rename_buffer);
-            show_rename_modal = false;
-            ui::close_modal();
-        });
-
-        ui::separator();
-
-        ui::row(ui::Alignment::End, [&]() {
-            ui::button("Cancel", [&]() {
-                show_rename_modal = false;
-                ui::close_modal();
-            });
-
-            ui::button("Rename", [&]() {
-                action_rename(selection.items[0], rename_buffer);
-                show_rename_modal = false;
-                ui::close_modal();
-            }, ui::ButtonRole::Primary);
-        });
+    show_input_modal(LYRA_ICON_RENAME " Rename", &show_rename_modal, "Enter new name:",
+        rename_buffer, sizeof(rename_buffer), "Rename", [&](StringView name) {
+        if (!selection.empty()) {
+            action_rename(selection.items[0], name);
+        }
     });
 }
 
@@ -633,8 +641,7 @@ void AssetBrowserView::perform_update_directory(const Path& path, bool force)
     is_marquee_selecting = false;
     initial_selection.clear();
 
-    if (bboard && bboard->has<GUIRenderer*>()) {
-        auto gui = bboard->get<GUIRenderer*>();
+    if (auto gui = get_gui_renderer()) {
         for (auto& [name, thumb] : thumbnails) {
             if (thumb.valid) {
                 gui->delete_texture(thumb.gui_texture);
@@ -697,10 +704,8 @@ void AssetBrowserView::handle_file_drop(Blackboard& blackboard)
 void AssetBrowserView::show_import_indicator()
 {
     AssetPipelineStats stats{};
-    if (bboard) {
-        if (auto ams = bboard->try_get<AssetServer*>()) {
-            stats = (*ams)->get_pipeline_stats();
-        }
+    if (auto ams = get_asset_server()) {
+        stats = ams->get_pipeline_stats();
     }
 
     if (stats.pending_count > 0) {
@@ -744,33 +749,6 @@ void AssetBrowserView::show_import_indicator()
         snprintf(buf, sizeof(buf), "Import finished: %u ok, %u failed", session_success, session_failure);
         ui::badge(buf, session_failure > 0 ? ui::StatusRole::Error : ui::StatusRole::Success);
     }
-}
-
-void AssetBrowserView::show_new_file_dialog()
-{
-    ui::modal(LYRA_ICON_NEW_FILE " New File", &show_new_file_modal, [&]() {
-        ui::label("Enter file name:");
-        ui::text_field("file_name", new_file_name, sizeof(new_file_name), [&]() {
-            action_create_file(new_file_name);
-            show_new_file_modal = false;
-            ui::close_modal();
-        });
-
-        ui::separator();
-
-        ui::row(ui::Alignment::End, [&]() {
-            ui::button("Cancel", [&]() {
-                show_new_file_modal = false;
-                ui::close_modal();
-            });
-
-            ui::button("Create", [&]() {
-                action_create_file(new_file_name);
-                show_new_file_modal = false;
-                ui::close_modal();
-            }, ui::ButtonRole::Primary);
-        });
-    });
 }
 
 std::pair<GUITextureHandle, Vector2> AssetBrowserView::get_thumbnail(Blackboard& blackboard, StringView name)
@@ -818,58 +796,44 @@ std::pair<GUITextureHandle, Vector2> AssetBrowserView::get_thumbnail(Blackboard&
     return {GUITextureHandle{}, Vector2(0.0f, 0.0f)};
 }
 
-void AssetBrowserView::load_thumbnails(Blackboard& blackboard)
+auto AssetBrowserView::upload_rgba_textures(Vector<TextureUploadEntry>& entries, GUIRenderer* gui)
+    -> Vector<std::pair<String, ThumbnailTexture>>
 {
-    if (queued_thumbnails.empty()) return;
+    if (entries.empty() || !gui) return {};
 
-    auto  loader  = blackboard.get<FileLoader*>();
-    auto& device  = RHI::get_current_device();
-    auto& adapter = RHI::get_current_adapter();
-    auto  gui     = blackboard.get<GUIRenderer*>();
+    auto& device    = RHI::get_current_device();
+    auto& adapter   = RHI::get_current_adapter();
+    uint  alignment = adapter.properties.texture_row_pitch_alignment;
 
-    struct PendingThumb
+    struct StagedItem
     {
         String   name;
-        int      w, h;
-        stbi_uc* data;
-        uint     row_pitch;
-        uint     buffer_offset;
+        int      w         = 0;
+        int      h         = 0;
+        uint8_t* pixels    = nullptr;
+        uint     row_pitch = 0;
+        uint     offset    = 0;
     };
 
-    Vector<PendingThumb> pending;
+    Vector<StagedItem> staged;
+    staged.reserve(entries.size());
 
     uint staging_size = 0;
-    uint alignment    = adapter.properties.texture_row_pitch_alignment;
-    for (const auto& [name, path] : queued_thumbnails) {
-        if (!loader->exists(path.c_str())) {
-            continue;
-        }
-        auto content = loader->read<uint8_t>(path.c_str());
-        if (content.empty()) {
-            thumbnails[name] = {{}, {}, false};
+    for (auto& entry : entries) {
+        if (!entry.pixels || entry.width <= 0 || entry.height <= 0) {
+            if (entry.pixels) stbi_image_free(entry.pixels);
             continue;
         }
 
-        int      w = 0, h = 0, c = 0;
-        stbi_uc* data = stbi_load_from_memory(content.data(), (int)content.size(), &w, &h, &c, STBI_rgb_alpha);
-        if (!data || w <= 0 || h <= 0) {
-            if (data) stbi_image_free(data);
-            thumbnails[name] = {{}, {}, false};
-            continue;
-        }
-
-        uint row_pitch = (w * 4 + alignment - 1) & ~(alignment - 1);
-        uint img_size  = row_pitch * h;
+        uint row_pitch = (entry.width * 4 + alignment - 1) & ~(alignment - 1);
+        uint img_size  = row_pitch * entry.height;
         uint offset    = (staging_size + 255) & ~255; // 256 byte alignment
 
-        pending.push_back({name, w, h, data, row_pitch, offset});
+        staged.push_back({std::move(entry.name), entry.width, entry.height, entry.pixels, row_pitch, offset});
         staging_size = offset + img_size;
     }
 
-    if (pending.empty()) {
-        queued_thumbnails.clear();
-        return;
-    }
+    if (staged.empty()) return {};
 
     GPUBufferDescriptor buf_desc{};
     buf_desc.size     = staging_size;
@@ -878,9 +842,9 @@ void AssetBrowserView::load_thumbnails(Blackboard& blackboard)
 
     staging.map(GPUMapMode::WRITE);
     auto mapped = staging.get_mapped_range();
-    for (const auto& p : pending) {
-        for (int i = 0; i < p.h; i++) {
-            std::memcpy(mapped.data + p.buffer_offset + p.row_pitch * i, p.data + p.w * 4 * i, p.w * 4);
+    for (const auto& item : staged) {
+        for (int i = 0; i < item.h; i++) {
+            std::memcpy(mapped.data + item.offset + item.row_pitch * i, item.pixels + item.w * 4 * i, item.w * 4);
         }
     }
     staging.unmap();
@@ -890,38 +854,84 @@ void AssetBrowserView::load_thumbnails(Blackboard& blackboard)
         return device.create_command_buffer(desc);
     });
 
-    for (const auto& p : pending) {
+    Vector<std::pair<String, ThumbnailTexture>> results;
+    results.reserve(staged.size());
+
+    for (const auto& item : staged) {
         GPUTextureDescriptor tex_desc{};
-        tex_desc.size      = {(uint)p.w, (uint)p.h, 1};
+        tex_desc.size      = {(uint)item.w, (uint)item.h, 1};
         tex_desc.format    = GPUTextureFormat::RGBA8UNORM;
         tex_desc.usage     = GPUTextureUsage::COPY_DST | GPUTextureUsage::TEXTURE_BINDING;
         GPUTexture texture = device.create_texture(tex_desc);
 
         GPUTexelCopyBufferInfo src_info{};
         src_info.buffer         = staging;
-        src_info.offset         = p.buffer_offset;
-        src_info.bytes_per_row  = p.row_pitch;
-        src_info.rows_per_image = p.h;
+        src_info.offset         = item.offset;
+        src_info.bytes_per_row  = item.row_pitch;
+        src_info.rows_per_image = item.h;
 
         GPUTexelCopyTextureInfo dst_info{};
         dst_info.texture = texture;
         dst_info.aspect  = GPUTextureAspect::COLOR;
 
         cmdbuffer.resource_barrier(state_transition(texture, undefined_state(), copy_dst_state()));
-        cmdbuffer.copy_buffer_to_texture(src_info, dst_info, {(uint)p.w, (uint)p.h, 1});
+        cmdbuffer.copy_buffer_to_texture(src_info, dst_info, {(uint)item.w, (uint)item.h, 1});
         cmdbuffer.resource_barrier(state_transition(texture, copy_dst_state(), shader_resource_state(GPUBarrierSync::PIXEL_SHADING)));
 
         GUITexture gui_tex = gui->create_texture(texture, texture.create_view());
-        thumbnails[p.name] = {texture, gui_tex, true};
+        results.push_back({item.name, ThumbnailTexture{texture, gui_tex, true}});
 
-        stbi_image_free(p.data);
+        stbi_image_free(item.pixels);
     }
 
     cmdbuffer.submit();
     device.wait();
 
     staging.destroy();
+    return results;
+}
+
+void AssetBrowserView::load_thumbnails(Blackboard& blackboard)
+{
+    if (queued_thumbnails.empty()) return;
+
+    auto loader = blackboard.try_get<FileLoader*>();
+    auto gui    = get_gui_renderer();
+    if (!loader || !*loader || !gui) {
+        queued_thumbnails.clear();
+        return;
+    }
+
+    Vector<TextureUploadEntry> entries;
+    for (const auto& [name, path] : queued_thumbnails) {
+        if (!(*loader)->exists(path.c_str())) {
+            continue;
+        }
+        auto content = (*loader)->read<uint8_t>(path.c_str());
+        if (content.empty()) {
+            thumbnails[name] = {{}, {}, false};
+            continue;
+        }
+
+        int      w = 0, h = 0, c = 0;
+        stbi_uc* data = stbi_load_from_memory(content.data(), static_cast<int>(content.size()), &w, &h, &c, STBI_rgb_alpha);
+        if (!data || w <= 0 || h <= 0) {
+            if (data) stbi_image_free(data);
+            thumbnails[name] = {{}, {}, false};
+            continue;
+        }
+
+        entries.push_back({name, w, h, data});
+    }
+
     queued_thumbnails.clear();
+
+    if (!entries.empty()) {
+        auto uploaded = upload_rgba_textures(entries, gui);
+        for (auto& [name, thumb] : uploaded) {
+            thumbnails[name] = thumb;
+        }
+    }
 }
 
 auto AssetBrowserView::create_texture_from_memory(const void* data, size_t size, GUIRenderer* gui) -> ThumbnailTexture
@@ -937,65 +947,21 @@ auto AssetBrowserView::create_texture_from_memory(const void* data, size_t size,
         return {};
     }
 
-    auto& device  = RHI::get_current_device();
-    auto& adapter = RHI::get_current_adapter();
-
-    uint alignment = adapter.properties.texture_row_pitch_alignment;
-    uint row_pitch = (w * 4 + alignment - 1) & ~(alignment - 1);
-    uint img_size  = row_pitch * h;
-
-    GPUBufferDescriptor buf_desc{};
-    buf_desc.size     = img_size;
-    buf_desc.usage    = GPUBufferUsage::COPY_SRC | GPUBufferUsage::MAP_WRITE;
-    GPUBuffer staging = device.create_buffer(buf_desc);
-
-    staging.map(GPUMapMode::WRITE);
-    auto mapped = staging.get_mapped_range();
-    for (int i = 0; i < h; i++) {
-        std::memcpy(mapped.data + row_pitch * i, pixels + w * 4 * i, w * 4);
+    Vector<TextureUploadEntry> entries;
+    entries.push_back({"", w, h, pixels});
+    auto uploaded = upload_rgba_textures(entries, gui);
+    if (!uploaded.empty()) {
+        return uploaded[0].second;
     }
-    staging.unmap();
 
-    GPUCommandBuffer cmdbuffer = execute([&]() {
-        auto desc = GPUCommandBufferDescriptor{};
-        return device.create_command_buffer(desc);
-    });
-
-    GPUTextureDescriptor tex_desc{};
-    tex_desc.size      = {(uint)w, (uint)h, 1};
-    tex_desc.format    = GPUTextureFormat::RGBA8UNORM;
-    tex_desc.usage     = GPUTextureUsage::COPY_DST | GPUTextureUsage::TEXTURE_BINDING;
-    GPUTexture texture = device.create_texture(tex_desc);
-
-    GPUTexelCopyBufferInfo src_info{};
-    src_info.buffer         = staging;
-    src_info.offset         = 0;
-    src_info.bytes_per_row  = row_pitch;
-    src_info.rows_per_image = (uint)h;
-
-    GPUTexelCopyTextureInfo dst_info{};
-    dst_info.texture = texture;
-    dst_info.aspect  = GPUTextureAspect::COLOR;
-
-    cmdbuffer.resource_barrier(state_transition(texture, undefined_state(), copy_dst_state()));
-    cmdbuffer.copy_buffer_to_texture(src_info, dst_info, {(uint)w, (uint)h, 1});
-    cmdbuffer.resource_barrier(state_transition(texture, copy_dst_state(), shader_resource_state(GPUBarrierSync::PIXEL_SHADING)));
-
-    cmdbuffer.submit();
-    device.wait();
-
-    staging.destroy();
-    stbi_image_free(pixels);
-
-    GUITexture gui_tex = gui->create_texture(texture, texture.create_view());
-    return {texture, gui_tex, true};
+    return {};
 }
 
 void AssetBrowserView::load_editor_icons()
 {
     if (folder_icon.valid && file_icon.valid) return;
-    if (!bboard || !bboard->has<GUIRenderer*>()) return;
-    auto gui = bboard->get<GUIRenderer*>();
+    auto gui = get_gui_renderer();
+    if (!gui) return;
 
     try {
         auto fs = cmrc::editor::get_filesystem();
