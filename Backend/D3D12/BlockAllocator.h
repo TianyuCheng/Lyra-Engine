@@ -1,7 +1,7 @@
 #ifndef LYRA_PLUGIN_D3D12_BLOCK_ALLOCATOR_H
 #define LYRA_PLUGIN_D3D12_BLOCK_ALLOCATOR_H
 
-#include <map>
+#include <Lyra/Common/Collections.h>
 #include <limits>
 #include <cstddef>
 
@@ -56,9 +56,9 @@ template <typename T = std::byte>
 class BlockAllocator
 {
 private:
-    size_t                   m_capacity;
-    std::map<size_t, size_t> m_free_blocks;      // offset -> size
-    std::map<size_t, size_t> m_allocated_blocks; // offset -> size
+    size_t                         m_capacity;
+    lyra::TreeMap<size_t, size_t>  m_free_blocks;      // offset -> size
+    lyra::TreeMap<size_t, size_t>  m_allocated_blocks; // offset -> size
 
 public:
     /**

@@ -124,10 +124,14 @@ uint round_up_to_next_multiple_of(T size, T align)
     return (size + align - 1) / align * align;
 }
 
-static void diagnose_if_needed(slang::IBlob* diagnosticsBlob)
+static void diagnose_if_needed(slang::IBlob* diagnosticsBlob, SlangResult result = SLANG_FAIL)
 {
     if (diagnosticsBlob != nullptr) {
-        get_logger()->error("Slang diagnostics: {}", (const char*)diagnosticsBlob->getBufferPointer());
+        auto msg = (const char*)diagnosticsBlob->getBufferPointer();
+        if (SLANG_FAILED(result))
+            get_logger()->error("Slang diagnostics: {}", msg);
+        else
+            get_logger()->warn("Slang diagnostics: {}", msg);
     }
 }
 
@@ -150,7 +154,7 @@ static GPUShaderStage to_stage(SlangStage stage)
         case SLANG_STAGE_MESH:
         case SLANG_STAGE_CALLABLE:
         default:
-            assert(!!!"Unsupported shader types!");
+            assert(!"Unsupported shader stage!");
             return GPUShaderStage::COMPUTE;
     }
     // clang-format on
@@ -265,10 +269,12 @@ static uint get_shader_entry_point_index(slang::ProgramLayout* layout, slang::En
         if (layout->getEntryPointByIndex(i) == refl)
             return i;
 
-    assert(!!!"Failed to find shader entry point!");
+    assert(!"Failed to find shader entry point!");
     return ~0u;
 }
 
+
+#ifdef SLANG_DEBUG
 static void print_slang_var_layout(const Vector<EntryMetadata>& metadata, const AccessPath& curr, slang::VariableLayoutReflection* var_layout, TraversalData& traversal)
 {
     int  walk_depth  = traversal.current_walk_depth;
@@ -281,7 +287,7 @@ static void print_slang_var_layout(const Vector<EntryMetadata>& metadata, const 
     if (var_layout->getName())
         print_depth() << "# NAME: " << var_layout->getName() << std::endl;
     else
-        print_depth() << "# NAME: unknwon" << std::endl;
+        print_depth() << "# NAME: unknown" << std::endl;
 
     auto path       = ExtendedAccessPath(curr, var_layout);
     auto typ_layout = var_layout->getTypeLayout();
@@ -304,6 +310,7 @@ static void print_slang_var_layout(const Vector<EntryMetadata>& metadata, const 
     print_depth() << "= visibility: " << to_string(visibility) << std::endl;
     std::cout << std::endl;
 }
+#endif // SLANG_DEBUG
 
 #pragma region CompilerWrapper
 void CompilerWrapper::init()
@@ -319,6 +326,9 @@ CompilerWrapper::CompilerWrapper(const CompilerDescriptor& descriptor)
 
     static String root_constant_key = "PUSH_CONSTANT";
     static String root_constant_val = "register(b0, space" + std::to_string(D3D12_PushConstantRegisterSpace) + ")";
+    // metal has no register spaces; we intentionally use METAL_PushConstantBufferIndex for both the buffer
+    // slot (b) and the space field so reflection can identify the push constant by matching both values.
+    // create_push_constant() mirrors this assumption when validating the reflected offset.space.
     static String root_constant_msl = "register(b" + std::to_string(METAL_PushConstantBufferIndex) + ", space" + std::to_string(METAL_PushConstantBufferIndex) + ")";
 
     // special treatment for root constants
@@ -388,7 +398,9 @@ CompilerWrapper::CompilerWrapper(const CompilerDescriptor& descriptor)
     session_desc.compilerOptionEntryCount = static_cast<uint>(options.size());
     session_desc.compilerOptionEntries    = options.data();
 
-    GLOBAL_SESSION->createSession(session_desc, session.writeRef());
+    if (SLANG_FAILED(GLOBAL_SESSION->createSession(session_desc, session.writeRef()))) {
+        get_logger()->error("Failed to create Slang session!");
+    }
 
     // some common stuff that might be used in other shaders
     init_builtin_module();
@@ -430,7 +442,7 @@ void CompilerWrapper::init_builtin_module()
         "lyra.slang",            // module path
         builtin_module_source,   // shader source code
         diagnostics.writeRef()); // optional diagnostic container
-    diagnose_if_needed(diagnostics);
+    diagnose_if_needed(diagnostics, builtin != nullptr ? SLANG_OK : SLANG_FAIL);
 }
 
 template <typename Callback>
@@ -571,7 +583,7 @@ bool CompilerWrapper::compile(const CompileDescriptor& desc, CompileResultIntern
         desc.path,                // module path
         processed_source.c_str(), // shader source code
         diagnostics.writeRef());  // optional diagnostic container
-    diagnose_if_needed(diagnostics);
+    diagnose_if_needed(diagnostics, result.module != nullptr ? SLANG_OK : SLANG_FAIL);
 
     return result.module != nullptr;
 }
@@ -604,7 +616,7 @@ bool CompilerWrapper::reflect(ShaderEntryPoints entries, ReflectResultInternal& 
             component_types.size(),
             composed_program.writeRef(),
             diagnostics.writeRef());
-        diagnose_if_needed(diagnostics);
+        diagnose_if_needed(diagnostics, result);
         SLANG_RETURN_FALSE_ON_FAIL(result);
     }
 
@@ -615,7 +627,7 @@ bool CompilerWrapper::reflect(ShaderEntryPoints entries, ReflectResultInternal& 
         auto                 res = composed_program->link(
             linked_program.writeRef(),
             diagnostics.writeRef());
-        diagnose_if_needed(diagnostics);
+        diagnose_if_needed(diagnostics, res);
         SLANG_RETURN_FALSE_ON_FAIL(res);
     }
 
@@ -630,7 +642,7 @@ bool CompilerWrapper::reflect(ShaderEntryPoints entries, ReflectResultInternal& 
         ComPtr<slang::IBlob> diagnostics;
 
         auto res = linked_program->getEntryPointMetadata(index, 0, &metadata, diagnostics.writeRef());
-        diagnose_if_needed(diagnostics);
+        diagnose_if_needed(diagnostics, res);
         SLANG_RETURN_FALSE_ON_FAIL(res);
 
         result.metadata.push_back(EntryMetadata{stage, metadata});
@@ -647,7 +659,6 @@ ComPtr<slang::IEntryPoint> CompileResultInternal::get_entry_point(CString entry)
 {
     // query entry point
     ComPtr<slang::IEntryPoint> entry_point;
-    ComPtr<slang::IBlob>       diagnostics;
     module->findEntryPointByName(entry, entry_point.writeRef());
 
     if (!entry_point) {
@@ -670,7 +681,7 @@ ComPtr<slang::IComponentType> CompileResultInternal::get_linked_program(CString 
     SlangResult result = composed_program->link(
         linked_program.writeRef(),
         diagnostics.writeRef());
-    diagnose_if_needed(diagnostics);
+    diagnose_if_needed(diagnostics, result);
 
     if (SLANG_FAILED(result)) {
         get_logger()->error("Failed to link program: {}", entry);
@@ -695,7 +706,7 @@ ComPtr<slang::IComponentType> CompileResultInternal::get_composed_program(CStrin
         component_types.size(),
         composed_program.writeRef(),
         diagnostics.writeRef());
-    diagnose_if_needed(diagnostics);
+    diagnose_if_needed(diagnostics, result);
 
     if (SLANG_FAILED(result)) {
         get_logger()->error("Failed to compose program: {}", entry);
@@ -720,12 +731,17 @@ bool CompileResultInternal::get_shader_blob(CString entry, ShaderBlob& blob)
         0,
         spirv_code.writeRef(),
         diagnostics.writeRef());
-    diagnose_if_needed(diagnostics);
-    SLANG_RETURN_ON_FAIL(result);
+    diagnose_if_needed(diagnostics, result);
+    SLANG_RETURN_FALSE_ON_FAIL(result);
 
-    blob.size = static_cast<uint32_t>(spirv_code->getBufferSize());
-    blob.data = new uint8_t[blob.size];
-    std::memcpy((uint8_t*)blob.data, (uint8_t*)spirv_code->getBufferPointer(), blob.size);
+    // copy into engine-owned storage so callers get a stable non-owning view;
+    // memory is freed when this CompileResultInternal is destroyed (delete_module).
+    auto& cached = compiled_blobs[entry];
+    cached.resize(spirv_code->getBufferSize());
+    std::memcpy(cached.data(), spirv_code->getBufferPointer(), cached.size());
+
+    blob.size = static_cast<uint32_t>(cached.size());
+    blob.data = cached.data();
     return true;
 }
 #pragma endregion CompileResultInternal
@@ -929,13 +945,13 @@ void ReflectResultInternal::init_vertices(slang::ProgramLayout* program_layout)
                 uint binding_index  = static_cast<uint>(node->var_layout->getBindingIndex());
                 get_logger()->trace("[VTX INPUT] NAME: {}\t LOCATION: {} SEMANTICS: {}{}", name, binding_index, semantic_name, semantic_index);
 
-                semantic_names.push_front(semantic_name);
+                semantic_names.push_back(semantic_name);
 
                 vertex_attributes.push_back(GPUVertexAttribute{});
                 auto& attribute           = vertex_attributes.back();
                 attribute.offset          = 0; // host-provided, cannot be reflected from shader
                 attribute.format          = infer_vertex_format(typ_layout);
-                attribute.shader_semantic = semantic_names.front().c_str();
+                attribute.shader_semantic = semantic_names.back().c_str();
                 attribute.shader_location = target == CompileTarget::DXIL ? semantic_index : binding_index;
 
                 name2attributes.emplace(name, static_cast<uint>(vertex_attributes.size() - 1));
@@ -1164,7 +1180,7 @@ void ReflectResultInternal::fill_binding_type(GPUBindGroupLayoutEntry& entry, sl
                 case SLANG_TEXTURE_3D:         view_dimension = GPUTextureViewDimension::x3D;        break;
                 case SLANG_TEXTURE_CUBE:       view_dimension = GPUTextureViewDimension::CUBE;       break;
                 case SLANG_TEXTURE_CUBE_ARRAY: view_dimension = GPUTextureViewDimension::CUBE_ARRAY; break;
-                case SLANG_TEXTURE_1D_ARRAY:   assert(!!!"TEXTURE1D_ARRAY is not supported!");       break;
+                case SLANG_TEXTURE_1D_ARRAY:   assert(!"TEXTURE1D_ARRAY is not supported!");       break;
                 default:
                     break;
             }
@@ -1202,8 +1218,8 @@ void ReflectResultInternal::fill_binding_type(GPUBindGroupLayoutEntry& entry, sl
                 case SLANG_BYTE_ADDRESS_BUFFER:
                     entry.type        = GPUResourceType::BUFFER;
                     entry.buffer.type = (access_permission != GPUStorageTextureAccess::READ_ONLY)
-                                            ? GPUBufferBindingType::READ_ONLY_STORAGE
-                                            : GPUBufferBindingType::STORAGE;
+                                            ? GPUBufferBindingType::STORAGE
+                                            : GPUBufferBindingType::READ_ONLY_STORAGE;
 
                     entry.buffer.has_dynamic_offset = false;
                     entry.buffer.min_binding_size   = type->getSize();
@@ -1254,14 +1270,14 @@ GPUTextureFormat ReflectResultInternal::infer_texture_format(slang::TypeLayoutRe
 {
     auto kind = type->getKind();
     if (kind != slang::TypeReflection::Kind::Resource) {
-        assert(!!!"Failed to infer texture format!");
+        assert(!"Failed to infer texture format!");
         return GPUTextureFormat::RGBA32FLOAT;
     }
 
     // get the result type of the resource
     auto result_type = type->getResourceResultType();
     if (!result_type) {
-        assert(!!!"Failed to infer texture format!");
+        assert(!"Failed to infer texture format!");
         return GPUTextureFormat::RGBA32FLOAT;
     }
 
@@ -1277,7 +1293,7 @@ GPUTextureFormat ReflectResultInternal::infer_texture_format(slang::TypeLayoutRe
                 case 1: return GPUTextureFormat::R32FLOAT;
                 case 2: return GPUTextureFormat::RG32FLOAT;
                 case 4: return GPUTextureFormat::RGBA32FLOAT;
-                default: assert(!!!"unsupported channel count!");
+                default: assert(!"unsupported channel count!");
             }
             break;
 
@@ -1286,7 +1302,7 @@ GPUTextureFormat ReflectResultInternal::infer_texture_format(slang::TypeLayoutRe
                 case 1: return GPUTextureFormat::R32UINT;
                 case 2: return GPUTextureFormat::RG32UINT;
                 case 4: return GPUTextureFormat::RGBA32UINT;
-                default: assert(!!!"unsupported channel count!");
+                default: assert(!"unsupported channel count!");
             }
             break;
 
@@ -1295,7 +1311,7 @@ GPUTextureFormat ReflectResultInternal::infer_texture_format(slang::TypeLayoutRe
                 case 1: return GPUTextureFormat::R32SINT;
                 case 2: return GPUTextureFormat::RG32SINT;
                 case 4: return GPUTextureFormat::RGBA32SINT;
-                default: assert(!!!"unsupported channel count!");
+                default: assert(!"unsupported channel count!");
             }
             break;
 
@@ -1304,7 +1320,7 @@ GPUTextureFormat ReflectResultInternal::infer_texture_format(slang::TypeLayoutRe
                 case 1: return GPUTextureFormat::R16UINT;
                 case 2: return GPUTextureFormat::RG16UINT;
                 case 4: return GPUTextureFormat::RGBA16UINT;
-                default: assert(!!!"unsupported channel count!");
+                default: assert(!"unsupported channel count!");
             }
             break;
 
@@ -1313,7 +1329,7 @@ GPUTextureFormat ReflectResultInternal::infer_texture_format(slang::TypeLayoutRe
                 case 1: return GPUTextureFormat::R16SINT;
                 case 2: return GPUTextureFormat::RG16SINT;
                 case 4: return GPUTextureFormat::RGBA16SINT;
-                default: assert(!!!"unsupported channel count!");
+                default: assert(!"unsupported channel count!");
             }
             break;
 
@@ -1322,7 +1338,7 @@ GPUTextureFormat ReflectResultInternal::infer_texture_format(slang::TypeLayoutRe
                 case 1: return GPUTextureFormat::R8UINT;
                 case 2: return GPUTextureFormat::RG8UINT;
                 case 4: return GPUTextureFormat::RGBA8UINT;
-                default: assert(!!!"unsupported channel count!");
+                default: assert(!"unsupported channel count!");
             }
             break;
 
@@ -1331,7 +1347,7 @@ GPUTextureFormat ReflectResultInternal::infer_texture_format(slang::TypeLayoutRe
                 case 1: return GPUTextureFormat::R8SINT;
                 case 2: return GPUTextureFormat::RG8SINT;
                 case 4: return GPUTextureFormat::RGBA8SINT;
-                default: assert(!!!"unsupported channel count!");
+                default: assert(!"unsupported channel count!");
             }
             break;
 
@@ -1339,7 +1355,7 @@ GPUTextureFormat ReflectResultInternal::infer_texture_format(slang::TypeLayoutRe
     }
     // clang-format on
 
-    assert(!!!"Failed to infer texture format!");
+    assert(!"Failed to infer texture format!");
     return GPUTextureFormat::RGBA32FLOAT;
 }
 
@@ -1358,7 +1374,7 @@ GPUVertexFormat ReflectResultInternal::infer_vertex_format(slang::TypeLayoutRefl
                 case 2: return GPUVertexFormat::FLOAT32x2;
                 case 3: return GPUVertexFormat::FLOAT32x3;
                 case 4: return GPUVertexFormat::FLOAT32x4;
-                default: assert(!!!"unsupported channel count!");
+                default: assert(!"unsupported channel count!");
             }
             break;
 
@@ -1368,7 +1384,7 @@ GPUVertexFormat ReflectResultInternal::infer_vertex_format(slang::TypeLayoutRefl
                 case 2: return GPUVertexFormat::UINT32x2;
                 case 3: return GPUVertexFormat::UINT32x3;
                 case 4: return GPUVertexFormat::UINT32x4;
-                default: assert(!!!"unsupported channel count!");
+                default: assert(!"unsupported channel count!");
             }
             break;
 
@@ -1378,16 +1394,16 @@ GPUVertexFormat ReflectResultInternal::infer_vertex_format(slang::TypeLayoutRefl
                 case 2: return GPUVertexFormat::SINT32x2;
                 case 3: return GPUVertexFormat::SINT32x3;
                 case 4: return GPUVertexFormat::SINT32x4;
-                default: assert(!!!"unsupported channel count!");
+                default: assert(!"unsupported channel count!");
             }
             break;
 
         case slang::TypeReflection::ScalarType::UInt16:
             switch (component_count) {
-                case 1: return GPUVertexFormat::FLOAT16;
-                case 2: return GPUVertexFormat::FLOAT16x2;
-                case 4: return GPUVertexFormat::FLOAT16x4;
-                default: assert(!!!"unsupported channel count!");
+                case 1: return GPUVertexFormat::UINT16;
+                case 2: return GPUVertexFormat::UINT16x2;
+                case 4: return GPUVertexFormat::UINT16x4;
+                default: assert(!"unsupported channel count!");
             }
             break;
 
@@ -1396,7 +1412,7 @@ GPUVertexFormat ReflectResultInternal::infer_vertex_format(slang::TypeLayoutRefl
                 case 1: return GPUVertexFormat::SINT16;
                 case 2: return GPUVertexFormat::SINT16x2;
                 case 4: return GPUVertexFormat::SINT16x4;
-                default: assert(!!!"unsupported channel count!");
+                default: assert(!"unsupported channel count!");
             }
             break;
 
@@ -1405,7 +1421,7 @@ GPUVertexFormat ReflectResultInternal::infer_vertex_format(slang::TypeLayoutRefl
                 case 1: return GPUVertexFormat::UINT8;
                 case 2: return GPUVertexFormat::UINT8x2;
                 case 4: return GPUVertexFormat::UINT8x4;
-                default: assert(!!!"unsupported channel count!");
+                default: assert(!"unsupported channel count!");
             }
             break;
 
@@ -1414,7 +1430,7 @@ GPUVertexFormat ReflectResultInternal::infer_vertex_format(slang::TypeLayoutRefl
                 case 1: return GPUVertexFormat::SINT8;
                 case 2: return GPUVertexFormat::SINT8x2;
                 case 4: return GPUVertexFormat::SINT8x4;
-                default: assert(!!!"unsupported channel count!");
+                default: assert(!"unsupported channel count!");
             }
             break;
 
@@ -1422,7 +1438,7 @@ GPUVertexFormat ReflectResultInternal::infer_vertex_format(slang::TypeLayoutRefl
     }
     // clang-format on
 
-    assert(!!!"Failed to infer vertex format!");
+    assert(!"Failed to infer vertex format!");
     return GPUVertexFormat::FLOAT32x4;
 }
 

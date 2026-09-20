@@ -22,7 +22,7 @@ D3D12QuerySet::D3D12QuerySet(const GPUQuerySetDescriptor& desc)
             break;
         case GPUQueryType::BLAS_PROPERTIES: {
             auto buffer_desc            = GPUBufferDescriptor{};
-            buffer_desc.size            = desc.count * sizeof(uint64_t);
+            buffer_desc.size            = desc.count * sizeof(ulong);
             buffer_desc.usage           = GPUBufferUsage::STORAGE | GPUBufferUsage::COPY_SRC;
             buffer_desc.virtual_address = true;
             buffer                      = D3D12Buffer(buffer_desc);
@@ -40,6 +40,8 @@ D3D12QuerySet::D3D12QuerySet(const GPUQuerySetDescriptor& desc)
 
 void D3D12QuerySet::destroy()
 {
+    if (!pool && !buffer.valid()) return;
+
     if (pool != nullptr) {
         pool->Release();
         pool = nullptr;

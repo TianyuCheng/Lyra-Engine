@@ -154,19 +154,19 @@ struct D3D12BindGroupHeapAllocator
 struct D3D12Fence
 {
     ID3D12Fence* fence = nullptr;
-    HANDLE       event;
+    HANDLE       event = nullptr;
 
-    mutable uint64_t target = 0ull;
+    mutable ulong target = 0ull;
 
     // implementation in D3D12Fence.cpp
     explicit D3D12Fence();
     explicit D3D12Fence(bool signaled);
 
     void init(bool signaled);
-    void wait(uint64_t timeout = UINT64_MAX);
+    void wait(ulong timeout = UINT64_MAX);
     void reset();
     bool ready();
-    void signal(ID3D12CommandQueue* queue, uint64_t value);
+    void signal(ID3D12CommandQueue* queue, ulong value);
     void destroy();
 
     bool valid() const { return fence != nullptr; }
@@ -177,9 +177,9 @@ struct D3D12Buffer
     ID3D12Resource*      buffer     = nullptr;
     D3D12MA::Allocation* allocation = nullptr;
 
-    uint64_t size_       = 0ull;
+    ulong    size_       = 0ull;
     uint8_t* mapped_data = nullptr;
-    uint64_t mapped_size = 0ull;
+    ulong    mapped_size = 0ull;
 
     // implementation in D3D12Buffer.cpp
     explicit D3D12Buffer();
@@ -234,12 +234,8 @@ struct D3D12TextureView
     // differentiate between different usages, so the same image view can
     // be bound for different usages. For D3D12 we will have to create multiple
     // descriptors if there are multiple usages.
-    union
-    {
-        // rtv and dsv share the same view
-        D3D12CPUDescriptor rtv_view = {};
-        D3D12CPUDescriptor dsv_view;
-    };
+    D3D12CPUDescriptor rtv_view = {};
+    D3D12CPUDescriptor dsv_view = {};
     D3D12CPUDescriptor srv_view = {};
     D3D12CPUDescriptor uav_view = {};
 
@@ -258,7 +254,7 @@ struct D3D12TextureView
 
     bool valid() const
     {
-        return rtv_view.valid() || srv_view.valid() || uav_view.valid();
+        return rtv_view.valid() || dsv_view.valid() || srv_view.valid() || uav_view.valid();
     }
 };
 
@@ -277,7 +273,7 @@ struct D3D12Sampler
 
 struct D3D12Shader
 {
-    std::vector<uint8_t> binary;
+    Vector<uint8_t> binary;
 
     // implementation in D3D12Shader.cpp
     explicit D3D12Shader();
@@ -301,24 +297,24 @@ struct D3D12BindGroup
         // the index into the heap though
         struct
         {
-            uint32_t default_index;
-            uint32_t sampler_index;
+            uint default_index;
+            uint sampler_index;
         };
     };
 
-    uint16_t dynamic_index = std::numeric_limits<uint16_t>::max();
+    ushort dynamic_index = std::numeric_limits<ushort>::max();
 
     D3D12BindGroup()
     {
-        default_index = std::numeric_limits<uint32_t>::max();
-        sampler_index = std::numeric_limits<uint32_t>::max();
+        default_index = std::numeric_limits<uint>::max();
+        sampler_index = std::numeric_limits<uint>::max();
     }
 
     bool valid() const
     {
-        bool default_valid = default_index != std::numeric_limits<uint32_t>::max();
-        bool sampler_valid = sampler_index != std::numeric_limits<uint32_t>::max();
-        bool dynamic_valid = dynamic_index != std::numeric_limits<uint16_t>::max();
+        bool default_valid = default_index != std::numeric_limits<uint>::max();
+        bool sampler_valid = sampler_index != std::numeric_limits<uint>::max();
+        bool dynamic_valid = dynamic_index != std::numeric_limits<ushort>::max();
         bool heap_valid    = heap.valid();
         return default_valid || sampler_valid || (dynamic_valid && heap_valid);
     }
@@ -340,13 +336,13 @@ struct D3D12BindInfo
 
 struct D3D12BindGroupInfo
 {
-    uint32_t default_root_parameter = std::numeric_limits<uint32_t>::max();
-    uint16_t sampler_root_parameter = std::numeric_limits<uint16_t>::max();
-    uint16_t dynamic_root_parameter = std::numeric_limits<uint16_t>::max();
+    uint   default_root_parameter = std::numeric_limits<uint>::max();
+    ushort sampler_root_parameter = std::numeric_limits<ushort>::max();
+    ushort dynamic_root_parameter = std::numeric_limits<ushort>::max();
 
-    bool has_default_root_parameter() const { return default_root_parameter != std::numeric_limits<uint32_t>::max(); }
-    bool has_sampler_root_parameter() const { return sampler_root_parameter != std::numeric_limits<uint16_t>::max(); }
-    bool has_dynamic_root_parameter() const { return dynamic_root_parameter != std::numeric_limits<uint16_t>::max(); }
+    bool has_default_root_parameter() const { return default_root_parameter != std::numeric_limits<uint>::max(); }
+    bool has_sampler_root_parameter() const { return sampler_root_parameter != std::numeric_limits<ushort>::max(); }
+    bool has_dynamic_root_parameter() const { return dynamic_root_parameter != std::numeric_limits<ushort>::max(); }
 };
 
 struct D3D12BindGroupHeap
@@ -386,15 +382,15 @@ struct D3D12BindGroupHeap
 
 struct D3D12BindGroupLayout
 {
-    Vector<D3D12_DESCRIPTOR_RANGE1> sampler_ranges = {};
-    Vector<D3D12_DESCRIPTOR_RANGE1> default_ranges = {};
-    Vector<D3D12_DESCRIPTOR_RANGE1> dynamic_ranges = {};
-    Vector<D3D12BindInfo>           bindings       = {};
-    uint                            num_defaults   = 0;
-    uint                            num_samplers   = 0;
-    uint                            num_dynamics   = 0;
-    D3D12_SHADER_VISIBILITY         visibility     = D3D12_SHADER_VISIBILITY_ALL;
-    bool                            bindless       = false;
+    Vector<D3D12_DESCRIPTOR_RANGE1>     sampler_ranges = {};
+    Vector<D3D12_DESCRIPTOR_RANGE1>     default_ranges = {};
+    Vector<D3D12_DESCRIPTOR_RANGE1>     dynamic_ranges = {};
+    Vector<D3D12BindInfo>               bindings       = {};
+    uint                                num_defaults   = 0;
+    uint                                num_samplers   = 0;
+    uint                                num_dynamics   = 0;
+    D3D12_SHADER_VISIBILITY             visibility     = D3D12_SHADER_VISIBILITY_ALL;
+    bool                                bindless       = false;
 
     // implementation in D3D12Layout.cpp
     explicit D3D12BindGroupLayout();
@@ -540,8 +536,8 @@ struct D3D12CommandBuffer
     ID3D12CommandAllocator*    command_allocator = nullptr;
     ID3D12CommandQueue*        command_queue     = nullptr;
 
-    D3D12QuerySet      query_set;
-    Optional<uint32_t> query_index;
+    D3D12QuerySet  query_set;
+    Optional<uint> query_index;
 
     struct PSOStatus
     {
@@ -553,7 +549,7 @@ struct D3D12CommandBuffer
     struct FenceOps
     {
         ID3D12Fence* fence = nullptr;
-        uint64_t     value = 0ull;
+        ulong        value = 0ull;
     };
 
     PSOStatus pso;
@@ -606,7 +602,7 @@ struct D3D12Frame
     // used to check command buffer usage,
     // command buffers are short-lived, only usable within the frame.
     // frame id must match D3D12Frame's id
-    uint32_t frame_id = 0u;
+    uint frame_id = 0u;
 
     // D3D12Frame does NOT own this!!!
     GPUFenceHandle         image_available_fence;

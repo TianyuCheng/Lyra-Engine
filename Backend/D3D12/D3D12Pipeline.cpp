@@ -163,8 +163,8 @@ D3D12Pipeline::D3D12Pipeline(const GPURayTracingPipelineDescriptor& desc)
 
 void D3D12Pipeline::destroy()
 {
-    if (pipeline) {
-        pipeline->Release();
-        pipeline = nullptr;
-    }
+    if (!pipeline) return;
+
+    pipeline->Release();
+    pipeline = nullptr;
 }

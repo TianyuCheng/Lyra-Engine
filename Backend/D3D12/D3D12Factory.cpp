@@ -9,7 +9,7 @@ bool api::create_instance(const RHIDescriptor& desc)
     // record rhi flags
     rhi->rhiflags = desc.flags;
 
-    UINT factory_flags = 0;
+    uint factory_flags = 0;
 
     // create a Debug Controller to track errors
     if (desc.flags.contains(RHIFlag::DEBUG) || desc.flags.contains(RHIFlag::VALIDATION)) {
@@ -41,6 +41,7 @@ bool api::create_instance(const RHIDescriptor& desc)
 void api::delete_instance()
 {
     auto rhi = get_rhi();
+    if (!rhi) return;
 
     if (rhi->debug_control) {
         rhi->debug_control->Release();
@@ -51,4 +52,7 @@ void api::delete_instance()
         rhi->factory->Release();
         rhi->factory = nullptr;
     }
+
+    delete rhi;
+    set_rhi(nullptr);
 }

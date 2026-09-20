@@ -51,7 +51,11 @@ bool create_reflection(CompilerHandle compiler, ShaderEntryPoints entries, Shade
     auto handle   = compiler.as_type<CompilerWrapper>();
     bool success  = handle->reflect(entries, *internal);
 
-    reflection = ShaderReflectionHandle{internal.release()};
+    if (success) {
+        reflection = ShaderReflectionHandle{internal.release()};
+    } else {
+        reflection = ShaderReflectionHandle{};
+    }
     return success;
 }
 

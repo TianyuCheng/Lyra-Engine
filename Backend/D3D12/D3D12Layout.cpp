@@ -153,7 +153,7 @@ D3D12PipelineLayout::D3D12PipelineLayout(const GPUPipelineLayoutDescriptor& desc
         root_param.ShaderVisibility         = d3d12enum(visibility);
         root_param.Constants.ShaderRegister = 0;
         root_param.Constants.RegisterSpace  = D3D12_PushConstantRegisterSpace;
-        root_param.Constants.Num32BitValues = round_up_to_multiple_of(bytes, 4) / sizeof(uint32_t);
+        root_param.Constants.Num32BitValues = round_up_to_multiple_of(bytes, 4) / sizeof(uint);
 
         this->push_constant_root_parameter = root_parameter_index++;
     }
@@ -203,10 +203,10 @@ D3D12PipelineLayout::D3D12PipelineLayout(const GPUPipelineLayoutDescriptor& desc
 
 void D3D12PipelineLayout::destroy()
 {
-    if (layout) {
-        layout->Release();
-        layout = nullptr;
-    }
+    if (!layout) return;
+
+    layout->Release();
+    layout = nullptr;
 }
 
 void D3D12PipelineLayout::create_dispatch_indirect_signature()
@@ -349,14 +349,14 @@ D3D12BindGroupLayout::D3D12BindGroupLayout(const GPUBindGroupLayoutDescriptor& d
     for (auto& range : dynamic_ranges)
         this->num_dynamics += range.NumDescriptors;
 
-    // populate binding offset
+    // populate binding offsets
     uint default_offset = 0;
     uint sampler_offset = 0;
     for (auto& binding : bindings) {
         if (binding.type == D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER) {
             binding.start = sampler_offset;
             sampler_offset += binding.count;
-        } else {
+        } else if (!binding.dynamic) {
             binding.start = default_offset;
             default_offset += binding.count;
         }
@@ -371,6 +371,7 @@ void D3D12BindGroupLayout::destroy()
     default_ranges.clear();
     sampler_ranges.clear();
     dynamic_ranges.clear();
+    bindings.clear();
     visibility = D3D12_SHADER_VISIBILITY_ALL;
     bindless   = false;
 }
@@ -384,9 +385,9 @@ D3D12BindGroup* D3D12BindGroupLayout::create(GPUBindGroupHeapHandle heap_handle,
     auto& heap       = fetch_resource(rhi->bind_group_heaps, heap_handle);
     auto  bind_group = heap.memory->allocate<D3D12BindGroup>();
 
-    bind_group->default_index = std::numeric_limits<uint32_t>::max();
-    bind_group->sampler_index = std::numeric_limits<uint32_t>::max();
-    bind_group->dynamic_index = std::numeric_limits<uint16_t>::max();
+    bind_group->default_index = std::numeric_limits<uint>::max();
+    bind_group->sampler_index = std::numeric_limits<uint>::max();
+    bind_group->dynamic_index = std::numeric_limits<ushort>::max();
     bind_group->heap          = heap_handle;
 
     // allocate descriptors for default ranges
@@ -399,7 +400,8 @@ D3D12BindGroup* D3D12BindGroupLayout::create(GPUBindGroupHeapHandle heap_handle,
 
     // write to descriptors
     for (auto& entry : desc.entries) {
-        auto& bind_info = bindings.at(entry.binding);
+        if (entry.binding >= bindings.size()) continue;
+        const auto& bind_info = bindings.at(entry.binding);
         copy_regular_descriptors(heap, entry, bind_info, *bind_group);
     }
 
@@ -449,8 +451,7 @@ void D3D12BindGroupLayout::copy_texture_descriptor(D3D12BindGroupHeap& heap, con
 
 void D3D12BindGroupLayout::create_buffer_descriptor(D3D12BindGroupHeap& heap, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group)
 {
-    auto type = bindings.at(entry.binding).type;
-    switch (type) {
+    switch (bind_info.type) {
         case D3D12_DESCRIPTOR_RANGE_TYPE_CBV:
             create_buffer_cbv_descriptor(heap, entry, bind_info, bind_group);
             break;

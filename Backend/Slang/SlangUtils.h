@@ -110,6 +110,11 @@ struct CompileResultInternal
     ComPtr<slang::ISession> session;
     ComPtr<slang::IModule>  module;
 
+    // cached compiled binaries — keyed by entry point name.
+    // blob.data pointers returned to callers are stable views into this storage;
+    // they are freed automatically when this struct is destroyed (delete_module).
+    HashMap<String, Vector<uint8_t>> compiled_blobs;
+
     auto get_entry_point(CString entry) const -> ComPtr<slang::IEntryPoint>;
     auto get_linked_program(CString entry) const -> ComPtr<slang::IComponentType>;
     auto get_composed_program(CString entry) const -> ComPtr<slang::IComponentType>;
@@ -120,7 +125,7 @@ struct CompileResultInternal
 struct ReflectResultInternal
 {
     using Bindings = TreeMap<uint, Vector<GPUBindGroupLayoutEntry>>;
-    using Callback = std::function<WalkAction(const AccessPath&)>;
+    using Callback = FunctionRef<WalkAction(const AccessPath&)>;
 
     CompileTarget                target;
     Vector<EntryMetadata>        metadata;

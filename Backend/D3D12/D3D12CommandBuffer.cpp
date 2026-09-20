@@ -61,6 +61,8 @@ void D3D12CommandBuffer::reset()
 
 void D3D12CommandBuffer::destroy()
 {
+    if (!command_buffer) return;
+
     command_buffer->Release();
     command_buffer = nullptr;
 }

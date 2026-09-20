@@ -48,18 +48,18 @@ void populate_adapter_properties(GPUSupportedLimits& limits, GPUProperties& prop
 
     // buffer size and alignment limits
     limits.max_uniform_buffer_binding_size     = D3D12_REQ_CONSTANT_BUFFER_ELEMENT_COUNT * 16; // 4096 * 16 = 65536
-    limits.max_storage_buffer_binding_size     = static_cast<uint32_t>(std::min(
-        static_cast<uint64_t>(UINT32_MAX),
-        virtual_address_support.MaxGPUVirtualAddressBitsPerResource > 0 ? (1ULL << virtual_address_support.MaxGPUVirtualAddressBitsPerResource) : static_cast<uint64_t>(128 * 1024 * 1024) // 128mb fallback
+    limits.max_storage_buffer_binding_size     = static_cast<uint>(std::min(
+        static_cast<ulong>(UINT32_MAX),
+        virtual_address_support.MaxGPUVirtualAddressBitsPerResource > 0 ? (1ULL << virtual_address_support.MaxGPUVirtualAddressBitsPerResource) : static_cast<ulong>(128 * 1024 * 1024) // 128mb fallback
         ));
     limits.min_uniform_buffer_offset_alignment = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT; // 256
     limits.min_storage_buffer_offset_alignment = D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT;               // 16
 
     // vertex input limits
     limits.max_vertex_buffers             = D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT; // 32
-    limits.max_buffer_size                = static_cast<uint32_t>(std::min(
-        static_cast<uint64_t>(UINT32_MAX),
-        virtual_address_support.MaxGPUVirtualAddressBitsPerResource > 0 ? (1ULL << virtual_address_support.MaxGPUVirtualAddressBitsPerResource) : static_cast<uint64_t>(128 * 1024 * 1024) // 128mb fallback
+    limits.max_buffer_size                = static_cast<uint>(std::min(
+        static_cast<ulong>(UINT32_MAX),
+        virtual_address_support.MaxGPUVirtualAddressBitsPerResource > 0 ? (1ULL << virtual_address_support.MaxGPUVirtualAddressBitsPerResource) : static_cast<ulong>(128 * 1024 * 1024) // 128mb fallback
         ));
     limits.max_vertex_attributes          = D3D12_IA_VERTEX_INPUT_STRUCTURE_ELEMENT_COUNT; // 32
     limits.max_vertex_buffer_array_stride = D3D12_SO_BUFFER_MAX_STRIDE_IN_BYTES;           // 2048
@@ -113,7 +113,7 @@ bool api::create_adapter(GPUAdapterProps& adapter, const GPUAdapterDescriptor& d
     auto rhi = get_rhi();
 
     // create adapter
-    for (UINT adapter_index = 0;; ++adapter_index) {
+    for (uint adapter_index = 0;; ++adapter_index) {
         IDXGIAdapter1* current_adapter = nullptr;
 
         // try to get the next adapter
@@ -142,16 +142,17 @@ bool api::create_adapter(GPUAdapterProps& adapter, const GPUAdapterDescriptor& d
         current_adapter->Release();
     }
 
+    if (!rhi->adapter) return false;
+
     populate_adapter_properties(adapter.limits, adapter.properties, adapter.features);
-    return rhi->adapter != nullptr;
+    return true;
 }
 
 void api::delete_adapter()
 {
     auto rhi = get_rhi();
+    if (!rhi || !rhi->adapter) return;
 
-    if (rhi->adapter) {
-        rhi->adapter->Release();
-        rhi->adapter = nullptr;
-    }
+    rhi->adapter->Release();
+    rhi->adapter = nullptr;
 }

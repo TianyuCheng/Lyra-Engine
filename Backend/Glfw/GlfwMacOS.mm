@@ -19,5 +19,5 @@ void* get_metal_layer(GLFWwindow* win, void* window) {
         [nsView setLayer:metalLayer];
     }
 
-    return (CAMetalLayer*)nsView.layer;;
+    return (CAMetalLayer*)nsView.layer;
 }

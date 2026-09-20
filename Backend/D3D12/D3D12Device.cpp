@@ -58,13 +58,15 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
 
 void api::delete_device()
 {
-    api::wait_idle();
-
     auto rhi = get_rhi();
+    if (!rhi) return;
+
+    api::wait_idle();
 
     // clean up remaining frames
     for (auto& frame : rhi->frames)
         frame.destroy();
+    rhi->frames.clear();
 
     // clean up remaining swapchains
     for (auto& swapchain : rhi->swapchains)

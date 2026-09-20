@@ -22,35 +22,40 @@ void D3D12Fence::init(bool signaled)
     event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 }
 
-void D3D12Fence::wait(uint64_t timeout)
+void D3D12Fence::wait(ulong timeout)
 {
-    if (fence->GetCompletedValue() < target) {
-        fence->SetEventOnCompletion(target, event);
-        WaitForSingleObject(event, static_cast<DWORD>(timeout));
-    }
+    if (!fence || fence->GetCompletedValue() >= target) return;
+
+    fence->SetEventOnCompletion(target, event);
+    WaitForSingleObject(event, static_cast<DWORD>(timeout));
 }
 
 void D3D12Fence::reset()
 {
+    if (!fence) return;
     target = fence->GetCompletedValue() + 1;
 }
 
 bool D3D12Fence::ready()
 {
-    return fence->GetCompletedValue() >= target;
+    return fence ? fence->GetCompletedValue() >= target : true;
 }
 
-void D3D12Fence::signal(ID3D12CommandQueue* queue, uint64_t value)
+void D3D12Fence::signal(ID3D12CommandQueue* queue, ulong value)
 {
+    if (!fence || !queue) return;
     queue->Signal(fence, value);
 }
 
 void D3D12Fence::destroy()
 {
-    if (fence) {
-        fence->Release();
-        fence = nullptr;
+    if (!fence) return;
 
+    fence->Release();
+    fence = nullptr;
+
+    if (event) {
         CloseHandle(event);
+        event = nullptr;
     }
 }

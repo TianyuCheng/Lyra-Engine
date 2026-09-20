@@ -14,8 +14,10 @@ void D3D12Frame::init()
 
 void D3D12Frame::wait()
 {
+    if (existing_fences.empty()) return;
+
+    auto rhi = get_rhi();
     for (auto& fence : existing_fences) {
-        auto rhi = get_rhi();
         fetch_resource(rhi->fences, fence).wait();
     }
 }
@@ -89,7 +91,7 @@ GPUCommandEncoderHandle D3D12Frame::allocate(GPUQueueType type, bool primary)
     };
 
     // search from existing allocations
-    for (uint i = 0; i < (uint)allocated_command_buffers.size(); i++) {
+    for (uint i = 0; i < static_cast<uint>(allocated_command_buffers.size()); i++) {
         auto& cmd = allocated_command_buffers.at(i);
         if (!cmd.used && cmd.type == type && cmd.primary == primary) {
             cmd.used = true;
@@ -103,6 +105,9 @@ GPUCommandEncoderHandle D3D12Frame::allocate(GPUQueueType type, bool primary)
     uint handle = static_cast<uint>(allocated_command_buffers.size());
     allocated_command_buffers.push_back(CommandBuffer{});
     CommandBuffer& cmd = allocated_command_buffers.back();
+    cmd.type    = type;
+    cmd.primary = primary;
+    cmd.used    = true;
     switch (type) {
         case GPUQueueType::TRANSFER:
             cmd.cmd.command_queue = rhi->transfer_queue;

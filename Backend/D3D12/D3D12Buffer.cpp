@@ -48,6 +48,10 @@ D3D12Buffer::D3D12Buffer(const GPUBufferDescriptor& desc, D3D12_RESOURCE_FLAGS a
 
 void D3D12Buffer::destroy()
 {
+    if (!buffer && !allocation) return;
+
+    if (mapped_data) unmap();
+
     if (buffer) {
         buffer->Release();
         buffer = nullptr;
@@ -67,17 +71,17 @@ void D3D12Buffer::map(GPUSize64 offset, GPUSize64 size)
     range.Begin       = offset;
     range.End         = offset + size;
 
-    void* mapped;
-    buffer->Map(0, &range, &mapped);
-    mapped_data = reinterpret_cast<uint8_t*>(mapped);
+    void* mapped = nullptr;
+    ThrowIfFailed(buffer->Map(0, &range, &mapped));
+    mapped_data = reinterpret_cast<uint8_t*>(mapped) + offset;
     mapped_size = size == 0 ? allocation->GetSize() : size;
 }
 
 void D3D12Buffer::unmap()
 {
-    if (mapped_data) {
-        buffer->Unmap(0, nullptr);
-        mapped_data = nullptr;
-        mapped_size = 0ull;
-    }
+    if (!mapped_data) return;
+
+    buffer->Unmap(0, nullptr);
+    mapped_data = nullptr;
+    mapped_size = 0ull;
 }

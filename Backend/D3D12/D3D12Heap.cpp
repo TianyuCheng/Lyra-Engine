@@ -30,6 +30,8 @@ void D3D12ObjectPool::reset()
 
 void D3D12ObjectPool::destroy()
 {
+    if (!heap) return;
+
     reset();
 
     heap->Release();
@@ -150,6 +152,8 @@ void D3D12BindGroupHeapAllocator::reset()
 
 void D3D12BindGroupHeapAllocator::destroy()
 {
+    if (!heap) return;
+
     reset();
 
     heap->Release();
@@ -215,11 +219,7 @@ D3D12DescriptorPool& D3D12DescriptorHeap::create_new_pool(uint allocate_count)
 
 D3D12DescriptorPool& D3D12DescriptorHeap::find_available_pool(uint allocate_count)
 {
-    if (pools.empty())
-        create_new_pool(allocate_count);
-
-    auto& pool = pools.back();
-    if (pool.count + allocate_count >= pool.capacity)
+    if (pools.empty() || pools.back().count + allocate_count > pools.back().capacity)
         create_new_pool(allocate_count);
 
     return pools.back();
@@ -237,7 +237,7 @@ void D3D12DescriptorPool::init(D3D12BindGroupHeapAllocator* allocator, uint capa
 
 uint D3D12DescriptorPool::allocate(uint allocate_count)
 {
-    assert(count + allocate_count < capacity);
+    assert(count + allocate_count <= capacity);
 
     uint current = count;
     count += allocate_count;

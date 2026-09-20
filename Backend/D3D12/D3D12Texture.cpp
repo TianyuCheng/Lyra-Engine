@@ -49,6 +49,8 @@ D3D12Texture::D3D12Texture(const GPUTextureDescriptor& desc)
 
 void D3D12Texture::destroy()
 {
+    if (!texture && !allocation) return;
+
     if (texture) {
         texture->Release();
         texture = nullptr;
@@ -91,11 +93,18 @@ D3D12TextureView::D3D12TextureView(const D3D12Texture& texture, const GPUTexture
 
 void D3D12TextureView::destroy()
 {
+    if (!valid()) return;
+
     auto rhi = get_rhi();
 
     if (rtv_view.valid()) {
         rhi->rtv_heap.recycle(rtv_view);
         rtv_view.reset();
+    }
+
+    if (dsv_view.valid()) {
+        rhi->dsv_heap.recycle(dsv_view);
+        dsv_view.reset();
     }
 
     if (srv_view.valid()) {
@@ -235,7 +244,6 @@ void D3D12TextureView::init_srv(const D3D12Texture& texture, const GPUTextureVie
         case GPUTextureViewDimension::x2D_ARRAY:
             if (texture.samples <= 1) {
                 view_desc.ViewDimension                      = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
-                view_desc.ViewDimension                      = D3D12_SRV_DIMENSION_TEXTURE2D;
                 view_desc.Texture2DArray.MipLevels           = desc.mip_level_count;
                 view_desc.Texture2DArray.MostDetailedMip     = desc.base_mip_level;
                 view_desc.Texture2DArray.ResourceMinLODClamp = 0;

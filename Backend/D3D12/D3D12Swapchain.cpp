@@ -151,7 +151,7 @@ void D3D12Swapchain::Frame::init(D3D12Swapchain* swp, uint backbuffer_index, uin
     texture.format      = infer_texture_format(swp->format);
     texture.area.width  = width;
     texture.area.height = height;
-    texture.usages      = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::COPY_DST | GPUTextureUsage::COPY_DST;
+    texture.usages      = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::COPY_DST;
     ThrowIfFailed(swp->swapchain->GetBuffer(backbuffer_index, IID_PPV_ARGS(&texture.texture)));
     texture.texture->SetName(name.c_str());
 
@@ -175,18 +175,23 @@ void D3D12Swapchain::Frame::init(D3D12Swapchain* swp, uint backbuffer_index, uin
 
 void D3D12Swapchain::Frame::destroy()
 {
+    if (!texture.valid() && !view.valid()) return;
+
     auto rhi = get_rhi();
+    if (!rhi) return;
 
     // clean up existing texture
     if (texture.valid()) {
         fetch_resource(rhi->textures, texture).destroy();
         rhi->textures.remove(texture.to_slotmap_handle<D3D12Texture>());
+        texture.reset();
     }
 
     // clean up existing texture view
     if (view.valid()) {
         fetch_resource(rhi->views, view).destroy();
         rhi->views.remove(view.to_slotmap_handle<D3D12TextureView>());
+        view.reset();
     }
 }
 #pragma endregion D3D12SwapchainFrame
@@ -236,11 +241,9 @@ bool api::acquire_next_frame(GPUSurfaceHandle surface, GPUTextureHandle& texture
 {
     auto rhi = get_rhi();
 
-    // initialize swpachain tracker
-    if (rhi->surface_tracker.valid()) {
-        assert(rhi->surface_tracker == surface && "Caller must call present_curr_frame() prior to calling acquire_next_frame() again!");
-        rhi->surface_tracker = surface;
-    }
+    // initialize swapchain tracker
+    assert(!rhi->surface_tracker.valid() && "Caller must call present_curr_frame() prior to calling acquire_next_frame() again!");
+    rhi->surface_tracker = surface;
 
     // query the swapchain
     auto& swp = fetch_resource(rhi->swapchains, surface);
@@ -281,11 +284,10 @@ bool api::present_curr_frame(GPUSurfaceHandle surface)
 {
     auto rhi = get_rhi();
 
-    // validator swpachain tracker
-    if (rhi->surface_tracker.valid()) {
-        assert(rhi->surface_tracker == surface && "Caller must call acquire_next_frame() prior to calling present_curr_frame()!");
-        rhi->surface_tracker.reset();
-    }
+    // validate swapchain tracker
+    assert(rhi->surface_tracker.valid() && "Caller must call acquire_next_frame() prior to calling present_curr_frame()!");
+    assert(rhi->surface_tracker == surface && "Caller must call acquire_next_frame() on the same surface!");
+    rhi->surface_tracker.reset();
 
     // query the swapchain
     auto& swp = fetch_resource(rhi->swapchains, surface);

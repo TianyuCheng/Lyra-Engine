@@ -728,7 +728,9 @@ auto d3d12enum(GPUBarrierAccessFlags access) -> D3D12_BARRIER_ACCESS
     D3D12_BARRIER_ACCESS result = D3D12_BARRIER_ACCESS_COMMON;
 
     // clang-format off
+    if (access.contains(GPUBarrierAccess::COMMON))                       result |= D3D12_BARRIER_ACCESS_COMMON;
     if (access.contains(GPUBarrierAccess::VERTEX_BUFFER))                result |= D3D12_BARRIER_ACCESS_VERTEX_BUFFER;
+    if (access.contains(GPUBarrierAccess::UNIFORM_BUFFER))               result |= D3D12_BARRIER_ACCESS_CONSTANT_BUFFER;
     if (access.contains(GPUBarrierAccess::INDEX_BUFFER))                 result |= D3D12_BARRIER_ACCESS_INDEX_BUFFER;
     if (access.contains(GPUBarrierAccess::RENDER_TARGET))                result |= D3D12_BARRIER_ACCESS_RENDER_TARGET;
     if (access.contains(GPUBarrierAccess::UNORDERED_ACCESS))             result |= D3D12_BARRIER_ACCESS_UNORDERED_ACCESS;

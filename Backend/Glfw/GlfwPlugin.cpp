@@ -58,7 +58,7 @@ struct UserState
     void add_mouse_move_event(float xpos, float ypos)
     {
         if (is_event_queue_full()) {
-            get_logger()->warn("Ignore mouse move event beacause event queue is full!");
+            get_logger()->warn("Ignore mouse move event because event queue is full!");
             return;
         }
 
@@ -72,7 +72,7 @@ struct UserState
     {
         if (is_event_queue_full()) {
             // NOTE: This is too excessive!
-            // get_logger()->warn("Ignore mouse wheel event beacause event queue is full!");
+            // get_logger()->warn("Ignore mouse wheel event because event queue is full!");
             return;
         }
 
@@ -85,7 +85,7 @@ struct UserState
     void add_window_focus_event(bool focus)
     {
         if (is_event_queue_full()) {
-            get_logger()->warn("Ignore window focus event beacause event queue is full!");
+            get_logger()->warn("Ignore window focus event because event queue is full!");
             return;
         }
 
@@ -97,7 +97,7 @@ struct UserState
     void add_window_close_event()
     {
         if (is_event_queue_full()) {
-            get_logger()->warn("Ignore window close event beacause event queue is full!");
+            get_logger()->warn("Ignore window close event because event queue is full!");
             return;
         }
 
@@ -111,7 +111,6 @@ struct UserState
             // input query loop will freeze when window moves,
             // therefore we just keep overwriting the last event.
             events.num_events = static_cast<uint>(events.input_events.size() - 1);
-            return;
         }
 
         auto& event            = events.input_events[events.num_events++];
@@ -126,7 +125,6 @@ struct UserState
             // input query loop will freeze when window resizes,
             // therefore we just keep overwriting the last event.
             events.num_events = static_cast<uint>(events.input_events.size() - 1);
-            return;
         }
 
         auto& event                = events.input_events[events.num_events++];
@@ -138,7 +136,7 @@ struct UserState
     void add_mouse_event(MouseButton key, ButtonState state)
     {
         if (is_event_queue_full()) {
-            get_logger()->warn("Ignore mouse event beacause event queue is full!");
+            get_logger()->warn("Ignore mouse event because event queue is full!");
             return;
         }
 
@@ -151,7 +149,7 @@ struct UserState
     void add_keyboard_event(KeyButton key, ButtonState state)
     {
         if (is_event_queue_full()) {
-            get_logger()->warn("Ignore keyboard event beacause event queue is full!");
+            get_logger()->warn("Ignore keyboard event because event queue is full!");
             return;
         }
 
@@ -164,7 +162,7 @@ struct UserState
     void add_character_event(uint code)
     {
         if (is_event_queue_full()) {
-            get_logger()->warn("Ignore character event beacause event queue is full!");
+            get_logger()->warn("Ignore character event because event queue is full!");
             return;
         }
 
@@ -176,7 +174,7 @@ struct UserState
     void add_file_drop_event(uint count, CString* paths)
     {
         if (is_event_queue_full()) {
-            get_logger()->warn("Ignore character event beacause event queue is full!");
+            get_logger()->warn("Ignore file drop event because event queue is full!");
             return;
         }
 
@@ -215,13 +213,13 @@ struct EventLoopInternal
 
     void update_windows()
     {
-        if (!deferred_window_creation.empty()) {
+        while (!deferred_window_creation.empty()) {
             auto& window = deferred_window_creation.front();
             windows.push_back(window);
             deferred_window_creation.pop_front();
         }
 
-        if (!deferred_window_deletion.empty()) {
+        while (!deferred_window_deletion.empty()) {
             auto& window = deferred_window_deletion.front();
             cleanup_window(window);
             deferred_window_deletion.pop_front();
@@ -298,7 +296,8 @@ static ButtonState to_button_state(int action)
         case GLFW_REPEAT:
             return ButtonState::ON;
     }
-    throw std::invalid_argument("Unsupport GLFW keyboard action!");
+    get_logger()->warn("Unsupported GLFW input action: {}", action);
+    return ButtonState::OFF;
 }
 
 static auto get_api_name() -> CString
@@ -417,15 +416,16 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
         case GLFW_KEY_RIGHT_BRACKET: user.add_keyboard_event(KeyButton::RIGHT_BRACKET , to_button_state(action)); break;
         case GLFW_KEY_GRAVE_ACCENT:  user.add_keyboard_event(KeyButton::GRAVE_ACCENT  , to_button_state(action)); break;
 
-        default: get_logger()->warn("Unhandled key stroke!");
+        default: get_logger()->trace("Unhandled key stroke!");
     }
-    // clang-format off
+    // clang-format on
 }
 
 static void file_drop_callback(GLFWwindow *window, int path_count, CString paths[])
 {
+    if (path_count <= 0) return;
     auto& user  = *static_cast<UserState*>(glfwGetWindowUserPointer(window));
-    user.add_file_drop_event(path_count, paths);
+    user.add_file_drop_event(static_cast<uint>(path_count), paths);
 }
 
 static void key_character_callback(GLFWwindow* window, uint code)
@@ -462,33 +462,31 @@ static void mouse_scroll_callback(GLFWwindow* window, double xoffset, double yof
 
 static void window_close_callback(GLFWwindow* window)
 {
-    // clean up user states
     auto user = static_cast<UserState*>(glfwGetWindowUserPointer(window));
     user->add_window_close_event();
 
-    auto handle   = WindowHandle{};
-    handle.window = window;
-    handle.native = nullptr;
+    WindowHandle handle{};
+    create_window_handle(window, handle);
     global_event_loop.defer_delete(handle);
 }
 
 static void window_position_callback(GLFWwindow* window, int xpos, int ypos)
 {
-    // clean up user states
+    // record window position event
     auto user = static_cast<UserState*>(glfwGetWindowUserPointer(window));
     user->add_window_move_event(xpos, ypos);
 }
 
 static void window_focus_callback(GLFWwindow* window, int focused)
 {
-    // clean up user states
+    // record window focus event
     auto user = static_cast<UserState*>(glfwGetWindowUserPointer(window));
     user->add_window_focus_event(focused);
 }
 
 static void window_resize_callback(GLFWwindow* window, int width, int height)
 {
-    // clean up user states
+    // record window resize event and fire callback
     auto user = static_cast<UserState*>(glfwGetWindowUserPointer(window));
     user->add_win_resize_event(width, height);
 
@@ -549,7 +547,7 @@ static bool create_window(const WindowDescriptor& desc, WindowHandle& window)
         bind_window_events(window);
         global_event_loop.defer_create(window);
     }
-    return true;
+    return win != nullptr;
 }
 
 static void delete_window(WindowHandle window)
@@ -637,11 +635,7 @@ static void set_window_title(WindowHandle window, CString title)
 
 static CString get_window_title(WindowHandle window)
 {
-#if defined(_WIN32)
     return glfwGetWindowTitle((GLFWwindow*)window.window);
-#else
-    return "";
-#endif
 }
 
 static void set_clipboard_text(WindowHandle window, CString text)
@@ -784,6 +778,8 @@ LYRA_EXPORT auto prepare() -> void
     get_logger()->set_level(parse_log_level_from_env("LYRA_GLFW_VERBOSITY"));
 
     if (!glfwInit()) {
+        get_logger()->critical("Failed to initialize GLFW!");
+        get_logger()->flush();
         exit(EXIT_FAILURE);
     }
 
