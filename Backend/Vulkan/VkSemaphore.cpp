@@ -37,7 +37,7 @@ VulkanSemaphore create_timeline_semaphore()
     semaphore_create_info.flags = 0;
 
     VulkanSemaphore fence;
-    vk_check(vkCreateSemaphore(rhi->device, &semaphore_create_info, NULL, &fence.semaphore));
+    vk_check(rhi->vtable.vkCreateSemaphore(rhi->device, &semaphore_create_info, nullptr, &fence.semaphore));
     fence.type   = VK_SEMAPHORE_TYPE_TIMELINE;
     fence.target = 0;
     return fence;
@@ -59,8 +59,13 @@ VulkanSemaphore::VulkanSemaphore(VkSemaphoreType type)
     }
 }
 
-void VulkanSemaphore::wait(uint64_t timeout)
+void VulkanSemaphore::wait(ulong timeout)
 {
+    if (type == VK_SEMAPHORE_TYPE_BINARY) {
+        get_logger()->warn("CPU wait on a binary semaphore is not supported in Vulkan!");
+        return;
+    }
+
     auto wait_info           = VkSemaphoreWaitInfo{};
     wait_info.sType          = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
     wait_info.pNext          = NULL;
@@ -77,24 +82,38 @@ void VulkanSemaphore::wait(uint64_t timeout)
 
 void VulkanSemaphore::reset()
 {
+    if (type == VK_SEMAPHORE_TYPE_BINARY) {
+        target = 0;
+        return;
+    }
+
     auto rhi = get_rhi();
 
-    uint64_t value;
+    ulong value;
     vk_check(rhi->vtable.vkGetSemaphoreCounterValue(rhi->device, semaphore, &value));
     target = value + 1;
 }
 
 bool VulkanSemaphore::ready()
 {
+    if (type == VK_SEMAPHORE_TYPE_BINARY) {
+        return true;
+    }
+
     auto rhi = get_rhi();
 
-    uint64_t value;
+    ulong value;
     vk_check(rhi->vtable.vkGetSemaphoreCounterValue(rhi->device, semaphore, &value));
     return target <= value;
 }
 
-void VulkanSemaphore::signal(uint64_t value)
+void VulkanSemaphore::signal(ulong value)
 {
+    if (type == VK_SEMAPHORE_TYPE_BINARY) {
+        get_logger()->warn("Host signal on a binary semaphore is not supported in Vulkan!");
+        return;
+    }
+
     auto signal_info      = VkSemaphoreSignalInfo{};
     signal_info.sType     = VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO;
     signal_info.pNext     = nullptr;
@@ -107,9 +126,11 @@ void VulkanSemaphore::signal(uint64_t value)
 
 void VulkanSemaphore::destroy()
 {
-    if (semaphore != VK_NULL_HANDLE) {
-        auto rhi = get_rhi();
+    if (semaphore == VK_NULL_HANDLE) return;
+
+    auto rhi = get_rhi();
+    if (rhi && rhi->device) {
         rhi->vtable.vkDestroySemaphore(rhi->device, semaphore, nullptr);
-        semaphore = VK_NULL_HANDLE;
     }
+    semaphore = VK_NULL_HANDLE;
 }

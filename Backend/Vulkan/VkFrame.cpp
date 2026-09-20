@@ -8,12 +8,16 @@ void VulkanFrame::init()
 
     if (rhi->queues.compute.has_value())
         compute_command_pool.init(rhi->queues.compute.value());
+    else if (rhi->queues.graphics.has_value())
+        compute_command_pool.init(rhi->queues.graphics.value());
 
     if (rhi->queues.graphics.has_value())
         graphics_command_pool.init(rhi->queues.graphics.value());
 
     if (rhi->queues.transfer.has_value())
         transfer_command_pool.init(rhi->queues.transfer.value());
+    else if (rhi->queues.graphics.has_value())
+        transfer_command_pool.init(rhi->queues.graphics.value());
 }
 
 void VulkanFrame::wait()

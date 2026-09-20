@@ -22,8 +22,10 @@ bool api::create_instance(const RHIDescriptor& desc)
     add_surface_extension(instance_extensions);
 
     // add debug utils extension
-    if (desc.flags.contains(RHIFlag::DEBUG)) {
+    if (desc.flags.contains(RHIFlag::DEBUG) || desc.flags.contains(RHIFlag::VALIDATION)) {
         instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    }
+    if (desc.flags.contains(RHIFlag::DEBUG)) {
         debugger_extensions.push_back(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
     }
 
@@ -109,6 +111,14 @@ bool api::create_instance(const RHIDescriptor& desc)
     rhi->rhiflags = desc.flags;
     rhi->instance = vkinst;
     rhi->surface  = create_surface(vkinst, desc.window);
+
+    // create persistent debug messenger if validation or debug is active
+    if ((desc.flags.contains(RHIFlag::DEBUG) || desc.flags.contains(RHIFlag::VALIDATION)) && vkCreateDebugUtilsMessengerEXT) {
+        VkDebugUtilsMessengerCreateInfoEXT messenger_info;
+        fill_vulkan_debug_messenger_create_info(messenger_info);
+        vkCreateDebugUtilsMessengerEXT(vkinst, &messenger_info, nullptr, &rhi->debug_messenger);
+    }
+
     set_rhi(rhi);
     return true;
 }
@@ -126,6 +136,11 @@ void api::delete_instance()
     if (rhi->surface) {
         vkDestroySurfaceKHR(rhi->instance, rhi->surface, nullptr);
         rhi->surface = VK_NULL_HANDLE;
+    }
+
+    if (rhi->debug_messenger && vkDestroyDebugUtilsMessengerEXT) {
+        vkDestroyDebugUtilsMessengerEXT(rhi->instance, rhi->debug_messenger, nullptr);
+        rhi->debug_messenger = VK_NULL_HANDLE;
     }
 
     if (rhi->instance) {

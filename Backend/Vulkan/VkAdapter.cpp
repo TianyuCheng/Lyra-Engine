@@ -1,8 +1,6 @@
 #include "VkUtils.h"
-#include <map>
-#include <set>
 
-static bool is_device_suitable(VkPhysicalDevice device, const std::vector<const char*>& requiredExtensions)
+static bool is_device_suitable(VkPhysicalDevice device, const Vector<const char*>& requiredExtensions)
 {
     auto               rhi     = get_rhi();
     QueueFamilyIndices indices = find_queue_family_indices(device, rhi->surface);
@@ -11,12 +9,15 @@ static bool is_device_suitable(VkPhysicalDevice device, const std::vector<const 
         return false;
     }
 
-    uint32_t extensionCount;
+    uint extensionCount;
     vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
-    std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+    Vector<VkExtensionProperties> availableExtensions(extensionCount);
     vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
 
-    std::set<std::string> required(requiredExtensions.begin(), requiredExtensions.end());
+    HashSet<StringView> required;
+    for (const auto* ext : requiredExtensions) {
+        required.insert(ext);
+    }
 
     for (const auto& extension : availableExtensions) {
         required.erase(extension.extensionName);
@@ -36,9 +37,9 @@ static int calculate_device_score(VkPhysicalDevice device)
     int score = 0;
 
     // feature richness is more important
-    uint32_t extension_count;
+    uint extension_count;
     vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, nullptr);
-    std::vector<VkExtensionProperties> available_extensions(extension_count);
+    Vector<VkExtensionProperties> available_extensions(extension_count);
     vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, available_extensions.data());
 
     auto has_extension = [&](const char* ext_name) {
@@ -66,7 +67,7 @@ static int calculate_device_score(VkPhysicalDevice device)
     VkPhysicalDeviceMemoryProperties mem_properties;
     vkGetPhysicalDeviceMemoryProperties(device, &mem_properties);
     VkDeviceSize local_memory = 0;
-    for (uint32_t i = 0; i < mem_properties.memoryHeapCount; i++) {
+    for (uint i = 0; i < mem_properties.memoryHeapCount; i++) {
         if (mem_properties.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
             local_memory += mem_properties.memoryHeaps[i].size;
         }
@@ -156,22 +157,22 @@ static void populate_device_properties(GPUProperties& properties)
     properties.min_uniform_buffer_alignment = static_cast<int>(vk_limits.minUniformBufferOffsetAlignment);
 
     // subgroup properties (requires VK_KHR_shader_subgroup_extended_types or Vulkan 1.1+)
-    if (rhi->props2.pNext) {
-        // look for VkPhysicalDeviceSubgroupProperties in the pNext chain
-        const VkPhysicalDeviceSubgroupProperties* subgroup_props = nullptr;
-        const VkBaseInStructure*                  current        = reinterpret_cast<const VkBaseInStructure*>(rhi->props2.pNext);
-        while (current) {
-            if (current->sType == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES) {
-                subgroup_props = reinterpret_cast<const VkPhysicalDeviceSubgroupProperties*>(current);
-                break;
-            }
-            current = current->pNext;
-        }
+    if (!rhi->props2.pNext) return;
 
-        if (subgroup_props) {
-            properties.subgroup_max_size = subgroup_props->subgroupSize;
-            properties.subgroup_min_size = subgroup_props->subgroupSize; // Vulkan reports fixed size
+    // look for VkPhysicalDeviceSubgroupProperties in the pNext chain
+    const VkPhysicalDeviceSubgroupProperties* subgroup_props = nullptr;
+    const VkBaseInStructure*                  current        = reinterpret_cast<const VkBaseInStructure*>(rhi->props2.pNext);
+    while (current) {
+        if (current->sType == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES) {
+            subgroup_props = reinterpret_cast<const VkPhysicalDeviceSubgroupProperties*>(current);
+            break;
         }
+        current = current->pNext;
+    }
+
+    if (subgroup_props) {
+        properties.subgroup_max_size = subgroup_props->subgroupSize;
+        properties.subgroup_min_size = subgroup_props->subgroupSize; // Vulkan reports fixed size
     }
 }
 
@@ -185,7 +186,7 @@ bool api::create_adapter(GPUAdapterProps& adapter, const GPUAdapterDescriptor& d
     Vector<VkPhysicalDevice> devices(count);
     vk_check(vkEnumeratePhysicalDevices(rhi->instance, &count, devices.data()));
 
-    std::vector<const char*> requiredExtensions;
+    Vector<const char*> requiredExtensions;
     if (rhi->surface) {
         requiredExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     }
@@ -196,7 +197,7 @@ bool api::create_adapter(GPUAdapterProps& adapter, const GPUAdapterDescriptor& d
     requiredExtensions.push_back(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
     requiredExtensions.push_back(VK_KHR_IMAGELESS_FRAMEBUFFER_EXTENSION_NAME);
 
-    std::multimap<int, VkPhysicalDevice> candidates;
+    MultiMap<int, VkPhysicalDevice> candidates;
     for (const auto& device : devices) {
         if (is_device_suitable(device, requiredExtensions)) {
             int score = calculate_device_score(device);
@@ -210,14 +211,19 @@ bool api::create_adapter(GPUAdapterProps& adapter, const GPUAdapterDescriptor& d
 
     rhi->adapter = candidates.rbegin()->second;
 
+    VkPhysicalDeviceSubgroupProperties subgroup_props{};
+    subgroup_props.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES;
+
     rhi->props2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-    rhi->props2.pNext = nullptr;
+    rhi->props2.pNext = &subgroup_props;
 
     // query some basic properties
     vkGetPhysicalDeviceProperties(rhi->adapter, &rhi->props);
     vkGetPhysicalDeviceProperties2(rhi->adapter, &rhi->props2);
     populate_device_properties(adapter.limits);
     populate_device_properties(adapter.properties);
+
+    rhi->props2.pNext = nullptr;
 
     return true;
 }

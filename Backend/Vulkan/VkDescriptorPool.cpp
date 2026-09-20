@@ -10,10 +10,11 @@ struct DescriptorObjects
 
 void VulkanDescriptorPool::destroy()
 {
-    reset();
     for (auto& pool : pools)
         delete_descriptor_pool(pool);
     pools.clear();
+    counts.clear();
+    poolindex = 0;
 }
 
 void VulkanDescriptorPool::reset()
@@ -76,10 +77,16 @@ void fill_descriptor_write(VkWriteDescriptorSet& write, DescriptorObjects& objec
 {
     auto rhi = get_rhi();
 
+    auto it = layout.binding_types.find(entry.binding);
+    if (it == layout.binding_types.end()) {
+        get_logger()->error("Binding index {} not found in bind group layout!", entry.binding);
+        throw std::out_of_range("Binding index not found in bind group layout!");
+    }
+
     write                  = {};
     write.sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     write.descriptorCount  = 1;
-    write.descriptorType   = layout.binding_types.at(entry.binding);
+    write.descriptorType   = it->second;
     write.dstArrayElement  = entry.index;
     write.dstBinding       = entry.binding;
     write.dstSet           = descriptor;
@@ -229,6 +236,10 @@ void reset_descriptor_pool(VkDescriptorPool pool)
 
 void delete_descriptor_pool(VkDescriptorPool pool)
 {
+    if (pool == VK_NULL_HANDLE) return;
+
     auto rhi = get_rhi();
-    rhi->vtable.vkDestroyDescriptorPool(rhi->device, pool, nullptr);
+    if (rhi && rhi->device) {
+        rhi->vtable.vkDestroyDescriptorPool(rhi->device, pool, nullptr);
+    }
 }

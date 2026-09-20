@@ -175,16 +175,16 @@ struct VulkanSemaphore
     VkSemaphoreType type = VK_SEMAPHORE_TYPE_TIMELINE;
 
     // keep track of target value
-    uint64_t target = 0ull;
+    ulong target = 0ull;
 
     // implementation in VkSemaphore.cpp
     explicit VulkanSemaphore();
     explicit VulkanSemaphore(VkSemaphoreType type);
 
-    void wait(uint64_t timeout = UINT64_MAX);
+    void wait(ulong timeout = UINT64_MAX);
     void reset();
     bool ready();
-    void signal(uint64_t value);
+    void signal(ulong value);
     void destroy();
 
     bool valid() const { return semaphore != VK_NULL_HANDLE; }
@@ -223,7 +223,7 @@ struct VulkanBindGroupLayout
     VkDescriptorSetLayout layout   = VK_NULL_HANDLE;
     bool                  bindless = false;
 
-    Vector<VkDescriptorType> binding_types = {};
+    HashMap<uint, VkDescriptorType> binding_types = {};
 
     // implementation in VkLayout.cpp
     explicit VulkanBindGroupLayout();
@@ -498,18 +498,19 @@ using VulkanBindGroupLayoutManager = VulkanResourceManager<VulkanBindGroupLayout
 
 struct VulkanRHI
 {
-    RHIFlags           rhiflags       = 0;
-    VkInstance         instance       = VK_NULL_HANDLE;
-    VkSurfaceKHR       surface        = VK_NULL_HANDLE;
-    VkPhysicalDevice   adapter        = VK_NULL_HANDLE;
-    VkDevice           device         = VK_NULL_HANDLE;
-    VkQueue            transfer_queue = VK_NULL_HANDLE;
-    VkQueue            graphics_queue = VK_NULL_HANDLE;
-    VkQueue            compute_queue  = VK_NULL_HANDLE;
-    VkQueue            present_queue  = VK_NULL_HANDLE;
-    VolkDeviceTable    vtable         = {};
-    VmaAllocator       alloc;
-    QueueFamilyIndices queues;
+    RHIFlags                 rhiflags        = 0;
+    VkInstance               instance        = VK_NULL_HANDLE;
+    VkDebugUtilsMessengerEXT debug_messenger = VK_NULL_HANDLE;
+    VkSurfaceKHR             surface         = VK_NULL_HANDLE;
+    VkPhysicalDevice         adapter         = VK_NULL_HANDLE;
+    VkDevice                 device          = VK_NULL_HANDLE;
+    VkQueue                  transfer_queue  = VK_NULL_HANDLE;
+    VkQueue                  graphics_queue  = VK_NULL_HANDLE;
+    VkQueue                  compute_queue   = VK_NULL_HANDLE;
+    VkQueue                  present_queue   = VK_NULL_HANDLE;
+    VolkDeviceTable          vtable          = {};
+    VmaAllocator             alloc;
+    QueueFamilyIndices       queues;
 
     // required features
     GPUSupportedFeatures features;

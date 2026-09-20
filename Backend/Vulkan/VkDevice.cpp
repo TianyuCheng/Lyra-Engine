@@ -8,9 +8,8 @@
 
 bool is_supported(const Vector<CString>& extensions, CString name)
 {
-    size_t length = strnlen(name, 20);
     for (auto& extension : extensions)
-        if (strncmp(extension, name, length) == 0)
+        if (strcmp(extension, name) == 0)
             return true;
     return false;
 }
@@ -131,59 +130,41 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
         features.pNext = feature;
     };
 
+    // vulkan 1.1 features: shader draw parameters
+    auto vulkan11_features                 = VkPhysicalDeviceVulkan11Features{};
+    vulkan11_features.sType                = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+    vulkan11_features.shaderDrawParameters = VK_TRUE;
+    append_feature((VulkanBase*)&vulkan11_features);
+
     // synchronization2: support vkQueueSubmit2
     auto synchronization2 = VkPhysicalDeviceSynchronization2Features{};
-    {
-        synchronization2.sType            = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
-        synchronization2.synchronization2 = VK_TRUE;
-        append_feature((VulkanBase*)&synchronization2);
-        if (!is_supported(device_extensions, VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME)) {
-            get_logger()->error("Device extension {} is not supported!", VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
-            exit(1);
-        }
-    }
+    synchronization2.sType            = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
+    synchronization2.synchronization2 = VK_TRUE;
+    append_feature((VulkanBase*)&synchronization2);
 
     // timeline semaphores (essential: used to support unified GPU/CPU fence)
     auto timeline_semaphore = VkPhysicalDeviceTimelineSemaphoreFeatures{};
-    {
-        device_extensions.push_back(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
-        timeline_semaphore.sType             = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
-        timeline_semaphore.pNext             = nullptr;
-        timeline_semaphore.timelineSemaphore = VK_TRUE;
-        append_feature((VulkanBase*)&timeline_semaphore);
-        if (!is_supported(device_extensions, VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME)) {
-            get_logger()->error("Device extension {} is not supported!", VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
-            exit(1);
-        }
-    }
+    device_extensions.push_back(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
+    timeline_semaphore.sType             = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
+    timeline_semaphore.pNext             = nullptr;
+    timeline_semaphore.timelineSemaphore = VK_TRUE;
+    append_feature((VulkanBase*)&timeline_semaphore);
 
     // imageless framebuffer (essential: used to support detached framebuffer)
     auto imageless_framebuffer = VkPhysicalDeviceImagelessFramebufferFeatures{};
-    {
-        device_extensions.push_back(VK_KHR_IMAGELESS_FRAMEBUFFER_EXTENSION_NAME);
-        imageless_framebuffer.sType                = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGELESS_FRAMEBUFFER_FEATURES;
-        imageless_framebuffer.pNext                = nullptr;
-        imageless_framebuffer.imagelessFramebuffer = VK_TRUE;
-        append_feature((VulkanBase*)&imageless_framebuffer);
-        if (!is_supported(device_extensions, VK_KHR_IMAGELESS_FRAMEBUFFER_EXTENSION_NAME)) {
-            get_logger()->error("Device extension {} is not supported!", VK_KHR_IMAGELESS_FRAMEBUFFER_EXTENSION_NAME);
-            exit(1);
-        }
-    }
+    device_extensions.push_back(VK_KHR_IMAGELESS_FRAMEBUFFER_EXTENSION_NAME);
+    imageless_framebuffer.sType                = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGELESS_FRAMEBUFFER_FEATURES;
+    imageless_framebuffer.pNext                = nullptr;
+    imageless_framebuffer.imagelessFramebuffer = VK_TRUE;
+    append_feature((VulkanBase*)&imageless_framebuffer);
 
     // dynamic rendering (essential: used to support rendering without render pass)
     auto dynamic_rendering = VkPhysicalDeviceDynamicRenderingFeatures{};
-    {
-        device_extensions.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
-        dynamic_rendering.sType            = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
-        dynamic_rendering.pNext            = nullptr;
-        dynamic_rendering.dynamicRendering = VK_TRUE;
-        append_feature((VulkanBase*)&dynamic_rendering);
-        if (!is_supported(device_extensions, VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME)) {
-            get_logger()->error("Device extension {} is not supported!", VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
-            exit(1);
-        }
-    }
+    device_extensions.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
+    dynamic_rendering.sType            = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
+    dynamic_rendering.pNext            = nullptr;
+    dynamic_rendering.dynamicRendering = VK_TRUE;
+    append_feature((VulkanBase*)&dynamic_rendering);
 
     // optional: used to support bindless descriptors
     auto descriptor_indexing = VkPhysicalDeviceDescriptorIndexingFeatures{};
@@ -195,10 +176,6 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
         descriptor_indexing.descriptorBindingVariableDescriptorCount  = VK_TRUE;
         descriptor_indexing.descriptorBindingPartiallyBound           = VK_TRUE;
         append_feature((VulkanBase*)&descriptor_indexing);
-        if (!is_supported(device_extensions, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME)) {
-            get_logger()->error("Device extension {} is not supported!", VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
-            exit(1);
-        }
     }
 
     // optional: used to get device address for raytracing buffers
@@ -208,10 +185,6 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
         buffer_device_address.pNext               = nullptr;
         buffer_device_address.bufferDeviceAddress = VK_TRUE;
         append_feature((VulkanBase*)&buffer_device_address);
-        if (!is_supported(device_extensions, VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME)) {
-            get_logger()->error("Device extension {} is not supported!", VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
-            exit(1);
-        }
     }
 
     // optional: used for host query reset in raytracing
@@ -222,10 +195,6 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
         host_query_reset.pNext          = nullptr;
         host_query_reset.hostQueryReset = VK_TRUE;
         append_feature((VulkanBase*)&host_query_reset);
-        if (!is_supported(device_extensions, VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME)) {
-            get_logger()->error("Device extension {} is not supported!", VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME);
-            exit(1);
-        }
     }
 
     // optional: used to support bvh building
@@ -235,10 +204,6 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
         acceleration_structure.pNext                 = nullptr;
         acceleration_structure.accelerationStructure = VK_TRUE;
         append_feature((VulkanBase*)&acceleration_structure);
-        if (!is_supported(device_extensions, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME)) {
-            get_logger()->error("Device extension {} is not supported!", VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
-            exit(1);
-        }
     }
 
     // optional: used to raytracing pipelines
@@ -249,10 +214,6 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
         raytracing_pipeline.rayTracingPipeline           = VK_TRUE;
         raytracing_pipeline.rayTraversalPrimitiveCulling = VK_TRUE;
         append_feature((VulkanBase*)&raytracing_pipeline);
-        if (!is_supported(device_extensions, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME)) {
-            get_logger()->error("Device extension {} is not supported!", VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
-            exit(1);
-        }
     }
 
     // optional: used to ray query in other shader types.
@@ -262,10 +223,6 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
         ray_query.pNext    = nullptr;
         ray_query.rayQuery = VK_TRUE;
         append_feature((VulkanBase*)&ray_query);
-        if (!is_supported(device_extensions, VK_KHR_RAY_QUERY_EXTENSION_NAME)) {
-            get_logger()->error("Device extension {} is not supported!", VK_KHR_RAY_QUERY_EXTENSION_NAME);
-            exit(1);
-        }
     }
 
     // logger
@@ -310,6 +267,7 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
     if (queue_family_indices.compute.has_value()) unique_queue_families.insert(queue_family_indices.compute.value());
     if (queue_family_indices.graphics.has_value()) unique_queue_families.insert(queue_family_indices.graphics.value());
     if (queue_family_indices.present.has_value()) unique_queue_families.insert(queue_family_indices.present.value());
+    if (queue_family_indices.transfer.has_value()) unique_queue_families.insert(queue_family_indices.transfer.value());
 
     // prepare queue infos
     float queue_priority     = 1.0f;
@@ -399,17 +357,21 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
     bool enable_buffer_device_address = rhi->features.raytracing;
     create_allocator(rhi, enable_buffer_device_address);
 
-    // transfer queues
-    if (queue_family_indices.transfer.has_value())
-        rhi->vtable.vkGetDeviceQueue(rhi->device, queue_family_indices.transfer.value(), 0, &rhi->transfer_queue);
+    // graphics queue
+    if (queue_family_indices.graphics.has_value())
+        rhi->vtable.vkGetDeviceQueue(rhi->device, queue_family_indices.graphics.value(), 0, &rhi->graphics_queue);
 
     // compute queue
     if (queue_family_indices.compute.has_value())
         rhi->vtable.vkGetDeviceQueue(rhi->device, queue_family_indices.compute.value(), 0, &rhi->compute_queue);
+    else
+        rhi->compute_queue = rhi->graphics_queue;
 
-    // graphics queue
-    if (queue_family_indices.graphics.has_value())
-        rhi->vtable.vkGetDeviceQueue(rhi->device, queue_family_indices.graphics.value(), 0, &rhi->graphics_queue);
+    // transfer queues
+    if (queue_family_indices.transfer.has_value())
+        rhi->vtable.vkGetDeviceQueue(rhi->device, queue_family_indices.transfer.value(), 0, &rhi->transfer_queue);
+    else
+        rhi->transfer_queue = rhi->graphics_queue;
 
     // present queue
     if (queue_family_indices.present.has_value())
@@ -430,6 +392,7 @@ void api::delete_device()
     wait_idle();
 
     auto rhi = get_rhi();
+    if (!rhi) return;
 
     // clean up remaining swapchains
     // needs to be deleted first, because it contains other handles
@@ -447,6 +410,7 @@ void api::delete_device()
     // clean up remaining fences
     for (auto& frame : rhi->frames)
         frame.destroy();
+    rhi->frames.clear();
 
     // clean up remaining fences
     for (auto& fence : rhi->fences)

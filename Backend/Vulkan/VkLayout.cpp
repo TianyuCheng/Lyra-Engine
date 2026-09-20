@@ -61,63 +61,75 @@ VulkanBindGroupLayout::VulkanBindGroupLayout() : layout(VK_NULL_HANDLE)
 
 VulkanBindGroupLayout::VulkanBindGroupLayout(const GPUBindGroupLayoutDescriptor& desc)
 {
-    VkDescriptorBindingFlags flags[] = {VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT};
-
-    auto bindingflags_info          = VkDescriptorSetLayoutBindingFlagsCreateInfo{};
-    bindingflags_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
-    bindingflags_info.bindingCount  = 0;
-    bindingflags_info.pBindingFlags = nullptr;
-
-    // extract binding information for the descriptor set
     binding_types.clear();
     Vector<VkDescriptorSetLayoutBinding> bindings;
+    Vector<VkDescriptorBindingFlags>     binding_flags;
+
+    bindless = false;
+    for (const auto& entry : desc.entries) {
+        if (entry.count == static_cast<GPUIndex32>(~0u)) {
+            bindless = true;
+            break;
+        }
+    }
+
     for (auto& entry : desc.entries) {
         auto type                  = infer_descriptor_type(entry);
         auto binding               = VkDescriptorSetLayoutBinding{};
         binding.binding            = entry.binding.index;
-        binding.descriptorCount    = entry.count;
+        binding.descriptorCount    = (entry.count == static_cast<GPUIndex32>(~0u)) ? 1024 : entry.count;
         binding.descriptorType     = type;
         binding.stageFlags         = vkenum(entry.visibility);
         binding.pImmutableSamplers = nullptr;
         bindings.push_back(binding);
 
-        // keep track of basic properties for bind group layout
-        binding_types.push_back(binding.descriptorType);
+        // keep track of basic properties for bind group layout by binding index
+        binding_types[entry.binding.index] = binding.descriptorType;
 
-        // variable size descriptor binding
-        if (bindless)
-            bindingflags_info.pBindingFlags = flags;
+        if (bindless) {
+            VkDescriptorBindingFlags flag = 0;
+            if (entry.count == static_cast<GPUIndex32>(~0u))
+                flag |= VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT;
+            binding_flags.push_back(flag);
+        }
     }
 
     layout = VK_NULL_HANDLE;
-    // bindless = desc.bindless;
 
     if (!bindings.empty()) {
+        auto bindingflags_info          = VkDescriptorSetLayoutBindingFlagsCreateInfo{};
+        bindingflags_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+        bindingflags_info.bindingCount  = static_cast<uint>(binding_flags.size());
+        bindingflags_info.pBindingFlags = binding_flags.data();
+
         // prepare create info
         auto create_info         = VkDescriptorSetLayoutCreateInfo{};
         create_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         create_info.pBindings    = bindings.data();
-        create_info.bindingCount = static_cast<uint32_t>(bindings.size());
+        create_info.bindingCount = static_cast<uint>(bindings.size());
         if (bindless) {
-            bindingflags_info.bindingCount = static_cast<uint32_t>(bindings.size());
-            create_info.pNext              = &bindingflags_info;
+            create_info.pNext = &bindingflags_info;
         } else {
-            create_info.pNext              = nullptr;
+            create_info.pNext = nullptr;
         }
 
-        // create descritpor set layout
+        // create descriptor set layout
         auto rhi = get_rhi();
         vk_check(rhi->vtable.vkCreateDescriptorSetLayout(rhi->device, &create_info, nullptr, &layout));
 
         if (desc.label)
-            rhi->set_debug_label(VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, (uint64_t)layout, desc.label);
+            rhi->set_debug_label(VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, (ulong)layout, desc.label);
     }
 }
 
 void VulkanBindGroupLayout::destroy()
 {
+    if (layout == VK_NULL_HANDLE) return;
+
     auto rhi = get_rhi();
-    rhi->vtable.vkDestroyDescriptorSetLayout(rhi->device, layout, nullptr);
+    if (rhi && rhi->device) {
+        rhi->vtable.vkDestroyDescriptorSetLayout(rhi->device, layout, nullptr);
+    }
     layout = VK_NULL_HANDLE;
 }
 
@@ -151,20 +163,24 @@ VulkanPipelineLayout::VulkanPipelineLayout(const GPUPipelineLayoutDescriptor& de
     auto create_info                   = VkPipelineLayoutCreateInfo{};
     create_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     create_info.pSetLayouts            = bind_group_layouts.data();
-    create_info.setLayoutCount         = static_cast<uint32_t>(bind_group_layouts.size());
+    create_info.setLayoutCount         = static_cast<uint>(bind_group_layouts.size());
     create_info.pPushConstantRanges    = push_constant_ranges.data();
-    create_info.pushConstantRangeCount = static_cast<uint32_t>(push_constant_ranges.size());
+    create_info.pushConstantRangeCount = static_cast<uint>(push_constant_ranges.size());
 
     // create pipeline layout
     vk_check(rhi->vtable.vkCreatePipelineLayout(rhi->device, &create_info, nullptr, &layout));
 
     if (desc.label)
-        rhi->set_debug_label(VK_OBJECT_TYPE_PIPELINE_LAYOUT, (uint64_t)layout, desc.label);
+        rhi->set_debug_label(VK_OBJECT_TYPE_PIPELINE_LAYOUT, (ulong)layout, desc.label);
 }
 
 void VulkanPipelineLayout::destroy()
 {
+    if (layout == VK_NULL_HANDLE) return;
+
     auto rhi = get_rhi();
-    rhi->vtable.vkDestroyPipelineLayout(rhi->device, layout, nullptr);
+    if (rhi && rhi->device) {
+        rhi->vtable.vkDestroyPipelineLayout(rhi->device, layout, nullptr);
+    }
     layout = VK_NULL_HANDLE;
 }

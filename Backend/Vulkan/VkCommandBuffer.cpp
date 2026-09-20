@@ -424,9 +424,6 @@ void cmd::copy_texture_to_buffer(GPUCommandEncoderHandle cmdbuffer, const GPUTex
     auto& src = fetch_resource(rhi->textures, source.texture);
     auto& dst = fetch_resource(rhi->buffers, destination.buffer);
 
-    if (destination.bytes_per_row != 0)
-        assert("non-zero bytes per row is currently not implemented!");
-
     auto copy                            = VkBufferImageCopy{};
     copy.bufferOffset                    = destination.offset;
     copy.bufferRowLength                 = infer_texture_row_length(src.format, destination.bytes_per_row);
@@ -468,7 +465,7 @@ void cmd::copy_texture_to_texture(GPUCommandEncoderHandle cmdbuffer, const GPUTe
     copy.srcSubresource.baseArrayLayer = 0; // TODO: Is WebGPU able to set this?
     copy.srcSubresource.layerCount     = 1; // TODO: Is WebGPU able to set this?
     copy.dstSubresource.aspectMask     = vkenum(destination.aspect);
-    copy.dstSubresource.mipLevel       = source.mip_level;
+    copy.dstSubresource.mipLevel       = destination.mip_level;
     copy.dstSubresource.baseArrayLayer = 0; // TODO: Is WebGPU able to set this?
     copy.dstSubresource.layerCount     = 1; // TODO: Is WebGPU able to set this?
 
@@ -860,7 +857,7 @@ void cmd::build_blases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
             auto& range           = blas.ranges.at(k);
             range.firstVertex     = src_geometry.first_vertex;
             range.primitiveCount  = src_geometry.size.index_count / 3;
-            range.primitiveOffset = src_geometry.first_index;
+            range.primitiveOffset = src_geometry.first_index * (src_geometry.size.index_format == GPUIndexFormat::UINT16 ? sizeof(ushort) : sizeof(uint));
             range.transformOffset = 0;
         }
 

@@ -66,11 +66,14 @@ VulkanTexture::VulkanTexture(const GPUTextureDescriptor& desc) : aspects(0)
 
 void VulkanTexture::destroy()
 {
+    if (image == VK_NULL_HANDLE) return;
+
     // only delete the image and its memory when it is NOT externally managed.
-    if (image != VK_NULL_HANDLE && alloc_info.size != 0) {
-        vmaDestroyImage(get_rhi()->alloc, image, allocation);
-        image = VK_NULL_HANDLE;
+    auto rhi = get_rhi();
+    if (alloc_info.size != 0 && rhi && rhi->alloc) {
+        vmaDestroyImage(rhi->alloc, image, allocation);
     }
+    image = VK_NULL_HANDLE;
 }
 
 VulkanTextureView::VulkanTextureView()
@@ -99,10 +102,10 @@ VulkanTextureView::VulkanTextureView(const VulkanTexture& texture, const GPUText
     create_info.subresourceRange.baseArrayLayer = desc.base_array_layer;
     create_info.subresourceRange.layerCount     = desc.array_layer_count;
 
-    vk_check(vkCreateImageView(rhi->device, &create_info, nullptr, &view));
+    vk_check(rhi->vtable.vkCreateImageView(rhi->device, &create_info, nullptr, &view));
 
     if (desc.label)
-        rhi->set_debug_label(VK_OBJECT_TYPE_IMAGE_VIEW, (uint64_t)view, desc.label);
+        rhi->set_debug_label(VK_OBJECT_TYPE_IMAGE_VIEW, (ulong)view, desc.label);
 
     // record the render area
     area = texture.area;
@@ -113,7 +116,11 @@ VulkanTextureView::VulkanTextureView(const VulkanTexture& texture, const GPUText
 
 void VulkanTextureView::destroy()
 {
+    if (view == VK_NULL_HANDLE) return;
+
     auto rhi = get_rhi();
-    rhi->vtable.vkDestroyImageView(rhi->device, view, nullptr);
+    if (rhi && rhi->device) {
+        rhi->vtable.vkDestroyImageView(rhi->device, view, nullptr);
+    }
     view = VK_NULL_HANDLE;
 }

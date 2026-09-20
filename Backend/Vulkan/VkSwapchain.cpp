@@ -126,7 +126,7 @@ void VulkanSwapchain::recreate(bool force)
     // set names for swapchain images
     for (uint i = 0; i < count; i++) {
         String name = "swapchain-" + std::to_string(i);
-        rhi->set_debug_label(VK_OBJECT_TYPE_IMAGE, (uint64_t)swapchain_images.at(i), name.c_str());
+        rhi->set_debug_label(VK_OBJECT_TYPE_IMAGE, (ulong)swapchain_images.at(i), name.c_str());
     }
 
     // clean up excess frames if any
@@ -306,11 +306,9 @@ bool api::acquire_next_frame(GPUSurfaceHandle surface, GPUTextureHandle& texture
 {
     auto rhi = get_rhi();
 
-    // initialize swpachain tracker
-    if (rhi->surface_tracker.valid()) {
-        assert(rhi->surface_tracker == surface && "Caller must call present_curr_frame() prior to calling acquire_next_frame() again!");
-        rhi->surface_tracker = surface;
-    }
+    // initialize swapchain tracker
+    assert(!rhi->surface_tracker.valid() && "Caller must call present_curr_frame() prior to calling acquire_next_frame() again!");
+    rhi->surface_tracker = surface;
 
     // query the swapchain
     auto& swp = fetch_resource(rhi->swapchains, surface);
@@ -367,11 +365,10 @@ bool api::present_curr_frame(GPUSurfaceHandle surface)
 {
     auto rhi = get_rhi();
 
-    // validator swpachain tracker
-    if (rhi->surface_tracker.valid()) {
-        assert(rhi->surface_tracker == surface && "Caller must call acquire_next_frame() prior to calling present_curr_frame()!");
-        rhi->surface_tracker.reset();
-    }
+    // validate swapchain tracker
+    assert(rhi->surface_tracker.valid() && "Caller must call acquire_next_frame() prior to calling present_curr_frame()!");
+    assert(rhi->surface_tracker == surface && "Surface mismatch between acquire_next_frame() and present_curr_frame()!");
+    rhi->surface_tracker.reset();
 
     // query the swapchain
     auto& swp = fetch_resource(rhi->swapchains, surface);

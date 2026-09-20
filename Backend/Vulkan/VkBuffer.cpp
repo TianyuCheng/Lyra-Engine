@@ -30,6 +30,7 @@ VulkanBuffer::VulkanBuffer(const GPUBufferDescriptor& desc, VkBufferUsageFlags a
 
     if (desc.mapped_at_creation) {
         alloc_create_info.flags |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
+        alloc_create_info.flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
         dedicate_memory = false;
     }
 
@@ -85,19 +86,27 @@ void VulkanBuffer::map(GPUSize64 offset, GPUSize64 size)
 
 void VulkanBuffer::unmap()
 {
-    if (mapped_data) {
-        vmaUnmapMemory(get_rhi()->alloc, allocation);
-        mapped_data = nullptr;
-        mapped_size = 0ull;
-    }
+    if (!mapped_data) return;
+
+    vmaUnmapMemory(get_rhi()->alloc, allocation);
+    mapped_data = nullptr;
+    mapped_size = 0ull;
 }
 
 void VulkanBuffer::destroy()
 {
-    if (buffer != VK_NULL_HANDLE) {
-        vmaDestroyBuffer(get_rhi()->alloc, buffer, allocation);
-        buffer = VK_NULL_HANDLE;
-    }
+    if (buffer == VK_NULL_HANDLE) return;
+
+    auto rhi = get_rhi();
+    if (rhi && rhi->alloc)
+        vmaDestroyBuffer(rhi->alloc, buffer, allocation);
+
+    buffer         = VK_NULL_HANDLE;
+    allocation     = {};
+    alloc_info     = {};
+    mapped_data    = nullptr;
+    mapped_size    = 0ull;
+    device_address = 0ull;
 }
 
 VkDeviceAddress get_buffer_device_address(VkBuffer buffer)
@@ -107,5 +116,7 @@ VkDeviceAddress get_buffer_device_address(VkBuffer buffer)
     info.sType  = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
     info.pNext  = nullptr;
     info.buffer = buffer;
-    return vkGetBufferDeviceAddressKHR(rhi->device, &info);
+    if (rhi->vtable.vkGetBufferDeviceAddressKHR)
+        return rhi->vtable.vkGetBufferDeviceAddressKHR(rhi->device, &info);
+    return rhi->vtable.vkGetBufferDeviceAddress(rhi->device, &info);
 }
