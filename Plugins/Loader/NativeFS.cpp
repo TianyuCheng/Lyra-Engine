@@ -80,7 +80,6 @@ static bool sort_mount_points(NativeMount* a, NativeMount* b)
 }
 
 // resolve a VFS path to a list of real OS paths in search order (read side).
-// if the incoming path is absolute on the OS, return it directly.
 static Vector<fs::path> resolve_read_paths(NativeFSLoader* loader, FSPath cpath)
 {
     Vector<fs::path> out;
@@ -92,20 +91,26 @@ static Vector<fs::path> resolve_read_paths(NativeFSLoader* loader, FSPath cpath)
     // normalize slashes
     std::replace(path.begin(), path.end(), '\\', '/');
 
-    // absolute OS path? let caller use it directly.
     fs::path probe(path);
-    if (probe.is_absolute()) {
+#if defined(_WIN32)
+    // On Windows, drive-letter paths (e.g. C:/...) or UNC paths are absolute OS paths
+    if (probe.has_root_name()) {
         out.push_back(probe);
         return out;
     }
+#endif
+
+    // normalize virtual path to ensure leading '/' for mount prefix matching
+    String norm_vpath = normalize_vpath(cpath);
 
     // sort mounts by priority (desc) every time only if needed; cheap for small N
-    Vector<NativeMount*> mounts = loader->mounts;
+    std::lock_guard<std::mutex> lk(loader->mounts_mutex);
+    Vector<NativeMount*>        mounts = loader->mounts;
     std::sort(mounts.begin(), mounts.end(), sort_mount_points);
 
     // check file path validity
     for (const auto& m : mounts) {
-        String sub = path;
+        String sub = norm_vpath;
         if (m->vpath == "/") {
             if (!sub.empty() && sub.front() == '/')
                 sub.erase(0, 1);
@@ -119,6 +124,12 @@ static Vector<fs::path> resolve_read_paths(NativeFSLoader* loader, FSPath cpath)
             real /= fs::path(sub);
         out.push_back(real);
     }
+
+    // fallback to direct OS path if no mount matched and the file exists on the host filesystem
+    if (out.empty() && probe.is_absolute() && fs::exists(probe)) {
+        out.push_back(probe);
+    }
+
     return out;
 }
 

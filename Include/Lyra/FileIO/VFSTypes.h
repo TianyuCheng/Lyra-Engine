@@ -32,8 +32,12 @@ namespace lyra
         template <typename T>
         auto read(FSPath vpath) const -> Vector<T>
         {
-            Vector<T> data(size(vpath) / sizeof(T), 0);
-            assert(api_->read_whole_file(loader, vpath, reinterpret_cast<void*>(data.data())));
+            auto sz = size(vpath);
+            if (sz == 0) return {};
+            Vector<T> data(sz / sizeof(T), 0);
+            if (!api_->read_whole_file(loader, vpath, reinterpret_cast<void*>(data.data()))) {
+                return {};
+            }
             return data;
         }
 

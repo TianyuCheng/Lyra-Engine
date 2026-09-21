@@ -273,6 +273,161 @@ static uint get_shader_entry_point_index(slang::ProgramLayout* layout, slang::En
     return ~0u;
 }
 
+static bool contains_ordinary_types(slang::TypeLayoutReflection* type_layout)
+{
+    if (!type_layout) return false;
+    auto kind = type_layout->getKind();
+    switch (kind) {
+        case slang::TypeReflection::Kind::Scalar:
+        case slang::TypeReflection::Kind::Vector:
+        case slang::TypeReflection::Kind::Matrix:
+            return true;
+        case slang::TypeReflection::Kind::Array:
+            return contains_ordinary_types(type_layout->getElementTypeLayout());
+        case slang::TypeReflection::Kind::Struct:
+        {
+            uint count = type_layout->getFieldCount();
+            for (uint i = 0; i < count; i++) {
+                if (contains_ordinary_types(type_layout->getFieldByIndex(i)->getTypeLayout()))
+                    return true;
+            }
+            return false;
+        }
+        default:
+            return false;
+    }
+}
+
+template <typename Callback>
+static String regex_replace_callback(const String& input, const std::regex& re, Callback&& callback)
+{
+    String result;
+    auto   words_begin = std::sregex_iterator(input.begin(), input.end(), re);
+    auto   words_end   = std::sregex_iterator();
+
+    size_t last_pos = 0;
+    for (auto it = words_begin; it != words_end; ++it) {
+        const std::smatch& match = *it;
+        result.append(input, last_pos, match.position() - last_pos);
+        result.append(callback(match));
+        last_pos = match.position() + match.length();
+    }
+    result.append(input, last_pos, input.length() - last_pos);
+    return result;
+}
+
+static String preprocess_lyra_shader_source(const String& input, CompileTarget target)
+{
+    String result = input;
+
+    // Workaround for Slang upstream bug #12165:
+    // vector fwidth capability annotation is missing for Metal target
+    if (target == CompileTarget::MSL) {
+        result = "#define fwidth(x) (abs(ddx(x)) + abs(ddy(x)))\n" + result;
+    }
+
+    auto get_reg_type = [](const String& d) -> char {
+        if (d.find("Sampler") != String::npos) return 's';
+        if (d.find("RW") != String::npos) return 'u';
+        if (d.find("ConstantBuffer") != String::npos || d.find("cbuffer") != String::npos) return 'b';
+        return 't';
+    };
+
+    // 1. Push constants: [[lyra::push_constant]] or [lyra::push_constant] or [push_constant]
+    static const std::regex pc_regex(R"((\[\[?\s*(?:lyra::)?push_constant\s*\]?\])\s*([^;]+);)");
+    result = regex_replace_callback(result, pc_regex, [&](const std::smatch& m) -> String {
+        String attr = m[1].str();
+        String decl = m[2].str();
+
+        if (target == CompileTarget::SPIRV) {
+            String prefix = "";
+            if (decl.find("vk::push_constant") == String::npos && attr.find("vk::push_constant") == String::npos) {
+                prefix = "[[vk::push_constant]] ";
+            }
+            String suffix = "";
+            if (decl.find("register") == String::npos && decl.find("PUSH_CONSTANT") == String::npos) {
+                suffix = " : register(b0, space" + std::to_string(D3D12_PushConstantRegisterSpace) + ")";
+            }
+            return prefix + attr + " " + decl + suffix + ";";
+        } else if (target == CompileTarget::DXIL) {
+            if (decl.find("register") == String::npos && decl.find("PUSH_CONSTANT") == String::npos) {
+                return attr + " " + decl + " : register(b0, space" + std::to_string(D3D12_PushConstantRegisterSpace) + ");";
+            }
+        } else if (target == CompileTarget::MSL) {
+            if (decl.find("register") == String::npos && decl.find("PUSH_CONSTANT") == String::npos) {
+                return attr + " " + decl + " : register(b" + std::to_string(METAL_PushConstantBufferIndex) + ", space" + std::to_string(METAL_PushConstantBufferIndex) + ");";
+            }
+        }
+        return m[0].str();
+    });
+
+    // 2. Two-argument binding: [[lyra::binding(binding, set)]]
+    static const std::regex binding_set_regex(R"((\[\[?\s*(?:lyra::)?binding\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)\s*\]?\])\s*([^;]+);)");
+    result = regex_replace_callback(result, binding_set_regex, [&](const std::smatch& m) -> String {
+        String attr = m[1].str();
+        String b    = m[2].str();
+        String s    = m[3].str();
+        String decl = m[4].str();
+
+        char reg = get_reg_type(decl);
+        if (target == CompileTarget::SPIRV) {
+            if (decl.find("vk::binding") == String::npos) {
+                return "[[vk::binding(" + b + ", " + s + ")]] [[lyra::group(" + s + ")]] [[lyra::binding(" + b + ")]] " + decl + ";";
+            }
+        } else if (target == CompileTarget::DXIL || target == CompileTarget::MSL) {
+            if (decl.find("register") == String::npos) {
+                return "[[lyra::group(" + s + ")]] [[lyra::binding(" + b + ")]] " + decl + " : register(" + reg + b + ", space" + s + ");";
+            }
+        }
+        return m[0].str();
+    });
+
+    // 3. Group / Set: [[lyra::group(N)]] or [[lyra::set(N)]]
+    static const std::regex group_regex(R"((\[\[?\s*(?:lyra::)?(?:group|set)\s*\(\s*(\d+)\s*\)\s*\]?\])\s*([^;]+);)");
+    result = regex_replace_callback(result, group_regex, [&](const std::smatch& m) -> String {
+        String attr = m[1].str();
+        String num  = m[2].str();
+        String decl = m[3].str();
+
+        if (target == CompileTarget::SPIRV) {
+            if (decl.find("vk::binding") == String::npos) {
+                return "[[vk::binding(0, " + num + ")]] " + attr + " " + decl + ";";
+            }
+        } else if (target == CompileTarget::DXIL) {
+            if (decl.find("register") == String::npos) {
+                return attr + " " + decl + " : register(space" + num + ");";
+            }
+        } else if (target == CompileTarget::MSL) {
+            if (decl.find("register") == String::npos) {
+                return attr + " " + decl + " : register(b" + num + ", space" + num + ");";
+            }
+        }
+        return m[0].str();
+    });
+
+    // 4. Single-argument Binding: [[lyra::binding(N)]]
+    static const std::regex binding_regex(R"((\[\[?\s*(?:lyra::)?binding\s*\(\s*(\d+)\s*\)\s*\]?\])\s*([^;]+);)");
+    result = regex_replace_callback(result, binding_regex, [&](const std::smatch& m) -> String {
+        String attr = m[1].str();
+        String num  = m[2].str();
+        String decl = m[3].str();
+
+        char reg = get_reg_type(decl);
+        if (target == CompileTarget::SPIRV) {
+            if (decl.find("vk::binding") == String::npos) {
+                return "[[vk::binding(" + num + ")]] " + attr + " " + decl + ";";
+            }
+        } else if (target == CompileTarget::DXIL || target == CompileTarget::MSL) {
+            if (decl.find("register") == String::npos) {
+                return attr + " " + decl + " : register(" + reg + num + ");";
+            }
+        }
+        return m[0].str();
+    });
+
+    return result;
+}
+
 #ifdef SLANG_DEBUG
 static void print_slang_var_layout(const Vector<EntryMetadata>& metadata, const AccessPath& curr, slang::VariableLayoutReflection* var_layout, TraversalData& traversal)
 {
@@ -442,136 +597,6 @@ void CompilerWrapper::init_builtin_module()
         builtin_module_source,   // shader source code
         diagnostics.writeRef()); // optional diagnostic container
     diagnose_if_needed(diagnostics, builtin != nullptr ? SLANG_OK : SLANG_FAIL);
-}
-
-template <typename Callback>
-static String regex_replace_callback(const String& input, const std::regex& re, Callback&& callback)
-{
-    String result;
-    auto   words_begin = std::sregex_iterator(input.begin(), input.end(), re);
-    auto   words_end   = std::sregex_iterator();
-
-    size_t last_pos = 0;
-    for (auto it = words_begin; it != words_end; ++it) {
-        const std::smatch& match = *it;
-        result.append(input, last_pos, match.position() - last_pos);
-        result.append(callback(match));
-        last_pos = match.position() + match.length();
-    }
-    result.append(input, last_pos, input.length() - last_pos);
-    return result;
-}
-
-static String preprocess_lyra_shader_source(const String& input, CompileTarget target)
-{
-    String result = input;
-
-    // Workaround for Slang upstream bug #12165:
-    // vector fwidth capability annotation is missing for Metal target
-    if (target == CompileTarget::MSL) {
-        result = "#define fwidth(x) (abs(ddx(x)) + abs(ddy(x)))\n" + result;
-    }
-
-    auto get_reg_type = [](const String& d) -> char {
-        if (d.find("Sampler") != String::npos) return 's';
-        if (d.find("RW") != String::npos) return 'u';
-        if (d.find("ConstantBuffer") != String::npos || d.find("cbuffer") != String::npos) return 'b';
-        return 't';
-    };
-
-    // 1. Push constants: [[lyra::push_constant]] or [lyra::push_constant] or [push_constant]
-    static const std::regex pc_regex(R"((\[\[?\s*(?:lyra::)?push_constant\s*\]?\])\s*([^;]+);)");
-    result = regex_replace_callback(result, pc_regex, [&](const std::smatch& m) -> String {
-        String attr = m[1].str();
-        String decl = m[2].str();
-
-        if (target == CompileTarget::SPIRV) {
-            String prefix = "";
-            if (decl.find("vk::push_constant") == String::npos && attr.find("vk::push_constant") == String::npos) {
-                prefix = "[[vk::push_constant]] ";
-            }
-            String suffix = "";
-            if (decl.find("register") == String::npos && decl.find("PUSH_CONSTANT") == String::npos) {
-                suffix = " : register(b0, space" + std::to_string(D3D12_PushConstantRegisterSpace) + ")";
-            }
-            return prefix + attr + " " + decl + suffix + ";";
-        } else if (target == CompileTarget::DXIL) {
-            if (decl.find("register") == String::npos && decl.find("PUSH_CONSTANT") == String::npos) {
-                return attr + " " + decl + " : register(b0, space" + std::to_string(D3D12_PushConstantRegisterSpace) + ");";
-            }
-        } else if (target == CompileTarget::MSL) {
-            if (decl.find("register") == String::npos && decl.find("PUSH_CONSTANT") == String::npos) {
-                return attr + " " + decl + " : register(b" + std::to_string(METAL_PushConstantBufferIndex) + ", space" + std::to_string(METAL_PushConstantBufferIndex) + ");";
-            }
-        }
-        return m[0].str();
-    });
-
-    // 2. Two-argument binding: [[lyra::binding(binding, set)]]
-    static const std::regex binding_set_regex(R"((\[\[?\s*(?:lyra::)?binding\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)\s*\]?\])\s*([^;]+);)");
-    result = regex_replace_callback(result, binding_set_regex, [&](const std::smatch& m) -> String {
-        String attr = m[1].str();
-        String b    = m[2].str();
-        String s    = m[3].str();
-        String decl = m[4].str();
-
-        char reg = get_reg_type(decl);
-        if (target == CompileTarget::SPIRV) {
-            if (decl.find("vk::binding") == String::npos) {
-                return "[[vk::binding(" + b + ", " + s + ")]] [[lyra::group(" + s + ")]] [[lyra::binding(" + b + ")]] " + decl + ";";
-            }
-        } else if (target == CompileTarget::DXIL || target == CompileTarget::MSL) {
-            if (decl.find("register") == String::npos) {
-                return "[[lyra::group(" + s + ")]] [[lyra::binding(" + b + ")]] " + decl + " : register(" + reg + b + ", space" + s + ");";
-            }
-        }
-        return m[0].str();
-    });
-
-    // 3. Group / Set: [[lyra::group(N)]] or [[lyra::set(N)]]
-    static const std::regex group_regex(R"((\[\[?\s*(?:lyra::)?(?:group|set)\s*\(\s*(\d+)\s*\)\s*\]?\])\s*([^;]+);)");
-    result = regex_replace_callback(result, group_regex, [&](const std::smatch& m) -> String {
-        String attr = m[1].str();
-        String num  = m[2].str();
-        String decl = m[3].str();
-
-        if (target == CompileTarget::SPIRV) {
-            if (decl.find("vk::binding") == String::npos) {
-                return "[[vk::binding(0, " + num + ")]] " + attr + " " + decl + ";";
-            }
-        } else if (target == CompileTarget::DXIL) {
-            if (decl.find("register") == String::npos) {
-                return attr + " " + decl + " : register(space" + num + ");";
-            }
-        } else if (target == CompileTarget::MSL) {
-            if (decl.find("register") == String::npos) {
-                return attr + " " + decl + " : register(b" + num + ", space" + num + ");";
-            }
-        }
-        return m[0].str();
-    });
-
-    // 4. Single-argument Binding: [[lyra::binding(N)]]
-    static const std::regex binding_regex(R"((\[\[?\s*(?:lyra::)?binding\s*\(\s*(\d+)\s*\)\s*\]?\])\s*([^;]+);)");
-    result = regex_replace_callback(result, binding_regex, [&](const std::smatch& m) -> String {
-        String attr = m[1].str();
-        String num  = m[2].str();
-        String decl = m[3].str();
-
-        char reg = get_reg_type(decl);
-        if (target == CompileTarget::SPIRV) {
-            if (decl.find("vk::binding") == String::npos) {
-                return "[[vk::binding(" + num + ")]] " + attr + " " + decl + ";";
-            }
-        } else if (target == CompileTarget::DXIL || target == CompileTarget::MSL) {
-            if (decl.find("register") == String::npos) {
-                return attr + " " + decl + " : register(" + reg + num + ");";
-            }
-        }
-        return m[0].str();
-    });
-
-    return result;
 }
 
 bool CompilerWrapper::compile(const CompileDescriptor& desc, CompileResultInternal& result)
@@ -778,7 +803,6 @@ bool ReflectResultInternal::get_bind_group_layouts(uint& count, GPUBindGroupLayo
 
     count = static_cast<uint>(bind_groups.size());
 
-    // check if layouts is provided, if null, simply return count
     if (layouts == nullptr)
         return true;
 
@@ -867,7 +891,8 @@ void ReflectResultInternal::walk(slang::VariableLayoutReflection* var_layout, co
             auto container_var_layout = typ_layout->getContainerVarLayout();
 
             path_node.deepest_constant_buffer = path_node.leaf;
-            if (container_var_layout->getTypeLayout()->getSize(slang::ParameterCategory::SubElementRegisterSpace) != 0)
+            if (typ_layout->getKind() == slang::TypeReflection::Kind::ParameterBlock ||
+                container_var_layout->getTypeLayout()->getSize(slang::ParameterCategory::SubElementRegisterSpace) != 0)
                 path_node.deepest_parameter_block = path_node.leaf;
 
             break;
@@ -904,7 +929,8 @@ void ReflectResultInternal::init_bindings(slang::ProgramLayout* program_layout)
                 record_parameter_block_space(path);
 
                 // parameter block will automatically introduce a constant buffer binding if ordinary types are observed.
-                if (typ_layout->getElementTypeLayout()->getSize())
+                if (typ_layout->getElementTypeLayout()->getSize() ||
+                    contains_ordinary_types(typ_layout->getElementTypeLayout()))
                     create_automatic_constant_buffer(path);
 
                 return WalkAction::CONTINUE;
