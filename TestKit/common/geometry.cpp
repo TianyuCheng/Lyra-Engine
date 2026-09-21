@@ -54,10 +54,10 @@ Geometry Geometry::create_fullscreen()
 
     // uvs
     vertices.at(0).uv = {0.0f, 0.0f};
-    vertices.at(1).uv = {0.0f, 1.0f};
+    vertices.at(1).uv = {1.0f, 0.0f};
     vertices.at(2).uv = {1.0f, 1.0f};
     vertices.at(3).uv = {0.0f, 0.0f};
-    vertices.at(4).uv = {1.0f, 0.0f};
+    vertices.at(4).uv = {0.0f, 1.0f};
     vertices.at(5).uv = {1.0f, 1.0f};
 
     // indices

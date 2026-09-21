@@ -7,6 +7,9 @@
 #include <Lyra/Common/GUID.h>
 #include <Lyra/Common/Path.h>
 #include <Lyra/Common/Macros.h>
+#include <Lyra/Common/Config.h>
+#include <Lyra/Common/Pointer.h>
+#include <Lyra/Common/Collections.h>
 #include <Lyra/FileIO/VFSTypes.h>
 #include <Lyra/Assets/AMSEnums.h>
 
@@ -14,19 +17,25 @@ namespace lyra
 {
     using AssetID = lyra::GUID;
 
-    using AssetTypeID = uint;
+    using AssetTypeID = lyra::UUID;
 
     /**
      * @brief A basic asset handle containing only a GUID.
      */
     struct RawAssetHandle
     {
-        AssetID uuid = 0ull; ///< The globally unique identifier for the asset.
+        AssetID guid = 0ull; ///< globally unique identifier for the asset
 
-        /**
-         * @brief Check if the handle points to a valid asset.
-         */
-        FORCE_INLINE bool valid() const { return uuid != 0; }
+        RawAssetHandle() : guid(0ull) {}
+        RawAssetHandle(AssetID id) : guid(id) {}
+        RawAssetHandle(const RawAssetHandle& other) : guid(other.guid) {}
+        RawAssetHandle& operator=(const RawAssetHandle& other)
+        {
+            guid = other.guid;
+            return *this;
+        }
+
+        FORCE_INLINE bool valid() const { return guid != 0; }
     };
 
     /**
@@ -36,7 +45,42 @@ namespace lyra
     template <typename AssetType>
     struct AssetHandle : RawAssetHandle
     {
-        static constexpr uint type = AssetType::type; ///< The static asset type.
+        static constexpr AssetTypeID type = AssetType::type; ///< The static asset type.
+
+        AssetHandle() = default;
+        AssetHandle(AssetID id) : RawAssetHandle(id) {}
+    };
+
+    /**
+     * @brief A record of an asset dependency within the asset pipeline.
+     */
+    struct AssetDependencyEntry
+    {
+        String      name;     ///< Local identifier / tag within the container (empty for external refs)
+        AssetID     guid = 0; ///< 64-bit unique identifier
+        AssetTypeID type = 0; ///< 128-bit UUID identifying the asset class
+        String      path;     ///< Relative cache path (e.g. "meshes/123.mesh")
+    };
+
+    /**
+     * @brief Generic tracker for asset dependencies during cooking.
+     *        Resolves stable GUIDs across re-imports and writes structured dependency metadata.
+     */
+    struct AssetDependencyScope
+    {
+        JSON&                        metadata;
+        Path                         source_path;
+        Path                         caches_root;
+        HashMap<String, AssetID>     prev_deps;
+        HashSet<AssetID>             allocated_guids;
+        Vector<AssetDependencyEntry> new_deps;
+
+        AssetDependencyScope(JSON& metadata, const Path& source_path = {}, const Path& caches_root = {});
+        ~AssetDependencyScope() = default;
+
+        auto resolve(AssetID parent_guid, StringView dep_name, AssetTypeID type, StringView cache_rel_path = "") -> AssetID;
+        void set_path(AssetID id, StringView path);
+        void commit();
     };
 
     /**

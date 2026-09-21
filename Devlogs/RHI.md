@@ -60,6 +60,12 @@ Finally, Slang uses a deterministic rule for automatic binding deduction. For ma
 I would also encourage users to exclusively use `ParameterBlock` for better shader binding organization,
 except for a few cases (also detailed in the next section).
 
+To eliminate shading-language-specific constructs in user shaders, Lyra provides a built-in `lyra` module
+(`import lyra;`) containing unified attributes for layout control: `[[lyra::group(N)]]`, `[[lyra::binding(N)]]`,
+`[[lyra::binding(binding, set)]]`, `[[lyra::push_constant]]`, and `[[lyra::dynamic]]`. The Slang backend
+automatically handles target-specific lowering (SPIR-V, DXIL, MSL) under the hood while preserving
+accurate reflection.
+
 ## Backend Differences
 
 This [post](https://alain.xyz/blog/comparison-of-modern-graphics-apis) from Alain Galvan
@@ -103,6 +109,62 @@ Without searching for further evidence, I feel that Vulkan's binding model is in
 therefore, Vulkan introduced additional ad-hoc features like push constants and dynamic uniforms to provide
 users with tools that enhance performance.
 
+#### Explicit Layout Control (`[[lyra::group]]`, `[[lyra::binding]]`)
+
+While natural declaration order with `ParameterBlock` works automatically via Slang's layout reflection,
+explicit layout control is essential when interfacing with fixed pipeline contracts or matching layout
+conventions across passes.
+
+Lyra provides target-agnostic layout attributes via `import lyra;`:
+- `[[lyra::group(N)]]` / `[[lyra::set(N)]]`: Explicitly sets the descriptor set / register space index `N`
+  on a `ParameterBlock`, enabling out-of-order declarations (e.g. declaring group 2 before group 0).
+- `[[lyra::binding(N)]]`: Explicitly assigns the binding slot index `N` within a `ParameterBlock` or struct.
+- `[[lyra::binding(binding, set)]]`: Simultaneously assigns both the binding slot and group index on standalone
+  resources (e.g. `[[lyra::binding(7, 3)]] Texture2D lut;`).
+
+The Slang compiler backend intercepts these attributes during preprocessing, generating `[[vk::binding]]` for
+SPIR-V and appropriate register spaces/slots (`: register(tN, spaceS)`) for DXIL and MSL, while ensuring the
+reflection layer populates matching `GPUBindGroupLayoutEntry` indices.
+
+Here is a concrete example combining explicit group and binding assignments:
+
+```hlsl
+import lyra;
+
+struct Camera
+{
+    float4x4 proj;
+    float4x4 view;
+};
+
+struct Material
+{
+    [[lyra::binding(5)]]
+    Texture2D<float4> albedo;
+
+    [[lyra::binding(2)]]
+    SamplerState smp;
+};
+
+// Declared out-of-order: material is explicitly group 2, scene is explicitly group 0
+[[lyra::group(2)]]
+ParameterBlock<Material> material;
+
+[[lyra::group(0)]]
+ParameterBlock<Camera> scene;
+
+// Standalone resource with simultaneous binding slot and group index
+[[lyra::binding(7, 3)]]
+Texture2D<float4> env_lut;
+```
+
+In this example:
+- **Group 0:** Contains `scene` at binding slot 0.
+- **Group 2:** Contains `material` with `albedo` at binding slot 5 and `smp` at binding slot 2.
+- **Group 3:** Contains `env_lut` at binding slot 7.
+- Out-of-order declaration is fully supported; `material` is guaranteed group 2 and `scene` is group 0.
+- All target-specific plumbing (SPIR-V descriptor sets, D3D12 register spaces `space0`/`space2`/`space3`, and Metal argument buffer slots) is generated automatically.
+
 ### Push Constant
 
 Push constants are a small feature that Vulkan introduced. Push constants allow setting a number of
@@ -116,19 +178,25 @@ WebGPU/Vulkan push constants do not have an explicit group/binding index, but in
 all resources require a separate binding slot. In D3D12, we explicitly reserve space 999 for push constants.
 Metal only supports 30 buffers for direct binding, so we reserve slot 30 for push constants.
 
-In Slang, push constants must be explicitly annotated, and unfortunately, due to different binding models,
-we must annotate them for all three backends. We use macros to predefine the binding annotation for push
-constant. Here's an example:
+In Lyra, push constants are declared cleanly using `[[lyra::push_constant]]` via the built-in `lyra` module:
 
 ```hlsl
-[[vk::push_constant]]
-ConstantBuffer<MVP> mvp : PUSH_CONSTANT;
+import lyra;
+
+[[lyra::push_constant]]
+ConstantBuffer<MVP> mvp;
 ```
 
-In the above example, `[[vk::push_constant]]` is an explicit requirement for the Vulkan backend, while
-the macro `PUSH_CONSTANT` is a macro automatically defined based on the backend type. For this to work
-across all backends, it must be bound directly without a `ParameterBlock`. This is an exception to the
-rule that every binding should be bound in a `ParameterBlock`.
+The Lyra Slang backend preprocessor automatically lowers `[[lyra::push_constant]]` into the appropriate target
+constructs:
+- **SPIR-V:** Injects `[[vk::push_constant]]` (to emit the Vulkan `PushConstant` storage class) and `: register(b0, space999)`
+  (so Slang's `IMetadata` accurately tracks per-stage parameter usage).
+- **DXIL:** Appends `: register(b0, space999)`.
+- **MSL:** Appends `: register(b30, space30)`.
+
+Reflection automatically extracts push constant ranges, their offsets, and active shader stage visibility flags
+for pipeline layout creation without requiring any backend-specific annotations in the shader source. For this to work
+across all backends, push constants must be defined using `ConstantBuffer<T>` directly without a `ParameterBlock`.
 
 ### Dynamic Uniform
 

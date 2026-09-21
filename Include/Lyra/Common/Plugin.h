@@ -120,6 +120,49 @@ namespace lyra
         PrepareFn   cleanup = nullptr;
     };
 
+    template <typename APIType>
+    class BuiltinPlugin
+    {
+    public:
+        using CreateFn  = APIType (*)();
+        using PrepareFn = void (*)();
+        using CleanupFn = void (*)();
+
+        explicit BuiltinPlugin() = delete;
+        explicit BuiltinPlugin(CreateFn create, PrepareFn prepare = nullptr, CleanupFn cleanup = nullptr)
+            : create(create), prepare(prepare), cleanup(cleanup)
+        {
+            if (prepare) prepare();
+            api = create();
+        }
+        explicit BuiltinPlugin(const BuiltinPlugin& other) = delete;
+        explicit BuiltinPlugin(BuiltinPlugin&& other)
+        {
+            api     = other.api;
+            create  = other.create;
+            prepare = other.prepare;
+            cleanup = other.cleanup;
+
+            other.create  = nullptr;
+            other.prepare = nullptr;
+            other.cleanup = nullptr;
+        }
+        virtual ~BuiltinPlugin()
+        {
+            if (cleanup) cleanup();
+        }
+
+        APIType* get_api() { return &api; }
+
+        APIType* get_api() const { return &api; }
+
+    private:
+        APIType   api;
+        CreateFn  create  = nullptr;
+        PrepareFn prepare = nullptr;
+        CleanupFn cleanup = nullptr;
+    };
+
 } // end of namespace lyra
 
 #ifdef _WIN32

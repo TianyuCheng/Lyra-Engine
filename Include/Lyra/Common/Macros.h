@@ -42,4 +42,14 @@
     }
 #endif
 
+#ifndef FORWARD_DECLARE_API
+#define FORWARD_DECLARE_API(NAMESPACE, TYPE) \
+    namespace NAMESPACE                      \
+    {                                        \
+        extern TYPE create();                \
+        extern void prepare();               \
+        extern void cleanup();               \
+    }
+#endif
+
 #endif // LYRA_LYRA_COMMON_MACROS_H

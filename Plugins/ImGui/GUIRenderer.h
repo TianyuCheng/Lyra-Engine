@@ -18,140 +18,151 @@
 
 using namespace lyra;
 
-Logger get_logger();
-
-template <typename T>
-struct GUIGarbage
+namespace lyra::imgui
 {
-    T    object;
-    uint unused = 0;
+    Logger get_logger();
 
-    bool should_remove(uint threshold) { return unused++ >= threshold; }
-};
-
-struct GUITexture
-{
-    GPUBindGroup   bindgroup;
-    GPUTexture     texture;
-    GPUTextureView view;
-
-    bool valid() const { return texture.valid() || view.valid(); }
-};
-
-struct GUIWindowContext
-{
-    WindowHandle     window;
-    ImGuiContext*    context = nullptr;
-    WindowInputQuery events;
-};
-
-struct GUIPipelineData;
-struct GUIRendererData;
-struct GUIViewportData
-{
-    GUIPipelineData* pipeline = nullptr;
-    GUIRendererData* renderer = nullptr;
-    GPUSurfaceHandle surface;
-    WindowHandle     window;
-    bool             owned;
-};
-
-struct GUIPlatformData
-{
-    WindowHandle             primary_window;
-    ImGuiContext*            context           = nullptr;
-    float                    elapsed           = 0.0f;
-    Vector<GUIWindowContext> window_contexts   = {};
-    Vector<GUIViewportData*> garbage_viewports = {};
-};
-
-struct GUITextureDeleter
-{
-    // deferred deletion, only reset the handles
-    void operator()(GUITexture* texture)
+    struct GUITexture
     {
-        texture->texture.handle.reset();
-        texture->view.handle.reset();
-    }
-};
+        GPUBindGroup   bindgroup;
+        GPUTexture     texture;
+        GPUTextureView view;
 
-using GUIGarbageBuffer   = GUIGarbage<GPUBuffer>;
-using GUIGarbageBuffers  = Vector<GUIGarbageBuffer>;
-using GUIGarbageTexture  = GUIGarbage<GUITexture>;
-using GUIGarbageTextures = Vector<GUIGarbageTexture>;
-using GUITextureManager  = Slotmap<GUITexture, GUITextureDeleter>;
+        bool valid() const { return texture.valid() || view.valid(); }
+    };
 
-struct GUIPipelineData
-{
-    GPURenderPipeline                pipeline;
-    GPUPipelineLayout                playout;
-    Vector<GPUBindGroupLayoutHandle> blayouts;
-    GPUShaderModule                  vshader;
-    GPUShaderModule                  fshader;
-    uint                             frame_count = 3;
-    uint                             frame_index = 0;
-};
+    struct GUIWindowContext
+    {
+        WindowHandle     window;
+        ImGuiContext*    context = nullptr;
+        WindowInputQuery events;
+    };
 
-struct GUIRendererData
-{
-    Vector<GPUBuffer>  vbuffers;
-    Vector<GPUBuffer>  ibuffers;
-    GPUBindGroupHeap   heap;
-    GPUSampler         sampler;
-    GUITextureManager  textures;
-    GUIGarbageBuffers  garbage_buffers;
-    GUIGarbageTextures garbage_textures;
-};
+    struct GUIPipelineData;
+    struct GUIRendererData;
+    struct GUIViewportData
+    {
+        GUIPipelineData* pipeline = nullptr;
+        GUIRendererData* renderer = nullptr;
+        GPUSurfaceHandle surface;
+        WindowHandle     window;
+        bool             owned;
+    };
 
-struct GUIRenderer
-{
-public:
-    explicit GUIRenderer(const GUIDescriptor& descriptor);
+    struct GUIPlatformData
+    {
+        WindowHandle             primary_window;
+        ImGuiContext*            context           = nullptr;
+        float                    elapsed           = 0.0f;
+        Vector<GUIWindowContext> window_contexts   = {};
+        Vector<GUIViewportData*> garbage_viewports = {};
+    };
 
-    void init(const GUIDescriptor& descriptor);
-    void reset();
-    void prepare(GPUCommandBuffer cmdbuffer);
-    void render(GPUCommandBuffer cmdbuffer, GPUTextureViewHandle backbuffer);
-    void update();
-    void resize();
-    void destroy();
-    void new_frame();
-    void end_frame();
+    struct GUITextureDeleter
+    {
+        // deferred deletion, only reset the handles
+        void operator()(GUITexture* texture)
+        {
+            texture->texture.handle.reset();
+            texture->view.handle.reset();
+        }
+    };
 
-    auto create_texture(GPUTextureHandle texture, GPUTextureViewHandle view) -> GUITextureHandle;
-    void delete_texture(GUITextureHandle texid);
+    using GUITextureManager = Slotmap<GUITexture, GUITextureDeleter>;
 
-    void begin_render_pass(GPUCommandBuffer cmdbuffer, GPUTextureViewHandle backbuffer) const;
-    void end_render_pass(GPUCommandBuffer cmdbuffer) const;
+    struct GUIGarbageBuffer
+    {
+        GPUBuffer object;
+        uint      unused = 0;
 
-    // ImGuiContext* is initialized inside engine DLLs.
-    // User application needs the same context in order to use ImGui.
-    auto context() const -> ImGuiContext*;
+        bool should_remove(uint threshold) { return unused++ >= threshold; }
+    };
 
-private:
-    void init_imgui_setup(const GUIDescriptor& descriptor);
-    void init_config_flags(const GUIDescriptor& descriptor);
-    void init_backend_flags(const GUIDescriptor& descriptor);
-    void init_platform_data(const GUIDescriptor& descriptor);
-    void init_pipeline_data(const GUIDescriptor& descriptor);
-    void init_renderer_data(const GUIDescriptor& descriptor);
-    void init_viewport_data(const GUIDescriptor& descriptor);
-    void init_dummy_texture();
-    void init_imgui_font(float font_size);
+    struct GUIGarbageTexture
+    {
+        GUITextureManager::handle texid;
+        GUITexture                object;
+        uint                      unused = 0;
 
-    void setup_render_state(GPUCommandBuffer cmdbuffer, ImDrawData* draw_data, int width, int height);
+        bool should_remove(uint threshold) { return unused++ >= threshold; }
+    };
 
-    void update_key_state(ImGuiIO& io, const GUIWindowContext& ctx);
-    void update_mouse_state(ImGuiIO& io, const GUIWindowContext& ctx);
-    void update_viewport_state(ImGuiIO& io, const GUIWindowContext& ctx);
-    void update_monitor_state();
+    using GUIGarbageBuffers  = Vector<GUIGarbageBuffer>;
+    using GUIGarbageTextures = Vector<GUIGarbageTexture>;
 
-    GUIDescriptor        descriptor    = {};
-    ImGuiContext*        imgui_context = nullptr;
-    Own<GUIPlatformData> platform_data = nullptr;
-    Own<GUIPipelineData> pipeline_data = nullptr;
-    Own<GUIRendererData> renderer_data = nullptr;
-    Vector<MonitorInfo>  monitors;
-};
+    struct GUIPipelineData
+    {
+        GPURenderPipeline                pipeline;
+        GPUPipelineLayout                playout;
+        Vector<GPUBindGroupLayoutHandle> blayouts;
+        GPUShaderModule                  vshader;
+        GPUShaderModule                  fshader;
+        uint                             frame_count = 3;
+        uint                             frame_index = 0;
+    };
+
+    struct GUIRendererData
+    {
+        Vector<GPUBuffer>  vbuffers;
+        Vector<GPUBuffer>  ibuffers;
+        GPUBindGroupHeap   heap;
+        GPUSampler         sampler;
+        GUITextureManager  textures;
+        GUIGarbageBuffers  garbage_buffers;
+        GUIGarbageTextures garbage_textures;
+    };
+
+    struct GUIRenderer
+    {
+    public:
+        explicit GUIRenderer(const GUIDescriptor& descriptor);
+
+        void init(const GUIDescriptor& descriptor);
+        void reset();
+        void prepare(GPUCommandBuffer cmdbuffer);
+        void render(GPUCommandBuffer cmdbuffer, GPUTextureViewHandle backbuffer);
+        void update();
+        void resize();
+        void destroy();
+        void new_frame();
+        void end_frame();
+
+        auto create_texture(GPUTextureHandle texture, GPUTextureViewHandle view) -> GUITextureHandle;
+        void delete_texture(GUITextureHandle texid);
+
+        void begin_render_pass(GPUCommandBuffer cmdbuffer, GPUTextureViewHandle backbuffer) const;
+        void end_render_pass(GPUCommandBuffer cmdbuffer) const;
+
+        // imgui context is initialized inside engine DLLs.
+        // user application needs the same context in order to use ImGui.
+        auto context() const -> ImGuiContext*;
+
+    private:
+        void init_imgui_setup(const GUIDescriptor& descriptor);
+        void init_config_flags(const GUIDescriptor& descriptor);
+        void init_backend_flags(const GUIDescriptor& descriptor);
+        void init_platform_data(const GUIDescriptor& descriptor);
+        void init_pipeline_data(const GUIDescriptor& descriptor);
+        void init_renderer_data(const GUIDescriptor& descriptor);
+        void init_viewport_data(const GUIDescriptor& descriptor);
+        void init_dummy_texture();
+        void init_imgui_font(float font_size);
+
+        void setup_render_state(GPUCommandBuffer cmdbuffer, ImDrawData* draw_data, int width, int height);
+
+        void update_key_state(ImGuiIO& io, const GUIWindowContext& ctx);
+        void update_mouse_state(ImGuiIO& io, const GUIWindowContext& ctx);
+        void update_viewport_state(ImGuiIO& io, const GUIWindowContext& ctx);
+        void update_monitor_state();
+
+        GUIDescriptor        descriptor    = {};
+        ImGuiContext*        imgui_context = nullptr;
+        Own<GUIPlatformData> platform_data = nullptr;
+        Own<GUIPipelineData> pipeline_data = nullptr;
+        Own<GUIRendererData> renderer_data = nullptr;
+        Vector<MonitorInfo>  monitors;
+    };
+
+} // namespace lyra::imgui
 
 #endif // LYRA_LIBRARY_RENDER_GUI_RENDERER_H

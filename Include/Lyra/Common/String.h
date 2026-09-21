@@ -3,14 +3,41 @@
 #ifndef LYRA_LYRA_COMMON_STRING_H
 #define LYRA_LYRA_COMMON_STRING_H
 
+#include <cstdio>
+#include <cstring>
 #include <vector>
 #include <locale>
 #include <string>
 #include <string_view>
 
-#if __APPLE__
-// to allow compilation on MacOS
-size_t strnlen_s(const char* s, size_t maxlen);
+#if !defined(_WIN32)
+// to allow compilation on non-Windows platforms (e.g. MacOS, Linux)
+inline size_t strnlen_s(const char* s, size_t maxlen)
+{
+    if (!s) return 0;
+    return strnlen(s, maxlen);
+}
+
+inline int strncpy_s(char* dest, size_t destsz, const char* src, size_t count)
+{
+    if (!dest || destsz == 0) return 22; // EINVAL
+    if (!src) {
+        dest[0] = '\0';
+        return 22; // EINVAL
+    }
+    size_t n = count < (destsz - 1) ? count : (destsz - 1);
+    size_t i = 0;
+    while (i < n && src[i] != '\0') {
+        dest[i] = src[i];
+        ++i;
+    }
+    dest[i] = '\0';
+    return 0;
+}
+
+#ifndef sprintf_s
+#define sprintf_s(buf, size, ...) snprintf(buf, size, __VA_ARGS__)
+#endif
 #endif
 
 namespace lyra

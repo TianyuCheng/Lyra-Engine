@@ -35,6 +35,9 @@ namespace lyra
     template <typename... Args>
     using Delegate = etl::delegate<Args...>;
 
+    template <typename Sig>
+    using FunctionRef = absl::FunctionRef<Sig>;
+
     // primary template for non-function types (default case)
     template <typename T>
     struct function_traits;

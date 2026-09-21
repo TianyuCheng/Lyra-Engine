@@ -8,6 +8,7 @@
 #include <deque>
 #include <stack>
 #include <vector>
+#include <variant>
 #include <optional>
 #include <forward_list>
 #include <initializer_list>
@@ -17,8 +18,8 @@
 #include <apus/slot_map.hpp>
 #include <apus/ring_buffer.hpp>
 #include <apus/small_vector.hpp>
-#include <Lyra/Helper/View.h>
-#include <Lyra/Helper/Blackboard.h>
+#include <Lyra/Common/Detail/View.h>
+#include <Lyra/Common/Detail/Blackboard.h>
 
 namespace lyra
 {
@@ -51,6 +52,9 @@ namespace lyra
 
     template <typename... T>
     using MultiMap = absl::btree_multimap<T...>;
+
+    template <typename... T>
+    using Variant = std::variant<T...>;
 
     template <typename... T>
     using Optional = std::optional<T...>;

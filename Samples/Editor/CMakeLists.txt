@@ -1,6 +1,38 @@
 lyra_sample(editor)
 find_package(cxxopts REQUIRED)
-target_sources(lyra-editor PRIVATE main.cpp
-    renderer.h
-    renderer.cpp
+target_include_directories(lyra-editor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+cmrc_add_resource_library(
+  editor-resources
+  NAMESPACE editor
+  Icons/file.png
+  Icons/folder.png
 )
+
+target_sources(lyra-editor PRIVATE
+  Main.cpp
+  Renderer.h
+  Renderer.cpp
+
+  Common/Colors.h
+  Common/EditorLayout.h
+  Common/EditorLayout.cpp
+  Common/SelectionModel.h
+  Common/SelectionModel.cpp
+  Common/ViewportCanvas.h
+  Common/ViewportCanvas.cpp
+
+  Panels/AssetBrowserView.h
+  Panels/AssetBrowserView.cpp
+  Panels/ConsoleView.h
+  Panels/ConsoleView.cpp
+  Panels/HierarchyView.h
+  Panels/HierarchyView.cpp
+  Panels/InspectorView.h
+  Panels/InspectorView.cpp
+  Panels/SceneView.h
+  Panels/SceneView.cpp
+)
+
+target_link_libraries(lyra-editor PRIVATE editor-resources)
+set_target_properties(editor-resources PROPERTIES FOLDER "Resources")

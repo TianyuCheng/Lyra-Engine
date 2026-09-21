@@ -155,8 +155,99 @@ TEST_CASE("ams::asset_server")
         std::ifstream f(expected_metadata);
         JSON          metadata = JSON::parse(f);
         CHECK_EQ(metadata["guid"].get<lyra::GUID>(), guid);
-        CHECK_EQ(metadata["type"].get<lyra::AssetTypeID>(), DummyAsset::type);
+        CHECK_EQ(parse_uuid(metadata["type"].get<String>()), DummyAsset::type);
         f.close();
+    }
+
+    SUBCASE("Delete Asset")
+    {
+        auto source_dir = temp_dir / "SourceDelete";
+        fs::create_directories(source_dir);
+
+        AMSDescriptor delete_desc        = desc;
+        delete_desc.importer.assets_path = source_dir.c_str();
+
+        AssetServer del_ams(delete_desc);
+        del_ams.register_asset<DummyAsset>();
+
+        auto asset_file  = source_dir / "del_test.dummy";
+        auto import_file = source_dir / "del_test.dummy.import";
+
+        {
+            std::ofstream df(asset_file);
+            df << "to be deleted";
+        }
+        {
+            JSON metadata;
+            metadata["guid"] = 987654321;
+            metadata["type"] = to_string(DummyAsset::type);
+            std::ofstream df(import_file);
+            df << metadata.dump();
+        }
+
+        REQUIRE(fs::exists(asset_file));
+        REQUIRE(fs::exists(import_file));
+
+        bool deleted = del_ams.delete_asset("del_test.dummy");
+        CHECK(deleted);
+        CHECK(!fs::exists(asset_file));
+        CHECK(!fs::exists(import_file));
+    }
+
+    SUBCASE("Move Asset")
+    {
+        auto source_dir = temp_dir / "SourceMove";
+        fs::create_directories(source_dir);
+
+        AMSDescriptor move_desc        = desc;
+        move_desc.importer.assets_path = source_dir.c_str();
+
+        AssetServer move_ams(move_desc);
+        move_ams.register_asset<DummyAsset>();
+
+        auto asset_file  = source_dir / "orig.dummy";
+        auto import_file = source_dir / "orig.dummy.import";
+
+        {
+            std::ofstream mf(asset_file);
+            mf << "move test content";
+        }
+        {
+            JSON metadata;
+            metadata["guid"] = 555666777;
+            metadata["type"] = to_string(DummyAsset::type);
+            std::ofstream mf(import_file);
+            mf << metadata.dump();
+        }
+
+        REQUIRE(fs::exists(asset_file));
+        REQUIRE(fs::exists(import_file));
+
+        // test rename in same folder
+        bool moved = move_ams.move_asset("orig.dummy", "renamed.dummy");
+        CHECK(moved);
+        CHECK(!fs::exists(asset_file));
+        CHECK(!fs::exists(import_file));
+
+        auto moved_asset  = source_dir / "renamed.dummy";
+        auto moved_import = source_dir / "renamed.dummy.import";
+        CHECK(fs::exists(moved_asset));
+        CHECK(fs::exists(moved_import));
+        CHECK_EQ(move_ams.get_guid("renamed.dummy"), 555666777);
+
+        // test moving into a subfolder
+        auto sub_dir = source_dir / "Sub";
+        fs::create_directories(sub_dir);
+
+        bool moved_sub = move_ams.move_asset("renamed.dummy", "Sub");
+        CHECK(moved_sub);
+        CHECK(!fs::exists(moved_asset));
+        CHECK(!fs::exists(moved_import));
+
+        auto sub_asset  = sub_dir / "renamed.dummy";
+        auto sub_import = sub_dir / "renamed.dummy.import";
+        CHECK(fs::exists(sub_asset));
+        CHECK(fs::exists(sub_import));
     }
 
     SUBCASE("Basic Asynchronous Loading")
@@ -185,7 +276,7 @@ TEST_CASE("ams::asset_server")
         auto handle1 = ams.load_asset<DummyAsset>("test.dummy");
         auto handle2 = ams.load_asset<DummyAsset>("test.dummy");
 
-        CHECK_EQ(handle1.uuid, handle2.uuid);
+        CHECK_EQ(handle1.guid, handle2.guid);
 
         // wait for load
         while (ams.get_asset(handle1) == nullptr) {
@@ -222,7 +313,7 @@ TEST_CASE("ams::asset_server")
 
         for (int i = 0; i < num_threads; ++i) {
             CHECK(handles[i].valid());
-            CHECK_EQ(handles[i].uuid, handles[0].uuid);
+            CHECK_EQ(handles[i].guid, handles[0].guid);
         }
 
         // wait for load
@@ -239,5 +330,139 @@ TEST_CASE("ams::asset_server")
     }
 
     // cleanup
+    fs::remove_all(temp_dir);
+}
+
+TEST_CASE("ams::registry_dependencies")
+{
+    auto temp_dir = fs::temp_directory_path() / "lyra_registry_test";
+    fs::create_directories(temp_dir);
+
+    AssetID         parent_guid = 1;
+    AssetID         dep1_guid   = 2;
+    AssetID         dep2_guid   = 3;
+    Vector<AssetID> deps        = {dep1_guid, dep2_guid};
+
+    SUBCASE("Binary Serialization")
+    {
+        AssetRegistry reg;
+        reg.update(parent_guid, "parent", 100, deps);
+        reg.update(dep1_guid, "dep1", 100);
+        reg.update(dep2_guid, "dep2", 100);
+
+        auto bin_path = temp_dir / "reg_test.bin";
+        CHECK(reg.save(bin_path.c_str()));
+
+        AssetRegistry reg2;
+        CHECK(reg2.load(bin_path.c_str()));
+
+        auto loaded_deps = reg2.get_dependencies(parent_guid);
+        CHECK_EQ(loaded_deps.size(), 2);
+        CHECK_EQ(loaded_deps[0], dep1_guid);
+        CHECK_EQ(loaded_deps[1], dep2_guid);
+    }
+
+    SUBCASE("TOML Serialization")
+    {
+        AssetRegistry reg;
+        reg.update(parent_guid, "parent", 100, deps);
+
+        auto toml_path = temp_dir / "reg_test.toml";
+        CHECK(reg.save(toml_path.c_str()));
+
+        AssetRegistry reg2;
+        CHECK(reg2.load(toml_path.c_str()));
+
+        auto loaded_deps = reg2.get_dependencies(parent_guid);
+        CHECK_EQ(loaded_deps.size(), 2);
+        CHECK_EQ(loaded_deps[0], dep1_guid);
+        CHECK_EQ(loaded_deps[1], dep2_guid);
+    }
+
+    fs::remove_all(temp_dir);
+}
+
+TEST_CASE("ams::asset_dependencies")
+{
+    auto temp_dir = fs::temp_directory_path() / "lyra_ams_dep_test";
+    fs::create_directories(temp_dir);
+
+    auto registry = temp_dir / "Assets.bin";
+
+    // setup parent and child metadata
+    {
+        JSON child_meta;
+        child_meta["guid"] = 2001;
+        child_meta["type"] = to_string(DummyAsset::type);
+        std::ofstream f(temp_dir / "child.dummy.import");
+        f << child_meta.dump();
+    }
+    {
+        JSON parent_meta;
+        parent_meta["guid"]         = 1001;
+        parent_meta["type"]         = to_string(DummyAsset::type);
+        parent_meta["dependencies"] = {2001};
+        std::ofstream f(temp_dir / "parent.dummy.import");
+        f << parent_meta.dump();
+    }
+    // create actual dummy files
+    {
+        std::ofstream f(temp_dir / "parent.dummy");
+        f << "p";
+        std::ofstream f2(temp_dir / "child.dummy");
+        f2 << "c";
+    }
+
+    FileLoader loader(FSLoader::NATIVE);
+    loader.mount("/", temp_dir.string().c_str(), 0);
+
+    AMSDescriptor desc        = {};
+    desc.workers              = 1;
+    desc.registry             = registry.c_str();
+    desc.loader.assets        = &loader;
+    desc.importer.assets_path = temp_dir.c_str();
+
+    AssetServer ams(desc);
+    ams.register_asset<DummyAsset>();
+
+    SUBCASE("Recursive Loading")
+    {
+        auto parent_handle = ams.load_asset<DummyAsset>("parent.dummy");
+        CHECK(parent_handle.valid());
+
+        // child should also be loading automatically
+        AssetHandle<DummyAsset> child_handle{2001};
+
+        // wait for both to load
+        int timeout = 100;
+        while ((ams.get_asset(parent_handle) == nullptr || ams.get_asset(child_handle) == nullptr) && timeout-- > 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+
+        REQUIRE_NE(ams.get_asset(parent_handle), nullptr);
+        REQUIRE_NE(ams.get_asset(child_handle), nullptr);
+    }
+
+    SUBCASE("Recursive Unloading")
+    {
+        auto                    parent_handle = ams.load_asset<DummyAsset>("parent.dummy");
+        AssetHandle<DummyAsset> child_handle{2001};
+
+        // wait for load
+        while (ams.get_asset(parent_handle) == nullptr || ams.get_asset(child_handle) == nullptr) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+
+        // unload parent
+        ams.unload_asset(parent_handle);
+
+        // purge
+        ams.purge();
+
+        // both should be gone if child refcnt dropped to 0
+        CHECK_EQ(ams.get_asset(parent_handle), nullptr);
+        CHECK_EQ(ams.get_asset(child_handle), nullptr);
+    }
+
     fs::remove_all(temp_dir);
 }

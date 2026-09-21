@@ -302,60 +302,53 @@ struct FrameGraphApp : public TestApp
         FrameGraph::Builder builder;
 
         // first pass: draw
-        auto& draw_pass = builder.create_pass("draw-pass");
-        auto  draw_data = draw_pass.compile<DrawPassData>([&](auto& pass) {
-            GPUTextureDescriptor descriptor{};
-            descriptor.size.width      = desc.width;
-            descriptor.size.height     = desc.height;
-            descriptor.size.depth      = 1;
-            descriptor.array_layers    = 1;
-            descriptor.mip_level_count = 1;
-            descriptor.sample_count    = 1;
-            descriptor.format          = GPUTextureFormat::RGBA8UNORM;
-            descriptor.usage           = GPUTextureUsage::TEXTURE_BINDING | GPUTextureUsage::RENDER_ATTACHMENT;
+        auto draw_data = builder.add_pass<DrawPassData>("draw-pass",
+            [&](DrawPassData& data, FrameGraph::PassBuilder& pass) {
+                GPUTextureDescriptor descriptor{};
+                descriptor.size.width      = desc.width;
+                descriptor.size.height     = desc.height;
+                descriptor.size.depth      = 1;
+                descriptor.array_layers    = 1;
+                descriptor.mip_level_count = 1;
+                descriptor.sample_count    = 1;
+                descriptor.format          = GPUTextureFormat::RGBA8UNORM;
+                descriptor.usage           = GPUTextureUsage::TEXTURE_BINDING | GPUTextureUsage::RENDER_ATTACHMENT;
 
-            DrawPassData data{};
-            data.color = builder.render(builder.create<FrameGraph::Texture>(descriptor));
-            return data;
-        });
-        draw_pass.execute([&](FrameGraph::Resources& resources, void* context) {
-            auto ctx = reinterpret_cast<FrameGraphContext*>(context);
-            auto tex = resources.get<FrameGraph::Texture>(draw_data.color);
-            this->pass1(ctx->cmdlist, tex->view);
-        });
+                data.color = pass.render(pass.create<FrameGraph::Texture>(descriptor));
+            },
+            [this](const DrawPassData& data, FrameGraph::Resources& resources, FrameGraphContext* ctx) {
+                auto tex = resources.get<FrameGraph::Texture>(data.color);
+                this->pass1(ctx->cmdlist, tex->view);
+            });
 
         // second pass: post processing
-        auto& post_pass = builder.create_pass("draw-pass");
-        auto  post_data = post_pass.compile<PostPassData>([&](auto& pass) {
-            FrameGraph::Texture texture{};
-            texture.texture = backbuffer.texture;
-            texture.view    = backbuffer.view;
+        auto post_data = builder.add_pass<PostPassData>("post-pass",
+            [&](PostPassData& data, FrameGraph::PassBuilder& pass) {
+                FrameGraph::Texture texture{};
+                texture.texture = backbuffer.texture;
+                texture.view    = backbuffer.view;
 
-            // directly import from backbuffer
-            PostPassData data{};
-            data.texture = builder.sample(draw_data.color);
-            data.color   = builder.render(builder.import(texture));
-            return data;
-        });
-        post_pass.execute([&](FrameGraph::Resources& resources, void* context) {
-            auto ctx = reinterpret_cast<FrameGraphContext*>(context);
-            auto tex = resources.get<FrameGraph::Texture>(draw_data.color);
-            auto rt  = resources.get<FrameGraph::Texture>(post_data.color);
-            this->pass2(ctx->cmdlist, rt->view, tex->view);
-        });
+                // directly import from backbuffer
+                data.texture = pass.sample(draw_data.color);
+                data.color   = pass.render(pass.import(texture));
+            },
+            [this](const PostPassData& data, FrameGraph::Resources& resources, FrameGraphContext* ctx) {
+                auto tex = resources.get<FrameGraph::Texture>(data.texture);
+                auto rt  = resources.get<FrameGraph::Texture>(data.color);
+                this->pass2(ctx->cmdlist, rt->view, tex->view);
+            });
 
         // third pass: present
-        auto& present_pass = builder.create_pass("present-pass");
-        present_pass.compile<void>([&](auto& pass) {
-            // use NOP to allow manual handling of barriers
-            auto _ = builder.read(post_data.color, FrameGraphReadOp::NOP);
-            pass.preserve();
-        });
-        present_pass.execute([&](FrameGraph::Resources& resources, void* context) {
-            auto ctx = reinterpret_cast<FrameGraphContext*>(context);
-            auto tex = resources.get<FrameGraph::Texture>(post_data.color);
-            postprocessing(ctx->cmdlist, tex->texture);
-        });
+        builder.add_pass("present-pass",
+            [&](FrameGraph::PassBuilder& pass) {
+                // use NOP to allow manual handling of barriers
+                (void)pass.read(post_data.color, FrameGraphReadOp::NOP);
+                pass.preserve();
+            },
+            [this, post_color = post_data.color](FrameGraph::Resources& resources, FrameGraphContext* ctx) {
+                auto tex = resources.get<FrameGraph::Texture>(post_color);
+                postprocessing(ctx->cmdlist, tex->texture);
+            });
 
         auto graph   = builder.build();
         auto context = FrameGraph::Context{device, swp, command};

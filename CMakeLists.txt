@@ -19,6 +19,7 @@ include(CMakeRC)
 add_subdirectory(Include)
 add_subdirectory(Library)
 add_subdirectory(Plugins)
+add_subdirectory(Backend)
 add_subdirectory(TestKit)
 add_subdirectory(Samples)
 

@@ -1,15 +1,4 @@
-# --- Target: lyra-common ---
-lyra_shared(common)
-
-target_sources(lyra-common PRIVATE
-  Common/Logger.cpp
-  Common/Msgbox.cpp
-)
-
-# link headers
-target_link_libraries(lyra-common PUBLIC lyra::headers)
-
-# link external dependencies
+# find all external dependencies first
 find_package(etl REQUIRED)
 find_package(glm REQUIRED)
 find_package(fmt REQUIRED)
@@ -18,13 +7,17 @@ find_package(apus REQUIRED)
 find_package(entt REQUIRED)
 find_package(json REQUIRED)
 find_package(toml REQUIRED)
-find_package(imgui REQUIRED)
 find_package(boxer REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(libassert REQUIRED)
-find_package(magic_enum REQUIRED)
+find_package(efsw CONFIG REQUIRED)
+find_package(magic_enum CONFIG REQUIRED)
+find_package(nfd REQUIRED)
 
-target_link_libraries(lyra-common PUBLIC
+# create a dependency interface library
+add_library(lyra-commons INTERFACE)
+add_library(lyra::commons ALIAS lyra-commons)
+target_link_libraries(lyra-commons INTERFACE
   # utility libraries
   $<BUILD_INTERFACE:etl::etl>
   $<BUILD_INTERFACE:absl::base>
@@ -62,32 +55,45 @@ target_link_libraries(lyra-common PUBLIC
   $<BUILD_INTERFACE:toml::toml>
 
   # misc libraries
+  $<BUILD_INTERFACE:nfd::nfd>
+  $<BUILD_INTERFACE:efsw::efsw>
   $<BUILD_INTERFACE:magic_enum::magic_enum>
+
+  # common
+  boxer::boxer
 )
 
-target_link_libraries(lyra-common PRIVATE boxer::boxer)
-
-# --- Target: lyra-engine ---
+# lyra-engine
 lyra_shared(engine)
 
 target_sources(lyra-engine PRIVATE
-  # file io
+  # assets
+  Assets/AMSServer.cpp
+  Assets/AMSRegistry.cpp
+  Assets/AMSWatcher.cpp
+  Assets/AMSUtils.cpp
+  Assets/AMSPreview.cpp
+
+  # common
+  Common/Logger.cpp
+  Common/Msgbox.cpp
+  Common/STBImpl.cpp
+
+  # fileio
   FileIO/VFSTypes.cpp
 
-  # assets
-  Assets/AMSRegistry.cpp
-  Assets/AMSServer.cpp
-  Assets/Types/TextAsset.cpp
-  Assets/Types/JsonAsset.cpp
-  Assets/Types/TomlAsset.cpp
-  Assets/Types/TextureAsset.cpp
-  Assets/Types/MeshAsset.cpp
-  Assets/Types/MaterialAsset.cpp
-  Assets/Types/ModelAsset.cpp
+  # format
+  Assets/Format/MeshAsset.cpp
+  Assets/Format/TextureAsset.cpp
+  Assets/Format/JsonAsset.cpp
+  Assets/Format/TomlAsset.cpp
+  Assets/Format/TextAsset.cpp
+  Assets/Format/MaterialAsset.cpp
+  Assets/Format/ModelAsset.cpp
+  Assets/Format/SceneAsset.cpp
 
-  # windows system
-  Window/WSIState.cpp
-  Window/WSITypes.cpp
+  # shader
+  Shader/SLCTypes.cpp
 
   # render
   Render/RHIInits.cpp
@@ -97,45 +103,44 @@ target_sources(lyra-engine PRIVATE
   Render/FrameGraphBuilder.cpp
   Render/FrameGraphTexture.cpp
 
-  # shader / compiler
-  Shader/SLCTypes.cpp
+  # window
+  Window/WSIState.cpp
+  Window/WSITypes.cpp
 
-  # ui layer
+  # uicore
   UICore/GUITypes.cpp
-
-  # editor
-  Editor/Canvas.cpp
-  Editor/Layout.cpp
-  Editor/IconGrid.cpp
-  Editor/SelectionModel.cpp
-  Editor/FileView.cpp
-  Editor/TreeView.cpp
-  Editor/SceneView.cpp
-  Editor/ObjectView.cpp
-  Editor/LoggerView.cpp
-
-  # player
-  Player/Application.cpp
-  Player/AssetLayer.cpp
-  Player/SceneLayer.cpp
-  Player/CameraLayer.cpp
-  Player/EditorLayer.cpp
-  Player/TimingLayer.cpp
+  UICore/UI.cpp
+  UICore/UILayout.cpp
+  UICore/UIControls.cpp
+  UICore/UIInternals.cpp
+  UICore/UIProperty.cpp
+  UICore/UITree.cpp
+  UICore/UIDock.cpp
+  UICore/UIDialog.cpp
 
   # scenes
   Scenes/SceneTree.cpp
+
+  # engine
+  Engine/Application.cpp
+  Engine/AssetLayer.cpp
+  Engine/SceneLayer.cpp
+  Engine/RenderLayer.cpp
+  Engine/TimingLayer.cpp
+  Engine/ImGuiLayer.cpp
 )
 
 # link headers and common
+target_link_libraries(lyra-engine PUBLIC lyra::commons)
 target_link_libraries(lyra-engine PUBLIC lyra::headers)
-target_link_libraries(lyra-engine PUBLIC lyra::common)
 
-# link external dependencies
-find_package(ktx REQUIRED)
-find_package(VulkanHeaders REQUIRED)
-
-target_link_libraries(lyra-engine PUBLIC
-  # asset libraries
-  $<BUILD_INTERFACE:KTX::ktx>
-  $<BUILD_INTERFACE:Vulkan::Headers>
-)
+# link builtin plugins
+target_link_libraries(lyra-engine PRIVATE lyra::mesh)
+target_link_libraries(lyra-engine PRIVATE lyra::model)
+target_link_libraries(lyra-engine PRIVATE lyra::scene)
+target_link_libraries(lyra-engine PRIVATE lyra::imgui)
+target_link_libraries(lyra-engine PRIVATE lyra::loader)
+target_link_libraries(lyra-engine PRIVATE lyra::packer)
+target_link_libraries(lyra-engine PRIVATE lyra::texture)
+target_link_libraries(lyra-engine PRIVATE lyra::material)
+target_link_libraries(lyra-engine PRIVATE lyra::preview)

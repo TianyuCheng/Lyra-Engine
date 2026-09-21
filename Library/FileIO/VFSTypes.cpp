@@ -1,5 +1,6 @@
 #include <fstream>
 
+#include <Lyra/Common/Macros.h>
 #include <Lyra/Common/Enums.h>
 #include <Lyra/Common/Assert.h>
 #include <Lyra/Common/Logger.h>
@@ -7,8 +8,14 @@
 
 using namespace lyra;
 
-using FileLoaderPlugin = Plugin<FileLoaderAPI>;
-using FilePackerPlugin = Plugin<FilePackerAPI>;
+// forward declarations for inlined plugins
+FORWARD_DECLARE_API(lyra::loader::native, FileLoaderAPI)
+FORWARD_DECLARE_API(lyra::loader::physfs, FileLoaderAPI)
+FORWARD_DECLARE_API(lyra::packer::pak, FilePackerAPI)
+FORWARD_DECLARE_API(lyra::packer::zip, FilePackerAPI)
+
+using FileLoaderPlugin = BuiltinPlugin<FileLoaderAPI>;
+using FilePackerPlugin = BuiltinPlugin<FilePackerAPI>;
 
 static constexpr uint NUM_LOADER_BACKENDS = static_cast<uint>(magic_enum::enum_count<FSLoader>());
 static constexpr uint NUM_PACKER_BACKENDS = static_cast<uint>(magic_enum::enum_count<FSPacker>());
@@ -24,10 +31,16 @@ static FileLoaderAPI* create_file_loader_api(FSLoader loader)
 
     switch (loader) {
         case FSLoader::NATIVE:
-            loader_plugins[index] = std::make_unique<FileLoaderPlugin>("lyra-nativefs");
+            loader_plugins[index] = std::make_unique<FileLoaderPlugin>(
+                lyra::loader::native::create,
+                lyra::loader::native::prepare,
+                lyra::loader::native::cleanup);
             break;
         case FSLoader::PHYSFS:
-            loader_plugins[index] = std::make_unique<FileLoaderPlugin>("lyra-physfs");
+            loader_plugins[index] = std::make_unique<FileLoaderPlugin>(
+                lyra::loader::physfs::create,
+                lyra::loader::physfs::prepare,
+                lyra::loader::physfs::cleanup);
             break;
     }
     return loader_plugins[index]->get_api();
@@ -41,10 +54,16 @@ static FilePackerAPI* create_file_packer_api(FSPacker packer)
 
     switch (packer) {
         case FSPacker::PAK:
-            packer_plugins[index] = std::make_unique<FilePackerPlugin>("lyra-pak");
+            packer_plugins[index] = std::make_unique<FilePackerPlugin>(
+                lyra::packer::pak::create,
+                lyra::packer::pak::prepare,
+                lyra::packer::pak::cleanup);
             break;
         case FSPacker::ZIP:
-            packer_plugins[index] = std::make_unique<FilePackerPlugin>("lyra-zip");
+            packer_plugins[index] = std::make_unique<FilePackerPlugin>(
+                lyra::packer::zip::create,
+                lyra::packer::zip::prepare,
+                lyra::packer::zip::cleanup);
             break;
     }
     return packer_plugins[index]->get_api();

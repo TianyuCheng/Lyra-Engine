@@ -1,6 +1,8 @@
 #include "helper.h"
 
 CString push_constants_program = R"""(
+import lyra;
+
 struct VertexInput
 {
     float3 position : POSITION;
@@ -18,8 +20,8 @@ struct MVP
     float4x4 xform;
 };
 
-[[vk::push_constant]]
-ConstantBuffer<MVP> mvp : PUSH_CONSTANT;
+[[lyra::push_constant]]
+ConstantBuffer<MVP> mvp;
 
 [shader("vertex")]
 VertexOutput vsmain(VertexInput input)

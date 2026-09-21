@@ -7,12 +7,15 @@
 #include <Lyra/Common/String.h>
 #include <Lyra/Common/Stdint.h>
 #include <Lyra/Common/Handle.h>
+#include <Lyra/Common/Promise.h>
 #include <Lyra/FileIO/VFSAPI.h>
 #include <Lyra/Assets/AMSUtils.h>
 
 namespace lyra
 {
     struct AssetServer;
+    struct PreviewScene;
+    struct PreviewTexture;
 
     /**
      * @brief The AssetLoaderAPI struct defines the interface for loading engine-ready assets.
@@ -47,6 +50,32 @@ namespace lyra
     };
 
     /**
+     * @brief The AssetSaverAPI struct defines the interface for saving/serializing assets to disk.
+     */
+    struct AssetSaverAPI
+    {
+        /**
+         * @brief Configure the saver and provide access to the AssetServer.
+         */
+        void (*configure)(AssetServer* manager, const JSON& options);
+
+        /**
+         * @brief Save asset data to a target path in the OS filesystem.
+         * @param asset Pointer to the in-memory asset data (untyped).
+         * @param path Target path on disk.
+         * @return True if saving was successful, false otherwise.
+         */
+        bool (*save)(const void* asset, OSPath path);
+
+        /**
+         * @brief Get the list of file extensions supported by this saver.
+         * @param extensions Output parameter for the array of C-strings.
+         * @return uint The number of supported extensions.
+         */
+        uint (*get_supported_extensions)(CString* extensions);
+    };
+
+    /**
      * @brief The AssetCookerAPI struct defines the interface for preprocessing source assets.
      */
     struct AssetCookerAPI
@@ -58,7 +87,9 @@ namespace lyra
 
         /**
          * @brief Process a raw source asset and save it to a target path (cooking).
-         * @param metadata JSON object containing input info (like guid) and to be populated with output metadata (like path).
+         * @param metadata JSON object containing input info (like guid) and to be populated with output metadata.
+         *                 Cookers should populate the "dependencies" key with an array of AssetID (GUIDs) if the
+         *                 asset depends on other assets. These will be automatically loaded by the AssetServer.
          * @param source_path Path to the raw source file in the OS filesystem.
          * @param caches_root Root path where processed assets should be saved.
          * @return True if processing was successful, false otherwise.
@@ -71,6 +102,28 @@ namespace lyra
          * @return uint The number of supported extensions.
          */
         uint (*get_supported_extensions)(CString* extensions);
+    };
+
+    /**
+     * @brief The AssetPreviewAPI struct defines the interface for generating asset previews and thumbnails.
+     */
+    struct AssetPreviewAPI
+    {
+        /**
+         * @brief Configure the preview generator with pipeline-wide options (caches_root, width, height, SSAA, etc.).
+         */
+        void (*configure)(AssetServer* manager, const JSON& options);
+
+        /**
+         * @brief Render a preview scene offline to an in-memory pixel buffer.
+         */
+        PreviewTexture (*render_scene)(const PreviewScene& scene);
+
+        /**
+         * @brief Generate a thumbnail for an asset from a preview scene and write to cache.
+         * @return Future<Path> resolving to relative thumbnail path, or empty path on failure.
+         */
+        Future<Path> (*generate_thumbnail)(const PreviewScene& scene, JSON& metadata);
     };
 
 } // namespace lyra

@@ -24,6 +24,7 @@ endif()
 add_subdirectory(scene_graph)
 add_subdirectory(asset_server)
 add_subdirectory(shader_reflection)
+add_subdirectory(material)
 
 # rhi test cases
 add_subdirectory(depth_test)

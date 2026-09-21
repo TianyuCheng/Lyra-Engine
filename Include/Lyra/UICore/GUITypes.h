@@ -10,8 +10,6 @@
 
 namespace lyra
 {
-    using GUIPlugin = Plugin<GUIAPI>;
-
     struct GUITexture
     {
         GUITextureHandle texid;

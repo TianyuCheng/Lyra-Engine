@@ -442,6 +442,30 @@ void GPUShaderModule::destroy()
 }
 #pragma endregion GPUShaderModule
 
+#pragma region GPUQuerySet
+void GPUQuerySet::destroy()
+{
+    RHI::api()->delete_query_set(handle);
+    handle.reset();
+}
+#pragma endregion GPUQuerySet
+
+#pragma region GPUTlas
+void GPUTlas::destroy()
+{
+    RHI::api()->delete_tlas(handle);
+    handle.reset();
+}
+#pragma endregion GPUTlas
+
+#pragma region GPUBlas
+void GPUBlas::destroy()
+{
+    RHI::api()->delete_blas(handle);
+    handle.reset();
+}
+#pragma endregion GPUBlas
+
 #pragma region GPUBindGroupHeap
 void GPUBindGroupHeap::destroy()
 {

@@ -7,10 +7,10 @@ target_sources(lyra-headers INTERFACE
     # everything
     Lyra/Lyra.hpp
 
-    # helper
-    Lyra/Helper/Arena.h
-    Lyra/Helper/Blackboard.h
-    Lyra/Helper/View.h
+    # detail headers
+    Lyra/Common/Detail/Arena.h
+    Lyra/Common/Detail/Blackboard.h
+    Lyra/Common/Detail/View.h
 
     # common headers
     Lyra/Common/Assert.h
@@ -68,6 +68,7 @@ target_sources(lyra-headers INTERFACE
     Lyra/Render/FrameGraphResource.h
     Lyra/Render/FrameGraphTexture.h
     Lyra/Render/FrameGraphTraits.h
+    Lyra/Render/GPUDeletionQueue.h
 
     # shader / compiler
     Lyra/Shader/SLCAPI.h
@@ -88,35 +89,25 @@ target_sources(lyra-headers INTERFACE
     Lyra/Assets/AMSRegistry.h
     Lyra/Assets/AMSServer.h
     Lyra/Assets/AMSUtils.h
-    Lyra/Assets/Assets.h
-    Lyra/Assets/Types/JsonAsset.h
-    Lyra/Assets/Types/MaterialAsset.h
-    Lyra/Assets/Types/MeshAsset.h
-    Lyra/Assets/Types/ModelAsset.h
-    Lyra/Assets/Types/TextAsset.h
-    Lyra/Assets/Types/TextureAsset.h
-    Lyra/Assets/Types/TomlAsset.h
+    Lyra/Assets/AMSWatcher.h
 
-    # editor
-    Lyra/Editor/Canvas.h
-    Lyra/Editor/Colors.h
-    Lyra/Editor/FileView.h
-    Lyra/Editor/IconGrid.h
-    Lyra/Editor/Icons.h
-    Lyra/Editor/Layout.h
-    Lyra/Editor/LoggerView.h
-    Lyra/Editor/ObjectView.h
-    Lyra/Editor/SceneView.h
-    Lyra/Editor/SelectionModel.h
-    Lyra/Editor/TreeView.h
+    # formats
+    Lyra/Assets/Format/JsonAsset.h
+    Lyra/Assets/Format/MaterialAsset.h
+    Lyra/Assets/Format/MeshAsset.h
+    Lyra/Assets/Format/ModelAsset.h
+    Lyra/Assets/Format/SceneAsset.h
+    Lyra/Assets/Format/TextAsset.h
+    Lyra/Assets/Format/TextureAsset.h
+    Lyra/Assets/Format/TomlAsset.h
 
-    # player
-    Lyra/Player/Application.h
-    Lyra/Player/AssetLayer.h
-    Lyra/Player/CameraLayer.h
-    Lyra/Player/EditorLayer.h
-    Lyra/Player/SceneLayer.h
-    Lyra/Player/TimingLayer.h
+    # engine
+    Lyra/Engine/Application.h
+    Lyra/Engine/AssetLayer.h
+    Lyra/Engine/RenderLayer.h
+    Lyra/Engine/ImGuiLayer.h
+    Lyra/Engine/SceneLayer.h
+    Lyra/Engine/TimingLayer.h
 
     # scenes
     Lyra/Scenes/Camera.h
@@ -130,6 +121,17 @@ target_sources(lyra-headers INTERFACE
     Lyra/UICore/GUIAPI.h
     Lyra/UICore/GUIEnums.h
     Lyra/UICore/GUITypes.h
+    Lyra/UICore/ImGui.h
+    Lyra/UICore/UIEnums.h
+    Lyra/UICore/UIIcons.h
+    Lyra/UICore/UIInternals.h
+    Lyra/UICore/UI.h
+    Lyra/UICore/UILayout.h
+    Lyra/UICore/UIControls.h
+    Lyra/UICore/UIProperty.h
+    Lyra/UICore/UITree.h
+    Lyra/UICore/UIDock.h
+    Lyra/UICore/UIDialog.h
 )
 
 target_include_directories(lyra-headers INTERFACE

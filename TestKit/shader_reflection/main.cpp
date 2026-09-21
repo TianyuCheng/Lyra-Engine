@@ -40,10 +40,13 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
         SamplerState smp;
     };
 
-    [[vk::push_constant]]
-    ConstantBuffer<Xform> xform1 : PUSH_CONSTANT;
+    [[lyra::push_constant]]
+    ConstantBuffer<Xform> xform1;
 
+    [[lyra::group(0)]]
     ParameterBlock<Hello> haha;
+
+    [[lyra::group(1)]]
     ParameterBlock<Hello> hihi;
 
     [shader("vertex")]
@@ -278,10 +281,228 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
     // }
 }
 
+void test_shader_explicit_group_and_binding_reflection(CompileTarget target, CompileFlags flags)
+{
+    String code = R"""(
+    import lyra;
+
+    struct Camera
+    {
+        float4x4 proj;
+        float4x4 view;
+    };
+
+    struct Material
+    {
+        [[lyra::binding(5)]]
+        Texture2D<float4> tex;
+
+        [[lyra::binding(2)]]
+        SamplerState smp;
+    };
+
+    struct Xform
+    {
+        float4x4 mvp;
+    };
+
+    [[lyra::push_constant]]
+    ConstantBuffer<Xform> xform;
+
+    // declared out of order: material is explicitly group 2, scene is explicitly group 0
+    [[lyra::group(2)]]
+    ParameterBlock<Material> material;
+
+    [[lyra::group(0)]]
+    ParameterBlock<Camera> scene;
+
+    struct VertexInput
+    {
+        float3 position : POSITION;
+    };
+
+    struct VertexOutput
+    {
+        float4 position : SV_POSITION;
+    };
+
+    [shader("vertex")]
+    VertexOutput vsmain(VertexInput input)
+    {
+        VertexOutput output;
+        output.position = float4(input.position, 1.0);
+        output.position = mul(output.position, xform.mvp);
+        output.position = mul(output.position, scene.view);
+        return output;
+    }
+
+    [shader("fragment")]
+    float4 fsmain(VertexOutput input) : SV_TARGET
+    {
+        return material.tex.Sample(material.smp, float2(0, 0));
+    }
+    )""";
+
+    auto compiler = execute([&]() {
+        auto desc      = CompilerDescriptor{};
+        desc.target    = target;
+        desc.flags     = flags;
+        desc.log_level = LogLevel::info;
+        return Compiler::init(desc);
+    });
+
+    auto module = execute([&]() {
+        auto desc   = CompileDescriptor{};
+        desc.module = "test_explicit";
+        desc.path   = "test_explicit.slang";
+        desc.source = code.c_str();
+        return compiler->compile(desc);
+    });
+
+    auto reflection = compiler->reflect({
+        {*module, "vsmain"},
+        {*module, "fsmain"},
+    });
+
+    uint material_group = reflection->get_bind_group_location("material");
+    CHECK_EQ(material_group, 2);
+
+    uint scene_group = reflection->get_bind_group_location("scene");
+    CHECK_EQ(scene_group, 0);
+
+    auto bindgroups = reflection->get_bind_group_layouts();
+    CHECK_EQ(bindgroups.size(), 2);
+
+    // verify material group (group 2) and its explicit bindings
+    auto mat_bg_it = std::find_if(bindgroups.begin(), bindgroups.end(), [](const auto& bg) {
+        return bg.label && strcmp(bg.label, "material") == 0;
+    });
+    CHECK(mat_bg_it != bindgroups.end());
+    if (mat_bg_it != bindgroups.end()) {
+        CHECK_EQ(mat_bg_it->entries.size(), 2);
+
+        auto tex_it = std::find_if(mat_bg_it->entries.begin(), mat_bg_it->entries.end(), [](const auto& e) {
+            return e.type == GPUResourceType::TEXTURE;
+        });
+        CHECK(tex_it != mat_bg_it->entries.end());
+        if (tex_it != mat_bg_it->entries.end()) {
+            CHECK_EQ(tex_it->binding.index, 5);
+        }
+
+        auto smp_it = std::find_if(mat_bg_it->entries.begin(), mat_bg_it->entries.end(), [](const auto& e) {
+            return e.type == GPUResourceType::SAMPLER;
+        });
+        CHECK(smp_it != mat_bg_it->entries.end());
+        if (smp_it != mat_bg_it->entries.end()) {
+            CHECK_EQ(smp_it->binding.index, 2);
+        }
+    }
+
+    auto push_constants = reflection->get_push_constant_ranges();
+    CHECK_EQ(push_constants.size(), 1);
+    CHECK_EQ(push_constants.at(0).offset, 0);
+    CHECK_EQ(push_constants.at(0).size, 64);
+}
+
+void test_shader_explicit_two_arg_binding_reflection(CompileTarget target, CompileFlags flags)
+{
+    String code = R"""(
+    import lyra;
+
+    [[lyra::binding(7, 3)]]
+    Texture2D<float4> lut;
+
+    [[lyra::binding(1, 3)]]
+    SamplerState smp;
+
+    struct VertexInput
+    {
+        float3 position : POSITION;
+    };
+
+    struct VertexOutput
+    {
+        float4 position : SV_POSITION;
+    };
+
+    [shader("vertex")]
+    VertexOutput vsmain(VertexInput input)
+    {
+        VertexOutput output;
+        output.position = float4(input.position, 1.0);
+        return output;
+    }
+
+    [shader("fragment")]
+    float4 fsmain(VertexOutput input) : SV_TARGET
+    {
+        return lut.Sample(smp, float2(0, 0));
+    }
+    )""";
+
+    auto compiler = execute([&]() {
+        auto desc      = CompilerDescriptor{};
+        desc.target    = target;
+        desc.flags     = flags;
+        desc.log_level = LogLevel::info;
+        return Compiler::init(desc);
+    });
+
+    auto module = execute([&]() {
+        auto desc   = CompileDescriptor{};
+        desc.module = "test_two_arg_binding";
+        desc.path   = "test_two_arg_binding.slang";
+        desc.source = code.c_str();
+        return compiler->compile(desc);
+    });
+
+    auto reflection = compiler->reflect({
+        {*module, "vsmain"},
+        {*module, "fsmain"},
+    });
+
+    auto bindgroups = reflection->get_bind_group_layouts();
+    CHECK_EQ(bindgroups.size(), 1);
+    if (!bindgroups.empty()) {
+        auto& bg = bindgroups.at(0);
+        CHECK_EQ(bg.entries.size(), 2);
+
+        auto lut_it = std::find_if(bg.entries.begin(), bg.entries.end(), [](const auto& e) {
+            return e.type == GPUResourceType::TEXTURE;
+        });
+        CHECK(lut_it != bg.entries.end());
+        if (lut_it != bg.entries.end()) {
+            CHECK_EQ(lut_it->binding.index, 7);
+        }
+
+        auto smp_it = std::find_if(bg.entries.begin(), bg.entries.end(), [](const auto& e) {
+            return e.type == GPUResourceType::SAMPLER;
+        });
+        CHECK(smp_it != bg.entries.end());
+        if (smp_it != bg.entries.end()) {
+            CHECK_EQ(smp_it->binding.index, 1);
+        }
+    }
+}
+
 #ifdef LYRA_VULKAN_SUPPORT
 TEST_CASE("slc::vulkan::shader_reflection" * doctest::description("shader vertex attributes reflection"))
 {
     test_shader_vertex_attribute_reflection(
+        CompileTarget::SPIRV,
+        CompileFlag::DEBUG | CompileFlag::REFLECT);
+}
+
+TEST_CASE("slc::vulkan::explicit_group_reflection" * doctest::description("shader explicit group reflection"))
+{
+    test_shader_explicit_group_and_binding_reflection(
+        CompileTarget::SPIRV,
+        CompileFlag::DEBUG | CompileFlag::REFLECT);
+}
+
+TEST_CASE("slc::vulkan::explicit_two_arg_binding_reflection" * doctest::description("shader explicit two-arg binding reflection"))
+{
+    test_shader_explicit_two_arg_binding_reflection(
         CompileTarget::SPIRV,
         CompileFlag::DEBUG | CompileFlag::REFLECT);
 }
@@ -294,12 +515,40 @@ TEST_CASE("slc::d3d12::shader_reflection" * doctest::description("shader vertex 
         CompileTarget::DXIL,
         CompileFlag::DEBUG | CompileFlag::REFLECT);
 }
+
+TEST_CASE("slc::d3d12::explicit_group_reflection" * doctest::description("shader explicit group reflection"))
+{
+    test_shader_explicit_group_and_binding_reflection(
+        CompileTarget::DXIL,
+        CompileFlag::DEBUG | CompileFlag::REFLECT);
+}
+
+TEST_CASE("slc::d3d12::explicit_two_arg_binding_reflection" * doctest::description("shader explicit two-arg binding reflection"))
+{
+    test_shader_explicit_two_arg_binding_reflection(
+        CompileTarget::DXIL,
+        CompileFlag::DEBUG | CompileFlag::REFLECT);
+}
 #endif
 
 #ifdef __APPLE__
 TEST_CASE("slc::metal::shader_reflection" * doctest::description("shader vertex attributes reflection"))
 {
     test_shader_vertex_attribute_reflection(
+        CompileTarget::MSL,
+        CompileFlag::DEBUG | CompileFlag::REFLECT);
+}
+
+TEST_CASE("slc::metal::explicit_group_reflection" * doctest::description("shader explicit group reflection"))
+{
+    test_shader_explicit_group_and_binding_reflection(
+        CompileTarget::MSL,
+        CompileFlag::DEBUG | CompileFlag::REFLECT);
+}
+
+TEST_CASE("slc::metal::explicit_two_arg_binding_reflection" * doctest::description("shader explicit two-arg binding reflection"))
+{
+    test_shader_explicit_two_arg_binding_reflection(
         CompileTarget::MSL,
         CompileFlag::DEBUG | CompileFlag::REFLECT);
 }

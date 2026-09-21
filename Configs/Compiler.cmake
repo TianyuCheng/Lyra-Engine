@@ -26,4 +26,7 @@ if(MSVC)
 
   # enable automatic multi-thread compilation
   add_compile_options("/MP")
+
+  # ensure utf-8 encoding
+  add_compile_options("/utf-8")
 endif()
