@@ -32,7 +32,7 @@ void MetalBindGroup::init_argument_buffer(const GPUBindGroupDescriptor& desc, co
 {
     auto rhi = get_rhi();
 
-    entry_count = static_cast<uint32_t>(desc.entries.size());
+    entry_count = static_cast<uint>(desc.entries.size());
     entries     = reinterpret_cast<MetalBindGroup::Entry*>(reinterpret_cast<uint8_t*>(this) + sizeof(MetalBindGroup));
 
     argument_buffer = [rhi->device newBufferWithLength:layout.encoder.encodedLength options:MTLResourceStorageModeShared];
@@ -42,7 +42,7 @@ void MetalBindGroup::init_argument_buffer(const GPUBindGroupDescriptor& desc, co
 
     [layout.encoder setArgumentBuffer:argument_buffer offset:0];
 
-    for (uint32_t i = 0; i < entry_count; ++i) {
+    for (uint i = 0; i < entry_count; ++i) {
         const auto& src = desc.entries[i];
         auto&       dst = entries[i];
 
@@ -117,10 +117,10 @@ void MetalBindGroup::init_direct_binding(const GPUBindGroupDescriptor& desc)
 {
     auto rhi = get_rhi();
 
-    entry_count = static_cast<uint32_t>(desc.entries.size());
+    entry_count = static_cast<uint>(desc.entries.size());
     entries     = reinterpret_cast<MetalBindGroup::Entry*>(reinterpret_cast<uint8_t*>(this) + sizeof(MetalBindGroup));
 
-    for (uint32_t i = 0; i < entry_count; ++i) {
+    for (uint i = 0; i < entry_count; ++i) {
         const auto& src = desc.entries[i];
         auto&       dst = entries[i];
 
@@ -177,9 +177,9 @@ void MetalBindGroup::bind(MetalCommandBuffer& cmd, const MetalPipelineLayout& pi
 
 void MetalBindGroup::bind_argument_buffer(MetalCommandBuffer& cmd, const MetalPipelineLayout& pipeline_layout, GPUIndex32 index)
 {
-    uint32_t key = (index << 16) | 0;
+    uint key = (index << 16) | 0;
     if (pipeline_layout.buffer_indices.find(key) != pipeline_layout.buffer_indices.end()) {
-        uint32_t slot = pipeline_layout.buffer_indices.at(key);
+        uint slot = pipeline_layout.buffer_indices.at(key);
         if (cmd.render_encoder) {
             [cmd.render_encoder setVertexBuffer:this->argument_buffer offset:0 atIndex:slot];
             [cmd.render_encoder setFragmentBuffer:this->argument_buffer offset:0 atIndex:slot];
@@ -193,24 +193,24 @@ void MetalBindGroup::bind_argument_buffer(MetalCommandBuffer& cmd, const MetalPi
 
 void MetalBindGroup::bind_direct(MetalCommandBuffer& cmd, const MetalPipelineLayout& pipeline_layout, GPUIndex32 index, GPUBufferDynamicOffsets dynamic_offsets)
 {
-    for (uint32_t i = 0; i < this->entry_count; ++i) {
+    for (uint i = 0; i < this->entry_count; ++i) {
         const auto& entry = this->entries[i];
-        uint32_t    key   = (index << 16) | entry.binding;
+        uint        key   = (index << 16) | entry.binding;
 
         switch (entry.type) {
             case GPUResourceType::BUFFER:
             {
-                uint64_t final_offset = entry.buffer.offset;
-                auto     it           = pipeline_layout.dynamic_binding_to_offset_index.find(key);
+                ulong final_offset = entry.buffer.offset;
+                auto  it           = pipeline_layout.dynamic_binding_to_offset_index.find(key);
                 if (it != pipeline_layout.dynamic_binding_to_offset_index.end()) {
-                    uint32_t dynamic_offset_index = it->second;
+                    uint dynamic_offset_index = it->second;
                     if (dynamic_offset_index < dynamic_offsets.size()) {
                         final_offset += dynamic_offsets[dynamic_offset_index];
                     }
                 }
 
                 if (pipeline_layout.buffer_indices.find(key) != pipeline_layout.buffer_indices.end()) {
-                    uint32_t slot = pipeline_layout.buffer_indices.at(key);
+                    uint slot = pipeline_layout.buffer_indices.at(key);
                     if (cmd.render_encoder) {
                         [cmd.render_encoder setVertexBuffer:entry.buffer.buffer offset:final_offset atIndex:slot];
                         [cmd.render_encoder setFragmentBuffer:entry.buffer.buffer offset:final_offset atIndex:slot];
@@ -224,7 +224,7 @@ void MetalBindGroup::bind_direct(MetalCommandBuffer& cmd, const MetalPipelineLay
             case GPUResourceType::STORAGE_TEXTURE:
             {
                 if (pipeline_layout.texture_indices.find(key) != pipeline_layout.texture_indices.end()) {
-                    uint32_t slot = pipeline_layout.texture_indices.at(key);
+                    uint slot = pipeline_layout.texture_indices.at(key);
                     if (cmd.render_encoder) {
                         [cmd.render_encoder setVertexTexture:entry.texture atIndex:slot];
                         [cmd.render_encoder setFragmentTexture:entry.texture atIndex:slot];
@@ -237,7 +237,7 @@ void MetalBindGroup::bind_direct(MetalCommandBuffer& cmd, const MetalPipelineLay
             case GPUResourceType::SAMPLER:
             {
                 if (pipeline_layout.sampler_indices.find(key) != pipeline_layout.sampler_indices.end()) {
-                    uint32_t slot = pipeline_layout.sampler_indices.at(key);
+                    uint slot = pipeline_layout.sampler_indices.at(key);
                     if (cmd.render_encoder) {
                         [cmd.render_encoder setVertexSamplerState:entry.sampler atIndex:slot];
                         [cmd.render_encoder setFragmentSamplerState:entry.sampler atIndex:slot];
@@ -251,7 +251,7 @@ void MetalBindGroup::bind_direct(MetalCommandBuffer& cmd, const MetalPipelineLay
             {
                 if (@available(macOS 13.0, iOS 16.0, *)) {
                     if (pipeline_layout.buffer_indices.find(key) != pipeline_layout.buffer_indices.end()) {
-                        uint32_t slot = pipeline_layout.buffer_indices.at(key);
+                        uint slot = pipeline_layout.buffer_indices.at(key);
                         if (cmd.render_encoder) {
                             [cmd.render_encoder setVertexAccelerationStructure:entry.tlas atBufferIndex:slot];
                             [cmd.render_encoder setFragmentAccelerationStructure:entry.tlas atBufferIndex:slot];
@@ -295,17 +295,25 @@ GPUBindGroupHandle MetalBindGroupHeap::allocate(const GPUBindGroupDescriptor& de
 
     MetalBindGroup* group = new (memory) MetalBindGroup();
     group->init(desc);
-    return GPUBindGroupHandle(reinterpret_cast<uint64_t>(group));
+    allocated_groups.push_back(group);
+    return GPUBindGroupHandle(reinterpret_cast<ulong>(group));
 }
 
 void MetalBindGroupHeap::reset()
 {
+    for (auto* group : allocated_groups) {
+        group->destroy();
+    }
+    allocated_groups.clear();
     arena->reset();
 }
 
 void MetalBindGroupHeap::destroy()
 {
-
+    for (auto* group : allocated_groups) {
+        group->destroy();
+    }
+    allocated_groups.clear();
     arena->destroy();
 }
 #pragma endregion MetalBindGroupHeap

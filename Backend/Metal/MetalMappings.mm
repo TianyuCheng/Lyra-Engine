@@ -13,7 +13,7 @@ auto mtlenum(GPUPresentMode mode) -> MTLPixelFormat
 }
 
 // composite alpha mode
-auto mtlenum(GPUCompositeAlphaMode mode) -> uint32_t
+auto mtlenum(GPUCompositeAlphaMode mode) -> uint
 {
     // Metal handles alpha blending differently
     // Return 0 for now (opaque)
@@ -21,7 +21,7 @@ auto mtlenum(GPUCompositeAlphaMode mode) -> uint32_t
 }
 
 // color space
-auto mtlenum(GPUColorSpace space) -> uint32_t
+auto mtlenum(GPUColorSpace space) -> uint
 {
     // Metal uses CGColorSpace, not directly mappable
     return 0;
@@ -98,7 +98,7 @@ auto mtlenum(GPUStoreOp op) -> MTLStoreAction
 }
 
 // query type
-auto mtlenum(GPUQueryType query) -> uint32_t
+auto mtlenum(GPUQueryType query) -> uint
 {
     // Metal query types are different, handled in query implementation
     return 0;
@@ -406,7 +406,7 @@ auto mtlenum(GPUTextureFormat format) -> MTLPixelFormat
 }
 
 // barrier layout (Metal doesn't have explicit layouts)
-auto mtlenum(GPUBarrierLayout layout) -> uint32_t
+auto mtlenum(GPUBarrierLayout layout) -> uint
 {
     return 0; // Metal handles layout transitions automatically
 }
@@ -418,13 +418,13 @@ auto mtlenum(GPUIntegerCoordinate samples) -> NSUInteger
 }
 
 // BLAS Type
-auto mtlenum(GPUBlasType type) -> uint32_t
+auto mtlenum(GPUBlasType type) -> uint
 {
     return 0; // Handled in acceleration structure implementation
 }
 
 // BVH update mode
-auto mtlenum(GPUBVHUpdateMode mode) -> uint32_t
+auto mtlenum(GPUBVHUpdateMode mode) -> uint
 {
     return 0; // Handled in acceleration structure implementation
 }
@@ -478,8 +478,6 @@ auto mtlenum(GPUTextureUsageFlags usages) -> MTLTextureUsage
     MTLTextureUsage usage = MTLTextureUsageUnknown;
 
     // clang-format off
-    if (usages.contains(GPUTextureUsage::COPY_SRC))          usage |= MTLTextureUsageShaderRead;
-    if (usages.contains(GPUTextureUsage::COPY_DST))          usage |= MTLTextureUsageShaderWrite;
     if (usages.contains(GPUTextureUsage::TEXTURE_BINDING))   usage |= MTLTextureUsageShaderRead;
     if (usages.contains(GPUTextureUsage::STORAGE_BINDING))   usage |= MTLTextureUsageShaderWrite;
     if (usages.contains(GPUTextureUsage::RENDER_ATTACHMENT)) usage |= MTLTextureUsageRenderTarget;
@@ -489,7 +487,7 @@ auto mtlenum(GPUTextureUsageFlags usages) -> MTLTextureUsage
 }
 
 // shader stage flags
-auto mtlenum(GPUShaderStageFlags stages) -> uint32_t
+auto mtlenum(GPUShaderStageFlags stages) -> uint
 {
     // Metal doesn't have direct stage flags
     // This is handled per-pipeline
@@ -517,21 +515,21 @@ auto mtlenum(GPUBarrierSyncFlags flags) -> MTLBarrierScope
 }
 
 // barrier Access Flags
-auto mtlenum(GPUBarrierAccessFlags flags) -> uint32_t
+auto mtlenum(GPUBarrierAccessFlags flags) -> uint
 {
     // Metal handles access tracking automatically
     return 0;
 }
 
 // BVH Flags
-auto mtlenum(GPUBVHFlags flags) -> uint32_t
+auto mtlenum(GPUBVHFlags flags) -> uint
 {
     // handled in acceleration structure implementation
     return 0;
 }
 
 // BVH Geometry Flags
-auto mtlenum(GPUBVHGeometryFlags flags) -> uint32_t
+auto mtlenum(GPUBVHGeometryFlags flags) -> uint
 {
     // handled in acceleration structure implementation
     return 0;

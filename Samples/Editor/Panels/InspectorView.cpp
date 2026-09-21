@@ -9,9 +9,8 @@
 #include <Lyra/UICore/UIControls.h>
 #include <Lyra/UICore/UIProperty.h>
 #include <Lyra/UICore/UIDock.h>
-
 #include <Lyra/UICore/UIIcons.h>
-#include "Common/EditorLayout.h"
+
 #include "InspectorView.h"
 #include "HierarchyView.h"
 
@@ -76,7 +75,7 @@ void InspectorView::draw_inspector(World& world, SceneNode node)
             auto& name = world.get_component<NodeName>(node).name;
             strncpy_s(buffer, sizeof(buffer), name.c_str(), sizeof(buffer) - 1);
         } else {
-            sprintf_s(buffer, sizeof(buffer), "Node %u", static_cast<uint32_t>(node.entity));
+            snprintf(buffer, sizeof(buffer), "Node %u", static_cast<uint32_t>(node.entity));
         }
 
         ui::row([&]() {

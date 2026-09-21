@@ -273,7 +273,6 @@ static uint get_shader_entry_point_index(slang::ProgramLayout* layout, slang::En
     return ~0u;
 }
 
-
 #ifdef SLANG_DEBUG
 static void print_slang_var_layout(const Vector<EntryMetadata>& metadata, const AccessPath& curr, slang::VariableLayoutReflection* var_layout, TraversalData& traversal)
 {
@@ -410,8 +409,8 @@ SlangProfileID CompilerWrapper::select_profile(const CompilerDescriptor& descrip
 {
     switch (descriptor.target) {
         case CompileTarget::MSL:
-            // msl_2_3 is the minimal version supporting ray tracing
-            return GLOBAL_SESSION->findProfile("msl_2_4");
+            // metallib_2_4 is the minimal version supporting ray tracing on Metal
+            return GLOBAL_SESSION->findProfile("metallib_2_4");
         case CompileTarget::DXIL:
         case CompileTarget::SPIRV:
         default:
@@ -466,6 +465,12 @@ static String regex_replace_callback(const String& input, const std::regex& re, 
 static String preprocess_lyra_shader_source(const String& input, CompileTarget target)
 {
     String result = input;
+
+    // Workaround for Slang upstream bug #12165:
+    // vector fwidth capability annotation is missing for Metal target
+    if (target == CompileTarget::MSL) {
+        result = "#define fwidth(x) (abs(ddx(x)) + abs(ddy(x)))\n" + result;
+    }
 
     auto get_reg_type = [](const String& d) -> char {
         if (d.find("Sampler") != String::npos) return 's';

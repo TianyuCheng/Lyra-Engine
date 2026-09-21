@@ -67,10 +67,20 @@ void MetalCommandBuffer::submit()
     for (size_t i = 0; i < wait_events.size(); ++i) {
         [command_buffer encodeWaitForEvent:wait_events[i] value:wait_values[i]];
     }
+    wait_events.clear();
+    wait_values.clear();
 
     // encode signal events
     for (size_t i = 0; i < signal_events.size(); ++i) {
         [command_buffer encodeSignalEvent:signal_events[i] value:signal_values[i]];
+    }
+    signal_events.clear();
+    signal_values.clear();
+
+    // signal inflight fence for frame completion
+    if (inflight_fence && inflight_fence->valid()) {
+        inflight_fence->target++;
+        [command_buffer encodeSignalEvent:inflight_fence->event value:inflight_fence->target];
     }
 
     [command_buffer commit];
@@ -170,8 +180,10 @@ void cmd::wait_fence(GPUCommandEncoderHandle cmdbuffer, GPUFenceHandle fence_han
     auto& cmd   = rhi->current_frame().command(cmdbuffer);
     auto& fence = fetch_resource(rhi->fences, fence_handle);
 
-    cmd.wait_events.push_back(fence.event);
-    cmd.wait_values.push_back(fence.target);
+    cmd.end_current_encoder();
+    if (cmd.command_buffer && fence.event) {
+        [cmd.command_buffer encodeWaitForEvent:fence.event value:fence.target];
+    }
 }
 
 void cmd::signal_fence(GPUCommandEncoderHandle cmdbuffer, GPUFenceHandle fence_handle, GPUBarrierSyncFlags)
@@ -181,8 +193,10 @@ void cmd::signal_fence(GPUCommandEncoderHandle cmdbuffer, GPUFenceHandle fence_h
     auto& fence = fetch_resource(rhi->fences, fence_handle);
 
     fence.target++;
-    cmd.signal_events.push_back(fence.event);
-    cmd.signal_values.push_back(fence.target);
+    cmd.end_current_encoder();
+    if (cmd.command_buffer && fence.event) {
+        [cmd.command_buffer encodeSignalEvent:fence.event value:fence.target];
+    }
 }
 
 void cmd::begin_render_pass(GPUCommandEncoderHandle cmdbuffer, const GPURenderPassDescriptor& desc)
@@ -233,6 +247,12 @@ void cmd::begin_render_pass(GPUCommandEncoderHandle cmdbuffer, const GPURenderPa
             mtl_pass.stencilAttachment.loadAction   = mtlenum(desc.depth_stencil_attachment.stencil_load_op);
             mtl_pass.stencilAttachment.storeAction  = mtlenum(desc.depth_stencil_attachment.stencil_store_op);
             mtl_pass.stencilAttachment.clearStencil = desc.depth_stencil_attachment.stencil_clear_value;
+        }
+
+        // occlusion query buffer
+        if (desc.occlusion_query_set.valid()) {
+            auto& qs                        = fetch_resource(rhi->query_sets, desc.occlusion_query_set);
+            mtl_pass.visibilityResultBuffer = qs.visibility_buffer;
         }
 
         cmd.render_encoder = [cmd.command_buffer renderCommandEncoderWithDescriptor:mtl_pass];
@@ -410,7 +430,7 @@ void cmd::set_vertex_buffer(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 slot, 
     auto& buffer = fetch_resource(rhi->buffers, buffer_handle);
 
     if (cmd.render_encoder) {
-        uint32_t metal_slot = METAL_VertexBufferSlotIndex - slot;
+        uint metal_slot = METAL_VertexBufferSlotIndex - slot;
         [cmd.render_encoder setVertexBuffer:buffer.buffer offset:offset atIndex:metal_slot];
     }
 }
@@ -551,16 +571,16 @@ void cmd::copy_buffer_to_texture(GPUCommandEncoderHandle cmdbuffer, const GPUTex
     MTLOrigin mtl_origin = MTLOriginMake(dest.origin.x, dest.origin.y, dest.origin.z);
     MTLSize   size       = MTLSizeMake(copy_size.width, copy_size.height, copy_size.depth);
 
-    uint32_t bytes_per_row  = source.bytes_per_row;
-    uint32_t rows_per_image = source.rows_per_image;
+    uint bytes_per_row  = source.bytes_per_row;
+    uint rows_per_image = source.rows_per_image;
 
     // tightly packed texture (infer bytes per row)
     if (bytes_per_row == 0 || rows_per_image == 0) {
-        uint32_t bw = block_width(texture.format);
-        uint32_t bh = block_height(texture.format);
-        uint32_t bs = size_of(texture.format);
+        uint bw = block_width(texture.format);
+        uint bh = block_height(texture.format);
+        uint bs = size_of(texture.format);
         if (bytes_per_row == 0) {
-            uint32_t pitch = ((copy_size.width + bw - 1) / bw) * bs;
+            uint pitch = ((copy_size.width + bw - 1) / bw) * bs;
             bytes_per_row  = (pitch + rhi->texture_row_pitch_alignment - 1) & ~(rhi->texture_row_pitch_alignment - 1);
         }
         if (rows_per_image == 0) {
@@ -605,16 +625,16 @@ void cmd::copy_texture_to_buffer(GPUCommandEncoderHandle cmdbuffer, const GPUTex
     MTLOrigin mtl_origin = MTLOriginMake(source.origin.x, source.origin.y, source.origin.z);
     MTLSize   size       = MTLSizeMake(copy_size.width, copy_size.height, copy_size.depth);
 
-    uint32_t bytes_per_row  = dest.bytes_per_row;
-    uint32_t rows_per_image = dest.rows_per_image;
+    uint bytes_per_row  = dest.bytes_per_row;
+    uint rows_per_image = dest.rows_per_image;
 
     // tightly packed texture (infer bytes per row)
     if (bytes_per_row == 0 || rows_per_image == 0) {
-        uint32_t bw = block_width(texture.format);
-        uint32_t bh = block_height(texture.format);
-        uint32_t bs = size_of(texture.format);
+        uint bw = block_width(texture.format);
+        uint bh = block_height(texture.format);
+        uint bs = size_of(texture.format);
         if (bytes_per_row == 0) {
-            uint32_t pitch = ((copy_size.width + bw - 1) / bw) * bs;
+            uint pitch = ((copy_size.width + bw - 1) / bw) * bs;
             bytes_per_row  = (pitch + rhi->texture_row_pitch_alignment - 1) & ~(rhi->texture_row_pitch_alignment - 1);
         }
         if (rows_per_image == 0) {
@@ -753,7 +773,7 @@ void cmd::begin_occlusion_query(GPUCommandEncoderHandle cmdbuffer, GPUSize32 que
 
     if (!cmd.render_encoder) return;
 
-    [cmd.render_encoder setVisibilityResultMode:MTLVisibilityResultModeBoolean offset:query_index * sizeof(uint64_t)];
+    [cmd.render_encoder setVisibilityResultMode:MTLVisibilityResultModeBoolean offset:query_index * sizeof(ulong)];
 }
 
 void cmd::end_occlusion_query(GPUCommandEncoderHandle cmdbuffer)
@@ -838,7 +858,7 @@ void cmd::resolve_query_set(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle
             if (query_set.visibility_buffer) {
                 // copy from visibility buffer to destination
                 size_t element_size  = (query_set.type == GPUQueryType::OCCLUSION)
-                                           ? sizeof(uint64_t)
+                                           ? sizeof(ulong)
                                            : sizeof(MTLAccelerationStructureSizes);
                 size_t copy_size     = query_count * element_size;
                 size_t source_offset = first_query * element_size;
@@ -927,6 +947,22 @@ void cmd::build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
             MTLAccelerationStructureUserIDInstanceDescriptor* descriptors =
                 (MTLAccelerationStructureUserIDInstanceDescriptor*)[instance_buffer contents];
 
+            // collect unique referenced BLAS acceleration structures and build index map
+            NSMutableArray<id<MTLAccelerationStructure>>* blas_array = [NSMutableArray new];
+            HashMap<ulong, uint>                           blas_index_map;
+
+            for (auto& src_instance : entry.instances) {
+                if (src_instance.blas.valid()) {
+                    ulong blas_val = src_instance.blas.value;
+                    if (blas_index_map.find(blas_val) == blas_index_map.end()) {
+                        auto& blas = fetch_resource(rhi->blases, src_instance.blas);
+                        blas_index_map[blas_val] = static_cast<uint>(blas_array.count);
+                        [blas_array addObject:blas.blas];
+                    }
+                }
+            }
+            as_desc.instancedAccelerationStructures = blas_array;
+
             for (NSUInteger i = 0; i < instance_count; ++i) {
                 auto& src_instance   = entry.instances.at(i);
                 auto& dst_descriptor = descriptors[i];
@@ -944,24 +980,15 @@ void cmd::build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
 
                 // get BLAS reference
                 if (src_instance.blas.valid()) {
-                    auto& blas                                = fetch_resource(rhi->blases, src_instance.blas);
-                    dst_descriptor.accelerationStructureIndex = 0; // Index in acceleration structure array
+                    dst_descriptor.accelerationStructureIndex = blas_index_map.at(src_instance.blas.value);
+                } else {
+                    dst_descriptor.accelerationStructureIndex = 0;
                 }
             }
 
             as_desc.instanceDescriptorBuffer       = instance_buffer;
             as_desc.instanceDescriptorBufferOffset = 0;
             as_desc.instanceCount                  = instance_count;
-
-            // collect all referenced BLAS acceleration structures
-            NSMutableArray<id<MTLAccelerationStructure>>* blas_array = [NSMutableArray new];
-            for (auto& src_instance : entry.instances) {
-                if (src_instance.blas.valid()) {
-                    auto& blas = fetch_resource(rhi->blases, src_instance.blas);
-                    [blas_array addObject:blas.blas];
-                }
-            }
-            as_desc.instancedAccelerationStructures = blas_array;
         }
 
         // build the acceleration structure

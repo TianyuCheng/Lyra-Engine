@@ -82,8 +82,10 @@ MetalBlas::MetalBlas(const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescripto
         // set acceleration structure flags
         if (desc.flags.contains(GPUBVHFlag::ALLOW_UPDATE)) {
             as_desc.usage = MTLAccelerationStructureUsageRefit;
-        } else if (desc.flags.contains(GPUBVHFlag::PREFER_FAST_TRACE)) {
+        } else if (desc.flags.contains(GPUBVHFlag::PREFER_FAST_BUILD)) {
             as_desc.usage = MTLAccelerationStructureUsagePreferFastBuild;
+        } else if (desc.flags.contains(GPUBVHFlag::PREFER_FAST_TRACE)) {
+            as_desc.usage = MTLAccelerationStructureUsageNone;
         }
 
         // get acceleration structure sizes
@@ -92,7 +94,7 @@ MetalBlas::MetalBlas(const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescripto
         // allocate acceleration structure
         blas = [rhi->device newAccelerationStructureWithSize:sizes.accelerationStructureSize];
         if (!blas) {
-            get_logger()->error("Failed to allocate BLAS acceleration structure of size {}", (uint64_t)sizes.accelerationStructureSize);
+            get_logger()->error("Failed to allocate BLAS acceleration structure of size {}", (ulong)sizes.accelerationStructureSize);
             throw GPUOutOfMemoryError("Failed to allocate BLAS acceleration structure");
         }
 

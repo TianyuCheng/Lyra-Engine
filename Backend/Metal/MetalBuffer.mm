@@ -42,14 +42,19 @@ MetalBuffer::MetalBuffer(const GPUBufferDescriptor& desc)
 void MetalBuffer::map(GPUSize64 offset, GPUSize64 size)
 {
     if (buffer) {
-        mapped_data = static_cast<uint8_t*>([buffer contents]) + offset;
+        void* contents = [buffer contents];
+        if (!contents) {
+            get_logger()->error("Cannot map a buffer without CPU-accessible storage mode!");
+            throw GPUValidationError("Cannot map a buffer without CPU-accessible storage mode!");
+        }
+        mapped_data = static_cast<uint8_t*>(contents) + offset;
         mapped_size = size == 0 ? [buffer length] - offset : size;
     }
 }
 
 void MetalBuffer::unmap()
 {
-    // Metal buffers remain mapped
+    mapped_data = nullptr;
     mapped_size = 0;
 }
 

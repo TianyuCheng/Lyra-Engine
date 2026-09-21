@@ -12,5 +12,5 @@ target_sources(lyra-loader PRIVATE
 
 # find dependencies
 find_package(apus REQUIRED)
-find_package(PhysFS CONFIG REQUIRED)
+find_package(PhysFS REQUIRED)
 target_link_libraries(lyra-loader PRIVATE PhysFS::PhysFS)

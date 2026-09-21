@@ -68,11 +68,11 @@ bool api::create_adapter(GPUAdapterProps& adapter, const GPUAdapterDescriptor& d
 
     // texture row pitch alignment properties
     adapter.properties.texture_row_pitch_alignment = lyra::execute([&]() {
-        uint32_t alignment = 1;
+        uint alignment = 1;
 
-        alignment = std::max(alignment, (uint32_t)[rhi->device minimumLinearTextureAlignmentForPixelFormat:MTLPixelFormatRGBA8Unorm]);
-        alignment = std::max(alignment, (uint32_t)[rhi->device minimumLinearTextureAlignmentForPixelFormat:MTLPixelFormatRGBA32Float]);
-        alignment = std::max(alignment, (uint32_t)[rhi->device minimumLinearTextureAlignmentForPixelFormat:MTLPixelFormatR8Unorm]);
+        alignment = std::max(alignment, (uint)[rhi->device minimumLinearTextureAlignmentForPixelFormat:MTLPixelFormatRGBA8Unorm]);
+        alignment = std::max(alignment, (uint)[rhi->device minimumLinearTextureAlignmentForPixelFormat:MTLPixelFormatRGBA32Float]);
+        alignment = std::max(alignment, (uint)[rhi->device minimumLinearTextureAlignmentForPixelFormat:MTLPixelFormatR8Unorm]);
         return alignment;
     });
 

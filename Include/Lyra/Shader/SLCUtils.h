@@ -60,12 +60,7 @@ namespace lyra
     {
         void operator()(ShaderBlob* blob)
         {
-            if (blob->data) {
-                delete blob->data;
-                blob->data = nullptr;
-            }
-
-            blob->size = 0;
+            delete blob;
         }
     };
 

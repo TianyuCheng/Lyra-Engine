@@ -58,7 +58,7 @@ MetalPipeline::MetalPipeline(const GPURenderPipelineDescriptor& desc)
 
             uint binding = 0;
             for (auto& buffer_layout : desc.vertex.buffers) {
-                uint32_t metal_binding = METAL_VertexBufferSlotIndex - binding;
+                uint metal_binding = METAL_VertexBufferSlotIndex - binding;
 
                 // Buffer layout
                 vertex_desc.layouts[metal_binding].stride       = buffer_layout.array_stride;

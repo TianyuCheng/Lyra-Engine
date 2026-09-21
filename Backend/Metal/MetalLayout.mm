@@ -95,18 +95,18 @@ void MetalPipelineLayout::init(const GPUPipelineLayoutDescriptor& desc)
     uint current_sampler_index        = 0;
     uint current_dynamic_offset_index = 0;
 
-    for (uint32_t set = 0; set < desc.bind_group_layouts.size(); ++set) {
+    for (uint set = 0; set < desc.bind_group_layouts.size(); ++set) {
         GPUBindGroupLayoutHandle handle = desc.bind_group_layouts[set];
         bind_group_layouts.push_back(handle);
 
         auto& layout = fetch_resource(rhi->bind_group_layouts, handle);
 
         if (layout.encoder) {
-            uint32_t key        = (set << 16) | 0; // Use binding 0 as representative for the set
+            uint key            = (set << 16) | 0; // Use binding 0 as representative for the set
             buffer_indices[key] = current_buffer_index++;
         } else {
             for (const auto& entry : layout.entries) {
-                uint32_t key = (set << 16) | entry.binding.index;
+                uint key = (set << 16) | entry.binding.index;
 
                 switch (entry.type) {
                     case GPUResourceType::BUFFER:
@@ -149,5 +149,9 @@ void MetalPipelineLayout::destroy()
     buffer_indices.clear();
     texture_indices.clear();
     sampler_indices.clear();
+    dynamic_binding_to_offset_index.clear();
+    max_buffer_index  = 0;
+    max_texture_index = 0;
+    max_sampler_index = 0;
 }
 #pragma endregion MetalPipelineLayout

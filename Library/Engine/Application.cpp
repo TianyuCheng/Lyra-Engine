@@ -36,6 +36,10 @@ AppDescriptor& AppDescriptor::with_graphics_backend(RHIBackend backend)
             slc.target = CompileTarget::DXIL;
             slc.flags |= CompileFlag::REFLECT; // reflect is always on
             break;
+        case RHIBackend::METAL:
+            slc.target = CompileTarget::MSL;
+            slc.flags |= CompileFlag::REFLECT; // reflect is always on
+            break;
         default:
             slc.target = CompileTarget::SPIRV;
             slc.flags |= CompileFlag::REFLECT; // reflect is always on

@@ -69,7 +69,7 @@ struct MetalBuffer
     id<MTLBuffer>      buffer       = nil;
     MTLResourceOptions storage_mode = MTLResourceStorageModeShared;
     uint8_t*           mapped_data  = nullptr;
-    uint64_t           mapped_size  = 0ull;
+    ulong              mapped_size  = 0ull;
 
     // implementation in MetalBuffer.mm
     explicit MetalBuffer();
@@ -135,15 +135,15 @@ struct MetalSampler
 struct MetalFence
 {
     id<MTLSharedEvent> event  = nil;
-    mutable uint64_t   target = 0ull;
+    mutable ulong      target = 0ull;
 
     // implementation in MetalFence.mm
     explicit MetalFence();
     explicit MetalFence(bool signaled);
 
-    void wait(uint64_t timeout = UINT64_MAX);
-    void signal(uint64_t value);
-    void signal(id<MTLCommandBuffer> cmdbuf, uint64_t value);
+    void wait(ulong timeout = UINT64_MAX);
+    void signal(ulong value);
+    void signal(id<MTLCommandBuffer> cmdbuf, ulong value);
     void destroy();
     bool valid() const { return event != nil; }
 };
@@ -154,7 +154,7 @@ struct MetalQuerySet
     id<MTLCounterSampleBuffer> sample_buffer     = nil;
     id<MTLBuffer>              visibility_buffer = nil; // For occlusion queries
     GPUQueryType               type              = GPUQueryType::TIMESTAMP;
-    uint32_t                   count             = 0;
+    uint                       count             = 0;
 
     // implementation in MetalQuery.mm
     explicit MetalQuerySet();
@@ -182,7 +182,7 @@ struct MetalBindGroup
 {
     struct Entry
     {
-        uint32_t         binding;
+        uint             binding;
         GPUResourceType  type;
         MTLResourceUsage usage;
 
@@ -201,7 +201,7 @@ struct MetalBindGroup
     };
 
     Entry*        entries         = nullptr;
-    uint32_t      entry_count     = 0;
+    uint          entry_count     = 0;
     id<MTLBuffer> argument_buffer = nil;
 
     // implementation in MetalBindGroup.mm
@@ -220,7 +220,7 @@ struct MetalBindGroup
     template <typename TEncoder>
     void declare_resource_usages(TEncoder encoder)
     {
-        for (uint32_t i = 0; i < this->entry_count; ++i) {
+        for (uint i = 0; i < this->entry_count; ++i) {
             const auto& entry = this->entries[i];
             switch (entry.type) {
                 case GPUResourceType::BUFFER:
@@ -258,7 +258,8 @@ struct MetalBindGroupLayout
 // bind group heap
 struct MetalBindGroupHeap
 {
-    Ref<lyra::MemoryArena> arena;
+    Ref<lyra::MemoryArena>  arena;
+    Vector<MetalBindGroup*> allocated_groups;
 
     // implementation in MetalBindGroup.mm
     explicit MetalBindGroupHeap();
@@ -278,15 +279,15 @@ struct MetalPipelineLayout
     Vector<GPUPushConstantRange>     push_constant_ranges;
 
     // flat index mappings: (set << 16 | binding) -> metal_index
-    HashMap<uint32_t, uint32_t> buffer_indices;
-    HashMap<uint32_t, uint32_t> texture_indices;
-    HashMap<uint32_t, uint32_t> sampler_indices;
-    HashMap<uint32_t, uint32_t> dynamic_binding_to_offset_index;
+    HashMap<uint, uint> buffer_indices;
+    HashMap<uint, uint> texture_indices;
+    HashMap<uint, uint> sampler_indices;
+    HashMap<uint, uint> dynamic_binding_to_offset_index;
 
     // max indices used (for collision detection)
-    uint32_t max_buffer_index  = 0;
-    uint32_t max_texture_index = 0;
-    uint32_t max_sampler_index = 0;
+    uint max_buffer_index  = 0;
+    uint max_texture_index = 0;
+    uint max_sampler_index = 0;
 
     // implementation in MetalLayout.mm
     explicit MetalPipelineLayout();
@@ -363,7 +364,7 @@ struct MetalBlas
 struct MetalCommandBuffer
 {
     // frame tracking
-    uint32_t frame_id = 0u;
+    uint frame_id = 0u;
 
     id<MTLCommandBuffer> command_buffer = nil;
     id<MTLCommandQueue>  command_queue  = nil;
@@ -394,17 +395,18 @@ struct MetalCommandBuffer
     id<MTLBuffer>  bound_index_buffer  = nil;
     GPUIndexFormat index_format        = GPUIndexFormat::UINT16;
     MTLIndexType   index_type          = MTLIndexTypeUInt16;
-    uint64_t       index_buffer_offset = 0;
+    ulong          index_buffer_offset = 0;
 
     // primitive type (cached from pipeline)
     MTLPrimitiveType primitive_type = MTLPrimitiveTypeTriangle;
 
     // synchronization
     MetalFence                 fence;
+    MetalFence*                inflight_fence = nullptr;
     Vector<id<MTLSharedEvent>> wait_events;
-    Vector<uint64_t>           wait_values;
+    Vector<ulong>              wait_values;
     Vector<id<MTLSharedEvent>> signal_events;
-    Vector<uint64_t>           signal_values;
+    Vector<ulong>              signal_values;
 
     // implementation in MetalCommandBuffer.mm
     void transition_encoder(EncoderType new_type);
@@ -429,7 +431,7 @@ struct MetalCommandPool
 // frame (per-frame resource tracking)
 struct MetalFrame
 {
-    uint32_t frame_id = 0u;
+    uint frame_id = 0u;
 
     // synchronization (NOT owned by frame, just references)
     MetalFence         inflight_fence;
@@ -521,8 +523,8 @@ struct MetalRHI
     GPUSurfaceHandle surface_tracker;
 
     // device properties
-    bool     has_unified_memory          = false;
-    uint32_t texture_row_pitch_alignment = 1;
+    bool has_unified_memory          = false;
+    uint texture_row_pitch_alignment = 1;
 
     // resource managers
     MetalResourceManager<MetalSwapchain>       swapchains;
@@ -718,13 +720,13 @@ auto get_logger() -> Logger;
 
 // Enum conversions (mtlenum overloads)
 auto mtlenum(GPUPresentMode mode) -> MTLPixelFormat;
-auto mtlenum(GPUCompositeAlphaMode mode) -> uint32_t;
-auto mtlenum(GPUColorSpace space) -> uint32_t;
+auto mtlenum(GPUCompositeAlphaMode mode) -> uint;
+auto mtlenum(GPUColorSpace space) -> uint;
 auto mtlenum(GPUBlendOperation op) -> MTLBlendOperation;
 auto mtlenum(GPUBlendFactor factor) -> MTLBlendFactor;
 auto mtlenum(GPULoadOp op) -> MTLLoadAction;
 auto mtlenum(GPUStoreOp op) -> MTLStoreAction;
-auto mtlenum(GPUQueryType query) -> uint32_t;
+auto mtlenum(GPUQueryType query) -> uint;
 auto mtlenum(GPUTextureDimension dim) -> MTLTextureType;
 auto mtlenum(GPUTextureViewDimension dim) -> MTLTextureType;
 auto mtlenum(GPUAddressMode mode) -> MTLSamplerAddressMode;
@@ -739,19 +741,19 @@ auto mtlenum(GPUVertexStepMode step) -> MTLVertexStepFunction;
 auto mtlenum(GPUIndexFormat format) -> MTLIndexType;
 auto mtlenum(GPUVertexFormat format) -> MTLVertexFormat;
 auto mtlenum(GPUTextureFormat format) -> MTLPixelFormat;
-auto mtlenum(GPUBarrierLayout layout) -> uint32_t;
+auto mtlenum(GPUBarrierLayout layout) -> uint;
 auto mtlenum(GPUIntegerCoordinate samples) -> NSUInteger;
-auto mtlenum(GPUBlasType type) -> uint32_t;
-auto mtlenum(GPUBVHUpdateMode mode) -> uint32_t;
+auto mtlenum(GPUBlasType type) -> uint;
+auto mtlenum(GPUBVHUpdateMode mode) -> uint;
 auto mtlenum(GPUTextureAspectFlags aspect) -> MTLTextureUsage;
 auto mtlenum(GPUColorWriteFlags color) -> MTLColorWriteMask;
 auto mtlenum(GPUBufferUsageFlags usages) -> std::pair<MTLResourceOptions, MTLStorageMode>;
 auto mtlenum(GPUTextureUsageFlags usages) -> MTLTextureUsage;
-auto mtlenum(GPUShaderStageFlags stages) -> uint32_t;
+auto mtlenum(GPUShaderStageFlags stages) -> uint;
 auto mtlenum(GPUBarrierSyncFlags flags) -> MTLBarrierScope;
-auto mtlenum(GPUBarrierAccessFlags flags) -> uint32_t;
-auto mtlenum(GPUBVHFlags flags) -> uint32_t;
-auto mtlenum(GPUBVHGeometryFlags flags) -> uint32_t;
+auto mtlenum(GPUBarrierAccessFlags flags) -> uint;
+auto mtlenum(GPUBVHFlags flags) -> uint;
+auto mtlenum(GPUBVHGeometryFlags flags) -> uint;
 
 // format utilities
 uint size_of(MTLPixelFormat format);

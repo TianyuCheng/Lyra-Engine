@@ -29,21 +29,38 @@ MetalTexture::MetalTexture(const GPUTextureDescriptor& desc)
         }
 
         MTLTextureDescriptor* mtl_desc = [MTLTextureDescriptor new];
-        mtl_desc.textureType           = mtlenum(desc.dimension);
-        mtl_desc.pixelFormat           = mtlenum(desc.format);
-        mtl_desc.width                 = desc.size.width;
-        mtl_desc.height                = desc.size.height;
-        mtl_desc.depth                 = desc.size.depth;
-        mtl_desc.mipmapLevelCount      = desc.mip_level_count;
-        mtl_desc.arrayLength           = desc.array_layers;
-        mtl_desc.sampleCount           = desc.sample_count;
-        mtl_desc.usage                 = mtlenum(desc.usage);
-        mtl_desc.storageMode           = determine_texture_storage_mode(desc.format);
+
+        MTLTextureType mtl_type = mtlenum(desc.dimension);
+        if (desc.sample_count > 1) {
+            if (desc.array_layers > 1) {
+                mtl_type = MTLTextureType2DMultisampleArray;
+            } else {
+                mtl_type = MTLTextureType2DMultisample;
+            }
+        } else if (desc.array_layers > 1 && desc.dimension == GPUTextureDimension::x2D) {
+            mtl_type = MTLTextureType2DArray;
+        }
+
+        mtl_desc.textureType      = mtl_type;
+        mtl_desc.pixelFormat      = mtlenum(desc.format);
+        mtl_desc.width            = desc.size.width;
+        mtl_desc.height           = desc.size.height;
+        mtl_desc.depth            = desc.size.depth;
+        mtl_desc.mipmapLevelCount = desc.mip_level_count;
+        mtl_desc.arrayLength      = desc.array_layers;
+        mtl_desc.sampleCount      = desc.sample_count;
+        mtl_desc.usage            = mtlenum(desc.usage);
+
+        if (desc.sample_count > 1 || is_depth_stencil_format(desc.format)) {
+            mtl_desc.storageMode = MTLStorageModePrivate;
+        } else {
+            mtl_desc.storageMode = determine_texture_storage_mode(desc.format);
+        }
 
         texture = [rhi->device newTextureWithDescriptor:mtl_desc];
         if (!texture) {
             get_logger()->error("Failed to create Metal texture: {}x{}x{}, format={}",
-                desc.size.width, desc.size.height, desc.size.depth, (uint32_t)desc.format);
+                desc.size.width, desc.size.height, desc.size.depth, static_cast<uint>(desc.format));
             throw GPUOutOfMemoryError("Failed to create Metal texture");
         }
 

@@ -222,6 +222,10 @@ bool api::acquire_next_frame(GPUSurfaceHandle surface, GPUTextureHandle& texture
         // store drawable in frame
         swap_frame.init(drawable);
 
+        // signal image available semaphore now that drawable has been acquired
+        auto& img_avail = fetch_resource(rhi->fences, frame.image_available_semaphore);
+        img_avail.signal(++img_avail.target);
+
         // update output handles
         texture = swap_frame.texture;
         view    = swap_frame.view;
@@ -257,8 +261,8 @@ bool api::present_curr_frame(GPUSurfaceHandle surface)
 
         // present the drawable
         if (swap_frame.drawable) {
-            auto present   = frm.allocate(GPUQueueType::DEFAULT, true);
-            auto cmdbuffer = frm.command(present);
+            auto  present   = frm.allocate(GPUQueueType::DEFAULT, true);
+            auto& cmdbuffer = frm.command(present);
             cmd::wait_fence(present, frm.render_complete_semaphore, GPUBarrierSync::RENDER_TARGET);
             [cmdbuffer.command_buffer presentDrawable:swap_frame.drawable];
             cmdbuffer.submit();

@@ -27,8 +27,10 @@ MetalTlas::MetalTlas(const GPUTlasDescriptor& desc)
         // set acceleration structure usage flags
         if (desc.flags.contains(GPUBVHFlag::ALLOW_UPDATE)) {
             as_desc.usage = MTLAccelerationStructureUsageRefit;
-        } else if (desc.flags.contains(GPUBVHFlag::PREFER_FAST_TRACE)) {
+        } else if (desc.flags.contains(GPUBVHFlag::PREFER_FAST_BUILD)) {
             as_desc.usage = MTLAccelerationStructureUsagePreferFastBuild;
+        } else if (desc.flags.contains(GPUBVHFlag::PREFER_FAST_TRACE)) {
+            as_desc.usage = MTLAccelerationStructureUsageNone;
         }
 
         // get acceleration structure sizes
@@ -37,7 +39,7 @@ MetalTlas::MetalTlas(const GPUTlasDescriptor& desc)
         // allocate acceleration structure
         tlas = [rhi->device newAccelerationStructureWithSize:sizes.accelerationStructureSize];
         if (!tlas) {
-            get_logger()->error("Failed to allocate TLAS acceleration structure of size {}", (uint64_t)sizes.accelerationStructureSize);
+            get_logger()->error("Failed to allocate TLAS acceleration structure of size {}", (ulong)sizes.accelerationStructureSize);
             throw GPUOutOfMemoryError("Failed to allocate TLAS acceleration structure");
         }
 

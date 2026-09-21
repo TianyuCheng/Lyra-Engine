@@ -60,7 +60,7 @@ MetalQuerySet::MetalQuerySet(const GPUQuerySetDescriptor& desc)
             {
                 // for occlusion queries, Metal uses visibility result buffer
                 // create a buffer to store visibility results (8 bytes per query)
-                NSUInteger buffer_size = desc.count * sizeof(uint64_t);
+                NSUInteger buffer_size = desc.count * sizeof(ulong);
                 visibility_buffer      = [rhi->device newBufferWithLength:buffer_size
                                                              options:MTLResourceStorageModeShared];
                 if (!visibility_buffer) {

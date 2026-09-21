@@ -10,6 +10,9 @@ void MetalFrame::init(id<MTLCommandQueue> graphics, id<MTLCommandQueue> compute,
 
 void MetalFrame::wait()
 {
+    if (inflight_fence.valid()) {
+        inflight_fence.wait();
+    }
     for (auto& fence : existing_fences) {
         fence.wait();
     }
@@ -52,7 +55,8 @@ GPUCommandEncoderHandle MetalFrame::allocate(GPUQueueType type, bool primary)
 {
     @autoreleasepool {
         MetalCommandBuffer cmd;
-        cmd.frame_id = frame_id;
+        cmd.frame_id       = frame_id;
+        cmd.inflight_fence = &inflight_fence;
 
         // select the appropriate command pool based on queue type
         switch (type) {
@@ -78,9 +82,11 @@ GPUCommandEncoderHandle MetalFrame::allocate(GPUQueueType type, bool primary)
 
 void api::new_frame()
 {
-    auto rhi = get_rhi();
+    auto  rhi   = get_rhi();
     rhi->current_frame_index++;
-    rhi->current_frame().reset();
+    auto& frame = rhi->current_frame();
+    frame.wait();
+    frame.reset();
 }
 
 void api::end_frame()
