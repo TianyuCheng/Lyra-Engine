@@ -3,13 +3,13 @@
 #ifndef LYRA_EDITOR_PANELS_ASSET_BROWSER_VIEW_H
 #define LYRA_EDITOR_PANELS_ASSET_BROWSER_VIEW_H
 
-#include <Lyra/Common/Path.h>
+#include <Lyra/Utilities/Path.h>
 #include <Lyra/Assets/AMSUtils.h>
-#include <Lyra/Render/RHITypes.h>
-#include <Lyra/UICore/GUITypes.h>
+#include <Lyra/Graphics/RHITypes.h>
+#include <Lyra/UISystem/GUITypes.h>
 
 #include "Common/SelectionModel.h"
-#include <Lyra/Engine/Application.h>
+#include <Lyra/Runtime/Application.h>
 
 namespace lyra
 {

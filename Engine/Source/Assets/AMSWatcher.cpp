@@ -1,5 +1,5 @@
 #include <Lyra/Assets/AMSWatcher.h>
-#include <Lyra/Common/Logger.h>
+#include <Lyra/Utilities/Logger.h>
 
 using namespace lyra;
 

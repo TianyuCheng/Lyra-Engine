@@ -1,12 +1,12 @@
-#include <Lyra/Common/Logger.h>
-#include <Lyra/Common/Function.h>
-#include <Lyra/UICore/UI.h>
-#include <Lyra/UICore/UILayout.h>
-#include <Lyra/UICore/UIControls.h>
-#include <Lyra/UICore/UIDock.h>
+#include <Lyra/Utilities/Logger.h>
+#include <Lyra/Utilities/Function.h>
+#include <Lyra/UISystem/UI.h>
+#include <Lyra/UISystem/UILayout.h>
+#include <Lyra/UISystem/UIControls.h>
+#include <Lyra/UISystem/UIDock.h>
 
 // local imports
-#include <Lyra/UICore/UIIcons.h>
+#include <Lyra/UISystem/UIIcons.h>
 #include "Common/EditorLayout.h"
 #include "ConsoleView.h"
 

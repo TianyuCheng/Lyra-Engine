@@ -1,11 +1,11 @@
 #pragma once
 
-#ifndef LYRA_LYRA_ASSETS_FORMAT_SCENEASSET_H
-#define LYRA_LYRA_ASSETS_FORMAT_SCENEASSET_H
+#ifndef LYRA_ENGINE_ASSETS_FORMAT_SCENEASSET_H
+#define LYRA_ENGINE_ASSETS_FORMAT_SCENEASSET_H
 
-#include <Lyra/Common/Math.h>
-#include <Lyra/Common/String.h>
-#include <Lyra/Common/Collections.h>
+#include <Lyra/Utilities/Math.h>
+#include <Lyra/Utilities/String.h>
+#include <Lyra/Utilities/Collections.h>
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/Assets/AMSUtils.h>
 #include <Lyra/Assets/Format/MeshAsset.h>
@@ -52,4 +52,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LYRA_ASSETS_FORMAT_SCENEASSET_H
+#endif // LYRA_ENGINE_ASSETS_FORMAT_SCENEASSET_H

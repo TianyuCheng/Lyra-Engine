@@ -74,13 +74,13 @@ target_sources(lyra-engine PRIVATE
   Assets/AMSUtils.cpp
   Assets/AMSPreview.cpp
 
-  # common
-  Common/Logger.cpp
-  Common/Msgbox.cpp
-  Common/STBImpl.cpp
+  # utilities
+  Utilities/Logger.cpp
+  Utilities/Msgbox.cpp
+  Utilities/STBImpl.cpp
 
-  # fileio
-  FileIO/VFSTypes.cpp
+  # filesystem
+  FileSystem/VFSTypes.cpp
 
   # format
   Assets/Format/MeshAsset.cpp
@@ -92,42 +92,42 @@ target_sources(lyra-engine PRIVATE
   Assets/Format/ModelAsset.cpp
   Assets/Format/SceneAsset.cpp
 
-  # shader
-  Shader/SLCTypes.cpp
+  # compiler
+  Compiler/SLCTypes.cpp
 
-  # render
-  Render/RHIInits.cpp
-  Render/RHITypes.cpp
-  Render/FrameGraph.cpp
-  Render/FrameGraphAllocator.cpp
-  Render/FrameGraphBuilder.cpp
-  Render/FrameGraphTexture.cpp
+  # graphics
+  Graphics/RHIInits.cpp
+  Graphics/RHITypes.cpp
+  Graphics/FrameGraph.cpp
+  Graphics/FrameGraphAllocator.cpp
+  Graphics/FrameGraphBuilder.cpp
+  Graphics/FrameGraphTexture.cpp
 
-  # window
-  Window/WSIState.cpp
-  Window/WSITypes.cpp
+  # windowing
+  Windowing/WSIState.cpp
+  Windowing/WSITypes.cpp
 
-  # uicore
-  UICore/GUITypes.cpp
-  UICore/UI.cpp
-  UICore/UILayout.cpp
-  UICore/UIControls.cpp
-  UICore/UIInternals.cpp
-  UICore/UIProperty.cpp
-  UICore/UITree.cpp
-  UICore/UIDock.cpp
-  UICore/UIDialog.cpp
+  # uisystem
+  UISystem/GUITypes.cpp
+  UISystem/UI.cpp
+  UISystem/UILayout.cpp
+  UISystem/UIControls.cpp
+  UISystem/UIInternals.cpp
+  UISystem/UIProperty.cpp
+  UISystem/UITree.cpp
+  UISystem/UIDock.cpp
+  UISystem/UIDialog.cpp
 
-  # scenes
-  Scenes/SceneTree.cpp
+  # scene
+  Scene/SceneTree.cpp
 
-  # engine
-  Engine/Application.cpp
-  Engine/AssetLayer.cpp
-  Engine/SceneLayer.cpp
-  Engine/RenderLayer.cpp
-  Engine/TimingLayer.cpp
-  Engine/ImGuiLayer.cpp
+  # runtime
+  Runtime/Application.cpp
+  Runtime/AssetLayer.cpp
+  Runtime/SceneLayer.cpp
+  Runtime/RenderLayer.cpp
+  Runtime/TimingLayer.cpp
+  Runtime/ImGuiLayer.cpp
 )
 
 # link headers and common

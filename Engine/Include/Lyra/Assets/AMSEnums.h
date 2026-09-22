@@ -1,11 +1,11 @@
 #pragma once
 
-#ifndef LYRA_LYRA_ASSETS_AMSENUMS_H
-#define LYRA_LYRA_ASSETS_AMSENUMS_H
+#ifndef LYRA_ENGINE_ASSETS_AMSENUMS_H
+#define LYRA_ENGINE_ASSETS_AMSENUMS_H
 
-#include <Lyra/Common/Enums.h>
-#include <Lyra/Common/Stdint.h>
-#include <Lyra/Common/UUID.h>
+#include <Lyra/Utilities/Enums.h>
+#include <Lyra/Utilities/Stdint.h>
+#include <Lyra/Utilities/UUID.h>
 
 /**
  * @file AMSEnums.h
@@ -37,4 +37,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LYRA_ASSETS_AMSENUMS_H
+#endif // LYRA_ENGINE_ASSETS_AMSENUMS_H

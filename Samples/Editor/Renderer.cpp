@@ -1,4 +1,4 @@
-#include <Lyra/Common/Math.h>
+#include <Lyra/Utilities/Math.h>
 
 #include "Renderer.h"
 #include "Panels/SceneView.h"

@@ -1,11 +1,11 @@
 #include <fstream>
 #include <functional>
-#include <Lyra/Common/Macros.h>
-#include <Lyra/Common/Logger.h>
-#include <Lyra/Common/Stdint.h>
-#include <Lyra/Common/Plugin.h>
+#include <Lyra/Utilities/Macros.h>
+#include <Lyra/Utilities/Logger.h>
+#include <Lyra/Utilities/Stdint.h>
+#include <Lyra/Utilities/Plugin.h>
 #include <Lyra/Assets/AMSAPI.h>
-#include <Lyra/FileIO/VFSAPI.h>
+#include <Lyra/FileSystem/VFSAPI.h>
 #include <Lyra/Assets/Format/ModelAsset.h>
 #include "ModelUtils.h"
 

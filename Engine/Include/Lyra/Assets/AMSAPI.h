@@ -1,14 +1,14 @@
 #pragma once
 
-#ifndef LYRA_LYRA_ASSETS_AMSAPI_H
-#define LYRA_LYRA_ASSETS_AMSAPI_H
+#ifndef LYRA_ENGINE_ASSETS_AMSAPI_H
+#define LYRA_ENGINE_ASSETS_AMSAPI_H
 
-#include <Lyra/Common/Config.h>
-#include <Lyra/Common/String.h>
-#include <Lyra/Common/Stdint.h>
-#include <Lyra/Common/Handle.h>
-#include <Lyra/Common/Promise.h>
-#include <Lyra/FileIO/VFSAPI.h>
+#include <Lyra/Utilities/Config.h>
+#include <Lyra/Utilities/String.h>
+#include <Lyra/Utilities/Stdint.h>
+#include <Lyra/Utilities/Handle.h>
+#include <Lyra/Utilities/Promise.h>
+#include <Lyra/FileSystem/VFSAPI.h>
 #include <Lyra/Assets/AMSUtils.h>
 
 namespace lyra
@@ -128,4 +128,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LYRA_ASSETS_AMSAPI_H
+#endif // LYRA_ENGINE_ASSETS_AMSAPI_H

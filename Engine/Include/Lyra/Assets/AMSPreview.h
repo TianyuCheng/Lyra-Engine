@@ -1,14 +1,14 @@
 #pragma once
 
-#ifndef LYRA_LYRA_ASSETS_AMSPREVIEW_H
-#define LYRA_LYRA_ASSETS_AMSPREVIEW_H
+#ifndef LYRA_ENGINE_ASSETS_AMSPREVIEW_H
+#define LYRA_ENGINE_ASSETS_AMSPREVIEW_H
 
-#include <Lyra/Common/Path.h>
-#include <Lyra/Common/Math.h>
-#include <Lyra/Common/Config.h>
-#include <Lyra/Common/Macros.h>
-#include <Lyra/Common/Promise.h>
-#include <Lyra/Common/Collections.h>
+#include <Lyra/Utilities/Path.h>
+#include <Lyra/Utilities/Math.h>
+#include <Lyra/Utilities/Config.h>
+#include <Lyra/Utilities/Macros.h>
+#include <Lyra/Utilities/Promise.h>
+#include <Lyra/Utilities/Collections.h>
 #include <Lyra/Assets/AMSAPI.h>
 
 namespace lyra
@@ -78,4 +78,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LYRA_ASSETS_AMSPREVIEW_H
+#endif // LYRA_ENGINE_ASSETS_AMSPREVIEW_H

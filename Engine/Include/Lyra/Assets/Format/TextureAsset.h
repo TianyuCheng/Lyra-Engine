@@ -1,10 +1,10 @@
-#ifndef LYRA_LYRA_ASSETS_FORMAT_TEXTUREASSET_H
-#define LYRA_LYRA_ASSETS_FORMAT_TEXTUREASSET_H
+#ifndef LYRA_ENGINE_ASSETS_FORMAT_TEXTUREASSET_H
+#define LYRA_ENGINE_ASSETS_FORMAT_TEXTUREASSET_H
 
-#include <Lyra/Common/Collections.h>
+#include <Lyra/Utilities/Collections.h>
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/Assets/AMSEnums.h>
-#include <Lyra/Render/RHIEnums.h>
+#include <Lyra/Graphics/RHIEnums.h>
 
 namespace lyra
 {
@@ -60,4 +60,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LYRA_ASSETS_FORMAT_TEXTUREASSET_H
+#endif // LYRA_ENGINE_ASSETS_FORMAT_TEXTUREASSET_H

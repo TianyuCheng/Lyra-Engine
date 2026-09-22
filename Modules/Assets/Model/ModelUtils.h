@@ -1,7 +1,7 @@
 #pragma once
 
-#include <Lyra/Common/Logger.h>
-#include <Lyra/Common/String.h>
+#include <Lyra/Utilities/Logger.h>
+#include <Lyra/Utilities/String.h>
 
 using namespace lyra;
 

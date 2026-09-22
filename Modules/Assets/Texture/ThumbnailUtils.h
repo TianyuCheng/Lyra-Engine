@@ -1,9 +1,9 @@
 #pragma once
 
 #include <algorithm>
-#include <Lyra/Common/Config.h>
-#include <Lyra/Common/Stdint.h>
-#include <Lyra/Common/Path.h>
+#include <Lyra/Utilities/Config.h>
+#include <Lyra/Utilities/Stdint.h>
+#include <Lyra/Utilities/Path.h>
 #include <Lyra/Assets/AMSPreview.h>
 #include <vulkan/vulkan.h>
 

@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LYRA_ASSETS_AMSWATCHER_H
-#define LYRA_LYRA_ASSETS_AMSWATCHER_H
+#ifndef LYRA_ENGINE_ASSETS_AMSWATCHER_H
+#define LYRA_ENGINE_ASSETS_AMSWATCHER_H
 
 #include <mutex>
 #include <thread>
@@ -10,11 +10,11 @@
 #include <condition_variable>
 #include <efsw/efsw.hpp>
 
-#include <Lyra/Common/Path.h>
-#include <Lyra/Common/String.h>
-#include <Lyra/Common/Pointer.h>
-#include <Lyra/Common/Function.h>
-#include <Lyra/Common/Collections.h>
+#include <Lyra/Utilities/Path.h>
+#include <Lyra/Utilities/String.h>
+#include <Lyra/Utilities/Pointer.h>
+#include <Lyra/Utilities/Function.h>
+#include <Lyra/Utilities/Collections.h>
 #include <Lyra/Assets/AMSEnums.h>
 
 namespace lyra
@@ -119,4 +119,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LYRA_ASSETS_AMSWATCHER_H
+#endif // LYRA_ENGINE_ASSETS_AMSWATCHER_H

@@ -1,5 +1,5 @@
 #include "EditorLayout.h"
-#include <Lyra/UICore/UIDock.h>
+#include <Lyra/UISystem/UIDock.h>
 
 using namespace lyra;
 

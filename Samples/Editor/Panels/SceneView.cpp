@@ -1,17 +1,17 @@
-#include <Lyra/Common/Logger.h>
-#include <Lyra/Common/Function.h>
-#include <Lyra/Render/RHITypes.h>
-#include <Lyra/Render/RHIInits.h>
-#include <Lyra/UICore/UI.h>
-#include <Lyra/UICore/UIDock.h>
-#include <Lyra/UICore/UILayout.h>
-#include <Lyra/UICore/UIControls.h>
+#include <Lyra/Utilities/Logger.h>
+#include <Lyra/Utilities/Function.h>
+#include <Lyra/Graphics/RHITypes.h>
+#include <Lyra/Graphics/RHIInits.h>
+#include <Lyra/UISystem/UI.h>
+#include <Lyra/UISystem/UIDock.h>
+#include <Lyra/UISystem/UILayout.h>
+#include <Lyra/UISystem/UIControls.h>
 
 // local imports
-#include <Lyra/UICore/UIIcons.h>
+#include <Lyra/UISystem/UIIcons.h>
 #include "Common/EditorLayout.h"
 #include "SceneView.h"
-#include <Lyra/Engine/TimingLayer.h>
+#include <Lyra/Runtime/TimingLayer.h>
 
 #define LYRA_SCENE_WINDOW_NAME (LYRA_ICON_SCENE " Scene")
 

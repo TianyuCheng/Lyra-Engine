@@ -1,4 +1,4 @@
-#include <Lyra/Common/Plugin.h>
+#include <Lyra/Utilities/Plugin.h>
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/Assets/AMSPreview.h>
 #include "SoftwareRasterizer.h"

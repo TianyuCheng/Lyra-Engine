@@ -3,12 +3,12 @@
 #ifndef LYRA_EDITOR_COMMON_VIEWPORT_CANVAS_H
 #define LYRA_EDITOR_COMMON_VIEWPORT_CANVAS_H
 
-#include <Lyra/Common/Math.h>
-#include <Lyra/UICore/GUITypes.h>
-#include <Lyra/Render/RHITypes.h>
+#include <Lyra/Utilities/Math.h>
+#include <Lyra/UISystem/GUITypes.h>
+#include <Lyra/Graphics/RHITypes.h>
 
 // local imports
-#include <Lyra/Engine/Application.h>
+#include <Lyra/Runtime/Application.h>
 
 namespace lyra
 {

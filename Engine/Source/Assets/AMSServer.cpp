@@ -4,7 +4,7 @@
 #include <filesystem>
 
 #include <absl/strings/ascii.h>
-#include <Lyra/Common/Function.h>
+#include <Lyra/Utilities/Function.h>
 #include <Lyra/Assets/AMSServer.h>
 #include <Lyra/Assets/AMSPreview.h>
 

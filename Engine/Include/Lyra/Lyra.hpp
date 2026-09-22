@@ -1,58 +1,58 @@
-#ifndef LYRA_LYRA_LYRA_HPP
-#define LYRA_LYRA_LYRA_HPP
+#ifndef LYRA_ENGINE_LYRA_HPP
+#define LYRA_ENGINE_LYRA_HPP
 
 // Common headers
-#include <Lyra/Common/ECS.h>
-#include <Lyra/Common/Hash.h>
-#include <Lyra/Common/Path.h>
-#include <Lyra/Common/Math.h>
-#include <Lyra/Common/Enums.h>
-#include <Lyra/Common/Assert.h>
-#include <Lyra/Common/Config.h>
-#include <Lyra/Common/Logger.h>
-#include <Lyra/Common/Handle.h>
-#include <Lyra/Common/Msgbox.h>
-#include <Lyra/Common/String.h>
-#include <Lyra/Common/Stdint.h>
-#include <Lyra/Common/BitFlags.h>
-#include <Lyra/Common/Function.h>
-#include <Lyra/Common/Collections.h>
-#include <Lyra/Common/Compatibility.h>
+#include <Lyra/Utilities/ECS.h>
+#include <Lyra/Utilities/Hash.h>
+#include <Lyra/Utilities/Path.h>
+#include <Lyra/Utilities/Math.h>
+#include <Lyra/Utilities/Enums.h>
+#include <Lyra/Utilities/Assert.h>
+#include <Lyra/Utilities/Config.h>
+#include <Lyra/Utilities/Logger.h>
+#include <Lyra/Utilities/Handle.h>
+#include <Lyra/Utilities/Msgbox.h>
+#include <Lyra/Utilities/String.h>
+#include <Lyra/Utilities/Stdint.h>
+#include <Lyra/Utilities/BitFlags.h>
+#include <Lyra/Utilities/Function.h>
+#include <Lyra/Utilities/Collections.h>
+#include <Lyra/Utilities/Compatibility.h>
 
 // Plugins headers
-#include <Lyra/Window/WSIDescs.h>
-#include <Lyra/Window/WSITypes.h>
-#include <Lyra/Shader/SLCDescs.h>
-#include <Lyra/Shader/SLCTypes.h>
-#include <Lyra/Render/RHIDescs.h>
-#include <Lyra/Render/RHITypes.h>
-#include <Lyra/Render/RHIInits.h>
-#include <Lyra/UICore/GUIEnums.h>
-#include <Lyra/UICore/GUITypes.h>
-#include <Lyra/UICore/UIEnums.h>
-#include <Lyra/UICore/UIIcons.h>
-#include <Lyra/UICore/UI.h>
-#include <Lyra/UICore/UILayout.h>
-#include <Lyra/UICore/UIControls.h>
-#include <Lyra/UICore/UIProperty.h>
-#include <Lyra/UICore/UITree.h>
-#include <Lyra/UICore/UIDock.h>
-#include <Lyra/UICore/UIDialog.h>
-#include <Lyra/FileIO/VFSEnums.h>
-#include <Lyra/FileIO/VFSTypes.h>
+#include <Lyra/Windowing/WSIDescs.h>
+#include <Lyra/Windowing/WSITypes.h>
+#include <Lyra/Compiler/SLCDescs.h>
+#include <Lyra/Compiler/SLCTypes.h>
+#include <Lyra/Graphics/RHIDescs.h>
+#include <Lyra/Graphics/RHITypes.h>
+#include <Lyra/Graphics/RHIInits.h>
+#include <Lyra/UISystem/GUIEnums.h>
+#include <Lyra/UISystem/GUITypes.h>
+#include <Lyra/UISystem/UIEnums.h>
+#include <Lyra/UISystem/UIIcons.h>
+#include <Lyra/UISystem/UI.h>
+#include <Lyra/UISystem/UILayout.h>
+#include <Lyra/UISystem/UIControls.h>
+#include <Lyra/UISystem/UIProperty.h>
+#include <Lyra/UISystem/UITree.h>
+#include <Lyra/UISystem/UIDock.h>
+#include <Lyra/UISystem/UIDialog.h>
+#include <Lyra/FileSystem/VFSEnums.h>
+#include <Lyra/FileSystem/VFSTypes.h>
 #include <Lyra/Assets/AMSUtils.h>
 #include <Lyra/Assets/AMSServer.h>
 
 // Render headers
-#include <Lyra/Render/FrameGraph.h>
+#include <Lyra/Graphics/FrameGraph.h>
 
 // Scenes headers
-#include <Lyra/Scenes/World.h>
-#include <Lyra/Scenes/Light.h>
-#include <Lyra/Scenes/Camera.h>
-#include <Lyra/Scenes/SceneNode.h>
-#include <Lyra/Scenes/Transform.h>
-#include <Lyra/Scenes/SceneTree.h>
+#include <Lyra/Scene/World.h>
+#include <Lyra/Scene/Light.h>
+#include <Lyra/Scene/Camera.h>
+#include <Lyra/Scene/SceneNode.h>
+#include <Lyra/Scene/Transform.h>
+#include <Lyra/Scene/SceneTree.h>
 
 // Format headers
 #include <Lyra/Assets/Format/TextAsset.h>
@@ -64,11 +64,11 @@
 #include <Lyra/Assets/Format/MaterialAsset.h>
 
 // Engine headers
-#include <Lyra/Engine/Application.h>
-#include <Lyra/Engine/AssetLayer.h>
-#include <Lyra/Engine/SceneLayer.h>
-#include <Lyra/Engine/RenderLayer.h>
-#include <Lyra/Engine/TimingLayer.h>
-#include <Lyra/Engine/ImGuiLayer.h>
+#include <Lyra/Runtime/Application.h>
+#include <Lyra/Runtime/AssetLayer.h>
+#include <Lyra/Runtime/SceneLayer.h>
+#include <Lyra/Runtime/RenderLayer.h>
+#include <Lyra/Runtime/TimingLayer.h>
+#include <Lyra/Runtime/ImGuiLayer.h>
 
-#endif // LYRA_LYRA_LYRA_HPP
+#endif // LYRA_ENGINE_LYRA_HPP

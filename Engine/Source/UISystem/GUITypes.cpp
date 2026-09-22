@@ -1,0 +1,30 @@
+#include <Lyra/Utilities/Macros.h>
+#include <Lyra/Utilities/Plugin.h>
+#include <Lyra/UISystem/GUITypes.h>
+
+using namespace lyra;
+
+// forward declarations for inlined plugins
+FORWARD_DECLARE_API(lyra::imgui, GUIAPI)
+
+using GUIPluginBuiltin = BuiltinPlugin<GUIAPI>;
+
+static Own<GUIPluginBuiltin> GUI_PLUGIN = nullptr;
+
+GUIAPI* GUIRenderer::api()
+{
+    return GUI_PLUGIN->get_api();
+}
+
+OwnedResource<GUIRenderer> GUIRenderer::init(const GUIDescriptor& descriptor)
+{
+    if (!GUI_PLUGIN.get())
+        GUI_PLUGIN = std::make_unique<GUIPluginBuiltin>(
+            lyra::imgui::create,
+            lyra::imgui::prepare,
+            lyra::imgui::cleanup);
+
+    OwnedResource<GUIRenderer> gui(new GUIRenderer());
+    GUIRenderer::api()->create_gui(gui->handle, descriptor);
+    return gui;
+}

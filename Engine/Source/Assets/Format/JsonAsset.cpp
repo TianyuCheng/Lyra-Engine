@@ -1,6 +1,6 @@
 #include <fstream>
 #include <iomanip>
-#include <Lyra/FileIO/VFSAPI.h>
+#include <Lyra/FileSystem/VFSAPI.h>
 
 #include <Lyra/Assets/Format/JsonAsset.h>
 

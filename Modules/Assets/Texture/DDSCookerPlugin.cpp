@@ -1,8 +1,8 @@
 #include <stb_image.h>
 #include <gli/gli.hpp>
 #include <gli/load.hpp>
-#include <Lyra/Common/Logger.h>
-#include <Lyra/Common/Plugin.h>
+#include <Lyra/Utilities/Logger.h>
+#include <Lyra/Utilities/Plugin.h>
 #include "TextureUtils.h"
 #include "ThumbnailUtils.h"
 

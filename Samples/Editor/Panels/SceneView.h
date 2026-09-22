@@ -5,7 +5,7 @@
 
 // local imports
 #include "Common/ViewportCanvas.h"
-#include <Lyra/Engine/Application.h>
+#include <Lyra/Runtime/Application.h>
 
 namespace lyra
 {

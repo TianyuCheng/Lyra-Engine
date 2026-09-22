@@ -1,12 +1,12 @@
-#ifndef LYRA_LYRA_ASSETS_FORMAT_MATERIALASSET_H
-#define LYRA_LYRA_ASSETS_FORMAT_MATERIALASSET_H
+#ifndef LYRA_ENGINE_ASSETS_FORMAT_MATERIALASSET_H
+#define LYRA_ENGINE_ASSETS_FORMAT_MATERIALASSET_H
 
-#include <Lyra/Common/Math.h>
-#include <Lyra/Common/String.h>
-#include <Lyra/Common/Collections.h>
+#include <Lyra/Utilities/Math.h>
+#include <Lyra/Utilities/String.h>
+#include <Lyra/Utilities/Collections.h>
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/Assets/AMSUtils.h>
-#include <Lyra/Render/RHIEnums.h>
+#include <Lyra/Graphics/RHIEnums.h>
 #include <Lyra/Assets/Format/TextureAsset.h>
 
 // macro collision with Windows GDI
@@ -67,4 +67,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LYRA_ASSETS_FORMAT_MATERIALASSET_H
+#endif // LYRA_ENGINE_ASSETS_FORMAT_MATERIALASSET_H

@@ -1,18 +1,18 @@
 #include <string>
 #include <algorithm>
 
-#include <Lyra/Common/Logger.h>
-#include <Lyra/Scenes/Camera.h>
-#include <Lyra/Scenes/SceneTree.h>
-#include <Lyra/Scenes/SceneNode.h>
-#include <Lyra/UICore/UI.h>
-#include <Lyra/UICore/UITree.h>
-#include <Lyra/UICore/UIDock.h>
-#include <Lyra/UICore/UILayout.h>
-#include <Lyra/UICore/UIControls.h>
+#include <Lyra/Utilities/Logger.h>
+#include <Lyra/Scene/Camera.h>
+#include <Lyra/Scene/SceneTree.h>
+#include <Lyra/Scene/SceneNode.h>
+#include <Lyra/UISystem/UI.h>
+#include <Lyra/UISystem/UITree.h>
+#include <Lyra/UISystem/UIDock.h>
+#include <Lyra/UISystem/UILayout.h>
+#include <Lyra/UISystem/UIControls.h>
 
 // local imports
-#include <Lyra/UICore/UIIcons.h>
+#include <Lyra/UISystem/UIIcons.h>
 #include "Common/EditorLayout.h"
 #include "HierarchyView.h"
 

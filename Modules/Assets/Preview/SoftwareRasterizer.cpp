@@ -5,7 +5,7 @@
 #include <stb_image_write.h>
 #include <stb_image_resize2.h>
 
-#include <Lyra/Common/Logger.h>
+#include <Lyra/Utilities/Logger.h>
 #include "SoftwareRasterizer.h"
 
 using namespace lyra;

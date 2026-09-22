@@ -1,4 +1,4 @@
-#include <Lyra/Common/GUID.h>
+#include <Lyra/Utilities/GUID.h>
 #include <Lyra/Assets/AMSUtils.h>
 
 using namespace lyra;

@@ -1,11 +1,11 @@
 #include <Lyra/Assets/AMSRegistry.h>
-#include <Lyra/Common/Logger.h>
-#include <Lyra/Common/Collections.h>
-#include <Lyra/Common/Path.h>
-#include <Lyra/Common/String.h>
-#include <Lyra/Common/Macros.h>
-#include <Lyra/Common/Stdint.h>
-#include <Lyra/Common/Config.h>
+#include <Lyra/Utilities/Logger.h>
+#include <Lyra/Utilities/Collections.h>
+#include <Lyra/Utilities/Path.h>
+#include <Lyra/Utilities/String.h>
+#include <Lyra/Utilities/Macros.h>
+#include <Lyra/Utilities/Stdint.h>
+#include <Lyra/Utilities/Config.h>
 
 #include <fstream>
 #include <filesystem>

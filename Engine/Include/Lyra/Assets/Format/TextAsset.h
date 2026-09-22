@@ -1,7 +1,7 @@
-#ifndef LYRA_LYRA_ASSETS_FORMAT_TEXTASSET_H
-#define LYRA_LYRA_ASSETS_FORMAT_TEXTASSET_H
+#ifndef LYRA_ENGINE_ASSETS_FORMAT_TEXTASSET_H
+#define LYRA_ENGINE_ASSETS_FORMAT_TEXTASSET_H
 
-#include <Lyra/Common/String.h>
+#include <Lyra/Utilities/String.h>
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/Assets/AMSEnums.h>
 
@@ -29,4 +29,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LYRA_ASSETS_FORMAT_TEXTASSET_H
+#endif // LYRA_ENGINE_ASSETS_FORMAT_TEXTASSET_H

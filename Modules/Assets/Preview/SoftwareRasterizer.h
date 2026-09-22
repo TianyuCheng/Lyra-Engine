@@ -1,9 +1,9 @@
 #pragma once
 
-#include <Lyra/Common/Config.h>
-#include <Lyra/Common/Math.h>
-#include <Lyra/Common/String.h>
-#include <Lyra/Common/Path.h>
+#include <Lyra/Utilities/Config.h>
+#include <Lyra/Utilities/Math.h>
+#include <Lyra/Utilities/String.h>
+#include <Lyra/Utilities/Path.h>
 #include <Lyra/Assets/AMSPreview.h>
 
 namespace lyra::preview

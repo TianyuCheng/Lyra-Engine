@@ -2,8 +2,8 @@
 #include <sstream>
 #include <functional>
 
-#include <Lyra/Common/Macros.h>
-#include <Lyra/Common/Plugin.h>
+#include <Lyra/Utilities/Macros.h>
+#include <Lyra/Utilities/Plugin.h>
 #include <Lyra/Assets/Format/ModelAsset.h>
 
 using namespace lyra;

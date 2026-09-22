@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_LYRA_ASSETS_AMSSERVER_H
-#define LYRA_LYRA_ASSETS_AMSSERVER_H
+#ifndef LYRA_ENGINE_ASSETS_AMSSERVER_H
+#define LYRA_ENGINE_ASSETS_AMSSERVER_H
 
 #include <memory>
 #include <atomic>
@@ -9,18 +9,18 @@
 
 #include <BS_thread_pool.hpp>
 #include <absl/strings/ascii.h>
-#include <Lyra/Common/UUID.h>
-#include <Lyra/Common/GUID.h>
-#include <Lyra/Common/Path.h>
-#include <Lyra/Common/Config.h>
-#include <Lyra/Common/String.h>
-#include <Lyra/Common/Stdint.h>
-#include <Lyra/Common/Handle.h>
-#include <Lyra/Common/Logger.h>
-#include <Lyra/Common/Promise.h>
-#include <Lyra/Common/Collections.h>
-#include <Lyra/FileIO/VFSEnums.h>
-#include <Lyra/FileIO/VFSUtils.h>
+#include <Lyra/Utilities/UUID.h>
+#include <Lyra/Utilities/GUID.h>
+#include <Lyra/Utilities/Path.h>
+#include <Lyra/Utilities/Config.h>
+#include <Lyra/Utilities/String.h>
+#include <Lyra/Utilities/Stdint.h>
+#include <Lyra/Utilities/Handle.h>
+#include <Lyra/Utilities/Logger.h>
+#include <Lyra/Utilities/Promise.h>
+#include <Lyra/Utilities/Collections.h>
+#include <Lyra/FileSystem/VFSEnums.h>
+#include <Lyra/FileSystem/VFSUtils.h>
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/Assets/AMSRegistry.h>
 #include <Lyra/Assets/AMSWatcher.h>
@@ -434,4 +434,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LYRA_ASSETS_AMSSERVER_H
+#endif // LYRA_ENGINE_ASSETS_AMSSERVER_H

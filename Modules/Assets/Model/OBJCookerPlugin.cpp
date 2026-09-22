@@ -3,8 +3,8 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 
-#include <Lyra/Common/Logger.h>
-#include <Lyra/Common/Plugin.h>
+#include <Lyra/Utilities/Logger.h>
+#include <Lyra/Utilities/Plugin.h>
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/Assets/AMSPreview.h>
 #include <Lyra/Assets/Format/ModelAsset.h>

@@ -1,5 +1,5 @@
 #include "ViewportCanvas.h"
-#include <Lyra/UICore/UI.h>
+#include <Lyra/UISystem/UI.h>
 
 using namespace lyra;
 

@@ -1,6 +1,6 @@
 #include <algorithm>
 #include <limits>
-#include <Lyra/Common/Plugin.h>
+#include <Lyra/Utilities/Plugin.h>
 #include <Lyra/Assets/AMSPreview.h>
 
 using namespace lyra;

@@ -2,18 +2,18 @@
 #include <algorithm>
 #include <stb_image.h>
 #include <cmrc/cmrc.hpp>
-#include <Lyra/Common/Path.h>
-#include <Lyra/Common/Logger.h>
+#include <Lyra/Utilities/Path.h>
+#include <Lyra/Utilities/Logger.h>
 #include <Lyra/Assets/AMSServer.h>
-#include <Lyra/Render/RHITypes.h>
-#include <Lyra/Render/RHIInits.h>
-#include <Lyra/UICore/UI.h>
-#include <Lyra/UICore/UILayout.h>
-#include <Lyra/UICore/UIControls.h>
-#include <Lyra/UICore/UIDock.h>
-#include <Lyra/UICore/UIDialog.h>
-#include <Lyra/UICore/UIIcons.h>
-#include <Lyra/UICore/ImGui.h>
+#include <Lyra/Graphics/RHITypes.h>
+#include <Lyra/Graphics/RHIInits.h>
+#include <Lyra/UISystem/UI.h>
+#include <Lyra/UISystem/UILayout.h>
+#include <Lyra/UISystem/UIControls.h>
+#include <Lyra/UISystem/UIDock.h>
+#include <Lyra/UISystem/UIDialog.h>
+#include <Lyra/UISystem/UIIcons.h>
+#include <Lyra/UISystem/ImGui.h>
 
 // local imports
 #include "AssetBrowserView.h"

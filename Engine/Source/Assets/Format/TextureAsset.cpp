@@ -1,6 +1,6 @@
-#include <Lyra/Common/Macros.h>
-#include <Lyra/Common/Plugin.h>
-#include <Lyra/FileIO/VFSAPI.h>
+#include <Lyra/Utilities/Macros.h>
+#include <Lyra/Utilities/Plugin.h>
+#include <Lyra/FileSystem/VFSAPI.h>
 #include <Lyra/Assets/Format/TextureAsset.h>
 
 using namespace lyra;

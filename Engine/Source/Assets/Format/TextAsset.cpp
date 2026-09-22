@@ -1,6 +1,6 @@
 #include <fstream>
 #include <Lyra/Assets/Format/TextAsset.h>
-#include <Lyra/FileIO/VFSAPI.h>
+#include <Lyra/FileSystem/VFSAPI.h>
 
 using namespace lyra;
 

@@ -1,16 +1,16 @@
 #pragma once
 
-#ifndef LYRA_LYRA_ASSETS_AMSUTILS_H
-#define LYRA_LYRA_ASSETS_AMSUTILS_H
+#ifndef LYRA_ENGINE_ASSETS_AMSUTILS_H
+#define LYRA_ENGINE_ASSETS_AMSUTILS_H
 
-#include <Lyra/Common/UUID.h>
-#include <Lyra/Common/GUID.h>
-#include <Lyra/Common/Path.h>
-#include <Lyra/Common/Macros.h>
-#include <Lyra/Common/Config.h>
-#include <Lyra/Common/Pointer.h>
-#include <Lyra/Common/Collections.h>
-#include <Lyra/FileIO/VFSTypes.h>
+#include <Lyra/Utilities/UUID.h>
+#include <Lyra/Utilities/GUID.h>
+#include <Lyra/Utilities/Path.h>
+#include <Lyra/Utilities/Macros.h>
+#include <Lyra/Utilities/Config.h>
+#include <Lyra/Utilities/Pointer.h>
+#include <Lyra/Utilities/Collections.h>
+#include <Lyra/FileSystem/VFSTypes.h>
 #include <Lyra/Assets/AMSEnums.h>
 
 namespace lyra
@@ -116,4 +116,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LYRA_ASSETS_AMSUTILS_H
+#endif // LYRA_ENGINE_ASSETS_AMSUTILS_H

@@ -3,11 +3,11 @@
 #ifndef LYRA_EDITOR_PANELS_HIERARCHY_VIEW_H
 #define LYRA_EDITOR_PANELS_HIERARCHY_VIEW_H
 
-#include <Lyra/Scenes/SceneTree.h>
-#include <Lyra/Scenes/SceneNode.h>
+#include <Lyra/Scene/SceneTree.h>
+#include <Lyra/Scene/SceneNode.h>
 
 // local imports
-#include <Lyra/Engine/Application.h>
+#include <Lyra/Runtime/Application.h>
 
 namespace lyra
 {

@@ -8,80 +8,80 @@ target_sources(lyra-headers INTERFACE
     Lyra/Lyra.hpp
 
     # detail headers
-    Lyra/Common/Detail/Arena.h
-    Lyra/Common/Detail/Blackboard.h
-    Lyra/Common/Detail/View.h
+    Lyra/Utilities/Detail/Arena.h
+    Lyra/Utilities/Detail/Blackboard.h
+    Lyra/Utilities/Detail/View.h
 
-    # common headers
-    Lyra/Common/Assert.h
-    Lyra/Common/BitFlags.h
-    Lyra/Common/Collections.h
-    Lyra/Common/Compatibility.h
-    Lyra/Common/Config.h
-    Lyra/Common/Conversion.h
-    Lyra/Common/ECS.h
-    Lyra/Common/Enums.h
-    Lyra/Common/Function.h
-    Lyra/Common/GUI.h
-    Lyra/Common/GUID.h
-    Lyra/Common/Handle.h
-    Lyra/Common/Hash.h
-    Lyra/Common/Logger.h
-    Lyra/Common/Macros.h
-    Lyra/Common/Math.h
-    Lyra/Common/Memory.h
-    Lyra/Common/Msgbox.h
-    Lyra/Common/Path.h
-    Lyra/Common/Plugin.h
-    Lyra/Common/Pointer.h
-    Lyra/Common/Promise.h
-    Lyra/Common/Stdint.h
-    Lyra/Common/String.h
-    Lyra/Common/UUID.h
+    # utilities headers
+    Lyra/Utilities/Assert.h
+    Lyra/Utilities/BitFlags.h
+    Lyra/Utilities/Collections.h
+    Lyra/Utilities/Compatibility.h
+    Lyra/Utilities/Config.h
+    Lyra/Utilities/Conversion.h
+    Lyra/Utilities/ECS.h
+    Lyra/Utilities/Enums.h
+    Lyra/Utilities/Function.h
+    Lyra/Utilities/GUI.h
+    Lyra/Utilities/GUID.h
+    Lyra/Utilities/Handle.h
+    Lyra/Utilities/Hash.h
+    Lyra/Utilities/Logger.h
+    Lyra/Utilities/Macros.h
+    Lyra/Utilities/Math.h
+    Lyra/Utilities/Memory.h
+    Lyra/Utilities/Msgbox.h
+    Lyra/Utilities/Path.h
+    Lyra/Utilities/Plugin.h
+    Lyra/Utilities/Pointer.h
+    Lyra/Utilities/Promise.h
+    Lyra/Utilities/Stdint.h
+    Lyra/Utilities/String.h
+    Lyra/Utilities/UUID.h
 
-    # windows system
-    Lyra/Window/WSIAPI.h
-    Lyra/Window/WSIDescs.h
-    Lyra/Window/WSIEnums.h
-    Lyra/Window/WSIEvent.h
-    Lyra/Window/WSIState.h
-    Lyra/Window/WSITypes.h
-    Lyra/Window/WSIUtils.h
+    # windowing system
+    Lyra/Windowing/WSIAPI.h
+    Lyra/Windowing/WSIDescs.h
+    Lyra/Windowing/WSIEnums.h
+    Lyra/Windowing/WSIEvent.h
+    Lyra/Windowing/WSIState.h
+    Lyra/Windowing/WSITypes.h
+    Lyra/Windowing/WSIUtils.h
 
-    # render
-    Lyra/Render/RHIAPI.h
-    Lyra/Render/RHIDescs.h
-    Lyra/Render/RHIEnums.h
-    Lyra/Render/RHIError.h
-    Lyra/Render/RHIHash.h
-    Lyra/Render/RHIInits.h
-    Lyra/Render/RHITypes.h
-    Lyra/Render/RHIUtils.h
-    Lyra/Render/FrameGraph.h
-    Lyra/Render/FrameGraphAllocator.h
-    Lyra/Render/FrameGraphBuffer.h
-    Lyra/Render/FrameGraphBuilder.h
-    Lyra/Render/FrameGraphCommon.h
-    Lyra/Render/FrameGraphContext.h
-    Lyra/Render/FrameGraphEnums.h
-    Lyra/Render/FrameGraphPass.h
-    Lyra/Render/FrameGraphResource.h
-    Lyra/Render/FrameGraphTexture.h
-    Lyra/Render/FrameGraphTraits.h
-    Lyra/Render/GPUDeletionQueue.h
+    # graphics
+    Lyra/Graphics/RHIAPI.h
+    Lyra/Graphics/RHIDescs.h
+    Lyra/Graphics/RHIEnums.h
+    Lyra/Graphics/RHIError.h
+    Lyra/Graphics/RHIHash.h
+    Lyra/Graphics/RHIInits.h
+    Lyra/Graphics/RHITypes.h
+    Lyra/Graphics/RHIUtils.h
+    Lyra/Graphics/FrameGraph.h
+    Lyra/Graphics/FrameGraphAllocator.h
+    Lyra/Graphics/FrameGraphBuffer.h
+    Lyra/Graphics/FrameGraphBuilder.h
+    Lyra/Graphics/FrameGraphCommon.h
+    Lyra/Graphics/FrameGraphContext.h
+    Lyra/Graphics/FrameGraphEnums.h
+    Lyra/Graphics/FrameGraphPass.h
+    Lyra/Graphics/FrameGraphResource.h
+    Lyra/Graphics/FrameGraphTexture.h
+    Lyra/Graphics/FrameGraphTraits.h
+    Lyra/Graphics/GPUDeletionQueue.h
 
-    # shader / compiler
-    Lyra/Shader/SLCAPI.h
-    Lyra/Shader/SLCEnums.h
-    Lyra/Shader/SLCDescs.h
-    Lyra/Shader/SLCTypes.h
-    Lyra/Shader/SLCUtils.h
+    # compiler
+    Lyra/Compiler/SLCAPI.h
+    Lyra/Compiler/SLCEnums.h
+    Lyra/Compiler/SLCDescs.h
+    Lyra/Compiler/SLCTypes.h
+    Lyra/Compiler/SLCUtils.h
 
-    # file io
-    Lyra/FileIO/VFSAPI.h
-    Lyra/FileIO/VFSEnums.h
-    Lyra/FileIO/VFSTypes.h
-    Lyra/FileIO/VFSUtils.h
+    # filesystem
+    Lyra/FileSystem/VFSAPI.h
+    Lyra/FileSystem/VFSEnums.h
+    Lyra/FileSystem/VFSTypes.h
+    Lyra/FileSystem/VFSUtils.h
 
     # asset management system
     Lyra/Assets/AMSAPI.h
@@ -101,37 +101,37 @@ target_sources(lyra-headers INTERFACE
     Lyra/Assets/Format/TextureAsset.h
     Lyra/Assets/Format/TomlAsset.h
 
-    # engine
-    Lyra/Engine/Application.h
-    Lyra/Engine/AssetLayer.h
-    Lyra/Engine/RenderLayer.h
-    Lyra/Engine/ImGuiLayer.h
-    Lyra/Engine/SceneLayer.h
-    Lyra/Engine/TimingLayer.h
+    # runtime
+    Lyra/Runtime/Application.h
+    Lyra/Runtime/AssetLayer.h
+    Lyra/Runtime/RenderLayer.h
+    Lyra/Runtime/ImGuiLayer.h
+    Lyra/Runtime/SceneLayer.h
+    Lyra/Runtime/TimingLayer.h
 
-    # scenes
-    Lyra/Scenes/Camera.h
-    Lyra/Scenes/Light.h
-    Lyra/Scenes/SceneNode.h
-    Lyra/Scenes/SceneTree.h
-    Lyra/Scenes/Transform.h
-    Lyra/Scenes/World.h
+    # scene
+    Lyra/Scene/Camera.h
+    Lyra/Scene/Light.h
+    Lyra/Scene/SceneNode.h
+    Lyra/Scene/SceneTree.h
+    Lyra/Scene/Transform.h
+    Lyra/Scene/World.h
 
-    # ui layer
-    Lyra/UICore/GUIAPI.h
-    Lyra/UICore/GUIEnums.h
-    Lyra/UICore/GUITypes.h
-    Lyra/UICore/ImGui.h
-    Lyra/UICore/UIEnums.h
-    Lyra/UICore/UIIcons.h
-    Lyra/UICore/UIInternals.h
-    Lyra/UICore/UI.h
-    Lyra/UICore/UILayout.h
-    Lyra/UICore/UIControls.h
-    Lyra/UICore/UIProperty.h
-    Lyra/UICore/UITree.h
-    Lyra/UICore/UIDock.h
-    Lyra/UICore/UIDialog.h
+    # ui system
+    Lyra/UISystem/GUIAPI.h
+    Lyra/UISystem/GUIEnums.h
+    Lyra/UISystem/GUITypes.h
+    Lyra/UISystem/ImGui.h
+    Lyra/UISystem/UIEnums.h
+    Lyra/UISystem/UIIcons.h
+    Lyra/UISystem/UIInternals.h
+    Lyra/UISystem/UI.h
+    Lyra/UISystem/UILayout.h
+    Lyra/UISystem/UIControls.h
+    Lyra/UISystem/UIProperty.h
+    Lyra/UISystem/UITree.h
+    Lyra/UISystem/UIDock.h
+    Lyra/UISystem/UIDialog.h
 )
 
 target_include_directories(lyra-headers INTERFACE

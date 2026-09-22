@@ -1,7 +1,7 @@
-#ifndef LYRA_LYRA_ASSETS_FORMAT_JSONASSET_H
-#define LYRA_LYRA_ASSETS_FORMAT_JSONASSET_H
+#ifndef LYRA_ENGINE_ASSETS_FORMAT_JSONASSET_H
+#define LYRA_ENGINE_ASSETS_FORMAT_JSONASSET_H
 
-#include <Lyra/Common/Config.h>
+#include <Lyra/Utilities/Config.h>
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/Assets/AMSEnums.h>
 
@@ -29,4 +29,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_LYRA_ASSETS_FORMAT_JSONASSET_H
+#endif // LYRA_ENGINE_ASSETS_FORMAT_JSONASSET_H
