@@ -1,0 +1,6 @@
+add_subdirectory(Assets)
+add_subdirectory(FileIO)
+add_subdirectory(Render)
+add_subdirectory(Shader)
+add_subdirectory(Window)
+add_subdirectory(UI)

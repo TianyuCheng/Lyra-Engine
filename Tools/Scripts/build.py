@@ -9,10 +9,11 @@ from copy import deepcopy
 from contextlib import contextmanager
 from dataclasses import dataclass, asdict
 
-BUILDROOT = "Scratch"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+BUILD_DIR = PROJECT_ROOT / "Scratch"
 
 # This is the project that editor/player will load by default.
-LYRA_DEFAULT_PROJECT = Path(__file__).parents[1] / BUILDROOT / "project"
+LYRA_DEFAULT_PROJECT = BUILD_DIR / "project"
 os.makedirs(LYRA_DEFAULT_PROJECT, exist_ok=True)
 os.environ["LYRA_DEFAULT_PROJECT"] = str(LYRA_DEFAULT_PROJECT)
 
@@ -23,14 +24,12 @@ class BuildConfig:
 
 @contextmanager
 def config_file(mode):
-    build_root = os.getcwd()
-    build_root = os.path.join(build_root, BUILDROOT)
-    build_root = os.path.abspath(build_root)
+    build_root = BUILD_DIR
     os.makedirs(build_root, exist_ok=True)
-    filename = os.path.join(build_root, "config.json")
+    filename = build_root / "config.json"
 
     # make sure the config file exists
-    if mode =="r":
+    if mode == "r":
         if not os.path.exists(filename):
             with open(filename, "w") as f:
                 print("{}", file=f)
@@ -91,8 +90,8 @@ def do_run(args: argparse.Namespace):
     command = [executable] + args.args
     print(">>> EXE:", executable)
 
-    # run from BUILDROOT to avoid cluttering project root
-    execute(command, cwd=os.path.abspath(BUILDROOT))
+    # run from BUILD_DIR to avoid cluttering project root
+    execute(command, cwd=str(BUILD_DIR))
 
 def do_test(args: argparse.Namespace):
     config = load_config()

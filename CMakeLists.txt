@@ -4,34 +4,32 @@ cmake_minimum_required(VERSION 3.5..3.27)
 project(Lyra-Engine VERSION 0.1 LANGUAGES C CXX)
 
 # cmake config and modules
-list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/Configs")
-list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/Vendors")
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/Tools/Configs")
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/Tools/Vendors")
 
 # settings
-include(Compiler)
-include(Project)
 include(System)
+include(Project)
+include(Compiler)
 
 # cmrc
 include(CMakeRC)
 
 # project components
-add_subdirectory(Include)
-add_subdirectory(Library)
-add_subdirectory(Plugins)
-add_subdirectory(Backend)
-add_subdirectory(TestKit)
+add_subdirectory(Engine)
+add_subdirectory(Modules)
+add_subdirectory(Tests)
 add_subdirectory(Samples)
 
-# # install shared library header
+# install shared library header
 # install(
-#     DIRECTORY Library/
+#     DIRECTORY Engine/Include/
 #     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 #     FILES_MATCHING
 #         PATTERN "*.h"
 #         PATTERN "*.hpp")
 #
-# # install shared library libraries
+# install shared library libraries
 # install(
 #     DIRECTORY $<TARGET_FILE_DIR:lyra-engine>/
 #     DESTINATION ${CMAKE_INSTALL_LIBDIR}/$<$<BOOL:${WIN32}>:$<CONFIG>>
@@ -41,20 +39,20 @@ add_subdirectory(Samples)
 #         PATTERN "*.lib"
 #         PATTERN "*.dylib")
 #
-# # install the target file
+# install the target file
 # install(
 #     EXPORT lyra-engine-targets
 #     FILE lyra-engine-targets.cmake
 #     DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/cmake/Lyra-Engine)
 #
-# # configure package
+# configure package
 # include(CMakePackageConfigHelpers)
 # configure_package_config_file(
-#     ${PROJECT_SOURCE_DIR}/Targets/LyraEngineConfig.cmake.in
+#     ${PROJECT_SOURCE_DIR}/Tools/Packages/LyraEngineConfig.cmake.in
 #     ${CMAKE_CURRENT_BINARY_DIR}/Lyra-EngineConfig.cmake
 #     INSTALL_DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/cmake/Lyra-Engine)
 #
-# # install package config
+# install package config
 # install(
 #     FILES ${CMAKE_CURRENT_BINARY_DIR}/Lyra-EngineConfig.cmake
 #     DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/cmake/Lyra-Engine)

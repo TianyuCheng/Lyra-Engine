@@ -1,13 +1,3 @@
-# window plugins
-#--------------------------------
-add_subdirectory(Glfw)
-
-# shader plugins
-#--------------------------------
-add_subdirectory(Slang)
-
-# render plugins
-#--------------------------------
 # build d3d12 backend on Windows
 if(WIN32)
   add_subdirectory(D3D12)

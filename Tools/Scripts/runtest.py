@@ -114,7 +114,7 @@ def run_rhi_tests(args, buckets):
         directory = os.path.join(args.directory, test_name)
         os.makedirs(directory, exist_ok=True)
         results[test_name] = {}
-        results[test_name]["reference"] = os.path.join(git_root, "TestKit", test_name, "reference.png")
+        results[test_name]["reference"] = os.path.join(git_root, "Tests", test_name, "reference.png")
         for variant in variants:
             print("::".join(variant["components"]))
             full_name = variant["name"]
@@ -452,7 +452,7 @@ def generate_html_report(args, results):
     git_root = find_git_root()
     import base64
     for test_name, buckets in results.items():
-        readme_path = os.path.join(git_root, "TestKit", test_name, "README.md")
+        readme_path = os.path.join(git_root, "Tests", test_name, "README.md")
         has_readme = os.path.exists(readme_path)
         readme_content = ""
         if has_readme:
