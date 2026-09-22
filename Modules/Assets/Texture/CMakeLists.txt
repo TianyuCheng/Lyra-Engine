@@ -1,5 +1,5 @@
 # lyra-texture
-lyra_plugin(texture)
+lyra_module(texture OBJECT)
 target_sources(lyra-texture PRIVATE
     STBCookerPlugin.cpp
     EXRCookerPlugin.cpp

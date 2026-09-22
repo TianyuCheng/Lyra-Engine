@@ -1,5 +1,5 @@
 # lyra-loader
-lyra_plugin(loader)
+lyra_module(loader OBJECT)
 target_sources(lyra-loader PRIVATE
     # nativefs
     NativeFSUtils.h

@@ -1,6 +1,6 @@
 # Metal RHI Plugin for Lyra Engine
 
-lyra_backend(metal)
+lyra_module(metal MODULE)
 
 # find required Metal frameworks
 find_library(METAL_LIBRARY Metal REQUIRED)

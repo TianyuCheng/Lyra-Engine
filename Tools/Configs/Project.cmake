@@ -68,45 +68,37 @@ macro(lyra_header NAME)
 
 endmacro()
 
-# define a macro for backend registration
-macro(lyra_backend NAME)
+# define a macro for module registration (supports OBJECT, STATIC, MODULE, SHARED)
+macro(lyra_module NAME TYPE)
   set(TARGET_NAME    "${PROJECT_NAME}-${NAME}")
   set(NAMESPACE_NAME "${PROJECT_NAME}::${NAME}")
 
-  # add module target
-  add_library(${TARGET_NAME} MODULE)
-
-  # change the dll path (to allow easier linking)
-  set_target_properties(${TARGET_NAME} PROPERTIES
-      RUNTIME_OUTPUT_DIRECTORY ${LIBRARY_BIN_DIRECTORY}/
-      LIBRARY_OUTPUT_DIRECTORY ${LIBRARY_BIN_DIRECTORY}/
-      ARCHIVE_OUTPUT_DIRECTORY ${LIBRARY_BIN_DIRECTORY}/)
+  # add target based on specified library type
+  add_library(${TARGET_NAME} ${TYPE})
 
   # re-export target with namespace
   add_library(${NAMESPACE_NAME} ALIAS ${TARGET_NAME})
 
-  target_link_libraries(${TARGET_NAME} PUBLIC lyra::engine)
-  target_link_libraries(${TARGET_NAME} PUBLIC lyra::commons)
-
-  # IDE target folders
-  set_target_properties(${TARGET_NAME} PROPERTIES PREFIX "")
-  set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Modules")
-endmacro()
-
-# define a macro for plugin registration
-macro(lyra_plugin NAME)
-  set(TARGET_NAME    "${PROJECT_NAME}-${NAME}")
-  set(NAMESPACE_NAME "${PROJECT_NAME}::${NAME}")
-
-  # add object library target
-  add_library(${TARGET_NAME} OBJECT)
-
-  # re-export target with namespace
-  add_library(${NAMESPACE_NAME} ALIAS ${TARGET_NAME})
-
-  # link with common headers
-  target_link_libraries(${TARGET_NAME} PUBLIC lyra::headers)
-  target_link_libraries(${TARGET_NAME} PUBLIC lyra::commons)
+  # configure properties and dependencies based on library type
+  if("${TYPE}" STREQUAL "MODULE" OR "${TYPE}" STREQUAL "SHARED")
+    set_target_properties(${TARGET_NAME} PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${LIBRARY_BIN_DIRECTORY}/
+        LIBRARY_OUTPUT_DIRECTORY ${LIBRARY_BIN_DIRECTORY}/
+        ARCHIVE_OUTPUT_DIRECTORY ${LIBRARY_BIN_DIRECTORY}/
+        PREFIX "")
+    target_link_libraries(${TARGET_NAME} PUBLIC lyra::engine)
+    target_link_libraries(${TARGET_NAME} PUBLIC lyra::commons)
+  else()
+    if("${TYPE}" STREQUAL "STATIC")
+      set_target_properties(${TARGET_NAME} PROPERTIES
+          RUNTIME_OUTPUT_DIRECTORY ${LIBRARY_BIN_DIRECTORY}/
+          LIBRARY_OUTPUT_DIRECTORY ${LIBRARY_BIN_DIRECTORY}/
+          ARCHIVE_OUTPUT_DIRECTORY ${LIBRARY_BIN_DIRECTORY}/
+          PREFIX "")
+    endif()
+    target_link_libraries(${TARGET_NAME} PUBLIC lyra::headers)
+    target_link_libraries(${TARGET_NAME} PUBLIC lyra::commons)
+  endif()
 
   # IDE target folders
   set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Modules")

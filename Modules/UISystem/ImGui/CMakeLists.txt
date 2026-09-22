@@ -1,5 +1,5 @@
 # setup plugin
-lyra_plugin(imgui)
+lyra_module(imgui OBJECT)
 
 # plugin sources
 target_sources(lyra-imgui PRIVATE

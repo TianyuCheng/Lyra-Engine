@@ -1,5 +1,5 @@
 # lyra-model
-lyra_plugin(model)
+lyra_module(model OBJECT)
 
 target_sources(lyra-model PRIVATE
     ModelPlugin.cpp

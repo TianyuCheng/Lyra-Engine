@@ -1,5 +1,5 @@
 # lyra-packer
-lyra_plugin(packer)
+lyra_module(packer OBJECT)
 target_sources(lyra-packer PRIVATE
     PakUtils.h
     PakUtils.cpp

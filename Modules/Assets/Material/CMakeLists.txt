@@ -1,5 +1,5 @@
 # lyra-material
-lyra_plugin(material)
+lyra_module(material OBJECT)
 target_sources(lyra-material PRIVATE
     MaterialPlugin.cpp
 )

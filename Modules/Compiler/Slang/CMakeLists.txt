@@ -1,5 +1,5 @@
 # setup plugin
-lyra_backend(slang)
+lyra_module(slang MODULE)
 
 # plugin sources
 target_sources(lyra-slang PRIVATE
