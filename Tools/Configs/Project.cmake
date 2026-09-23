@@ -28,6 +28,9 @@ macro(lyra_shared NAME)
   # re-export target with namespace
   add_library(${NAMESPACE_NAME} ALIAS ${TARGET_NAME})
 
+  # additional definitions
+  target_compile_definitions(${TARGET_NAME} PRIVATE LYRA_BUILD_SHARED)
+
   # IDE target folders
   set_target_properties(${TARGET_NAME} PROPERTIES PREFIX "")
   set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Library")

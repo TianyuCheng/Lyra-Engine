@@ -14,17 +14,40 @@
 // Windows specific
 #ifdef _WIN32
 #undef APIENTRY // undefine APIENTRY macro
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #undef CreateWindow // undefine CreateWindow macro
-#define LYRA_EXPORT extern "C" __declspec(dllexport)
 #define LYRA_PLUGIN HMODULE
 #endif
 
 // Unix-based OS
 #ifndef _WIN32
 #include <dlfcn.h>
-#define LYRA_EXPORT extern "C" __attribute__((visibility("default")))
 #define LYRA_PLUGIN void*
+#endif
+
+// extern C
+#ifdef __cplusplus
+#define LYRA_EXTERN_C extern "C"
+#else
+#define LYRA_EXTERN_C
+#endif
+
+// symbol export / import visibility
+#if defined(_WIN32) || defined(__CYGWIN__)
+#if defined(LYRA_BUILD_SHARED)
+#define LYRA_API __declspec(dllexport)
+#else
+#define LYRA_API __declspec(dllimport)
+#endif
+#define LYRA_EXPORT LYRA_EXTERN_C __declspec(dllexport)
+#elif defined(__GNUC__) || defined(__clang__)
+#define LYRA_API    __attribute__((visibility("default")))
+#define LYRA_EXPORT LYRA_EXTERN_C __attribute__((visibility("default")))
+#else
+#define LYRA_API
+#define LYRA_EXPORT LYRA_EXTERN_C
 #endif
 
 // declaration within namespace
