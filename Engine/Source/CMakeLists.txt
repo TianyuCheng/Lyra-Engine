@@ -98,10 +98,12 @@ target_sources(lyra-engine PRIVATE
   # graphics
   Graphics/RHIInits.cpp
   Graphics/RHITypes.cpp
-  Graphics/FrameGraph.cpp
-  Graphics/FrameGraphAllocator.cpp
-  Graphics/FrameGraphBuilder.cpp
-  Graphics/FrameGraphTexture.cpp
+
+  # rendering
+  Rendering/FrameGraph.cpp
+  Rendering/FrameGraphAllocator.cpp
+  Rendering/FrameGraphBuilder.cpp
+  Rendering/FrameGraphTexture.cpp
 
   # windowing
   Windowing/WSIState.cpp

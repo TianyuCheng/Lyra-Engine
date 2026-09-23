@@ -57,18 +57,10 @@ target_sources(lyra-headers INTERFACE
     Lyra/Graphics/RHIInits.h
     Lyra/Graphics/RHITypes.h
     Lyra/Graphics/RHIUtils.h
-    Lyra/Graphics/FrameGraph.h
-    Lyra/Graphics/FrameGraphAllocator.h
-    Lyra/Graphics/FrameGraphBuffer.h
-    Lyra/Graphics/FrameGraphBuilder.h
-    Lyra/Graphics/FrameGraphCommon.h
-    Lyra/Graphics/FrameGraphContext.h
-    Lyra/Graphics/FrameGraphEnums.h
-    Lyra/Graphics/FrameGraphPass.h
-    Lyra/Graphics/FrameGraphResource.h
-    Lyra/Graphics/FrameGraphTexture.h
-    Lyra/Graphics/FrameGraphTraits.h
     Lyra/Graphics/GPUDeletionQueue.h
+
+    # rendering
+    Lyra/Rendering/FrameGraph.h
 
     # compiler
     Lyra/Compiler/SLCAPI.h

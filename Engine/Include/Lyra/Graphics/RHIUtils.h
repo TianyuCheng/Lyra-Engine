@@ -119,6 +119,9 @@ namespace lyra
     struct GPUPushConstantRange;
     using GPUPushConstantRanges = TypedView<GPUPushConstantRange>;
 
+    struct GPUPipelineConstant;
+    using GPUPipelineConstants = TypedView<GPUPipelineConstant>;
+
     struct GPUVertexAttribute;
     using GPUVertexAttributes = TypedView<GPUVertexAttribute>;
 
@@ -279,11 +282,14 @@ namespace lyra
 
     struct GPUAdapterInfo
     {
-        String architecture = "";
-        String description  = "";
-        String device       = "";
-        String vendor       = "";
+        FixedString64 architecture = {};
+        FixedString64 description  = {};
+        FixedString64 device       = {};
+        FixedString64 vendor       = {};
     };
+
+    static_assert(std::is_standard_layout_v<GPUAdapterInfo>);
+    static_assert(sizeof(GPUAdapterInfo) == 256);
 
     struct GPUAdapterProps
     {
@@ -509,11 +515,17 @@ namespace lyra
         bool               blend_enable = false;
     };
 
+    struct GPUPipelineConstant
+    {
+        CString                  key;
+        GPUPipelineConstantValue value = 0;
+    };
+
     struct GPUProgrammableStage
     {
-        GPUShaderModuleHandle                      module;
-        CString                                    entry_point = "main";
-        HashMap<CString, GPUPipelineConstantValue> constants   = {};
+        GPUShaderModuleHandle module;
+        CString               entry_point = "main";
+        GPUPipelineConstants  constants   = {};
     };
 
     struct GPUBufferBinding

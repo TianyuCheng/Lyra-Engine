@@ -1,11 +1,11 @@
 #pragma once
 
-#ifndef LYRA_ENGINE_GRAPHICS_FRAME_GRAPH_H
-#define LYRA_ENGINE_GRAPHICS_FRAME_GRAPH_H
+#ifndef LYRA_ENGINE_RENDERING_FRAME_GRAPH_H
+#define LYRA_ENGINE_RENDERING_FRAME_GRAPH_H
 
+#include <cassert>
 #include <utility>
 #include <type_traits>
-#include <cassert>
 
 #include <Lyra/Utilities/Hash.h>
 #include <Lyra/Utilities/Stdint.h>
@@ -79,7 +79,7 @@ namespace lyra
     };
 
     template <typename T>
-    inline constexpr bool has_pre_read_v = has_pre_read<T>::value;
+    constexpr bool has_pre_read_v = has_pre_read<T>::value;
 
     template <typename T, typename = void>
     struct has_pre_write : std::false_type
@@ -92,7 +92,7 @@ namespace lyra
     };
 
     template <typename T>
-    inline constexpr bool has_pre_write_v = has_pre_write<T>::value;
+    constexpr bool has_pre_write_v = has_pre_write<T>::value;
 
     template <typename T, typename = void>
     struct has_batched_pre_read : std::false_type
@@ -101,16 +101,15 @@ namespace lyra
 
     template <typename T>
     struct has_batched_pre_read<T, std::void_t<decltype(std::declval<T>().pre_read(
-        std::declval<FrameGraphContext*>(),
-        std::declval<FrameGraphPass*>(),
-        std::declval<FrameGraphReadOp>(),
-        std::declval<FrameGraphBarrierBatch*>()
-    ))>> : std::true_type
+                                       std::declval<FrameGraphContext*>(),
+                                       std::declval<FrameGraphPass*>(),
+                                       std::declval<FrameGraphReadOp>(),
+                                       std::declval<FrameGraphBarrierBatch*>()))>> : std::true_type
     {
     };
 
     template <typename T>
-    inline constexpr bool has_batched_pre_read_v = has_batched_pre_read<T>::value;
+    constexpr bool has_batched_pre_read_v = has_batched_pre_read<T>::value;
 
     template <typename T, typename = void>
     struct has_batched_pre_write : std::false_type
@@ -119,16 +118,15 @@ namespace lyra
 
     template <typename T>
     struct has_batched_pre_write<T, std::void_t<decltype(std::declval<T>().pre_write(
-        std::declval<FrameGraphContext*>(),
-        std::declval<FrameGraphPass*>(),
-        std::declval<FrameGraphWriteOp>(),
-        std::declval<FrameGraphBarrierBatch*>()
-    ))>> : std::true_type
+                                        std::declval<FrameGraphContext*>(),
+                                        std::declval<FrameGraphPass*>(),
+                                        std::declval<FrameGraphWriteOp>(),
+                                        std::declval<FrameGraphBarrierBatch*>()))>> : std::true_type
     {
     };
 
     template <typename T>
-    inline constexpr bool has_batched_pre_write_v = has_batched_pre_write<T>::value;
+    constexpr bool has_batched_pre_write_v = has_batched_pre_write<T>::value;
 
     // -------------------------------------------------------------------------
     // strongly-typed resource handle (supports SSA versioning)
@@ -156,7 +154,11 @@ namespace lyra
 
         [[nodiscard]] constexpr uint rsid() const noexcept { return id; }
         [[nodiscard]] constexpr bool valid() const noexcept { return id != ~0u; }
-        constexpr void reset() noexcept { id = ~0u; version = 0; }
+        constexpr void               reset() noexcept
+        {
+            id      = ~0u;
+            version = 0;
+        }
 
         constexpr bool operator==(const FrameGraphHandle& other) const noexcept
         {
@@ -211,12 +213,12 @@ namespace lyra
     {
         FrameGraphResourceType type = FrameGraphResourceType::TRANSIENT;
 
-        virtual ~FrameGraphResourceModel()                                                                                     = default;
-        virtual ResourceTypeID get_type_id() const                                                                             = 0;
-        virtual void create(FrameGraphAllocator* allocator)                                                                    = 0;
-        virtual void destroy(FrameGraphAllocator* allocator)                                                                   = 0;
-        virtual void pre_read(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphReadOp op, FrameGraphBarrierBatch* barriers)   = 0;
-        virtual void pre_write(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphWriteOp op, FrameGraphBarrierBatch* barriers) = 0;
+        virtual ~FrameGraphResourceModel()                                                                                                         = default;
+        virtual ResourceTypeID get_type_id() const                                                                                                 = 0;
+        virtual void           create(FrameGraphAllocator* allocator)                                                                              = 0;
+        virtual void           destroy(FrameGraphAllocator* allocator)                                                                             = 0;
+        virtual void           pre_read(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphReadOp op, FrameGraphBarrierBatch* barriers)   = 0;
+        virtual void           pre_write(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphWriteOp op, FrameGraphBarrierBatch* barriers) = 0;
     };
 
     template <typename T>
@@ -383,8 +385,8 @@ namespace lyra
         void execute(ExecuteCallback&& f) { this->callback = std::move(f); }
 
         // prevent from being culled
-        void preserve() { preserved = true; }
-        [[nodiscard]] bool is_preserved() const { return preserved; }
+        void                     preserve() { preserved = true; }
+        [[nodiscard]] bool       is_preserved() const { return preserved; }
         [[nodiscard]] StringView get_name() const { return name; }
 
     private:
@@ -537,23 +539,23 @@ namespace lyra
         friend struct FrameGraphBuilder;
         friend struct FrameGraphPassBuilder;
 
-        using Pass          = FrameGraphPass;
-        using Builder       = FrameGraphBuilder;
-        using PassBuilder   = FrameGraphPassBuilder;
-        using Context       = FrameGraphContext;
-        using Resource      = FrameGraphResource;
-        using Resources     = FrameGraphResources;
-        using Buffer        = FrameGraphBuffer;
-        using Texture       = FrameGraphTexture;
-        using Allocator     = FrameGraphAllocator;
+        using Pass        = FrameGraphPass;
+        using Builder     = FrameGraphBuilder;
+        using PassBuilder = FrameGraphPassBuilder;
+        using Context     = FrameGraphContext;
+        using Resource    = FrameGraphResource;
+        using Resources   = FrameGraphResources;
+        using Buffer      = FrameGraphBuffer;
+        using Texture     = FrameGraphTexture;
+        using Allocator   = FrameGraphAllocator;
         template <typename T>
         using Handle        = FrameGraphHandle<T>;
         using TextureHandle = FrameGraphHandle<FrameGraphTexture>;
         using BufferHandle  = FrameGraphHandle<FrameGraphBuffer>;
 
-        explicit FrameGraph()                   = default;
-        explicit FrameGraph(FrameGraph&&)       = delete;
-        explicit FrameGraph(const FrameGraph&)  = delete;
+        explicit FrameGraph()                  = default;
+        explicit FrameGraph(FrameGraph&&)      = delete;
+        explicit FrameGraph(const FrameGraph&) = delete;
         virtual ~FrameGraph();
 
         void execute(FrameGraphContext* context, FrameGraphAllocator* allocator);
@@ -613,12 +615,12 @@ namespace lyra
         template <typename T>
         [[nodiscard]] FrameGraphHandle<T> import(const T& entry)
         {
-            uint index            = static_cast<uint>(graph.resources.size());
-            auto physical         = std::make_unique<FrameGraphResourceEntry<T>>();
-            physical->type        = FrameGraphResourceType::IMPORTED;
-            physical->value       = entry;
+            uint index      = static_cast<uint>(graph.resources.size());
+            auto physical   = std::make_unique<FrameGraphResourceEntry<T>>();
+            physical->type  = FrameGraphResourceType::IMPORTED;
+            physical->value = entry;
 
-            uint physical_id      = static_cast<uint>(graph.physical_resources.size());
+            uint physical_id = static_cast<uint>(graph.physical_resources.size());
             graph.physical_resources.push_back(std::move(physical));
 
             auto resource         = FrameGraphResourceNode{};
@@ -637,12 +639,12 @@ namespace lyra
         template <typename T>
         [[nodiscard]] FrameGraphHandle<T> create(const typename T::Descriptor& desc)
         {
-            uint index            = static_cast<uint>(graph.resources.size());
-            auto physical         = std::make_unique<FrameGraphResourceEntry<T>>();
-            physical->type        = FrameGraphResourceType::TRANSIENT;
-            physical->desc        = desc;
+            uint index     = static_cast<uint>(graph.resources.size());
+            auto physical  = std::make_unique<FrameGraphResourceEntry<T>>();
+            physical->type = FrameGraphResourceType::TRANSIENT;
+            physical->desc = desc;
 
-            uint physical_id      = static_cast<uint>(graph.physical_resources.size());
+            uint physical_id = static_cast<uint>(graph.physical_resources.size());
             graph.physical_resources.push_back(std::move(physical));
 
             auto resource         = FrameGraphResourceNode{};
@@ -661,7 +663,7 @@ namespace lyra
         template <typename T = void>
         [[nodiscard]] FrameGraphHandle<T> duplicate(FrameGraphHandle<T> resource)
         {
-            auto& from_resource   = graph.resources.at(resource.id);
+            auto& from_resource = graph.resources.at(resource.id);
 
             uint index            = static_cast<uint>(graph.resources.size());
             auto res_node         = FrameGraphResourceNode{};
@@ -744,18 +746,18 @@ namespace lyra
     {
     public:
         explicit FrameGraphBuilder();
-        FrameGraphBuilder(FrameGraphBuilder&&)                 = delete;
-        FrameGraphBuilder(const FrameGraphBuilder&)            = delete;
+        FrameGraphBuilder(FrameGraphBuilder&&)                  = delete;
+        FrameGraphBuilder(const FrameGraphBuilder&)             = delete;
         FrameGraphBuilder&  operator=(const FrameGraphBuilder&) = delete;
-        FrameGraphBuilder&& operator=(FrameGraphBuilder&&)     = delete;
-        virtual ~FrameGraphBuilder()                           = default;
+        FrameGraphBuilder&& operator=(FrameGraphBuilder&&)      = delete;
+        virtual ~FrameGraphBuilder()                            = default;
 
         // modern idiomatic pass declaration with PassData
         template <typename Data, typename Setup, typename Exec>
         Data add_pass(StringView name, Setup&& setup, Exec&& exec)
         {
-            auto& pass_entry = create_pass(name);
-            Data data{};
+            auto&                 pass_entry = create_pass(name);
+            Data                  data{};
             FrameGraphPassBuilder pass_builder(*graph, this->pass);
             setup(data, pass_builder);
 
@@ -769,7 +771,7 @@ namespace lyra
         template <typename Setup, typename Exec>
         void add_pass(StringView name, Setup&& setup, Exec&& exec)
         {
-            auto& pass_entry = create_pass(name);
+            auto&                 pass_entry = create_pass(name);
             FrameGraphPassBuilder pass_builder(*graph, this->pass);
             setup(pass_builder);
 
@@ -856,4 +858,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_ENGINE_GRAPHICS_FRAME_GRAPH_H
+#endif // LYRA_ENGINE_RENDERING_FRAME_GRAPH_H

@@ -1,7 +1,7 @@
 // reference: https://www.gdcvault.com/play/1024612/FrameGraph-Extensible-Rendering-Architecture-in
 // reference: https://www.gdcvault.com/play/1024045/FrameGraph-Extensible-Rendering-Architecture-in
 
-#include <Lyra/Graphics/FrameGraph.h>
+#include <Lyra/Rendering/FrameGraph.h>
 
 using namespace lyra;
 

@@ -44,7 +44,7 @@
 #include <Lyra/Assets/AMSServer.h>
 
 // Render headers
-#include <Lyra/Graphics/FrameGraph.h>
+#include <Lyra/Rendering/FrameGraph.h>
 
 // Scenes headers
 #include <Lyra/Scene/World.h>

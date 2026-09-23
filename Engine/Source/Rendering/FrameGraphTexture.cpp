@@ -1,4 +1,4 @@
-#include <Lyra/Graphics/FrameGraph.h>
+#include <Lyra/Rendering/FrameGraph.h>
 
 using namespace lyra;
 
