@@ -96,9 +96,10 @@ def do_run(args: argparse.Namespace):
 def do_test(args: argparse.Namespace):
     config = load_config()
     preset = f"{config.generator}-{config.preset}"
-    command = ["cmake", "--build", "--preset", preset, "--target", "testkit"]
+    target = args.target if args.target in ("unit-tests", "rhi-tests", "testkit") else "testkit"
+    command = ["cmake", "--build", "--preset", preset, "--target", target]
     env_vars = {}
-    if args.target and args.target != "all":
+    if args.target and args.target not in ("all", "unit-tests", "rhi-tests", "testkit"):
         env_vars["LYRA_TESTKIT_FILTER"] = args.target
     execute(command, env_vars)
 

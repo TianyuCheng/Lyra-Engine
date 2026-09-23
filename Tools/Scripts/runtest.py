@@ -7,8 +7,9 @@ import webbrowser
 import xml.etree.ElementTree as ET
 
 def parse_args():
-    parser = argparse.ArgumentParser(prog="lyra-testkit", description="helper script to run tests for Lyra-Engine")
-    parser.add_argument("executable", help="path to the executable for testkit")
+    parser = argparse.ArgumentParser(prog="lyra-rhi-tests", description="helper script to run tests for Lyra-Engine")
+    parser.add_argument("executable", help="path to the executable for rhi-tests / testkit")
+
     parser.add_argument("--directory", help="target directory for the generated test output and report")
     args = parser.parse_args()
     args.directory = os.path.join(args.directory, "runs")
@@ -132,7 +133,14 @@ def run_rhi_tests(args, buckets):
 def run_unit_tests(args):
     git_root = find_git_root()
     assert git_root, "Not within a git repository!"
-    subprocess.check_call([args.executable, f"-tce=rhi*"])
+    exec_dir = os.path.dirname(args.executable)
+    exec_ext = os.path.splitext(args.executable)[1]
+    unit_exec = os.path.join(exec_dir, f"lyra-unit-tests{exec_ext}")
+    if os.path.exists(unit_exec):
+        subprocess.check_call([unit_exec])
+    else:
+        subprocess.check_call([args.executable, f"-tce=rhi*"])
+
 
 def generate_html_report(args, results):
     import pathlib

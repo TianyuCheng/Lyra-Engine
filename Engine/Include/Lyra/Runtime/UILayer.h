@@ -72,7 +72,6 @@ namespace lyra
         OwnedResource<GUIRenderer> gui;        ///< The managed GUIRenderer resource.
     };
 
-    using ImGuiLayer  = UILayer;
     using EditorLayer = UILayer;
 
 } // namespace lyra
