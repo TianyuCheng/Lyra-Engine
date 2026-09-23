@@ -38,7 +38,7 @@ namespace lyra
 
         void bind(Application& app);
 
-        void update(Blackboard& blackboard);
+        void update(AppContext& context);
 
     private:
         EditorLayoutInfo init() const;

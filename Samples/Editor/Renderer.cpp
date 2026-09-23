@@ -176,14 +176,14 @@ struct Camera
 
 void SampleCubeRenderer::bind(Application& app)
 {
-    app.get_blackboard().add<SampleCubeRenderer*>(this);
+    app.get_toolboard().add<SampleCubeRenderer*>(this);
 
     app.bind<AppEvent::INIT, &SampleCubeRenderer::init>(*this);
     app.bind<AppEvent::UPDATE, &SampleCubeRenderer::update>(*this);
     app.bind<AppEvent::DESTROY, &SampleCubeRenderer::destroy>(*this);
 }
 
-void SampleCubeRenderer::render(const Backbuffer& backbuffer, Blackboard& blackboard, GPUCommandBuffer command)
+void SampleCubeRenderer::render(const Backbuffer& backbuffer, AppContext& context, GPUCommandBuffer command)
 {
     // color attachments
     auto color_attachment        = GPURenderPassColorAttachment{};
@@ -221,31 +221,29 @@ void SampleCubeRenderer::render(const Backbuffer& backbuffer, Blackboard& blackb
     command.pop_debug_group();
 }
 
-void SampleCubeRenderer::init(Blackboard& blackboard)
+void SampleCubeRenderer::init(AppContext& context)
 {
-    auto device   = blackboard.get<GPUDevice*>();
-    auto compiler = blackboard.get<Compiler*>();
+    auto device   = context.toolboard.get<GPUDevice*>();
+    auto compiler = context.toolboard.get<Compiler*>();
 
     init_pipeline(*device, *compiler);
     init_buffers(*device);
     init_bind_group(*device);
 
     // initialize scene nodes
-    if (auto world_ptr = blackboard.try_get<World*>()) {
-        auto& world = **world_ptr;
-
+    if (auto* world = context.toolboard.try_get<World>()) {
         // create camera node looking down at the grid plane
-        camera_node = world.create("Main Camera");
-        world.translate(camera_node, {0.0f, 3.0f, 8.0f});
-        world.rotate(camera_node, {1.0f, 0.0f, 0.0f}, -20.0f);
-        world.add_component<PerspectiveCamera>(camera_node);
-        world.add_component<CameraProjection>(camera_node);
+        camera_node = world->create("Main Camera");
+        world->translate(camera_node, {0.0f, 3.0f, 8.0f});
+        world->rotate(camera_node, {1.0f, 0.0f, 0.0f}, -20.0f);
+        world->add_component<PerspectiveCamera>(camera_node);
+        world->add_component<CameraProjection>(camera_node);
     }
 }
 
-void SampleCubeRenderer::destroy(Blackboard& blackboard)
+void SampleCubeRenderer::destroy(AppContext& context)
 {
-    auto device = blackboard.get<GPUDevice*>();
+    auto device = context.toolboard.get<GPUDevice*>();
     device->wait();
 
     vshader.destroy();
@@ -257,27 +255,24 @@ void SampleCubeRenderer::destroy(Blackboard& blackboard)
     depth_view.destroy();
 }
 
-void SampleCubeRenderer::update(Blackboard& blackboard)
+void SampleCubeRenderer::update(AppContext& context)
 {
-    auto world_ptr     = blackboard.try_get<World*>();
-    auto hierarchy_ptr = blackboard.try_get<SceneTree*>();
-    auto scene         = blackboard.try_get<SceneView*>();
-    if (!world_ptr || !hierarchy_ptr || !scene) return;
-
-    auto& world     = **world_ptr;
-    auto& hierarchy = **hierarchy_ptr;
+    auto* world     = context.toolboard.try_get<World>();
+    auto* hierarchy = context.toolboard.try_get<SceneTree>();
+    auto* scene     = context.toolboard.try_get<SceneView>();
+    if (!world || !hierarchy || !scene) return;
 
     // update all transforms in the hierarchy
-    hierarchy.update();
+    hierarchy->update();
 
     // update camera uniform buffer
-    auto backbuffer = (*scene)->get_backbuffer();
+    auto backbuffer = scene->get_backbuffer();
 
     // ensure depth buffer matches backbuffer size
     if (!depth_texture.handle.valid() ||
         depth_texture.width != backbuffer.extent.width ||
         depth_texture.height != backbuffer.extent.height) {
-        auto device = blackboard.get<GPUDevice*>();
+        auto device = context.toolboard.get<GPUDevice*>();
 
         if (depth_texture.handle.valid()) {
             device->wait();
@@ -302,14 +297,14 @@ void SampleCubeRenderer::update(Blackboard& blackboard)
     }
 
     auto  aspect    = (float)backbuffer.extent.width / (float)backbuffer.extent.height;
-    auto& cam_world = world.get_component<TransformWorld>(camera_node);
+    auto& cam_world = world->get_component<TransformWorld>(camera_node);
 
     // update camera projection parameters
-    auto& cam_perspective  = world.get_component<PerspectiveCamera>(camera_node);
+    auto& cam_perspective  = world->get_component<PerspectiveCamera>(camera_node);
     cam_perspective.aspect = aspect;
 
     // get updated projection from RenderLayer (note: this might be 1 frame late if aspect ratio just changed)
-    auto& cam_projection = world.get_component<CameraProjection>(camera_node);
+    auto& cam_projection = world->get_component<CameraProjection>(camera_node);
 
     auto camera           = ubuffer.get_mapped_range<Camera>();
     camera.at(0).proj     = cam_projection.projection;

@@ -10,14 +10,14 @@ TimingLayer::TimingLayer()
 
 void TimingLayer::bind(Application& app)
 {
-    // add clock to blackboard
-    app.get_blackboard().add<Clock*>(&clock);
+    // add clock to toolboard
+    app.get_toolboard().add<Clock*>(&clock);
 
     // update timing before everything else
     app.bind<AppEvent::UPDATE_PRE, &TimingLayer::update>(*this);
 }
 
-void TimingLayer::update(Blackboard&)
+void TimingLayer::update(AppContext&)
 {
     auto now = std::chrono::high_resolution_clock::now();
 

@@ -14,7 +14,7 @@ void EditorLayout::bind(Application& app)
     app.bind<AppEvent::UPDATE, &EditorLayout::update>(*this);
 }
 
-void EditorLayout::update(Blackboard& blackboard)
+void EditorLayout::update(AppContext& context)
 {
     ui::workspace::LayoutSplit split;
     split.left   = descriptor.left;
@@ -25,7 +25,7 @@ void EditorLayout::update(Blackboard& blackboard)
 
     // running dock builder exactly once
     lyra::execute_once([&]() {
-        blackboard.add<EditorLayoutInfo>(init());
+        context.blackboard.add<EditorLayoutInfo>(init());
     });
 }
 

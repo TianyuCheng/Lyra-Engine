@@ -19,7 +19,7 @@ void ViewportCanvas::init(uint frames_in_flight)
     frame_index = 0;
 }
 
-void ViewportCanvas::update(Blackboard& blackboard)
+void ViewportCanvas::update(AppContext& context)
 {
     // update current frame
     frame_index = (frame_index + 1) % frame_count;
@@ -29,8 +29,8 @@ void ViewportCanvas::update(Blackboard& blackboard)
 
     // update framebuffer
     if (frame_changed) {
-        delete_frames(blackboard);
-        create_frames(blackboard);
+        delete_frames(context);
+        create_frames(context);
     }
 }
 
@@ -77,14 +77,14 @@ void ViewportCanvas::detect_window()
     frame_extent.y = std::max(0.0f, frame_extent.y);
 }
 
-void ViewportCanvas::create_frames(Blackboard& blackboard)
+void ViewportCanvas::create_frames(AppContext& context)
 {
     auto extent   = GPUExtent2D{};
     extent.width  = std::max(64u, static_cast<uint>(frame_extent.x));
     extent.height = std::max(64u, static_cast<uint>(frame_extent.y));
 
-    auto gui = blackboard.get<GUIRenderer*>();
-    auto dev = blackboard.get<GPUDevice*>();
+    auto gui = context.toolboard.get<GUIRenderer*>();
+    auto dev = context.toolboard.get<GPUDevice*>();
     for (uint i = 0; i < frame_count; i++) {
         ViewportCanvasFrame frame = {};
 
@@ -111,9 +111,9 @@ void ViewportCanvas::create_frames(Blackboard& blackboard)
     }
 }
 
-void ViewportCanvas::delete_frames(Blackboard& blackboard)
+void ViewportCanvas::delete_frames(AppContext& context)
 {
-    auto gui = blackboard.get<GUIRenderer*>();
+    auto gui = context.toolboard.get<GUIRenderer*>();
     for (auto& frame : frames)
         gui->delete_texture(frame.tex_id);
 

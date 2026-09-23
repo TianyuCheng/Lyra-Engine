@@ -16,7 +16,7 @@ namespace lyra
 
         void bind(Application& app);
 
-        void update(Blackboard& blackboard);
+        void update(AppContext& context);
 
         void render_default(GPUCommandBuffer command);
 

@@ -13,16 +13,16 @@
 
 using namespace lyra;
 
-static void render_scene(Blackboard& blackboard, GPUCommandBuffer command)
+static void render_scene(AppContext& context, GPUCommandBuffer command)
 {
     // apply a toy demo renderer
-    if (auto view = blackboard.try_get<SceneView*>()) {
-        auto renderer = blackboard.get<SampleCubeRenderer*>();
-        renderer->render((*view)->get_backbuffer(), blackboard, command);
+    if (auto* view = context.toolboard.try_get<SceneView>()) {
+        auto* renderer = context.toolboard.get<SampleCubeRenderer*>();
+        renderer->render(view->get_backbuffer(), context, command);
     }
 }
 
-static void imgui_update(Blackboard& blackboard)
+static void imgui_update(AppContext& context)
 {
     ui::menubar([&]() {
         ui::menu("Project", [&]() {
@@ -31,8 +31,7 @@ static void imgui_update(Blackboard& blackboard)
             ui::menu_item("Save", "Ctrl+S", [&]() {});
         });
 
-        if (auto ams_ptr = blackboard.try_get<AssetServer*>()) {
-            auto ams = *ams_ptr;
+        if (auto* ams = context.toolboard.try_get<AssetServer>()) {
             ui::menu("Assets", [&]() {
                 ui::menu_item("Reimport All (Force)", [&]() {
                     ams->reimport_all(true);
@@ -53,11 +52,11 @@ static void imgui_update(Blackboard& blackboard)
 }
 
 
-static void imgui_render(Blackboard& blackboard)
+static void imgui_render(AppContext& context)
 {
-    auto device   = blackboard.get<GPUDevice*>();
-    auto surface  = blackboard.get<GPUSurface*>();
-    auto renderer = blackboard.get<GUIRenderer*>();
+    auto device   = context.toolboard.get<GPUDevice*>();
+    auto surface  = context.toolboard.get<GPUSurface*>();
+    auto renderer = context.toolboard.get<GUIRenderer*>();
 
     // command buffer
     auto command = lyra::execute([&]() {
@@ -74,7 +73,7 @@ static void imgui_render(Blackboard& blackboard)
     command.signal(backbuffer.complete, GPUBarrierSync::RENDER_TARGET);
 
     // render scene command encoding
-    render_scene(blackboard, command);
+    render_scene(context, command);
 
     // render UI command recording
     command.resource_barrier(state_transition(backbuffer.texture, undefined_state(), color_attachment_state()));
@@ -151,7 +150,7 @@ int main(int argc, const char* argv[])
         auto loader = std::make_unique<FileLoader>(FSLoader::NATIVE);
         loader->mount("/", caches_root, 1);
         loader->mount("/", assets_root, 0);
-        app->get_blackboard().add<FileLoader*>(loader.get());
+        app->get_toolboard().add<FileLoader*>(loader.get());
         return loader;
     });
 
@@ -169,7 +168,7 @@ int main(int argc, const char* argv[])
         auto layer = std::make_unique<AssetLayer>(desc);
         app->bind(*layer);
 
-        auto ams = app->get_blackboard().get<AssetServer*>();
+        auto ams = app->get_toolboard().get<AssetServer*>();
 
         // register assets loaders
         ams->register_asset<TextAsset>();
@@ -219,9 +218,9 @@ int main(int argc, const char* argv[])
     // ui layer
     auto uilayer = lyra::execute([&]() {
         auto desc      = GUIDescriptor{};
-        desc.window    = *app->get_blackboard().get<Window*>();
-        desc.surface   = *app->get_blackboard().get<GPUSurface*>();
-        desc.compiler  = *app->get_blackboard().get<Compiler*>();
+        desc.window    = *app->get_toolboard().get<Window*>();
+        desc.surface   = *app->get_toolboard().get<GPUSurface*>();
+        desc.compiler  = *app->get_toolboard().get<Compiler*>();
         desc.docking   = true;
         desc.viewports = false;
 

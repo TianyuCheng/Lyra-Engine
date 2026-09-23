@@ -20,6 +20,7 @@
 #include <apus/small_vector.hpp>
 #include <Lyra/Utilities/Detail/View.h>
 #include <Lyra/Utilities/Detail/Blackboard.h>
+#include <Lyra/Utilities/Detail/Toolboard.h>
 
 namespace lyra
 {
@@ -75,6 +76,7 @@ namespace lyra
     using TypedView = lyra::detail::typed_view<T...>;
 
     using Blackboard = lyra::detail::Blackboard;
+    using Toolboard  = lyra::detail::Toolboard;
 
 } // end of namespace lyra
 

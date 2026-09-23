@@ -45,17 +45,17 @@ void InspectorView::bind(Application& app)
     app.bind<AppEvent::UPDATE, &InspectorView::update>(*this);
 }
 
-void InspectorView::update(Blackboard& blackboard)
+void InspectorView::update(AppContext& context)
 {
     lyra::execute_once([&]() {
         ui::workspace::dock(LYRA_INSPECTOR_WINDOW_NAME, ui::Area::Right);
     });
 
     ui::panel(LYRA_INSPECTOR_WINDOW_NAME, [&]() {
-        auto world     = blackboard.try_get<World*>();
-        auto selection = blackboard.try_get<HierarchyView::Selection>();
+        auto world     = context.toolboard.try_get<World*>();
+        auto selection = context.blackboard.try_get<HierarchyView::Selection>();
         if (world && selection) {
-            draw_inspector(**world, selection->node);
+            draw_inspector(*world, selection->node);
         }
     });
 }

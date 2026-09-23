@@ -25,8 +25,8 @@ UILayer::UILayer(const GUIDescriptor& descriptor) : descriptor(descriptor)
 
 void UILayer::bind(Application& app)
 {
-    // save imgui manager into blackboard
-    app.get_blackboard().add<GUIRenderer*>(gui.get());
+    // save imgui manager into toolboard
+    app.get_toolboard().add<GUIRenderer*>(gui.get());
 
     // bind imgui manager events
     app.bind<AppEvent::INIT, &UILayer::theme>(*this);
@@ -37,33 +37,33 @@ void UILayer::bind(Application& app)
     app.bind<AppEvent::RENDER_POST, &UILayer::render>(*this);
 }
 
-void UILayer::update(Blackboard&)
+void UILayer::update(AppContext&)
 {
     gui->update();
 }
 
-void UILayer::pre_update(Blackboard&)
+void UILayer::pre_update(AppContext&)
 {
     gui->new_frame();
 }
 
-void UILayer::post_update(Blackboard&)
+void UILayer::post_update(AppContext&)
 {
     gui->end_frame();
 }
 
-void UILayer::render(Blackboard&)
+void UILayer::render(AppContext&)
 {
     if (descriptor.viewports)
         gui->render_side_viewports();
 }
 
-void UILayer::resize(Blackboard&)
+void UILayer::resize(AppContext&)
 {
     gui->resize();
 }
 
-void UILayer::theme(Blackboard&)
+void UILayer::theme(AppContext&)
 {
     ImGuiStyle& style  = ImGui::GetStyle();
     ImVec4*     colors = style.Colors;

@@ -22,39 +22,39 @@ namespace lyra
         explicit UILayer(const GUIDescriptor& descriptor);
 
         /**
-         * @brief Register the GUIRenderer to the blackboard and bind its lifecycle events.
+         * @brief Register the GUIRenderer to the toolboard and bind its lifecycle events.
          */
         void bind(Application& app);
 
         /**
          * @brief Main update loop for the GUI.
          */
-        void update(Blackboard&);
+        void update(AppContext&);
 
         /**
          * @brief Prepare the GUI system for a new frame.
          */
-        void pre_update(Blackboard&);
+        void pre_update(AppContext&);
 
         /**
          * @brief Finalize GUI updates for the current frame.
          */
-        void post_update(Blackboard&);
+        void post_update(AppContext&);
 
         /**
          * @brief Main GUI rendering step.
          */
-        void render(Blackboard&);
+        void render(AppContext&);
 
         /**
          * @brief Handle window resize events for the GUI.
          */
-        void resize(Blackboard&);
+        void resize(AppContext&);
 
         /**
          * @brief Apply a default theme to the GUI.
          */
-        void theme(Blackboard&);
+        void theme(AppContext&);
 
         /**
          * @brief Retrieve the raw underlying GUI context pointer.
@@ -77,4 +77,3 @@ namespace lyra
 } // namespace lyra
 
 #endif // LYRA_ENGINE_RUNTIME_UI_LAYER_H
-

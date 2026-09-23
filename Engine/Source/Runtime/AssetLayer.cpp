@@ -9,14 +9,14 @@ AssetLayer::AssetLayer(const AMSDescriptor& descriptor) : ams(descriptor)
 
 void AssetLayer::bind(Application& app)
 {
-    // save asset manager into blackboard
-    app.get_blackboard().add<AssetServer*>(&ams);
+    // save asset manager into toolboard
+    app.get_toolboard().add<AssetServer*>(&ams);
 
     // bind asset manager events
     app.bind<AppEvent::UPDATE, &AssetLayer::update>(*this);
 }
 
-void AssetLayer::update(Blackboard&)
+void AssetLayer::update(AppContext&)
 {
     ams.poll_events();
     ams.purge();

@@ -36,7 +36,7 @@ namespace lyra
         explicit RenderLayer();
 
         /**
-         * @brief Register this layer on the blackboard and bind lifecycle events.
+         * @brief Register this layer on the toolboard and bind lifecycle events.
          *        Sizes all deletion queues from GPUSurface::get_image_count().
          */
         void bind(Application& app);
@@ -44,17 +44,17 @@ namespace lyra
         /**
          * @brief Called at UPDATE_PRE: update camera projection matrices for all cameras.
          */
-        void update(Blackboard&);
+        void update(AppContext&);
 
         /**
          * @brief Called at RENDER_PRE: advance all deletion queues by one frame.
          */
-        void pre_render(Blackboard&);
+        void pre_render(AppContext&);
 
         /**
          * @brief Called at DESTROY: device idle, then drain all pending deletions.
          */
-        void destroy(Blackboard&);
+        void destroy(AppContext&);
 
         /**
          * @brief Immediately drain all pending deletions across all queues.

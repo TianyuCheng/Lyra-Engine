@@ -76,13 +76,13 @@ Application::Application(const AppDescriptor& descriptor)
     init_compiler();
     bind_events();
 
-    // adding commonly used components into blackboard
-    blackboard.add<Application*>(this);
-    blackboard.add<Window*>(wsi.get());
-    blackboard.add<Compiler*>(slc.get());
-    blackboard.add<GPUAdapter*>(&adapter);
-    blackboard.add<GPUDevice*>(&device);
-    blackboard.add<GPUSurface*>(&surface);
+    // adding commonly used components into toolboard
+    context.toolboard.add<Application*>(this);
+    context.toolboard.add<Window*>(wsi.get());
+    context.toolboard.add<Compiler*>(slc.get());
+    context.toolboard.add<GPUAdapter*>(&adapter);
+    context.toolboard.add<GPUDevice*>(&device);
+    context.toolboard.add<GPUSurface*>(&surface);
 }
 
 /**
@@ -229,7 +229,7 @@ void Application::destroy(const Window&)
     uint  index = static_cast<uint>(AppEvent::DESTROY);
     auto& funcs = callbacks.at(index);
     for (auto it = funcs.rbegin(); it != funcs.rend(); it++)
-        (*it)(blackboard);
+        (*it)(context);
 }
 
 /**

@@ -23,24 +23,24 @@ namespace lyra
 
         void bind(Application& app);
 
-        void update(Blackboard& blackboard);
+        void update(AppContext& context);
 
     private:
         // ui helpers
         void show_header_toolbar();
         void show_breadcrumb();
-        void show_dir_files(Blackboard& blackboard);
-        void show_item(Blackboard& blackboard, StringView name, bool is_folder);
-        void show_context_menu(Blackboard& blackboard);
+        void show_dir_files(AppContext& context);
+        void show_item(AppContext& context, StringView name, bool is_folder);
+        void show_context_menu(AppContext& context);
         void show_create_menu();
-        void show_status_bar(Blackboard& blackboard);
-        void show_modals(Blackboard& blackboard);
+        void show_status_bar(AppContext& context);
+        void show_modals(AppContext& context);
 
         // modals
         void show_new_file_dialog();
         void show_new_folder_dialog();
         void show_rename_dialog();
-        void show_delete_dialog(Blackboard& blackboard);
+        void show_delete_dialog(AppContext& context);
         void show_import_indicator();
         void show_input_modal(CString title, bool* p_open, CString prompt, char* buffer, size_t buffer_size, CString action_label, FunctionRef<void(StringView)> on_submit);
 
@@ -55,13 +55,13 @@ namespace lyra
         // data helpers
         void update_directory(const Path& path, bool force = false);
         void perform_update_directory(const Path& path, bool force = false);
-        void handle_file_drop(Blackboard& blackboard);
+        void handle_file_drop(AppContext& context);
 
         auto get_gui_renderer() const -> GUIRenderer*;
         auto get_asset_server() const -> AssetServer*;
 
-        auto get_thumbnail(Blackboard& blackboard, StringView name) -> std::pair<GUITextureHandle, Vector2>;
-        void load_thumbnails(Blackboard& blackboard);
+        auto get_thumbnail(AppContext& context, StringView name) -> std::pair<GUITextureHandle, Vector2>;
+        void load_thumbnails(AppContext& context);
         void load_editor_icons();
 
     private:
@@ -93,7 +93,7 @@ namespace lyra
     private:
         Path        root;
         Path        curr;
-        Blackboard* bboard = nullptr;
+        AppContext* context = nullptr;
 
         Vector<String>     files                   = {};
         Vector<String>     folders                 = {};

@@ -16,9 +16,9 @@ namespace lyra
      */
     struct Clock
     {
-        float delta_time = 0.0f; ///< Elapsed time since the last frame (seconds).
-        float total_time = 0.0f; ///< Total elapsed time since application start (seconds).
-        float time_scale = 1.0f; ///< Scale factor for delta time.
+        float delta_time = 0.0f;  ///< Elapsed time since the last frame (seconds).
+        float total_time = 0.0f;  ///< Total elapsed time since application start (seconds).
+        float time_scale = 1.0f;  ///< Scale factor for delta time.
         bool  paused     = false; ///< If true, delta_time will be zero.
     };
 
@@ -41,7 +41,7 @@ namespace lyra
         /**
          * @brief Main update loop for calculating delta time and total time.
          */
-        void update(Blackboard& blackboard);
+        void update(AppContext& context);
 
         /**
          * @brief Pause the application's clock.
@@ -57,7 +57,7 @@ namespace lyra
         void set_time_scale(float scale) { clock.time_scale = scale; }
 
     private:
-        Clock clock; ///< The timing state of the application.
+        Clock                                          clock;           ///< The timing state of the application.
         std::chrono::high_resolution_clock::time_point start_time;      ///< Time when the application started.
         std::chrono::high_resolution_clock::time_point last_frame_time; ///< Time of the previous frame update.
     };

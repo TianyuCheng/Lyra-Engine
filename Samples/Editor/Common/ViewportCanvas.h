@@ -28,7 +28,7 @@ namespace lyra
 
         void init(uint frames_in_flight);
 
-        void update(Blackboard& blackboard);
+        void update(AppContext& context);
 
         bool& is_visible() { return frame_visible; }
 
@@ -42,8 +42,8 @@ namespace lyra
 
     private:
         void detect_window();
-        void create_frames(Blackboard& blackboard);
-        void delete_frames(Blackboard& blackboard);
+        void create_frames(AppContext& context);
+        void delete_frames(AppContext& context);
 
     private:
         uint    frame_count   = 0;

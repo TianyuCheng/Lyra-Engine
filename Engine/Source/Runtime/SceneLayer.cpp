@@ -9,11 +9,11 @@ SceneLayer::SceneLayer() : world(), hierarchy(world)
 
 void SceneLayer::bind(Application& app)
 {
-    // save scene objects into blackboard
-    app.get_blackboard().add<World*>(&world);
-    app.get_blackboard().add<SceneTree*>(&hierarchy);
+    // save scene objects into toolboard
+    app.get_toolboard().add<World*>(&world);
+    app.get_toolboard().add<SceneTree*>(&hierarchy);
 }
 
-void SceneLayer::update(Blackboard&)
+void SceneLayer::update(AppContext&)
 {
 }

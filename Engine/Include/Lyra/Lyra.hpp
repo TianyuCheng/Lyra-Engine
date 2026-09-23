@@ -65,6 +65,9 @@
 #include <Lyra/Assets/Format/MaterialAsset.h>
 
 // Engine headers
+#include <Lyra/Runtime/AppEnums.h>
+#include <Lyra/Runtime/AppDescs.h>
+#include <Lyra/Runtime/AppTypes.h>
 #include <Lyra/Runtime/Application.h>
 #include <Lyra/Runtime/AssetLayer.h>
 #include <Lyra/Runtime/SceneLayer.h>

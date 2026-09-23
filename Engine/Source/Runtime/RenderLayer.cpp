@@ -10,8 +10,8 @@ RenderLayer::RenderLayer()
 
 void RenderLayer::bind(Application& app)
 {
-    // query frame count from the surface already registered on the blackboard
-    auto surface          = app.get_blackboard().get<GPUSurface*>();
+    // query frame count from the surface already registered on the toolboard
+    auto surface          = app.get_toolboard().get<GPUSurface*>();
     uint frames_in_flight = surface->get_image_count();
 
     // initialize all per-type deletion queues
@@ -31,8 +31,8 @@ void RenderLayer::bind(Application& app)
     compute_pipelines.init(frames_in_flight);
     raytracing_pipelines.init(frames_in_flight);
 
-    // register on blackboard so render passes can enqueue deletions via RenderLayer*
-    app.get_blackboard().add<RenderLayer*>(this);
+    // register on toolboard so render passes can enqueue deletions via RenderLayer*
+    app.get_toolboard().add<RenderLayer*>(this);
 
     // camera projection: runs before rendering
     app.bind<AppEvent::UPDATE_PRE, &RenderLayer::update>(*this);
@@ -44,14 +44,14 @@ void RenderLayer::bind(Application& app)
     app.bind<AppEvent::DESTROY, &RenderLayer::destroy>(*this);
 }
 
-void RenderLayer::update(Blackboard& blackboard)
+void RenderLayer::update(AppContext& context)
 {
-    auto world = blackboard.get<World*>();
+    auto world = context.toolboard.get<World*>();
     update_perspective(*world);
     update_orthographic(*world);
 }
 
-void RenderLayer::pre_render(Blackboard&)
+void RenderLayer::pre_render(AppContext&)
 {
     // tick all per-type queues — each flushes resources that are now N frames old
     buffers.tick();
@@ -90,9 +90,9 @@ void RenderLayer::drain()
     raytracing_pipelines.drain();
 }
 
-void RenderLayer::destroy(Blackboard& blackboard)
+void RenderLayer::destroy(AppContext& context)
 {
-    auto device = blackboard.get<GPUDevice*>();
+    auto device = context.toolboard.get<GPUDevice*>();
     device->wait();
     drain();
 }

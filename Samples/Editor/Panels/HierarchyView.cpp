@@ -30,7 +30,7 @@ void HierarchyView::bind(Application& app)
     app.bind<AppEvent::UPDATE, &HierarchyView::update>(*this);
 }
 
-static void render_node(World& world, SceneTree& hierarchy, SceneTree::NodeIndex node_idx, SceneTree::NodeIndex& selected_node, Blackboard& blackboard, const char* filter)
+static void render_node(World& world, SceneTree& hierarchy, SceneTree::NodeIndex node_idx, SceneTree::NodeIndex& selected_node, AppContext& context, const char* filter)
 {
     const auto& node   = hierarchy.at(node_idx);
     const auto  entity = node.entity;
@@ -70,8 +70,8 @@ static void render_node(World& world, SceneTree& hierarchy, SceneTree::NodeIndex
 
     bool is_selected = (selected_node == node_idx);
     auto on_select   = [&]() {
-        selected_node                                   = node_idx;
-        blackboard.get<HierarchyView::Selection>().node = SceneNode(entity);
+        selected_node                                 = node_idx;
+        context.blackboard.get<HierarchyView::Selection>().node = SceneNode(entity);
     };
 
     if (is_leaf) {
@@ -80,31 +80,31 @@ static void render_node(World& world, SceneTree& hierarchy, SceneTree::NodeIndex
         ui::tree_item(static_cast<uint64_t>(node_idx), icon, label, is_selected, on_select, [&]() {
             SceneTree::NodeIndex child_idx = node.first_child;
             while (child_idx != SceneTree::INVALID_NODE) {
-                render_node(world, hierarchy, child_idx, selected_node, blackboard, filter);
+                render_node(world, hierarchy, child_idx, selected_node, context, filter);
                 child_idx = hierarchy.at(child_idx).next_sibling;
             }
         });
     }
 }
 
-void HierarchyView::update(Blackboard& blackboard)
+void HierarchyView::update(AppContext& context)
 {
     lyra::execute_once([&]() {
         ui::workspace::dock(LYRA_TREE_VIEW_WINDOW_NAME, ui::Area::Left);
-        blackboard.add<Selection>(Selection{});
+        context.blackboard.add<Selection>(Selection{});
     });
 
     ui::panel(LYRA_TREE_VIEW_WINDOW_NAME, [&]() {
         ui::search_bar(search_filter, sizeof(search_filter));
         ui::separator();
 
-        if (auto world_ptr = blackboard.try_get<World*>()) {
-            if (auto hierarchy_ptr = blackboard.try_get<SceneTree*>()) {
-                auto& world     = **world_ptr;
-                auto& hierarchy = **hierarchy_ptr;
+        if (auto world_ptr = context.toolboard.try_get<World*>()) {
+            if (auto hierarchy_ptr = context.toolboard.try_get<SceneTree*>()) {
+                auto& world     = *world_ptr;
+                auto& hierarchy = *hierarchy_ptr;
 
                 for (auto root_idx : hierarchy) {
-                    render_node(world, hierarchy, root_idx, selected_node, blackboard, search_filter);
+                    render_node(world, hierarchy, root_idx, selected_node, context, search_filter);
                 }
             }
         }

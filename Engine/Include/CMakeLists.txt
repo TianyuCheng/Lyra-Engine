@@ -95,6 +95,9 @@ target_sources(lyra-headers INTERFACE
     Lyra/Assets/Format/TomlAsset.h
 
     # runtime
+    Lyra/Runtime/AppDescs.h
+    Lyra/Runtime/AppEnums.h
+    Lyra/Runtime/AppTypes.h
     Lyra/Runtime/Application.h
     Lyra/Runtime/AssetLayer.h
     Lyra/Runtime/RenderLayer.h

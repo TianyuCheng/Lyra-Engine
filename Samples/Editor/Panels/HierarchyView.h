@@ -28,7 +28,7 @@ namespace lyra
 
         void bind(Application& app);
 
-        void update(Blackboard& blackboard);
+        void update(AppContext& context);
 
     private:
         SceneTree::NodeIndex selected_node      = SceneTree::INVALID_NODE;

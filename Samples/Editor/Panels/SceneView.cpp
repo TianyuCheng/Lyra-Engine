@@ -24,8 +24,8 @@ SceneView::SceneView()
 
 void SceneView::bind(Application& app)
 {
-    // save asset manager into blackboard
-    app.get_blackboard().add<SceneView*>(this);
+    // save asset manager into toolboard
+    app.get_toolboard().add<SceneView*>(this);
 
     // bind layout manager events
     app.bind<AppEvent::UPDATE, &SceneView::update>(*this);
@@ -34,13 +34,13 @@ void SceneView::bind(Application& app)
     canvas.init(app.get_graphics_descriptor().frames);
 }
 
-void SceneView::update(Blackboard& blackboard)
+void SceneView::update(AppContext& context)
 {
     lyra::execute_once([&]() {
         ui::workspace::dock(LYRA_SCENE_WINDOW_NAME, ui::Area::Main);
     });
 
-    auto clock = blackboard.get<Clock*>();
+    auto clock = context.toolboard.get<Clock*>();
 
     ui::panel(LYRA_SCENE_WINDOW_NAME, [&]() {
         bool playing = !clock->paused;
@@ -60,7 +60,7 @@ void SceneView::update(Blackboard& blackboard)
             }, "Restart", ui::ButtonRole::Standard);
         });
 
-        canvas.update(blackboard);
+        canvas.update(context);
         canvas.display();
     });
 }

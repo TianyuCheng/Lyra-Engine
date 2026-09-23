@@ -7,120 +7,15 @@
 #include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Utilities/Function.h>
 #include <Lyra/Utilities/Collections.h>
+#include <Lyra/Runtime/AppEnums.h>
+#include <Lyra/Runtime/AppDescs.h>
+#include <Lyra/Runtime/AppTypes.h>
 #include <Lyra/Windowing/WSITypes.h>
 #include <Lyra/Compiler/SLCTypes.h>
 #include <Lyra/Graphics/RHITypes.h>
 
 namespace lyra
 {
-    using AppWindowDescriptor = WindowDescriptor;
-
-    /**
-     * @brief Type trait to check if a function is a valid application callback.
-     */
-    // clang-format off
-    template <typename>   struct is_app_callback                                 : std::false_type {};
-    template <>           struct is_app_callback<void(*)(Blackboard&)>           : std::true_type  {};
-    template <typename C> struct is_app_callback<void (C::*)(Blackboard&)>       : std::true_type  {};
-    template <typename C> struct is_app_callback<void (C::*)(Blackboard&) const> : std::true_type  {};
-    // clang-format on
-
-    /**
-     * @brief Application lifecycle events.
-     */
-    enum struct AppEvent : uint
-    {
-        INIT,           ///< Called during application initialization.
-        DESTROY,        ///< Called during application destruction.
-        RESIZE,         ///< Called when the application window is resized.
-
-        UPDATE,         ///< Main update logic.
-        UPDATE_PRE,     ///< Logic executed before the main update.
-        UPDATE_POST,    ///< Logic executed after the main update.
-        UPDATE_FIXED,   ///< Fixed-rate update logic.
-
-        UI,             ///< UI rendering logic.
-        UI_PRE,         ///< Logic executed before UI rendering.
-        UI_POST,        ///< Logic executed after UI rendering.
-
-        RENDER,         ///< Main rendering logic.
-        RENDER_PRE,     ///< Logic executed before rendering.
-        RENDER_POST,    ///< Logic executed after rendering.
-    };
-
-    /**
-     * @brief Graphics configuration for the application.
-     */
-    struct AppGraphicsDescriptor
-    {
-        RHIBackend backend;     ///< The rendering backend (e.g., Vulkan, D3D12).
-        RHIFlags   flags;       ///< RHI initialization flags.
-        uint       frames = 3;  ///< Number of frames in flight.
-    };
-
-    /**
-     * @brief Shader compiler configuration for the application.
-     */
-    struct AppCompilerDescriptor
-    {
-        CompileTarget target;   ///< The shader compilation target (e.g., SPIR-V, DXIL).
-        CompileFlags  flags;    ///< Compiler flags.
-    };
-
-    /**
-     * @brief Main application descriptor used for initialization.
-     */
-    struct AppDescriptor
-    {
-        friend struct Application;
-
-    public:
-        /**
-         * @brief Set the window title.
-         */
-        AppDescriptor& with_title(CString title);
-        /**
-         * @brief Enable or disable fullscreen mode.
-         */
-        AppDescriptor& with_fullscreen(bool enable = true);
-        /**
-         * @brief Set the window to be maximized on startup.
-         */
-        AppDescriptor& with_window_maximized();
-        /**
-         * @brief Set the initial window size.
-         */
-        AppDescriptor& with_window_extent(uint width, uint height);
-        /**
-         * @brief Set the preferred graphics backend.
-         */
-        AppDescriptor& with_graphics_backend(RHIBackend backend);
-        /**
-         * @brief Enable graphics debugging and validation layers.
-         */
-        AppDescriptor& with_graphics_validation(bool debug = true, bool validation = true);
-        /**
-         * @brief Set the number of frames in flight.
-         */
-        AppDescriptor& with_frames_in_flight(uint frames_in_flight);
-
-    private:
-        AppWindowDescriptor   wsi;
-        AppGraphicsDescriptor rhi;
-        AppCompilerDescriptor slc;
-    };
-
-    /**
-     * @brief Represents the swapchain backbuffer of the application.
-     */
-    struct Backbuffer
-    {
-        GPUTextureHandle     texture;   ///< Handle to the backbuffer texture.
-        GPUTextureViewHandle texview;   ///< Handle to the texture view.
-        GPUTextureFormat     format;    ///< Format of the backbuffer.
-        GPUExtent2D          extent;    ///< Dimensions of the backbuffer.
-    };
-
     /**
      * @brief The main application class that manages the main loop, window, and RHI.
      */
@@ -129,7 +24,7 @@ namespace lyra
         static constexpr size_t STAGE_COUNT = magic_enum::enum_count<AppEvent>();
 
     public:
-        using Callback  = Delegate<void(Blackboard&)>;
+        using Callback  = Delegate<void(AppContext&)>;
         using Callbacks = Vector<Callback>;
 
         /**
@@ -191,10 +86,22 @@ namespace lyra
         }
 
         /**
+         * @brief Get the application execution context.
+         */
+        auto& get_context() { return context; }
+        auto& get_context() const { return context; }
+
+        /**
+         * @brief Get the application toolboard for physical devices and subsystems.
+         */
+        auto& get_toolboard() { return context.toolboard; }
+        auto& get_toolboard() const { return context.toolboard; }
+
+        /**
          * @brief Get the application blackboard for global data sharing.
          */
-        auto& get_blackboard() { return blackboard; }
-        auto& get_blackboard() const { return blackboard; }
+        auto& get_blackboard() { return context.blackboard; }
+        auto& get_blackboard() const { return context.blackboard; }
 
         /**
          * @brief Get window and graphics descriptors.
@@ -223,12 +130,12 @@ namespace lyra
             uint  index = static_cast<uint>(E);
             auto& funcs = callbacks.at(index);
             for (auto& cb : funcs)
-                cb(blackboard);
+                cb(context);
         }
 
     private:
         AppDescriptor descriptor;
-        Blackboard    blackboard;
+        AppContext    context;
 
         OwnedResource<Window>   wsi;
         OwnedResource<RHI>      rhi;

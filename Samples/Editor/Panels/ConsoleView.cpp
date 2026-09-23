@@ -27,7 +27,7 @@ void ConsoleView::bind(Application& app)
     app.bind<AppEvent::UPDATE, &ConsoleView::update>(*this);
 }
 
-void ConsoleView::update(Blackboard& blackboard)
+void ConsoleView::update(AppContext&)
 {
     lyra::execute_once([&]() {
         ui::workspace::dock(LYRA_CONSOLE_WINDOW_NAME, ui::Area::Bottom);

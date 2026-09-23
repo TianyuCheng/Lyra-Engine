@@ -23,14 +23,14 @@ namespace lyra
         explicit SceneLayer();
 
         /**
-         * @brief Register the World and SceneTree to the blackboard.
+         * @brief Register the World and SceneTree to the toolboard.
          */
         void bind(Application& app);
 
         /**
          * @brief Main update loop for the scene.
          */
-        void update(Blackboard&);
+        void update(AppContext&);
 
     private:
         World     world;     ///< The ECS world instance.

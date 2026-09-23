@@ -22,14 +22,14 @@ namespace lyra
         explicit AssetLayer(const AMSDescriptor& descriptor);
 
         /**
-         * @brief Register the AssetServer to the blackboard and bind its lifecycle events.
+         * @brief Register the AssetServer to the toolboard and bind its lifecycle events.
          */
         void bind(Application& app);
 
         /**
          * @brief Update function for processing asset management related events.
          */
-        void update(Blackboard&);
+        void update(AppContext&);
 
     private:
         AssetServer ams; ///< The underlying asset server.

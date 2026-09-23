@@ -9,12 +9,12 @@ struct SampleCubeRenderer
 {
 public:
     void bind(Application& app);
-    void render(const Backbuffer& backbuffer, Blackboard& blackboard, GPUCommandBuffer command);
+    void render(const Backbuffer& backbuffer, AppContext& context, GPUCommandBuffer command);
 
 private:
-    void init(Blackboard& blackboard);
-    void update(Blackboard& blackboard);
-    void destroy(Blackboard& blackboard);
+    void init(AppContext& context);
+    void update(AppContext& context);
+    void destroy(AppContext& context);
     void init_pipeline(GPUDevice device, Compiler compiler);
     void init_buffers(GPUDevice device);
     void init_bind_group(GPUDevice device);
