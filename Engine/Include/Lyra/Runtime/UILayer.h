@@ -1,12 +1,9 @@
 #pragma once
 
-#ifndef LYRA_ENGINE_RUNTIME_IMGUI_LAYER_H
-#define LYRA_ENGINE_RUNTIME_IMGUI_LAYER_H
+#ifndef LYRA_ENGINE_RUNTIME_UI_LAYER_H
+#define LYRA_ENGINE_RUNTIME_UI_LAYER_H
 
-#include <imgui.h>
-#include <imgui_internal.h>
-
-#include <Lyra/UISystem/GUITypes.h>
+#include <Lyra/UISystem/Renderer/GUITypes.h>
 
 // local import
 #include <Lyra/Runtime/Application.h>
@@ -14,15 +11,15 @@
 namespace lyra
 {
     /**
-     * @brief The ImGuiLayer struct manages the Dear ImGui GUI system for applications.
+     * @brief The UILayer struct manages the UI system for applications.
      */
-    struct ImGuiLayer
+    struct UILayer
     {
     public:
         /**
-         * @brief Construct the ImGuiLayer with a GUIDescriptor.
+         * @brief Construct the UILayer with a GUIDescriptor.
          */
-        explicit ImGuiLayer(const GUIDescriptor& descriptor);
+        explicit UILayer(const GUIDescriptor& descriptor);
 
         /**
          * @brief Register the GUIRenderer to the blackboard and bind its lifecycle events.
@@ -60,30 +57,25 @@ namespace lyra
         void theme(Blackboard&);
 
         /**
-         * @brief Retrieve the raw ImGuiContext.
-         * @return A pointer to the current ImGuiContext.
+         * @brief Retrieve the raw underlying GUI context pointer.
+         * @return A pointer to the current GUI context.
          */
-        FORCE_INLINE auto context() -> ImGuiContext*
-        {
-            return reinterpret_cast<ImGuiContext*>(gui->context<ImGuiContext>());
-        }
+        auto context() const -> void*;
 
         /**
-         * @brief Set the ImGui context as current for the current thread/library.
-         * This must be called in any library or executable that uses ImGui.
+         * @brief Set the GUI context as current for the current thread/library.
          */
-        FORCE_INLINE void apply_context()
-        {
-            ImGui::SetCurrentContext(context());
-        }
+        void apply_context() const;
 
     private:
         GUIDescriptor              descriptor; ///< The GUI initialization descriptor.
         OwnedResource<GUIRenderer> gui;        ///< The managed GUIRenderer resource.
     };
 
-    using EditorLayer = ImGuiLayer;
+    using ImGuiLayer  = UILayer;
+    using EditorLayer = UILayer;
 
 } // namespace lyra
 
-#endif // LYRA_ENGINE_RUNTIME_IMGUI_LAYER_H
+#endif // LYRA_ENGINE_RUNTIME_UI_LAYER_H
+

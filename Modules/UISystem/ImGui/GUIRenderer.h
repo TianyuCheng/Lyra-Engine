@@ -14,7 +14,7 @@
 #include <Lyra/Windowing/WSITypes.h>
 #include <Lyra/Compiler/SLCAPI.h>
 #include <Lyra/Graphics/RHIAPI.h>
-#include <Lyra/UISystem/GUIAPI.h>
+#include <Lyra/UISystem/Renderer/GUIAPI.h>
 
 using namespace lyra;
 

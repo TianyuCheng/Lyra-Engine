@@ -1,4 +1,4 @@
-#include <Lyra/UISystem/UIInternals.h>
+#include "UIInternals.h"
 
 using namespace lyra;
 using namespace lyra::ui;

@@ -6,7 +6,7 @@
 #include <Lyra/Utilities/Path.h>
 #include <Lyra/Assets/AMSUtils.h>
 #include <Lyra/Graphics/RHITypes.h>
-#include <Lyra/UISystem/GUITypes.h>
+#include <Lyra/UISystem/Renderer/GUITypes.h>
 
 #include "Common/SelectionModel.h"
 #include <Lyra/Runtime/Application.h>

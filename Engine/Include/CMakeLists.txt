@@ -15,6 +15,7 @@ target_sources(lyra-headers INTERFACE
     # utilities headers
     Lyra/Utilities/Assert.h
     Lyra/Utilities/BitFlags.h
+    Lyra/Utilities/Bounds.h
     Lyra/Utilities/Collections.h
     Lyra/Utilities/Compatibility.h
     Lyra/Utilities/Config.h
@@ -22,7 +23,6 @@ target_sources(lyra-headers INTERFACE
     Lyra/Utilities/ECS.h
     Lyra/Utilities/Enums.h
     Lyra/Utilities/Function.h
-    Lyra/Utilities/GUI.h
     Lyra/Utilities/GUID.h
     Lyra/Utilities/Handle.h
     Lyra/Utilities/Hash.h
@@ -78,6 +78,7 @@ target_sources(lyra-headers INTERFACE
     # asset management system
     Lyra/Assets/AMSAPI.h
     Lyra/Assets/AMSEnums.h
+    Lyra/Assets/AMSPreview.h
     Lyra/Assets/AMSRegistry.h
     Lyra/Assets/AMSServer.h
     Lyra/Assets/AMSUtils.h
@@ -97,9 +98,9 @@ target_sources(lyra-headers INTERFACE
     Lyra/Runtime/Application.h
     Lyra/Runtime/AssetLayer.h
     Lyra/Runtime/RenderLayer.h
-    Lyra/Runtime/ImGuiLayer.h
     Lyra/Runtime/SceneLayer.h
     Lyra/Runtime/TimingLayer.h
+    Lyra/Runtime/UILayer.h
 
     # scene
     Lyra/Scene/Camera.h
@@ -109,21 +110,19 @@ target_sources(lyra-headers INTERFACE
     Lyra/Scene/Transform.h
     Lyra/Scene/World.h
 
-    # ui system
-    Lyra/UISystem/GUIAPI.h
-    Lyra/UISystem/GUIEnums.h
-    Lyra/UISystem/GUITypes.h
-    Lyra/UISystem/ImGui.h
-    Lyra/UISystem/UIEnums.h
-    Lyra/UISystem/UIIcons.h
-    Lyra/UISystem/UIInternals.h
-    Lyra/UISystem/UI.h
-    Lyra/UISystem/UILayout.h
-    Lyra/UISystem/UIControls.h
-    Lyra/UISystem/UIProperty.h
-    Lyra/UISystem/UITree.h
-    Lyra/UISystem/UIDock.h
-    Lyra/UISystem/UIDialog.h
+    # uisystem
+    Lyra/UISystem/Renderer/GUIAPI.h
+    Lyra/UISystem/Renderer/GUIEnums.h
+    Lyra/UISystem/Renderer/GUITypes.h
+    Lyra/UISystem/Widgets/UIEnums.h
+    Lyra/UISystem/Widgets/UIIcons.h
+    Lyra/UISystem/Widgets/UI.h
+    Lyra/UISystem/Widgets/UILayout.h
+    Lyra/UISystem/Widgets/UIControls.h
+    Lyra/UISystem/Widgets/UIProperty.h
+    Lyra/UISystem/Widgets/UITree.h
+    Lyra/UISystem/Widgets/UIDock.h
+    Lyra/UISystem/Widgets/UIDialog.h
 )
 
 target_include_directories(lyra-headers INTERFACE

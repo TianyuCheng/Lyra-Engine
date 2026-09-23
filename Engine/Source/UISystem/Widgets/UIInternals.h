@@ -1,11 +1,11 @@
 #pragma once
 
-#ifndef LYRA_ENGINE_UISYSTEM_UI_INTERNALS_H
-#define LYRA_ENGINE_UISYSTEM_UI_INTERNALS_H
+#ifndef LYRA_ENGINE_UISYSTEM_WIDGETS_UI_INTERNALS_H
+#define LYRA_ENGINE_UISYSTEM_WIDGETS_UI_INTERNALS_H
 
 #include <stack>
-#include <Lyra/UISystem/ImGui.h>
-#include <Lyra/UISystem/UIEnums.h>
+#include "ImGui.h"
+#include <Lyra/UISystem/Widgets/UIEnums.h>
 
 namespace lyra::ui::internal
 {
@@ -48,4 +48,4 @@ namespace lyra::ui::internal
 
 } // namespace lyra::ui::internal
 
-#endif // LYRA_ENGINE_UISYSTEM_UI_INTERNALS_H
+#endif // LYRA_ENGINE_UISYSTEM_WIDGETS_UI_INTERNALS_H

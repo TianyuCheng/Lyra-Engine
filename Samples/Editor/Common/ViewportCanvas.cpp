@@ -1,5 +1,5 @@
 #include "ViewportCanvas.h"
-#include <Lyra/UISystem/UI.h>
+#include <Lyra/UISystem/Widgets/UI.h>
 
 using namespace lyra;
 
@@ -68,7 +68,7 @@ void ViewportCanvas::detect_window()
         frame_changed = true;
 
     // detect window resized
-    Vector2 curr_extent = ui::available_space();
+    Vector2 curr_extent = ui::get_available_space();
     if (curr_extent.x != frame_extent.x || curr_extent.y != frame_extent.y)
         frame_changed = true;
 

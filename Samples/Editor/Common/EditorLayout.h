@@ -4,7 +4,7 @@
 #define LYRA_EDITOR_COMMON_EDITOR_LAYOUT_H
 
 #include <Lyra/Utilities/Stdint.h>
-#include <Lyra/UISystem/UIDock.h>
+#include <Lyra/UISystem/Widgets/UIDock.h>
 
 // local imports
 #include <Lyra/Runtime/Application.h>

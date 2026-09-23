@@ -1,10 +1,10 @@
 #pragma once
 
-#ifndef LYRA_ENGINE_UISYSTEM_UILAYOUT_H
-#define LYRA_ENGINE_UISYSTEM_UILAYOUT_H
+#ifndef LYRA_ENGINE_UISYSTEM_WIDGETS_UILAYOUT_H
+#define LYRA_ENGINE_UISYSTEM_WIDGETS_UILAYOUT_H
 
 #include <Lyra/Utilities/Math.h>
-#include <Lyra/UISystem/UI.h>
+#include <Lyra/UISystem/Widgets/UI.h>
 
 namespace lyra::ui
 {
@@ -43,4 +43,4 @@ namespace lyra::ui
 
 } // namespace lyra::ui
 
-#endif // LYRA_ENGINE_UISYSTEM_UILAYOUT_H
+#endif // LYRA_ENGINE_UISYSTEM_WIDGETS_UILAYOUT_H

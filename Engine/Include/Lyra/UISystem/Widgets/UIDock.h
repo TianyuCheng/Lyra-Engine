@@ -1,10 +1,10 @@
 #pragma once
 
-#ifndef LYRA_ENGINE_UISYSTEM_UIDOCK_H
-#define LYRA_ENGINE_UISYSTEM_UIDOCK_H
+#ifndef LYRA_ENGINE_UISYSTEM_WIDGETS_UIDOCK_H
+#define LYRA_ENGINE_UISYSTEM_WIDGETS_UIDOCK_H
 
 #include <Lyra/Utilities/String.h>
-#include <Lyra/UISystem/UIEnums.h>
+#include <Lyra/UISystem/Widgets/UIEnums.h>
 
 namespace lyra::ui::workspace
 {
@@ -36,4 +36,4 @@ namespace lyra::ui::workspace
 
 } // namespace lyra::ui::workspace
 
-#endif // LYRA_ENGINE_UISYSTEM_UIDOCK_H
+#endif // LYRA_ENGINE_UISYSTEM_WIDGETS_UIDOCK_H

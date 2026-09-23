@@ -1,6 +1,6 @@
 #include <imgui.h>
 #include <imgui_internal.h>
-#include <Lyra/UISystem/UIDock.h>
+#include <Lyra/UISystem/Widgets/UIDock.h>
 
 using namespace lyra;
 using namespace lyra::ui;

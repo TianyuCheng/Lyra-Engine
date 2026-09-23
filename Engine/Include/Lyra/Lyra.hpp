@@ -15,6 +15,7 @@
 #include <Lyra/Utilities/String.h>
 #include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Utilities/BitFlags.h>
+#include <Lyra/Utilities/Bounds.h>
 #include <Lyra/Utilities/Function.h>
 #include <Lyra/Utilities/Collections.h>
 #include <Lyra/Utilities/Compatibility.h>
@@ -27,17 +28,17 @@
 #include <Lyra/Graphics/RHIDescs.h>
 #include <Lyra/Graphics/RHITypes.h>
 #include <Lyra/Graphics/RHIInits.h>
-#include <Lyra/UISystem/GUIEnums.h>
-#include <Lyra/UISystem/GUITypes.h>
-#include <Lyra/UISystem/UIEnums.h>
-#include <Lyra/UISystem/UIIcons.h>
-#include <Lyra/UISystem/UI.h>
-#include <Lyra/UISystem/UILayout.h>
-#include <Lyra/UISystem/UIControls.h>
-#include <Lyra/UISystem/UIProperty.h>
-#include <Lyra/UISystem/UITree.h>
-#include <Lyra/UISystem/UIDock.h>
-#include <Lyra/UISystem/UIDialog.h>
+#include <Lyra/UISystem/Renderer/GUIEnums.h>
+#include <Lyra/UISystem/Renderer/GUITypes.h>
+#include <Lyra/UISystem/Widgets/UIEnums.h>
+#include <Lyra/UISystem/Widgets/UIIcons.h>
+#include <Lyra/UISystem/Widgets/UI.h>
+#include <Lyra/UISystem/Widgets/UILayout.h>
+#include <Lyra/UISystem/Widgets/UIControls.h>
+#include <Lyra/UISystem/Widgets/UIProperty.h>
+#include <Lyra/UISystem/Widgets/UITree.h>
+#include <Lyra/UISystem/Widgets/UIDock.h>
+#include <Lyra/UISystem/Widgets/UIDialog.h>
 #include <Lyra/FileSystem/VFSEnums.h>
 #include <Lyra/FileSystem/VFSTypes.h>
 #include <Lyra/Assets/AMSUtils.h>
@@ -69,6 +70,6 @@
 #include <Lyra/Runtime/SceneLayer.h>
 #include <Lyra/Runtime/RenderLayer.h>
 #include <Lyra/Runtime/TimingLayer.h>
-#include <Lyra/Runtime/ImGuiLayer.h>
+#include <Lyra/Runtime/UILayer.h>
 
 #endif // LYRA_ENGINE_LYRA_HPP

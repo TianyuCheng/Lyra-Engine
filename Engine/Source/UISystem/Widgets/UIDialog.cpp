@@ -2,7 +2,7 @@
 #include <nfd.hpp>
 #include <boxer/boxer.h>
 #include <Lyra/Utilities/String.h>
-#include <Lyra/UISystem/UIDialog.h>
+#include <Lyra/UISystem/Widgets/UIDialog.h>
 
 using namespace lyra;
 using namespace lyra::ui;

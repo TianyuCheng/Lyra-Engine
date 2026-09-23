@@ -50,13 +50,8 @@ static void imgui_update(Blackboard& blackboard)
             });
         }
     });
-
-    lyra::execute_once([&]() {
-        ui::workspace::dock("Dear ImGui Demo", ui::Area::Main);
-    });
-
-    ImGui::ShowDemoWindow();
 }
+
 
 static void imgui_render(Blackboard& blackboard)
 {
@@ -221,8 +216,8 @@ int main(int argc, const char* argv[])
         return std::move(layer);
     });
 
-    // imgui layer
-    auto imgui = lyra::execute([&]() {
+    // ui layer
+    auto uilayer = lyra::execute([&]() {
         auto desc      = GUIDescriptor{};
         desc.window    = *app->get_blackboard().get<Window*>();
         desc.surface   = *app->get_blackboard().get<GPUSurface*>();
@@ -230,8 +225,8 @@ int main(int argc, const char* argv[])
         desc.docking   = true;
         desc.viewports = false;
 
-        auto layer = std::make_unique<ImGuiLayer>(desc);
-        layer->apply_context(); // imgui context in user application
+        auto layer = std::make_unique<UILayer>(desc);
+        layer->apply_context(); // ui context in user application
         app->bind(*layer);
         return std::move(layer);
     });

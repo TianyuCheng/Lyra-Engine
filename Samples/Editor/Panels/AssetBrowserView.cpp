@@ -7,13 +7,12 @@
 #include <Lyra/Assets/AMSServer.h>
 #include <Lyra/Graphics/RHITypes.h>
 #include <Lyra/Graphics/RHIInits.h>
-#include <Lyra/UISystem/UI.h>
-#include <Lyra/UISystem/UILayout.h>
-#include <Lyra/UISystem/UIControls.h>
-#include <Lyra/UISystem/UIDock.h>
-#include <Lyra/UISystem/UIDialog.h>
-#include <Lyra/UISystem/UIIcons.h>
-#include <Lyra/UISystem/ImGui.h>
+#include <Lyra/UISystem/Widgets/UI.h>
+#include <Lyra/UISystem/Widgets/UILayout.h>
+#include <Lyra/UISystem/Widgets/UIControls.h>
+#include <Lyra/UISystem/Widgets/UIDock.h>
+#include <Lyra/UISystem/Widgets/UIDialog.h>
+#include <Lyra/UISystem/Widgets/UIIcons.h>
 
 // local imports
 #include "AssetBrowserView.h"
@@ -214,8 +213,7 @@ void AssetBrowserView::show_breadcrumb()
 
 void AssetBrowserView::show_dir_files(Blackboard& blackboard)
 {
-    Vector2 mouse_pos = ui::mouse_pos();
-    ImRect  marquee_rect;
+    Vector2 mouse_pos = ui::get_mouse_pos();
 
     // explorer / finder style background click logic:
     // when clicking on empty background (no item hovered or active), start marquee drag selection
@@ -231,21 +229,22 @@ void AssetBrowserView::show_dir_files(Blackboard& blackboard)
     }
 
     bool is_releasing = false;
+    ui::Rect marquee_rect;
     if (is_marquee_selecting) {
         if (!ui::is_mouse_down(MouseButton::LEFT) || ui::is_mouse_released(MouseButton::LEFT)) {
             is_releasing = true;
         }
-        marquee_rect = ImRect(
-            ImVec2(std::min(marquee_start_pos.x, mouse_pos.x), std::min(marquee_start_pos.y, mouse_pos.y)),
-            ImVec2(std::max(marquee_start_pos.x, mouse_pos.x), std::max(marquee_start_pos.y, mouse_pos.y)));
+        marquee_rect = ui::Rect(
+            Vector2(std::min(marquee_start_pos.x, mouse_pos.x), std::min(marquee_start_pos.y, mouse_pos.y)),
+            Vector2(std::max(marquee_start_pos.x, mouse_pos.x), std::max(marquee_start_pos.y, mouse_pos.y)));
         selection.items = initial_selection;
     }
 
     auto handle_marquee = [&](StringView name) {
         if (is_marquee_selecting) {
-            ImVec2 pos = ImGui::GetCursorScreenPos();
-            ImRect item_rect(pos, ImVec2(pos.x + icon_size + 4.0f, pos.y + icon_size + 34.0f));
-            if (marquee_rect.Overlaps(item_rect)) {
+            Vector2 pos = ui::get_cursor_screen_pos();
+            ui::Rect item_rect(pos, Vector2(pos.x + icon_size + 4.0f, pos.y + icon_size + 34.0f));
+            if (marquee_rect.overlaps(item_rect)) {
                 if (!selection.is_selected(name)) {
                     selection.items.emplace_back(name);
                 }
@@ -281,10 +280,8 @@ void AssetBrowserView::show_dir_files(Blackboard& blackboard)
         }
     });
 
-    if (is_marquee_selecting && !is_releasing && (marquee_rect.GetWidth() > 1.0f || marquee_rect.GetHeight() > 1.0f)) {
-        ImDrawList* draw_list = ImGui::GetWindowDrawList();
-        draw_list->AddRectFilled(marquee_rect.Min, marquee_rect.Max, ImGui::GetColorU32(ImGuiCol_Header, 0.3f));
-        draw_list->AddRect(marquee_rect.Min, marquee_rect.Max, ImGui::GetColorU32(ImGuiCol_Header, 1.0f));
+    if (is_marquee_selecting && !is_releasing && (marquee_rect.width() > 1.0f || marquee_rect.height() > 1.0f)) {
+        ui::draw_selection_rect(marquee_rect.min, marquee_rect.max);
     }
 
     if (is_releasing) {

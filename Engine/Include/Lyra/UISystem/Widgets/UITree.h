@@ -1,10 +1,10 @@
 #pragma once
 
-#ifndef LYRA_ENGINE_UISYSTEM_UITREE_H
-#define LYRA_ENGINE_UISYSTEM_UITREE_H
+#ifndef LYRA_ENGINE_UISYSTEM_WIDGETS_UITREE_H
+#define LYRA_ENGINE_UISYSTEM_WIDGETS_UITREE_H
 
 #include <Lyra/Utilities/String.h>
-#include <Lyra/UISystem/UI.h>
+#include <Lyra/UISystem/Widgets/UI.h>
 
 namespace lyra::ui
 {
@@ -22,4 +22,4 @@ namespace lyra::ui
 
 } // namespace lyra::ui
 
-#endif // LYRA_ENGINE_UISYSTEM_UITREE_H
+#endif // LYRA_ENGINE_UISYSTEM_WIDGETS_UITREE_H

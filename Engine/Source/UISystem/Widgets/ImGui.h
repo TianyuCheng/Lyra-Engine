@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_ENGINE_UISYSTEM_IMGUI_H
-#define LYRA_ENGINE_UISYSTEM_IMGUI_H
+#ifndef LYRA_ENGINE_UISYSTEM_WIDGETS_IMGUI_H
+#define LYRA_ENGINE_UISYSTEM_WIDGETS_IMGUI_H
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -33,4 +33,4 @@ namespace lyra::ui::imgui
 
 } // namespace lyra::ui::imgui
 
-#endif // LYRA_ENGINE_UISYSTEM_IMGUI_H
+#endif // LYRA_ENGINE_UISYSTEM_WIDGETS_IMGUI_H

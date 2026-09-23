@@ -1,6 +1,6 @@
 #include <Lyra/Utilities/Macros.h>
 #include <Lyra/Utilities/Plugin.h>
-#include <Lyra/UISystem/GUITypes.h>
+#include <Lyra/UISystem/Renderer/GUITypes.h>
 
 using namespace lyra;
 

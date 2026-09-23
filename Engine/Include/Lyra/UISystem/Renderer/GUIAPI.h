@@ -1,11 +1,11 @@
 #pragma once
 
-#ifndef LYRA_ENGINE_UISYSTEM_GUIAPI_H
-#define LYRA_ENGINE_UISYSTEM_GUIAPI_H
+#ifndef LYRA_ENGINE_UISYSTEM_RENDERER_GUIAPI_H
+#define LYRA_ENGINE_UISYSTEM_RENDERER_GUIAPI_H
 
 #include <Lyra/Compiler/SLCTypes.h>
 #include <Lyra/Graphics/RHITypes.h>
-#include <Lyra/UISystem/GUIEnums.h>
+#include <Lyra/UISystem/Renderer/GUIEnums.h>
 
 namespace lyra
 {
@@ -51,4 +51,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_ENGINE_UISYSTEM_GUIAPI_H
+#endif // LYRA_ENGINE_UISYSTEM_RENDERER_GUIAPI_H

@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_ENGINE_UISYSTEM_UIENUMS_H
-#define LYRA_ENGINE_UISYSTEM_UIENUMS_H
+#ifndef LYRA_ENGINE_UISYSTEM_WIDGETS_UIENUMS_H
+#define LYRA_ENGINE_UISYSTEM_WIDGETS_UIENUMS_H
 
 #include <Lyra/Utilities/Stdint.h>
 
@@ -61,4 +61,4 @@ namespace lyra::ui
 
 } // namespace lyra::ui
 
-#endif // LYRA_ENGINE_UISYSTEM_UIENUMS_H
+#endif // LYRA_ENGINE_UISYSTEM_WIDGETS_UIENUMS_H

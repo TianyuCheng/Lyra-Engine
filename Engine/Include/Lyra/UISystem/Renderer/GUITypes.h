@@ -1,12 +1,12 @@
 #pragma once
 
-#ifndef LYRA_ENGINE_UISYSTEM_GUITYPES_H
-#define LYRA_ENGINE_UISYSTEM_GUITYPES_H
+#ifndef LYRA_ENGINE_UISYSTEM_RENDERER_GUITYPES_H
+#define LYRA_ENGINE_UISYSTEM_RENDERER_GUITYPES_H
 
 #include <Lyra/Utilities/Plugin.h>
 #include <Lyra/Utilities/Macros.h>
 #include <Lyra/Utilities/Pointer.h>
-#include <Lyra/UISystem/GUIAPI.h>
+#include <Lyra/UISystem/Renderer/GUIAPI.h>
 
 namespace lyra
 {
@@ -87,4 +87,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_ENGINE_UISYSTEM_GUITYPES_H
+#endif // LYRA_ENGINE_UISYSTEM_RENDERER_GUITYPES_H

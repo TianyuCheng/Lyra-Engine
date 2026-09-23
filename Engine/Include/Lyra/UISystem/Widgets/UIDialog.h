@@ -1,14 +1,14 @@
 #pragma once
 
-#ifndef LYRA_ENGINE_UISYSTEM_UIDIALOG_H
-#define LYRA_ENGINE_UISYSTEM_UIDIALOG_H
+#ifndef LYRA_ENGINE_UISYSTEM_WIDGETS_UIDIALOG_H
+#define LYRA_ENGINE_UISYSTEM_WIDGETS_UIDIALOG_H
 
 #include <optional>
 #include <Lyra/Utilities/String.h>
 #include <Lyra/Utilities/Path.h>
 #include <Lyra/Utilities/Collections.h>
 #include <Lyra/Utilities/Function.h>
-#include <Lyra/UISystem/UIEnums.h>
+#include <Lyra/UISystem/Widgets/UIEnums.h>
 
 namespace lyra::ui::dialog
 {
@@ -55,4 +55,4 @@ namespace lyra::ui::dialog
 
 } // namespace lyra::ui::dialog
 
-#endif // LYRA_ENGINE_UISYSTEM_UIDIALOG_H
+#endif // LYRA_ENGINE_UISYSTEM_WIDGETS_UIDIALOG_H

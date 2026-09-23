@@ -1,6 +1,6 @@
-#include <Lyra/UISystem/UIIcons.h>
-#include <Lyra/UISystem/UIControls.h>
-#include <Lyra/UISystem/UIInternals.h>
+#include <Lyra/UISystem/Widgets/UIIcons.h>
+#include <Lyra/UISystem/Widgets/UIControls.h>
+#include "UIInternals.h"
 
 using namespace lyra;
 using namespace lyra::ui;

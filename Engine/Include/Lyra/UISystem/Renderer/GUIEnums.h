@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_ENGINE_UISYSTEM_GUIENUMS_H
-#define LYRA_ENGINE_UISYSTEM_GUIENUMS_H
+#ifndef LYRA_ENGINE_UISYSTEM_RENDERER_GUIENUMS_H
+#define LYRA_ENGINE_UISYSTEM_RENDERER_GUIENUMS_H
 
 #include <Lyra/Compiler/SLCTypes.h>
 #include <Lyra/Graphics/RHITypes.h>
@@ -15,4 +15,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_ENGINE_UISYSTEM_GUIENUMS_H
+#endif // LYRA_ENGINE_UISYSTEM_RENDERER_GUIENUMS_H

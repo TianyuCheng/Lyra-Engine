@@ -4,12 +4,12 @@
 #include <Lyra/Scene/Light.h>
 #include <Lyra/Scene/SceneNode.h>
 #include <Lyra/Scene/Transform.h>
-#include <Lyra/UISystem/UI.h>
-#include <Lyra/UISystem/UILayout.h>
-#include <Lyra/UISystem/UIControls.h>
-#include <Lyra/UISystem/UIProperty.h>
-#include <Lyra/UISystem/UIDock.h>
-#include <Lyra/UISystem/UIIcons.h>
+#include <Lyra/UISystem/Widgets/UI.h>
+#include <Lyra/UISystem/Widgets/UILayout.h>
+#include <Lyra/UISystem/Widgets/UIControls.h>
+#include <Lyra/UISystem/Widgets/UIProperty.h>
+#include <Lyra/UISystem/Widgets/UIDock.h>
+#include <Lyra/UISystem/Widgets/UIIcons.h>
 
 #include "InspectorView.h"
 #include "HierarchyView.h"

@@ -1,7 +1,7 @@
 // global module headers
 #include <Lyra/Utilities/String.h>
 #include <Lyra/Utilities/Plugin.h>
-#include <Lyra/UISystem/GUIAPI.h>
+#include <Lyra/UISystem/Renderer/GUIAPI.h>
 
 // local plugin header(s)
 #include "GUIRenderer.h"

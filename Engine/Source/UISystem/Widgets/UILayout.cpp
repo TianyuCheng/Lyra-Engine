@@ -1,7 +1,7 @@
 #include <stack>
 #include <algorithm>
-#include <Lyra/UISystem/UILayout.h>
-#include <Lyra/UISystem/UIInternals.h>
+#include <Lyra/UISystem/Widgets/UILayout.h>
+#include "UIInternals.h"
 
 using namespace lyra;
 using namespace lyra::ui;

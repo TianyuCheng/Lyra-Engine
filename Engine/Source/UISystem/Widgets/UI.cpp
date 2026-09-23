@@ -1,5 +1,5 @@
-#include <Lyra/UISystem/UI.h>
-#include <Lyra/UISystem/UIInternals.h>
+#include <Lyra/UISystem/Widgets/UI.h>
+#include "UIInternals.h"
 
 using namespace lyra;
 using namespace lyra::ui;
@@ -26,17 +26,18 @@ void lyra::ui::panel(CString title, bool* p_open, ActionRef content)
     ImGui::End();
 }
 
-Vector2 lyra::ui::available_space()
+auto lyra::ui::get_available_space() -> Vector2
 {
     ImVec2 s = ImGui::GetContentRegionAvail();
     return Vector2{s.x, s.y};
 }
 
-Vector2 lyra::ui::mouse_pos()
+auto lyra::ui::get_mouse_pos() -> Vector2
 {
     ImVec2 pos = ImGui::GetMousePos();
     return Vector2{pos.x, pos.y};
 }
+
 
 bool lyra::ui::is_panel_appearing()
 {
@@ -344,3 +345,136 @@ void lyra::ui::close_modal()
 {
     ImGui::CloseCurrentPopup();
 }
+
+// =============================================================================
+// 7. Geometry & Item Metrics
+// =============================================================================
+
+auto lyra::ui::get_cursor_screen_pos() -> Vector2
+{
+    ImVec2 pos = ImGui::GetCursorScreenPos();
+    return {pos.x, pos.y};
+}
+
+void lyra::ui::set_cursor_screen_pos(Vector2 pos)
+{
+    ImGui::SetCursorScreenPos(ImVec2(pos.x, pos.y));
+}
+
+auto lyra::ui::get_cursor_pos() -> Vector2
+{
+    ImVec2 pos = ImGui::GetCursorPos();
+    return {pos.x, pos.y};
+}
+
+void lyra::ui::set_cursor_pos(Vector2 pos)
+{
+    ImGui::SetCursorPos(ImVec2(pos.x, pos.y));
+}
+
+auto lyra::ui::get_item_rect() -> Rect
+{
+    ImVec2 min = ImGui::GetItemRectMin();
+    ImVec2 max = ImGui::GetItemRectMax();
+    return Rect(Vector2(min.x, min.y), Vector2(max.x, max.y));
+}
+
+auto lyra::ui::get_item_rect_min() -> Vector2
+{
+    ImVec2 min = ImGui::GetItemRectMin();
+    return {min.x, min.y};
+}
+
+auto lyra::ui::get_item_rect_max() -> Vector2
+{
+    ImVec2 max = ImGui::GetItemRectMax();
+    return {max.x, max.y};
+}
+
+auto lyra::ui::get_item_rect_size() -> Vector2
+{
+    ImVec2 size = ImGui::GetItemRectSize();
+    return {size.x, size.y};
+}
+
+bool lyra::ui::is_item_hovered()
+{
+    return ImGui::IsItemHovered();
+}
+
+bool lyra::ui::is_item_clicked(MouseButton button)
+{
+    return ImGui::IsItemClicked(static_cast<ImGuiMouseButton>(button));
+}
+
+bool lyra::ui::is_item_active()
+{
+    return ImGui::IsItemActive();
+}
+
+bool lyra::ui::is_item_visible()
+{
+    return ImGui::IsItemVisible();
+}
+
+// =============================================================================
+// 8. Canvas & 2D Custom Drawing
+// =============================================================================
+
+static FORCE_INLINE auto to_imgui_color(Vector4 color) -> ImU32
+{
+    return ImGui::ColorConvertFloat4ToU32(ImVec4(color.x, color.y, color.z, color.w));
+}
+
+void lyra::ui::draw_line(Vector2 p1, Vector2 p2, Vector4 color, float thickness)
+{
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    draw_list->AddLine(ImVec2(p1.x, p1.y), ImVec2(p2.x, p2.y), to_imgui_color(color), thickness);
+}
+
+void lyra::ui::draw_rect(Vector2 min, Vector2 max, Vector4 color, bool filled, float rounding, float thickness)
+{
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    if (filled) {
+        draw_list->AddRectFilled(ImVec2(min.x, min.y), ImVec2(max.x, max.y), to_imgui_color(color), rounding);
+    } else {
+        draw_list->AddRect(ImVec2(min.x, min.y), ImVec2(max.x, max.y), to_imgui_color(color), rounding, 0, thickness);
+    }
+}
+
+void lyra::ui::draw_circle(Vector2 center, float radius, Vector4 color, bool filled, float thickness)
+{
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    if (filled) {
+        draw_list->AddCircleFilled(ImVec2(center.x, center.y), radius, to_imgui_color(color));
+    } else {
+        draw_list->AddCircle(ImVec2(center.x, center.y), radius, to_imgui_color(color), 0, thickness);
+    }
+}
+
+void lyra::ui::draw_selection_rect(Vector2 p1, Vector2 p2)
+{
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    ImVec2 min(std::min(p1.x, p2.x), std::min(p1.y, p2.y));
+    ImVec2 max(std::max(p1.x, p2.x), std::max(p1.y, p2.y));
+    draw_list->AddRectFilled(min, max, ImGui::GetColorU32(ImGuiCol_Header, 0.3f));
+    draw_list->AddRect(min, max, ImGui::GetColorU32(ImGuiCol_Header, 1.0f));
+}
+
+void lyra::ui::canvas(CString id, Vector2 size, FunctionRef<void(Vector2 origin, Vector2 canvas_size)> content)
+{
+    ImGui::PushID(id);
+    ImVec2 screen_pos = ImGui::GetCursorScreenPos();
+    ImVec2 avail = ImGui::GetContentRegionAvail();
+    ImVec2 canvas_sz(size.x <= 0.0f ? avail.x : size.x, size.y <= 0.0f ? avail.y : size.y);
+
+    ImGui::InvisibleButton("##canvas", canvas_sz);
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    draw_list->PushClipRect(screen_pos, ImVec2(screen_pos.x + canvas_sz.x, screen_pos.y + canvas_sz.y), true);
+
+    content(Vector2(screen_pos.x, screen_pos.y), Vector2(canvas_sz.x, canvas_sz.y));
+
+    draw_list->PopClipRect();
+    ImGui::PopID();
+}
+

@@ -1,12 +1,12 @@
 #pragma once
 
-#ifndef LYRA_ENGINE_UISYSTEM_UICONTROLS_H
-#define LYRA_ENGINE_UISYSTEM_UICONTROLS_H
+#ifndef LYRA_ENGINE_UISYSTEM_WIDGETS_UICONTROLS_H
+#define LYRA_ENGINE_UISYSTEM_WIDGETS_UICONTROLS_H
 
 #include <Lyra/Utilities/String.h>
 #include <Lyra/Utilities/Collections.h>
-#include <Lyra/UISystem/UI.h>
-#include <Lyra/UISystem/UIEnums.h>
+#include <Lyra/UISystem/Widgets/UI.h>
+#include <Lyra/UISystem/Widgets/UIEnums.h>
 
 namespace lyra::ui
 {
@@ -83,4 +83,4 @@ namespace lyra::ui
 
 } // namespace lyra::ui
 
-#endif // LYRA_ENGINE_UISYSTEM_UICONTROLS_H
+#endif // LYRA_ENGINE_UISYSTEM_WIDGETS_UICONTROLS_H

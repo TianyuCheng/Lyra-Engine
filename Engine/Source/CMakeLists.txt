@@ -110,15 +110,15 @@ target_sources(lyra-engine PRIVATE
   Windowing/WSITypes.cpp
 
   # uisystem
-  UISystem/GUITypes.cpp
-  UISystem/UI.cpp
-  UISystem/UILayout.cpp
-  UISystem/UIControls.cpp
-  UISystem/UIInternals.cpp
-  UISystem/UIProperty.cpp
-  UISystem/UITree.cpp
-  UISystem/UIDock.cpp
-  UISystem/UIDialog.cpp
+  UISystem/Renderer/GUITypes.cpp
+  UISystem/Widgets/UI.cpp
+  UISystem/Widgets/UILayout.cpp
+  UISystem/Widgets/UIControls.cpp
+  UISystem/Widgets/UIInternals.cpp
+  UISystem/Widgets/UIProperty.cpp
+  UISystem/Widgets/UITree.cpp
+  UISystem/Widgets/UIDock.cpp
+  UISystem/Widgets/UIDialog.cpp
 
   # scene
   Scene/SceneTree.cpp
@@ -129,7 +129,7 @@ target_sources(lyra-engine PRIVATE
   Runtime/SceneLayer.cpp
   Runtime/RenderLayer.cpp
   Runtime/TimingLayer.cpp
-  Runtime/ImGuiLayer.cpp
+  Runtime/UILayer.cpp
 )
 
 # link headers and common

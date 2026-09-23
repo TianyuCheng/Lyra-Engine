@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <imgui.h>
 #include <imgui_internal.h>
-#include <Lyra/UISystem/UIProperty.h>
+#include <Lyra/UISystem/Widgets/UIProperty.h>
 
 using namespace lyra;
 using namespace lyra::ui;

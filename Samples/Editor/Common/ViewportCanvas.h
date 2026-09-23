@@ -4,7 +4,7 @@
 #define LYRA_EDITOR_COMMON_VIEWPORT_CANVAS_H
 
 #include <Lyra/Utilities/Math.h>
-#include <Lyra/UISystem/GUITypes.h>
+#include <Lyra/UISystem/Renderer/GUITypes.h>
 #include <Lyra/Graphics/RHITypes.h>
 
 // local imports

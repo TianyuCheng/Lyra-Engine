@@ -1,8 +1,19 @@
-#include <Lyra/Runtime/ImGuiLayer.h>
+#include <imgui.h>
+#include <Lyra/Runtime/UILayer.h>
 
 using namespace lyra;
 
-ImGuiLayer::ImGuiLayer(const GUIDescriptor& descriptor) : descriptor(descriptor)
+auto UILayer::context() const -> void*
+{
+    return gui->context<void>();
+}
+
+void UILayer::apply_context() const
+{
+    ImGui::SetCurrentContext(reinterpret_cast<ImGuiContext*>(gui->context<void>()));
+}
+
+UILayer::UILayer(const GUIDescriptor& descriptor) : descriptor(descriptor)
 {
     gui = GUIRenderer::init(descriptor);
 
@@ -12,47 +23,47 @@ ImGuiLayer::ImGuiLayer(const GUIDescriptor& descriptor) : descriptor(descriptor)
     apply_context();
 }
 
-void ImGuiLayer::bind(Application& app)
+void UILayer::bind(Application& app)
 {
     // save imgui manager into blackboard
     app.get_blackboard().add<GUIRenderer*>(gui.get());
 
     // bind imgui manager events
-    app.bind<AppEvent::INIT, &ImGuiLayer::theme>(*this);
-    app.bind<AppEvent::RESIZE, &ImGuiLayer::resize>(*this);
-    app.bind<AppEvent::UPDATE, &ImGuiLayer::update>(*this);
-    app.bind<AppEvent::UPDATE_PRE, &ImGuiLayer::pre_update>(*this);
-    app.bind<AppEvent::UPDATE_POST, &ImGuiLayer::post_update>(*this);
-    app.bind<AppEvent::RENDER_POST, &ImGuiLayer::render>(*this);
+    app.bind<AppEvent::INIT, &UILayer::theme>(*this);
+    app.bind<AppEvent::RESIZE, &UILayer::resize>(*this);
+    app.bind<AppEvent::UPDATE, &UILayer::update>(*this);
+    app.bind<AppEvent::UPDATE_PRE, &UILayer::pre_update>(*this);
+    app.bind<AppEvent::UPDATE_POST, &UILayer::post_update>(*this);
+    app.bind<AppEvent::RENDER_POST, &UILayer::render>(*this);
 }
 
-void ImGuiLayer::update(Blackboard&)
+void UILayer::update(Blackboard&)
 {
     gui->update();
 }
 
-void ImGuiLayer::pre_update(Blackboard&)
+void UILayer::pre_update(Blackboard&)
 {
     gui->new_frame();
 }
 
-void ImGuiLayer::post_update(Blackboard&)
+void UILayer::post_update(Blackboard&)
 {
     gui->end_frame();
 }
 
-void ImGuiLayer::render(Blackboard&)
+void UILayer::render(Blackboard&)
 {
     if (descriptor.viewports)
         gui->render_side_viewports();
 }
 
-void ImGuiLayer::resize(Blackboard&)
+void UILayer::resize(Blackboard&)
 {
     gui->resize();
 }
 
-void ImGuiLayer::theme(Blackboard&)
+void UILayer::theme(Blackboard&)
 {
     ImGuiStyle& style  = ImGui::GetStyle();
     ImVec4*     colors = style.Colors;

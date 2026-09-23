@@ -2,13 +2,13 @@
 #include <Lyra/Utilities/Function.h>
 #include <Lyra/Graphics/RHITypes.h>
 #include <Lyra/Graphics/RHIInits.h>
-#include <Lyra/UISystem/UI.h>
-#include <Lyra/UISystem/UIDock.h>
-#include <Lyra/UISystem/UILayout.h>
-#include <Lyra/UISystem/UIControls.h>
+#include <Lyra/UISystem/Widgets/UI.h>
+#include <Lyra/UISystem/Widgets/UIDock.h>
+#include <Lyra/UISystem/Widgets/UILayout.h>
+#include <Lyra/UISystem/Widgets/UIControls.h>
 
 // local imports
-#include <Lyra/UISystem/UIIcons.h>
+#include <Lyra/UISystem/Widgets/UIIcons.h>
 #include "Common/EditorLayout.h"
 #include "SceneView.h"
 #include <Lyra/Runtime/TimingLayer.h>
