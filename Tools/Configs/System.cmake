@@ -1,6 +1,3 @@
-# vendor path
-set(PROJECT_VENDOR_PATH "${PROJECT_SOURCE_DIR}/Tools/Vendors")
-
 # detect architecture
 if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "AMD64")
   message(STATUS "Target architecture: x64")

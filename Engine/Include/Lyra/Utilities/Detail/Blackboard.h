@@ -39,6 +39,14 @@ namespace lyra::detail
         template <typename T>
         [[nodiscard]] bool has() const;
 
+        template <typename T>
+        bool remove();
+
+        void clear() noexcept;
+
+        [[nodiscard]] std::size_t size() const noexcept;
+        [[nodiscard]] bool empty() const noexcept;
+
     private:
         absl::flat_hash_map<std::type_index, std::any> m_storage;
     };
@@ -51,13 +59,13 @@ namespace lyra::detail
     }
 
     template <typename T>
-    const T& Blackboard::get() const
+    inline const T& Blackboard::get() const
     {
         assert(has<T>());
         return std::any_cast<const T&>(m_storage.at(typeid(T)));
     }
     template <typename T>
-    const T* Blackboard::try_get() const
+    inline const T* Blackboard::try_get() const
     {
         auto it = m_storage.find(typeid(T));
         return it != m_storage.cend() ? std::any_cast<const T>(&it->second) : nullptr;
@@ -84,6 +92,27 @@ namespace lyra::detail
 #else
         return m_storage.find(typeid(T)) != m_storage.cend();
 #endif
+    }
+
+    template <typename T>
+    inline bool Blackboard::remove()
+    {
+        return m_storage.erase(typeid(T)) > 0;
+    }
+
+    inline void Blackboard::clear() noexcept
+    {
+        m_storage.clear();
+    }
+
+    inline std::size_t Blackboard::size() const noexcept
+    {
+        return m_storage.size();
+    }
+
+    inline bool Blackboard::empty() const noexcept
+    {
+        return m_storage.empty();
     }
 
 } // namespace lyra::detail

@@ -61,10 +61,10 @@ namespace lyra
         using PrepareFn = void (*)();
         using CleanupFn = void (*)();
 
-        explicit Plugin() = delete;
+        Plugin() = default;
         explicit Plugin(const char* name) { load(name); }
-        explicit Plugin(const Plugin& other) = delete;
-        explicit Plugin(Plugin&& other)
+        Plugin(const Plugin& other) = delete;
+        Plugin(Plugin&& other) noexcept
         {
             api     = other.api;
             name    = other.name;
@@ -73,42 +73,71 @@ namespace lyra
             prepare = other.prepare;
             cleanup = other.cleanup;
 
-            other.api     = nullptr;
+            other.api     = {};
+            other.name    = nullptr;
             other.plugin  = nullptr;
             other.create  = nullptr;
             other.prepare = nullptr;
             other.cleanup = nullptr;
         }
+        Plugin& operator=(const Plugin& other) = delete;
+        Plugin& operator=(Plugin&& other) noexcept
+        {
+            if (this != &other) {
+                unload();
+
+                api     = other.api;
+                name    = other.name;
+                plugin  = other.plugin;
+                create  = other.create;
+                prepare = other.prepare;
+                cleanup = other.cleanup;
+
+                other.api     = {};
+                other.name    = nullptr;
+                other.plugin  = nullptr;
+                other.create  = nullptr;
+                other.prepare = nullptr;
+                other.cleanup = nullptr;
+            }
+            return *this;
+        }
         virtual ~Plugin() { unload(); }
 
         // load plugin and function
-        void load(const char* name)
+        bool load(const char* name)
         {
-            this->name = name;
+            auto new_plugin = load_dll(name);
+            if (!new_plugin) {
+                String err = get_error();
+                spdlog::error("Load Plugin: {} failed: {}", name, err);
+                return false;
+            }
+
+            CreateFn  new_create  = nullptr;
+            PrepareFn new_prepare = nullptr;
+            CleanupFn new_cleanup = nullptr;
+            if (!load_api(new_plugin, new_create, new_prepare, new_cleanup)) {
+                String err = get_error();
+                spdlog::error("Load API: {}::Create failed: {}", name, err);
+                unload_dll(new_plugin);
+                return false;
+            }
 
             unload();
 
-            load_dll();
-            if (!plugin) {
-                std::stringstream ss;
-                ss << "Load Plugin: " << CString(name);
-                show_error(ss.str(), get_error());
-                exit(1);
-            }
-
-            load_api();
-            if (!create) {
-                std::stringstream ss;
-                ss << "Load API: " << CString(name) << "::Create";
-                show_error(ss.str(), get_error());
-                exit(1);
-            }
+            this->name    = name;
+            this->plugin  = new_plugin;
+            this->create  = new_create;
+            this->prepare = new_prepare;
+            this->cleanup = new_cleanup;
 
             if (prepare) {
                 prepare();
             }
 
             api = create();
+            return true;
         }
 
         // unload plugin if necessary
@@ -119,28 +148,39 @@ namespace lyra
             }
 
             if (plugin) {
-                unload_dll();
+                unload_dll(plugin);
                 plugin = nullptr;
             }
+
+            create  = nullptr;
+            prepare = nullptr;
+            cleanup = nullptr;
+            name    = nullptr;
+            api     = {};
         }
+
+        bool is_loaded() const { return plugin != nullptr; }
+
+        explicit operator bool() const { return is_loaded(); }
 
         APIType* get_api() { return &api; }
 
         APIType* get_api() const { return &api; }
 
-    private:
-        void load_dll();
-        void unload_dll();
-        void load_api();
-        auto get_error() -> String;
+        static auto get_error() -> String;
 
     private:
-        APIType     api;
+        static auto load_dll(const char* name) -> LYRA_PLUGIN;
+        static void unload_dll(LYRA_PLUGIN lib);
+        static bool load_api(LYRA_PLUGIN lib, CreateFn& out_create, PrepareFn& out_prepare, CleanupFn& out_cleanup);
+
+    private:
+        APIType     api{};
         CString     name    = nullptr;
         LYRA_PLUGIN plugin  = nullptr;
         CreateFn    create  = nullptr;
         PrepareFn   prepare = nullptr;
-        PrepareFn   cleanup = nullptr;
+        CleanupFn   cleanup = nullptr;
     };
 
     template <typename APIType>
@@ -190,23 +230,27 @@ namespace lyra
 
 #ifdef _WIN32
 template <typename APIType>
-void lyra::Plugin<APIType>::load_dll()
+auto lyra::Plugin<APIType>::load_dll(const char* name) -> LYRA_PLUGIN
 {
-    plugin = LoadLibrary(name);
+    return LoadLibraryA(name);
 }
 
 template <typename APIType>
-void lyra::Plugin<APIType>::unload_dll()
+void lyra::Plugin<APIType>::unload_dll(LYRA_PLUGIN lib)
 {
-    FreeLibrary(plugin);
+    if (lib) {
+        FreeLibrary(lib);
+    }
 }
 
 template <typename APIType>
-void lyra::Plugin<APIType>::load_api()
+bool lyra::Plugin<APIType>::load_api(LYRA_PLUGIN lib, CreateFn& out_create, PrepareFn& out_prepare, CleanupFn& out_cleanup)
 {
-    create  = (CreateFn)GetProcAddress(plugin, "create");
-    prepare = (PrepareFn)GetProcAddress(plugin, "prepare");
-    cleanup = (CleanupFn)GetProcAddress(plugin, "cleanup");
+    out_create = (CreateFn)GetProcAddress(lib, "create");
+    if (!out_create) return false;
+    out_prepare = (PrepareFn)GetProcAddress(lib, "prepare");
+    out_cleanup = (CleanupFn)GetProcAddress(lib, "cleanup");
+    return true;
 }
 
 template <typename APIType>
@@ -215,7 +259,7 @@ auto lyra::Plugin<APIType>::get_error() -> String
     // Get the error message ID, if any.
     DWORD errorMessageID = ::GetLastError();
     if (errorMessageID == 0) {
-        return CString(); // No error message has been recorded
+        return ""; // No error message has been recorded
     }
 
     LPSTR messageBuffer = nullptr;
@@ -234,33 +278,42 @@ auto lyra::Plugin<APIType>::get_error() -> String
 }
 #else
 template <typename APIType>
-void lyra::Plugin<APIType>::load_dll()
+auto lyra::Plugin<APIType>::load_dll(const char* name) -> LYRA_PLUGIN
 {
     std::stringstream ss;
+#if defined(__APPLE__)
+    ss << name << ".dylib";
+#else
     ss << name << ".so";
+#endif
     String path = ss.str();
 
-    plugin = dlopen(path.c_str(), RTLD_LAZY);
+    return dlopen(path.c_str(), RTLD_LAZY);
 }
 
 template <typename APIType>
-void lyra::Plugin<APIType>::unload_dll()
+void lyra::Plugin<APIType>::unload_dll(LYRA_PLUGIN lib)
 {
-    dlclose(plugin);
+    if (lib) {
+        dlclose(lib);
+    }
 }
 
 template <typename APIType>
-void lyra::Plugin<APIType>::load_api()
+bool lyra::Plugin<APIType>::load_api(LYRA_PLUGIN lib, CreateFn& out_create, PrepareFn& out_prepare, CleanupFn& out_cleanup)
 {
-    create  = (CreateFn)dlsym(plugin, "create");
-    prepare = (PrepareFn)dlsym(plugin, "prepare");
-    cleanup = (CleanupFn)dlsym(plugin, "cleanup");
+    out_create = (CreateFn)dlsym(lib, "create");
+    if (!out_create) return false;
+    out_prepare = (PrepareFn)dlsym(lib, "prepare");
+    out_cleanup = (CleanupFn)dlsym(lib, "cleanup");
+    return true;
 }
 
 template <typename APIType>
 auto lyra::Plugin<APIType>::get_error() -> String
 {
-    return CString(dlerror());
+    const char* err = dlerror();
+    return err ? String(err) : String();
 }
 #endif
 

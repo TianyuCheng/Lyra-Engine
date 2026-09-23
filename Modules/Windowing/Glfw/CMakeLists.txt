@@ -12,5 +12,4 @@ endif()
 
 # link dependencies
 find_package(glfw REQUIRED)
-target_link_libraries(lyra-glfw PRIVATE lyra::engine)
 target_link_libraries(lyra-glfw PRIVATE glfw::glfw)

@@ -553,3 +553,127 @@ TEST_CASE("slc::metal::explicit_two_arg_binding_reflection" * doctest::descripti
         CompileFlag::DEBUG | CompileFlag::REFLECT);
 }
 #endif
+
+#include <Lyra/Utilities/Plugin.h>
+#include <Lyra/Compiler/SLCAPI.h>
+
+TEST_CASE("utilities::plugin::load_error_retention" * doctest::description("plugin keeps previously loaded module when load fails"))
+{
+    Plugin<ShaderAPI> plugin("lyra-slang");
+    CHECK(plugin.is_loaded());
+    CHECK(static_cast<bool>(plugin));
+    CHECK(plugin.get_api()->create_compiler != nullptr);
+
+    // Attempt to load a non-existent plugin; should return false without exiting
+    bool loaded = plugin.load("non_existent_plugin_12345");
+    CHECK(!loaded);
+
+    // The previously loaded module must remain valid and intact
+    CHECK(plugin.is_loaded());
+    CHECK(static_cast<bool>(plugin));
+    CHECK(plugin.get_api()->create_compiler != nullptr);
+
+    // Unload the plugin; all function pointers and state must be reset
+    plugin.unload();
+    CHECK(!plugin.is_loaded());
+    CHECK(!static_cast<bool>(plugin));
+    CHECK(plugin.get_api()->create_compiler == nullptr);
+}
+
+#include <Lyra/Utilities/Detail/Blackboard.h>
+
+TEST_CASE("utilities::blackboard::const_methods" * doctest::description("blackboard const methods and queries"))
+{
+    lyra::detail::Blackboard bb;
+    CHECK(bb.empty());
+    CHECK(bb.size() == 0);
+    CHECK(!bb.has<int>());
+
+    bb.add<int>(42);
+    CHECK(!bb.empty());
+    CHECK(bb.size() == 1);
+    CHECK(bb.has<int>());
+
+    // Test const access through const reference
+    const lyra::detail::Blackboard& const_bb = bb;
+    CHECK(!const_bb.empty());
+    CHECK(const_bb.size() == 1);
+    CHECK(const_bb.has<int>());
+    CHECK(const_bb.get<int>() == 42);
+    CHECK(const_bb.try_get<int>() != nullptr);
+    CHECK(*const_bb.try_get<int>() == 42);
+    CHECK(const_bb.try_get<float>() == nullptr);
+
+    // Test remove and clear
+    CHECK(bb.remove<int>());
+    CHECK(bb.empty());
+    CHECK(bb.size() == 0);
+
+    bb.add<int>(10);
+    bb.add<float>(3.14f);
+    CHECK(bb.size() == 2);
+    bb.clear();
+    CHECK(bb.empty());
+    CHECK(bb.size() == 0);
+}
+
+#include <Lyra/Utilities/Detail/Toolboard.h>
+
+TEST_CASE("utilities::toolboard::operations" * doctest::description("toolboard registration, querying, and const operations"))
+{
+    lyra::detail::Toolboard tb;
+    CHECK(tb.empty());
+    CHECK(tb.size() == 0);
+
+    struct DummyDevice {
+        int id = 7;
+    } device;
+
+    struct DummyWindow {
+        int width = 800;
+    } window;
+
+    // Register via pointer
+    tb.add(&device);
+    CHECK(!tb.empty());
+    CHECK(tb.size() == 1);
+    CHECK(tb.has<DummyDevice>());
+    CHECK(tb.has<DummyDevice*>());
+
+    // Register via reference
+    tb.add(window);
+    CHECK(tb.size() == 2);
+    CHECK(tb.has<DummyWindow>());
+
+    // Query through const reference
+    const lyra::detail::Toolboard& const_tb = tb;
+    CHECK(const_tb.size() == 2);
+    CHECK(!const_tb.empty());
+    CHECK(const_tb.get<DummyDevice*>()->id == 7);
+    CHECK(const_tb.get<DummyDevice>().id == 7);
+    CHECK(const_tb.try_get<DummyDevice>() != nullptr);
+    CHECK(const_tb.try_get<DummyDevice>()->id == 7);
+
+    CHECK(const_tb.get<DummyWindow>().width == 800);
+    CHECK(const_tb.get<DummyWindow*>()->width == 800);
+
+    struct DummyCompiler {};
+    CHECK(!const_tb.has<DummyCompiler>());
+    CHECK(const_tb.try_get<DummyCompiler>() == nullptr);
+
+    // Non-const mutation via get()
+    tb.get<DummyDevice*>()->id = 99;
+    CHECK(device.id == 99);
+
+    // Remove
+    CHECK(tb.remove<DummyDevice>());
+    CHECK(tb.size() == 1);
+    CHECK(!tb.has<DummyDevice>());
+
+    // Clear
+    tb.clear();
+    CHECK(tb.empty());
+    CHECK(tb.size() == 0);
+}
+
+

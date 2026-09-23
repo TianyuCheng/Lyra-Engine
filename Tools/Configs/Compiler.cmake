@@ -16,9 +16,9 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 # For Visual Studio (export .lib for .dll)
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
-# Default symbol visibility to hidden for shared libraries (GCC/Clang)
-set(CMAKE_CXX_VISIBILITY_PRESET hidden)
-set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
+# Default symbol visibility for shared libraries (GCC/Clang)
+set(CMAKE_CXX_VISIBILITY_PRESET default)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN OFF)
 
 # Enable ccache
 set(CMAKE_CXX_COMPILER_LAUNCHER ccache)
