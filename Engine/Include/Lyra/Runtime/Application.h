@@ -109,6 +109,7 @@ namespace lyra
         auto& get_window_descriptor() const { return descriptor.wsi; }
         auto& get_graphics_descriptor() const { return descriptor.rhi; }
         auto& get_compiler_descriptor() const { return descriptor.slc; }
+        auto& get_job_system_descriptor() const { return descriptor.jobs; }
 
     private:
         void init(const Window&);
@@ -122,6 +123,7 @@ namespace lyra
         void init_window();
         void init_graphics();
         void init_compiler();
+        void init_job_system();
         void bind_events();
 
         template <AppEvent E>

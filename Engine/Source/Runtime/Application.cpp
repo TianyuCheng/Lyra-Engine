@@ -1,4 +1,5 @@
 #include <Lyra/Runtime/Application.h>
+#include <Lyra/JobSystem/Jobs.h>
 
 using namespace lyra;
 
@@ -61,6 +62,12 @@ AppDescriptor& AppDescriptor::with_frames_in_flight(uint frames_in_flight)
     rhi.frames = frames_in_flight;
     return *this;
 }
+
+AppDescriptor& AppDescriptor::with_workers(uint workers)
+{
+    this->jobs.workers = workers;
+    return *this;
+}
 #pragma endregion AppDescriptor
 
 #pragma region Application
@@ -71,6 +78,7 @@ Application::Application(const AppDescriptor& descriptor)
     : descriptor(descriptor)
 {
     init_logger();
+    init_job_system();
     init_window();
     init_graphics();
     init_compiler();
@@ -92,6 +100,9 @@ Application::~Application()
 {
     // wait for graphics device idle
     rhi->wait();
+
+    // shutdown job scheduler
+    JobScheduler::shutdown();
 
     // reset all owned resources
     slc.reset();
@@ -169,6 +180,14 @@ void Application::init_compiler()
 }
 
 /**
+ * @brief Initialize the job system scheduler.
+ */
+void Application::init_job_system()
+{
+    JobScheduler::init(descriptor.jobs);
+}
+
+/**
  * @brief Bind window callbacks to application methods.
  */
 void Application::bind_events()
@@ -194,6 +213,8 @@ void Application::init(const Window&)
  */
 void Application::update(const Window&)
 {
+    JobScheduler::drain_main_thread();
+
     run_callbacks<AppEvent::UI_PRE>();
     run_callbacks<AppEvent::UI>();
     run_callbacks<AppEvent::UI_POST>();
@@ -201,6 +222,8 @@ void Application::update(const Window&)
     run_callbacks<AppEvent::UPDATE_PRE>();
     run_callbacks<AppEvent::UPDATE>();
     run_callbacks<AppEvent::UPDATE_POST>();
+
+    JobScheduler::drain_main_thread();
 }
 
 /**
@@ -208,6 +231,8 @@ void Application::update(const Window&)
  */
 void Application::render(const Window&)
 {
+    JobScheduler::drain_main_thread();
+
     run_callbacks<AppEvent::RENDER_PRE>();
     run_callbacks<AppEvent::RENDER>();
     run_callbacks<AppEvent::RENDER_POST>();

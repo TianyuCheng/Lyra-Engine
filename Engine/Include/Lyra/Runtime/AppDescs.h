@@ -8,12 +8,14 @@
 #include <Lyra/Windowing/WSIDescs.h>
 #include <Lyra/Graphics/RHIDescs.h>
 #include <Lyra/Compiler/SLCDescs.h>
+#include <Lyra/JobSystem/Jobs.h>
 
 namespace lyra
 {
     struct Application;
 
     using AppWindowDescriptor = WindowDescriptor;
+    using AppJobDescriptor    = JobSystemDescriptor;
 
     /**
      * @brief Graphics configuration for the application.
@@ -70,11 +72,16 @@ namespace lyra
          * @brief Set the number of frames in flight.
          */
         AppDescriptor& with_frames_in_flight(uint frames_in_flight);
+        /**
+         * @brief Set the worker concurrency for the job system (0 = auto-detect).
+         */
+        AppDescriptor& with_workers(uint workers);
 
     private:
         AppWindowDescriptor   wsi;
         AppGraphicsDescriptor rhi;
         AppCompilerDescriptor slc;
+        JobSystemDescriptor   jobs;
     };
 
 } // namespace lyra
