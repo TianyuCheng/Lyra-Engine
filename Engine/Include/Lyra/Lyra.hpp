@@ -44,9 +44,6 @@
 #include <Lyra/Assets/AMSUtils.h>
 #include <Lyra/Assets/AMSServer.h>
 
-// Render headers
-#include <Lyra/Rendering/FrameGraph.h>
-
 // Scenes headers
 #include <Lyra/Scene/World.h>
 #include <Lyra/Scene/Light.h>
@@ -74,5 +71,12 @@
 #include <Lyra/Runtime/RenderLayer.h>
 #include <Lyra/Runtime/TimingLayer.h>
 #include <Lyra/Runtime/UILayer.h>
+#include <Lyra/Runtime/ScriptLayer.h>
+
+// Scripting headers
+#include <Lyra/Scripting/Scripting.h>
+
+// Rendering headers
+#include <Lyra/Rendering/FrameGraph.h>
 
 #endif // LYRA_ENGINE_LYRA_HPP

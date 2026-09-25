@@ -30,6 +30,16 @@ namespace lyra
         RENDER_POST, ///< Logic executed after rendering.
     };
 
+    /**
+     * @brief Application-wide simulation lifecycle state (Editor vs Game).
+     */
+    enum struct SimulationState : uint
+    {
+        EDIT,   ///< Edit mode: systems/physics pause or only run preview/editor systems
+        PLAY,   ///< Play mode: full active simulation
+        PAUSED  ///< Simulation paused: systems do not advance
+    };
+
 } // namespace lyra
 
 #endif // LYRA_ENGINE_RUNTIME_APP_ENUMS_H

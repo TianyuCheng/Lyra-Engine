@@ -54,6 +54,7 @@ add_subdirectory(asset_server)
 add_subdirectory(shader_reflection)
 add_subdirectory(material)
 add_subdirectory(job_system)
+add_subdirectory(scripting)
 
 # ==============================================================================
 # Execution Targets

@@ -26,6 +26,7 @@ set(CMAKE_CXX_COMPILER_LAUNCHER ccache)
 if(MSVC)
   # ignore the stupid warning from MSVC
   add_compile_options("/wd4996")
+  add_compile_options("/wd5030")
 
   # enable automatic multi-thread compilation
   add_compile_options("/MP")
