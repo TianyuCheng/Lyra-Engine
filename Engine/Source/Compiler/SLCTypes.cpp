@@ -41,10 +41,10 @@ Own<ShaderModule> Compiler::compile(const Path& path)
     String source = buffer.str();
 
     auto descriptor   = CompileDescriptor{};
-    auto path_u8      = path.u8string();
-    auto stem_u8      = path.stem().u8string();
-    descriptor.path   = path_u8.c_str();
-    descriptor.module = stem_u8.c_str();
+    auto path_str     = path.string();
+    auto stem_str     = path.stem().string();
+    descriptor.path   = path_str.c_str();
+    descriptor.module = stem_str.c_str();
     descriptor.source = source.c_str();
     return compile(descriptor);
 }

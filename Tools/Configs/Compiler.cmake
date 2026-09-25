@@ -7,8 +7,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # use position independent code for shared libraries
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# enable C++ 17
-set(CMAKE_CXX_STANDARD 17)
+# enable C++ 20
+set(CMAKE_CXX_STANDARD 20)
 
 # For Visual Studio
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -23,7 +23,6 @@ set(CMAKE_VISIBILITY_INLINES_HIDDEN OFF)
 # Enable ccache
 set(CMAKE_CXX_COMPILER_LAUNCHER ccache)
 
-# Other settings
 if(MSVC)
   # ignore the stupid warning from MSVC
   add_compile_options("/wd4996")

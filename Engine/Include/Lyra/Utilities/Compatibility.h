@@ -6,8 +6,15 @@
 // NOTE: This header is going to be used by other projects,
 // Use something universal (instead of Lyra's internal macro for OS check).
 #ifdef _WIN32
+
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
+
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
+
 #include <windows.h>
 #undef min          // conflicts with std::min
 #undef max          // conflicts with std:max
@@ -16,6 +23,7 @@
 #undef GENERIC_READ // conflicts with RHI enum
 #undef OPAUE
 #undef DEBUG
+#undef CreateWindow // undefine CreateWindow macro
 #else
 #endif
 

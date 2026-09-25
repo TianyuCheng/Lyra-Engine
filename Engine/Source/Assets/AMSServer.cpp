@@ -79,7 +79,7 @@ static time_t get_file_mtime(const Path& path)
     auto            ftime = fs::last_write_time(path, ec);
     if (ec) return 0;
 #if defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L
-    auto sctp = std::chrono::file_clock::to_sys(ftime);
+    auto sctp = std::chrono::clock_cast<std::chrono::system_clock>(ftime);
     return std::chrono::system_clock::to_time_t(sctp);
 #else
     auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(

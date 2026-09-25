@@ -14,10 +14,7 @@
 // Windows specific
 #ifdef _WIN32
 #undef APIENTRY // undefine APIENTRY macro
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#undef CreateWindow // undefine CreateWindow macro
+#include <Lyra/Utilities/Compatibility.h>
 #define LYRA_PLUGIN HMODULE
 #endif
 

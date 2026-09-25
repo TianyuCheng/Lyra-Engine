@@ -274,7 +274,7 @@ static bool unmount(FileLoaderHandle loader, MountHandle handle)
 {
     auto pointer = loader.as_type<PhysFSLoader>();
     auto pmount  = handle.as_type<PhysMountPoint>();
-    get_logger()->info("unmount path={} from vpath={} (removed {} mounts)", pmount->root.string(), pmount->vpath);
+    get_logger()->info("unmount path={} from vpath={}", pmount->root.string(), pmount->vpath);
 
     // lock while unmount
     std::lock_guard<std::mutex> lk(pointer->mounts_mutex);

@@ -1,6 +1,14 @@
 #ifndef LYRA_MODULE_GRAPHICS_D3D12_UTILS_H
 #define LYRA_MODULE_GRAPHICS_D3D12_UTILS_H
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
 #include <D3D12MemAlloc.h>
 
 #include <d3d12.h>
@@ -382,15 +390,15 @@ struct D3D12BindGroupHeap
 
 struct D3D12BindGroupLayout
 {
-    Vector<D3D12_DESCRIPTOR_RANGE1>     sampler_ranges = {};
-    Vector<D3D12_DESCRIPTOR_RANGE1>     default_ranges = {};
-    Vector<D3D12_DESCRIPTOR_RANGE1>     dynamic_ranges = {};
-    Vector<D3D12BindInfo>               bindings       = {};
-    uint                                num_defaults   = 0;
-    uint                                num_samplers   = 0;
-    uint                                num_dynamics   = 0;
-    D3D12_SHADER_VISIBILITY             visibility     = D3D12_SHADER_VISIBILITY_ALL;
-    bool                                bindless       = false;
+    Vector<D3D12_DESCRIPTOR_RANGE1> sampler_ranges = {};
+    Vector<D3D12_DESCRIPTOR_RANGE1> default_ranges = {};
+    Vector<D3D12_DESCRIPTOR_RANGE1> dynamic_ranges = {};
+    Vector<D3D12BindInfo>           bindings       = {};
+    uint                            num_defaults   = 0;
+    uint                            num_samplers   = 0;
+    uint                            num_dynamics   = 0;
+    D3D12_SHADER_VISIBILITY         visibility     = D3D12_SHADER_VISIBILITY_ALL;
+    bool                            bindless       = false;
 
     // implementation in D3D12Layout.cpp
     explicit D3D12BindGroupLayout();

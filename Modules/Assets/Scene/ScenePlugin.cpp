@@ -20,9 +20,7 @@ static Logger get_logger()
     return logger;
 }
 
-static uint extract_scene_nodes(
-    SceneAsset&           scene,
-    const tinyusdz::Prim& prim)
+static uint extract_scene_nodes(SceneAsset& scene, const tinyusdz::Prim& prim)
 {
     const tinyusdz::Xform* xform = prim.as<tinyusdz::Xform>();
     if (!xform) {

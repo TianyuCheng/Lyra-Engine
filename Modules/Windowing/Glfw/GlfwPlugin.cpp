@@ -1,3 +1,11 @@
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
 // windows native window
 #include <algorithm>
 #ifdef USE_PLATFORM_WINDOWS
@@ -421,22 +429,22 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
     // clang-format on
 }
 
-static void file_drop_callback(GLFWwindow *window, int path_count, CString paths[])
+static void file_drop_callback(GLFWwindow* window, int path_count, CString paths[])
 {
     if (path_count <= 0) return;
-    auto& user  = *static_cast<UserState*>(glfwGetWindowUserPointer(window));
+    auto& user = *static_cast<UserState*>(glfwGetWindowUserPointer(window));
     user.add_file_drop_event(static_cast<uint>(path_count), paths);
 }
 
 static void key_character_callback(GLFWwindow* window, uint code)
 {
-    auto& user  = *static_cast<UserState*>(glfwGetWindowUserPointer(window));
+    auto& user = *static_cast<UserState*>(glfwGetWindowUserPointer(window));
     user.add_character_event(code);
 }
 
 static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
-    auto& user  = *static_cast<UserState*>(glfwGetWindowUserPointer(window));
+    auto& user = *static_cast<UserState*>(glfwGetWindowUserPointer(window));
 
     // clang-format off
     switch (button) {
