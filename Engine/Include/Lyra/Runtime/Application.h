@@ -110,6 +110,8 @@ namespace lyra
         auto& get_graphics_descriptor() const { return descriptor.rhi; }
         auto& get_compiler_descriptor() const { return descriptor.slc; }
         auto& get_job_system_descriptor() const { return descriptor.jobs; }
+        auto  get_max_workers() const -> uint { return descriptor.jobs.max_workers; }
+        auto  get_max_background_workers() const -> uint { return descriptor.jobs.max_background_workers; }
 
     private:
         void init(const Window&);

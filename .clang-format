@@ -45,3 +45,4 @@ BraceWrapping:
   SplitEmptyRecord: true
   SplitEmptyNamespace: true
 LambdaBodyIndentation: OuterScope
+IndentRequiresClause: false

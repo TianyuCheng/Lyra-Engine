@@ -9,13 +9,15 @@ using namespace lyra;
 
 TEST_CASE("jobs::job_system" * doctest::description("Job System and Coroutine Tests"))
 {
-    if (!JobScheduler::is_initialized()) {
-        JobScheduler::init({.workers = 4});
-    }
+    struct ScopedJobSystem
+    {
+        ScopedJobSystem() { JobScheduler::init({.max_workers = 4}); }
+        ~ScopedJobSystem() { JobScheduler::shutdown(); }
+    } job_system_scope;
 
     SUBCASE("basic_job_scheduling")
     {
-        std::atomic<int> counter_val{0};
+        std::atomic<int> counter_val = 0;
 
         for (int i = 0; i < 100; ++i) {
             JobScheduler::schedule([&counter_val] {

@@ -4,6 +4,7 @@
 #include <filesystem>
 
 #include "helper.h"
+#include <Lyra/JobSystem/JobSystem.h>
 
 using namespace lyra;
 
@@ -72,6 +73,12 @@ AssetCookerAPI DummyAsset::cooker()
 
 TEST_CASE("ams::asset_server")
 {
+    struct ScopedJobSystem
+    {
+        ScopedJobSystem() { JobScheduler::init(); }
+        ~ScopedJobSystem() { JobScheduler::shutdown(); }
+    } job_system_scope;
+
     // setup temporary directory for tests
     auto temp_dir = fs::temp_directory_path() / "lyra_ams_test";
     fs::create_directories(temp_dir);
@@ -101,7 +108,6 @@ TEST_CASE("ams::asset_server")
 
     // initialize assetserver
     AMSDescriptor desc        = {};
-    desc.workers              = 4;
     desc.registry             = registry.c_str();
     desc.loader.assets        = &loader;
     desc.importer.assets_path = temp_dir.c_str();
@@ -384,6 +390,12 @@ TEST_CASE("ams::registry_dependencies")
 
 TEST_CASE("ams::asset_dependencies")
 {
+    struct ScopedJobSystem
+    {
+        ScopedJobSystem() { JobScheduler::init(); }
+        ~ScopedJobSystem() { JobScheduler::shutdown(); }
+    } job_system_scope;
+
     auto temp_dir = fs::temp_directory_path() / "lyra_ams_dep_test";
     fs::create_directories(temp_dir);
 
@@ -417,7 +429,6 @@ TEST_CASE("ams::asset_dependencies")
     loader.mount("/", temp_dir.string().c_str(), 0);
 
     AMSDescriptor desc        = {};
-    desc.workers              = 1;
     desc.registry             = registry.c_str();
     desc.loader.assets        = &loader;
     desc.importer.assets_path = temp_dir.c_str();

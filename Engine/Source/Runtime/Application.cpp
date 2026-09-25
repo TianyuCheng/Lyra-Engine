@@ -65,7 +65,7 @@ AppDescriptor& AppDescriptor::with_frames_in_flight(uint frames_in_flight)
 
 AppDescriptor& AppDescriptor::with_workers(uint workers)
 {
-    this->jobs.workers = workers;
+    this->jobs.max_workers = workers;
     return *this;
 }
 #pragma endregion AppDescriptor

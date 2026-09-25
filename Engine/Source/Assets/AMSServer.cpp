@@ -1,6 +1,7 @@
 #include <ctime>
 #include <mutex>
 #include <fstream>
+#include <cassert>
 #include <filesystem>
 
 #include <absl/strings/ascii.h>
@@ -89,8 +90,10 @@ static time_t get_file_mtime(const Path& path)
 }
 
 AssetServer::AssetServer(const AMSDescriptor& descriptor)
-    : descriptor(descriptor), pool(descriptor.workers)
+    : descriptor(descriptor)
 {
+    assert(JobScheduler::is_initialized() && "JobScheduler must be initialized before creating AssetServer!");
+
     // load registry
     if (descriptor.registry) {
         if (!registry.load(descriptor.registry)) {
@@ -123,6 +126,7 @@ AssetServer::~AssetServer()
     if (watcher) {
         watcher->stop();
     }
+    JobScheduler::wait_idle();
     // unload all existing assets regardless of ref count
     for (auto& kv_processor : processors) {
         auto& processor = kv_processor.second;
@@ -230,7 +234,7 @@ RawAssetHandle AssetServer::load_asset(AssetTypeID type_id, AssetID guid)
             record = processor_ptr->assets[guid];
         }
 
-        pool.detach_task([this, processor_ptr, path, record]() {
+        JobScheduler::schedule(JobPriority::BACKGROUND, [this, processor_ptr, path, record]() {
             record->data = processor_ptr->loader.load(descriptor.loader.assets, path.c_str());
         });
     }
@@ -417,16 +421,16 @@ void AssetServer::commit_cooked_asset(const Path& import_path, const Path& rel_p
 
 auto AssetServer::cook_asset_task(AssetCookerAPI* cooker, const Path& source_path, const Path& import_path, const Path& rel_path, AssetID guid) -> AssetID
 {
-    {
-        std::lock_guard lock(pipeline_mutex);
+    with_lock(pipeline_mutex, [&] {
         current_cooking_asset = rel_path.string();
-    }
+    });
 
     auto finish_task = [this, &rel_path](bool success) {
-        std::lock_guard lock(pipeline_mutex);
-        if (current_cooking_asset == rel_path.string()) {
-            current_cooking_asset.clear();
-        }
+        with_lock(pipeline_mutex, [&] {
+            if (current_cooking_asset == rel_path.string()) {
+                current_cooking_asset.clear();
+            }
+        });
         if (success) {
             completed_cooks++;
         } else {
@@ -510,9 +514,19 @@ Future<AssetID> AssetServer::import_asset(const Path& path, bool force)
 
     pending_cooks++;
 
-    return pool.submit_task([this, cooker = it->second, source_path, import_path, path, guid]() {
-        return cook_asset_task(cooker, source_path, import_path, path, guid);
+    auto promise = std::make_shared<Promise<AssetID>>();
+    auto future  = promise->get_future();
+
+    JobScheduler::schedule(JobPriority::BACKGROUND, [this, cooker = it->second, source_path, import_path, path, guid, promise]() {
+        try {
+            AssetID result = cook_asset_task(cooker, source_path, import_path, path, guid);
+            promise->set_value(result);
+        } catch (...) {
+            promise->set_exception(std::current_exception());
+        }
     });
+
+    return future;
 }
 
 auto AssetServer::resolve_asset_path(const Path& path) const -> std::pair<Path, Path>
@@ -916,7 +930,7 @@ void AssetServer::reload_asset(AssetID guid)
 
     String path = String(registry.get_path(guid));
 
-    pool.detach_task([this, proc_ptr, path, record, guid, type_id]() {
+    JobScheduler::schedule(JobPriority::BACKGROUND, [this, proc_ptr, path, record, guid, type_id]() {
         try {
             void* new_data = proc_ptr->loader.load(descriptor.loader.assets, path.c_str());
             if (new_data) {
@@ -931,8 +945,9 @@ void AssetServer::reload_asset(AssetID guid)
                 }
                 spdlog::info("AssetServer: Hot-reloaded asset {} (GUID: {:#x})", path, guid);
 
-                std::lock_guard lock(pipeline_mutex);
-                queued_reloaded_assets.emplace_back(guid, type_id);
+                with_lock(pipeline_mutex, [&] {
+                    queued_reloaded_assets.emplace_back(guid, type_id);
+                });
             }
         } catch (const std::exception& e) {
             spdlog::error("Failed to hot-reload asset {}: {}", path, e.what());
@@ -994,10 +1009,9 @@ AssetPipelineStats AssetServer::get_pipeline_stats() const
     stats.completed_count = completed_cooks.load();
     stats.failed_count    = failed_cooks.load();
     stats.watching        = is_watching();
-    {
-        std::lock_guard lock(pipeline_mutex);
-        stats.current_asset = current_cooking_asset;
-    }
+    stats.current_asset   = with_lock(pipeline_mutex, [&] {
+        return current_cooking_asset;
+    });
     return stats;
 }
 
@@ -1012,8 +1026,7 @@ void AssetServer::poll_events()
     Vector<std::pair<AssetID, AssetTypeID>> reloads;
 
     bool has_fs_changes = false;
-    {
-        std::lock_guard lock(pipeline_mutex);
+    with_lock(pipeline_mutex, [&] {
         if (!queued_reloaded_assets.empty()) {
             reloads = std::move(queued_reloaded_assets);
             queued_reloaded_assets.clear();
@@ -1022,7 +1035,7 @@ void AssetServer::poll_events()
             has_fs_changes = true;
             queued_fs_events.clear();
         }
-    }
+    });
 
     for (const auto& [guid, type_id] : reloads) {
         if (on_asset_reloaded) {
@@ -1042,14 +1055,16 @@ auto AssetServer::preview(const PreviewScene& scene, JSON& metadata) -> Future<P
 
 void AssetServer::set_on_asset_reloaded(AssetReloadCallback callback)
 {
-    std::lock_guard lock(pipeline_mutex);
-    on_asset_reloaded = std::move(callback);
+    with_lock(pipeline_mutex, [&] {
+        on_asset_reloaded = std::move(callback);
+    });
 }
 
 void AssetServer::set_on_filesystem_changed(FileSystemChangeCallback callback)
 {
-    std::lock_guard lock(pipeline_mutex);
-    on_fs_changed = std::move(callback);
+    with_lock(pipeline_mutex, [&] {
+        on_fs_changed = std::move(callback);
+    });
 }
 
 void AssetServer::handle_watch_rename(const AssetWatchEvent& evt)
@@ -1099,10 +1114,11 @@ void AssetServer::handle_watch_events(const Vector<AssetWatchEvent>& events)
     }
 
     if (fs_changed) {
-        std::lock_guard lock(pipeline_mutex);
-        for (const auto& e : events) {
-            queued_fs_events.push_back(e);
-        }
+        with_lock(pipeline_mutex, [&] {
+            for (const auto& e : events) {
+                queued_fs_events.push_back(e);
+            }
+        });
     }
 }
 

@@ -111,7 +111,6 @@ namespace lyra
         OSPath              registry;
 
         bool watch   = false; ///< Whether to monitor the asset directory for hot-reloading.
-        uint workers = 1;     ///< Number of worker threads for background asset processing.
     };
 
 } // namespace lyra

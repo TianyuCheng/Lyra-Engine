@@ -7,7 +7,6 @@
 #include <atomic>
 #include <shared_mutex>
 
-#include <BS_thread_pool.hpp>
 #include <absl/strings/ascii.h>
 #include <Lyra/Utilities/UUID.h>
 #include <Lyra/Utilities/GUID.h>
@@ -21,6 +20,8 @@
 #include <Lyra/Utilities/Collections.h>
 #include <Lyra/FileSystem/VFSEnums.h>
 #include <Lyra/FileSystem/VFSUtils.h>
+#include <Lyra/Utilities/Sync.h>
+#include <Lyra/JobSystem/JobSystem.h>
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/Assets/AMSRegistry.h>
 #include <Lyra/Assets/AMSWatcher.h>
@@ -357,8 +358,8 @@ namespace lyra
     private:
         struct AssetRecord
         {
-            void*              data   = nullptr;
-            std::atomic<uint>  refcnt = 0;
+            void*             data   = nullptr;
+            std::atomic<uint> refcnt = 0;
         };
 
         struct AssetProcessor
@@ -413,7 +414,6 @@ namespace lyra
 
     private:
         AMSDescriptor                             descriptor;
-        BS::thread_pool<>                         pool;
         AssetRegistry                             registry;
         HashMap<AssetTypeID, Own<AssetProcessor>> processors;
         HashMap<String, AssetProcessor*>          saver_extensions;
@@ -421,9 +421,9 @@ namespace lyra
         HashMap<String, AssetCookerAPI*>          cooker_extensions;
 
         Own<AssetWatcher>                       watcher;
-        std::atomic<uint>                       pending_cooks{0};
-        std::atomic<uint>                       completed_cooks{0};
-        std::atomic<uint>                       failed_cooks{0};
+        std::atomic<uint>                       pending_cooks   = 0;
+        std::atomic<uint>                       completed_cooks = 0;
+        std::atomic<uint>                       failed_cooks    = 0;
         mutable std::mutex                      pipeline_mutex;
         String                                  current_cooking_asset;
         Deque<AssetWatchEvent>                  queued_fs_events;

@@ -201,26 +201,15 @@ namespace lyra
         size_t num_batches = (count + batch_size - 1) / batch_size;
         auto   awaiter     = std::make_shared<BatchAwaiter>(static_cast<uint>(num_batches));
 
-        using DecayedF = std::decay_t<Func>;
-        struct Slice
-        {
-            Index                         start;
-            Index                         finish;
-            DecayedF                      fn;
-            std::shared_ptr<BatchAwaiter> awaiter;
-        };
-
         for (size_t b = 0; b < num_batches; ++b) {
             Index b_start = begin + static_cast<Index>(b * batch_size);
             Index b_end   = std::min(end, begin + static_cast<Index>((b + 1) * batch_size));
-            auto  slice   = new Slice{b_start, b_end, func, awaiter};
-            JobScheduler::schedule(JobPriority::HIGH, Job{[](void* ptr) {
-                auto* s = static_cast<Slice*>(ptr);
-                for (Index i = s->start; i < s->finish; ++i)
-                    s->fn(i);
-                s->awaiter->finish();
-                delete s;
-            }, slice});
+            JobScheduler::schedule(JobPriority::HIGH, [b_start, b_end, func, awaiter]() {
+                for (Index i = b_start; i < b_end; ++i) {
+                    func(i);
+                }
+                awaiter->finish();
+            });
         }
 
         co_await *awaiter;

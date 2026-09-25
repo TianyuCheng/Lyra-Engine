@@ -1,17 +1,32 @@
 #include <mutex>
 #include <thread>
 #include <atomic>
+#include <cstdlib>
+#include <cassert>
 #include <condition_variable>
 
 #include <Lyra/Utilities/Stdint.h>
-#include <Lyra/Utilities/Pointer.h>
 #include <Lyra/Utilities/Collections.h>
+#include <Lyra/Utilities/Pointer.h>
 #include <Lyra/JobSystem/Jobs.h>
 #include "JobSystemInternal.h"
+#include "JobClosurePool.h"
 
 #if defined(__APPLE__)
 extern "C" void* objc_autoreleasePoolPush(void);
 extern "C" void  objc_autoreleasePoolPop(void*);
+
+struct AutoReleaseScope
+{
+    void* pool = nullptr;
+    AutoReleaseScope() : pool(objc_autoreleasePoolPush()) {}
+    ~AutoReleaseScope()
+    {
+        if (pool) {
+            objc_autoreleasePoolPop(pool);
+        }
+    }
+};
 #endif
 
 using namespace lyra;
@@ -25,7 +40,7 @@ using InjectionQueueArray = Array<ConcurrentJobQueue, PRIORITY_COUNT>;
 
 struct WorkerState
 {
-    uint          id{0};
+    uint          id = 0;
     JobDequeArray deques;
 };
 
@@ -36,33 +51,22 @@ using ThreadList = Vector<std::thread>;
 struct SchedulerState
 {
     std::thread::id         main_thread_id;
-    std::atomic<bool>       initialized{false};
-    std::atomic<bool>       running{false};
-    std::atomic<uint>       active_workers{0};
-    uint                    worker_count{0};
+    std::atomic<bool>       initialized               = false;
+    std::atomic<bool>       running                   = false;
+    std::atomic<uint>       active_workers            = 0;
+    std::atomic<uint>       active_background_workers = 0;
+    uint                    worker_count              = 0;
+    uint                    max_background_workers    = 0;
     WorkerList              workers;
     ThreadList              threads;
     InjectionQueueArray     injection_queues;
     ConcurrentJobQueue      main_queue;
     std::mutex              sleep_mutex;
     std::condition_variable sleep_cv;
+    CentralClosurePool      closure_pool;
 
     ~SchedulerState();
 };
-
-#if defined(__APPLE__)
-struct AutoReleaseScope
-{
-    void* pool{nullptr};
-    AutoReleaseScope() : pool(objc_autoreleasePoolPush()) {}
-    ~AutoReleaseScope()
-    {
-        if (pool) {
-            objc_autoreleasePoolPop(pool);
-        }
-    }
-};
-#endif
 #pragma endregion Types& Aliases
 
 #pragma region Internal Helpers
@@ -86,20 +90,32 @@ static bool has_any_work()
     return false;
 }
 
-static bool pop_job_for_worker(uint worker_id, Job& job)
+static bool pop_job_for_worker(uint worker_id, Job& job, bool& is_background)
 {
     auto& worker = *g_scheduler.workers[worker_id];
 
     // 1. check own deques in priority order
     for (size_t p = 0; p < PRIORITY_COUNT; ++p) {
+        if (p == static_cast<size_t>(JobPriority::BACKGROUND)) {
+            if (g_scheduler.active_background_workers.load(std::memory_order_relaxed) >= g_scheduler.max_background_workers) {
+                continue;
+            }
+        }
         if (worker.deques[p].pop_bottom(job)) {
+            is_background = (p == static_cast<size_t>(JobPriority::BACKGROUND));
             return true;
         }
     }
 
     // 2. check global injection queues
     for (size_t p = 0; p < PRIORITY_COUNT; ++p) {
+        if (p == static_cast<size_t>(JobPriority::BACKGROUND)) {
+            if (g_scheduler.active_background_workers.load(std::memory_order_relaxed) >= g_scheduler.max_background_workers) {
+                continue;
+            }
+        }
         if (g_scheduler.injection_queues[p].pop(job)) {
+            is_background = (p == static_cast<size_t>(JobPriority::BACKGROUND));
             return true;
         }
     }
@@ -111,7 +127,12 @@ static bool pop_job_for_worker(uint worker_id, Job& job)
         for (uint i = 0; i < num_workers - 1; ++i) {
             auto& peer = *g_scheduler.workers[victim];
             for (size_t p = 0; p < PRIORITY_COUNT; ++p) {
+                if (p == static_cast<size_t>(JobPriority::BACKGROUND)) {
+                    if (g_scheduler.active_background_workers.load(std::memory_order_relaxed) >= g_scheduler.max_background_workers)
+                        continue;
+                }
                 if (peer.deques[p].steal(job)) {
+                    is_background = (p == static_cast<size_t>(JobPriority::BACKGROUND));
                     return true;
                 }
             }
@@ -127,13 +148,20 @@ static void worker_thread_main(uint worker_id)
     g_tl_worker_index = static_cast<int>(worker_id);
 
     while (g_scheduler.running.load(std::memory_order_relaxed)) {
-        Job job;
-        if (pop_job_for_worker(worker_id, job)) {
+        Job  job;
+        bool is_background = false;
+        if (pop_job_for_worker(worker_id, job, is_background)) {
             g_scheduler.active_workers.fetch_add(1, std::memory_order_relaxed);
+            if (is_background) {
+                g_scheduler.active_background_workers.fetch_add(1, std::memory_order_relaxed);
+            }
 #if defined(__APPLE__)
             AutoReleaseScope pool;
 #endif
             job.execute();
+            if (is_background) {
+                g_scheduler.active_background_workers.fetch_sub(1, std::memory_order_relaxed);
+            }
             g_scheduler.active_workers.fetch_sub(1, std::memory_order_relaxed);
             continue;
         }
@@ -151,9 +179,10 @@ static void worker_thread_main(uint worker_id)
 
 bool lyra::assist_work()
 {
-    Job job;
+    Job  job;
+    bool is_background = false;
     if (g_tl_worker_index >= 0 && g_tl_worker_index < static_cast<int>(g_scheduler.worker_count)) {
-        if (pop_job_for_worker(static_cast<uint>(g_tl_worker_index), job)) {
+        if (pop_job_for_worker(static_cast<uint>(g_tl_worker_index), job, is_background)) {
             job.execute();
             return true;
         }
@@ -182,13 +211,22 @@ void JobScheduler::init(const JobSystemDescriptor& desc)
 
     g_scheduler.main_thread_id = std::this_thread::get_id();
 
-    uint worker_count = desc.workers;
+    uint worker_count = desc.max_workers;
     if (worker_count == 0) {
         uint hw      = std::thread::hardware_concurrency();
         worker_count = hw > 1 ? hw - 1 : 1;
     }
 
     g_scheduler.worker_count = worker_count;
+
+    uint bg_workers = desc.max_background_workers;
+    if (bg_workers == 0) {
+        bg_workers = std::max(1u, (worker_count > 2 ? worker_count - 2 : 1));
+    } else {
+        bg_workers = std::min(bg_workers, worker_count);
+    }
+    g_scheduler.max_background_workers = bg_workers;
+
     g_scheduler.running.store(true);
 
     g_scheduler.workers.reserve(worker_count);
@@ -227,6 +265,7 @@ void JobScheduler::shutdown()
 SchedulerState::~SchedulerState()
 {
     JobScheduler::shutdown();
+    closure_pool.clear();
 }
 
 bool JobScheduler::is_initialized()
@@ -257,6 +296,8 @@ void JobScheduler::wait_idle()
 
 void JobScheduler::schedule(JobPriority priority, Job job)
 {
+    assert(is_initialized() && "JobScheduler must be initialized before scheduling jobs!");
+
     size_t p = static_cast<size_t>(priority);
     if (g_tl_worker_index >= 0 && g_tl_worker_index < static_cast<int>(g_scheduler.worker_count)) {
         if (!g_scheduler.workers[g_tl_worker_index]->deques[p].push_bottom(job)) {
@@ -271,12 +312,45 @@ void JobScheduler::schedule(JobPriority priority, Job job)
 
 void JobScheduler::schedule_main(Job job)
 {
+    assert(is_initialized() && "JobScheduler must be initialized before scheduling jobs!");
     g_scheduler.main_queue.push(job);
 }
 
 void JobScheduler::drain_main_thread(uint max_jobs)
 {
     g_scheduler.main_queue.drain(max_jobs);
+}
+
+static thread_local ThreadClosureCache g_tl_closure_cache;
+
+void* JobScheduler::allocate_closure(size_t size)
+{
+    if (size <= CLOSURE_BLOCK_SIZE) {
+        if (g_tl_closure_cache.free_list) {
+            auto* b                      = g_tl_closure_cache.free_list;
+            g_tl_closure_cache.free_list = b->next;
+            g_tl_closure_cache.count--;
+            return b;
+        }
+        return g_scheduler.closure_pool.allocate();
+    }
+    return ::operator new(size);
+}
+
+void JobScheduler::deallocate_closure(void* ptr, size_t size)
+{
+    if (size <= CLOSURE_BLOCK_SIZE && ptr) {
+        if (g_tl_closure_cache.count < ThreadClosureCache::MAX_CACHED) {
+            auto* b                      = static_cast<ClosureBlock*>(ptr);
+            b->next                      = g_tl_closure_cache.free_list;
+            g_tl_closure_cache.free_list = b;
+            g_tl_closure_cache.count++;
+            return;
+        }
+        g_scheduler.closure_pool.deallocate(ptr);
+        return;
+    }
+    ::operator delete(ptr);
 }
 #pragma endregion JobScheduler
 
@@ -288,11 +362,9 @@ bool MainThreadAwaiter::await_ready() const noexcept
 
 void MainThreadAwaiter::await_suspend(std::coroutine_handle<> handle) noexcept
 {
-    JobScheduler::schedule_main(Job{
-        [](void* ptr) {
+    JobScheduler::schedule_main(Job{[](void* ptr) {
         std::coroutine_handle<>::from_address(ptr).resume();
-    },
-        handle.address()});
+    }, handle.address()});
 }
 
 bool WorkerAwaiter::await_ready() const noexcept

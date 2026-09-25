@@ -26,8 +26,8 @@ namespace lyra
 
     struct Job
     {
-        void (*fn)(void*){nullptr};
-        void* data{nullptr};
+        void (*fn)(void*) = nullptr;
+        void* data        = nullptr;
 
         void execute() const noexcept
         {
@@ -57,7 +57,7 @@ namespace lyra
 
     struct FinalAwaiter
     {
-        std::coroutine_handle<> continuation{nullptr};
+        std::coroutine_handle<> continuation = nullptr;
 
         bool await_ready() const noexcept
         {
@@ -97,7 +97,8 @@ namespace lyra
 
     struct JobSystemDescriptor
     {
-        uint workers = 0; // 0 = auto-detect hardware concurrency
+        uint max_workers            = 0; // 0 = auto-detect hardware concurrency
+        uint max_background_workers = 0; // 0 = auto quota, or explicit maximum concurrent background workers
     };
 
     // -------------------------------------------------------------------------
@@ -118,25 +119,41 @@ namespace lyra
         static void schedule(Job job) { schedule(JobPriority::NORMAL, job); }
         static void schedule(JobPriority priority, Job job);
 
-        // schedule arbitrary invocable / lambda (priority is first argument)
-        template <typename F>
-            requires(!std::is_same_v<std::decay_t<F>, Job> && !std::is_same_v<std::decay_t<F>, JobPriority>)
-        static void schedule(JobPriority priority, F&& func)
-        {
-            using DecayedF = std::decay_t<F>;
-            auto callable  = new DecayedF(std::forward<F>(func));
-            schedule(priority, Job{[](void* data) {
-                auto* fn = static_cast<DecayedF*>(data);
-                (*fn)();
-                delete fn;
-            }, callable});
-        }
+        // closure allocator for high-performance lambda dispatch without heap churn
+        static void* allocate_closure(size_t size);
+        static void  deallocate_closure(void* ptr, size_t size);
 
+        // schedule arbitrary invocable / lambda (default priority)
         template <typename F>
-            requires(!std::is_same_v<std::decay_t<F>, Job> && !std::is_same_v<std::decay_t<F>, JobPriority>)
+        requires(!std::is_same_v<std::decay_t<F>, Job> && !std::is_same_v<std::decay_t<F>, JobPriority>)
         static void schedule(F&& func)
         {
             schedule(JobPriority::NORMAL, std::forward<F>(func));
+        }
+
+        // schedule arbitrary invocable / lambda (custom priority)
+        template <typename F>
+        requires(!std::is_same_v<std::decay_t<F>, Job> && !std::is_same_v<std::decay_t<F>, JobPriority>)
+        static void schedule(JobPriority priority, F&& func)
+        {
+            using DecayedF = std::decay_t<F>;
+            if constexpr (sizeof(DecayedF) <= 128 && alignof(DecayedF) <= alignof(std::max_align_t)) {
+                auto mem = allocate_closure(sizeof(DecayedF));
+                auto fn  = new (mem) DecayedF(std::forward<F>(func));
+                schedule(priority, Job{[](void* data) {
+                    auto* callable = static_cast<DecayedF*>(data);
+                    (*callable)();
+                    callable->~DecayedF();
+                    deallocate_closure(data, sizeof(DecayedF));
+                }, fn});
+            } else {
+                auto fn = new DecayedF(std::forward<F>(func));
+                schedule(priority, Job{[](void* data) {
+                    auto* callable = static_cast<DecayedF*>(data);
+                    (*callable)();
+                    delete callable;
+                }, fn});
+            }
         }
 
         // main-thread dispatch & draining

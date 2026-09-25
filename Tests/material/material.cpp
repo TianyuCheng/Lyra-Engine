@@ -4,6 +4,7 @@
 #include <Lyra/Assets/Format/ModelAsset.h>
 #include <Lyra/Assets/Format/SceneAsset.h>
 #include <Lyra/Assets/AMSServer.h>
+#include <Lyra/JobSystem/JobSystem.h>
 #include <Lyra/Assets/Format/MeshAsset.h>
 #include <Lyra/Assets/Format/TextAsset.h>
 #include <Lyra/Assets/Format/TomlAsset.h>
@@ -12,6 +13,12 @@
 namespace fs = std::filesystem;
 
 using namespace lyra;
+
+struct ScopedJobSystem
+{
+    ScopedJobSystem() { JobScheduler::init(); }
+    ~ScopedJobSystem() { JobScheduler::shutdown(); }
+};
 
 TEST_CASE("mat::material_usd_serialization")
 {
@@ -154,6 +161,8 @@ TEST_CASE("scene::scene_usd_serialization")
 
 TEST_CASE("ams::asset_saver_api")
 {
+    ScopedJobSystem job_system_scope;
+
     CHECK_NE(MaterialAsset::saver().save, nullptr);
     CHECK_NE(ModelAsset::saver().save, nullptr);
     CHECK_NE(SceneAsset::saver().save, nullptr);
@@ -193,6 +202,8 @@ TEST_CASE("ams::asset_saver_api")
 
 TEST_CASE("ams::text_based_assets_saver")
 {
+    ScopedJobSystem job_system_scope;
+
     CHECK_NE(TextAsset::saver().save, nullptr);
     CHECK_NE(TomlAsset::saver().save, nullptr);
     CHECK_NE(JsonAsset::saver().save, nullptr);
@@ -280,6 +291,8 @@ TEST_CASE("ams::text_based_assets_saver")
 
 TEST_CASE("ams::model_import_and_reimport")
 {
+    ScopedJobSystem job_system_scope;
+
     auto temp_dir   = fs::temp_directory_path() / "lyra_model_reimport_test";
     auto assets_dir = temp_dir / "Assets";
     auto caches_dir = temp_dir / "Caches";
@@ -297,7 +310,6 @@ TEST_CASE("ams::model_import_and_reimport")
     desc.loader.assets        = &loader;
     desc.loader.caches        = &loader;
     desc.registry             = registry_file.c_str();
-    desc.workers              = 2;
 
     AssetServer server(desc);
     server.register_asset<MeshAsset>();

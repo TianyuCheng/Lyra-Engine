@@ -24,9 +24,9 @@ namespace lyra
         static_assert((Capacity & (Capacity - 1)) == 0, "capacity must be power of two");
         static constexpr size_t MASK = Capacity - 1;
 
-        alignas(64) std::atomic<int64_t> top{0};
-        alignas(64) std::atomic<int64_t> bottom{0};
-        alignas(64) Array<T, Capacity> buffer{};
+        alignas(64) std::atomic<int64_t> top    = 0;
+        alignas(64) std::atomic<int64_t> bottom = 0;
+        alignas(64) Array<T, Capacity>   buffer{};
 
     public:
         ChaseLevDeque() = default;
