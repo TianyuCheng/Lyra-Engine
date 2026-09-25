@@ -82,11 +82,21 @@ namespace lyra
     };
 
     /**
-     * @brief Computes a stable, deterministic ScriptID from a script name.
+     * @brief Computes a stable, deterministic ScriptID from a script name at compile-time or runtime.
      */
-    FORCE_INLINE ScriptID hash_script_name(StringView name)
+    constexpr auto hash_script_name(StringView name) -> ScriptID
     {
-        return deterministic_guid(0, name);
+        uint64_t hash = 14695981039346656037ull;
+        for (char c : name) {
+            hash ^= static_cast<uint8_t>(c);
+            hash *= 1099511628211ull;
+        }
+        hash ^= hash >> 30;
+        hash *= 0xbf58476d1ce4e5b9ull;
+        hash ^= hash >> 27;
+        hash *= 0x94d049bb133111ebull;
+        hash ^= hash >> 31;
+        return (hash == 0) ? 1ull : hash;
     }
 
 } // namespace lyra

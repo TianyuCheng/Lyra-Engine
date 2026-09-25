@@ -170,3 +170,31 @@ macro(lyra_toolkit NAME)
   # move to Targets folder
   set_target_properties(show-${NAME} PROPERTIES FOLDER "Targets")
 endmacro()
+
+# define a function to reflect headers for a target using lyra-reflect
+function(lyra_reflect TARGET_NAME)
+  cmake_parse_arguments(REFLECT "" "MODULE;OUTPUT" "HEADERS" ${ARGN})
+
+  if(NOT REFLECT_MODULE)
+    set(REFLECT_MODULE "${TARGET_NAME}")
+  endif()
+
+  if(NOT REFLECT_OUTPUT)
+    set(REFLECT_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/Include/Lyra/Scripting/${REFLECT_MODULE}.gen.h")
+  endif()
+
+  get_filename_component(OUT_DIR "${REFLECT_OUTPUT}" DIRECTORY)
+
+  add_custom_command(
+    OUTPUT "${REFLECT_OUTPUT}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${OUT_DIR}"
+    COMMAND lyra-reflect -m "${REFLECT_MODULE}" -o "${REFLECT_OUTPUT}" ${REFLECT_HEADERS}
+    DEPENDS lyra-reflect ${REFLECT_HEADERS}
+    COMMENT "Running lyra-reflect for ${TARGET_NAME} -> ${REFLECT_OUTPUT}"
+    VERBATIM
+  )
+
+  target_sources(${TARGET_NAME} PRIVATE "${REFLECT_OUTPUT}")
+  target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/Include")
+endfunction()
+

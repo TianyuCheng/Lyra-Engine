@@ -56,8 +56,8 @@ namespace lyra
         /**
          * @brief Controls the simulation state (Edit vs Play vs Paused).
          */
-        void            set_simulation_state(SimulationState state);
-        SimulationState get_simulation_state() const;
+        void set_simulation_state(SimulationState state);
+        auto get_simulation_state() const -> SimulationState;
 
         /**
          * @brief Sets whether a specific script/system is enabled.
@@ -74,22 +74,22 @@ namespace lyra
         /**
          * @brief Gets all registered script descriptors.
          */
-        const Vector<ScriptDesc>& get_scripts() const;
+        auto get_scripts() const -> const Vector<ScriptDesc>&;
 
         /**
          * @brief Gets all registered ScriptAPI tables.
          */
-        const Vector<ScriptAPI>& get_apis() const;
+        auto get_apis() const -> const Vector<ScriptAPI>&;
 
         /**
          * @brief Accesses the layer's deferred command queue.
          */
-        ScriptCommandQueue& get_command_queue();
+        auto get_command_queue() -> ScriptCommandQueue&;
 
         /**
          * @brief Retrieves engine-allocated raw POD state for a system.
          */
-        uint8_t* get_script_state(ScriptID id);
+        auto get_script_state(ScriptID id) -> uint8_t*;
 
     private:
         void dispatch_stage(AppEvent stage, AppContext& context);

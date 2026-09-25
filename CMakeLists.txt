@@ -16,6 +16,7 @@ include(Compiler)
 include(CMakeRC)
 
 # project components
+add_subdirectory(Tools)
 add_subdirectory(Engine)
 add_subdirectory(Modules)
 add_subdirectory(Tests)

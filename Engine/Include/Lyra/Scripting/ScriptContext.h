@@ -30,9 +30,9 @@ namespace lyra
             Registry*    registry;
             UnderlyingIt it;
 
-            bool      operator==(const Iterator& other) const { return it == other.it; }
-            bool      operator!=(const Iterator& other) const { return it != other.it; }
-            Iterator& operator++()
+            bool operator==(const Iterator& other) const { return it == other.it; }
+            bool operator!=(const Iterator& other) const { return it != other.it; }
+            auto operator++() -> Iterator&
             {
                 ++it;
                 return *this;
@@ -84,7 +84,7 @@ namespace lyra
         FORCE_INLINE float time() const { return total_time; }
 
         // Per-frame temporary scratch memory
-        FORCE_INLINE MemoryArena& scratch() { return *scratch_arena; }
+        FORCE_INLINE auto scratch() -> MemoryArena& { return *scratch_arena; }
 
         // Deferred entity commands
         FORCE_INLINE void destroy(SceneNode node)
@@ -123,25 +123,25 @@ namespace lyra
 
         // Component access
         template <typename T>
-        FORCE_INLINE T& get(SceneNode node)
+        FORCE_INLINE auto get(SceneNode node) -> T&
         {
             return world->registry.get<T>(node.entity);
         }
 
         template <typename T>
-        FORCE_INLINE const T& get(SceneNode node) const
+        FORCE_INLINE auto get(SceneNode node) const -> const T&
         {
             return world->registry.get<T>(node.entity);
         }
 
         template <typename T>
-        FORCE_INLINE T* try_get(SceneNode node)
+        FORCE_INLINE auto try_get(SceneNode node) -> T*
         {
             return world->registry.try_get<T>(node.entity);
         }
 
         template <typename T>
-        FORCE_INLINE const T* try_get(SceneNode node) const
+        FORCE_INLINE auto try_get(SceneNode node) const -> const T*
         {
             return world->registry.try_get<T>(node.entity);
         }
@@ -165,7 +165,7 @@ namespace lyra
 
         // General query factory
         template <typename... Cs>
-        FORCE_INLINE Query<Cs...> query()
+        FORCE_INLINE auto query() -> Query<Cs...>
         {
             return Query<Cs...>(world);
         }
