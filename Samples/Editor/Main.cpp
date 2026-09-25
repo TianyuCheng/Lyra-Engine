@@ -163,7 +163,6 @@ int main(int argc, const char* argv[])
         desc.loader.caches        = file_loader.get();
         desc.registry             = registry.c_str();
         desc.watch                = true;
-        desc.workers              = 4;
 
         auto layer = std::make_unique<AssetLayer>(desc);
         app->bind(*layer);
