@@ -124,7 +124,11 @@ Token Lexer::scan_number()
     int    start_line = line;
     size_t start      = cursor;
 
-    // Optional leading minus / plus if already consumed
+    // Consume optional leading sign
+    if (peek() == '-' || peek() == '+') {
+        advance();
+    }
+
     while (!is_at_end()) {
         char c = peek();
         if (std::isdigit(static_cast<unsigned char>(c)) || c == '.' || c == 'f' || c == 'F' || c == 'u' || c == 'U') {

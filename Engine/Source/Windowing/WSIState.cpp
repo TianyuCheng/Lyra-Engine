@@ -23,13 +23,18 @@ void InputState::update(const WindowHandle& handle)
             case WindowInputEvent::Type::KEY_BUTTON:
                 keyboard.status.at(static_cast<uint>(event.key_button.button)) = event.key_button.state;
                 break;
+            case WindowInputEvent::Type::MOUSE_MOVE:
+                mouse.position = event.mouse_move;
+                break;
+            case WindowInputEvent::Type::MOUSE_WHEEL:
+                mouse.scroll = event.mouse_wheel;
+                break;
             case WindowInputEvent::Type::FILE_DROP:
                 files.entries.resize(event.file_drop.count);
                 for (uint j = 0; j < event.file_drop.count; j++)
                     files.entries.at(j) = event.file_drop.files[j];
                 break;
             default:
-                // TODO: ignore other events for now
                 break;
         }
     }
@@ -50,6 +55,30 @@ void WindowInput::update(const WindowHandle& handle)
     auto ms        = std::chrono::duration_cast<std::chrono::milliseconds>(duration);
     delta_time     = static_cast<float>(ms.count()) / 1000.0f;
     elapsed_time   = timestamp;
+}
+
+bool WindowInput::is_mouse_down(MouseButton button) const
+{
+    return current_state().mouse.status[static_cast<size_t>(button)] == ButtonState::ON;
+}
+
+Vector2 WindowInput::get_mouse_position() const
+{
+    const auto& pos = current_state().mouse.position;
+    return Vector2(pos.xpos, pos.ypos);
+}
+
+Vector2 WindowInput::get_mouse_delta() const
+{
+    const auto& curr = current_state().mouse.position;
+    const auto& prev = previous_state().mouse.position;
+    return Vector2(curr.xpos - prev.xpos, curr.ypos - prev.ypos);
+}
+
+Vector2 WindowInput::get_mouse_scroll() const
+{
+    const auto& scroll = current_state().mouse.scroll;
+    return Vector2(scroll.x, scroll.y);
 }
 
 bool WindowInput::is_mouse_moved(MouseButton button) const

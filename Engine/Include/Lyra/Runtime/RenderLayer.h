@@ -171,17 +171,6 @@ namespace lyra
         }
 
     private:
-        /**
-         * @brief Recalculates projection matrices for all perspective cameras.
-         */
-        void update_perspective(World& world);
-
-        /**
-         * @brief Recalculates projection matrices for all orthographic cameras.
-         */
-        void update_orthographic(World& world);
-
-    private:
         // -- per-type deferred deletion queues --
         GPUDeletionQueue<GPUBuffer>             buffers;
         GPUDeletionQueue<GPUTexture>            textures;

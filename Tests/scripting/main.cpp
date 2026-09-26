@@ -49,7 +49,7 @@ TEST_CASE("scr::script_context" * doctest::description("ScriptContext facade and
 {
     lyra::World world;
     lyra::ScriptCommandQueue queue;
-    lyra::detail::MemoryArena arena(16 * 1024);
+    lyra::MemoryArena arena(16 * 1024);
 
     lyra::ScriptContext ctx(&world, &queue, &arena, 0.016f, 1.25f);
 
@@ -139,7 +139,7 @@ TEST_CASE("scr::script_layer" * doctest::description("ScriptLayer API registrati
     main_ran = false;
     post_ran = false;
 
-    static lyra::ScriptDesc descs[] = {
+    static lyra::ScriptDescriptor descs[] = {
         {
             .name  = "TestPreSystem",
             .group = "Gameplay/Test",
@@ -162,7 +162,7 @@ TEST_CASE("scr::script_layer" * doctest::description("ScriptLayer API registrati
 
     lyra::ScriptAPI api = {
         .get_api_name = []() -> lyra::CString { return "TestScriptAPI"; },
-        .get_scripts = [](lyra::ScriptDesc* out) -> lyra::uint {
+        .get_scripts = [](lyra::ScriptDescriptor* out) -> lyra::uint {
             if (out) {
                 out[0] = descs[0];
                 out[1] = descs[1];

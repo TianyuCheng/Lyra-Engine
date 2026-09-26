@@ -1,4 +1,5 @@
 #include <Lyra/Utilities/Math.h>
+#include <Lyra/Scene/Camera.h>
 
 #include "Renderer.h"
 #include "Panels/SceneView.h"
@@ -164,7 +165,7 @@ FragmentOutput fsmain(VertexOutput input)
 }
 )""";
 
-struct Camera
+struct CameraUniform
 {
     glm::mat4 proj;
     glm::mat4 view;
@@ -236,8 +237,7 @@ void SampleCubeRenderer::init(AppContext& context)
         camera_node = world->create("Main Camera");
         world->translate(camera_node, {0.0f, 3.0f, 8.0f});
         world->rotate(camera_node, {1.0f, 0.0f, 0.0f}, -20.0f);
-        world->add_component<PerspectiveCamera>(camera_node);
-        world->add_component<CameraProjection>(camera_node);
+        world->add_component<Camera>(camera_node);
     }
 }
 
@@ -300,19 +300,22 @@ void SampleCubeRenderer::update(AppContext& context)
     auto& cam_world = world->get_component<TransformWorld>(camera_node);
 
     // update camera projection parameters
-    auto& cam_perspective  = world->get_component<PerspectiveCamera>(camera_node);
-    cam_perspective.aspect = aspect;
+    auto& cam  = world->get_component<Camera>(camera_node);
+    cam.aspect = aspect;
+    if (cam.type == ProjectionType::PERSPECTIVE) {
+        cam.projection = glm::perspective(glm::radians(cam.fov), cam.aspect, cam.near_plane, cam.far_plane);
+    } else {
+        float half_size = cam.size * 0.5f;
+        cam.projection  = glm::ortho(-half_size * cam.aspect, half_size * cam.aspect, -half_size, half_size, cam.near_plane, cam.far_plane);
+    }
 
-    // get updated projection from RenderLayer (note: this might be 1 frame late if aspect ratio just changed)
-    auto& cam_projection = world->get_component<CameraProjection>(camera_node);
-
-    auto camera           = ubuffer.get_mapped_range<Camera>();
-    camera.at(0).proj     = cam_projection.projection;
-    camera.at(0).view     = glm::inverse(cam_world.xform);
-    camera.at(0).inv_proj = glm::inverse(cam_projection.projection);
-    camera.at(0).inv_view = cam_world.xform;
-    camera.at(0).pos      = glm::vec3(cam_world.xform[3]);
-    camera.at(0).padding  = 0.0f;
+    auto camera_gpu           = ubuffer.get_mapped_range<CameraUniform>();
+    camera_gpu.at(0).proj     = cam.projection;
+    camera_gpu.at(0).view     = glm::inverse(cam_world.xform);
+    camera_gpu.at(0).inv_proj = glm::inverse(cam.projection);
+    camera_gpu.at(0).inv_view = cam_world.xform;
+    camera_gpu.at(0).pos      = glm::vec3(cam_world.xform[3]);
+    camera_gpu.at(0).padding  = 0.0f;
 }
 
 void SampleCubeRenderer::init_buffers(GPUDevice device)
@@ -320,7 +323,7 @@ void SampleCubeRenderer::init_buffers(GPUDevice device)
     ubuffer = execute([&]() {
         auto desc               = GPUBufferDescriptor{};
         desc.label              = "camera_buffer";
-        desc.size               = sizeof(Camera);
+        desc.size               = sizeof(CameraUniform);
         desc.usage              = GPUBufferUsage::UNIFORM | GPUBufferUsage::MAP_WRITE;
         desc.mapped_at_creation = true;
         return device.create_buffer(desc);

@@ -8,6 +8,7 @@
 #include <Lyra/Utilities/Enums.h>
 #include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Utilities/Collections.h>
+#include <Lyra/Utilities/Math.h>
 #include <Lyra/Windowing/WSIUtils.h>
 #include <Lyra/Windowing/WSIEnums.h>
 #include <Lyra/Windowing/WSIEvent.h>
@@ -58,10 +59,15 @@ namespace lyra
         auto get_delta_time() const -> float { return delta_time; }
         auto get_elapsed_time() const -> TimePoint { return elapsed_time; }
 
+        bool is_mouse_down(MouseButton button) const;
         bool is_mouse_moved(MouseButton button) const;
         bool is_mouse_dragged(MouseButton button) const;
         bool is_mouse_pressed(MouseButton button) const;
         bool is_mouse_released(MouseButton button) const;
+
+        auto get_mouse_position() const -> Vector2;
+        auto get_mouse_delta() const -> Vector2;
+        auto get_mouse_scroll() const -> Vector2;
 
         bool is_key_down(KeyButton key) const;     // when key is pressed down and hold (simply the current status)
         bool is_key_pressed(KeyButton key) const;  // exactly once when key is pressed down

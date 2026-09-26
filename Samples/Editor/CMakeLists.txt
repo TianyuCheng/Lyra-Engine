@@ -35,4 +35,5 @@ target_sources(lyra-editor PRIVATE
 )
 
 target_link_libraries(lyra-editor PRIVATE editor-resources)
+target_link_libraries(lyra-editor PRIVATE lyra::camera)
 set_target_properties(editor-resources PROPERTIES FOLDER "Resources")

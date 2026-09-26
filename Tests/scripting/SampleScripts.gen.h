@@ -32,7 +32,7 @@ namespace lyra::generated
 
     inline constexpr ComponentID orbit__q0_req[] = { hash_script_name("OrbitCamera"), hash_script_name("lyra::TransformLocal") };
     inline constexpr bool orbit__q0_w[] = { true, true };
-    inline constexpr QueryDesc orbit__queries[] = {
+    inline constexpr QueryDescriptor orbit__queries[] = {
         { orbit__q0_req, orbit__q0_w, 2, nullptr, 0 }
     };
 
@@ -40,7 +40,7 @@ namespace lyra::generated
     // Script Descriptors Table
     // =========================================================================
 
-    inline constexpr ScriptDesc script_descriptors[] = {
+    inline constexpr ScriptDescriptor script_descriptors[] = {
         {
             .name        = "orbit",
             .group       = "Gameplay/Camera",
@@ -71,7 +71,7 @@ namespace lyra::generated
     {
         return ScriptAPI{
             .get_api_name = []() -> CString { return "SampleScripts"; },
-            .get_scripts = [](ScriptDesc* out) -> uint {
+            .get_scripts = [](ScriptDescriptor* out) -> uint {
                 constexpr uint count = static_cast<uint>(std::size(script_descriptors));
                 if (!out) {
                     return count;

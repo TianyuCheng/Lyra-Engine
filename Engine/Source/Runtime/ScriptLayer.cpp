@@ -46,7 +46,7 @@ void ScriptLayer::register_api(const ScriptAPI& api)
         return;
     }
 
-    Vector<ScriptDesc> descs(count);
+    Vector<ScriptDescriptor> descs(count);
     api.get_scripts(descs.data());
 
     for (const auto& desc : descs) {
@@ -112,7 +112,7 @@ bool ScriptLayer::is_group_enabled(StringView group) const
     return it->second;
 }
 
-const Vector<ScriptDesc>& ScriptLayer::get_scripts() const
+const Vector<ScriptDescriptor>& ScriptLayer::get_scripts() const
 {
     return scripts;
 }
@@ -127,55 +127,36 @@ ScriptCommandQueue& ScriptLayer::get_command_queue()
     return command_queue;
 }
 
+MemoryArena& ScriptLayer::get_scratch_arena()
+{
+    return scratch_arena;
+}
+
 uint8_t* ScriptLayer::get_script_state(ScriptID id)
 {
     auto it = script_states.find(id);
-    if (it == script_states.end() || it->second.empty()) {
-        return nullptr;
-    }
+    if (it == script_states.end() || it->second.empty()) return nullptr;
     return it->second.data();
 }
 
 void ScriptLayer::dispatch_stage(AppEvent stage, AppContext& context)
 {
-    if (simulation_state == SimulationState::PAUSED) {
-        return;
-    }
+    if (simulation_state == SimulationState::PAUSED) return;
 
-    World* world = context.try_tool<World>();
-    if (!world) {
-        return;
-    }
+    auto world = context.try_tool<World>();
+    if (!world) return;
 
-    Clock* clock = context.try_tool<Clock>();
-    float dt   = clock ? clock->delta_time : 0.0f;
-    float time = clock ? clock->total_time : 0.0f;
-
-    ScriptContext ctx(world, &command_queue, &scratch_arena, dt, time);
-
+    ScriptContext ctx(context, *this);
     for (const auto& desc : scripts) {
-        if (desc.stage != stage) {
-            continue;
-        }
+        if (desc.stage != stage) continue;
 
         ScriptID id = hash_script_name(desc.name);
-
-        if (!is_script_enabled(id)) {
-            continue;
-        }
-
-        if (desc.group && !is_group_enabled(desc.group)) {
-            continue;
-        }
-
-        if (simulation_state == SimulationState::EDIT && !desc.flags.contains(ScriptFlag::RUN_IN_EDITOR)) {
-            continue;
-        }
+        if (!is_script_enabled(id)) continue;
+        if (desc.group && !is_group_enabled(desc.group)) continue;
+        if (simulation_state == SimulationState::EDIT && !desc.flags.contains(ScriptFlag::RUN_IN_EDITOR)) continue;
 
         for (const auto& api : apis) {
-            if (!api.run) {
-                continue;
-            }
+            if (!api.run) continue;
             api.run(id, ctx);
         }
     }

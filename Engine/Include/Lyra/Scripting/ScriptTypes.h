@@ -6,6 +6,7 @@
 #include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Utilities/String.h>
 #include <Lyra/Utilities/GUID.h>
+#include <Lyra/Utilities/Hash.h>
 #include <Lyra/Utilities/BitFlags.h>
 #include <Lyra/Runtime/AppEnums.h>
 
@@ -33,7 +34,7 @@ namespace lyra
     /**
      * @brief Query component dependencies declared by a system.
      */
-    struct QueryDesc
+    struct QueryDescriptor
     {
         const ComponentID* required       = nullptr; ///< components the query iterates
         const bool*        writes         = nullptr; ///< parallel to required; false for const T
@@ -45,7 +46,7 @@ namespace lyra
     /**
      * @brief Field descriptor for POD system parameters and reflected properties.
      */
-    struct ScriptField
+    struct ScriptFieldDescriptor
     {
         CString name     = nullptr;
         uint    offset   = 0;
@@ -56,16 +57,16 @@ namespace lyra
     /**
      * @brief Static metadata descriptor for an ECS script/system.
      */
-    struct ScriptDesc
+    struct ScriptDescriptor
     {
-        CString          name        = nullptr;          ///< ScriptID = hash(name), never table index
-        CString          group       = nullptr;          ///< "Gameplay/Camera"; Systems panel tree path
-        AppEvent         stage       = AppEvent::UPDATE; ///< Pipeline stage when system runs
-        ScriptFlags      flags       = ScriptFlag::NONE; ///< e.g. RUN_IN_EDITOR
-        uint             state_size  = 0;                ///< engine allocates; script never owns storage
-        uint             state_align = 0;
-        const QueryDesc* queries     = nullptr; ///< declared by the signature; generated
-        uint             query_count = 0;
+        CString                name        = nullptr;          ///< ScriptID = hash(name), never table index
+        CString                group       = nullptr;          ///< "Gameplay/Camera"; Systems panel tree path
+        AppEvent               stage       = AppEvent::UPDATE; ///< Pipeline stage when system runs
+        ScriptFlags            flags       = ScriptFlag::NONE; ///< e.g. RUN_IN_EDITOR
+        uint                   state_size  = 0;                ///< engine allocates; script never owns storage
+        uint                   state_align = 0;
+        const QueryDescriptor* queries     = nullptr; ///< declared by the signature; generated
+        uint                   query_count = 0;
     };
 
     struct ScriptContext;
@@ -75,10 +76,10 @@ namespace lyra
      */
     struct ScriptAPI
     {
-        CString (*get_api_name)()                         = nullptr;
-        uint (*get_scripts)(ScriptDesc* out)              = nullptr; ///< two-call pattern, house style
-        void (*run)(ScriptID id, ScriptContext& ctx)      = nullptr;
-        uint (*get_params)(ScriptID id, ScriptField* out) = nullptr; ///< POD field descriptors: per-system settings
+        CString (*get_api_name)()                                   = nullptr;
+        uint (*get_scripts)(ScriptDescriptor* out)                  = nullptr; ///< two-call pattern, house style
+        void (*run)(ScriptID id, ScriptContext& ctx)                = nullptr;
+        uint (*get_params)(ScriptID id, ScriptFieldDescriptor* out) = nullptr; ///< POD field descriptors: per-system settings
     };
 
     /**
@@ -86,17 +87,11 @@ namespace lyra
      */
     constexpr auto hash_script_name(StringView name) -> ScriptID
     {
-        uint64_t hash = 14695981039346656037ull;
+        std::size_t seed = 0;
         for (char c : name) {
-            hash ^= static_cast<uint8_t>(c);
-            hash *= 1099511628211ull;
+            hash_combine(seed, c);
         }
-        hash ^= hash >> 30;
-        hash *= 0xbf58476d1ce4e5b9ull;
-        hash ^= hash >> 27;
-        hash *= 0x94d049bb133111ebull;
-        hash ^= hash >> 31;
-        return (hash == 0) ? 1ull : hash;
+        return (seed == 0) ? 1ull : static_cast<ScriptID>(seed);
     }
 
 } // namespace lyra

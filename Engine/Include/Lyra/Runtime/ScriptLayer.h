@@ -21,7 +21,7 @@ namespace lyra
     {
     public:
         explicit ScriptLayer();
-        ~ScriptLayer() = default;
+        virtual ~ScriptLayer() = default;
 
         /**
          * @brief Registers the layer with the Application toolboard and binds stage events.
@@ -74,7 +74,7 @@ namespace lyra
         /**
          * @brief Gets all registered script descriptors.
          */
-        auto get_scripts() const -> const Vector<ScriptDesc>&;
+        auto get_scripts() const -> const Vector<ScriptDescriptor>&;
 
         /**
          * @brief Gets all registered ScriptAPI tables.
@@ -87,6 +87,11 @@ namespace lyra
         auto get_command_queue() -> ScriptCommandQueue&;
 
         /**
+         * @brief Accesses the layer's scratch arena.
+         */
+        auto get_scratch_arena() -> MemoryArena&;
+
+        /**
          * @brief Retrieves engine-allocated raw POD state for a system.
          */
         auto get_script_state(ScriptID id) -> uint8_t*;
@@ -97,11 +102,11 @@ namespace lyra
         SimulationState                    simulation_state = SimulationState::EDIT;
         ScriptCommandQueue                 command_queue;
         Vector<ScriptAPI>                  apis;
-        Vector<ScriptDesc>                 scripts;
+        Vector<ScriptDescriptor>           scripts;
         HashMap<ScriptID, bool>            script_enabled;
         HashMap<String, bool>              group_enabled;
         HashMap<ScriptID, Vector<uint8_t>> script_states;
-        detail::MemoryArena                scratch_arena;
+        MemoryArena                        scratch_arena;
     };
 
 } // namespace lyra

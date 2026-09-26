@@ -171,30 +171,61 @@ macro(lyra_toolkit NAME)
   set_target_properties(show-${NAME} PROPERTIES FOLDER "Targets")
 endmacro()
 
-# define a function to reflect headers for a target using lyra-reflect
-function(lyra_reflect TARGET_NAME)
-  cmake_parse_arguments(REFLECT "" "MODULE;OUTPUT" "HEADERS" ${ARGN})
+# define a function to bind headers for a target using lyra-bindgen
+function(lyra_bindgen TARGET_NAME)
+  cmake_parse_arguments(BINDGEN "" "MODULE;PREFIX;OUTPUT;INCLUDE_DIR" "HEADERS" ${ARGN})
 
-  if(NOT REFLECT_MODULE)
-    set(REFLECT_MODULE "${TARGET_NAME}")
+  if(NOT BINDGEN_MODULE)
+    set(BINDGEN_MODULE "${TARGET_NAME}")
   endif()
 
-  if(NOT REFLECT_OUTPUT)
-    set(REFLECT_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/Include/Lyra/Scripting/${REFLECT_MODULE}.gen.h")
+  if(NOT BINDGEN_PREFIX)
+    set(BINDGEN_PREFIX "Lyra")
   endif()
 
-  get_filename_component(OUT_DIR "${REFLECT_OUTPUT}" DIRECTORY)
+  if(NOT BINDGEN_INCLUDE_DIR)
+    set(BINDGEN_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/Include")
+  endif()
+
+  if(NOT BINDGEN_OUTPUT)
+    set(BINDGEN_OUTPUT "${BINDGEN_INCLUDE_DIR}/Lyra/Scripting/${BINDGEN_MODULE}.gen.h")
+  endif()
+
+  set(ABSOLUTE_HEADERS "")
+  set(STAGED_OUTPUTS "")
+  foreach(HEADER ${BINDGEN_HEADERS})
+    if(NOT IS_ABSOLUTE "${HEADER}")
+      set(HEADER_ABS "${CMAKE_CURRENT_SOURCE_DIR}/${HEADER}")
+    else()
+      set(HEADER_ABS "${HEADER}")
+    endif()
+    list(APPEND ABSOLUTE_HEADERS "${HEADER_ABS}")
+
+    get_filename_component(HEADER_EXT "${HEADER}" EXT)
+    get_filename_component(HEADER_NAME_WE "${HEADER}" NAME_WE)
+    if("${HEADER_EXT}" STREQUAL ".hxx")
+      list(APPEND STAGED_OUTPUTS "${BINDGEN_INCLUDE_DIR}/${BINDGEN_PREFIX}/${HEADER_NAME_WE}.h")
+    endif()
+  endforeach()
+
+  get_filename_component(OUT_DIR "${BINDGEN_OUTPUT}" DIRECTORY)
 
   add_custom_command(
-    OUTPUT "${REFLECT_OUTPUT}"
+    OUTPUT "${BINDGEN_OUTPUT}" ${STAGED_OUTPUTS}
     COMMAND ${CMAKE_COMMAND} -E make_directory "${OUT_DIR}"
-    COMMAND lyra-reflect -m "${REFLECT_MODULE}" -o "${REFLECT_OUTPUT}" ${REFLECT_HEADERS}
-    DEPENDS lyra-reflect ${REFLECT_HEADERS}
-    COMMENT "Running lyra-reflect for ${TARGET_NAME} -> ${REFLECT_OUTPUT}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${BINDGEN_INCLUDE_DIR}/${BINDGEN_PREFIX}"
+    COMMAND lyra-bindgen -m "${BINDGEN_MODULE}" -p "${BINDGEN_PREFIX}" -I "${BINDGEN_INCLUDE_DIR}" -o "${BINDGEN_OUTPUT}" ${ABSOLUTE_HEADERS}
+    DEPENDS lyra-bindgen ${ABSOLUTE_HEADERS}
+    COMMENT "Running lyra-bindgen for ${TARGET_NAME} -> ${BINDGEN_OUTPUT}"
     VERBATIM
   )
 
-  target_sources(${TARGET_NAME} PRIVATE "${REFLECT_OUTPUT}")
-  target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/Include")
+  target_sources(${TARGET_NAME} PRIVATE "${BINDGEN_OUTPUT}" ${STAGED_OUTPUTS})
+  target_include_directories(${TARGET_NAME} PUBLIC "${BINDGEN_INCLUDE_DIR}")
+  target_include_directories(${TARGET_NAME} PRIVATE "${OUT_DIR}")
+endfunction()
+
+function(lyra_reflect TARGET_NAME)
+  lyra_bindgen(${TARGET_NAME} ${ARGN})
 endfunction()
 

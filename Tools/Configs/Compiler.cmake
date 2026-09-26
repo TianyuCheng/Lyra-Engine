@@ -26,11 +26,19 @@ set(CMAKE_CXX_COMPILER_LAUNCHER ccache)
 if(MSVC)
   # ignore the stupid warning from MSVC
   add_compile_options("/wd4996")
-  add_compile_options("/wd5030")
+  add_compile_options("/wd5030") # unrecognized attribute (e.g. [[lyra::...]])
 
   # enable automatic multi-thread compilation
   add_compile_options("/MP")
 
   # ensure utf-8 encoding
   add_compile_options("/utf-8")
+endif()
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  # disable unknown custom attribute warning for LLVM/Clang
+  add_compile_options("-Wno-unknown-attributes")
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  # disable unknown custom attribute warning for GCC
+  add_compile_options("-Wno-attributes")
 endif()

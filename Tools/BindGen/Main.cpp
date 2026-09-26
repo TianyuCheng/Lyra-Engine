@@ -48,9 +48,15 @@ static bool write_if_changed(const fs::path& path, const std::string& content)
 
 int main(int argc, char* argv[])
 {
-    cxxopts::Options options("lyra-reflect", "Lyra Engine C++ Reflection and Script Binding Generator");
+    cxxopts::Options options("lyra-bindgen", "Lyra Engine C++ Binding Generator");
 
-    options.add_options()("m,module", "Module name", cxxopts::value<std::string>()->default_value("Engine"))("o,output", "Output .gen.h header file", cxxopts::value<std::string>())("i,headers", "Input header files to process", cxxopts::value<std::vector<std::string>>())("h,help", "Print usage");
+    options.add_options()
+        ("m,module", "Module name", cxxopts::value<std::string>()->default_value("Engine"))
+        ("p,prefix", "Include directory prefix (e.g. Lyra/Scene)", cxxopts::value<std::string>()->default_value(""))
+        ("I,include-dir", "Public include directory for staging", cxxopts::value<std::string>()->default_value(""))
+        ("o,output", "Output .gen.h header file", cxxopts::value<std::string>())
+        ("i,headers", "Input header files to process", cxxopts::value<std::vector<std::string>>())
+        ("h,help", "Print usage");
 
     options.parse_positional({"headers"});
 
@@ -62,6 +68,8 @@ int main(int argc, char* argv[])
     }
 
     std::string module_name = result["module"].as<std::string>();
+    std::string prefix      = result.count("prefix") ? result["prefix"].as<std::string>() : "";
+    std::string inc_dir     = result.count("include-dir") ? result["include-dir"].as<std::string>() : "";
     fs::path    output_path = result["output"].as<std::string>();
 
     std::vector<std::string> header_paths;
@@ -75,10 +83,26 @@ int main(int argc, char* argv[])
     for (const auto& h_str : header_paths) {
         fs::path p(h_str);
         if (!fs::exists(p)) {
+            std::cerr << "lyra-bindgen: warning: input header does not exist: " << p << std::endl;
             continue;
         }
 
         std::string content = read_file(p);
+
+        // If the file is .hxx and an include-dir is provided, stage it as a public .h file
+        if (p.extension() == ".hxx" && !inc_dir.empty()) {
+            fs::path staged_path = fs::path(inc_dir);
+            if (!prefix.empty()) {
+                staged_path /= prefix;
+            }
+            staged_path /= (p.stem().string() + ".h");
+
+            if (!write_if_changed(staged_path, content)) {
+                std::cerr << "lyra-bindgen: error: could not write staged header: " << staged_path << std::endl;
+                return 1;
+            }
+        }
+
         if (!Parser::fast_check(content)) {
             // Fast skip if no lyra annotations present
             continue;
@@ -94,7 +118,6 @@ int main(int argc, char* argv[])
 
         // If any component or system was parsed from this file, record it in includes
         if (module_data.components.size() > prev_comps || module_data.systems.size() > prev_sys) {
-            // Use filename or relative path
             module_data.included_headers.push_back(p.filename().string());
         }
     }

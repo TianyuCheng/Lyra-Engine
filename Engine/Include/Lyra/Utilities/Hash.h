@@ -4,14 +4,19 @@
 #define LYRA_ENGINE_UTILITIES_HASH_H
 
 #include <functional>
+#include <type_traits>
 
 namespace lyra
 {
 
     template <class T>
-    inline void hash_combine(std::size_t& seed, const T& v)
+    constexpr void hash_combine(std::size_t& seed, const T& v)
     {
-        seed ^= std::hash<T>()(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        if constexpr (std::is_integral_v<T>) {
+            seed ^= static_cast<std::size_t>(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        } else {
+            seed ^= std::hash<T>()(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        }
     }
 
 } // namespace lyra

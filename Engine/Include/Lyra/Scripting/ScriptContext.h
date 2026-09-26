@@ -13,8 +13,14 @@
 #include <Lyra/Scripting/Disabled.h>
 #include <Lyra/Scripting/ScriptCommandQueue.h>
 
+#include <Lyra/Windowing/WSIEnums.h>
+
 namespace lyra
 {
+    struct WindowInput;
+    struct AppContext;
+    struct ScriptLayer;
+
     /**
      * @brief Range query wrapper enabling structured binding iteration over matching entities.
      * Example: for (auto [node, particle, vel] : ctx.query<Particle, Velocity>()) { ... }
@@ -49,18 +55,14 @@ namespace lyra
 
         auto begin() const
         {
-            if (!world) {
-                return Iterator{nullptr, {}};
-            }
+            if (!world) return Iterator{nullptr, {}};
             auto v = world->registry.view<Cs...>();
             return Iterator{&world->registry, v.begin()};
         }
 
         auto end() const
         {
-            if (!world) {
-                return Iterator{nullptr, {}};
-            }
+            if (!world) return Iterator{nullptr, {}};
             auto v = world->registry.view<Cs...>();
             return Iterator{&world->registry, v.end()};
         }
@@ -71,13 +73,16 @@ namespace lyra
 
     /**
      * @brief Facade execution context passed to ECS script systems.
-     * Provides timing, scratch memory, transform manipulation, queries, and deferred commands.
+     * Provides timing, scratch memory, transform manipulation, queries, deferred commands, and input.
      * Does NOT expose raw World& or Registry& to scripts.
      */
     struct ScriptContext
     {
     public:
-        explicit ScriptContext(World* world, ScriptCommandQueue* queue, MemoryArena* scratch, float dt, float time);
+        explicit ScriptContext(AppContext& context, ScriptLayer& layer);
+        explicit ScriptContext(World* world = nullptr, ScriptCommandQueue* queue = nullptr, MemoryArena* scratch = nullptr, float dt = 0.0f, float time = 0.0f, const WindowInput* input = nullptr);
+
+        FORCE_INLINE bool has_world() const { return world != nullptr; }
 
         // Frame timing
         FORCE_INLINE float dt() const { return delta_time; }
@@ -86,38 +91,44 @@ namespace lyra
         // Per-frame temporary scratch memory
         FORCE_INLINE auto scratch() -> MemoryArena& { return *scratch_arena; }
 
+        // Frame input facade
+        FORCE_INLINE auto input() const -> const WindowInput* { return input_state; }
+
+        bool is_key_down(KeyButton key) const;
+        bool is_key_pressed(KeyButton key) const;
+        bool is_key_released(KeyButton key) const;
+        bool is_mouse_down(MouseButton button) const;
+        bool is_mouse_pressed(MouseButton button) const;
+        bool is_mouse_released(MouseButton button) const;
+
+        auto mouse_position() const -> Vector2;
+        auto mouse_delta() const -> Vector2;
+        auto mouse_scroll() const -> Vector2;
+
         // Deferred entity commands
         FORCE_INLINE void destroy(SceneNode node)
         {
-            if (!cmd_queue) {
-                return;
-            }
+            if (!cmd_queue) return;
             cmd_queue->destroy(node);
         }
 
         FORCE_INLINE void create(Function<void(SceneNode)> on_created = {})
         {
-            if (!cmd_queue) {
-                return;
-            }
+            if (!cmd_queue) return;
             cmd_queue->create(std::move(on_created));
         }
 
         template <typename T, typename... Args>
         FORCE_INLINE void add_component(SceneNode node, Args&&... args)
         {
-            if (!cmd_queue) {
-                return;
-            }
+            if (!cmd_queue) return;
             cmd_queue->add_component<T>(node, std::forward<Args>(args)...);
         }
 
         template <typename T>
         FORCE_INLINE void remove_component(SceneNode node)
         {
-            if (!cmd_queue) {
-                return;
-            }
+            if (!cmd_queue) return;
             cmd_queue->remove_component<T>(node);
         }
 
@@ -174,9 +185,7 @@ namespace lyra
         template <typename... Cs, typename Callable>
         void each(Callable&& callable)
         {
-            if (!world) {
-                return;
-            }
+            if (!world) return;
 
             // check if any Disabled<C> component is currently active in the registry
             bool has_disabled   = false;
@@ -210,6 +219,7 @@ namespace lyra
         World*              world         = nullptr;
         ScriptCommandQueue* cmd_queue     = nullptr;
         MemoryArena*        scratch_arena = nullptr;
+        const WindowInput*  input_state   = nullptr;
         float               delta_time    = 0.0f;
         float               total_time    = 0.0f;
     };

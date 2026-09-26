@@ -106,7 +106,6 @@ target_sources(lyra-headers INTERFACE
     Lyra/Runtime/UILayer.h
 
     # scene
-    Lyra/Scene/Camera.h
     Lyra/Scene/Light.h
     Lyra/Scene/SceneNode.h
     Lyra/Scene/SceneTree.h

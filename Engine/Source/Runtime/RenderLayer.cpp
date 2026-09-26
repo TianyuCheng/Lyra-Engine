@@ -1,5 +1,4 @@
 #include <Lyra/Runtime/RenderLayer.h>
-#include <Lyra/Scene/Camera.h>
 
 using namespace lyra;
 
@@ -44,11 +43,8 @@ void RenderLayer::bind(Application& app)
     app.bind<AppEvent::DESTROY, &RenderLayer::destroy>(*this);
 }
 
-void RenderLayer::update(AppContext& context)
+void RenderLayer::update(AppContext&)
 {
-    auto world = context.toolboard.get<World*>();
-    update_perspective(*world);
-    update_orthographic(*world);
 }
 
 void RenderLayer::pre_render(AppContext&)
@@ -95,31 +91,4 @@ void RenderLayer::destroy(AppContext& context)
     auto device = context.toolboard.get<GPUDevice*>();
     device->wait();
     drain();
-}
-
-void RenderLayer::update_perspective(World& world)
-{
-    auto view = world.view<PerspectiveCamera, CameraProjection>();
-    for (auto entity : view) {
-        auto& camera     = view.get<PerspectiveCamera>(entity);
-        auto& projection = view.get<CameraProjection>(entity);
-
-        projection.projection = glm::perspective(
-            glm::radians(camera.fov), camera.aspect,
-            camera.near_plane, camera.far_plane);
-    }
-}
-
-void RenderLayer::update_orthographic(World& world)
-{
-    auto view = world.view<OrthographicCamera, CameraProjection>();
-    for (auto entity : view) {
-        auto& camera     = view.get<OrthographicCamera>(entity);
-        auto& projection = view.get<CameraProjection>(entity);
-        float half_size  = camera.size * 0.5f;
-
-        projection.projection = glm::ortho(
-            -half_size * camera.aspect, half_size * camera.aspect,
-            -half_size, half_size, camera.near_plane, camera.far_plane);
-    }
 }

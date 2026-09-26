@@ -60,7 +60,7 @@ static void render_node(World& world, SceneTree& hierarchy, SceneTree::NodeIndex
 
     // determine icon
     CString icon = "";
-    if (world.any_of<PerspectiveCamera, OrthographicCamera>(entity)) {
+    if (world.any_of<Camera>(entity)) {
         icon = LYRA_ICON_CAMERA;
     } else if (!is_leaf) {
         icon = LYRA_ICON_GROUP;

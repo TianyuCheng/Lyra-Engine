@@ -108,12 +108,25 @@ void InspectorView::draw_inspector(World& world, SceneNode node)
         }, scale_config);
     });
 
-    draw_component<PerspectiveCamera>("Perspective Camera", LYRA_ICON_CAMERA, world, node, [&](PerspectiveCamera& camera) {
-        ui::ScalarConfig fov_cfg;
-        fov_cfg.speed = 0.1f;
-        fov_cfg.min   = 1.0f;
-        fov_cfg.max   = 179.0f;
-        ui::number("FOV", camera.fov, fov_cfg);
+    draw_component<Camera>("Camera", LYRA_ICON_CAMERA, world, node, [&](Camera& camera) {
+        bool is_ortho = (camera.type == ProjectionType::ORTHOGRAPHIC);
+        ui::toggle("Orthographic", is_ortho, [&](const bool& val) {
+            camera.type = val ? ProjectionType::ORTHOGRAPHIC : ProjectionType::PERSPECTIVE;
+        });
+
+        if (camera.type == ProjectionType::PERSPECTIVE) {
+            ui::ScalarConfig fov_cfg;
+            fov_cfg.speed = 0.1f;
+            fov_cfg.min   = 1.0f;
+            fov_cfg.max   = 179.0f;
+            ui::number("FOV", camera.fov, fov_cfg);
+        } else {
+            ui::ScalarConfig size_cfg;
+            size_cfg.speed = 0.1f;
+            size_cfg.min   = 0.1f;
+            size_cfg.max   = 1000.0f;
+            ui::number("Size", camera.size, size_cfg);
+        }
 
         ui::ScalarConfig aspect_cfg;
         aspect_cfg.speed = 0.01f;
@@ -123,40 +136,14 @@ void InspectorView::draw_inspector(World& world, SceneNode node)
 
         ui::ScalarConfig near_cfg;
         near_cfg.speed = 0.01f;
-        near_cfg.min   = 0.001f;
-        near_cfg.max   = 10.0f;
-        ui::number("Near", camera.near_plane, near_cfg);
-
-        ui::ScalarConfig far_cfg;
-        far_cfg.speed = 1.0f;
-        far_cfg.min   = 10.0f;
-        far_cfg.max   = 10000.0f;
-        ui::number("Far", camera.far_plane, far_cfg);
-    });
-
-    draw_component<OrthographicCamera>("Orthographic Camera", LYRA_ICON_CAMERA, world, node, [&](OrthographicCamera& camera) {
-        ui::ScalarConfig size_cfg;
-        size_cfg.speed = 0.1f;
-        size_cfg.min   = 0.1f;
-        size_cfg.max   = 1000.0f;
-        ui::number("Size", camera.size, size_cfg);
-
-        ui::ScalarConfig aspect_cfg;
-        aspect_cfg.speed = 0.01f;
-        aspect_cfg.min   = 0.1f;
-        aspect_cfg.max   = 10.0f;
-        ui::number("Aspect", camera.aspect, aspect_cfg);
-
-        ui::ScalarConfig near_cfg;
-        near_cfg.speed = 0.01f;
-        near_cfg.min   = -1000.0f;
+        near_cfg.min   = camera.type == ProjectionType::PERSPECTIVE ? 0.001f : -1000.0f;
         near_cfg.max   = 1000.0f;
         ui::number("Near", camera.near_plane, near_cfg);
 
         ui::ScalarConfig far_cfg;
-        far_cfg.speed = 0.01f;
-        far_cfg.min   = -1000.0f;
-        far_cfg.max   = 1000.0f;
+        far_cfg.speed = 1.0f;
+        far_cfg.min   = 1.0f;
+        far_cfg.max   = 10000.0f;
         ui::number("Far", camera.far_plane, far_cfg);
     });
 
