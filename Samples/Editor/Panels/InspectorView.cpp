@@ -147,6 +147,33 @@ void InspectorView::draw_inspector(World& world, SceneNode node)
         ui::number("Far", camera.far_plane, far_cfg);
     });
 
+    draw_component<FlyCamera>("Fly Camera", LYRA_ICON_CAMERA, world, node, [&](FlyCamera& fly) {
+        ui::ScalarConfig speed_cfg;
+        speed_cfg.speed = 0.1f;
+        speed_cfg.min   = 0.1f;
+        speed_cfg.max   = 100.0f;
+        ui::number("Move Speed", fly.move_speed, speed_cfg);
+
+        ui::ScalarConfig boost_cfg;
+        boost_cfg.speed = 0.1f;
+        boost_cfg.min   = 1.0f;
+        boost_cfg.max   = 10.0f;
+        ui::number("Boost Multiplier", fly.boost_multiplier, boost_cfg);
+
+        ui::ScalarConfig sens_cfg;
+        sens_cfg.speed = 0.01f;
+        sens_cfg.min   = 0.01f;
+        sens_cfg.max   = 2.0f;
+        ui::number("Look Sensitivity", fly.look_sensitivity, sens_cfg);
+
+        ui::ScalarConfig damp_cfg;
+        damp_cfg.speed = 0.1f;
+        damp_cfg.min   = 0.0f;
+        damp_cfg.max   = 50.0f;
+        ui::number("Move Damping", fly.move_damping, damp_cfg);
+        ui::number("Look Damping", fly.look_damping, damp_cfg);
+    });
+
     draw_component<PointLight>("Point Light", LYRA_ICON_NODE, world, node, [&](PointLight& light) {
         ui::vec3("Position", light.position);
         ui::color("Color", light.color);

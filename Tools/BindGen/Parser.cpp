@@ -369,7 +369,12 @@ void Parser::parse_function(const std::vector<Attribute>& attrs, ModuleReflectio
             sys.stage = stage;
         }
         sys.group = a.get_arg("group");
-        if (a.has_arg("run_in_editor") || a.get_pos(1) == "run_in_editor") {
+        for (const auto& pos : a.positional_args) {
+            if (pos == "run_in_editor" || pos == "editor") {
+                sys.run_in_editor = true;
+            }
+        }
+        if (a.has_arg("run_in_editor") || a.has_arg("editor")) {
             sys.run_in_editor = true;
         }
     }

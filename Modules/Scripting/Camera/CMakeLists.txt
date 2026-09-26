@@ -7,13 +7,12 @@ lyra_bindgen(lyra-camera
     PREFIX Lyra/Scene
     HEADERS
         Camera.hxx
-        CameraControl.h
+    SOURCES
+        Camera.cpp
 )
 
 # module sources
 target_sources(lyra-camera PRIVATE
     Camera.hxx
-    CameraControl.h
-    CameraPlugin.h
-    CameraPlugin.cpp
+    Camera.cpp
 )

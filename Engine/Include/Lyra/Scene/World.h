@@ -81,9 +81,9 @@ namespace lyra
          * @param args Arguments for component construction.
          */
         template <typename T, typename... Args>
-        FORCE_INLINE void add_component(const SceneNode node, Args... args)
+        FORCE_INLINE auto& add_component(const SceneNode node, Args... args)
         {
-            registry.emplace_or_replace<T>(node, std::forward<Args>(args)...);
+            return registry.emplace_or_replace<T>(node, std::forward<Args>(args)...);
         }
 
         template <typename... T>

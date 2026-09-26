@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cxxopts.hpp>
 #include <Lyra/Lyra.hpp>
+#include <Lyra/Scene/Camera.h>
 
 #include "Renderer.h"
 #include "Common/EditorLayout.h"
@@ -50,7 +51,6 @@ static void imgui_update(AppContext& context)
         }
     });
 }
-
 
 static void imgui_render(AppContext& context)
 {
@@ -210,6 +210,15 @@ int main(int argc, const char* argv[])
     // scene layer
     auto scene = lyra::execute([&]() {
         auto layer = std::make_unique<SceneLayer>();
+        app->bind(*layer);
+        return std::move(layer);
+    });
+
+    // script layer
+    auto scripting = lyra::execute([&]() {
+        auto layer = std::make_unique<ScriptLayer>();
+        layer->set_simulation_state(SimulationState::EDIT);
+        layer->register_api(scripts::camera::create());
         app->bind(*layer);
         return std::move(layer);
     });

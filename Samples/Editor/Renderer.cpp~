@@ -238,11 +238,10 @@ void SampleCubeRenderer::init(AppContext& context)
         world->translate(camera_node, {0.0f, 3.0f, 8.0f});
         world->rotate(camera_node, {1.0f, 0.0f, 0.0f}, -20.0f);
         world->add_component<Camera>(camera_node);
-        world->add_component<FlyCamera>(camera_node,
-            FlyCamera{
-                .pitch        = -20.0f,
-                .target_pitch = +20.0f,
-            });
+        auto& fly = world->add_component<FlyCamera>(camera_node);
+
+        fly.pitch        = -20.0f;
+        fly.target_pitch = -20.0f;
     }
 }
 

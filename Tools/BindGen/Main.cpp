@@ -22,6 +22,19 @@ static std::string read_file(const fs::path& path)
     return ss.str();
 }
 
+static std::string to_lower_snake(std::string_view name)
+{
+    std::string result;
+    for (char c : name) {
+        if (std::isalnum(static_cast<unsigned char>(c))) {
+            result += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        } else {
+            result += '_';
+        }
+    }
+    return result;
+}
+
 static bool write_if_changed(const fs::path& path, const std::string& content)
 {
     if (fs::exists(path)) {
@@ -97,7 +110,15 @@ int main(int argc, char* argv[])
             }
             staged_path /= (p.stem().string() + ".h");
 
-            if (!write_if_changed(staged_path, content)) {
+            std::string staged_content = content;
+            std::string mod_ns = to_lower_snake(module_name);
+            staged_content += "\n// Auto-generated script plugin declaration\n";
+            staged_content += "#include <Lyra/Scripting/ScriptTypes.h>\n\n";
+            staged_content += "namespace lyra::scripts::" + mod_ns + "\n{\n";
+            staged_content += "    auto create() -> ScriptAPI;\n";
+            staged_content += "} // namespace lyra::scripts::" + mod_ns + "\n";
+
+            if (!write_if_changed(staged_path, staged_content)) {
                 std::cerr << "lyra-bindgen: error: could not write staged header: " << staged_path << std::endl;
                 return 1;
             }
@@ -116,13 +137,14 @@ int main(int argc, char* argv[])
 
         parser.parse(module_data);
 
-        // If any component or system was parsed from this file, record it in includes
-        if (module_data.components.size() > prev_comps || module_data.systems.size() > prev_sys) {
+        // If any component or system was parsed from this file, record it in includes (headers only)
+        if ((module_data.components.size() > prev_comps || module_data.systems.size() > prev_sys) &&
+            p.extension() != ".cpp" && p.extension() != ".cxx" && p.extension() != ".cc") {
             module_data.included_headers.push_back(p.filename().string());
         }
     }
 
-    std::string generated_code = Generator::generate(module_data);
+    std::string generated_code = Generator::generate(module_data, output_path.string());
 
     if (!write_if_changed(output_path, generated_code)) {
         return 1;

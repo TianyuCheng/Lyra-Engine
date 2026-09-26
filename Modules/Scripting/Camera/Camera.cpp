@@ -1,14 +1,8 @@
-#pragma once
-
-#ifndef LYRA_MODULES_SCRIPTING_CAMERA_CONTROL_H
-#define LYRA_MODULES_SCRIPTING_CAMERA_CONTROL_H
-
 #include <cmath>
 #include <algorithm>
 #include <Lyra/Utilities/Math.h>
 #include <Lyra/Scene/Transform.h>
 #include <Lyra/Scripting/ScriptContext.h>
-#include <Lyra/Windowing/WSIEnums.h>
 
 #include "Camera.hxx"
 
@@ -17,8 +11,8 @@ namespace lyra
     /**
      * @brief Fly camera update system handling smoothed mouse orientation and keyboard movement.
      */
-    [[lyra::system(UPDATE, group = "Camera")]]
-    inline void fly_camera(ScriptContext& ctx, FlyCamera& camera, TransformLocal& transform)
+    [[lyra::system(UPDATE, group = "Camera", run_in_editor)]]
+    void fly_camera(ScriptContext& ctx, FlyCamera& camera, TransformLocal& transform)
     {
         // mouse look while right mouse button is held
         if (ctx.is_mouse_down(MouseButton::RIGHT)) {
@@ -79,8 +73,8 @@ namespace lyra
     /**
      * @brief Orbit camera update system handling rotation, auto-rotation, and scroll wheel zoom with damping.
      */
-    [[lyra::system(UPDATE, group = "Camera")]]
-    inline void orbit_camera(ScriptContext& ctx, OrbitCamera& camera, TransformLocal& transform)
+    [[lyra::system(UPDATE, group = "Camera", run_in_editor)]]
+    void orbit_camera(ScriptContext& ctx, OrbitCamera& camera, TransformLocal& transform)
     {
         // mouse drag to orbit around target
         if (ctx.is_mouse_down(MouseButton::RIGHT) || ctx.is_mouse_down(MouseButton::MIDDLE)) {
@@ -127,8 +121,8 @@ namespace lyra
     /**
      * @brief Camera projection calculation system updating perspective and orthographic matrices.
      */
-    [[lyra::system(UPDATE, group = "Camera")]]
-    inline void camera_projection(ScriptContext& ctx, Camera& camera)
+    [[lyra::system(UPDATE_PRE, group = "Camera", run_in_editor)]]
+    void camera_projection(ScriptContext& ctx, Camera& camera)
     {
         if (camera.type == ProjectionType::PERSPECTIVE) {
             camera.projection = glm::perspective(
@@ -142,5 +136,3 @@ namespace lyra
     }
 
 } // namespace lyra
-
-#endif // LYRA_MODULES_SCRIPTING_CAMERA_CONTROL_H

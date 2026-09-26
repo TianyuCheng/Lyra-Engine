@@ -12,9 +12,9 @@ namespace lyra::reflect
     {
     public:
         /**
-         * @brief Generates header-only C++20 reflection and script bindings (.gen.h).
+         * @brief Generates C++20 reflection and script bindings (.gen.cpp or .gen.h).
          */
-        static auto generate(const ModuleReflection& module) -> std::string;
+        static auto generate(const ModuleReflection& module, const std::string& output_filename = "") -> std::string;
     };
 
 } // namespace lyra::reflect

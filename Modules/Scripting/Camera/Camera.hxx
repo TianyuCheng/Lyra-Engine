@@ -5,6 +5,7 @@
 
 #include <Lyra/Utilities/Math.h>
 #include <Lyra/Utilities/Stdint.h>
+#include <Lyra/Scripting/ScriptTypes.h>
 
 namespace lyra
 {

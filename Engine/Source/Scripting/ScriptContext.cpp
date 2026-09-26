@@ -28,6 +28,7 @@ ScriptContext::ScriptContext(AppContext& context, ScriptLayer& layer)
 ScriptContext::ScriptContext(World* world, ScriptCommandQueue* queue, MemoryArena* scratch, float dt, float time, const WindowInput* input)
     : world(world), cmd_queue(queue), scratch_arena(scratch), input_state(input), delta_time(dt), total_time(time)
 {
+    // do nothing else
 }
 
 bool ScriptContext::is_key_down(KeyButton key) const
