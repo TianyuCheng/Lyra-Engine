@@ -25,12 +25,19 @@ namespace lyra
     using TransformFlags = BitFlags<TransformFlag>;
 
     // component
-    struct TransformLocal
+    struct [[lyra::component("Transform", category = "Scene", icon = "LYRA_ICON_TRANSFORM")]] TransformLocal
     {
-        Quaternion     rotation = glm::identity<Quaternion>();
-        Vector3        position = Vector3(0.0f);
-        Vector3        scale    = Vector3(1.0f);
-        TransformFlags flags    = TransformFlag::NONE;
+        [[lyra::label("Position")]]
+        Vector3 position = Vector3(0.0f);
+
+        [[lyra::label("Scale"), lyra::reset(1.0f)]]
+        Vector3 scale = Vector3(1.0f);
+
+        [[lyra::edit(euler, order = YXZ), lyra::label("Rotation")]]
+        Quaternion rotation = glm::identity<Quaternion>();
+
+        [[lyra::hidden]]
+        TransformFlags flags = TransformFlag::NONE;
     };
 
     // component

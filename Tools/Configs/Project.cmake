@@ -203,7 +203,7 @@ function(lyra_bindgen TARGET_NAME)
 
     get_filename_component(HEADER_EXT "${HEADER}" EXT)
     get_filename_component(HEADER_NAME_WE "${HEADER}" NAME_WE)
-    if("${HEADER_EXT}" STREQUAL ".hxx")
+    if("${HEADER_EXT}" STREQUAL ".hxx" OR "${HEADER_EXT}" STREQUAL ".h")
       list(APPEND STAGED_OUTPUTS "${BINDGEN_INCLUDE_DIR}/${BINDGEN_PREFIX}/${HEADER_NAME_WE}.h")
     endif()
   endforeach()

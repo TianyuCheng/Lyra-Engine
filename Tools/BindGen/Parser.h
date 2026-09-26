@@ -38,9 +38,12 @@ namespace lyra::reflect
         auto parse_parameter() -> ParamMeta;
 
         void synchronize_to_statement();
+        auto get_current_namespace() const -> std::string;
 
         Lexer& lexer;
         Token  current;
+        int    brace_depth = 0;
+        std::vector<std::pair<std::string, int>> namespace_stack;
     };
 
 } // namespace lyra::reflect

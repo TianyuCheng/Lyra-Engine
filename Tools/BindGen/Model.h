@@ -60,6 +60,7 @@ namespace lyra::reflect
 
         std::string tooltip;
         std::string label;
+        std::string condition;
 
         bool hidden = false;
         int  line   = 0;
@@ -72,11 +73,13 @@ namespace lyra::reflect
     {
         std::string            name;
         std::string            category = "General";
+        std::string            icon;
         std::string            tooltip;
         std::vector<FieldMeta> fields;
 
         std::string header_file;
         std::string relative_include;
+        std::string namespace_scope;
         int         line = 0;
     };
 
@@ -104,6 +107,7 @@ namespace lyra::reflect
         std::string group;
         std::string header_file;
         std::string relative_include;
+        std::string namespace_scope;
         int         line          = 0;
         bool        run_in_editor = false;
 

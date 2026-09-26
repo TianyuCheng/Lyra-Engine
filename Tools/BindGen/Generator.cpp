@@ -7,7 +7,13 @@ using namespace lyra::reflect;
 static std::string to_upper_snake(std::string_view name)
 {
     std::string result;
-    for (char c : name) {
+    for (size_t i = 0; i < name.size(); ++i) {
+        char c = name[i];
+        if (i > 0 && std::isupper(static_cast<unsigned char>(c)) &&
+            (std::islower(static_cast<unsigned char>(name[i - 1])) ||
+             (i + 1 < name.size() && std::islower(static_cast<unsigned char>(name[i + 1]))))) {
+            result += '_';
+        }
         if (std::isalnum(static_cast<unsigned char>(c))) {
             result += static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
         } else {
@@ -20,7 +26,13 @@ static std::string to_upper_snake(std::string_view name)
 static std::string to_lower_snake(std::string_view name)
 {
     std::string result;
-    for (char c : name) {
+    for (size_t i = 0; i < name.size(); ++i) {
+        char c = name[i];
+        if (i > 0 && std::isupper(static_cast<unsigned char>(c)) &&
+            (std::islower(static_cast<unsigned char>(name[i - 1])) ||
+             (i + 1 < name.size() && std::islower(static_cast<unsigned char>(name[i + 1]))))) {
+            result += '_';
+        }
         if (std::isalnum(static_cast<unsigned char>(c))) {
             result += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
         } else {
@@ -34,6 +46,38 @@ static bool ends_with(std::string_view str, std::string_view suffix)
 {
     return str.size() >= suffix.size() &&
            str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
+static std::string to_display_label(std::string_view name)
+{
+    std::string result;
+    bool capitalize_next = true;
+    for (char c : name) {
+        if (c == '_') {
+            result += ' ';
+            capitalize_next = true;
+        } else if (capitalize_next) {
+            result += static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+            capitalize_next = false;
+        } else {
+            result += c;
+        }
+    }
+    return result;
+}
+
+static std::string to_display_title(std::string_view name)
+{
+    std::string result;
+    for (size_t i = 0; i < name.size(); ++i) {
+        char c = name[i];
+        if (i > 0 && std::isupper(static_cast<unsigned char>(c)) &&
+            std::islower(static_cast<unsigned char>(name[i - 1]))) {
+            result += ' ';
+        }
+        result += c;
+    }
+    return result;
 }
 
 std::string Generator::generate(const ModuleReflection& module, const std::string& output_filename)
@@ -66,19 +110,30 @@ std::string Generator::generate(const ModuleReflection& module, const std::strin
         ss << "#include \"" << header << "\"\n";
     }
     ss << "\n";
+    ss << "using namespace lyra;\n\n";
 
     if (!module.systems.empty()) {
         ss << "// Forward declarations of module systems\n";
-        ss << "namespace lyra\n{\n";
         for (const auto& sys : module.systems) {
-            ss << "    void " << sys.name << "(";
-            for (size_t pi = 0; pi < sys.params.size(); ++pi) {
-                if (pi > 0) ss << ", ";
-                ss << sys.params[pi].raw_type;
+            if (!sys.namespace_scope.empty()) {
+                ss << "namespace " << sys.namespace_scope << "\n{\n";
+                ss << "    void " << sys.name << "(";
+                for (size_t pi = 0; pi < sys.params.size(); ++pi) {
+                    if (pi > 0) ss << ", ";
+                    ss << sys.params[pi].raw_type;
+                }
+                ss << ");\n";
+                ss << "} // namespace " << sys.namespace_scope << "\n";
+            } else {
+                ss << "void " << sys.name << "(";
+                for (size_t pi = 0; pi < sys.params.size(); ++pi) {
+                    if (pi > 0) ss << ", ";
+                    ss << sys.params[pi].raw_type;
+                }
+                ss << ");\n";
             }
-            ss << ");\n";
         }
-        ss << "} // namespace lyra\n\n";
+        ss << "\n";
     }
 
     ss << "namespace lyra::generated\n{\n";
@@ -89,6 +144,7 @@ std::string Generator::generate(const ModuleReflection& module, const std::strin
     ss << "    // =========================================================================\n\n";
 
     for (const auto& sys : module.systems) {
+        std::string call_name = sys.namespace_scope.empty() ? ("::" + sys.name) : (sys.namespace_scope + "::" + sys.name);
         ss << "    inline void " << sys.name << "__run(ScriptContext& ctx)\n    {\n";
 
         // Check parameter profile: ctx only, per-entity components, or queries
@@ -108,7 +164,7 @@ std::string Generator::generate(const ModuleReflection& module, const std::strin
 
         if (!query_params.empty()) {
             // General query call
-            ss << "        " << sys.name << "(ctx";
+            ss << "        " << call_name << "(ctx";
             for (const auto& q : query_params) {
                 ss << ", ctx.query<";
                 for (size_t qi = 0; qi < q.query_subtypes.size(); ++qi) {
@@ -134,7 +190,7 @@ std::string Generator::generate(const ModuleReflection& module, const std::strin
                 ss << comp_params[ci].type << "& a" << ci;
             }
             ss << ") {\n";
-            ss << "            " << sys.name << "(ctx";
+            ss << "            " << call_name << "(ctx";
             for (size_t ci = 0; ci < comp_params.size(); ++ci) {
                 ss << ", a" << ci;
             }
@@ -142,7 +198,7 @@ std::string Generator::generate(const ModuleReflection& module, const std::strin
             ss << "        });\n";
         } else {
             // No parameters other than context
-            ss << "        " << sys.name << "(ctx);\n";
+            ss << "        " << call_name << "(ctx);\n";
         }
 
         ss << "    }\n\n";
@@ -207,7 +263,141 @@ std::string Generator::generate(const ModuleReflection& module, const std::strin
         ss << "    };\n\n";
     }
 
-    // 4. ScriptAPI factory
+    // 3. Component Inspectors
+    ss << "    // =========================================================================\n";
+    ss << "    // Component Inspectors\n";
+    ss << "    // =========================================================================\n\n";
+
+    for (const auto& comp : module.components) {
+        std::string title = to_display_title(comp.name);
+        std::string icon  = comp.icon;
+        if (icon.empty()) {
+            if (comp.category == "Camera") {
+                icon = "LYRA_ICON_CAMERA";
+            } else {
+                icon = "LYRA_ICON_NODE";
+            }
+        }
+
+        ss << "    inline void draw_inspector__" << comp.name << "(World& world, SceneNode node)\n    {\n";
+        ss << "        if (!world.any_of<" << comp.name << ">(node)) return;\n";
+        ss << "        auto& component = world.get_component<" << comp.name << ">(node);\n";
+        ss << "        ui::section(\"" << title << "\", " << icon << ", [&]() {\n";
+        ss << "            ui::properties([&]() {\n";
+
+        for (const auto& field : comp.fields) {
+            if (field.hidden) continue;
+
+            std::string indent = "                ";
+            if (!field.condition.empty()) {
+                ss << indent << "if (component." << field.condition << ") {\n";
+                indent = "                    ";
+            }
+
+            std::string label = field.label.empty() ? to_display_label(field.name) : field.label;
+
+            if (field.type == "ProjectionType" || field.drawer == "toggle") {
+                ss << indent << "bool is_ortho = (component." << field.name << " == ProjectionType::ORTHOGRAPHIC);\n";
+                ss << indent << "ui::toggle(\"" << label << "\", is_ortho, [&](const bool& val) {\n";
+                ss << indent << "    component." << field.name << " = val ? ProjectionType::ORTHOGRAPHIC : ProjectionType::PERSPECTIVE;\n";
+                ss << indent << "});\n";
+            } else if (ends_with(field.type, "bool")) {
+                ss << indent << "ui::toggle(\"" << label << "\", component." << field.name << ");\n";
+            } else if (ends_with(field.type, "float") || ends_with(field.type, "double")) {
+                std::string speed   = field.speed.empty() ? "0.1f" : field.speed;
+                std::string min_v   = field.min_val.empty() ? "0.0f" : field.min_val;
+                std::string max_v   = field.max_val.empty() ? "0.0f" : field.max_val;
+                std::string reset_v = field.reset_val.empty() ? "0.0f" : field.reset_val;
+
+                ss << indent << "ui::ScalarConfig " << field.name << "_cfg;\n";
+                ss << indent << field.name << "_cfg.speed = " << speed << ";\n";
+                ss << indent << field.name << "_cfg.min   = " << min_v << ";\n";
+                ss << indent << field.name << "_cfg.max   = " << max_v << ";\n";
+                if (!field.reset_val.empty()) {
+                    ss << indent << field.name << "_cfg.reset = " << reset_v << ";\n";
+                }
+                ss << indent << "ui::number(\"" << label << "\", component." << field.name << ", " << field.name << "_cfg);\n";
+            } else if (ends_with(field.type, "int") || ends_with(field.type, "uint") ||
+                       ends_with(field.type, "uint32_t") || ends_with(field.type, "int32_t")) {
+                std::string speed = field.speed.empty() ? "1" : field.speed;
+                std::string min_v = field.min_val.empty() ? "0" : field.min_val;
+                std::string max_v = field.max_val.empty() ? "0" : field.max_val;
+                ss << indent << "ui::integer(\"" << label << "\", (int&)component." << field.name << ", "
+                   << speed << ", " << min_v << ", " << max_v << ");\n";
+            } else if (ends_with(field.type, "Vector3")) {
+                std::string speed = field.speed.empty() ? "0.1f" : field.speed;
+                std::string min_v = field.min_val.empty() ? "0.0f" : field.min_val;
+                std::string max_v = field.max_val.empty() ? "0.0f" : field.max_val;
+                ss << indent << "ui::VecConfig " << field.name << "_cfg;\n";
+                ss << indent << field.name << "_cfg.speed = " << speed << ";\n";
+                ss << indent << field.name << "_cfg.min   = " << min_v << ";\n";
+                ss << indent << field.name << "_cfg.max   = " << max_v << ";\n";
+                if (!field.reset_val.empty()) {
+                    ss << indent << field.name << "_cfg.reset = " << field.reset_val << ";\n";
+                }
+                ss << indent << "ui::vec3(\"" << label << "\", component." << field.name << ", " << field.name << "_cfg);\n";
+            } else if (ends_with(field.type, "Vector2")) {
+                std::string speed = field.speed.empty() ? "0.1f" : field.speed;
+                std::string min_v = field.min_val.empty() ? "0.0f" : field.min_val;
+                std::string max_v = field.max_val.empty() ? "0.0f" : field.max_val;
+                ss << indent << "ui::VecConfig " << field.name << "_cfg;\n";
+                ss << indent << field.name << "_cfg.speed = " << speed << ";\n";
+                ss << indent << field.name << "_cfg.min   = " << min_v << ";\n";
+                ss << indent << field.name << "_cfg.max   = " << max_v << ";\n";
+                if (!field.reset_val.empty()) {
+                    ss << indent << field.name << "_cfg.reset = " << field.reset_val << ";\n";
+                }
+                ss << indent << "ui::vec2(\"" << label << "\", component." << field.name << ", " << field.name << "_cfg);\n";
+            } else if (ends_with(field.type, "Quaternion") || field.drawer == "euler") {
+                ss << indent << "Vector3 " << field.name << "_euler = glm::degrees(glm::eulerAngles(component." << field.name << "));\n";
+                ss << indent << "ui::vec3(\"" << label << "\", " << field.name << "_euler, [&]() {\n";
+                ss << indent << "    component." << field.name << " = Quaternion(glm::radians(" << field.name << "_euler));\n";
+                ss << indent << "});\n";
+            }
+
+            if (!field.condition.empty()) {
+                ss << "                }\n";
+            }
+        }
+
+        ss << "            });\n";
+        ss << "        });\n";
+        ss << "    }\n\n";
+    }
+
+    // 4. Component descriptors table
+    ss << "    // =========================================================================\n";
+    ss << "    // Component Descriptors Table\n";
+    ss << "    // =========================================================================\n\n";
+
+    if (module.components.empty()) {
+        ss << "    inline constexpr const ComponentDescriptor* component_descriptors = nullptr;\n\n";
+    } else {
+        ss << "    inline constexpr ComponentDescriptor component_descriptors[] = {\n";
+        for (size_t i = 0; i < module.components.size(); ++i) {
+            const auto& comp = module.components[i];
+            std::string icon = comp.icon;
+            if (icon.empty()) {
+                if (comp.category == "Camera") {
+                    icon = "LYRA_ICON_CAMERA";
+                } else {
+                    icon = "LYRA_ICON_NODE";
+                }
+            }
+            ss << "        {\n";
+            ss << "            .name           = \"" << comp.name << "\",\n";
+            ss << "            .category       = \"" << comp.category << "\",\n";
+            ss << "            .icon           = " << icon << ",\n";
+            ss << "            .has_component  = [](World& world, SceneNode node) -> bool { return world.any_of<" << comp.name << ">(node); },\n";
+            ss << "            .draw_inspector = [](World& world, SceneNode node) { draw_inspector__" << comp.name << "(world, node); },\n";
+            ss << "        }";
+            if (i + 1 < module.components.size()) ss << ",";
+            ss << "\n";
+        }
+        ss << "    };\n\n";
+    }
+
+    // 5. ScriptAPI factory
     ss << "    // =========================================================================\n";
     ss << "    // ScriptAPI Factory\n";
     ss << "    // =========================================================================\n\n";
@@ -240,6 +430,20 @@ std::string Generator::generate(const ModuleReflection& module, const std::strin
 
     ss << "            },\n";
     ss << "            .get_params = nullptr,\n";
+    ss << "            .get_components = [](ComponentDescriptor* out) -> uint {\n";
+    if (module.components.empty()) {
+        ss << "                return 0;\n";
+    } else {
+        ss << "                constexpr uint count = static_cast<uint>(std::size(component_descriptors));\n";
+        ss << "                if (!out) {\n";
+        ss << "                    return count;\n";
+        ss << "                }\n";
+        ss << "                for (uint i = 0; i < count; ++i) {\n";
+        ss << "                    out[i] = component_descriptors[i];\n";
+        ss << "                }\n";
+        ss << "                return count;\n";
+    }
+    ss << "            },\n";
     ss << "        };\n";
     ss << "    }\n\n";
 

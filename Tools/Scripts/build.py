@@ -103,6 +103,13 @@ def do_test(args: argparse.Namespace):
         env_vars["LYRA_TESTKIT_FILTER"] = args.target
     execute(command, env_vars)
 
+def do_amalgamate(args: argparse.Namespace):
+    script_path = PROJECT_ROOT / "Tools" / "Scripts" / "amalgamate.py"
+    cmd = [sys.executable, str(script_path)]
+    if args.check:
+        cmd.append("--check")
+    execute(cmd)
+
 def parse_args():
     parser = argparse.ArgumentParser("Lyra Build Helper")
     subparsers = parser.add_subparsers(dest="mode")
@@ -129,6 +136,10 @@ def parse_args():
     test_parser = subparsers.add_parser("test")
     test_parser.add_argument("--target", default=None)
 
+    # just amalgamate headers
+    amalgamate_parser = subparsers.add_parser("amalgamate")
+    amalgamate_parser.add_argument("--check", action="store_true", default=False)
+
     return parser.parse_args()
 
 def main():
@@ -149,6 +160,9 @@ def main():
 
         elif args.mode == "test":
             do_test(args)
+
+        elif args.mode == "amalgamate":
+            do_amalgamate(args)
     except subprocess.SubprocessError:
         print(">>> Build Recipe Failed!")
         sys.exit(1)

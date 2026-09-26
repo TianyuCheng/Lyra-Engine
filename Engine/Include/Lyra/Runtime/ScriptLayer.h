@@ -77,6 +77,16 @@ namespace lyra
         auto get_scripts() const -> const Vector<ScriptDescriptor>&;
 
         /**
+         * @brief Gets all registered component descriptors.
+         */
+        auto get_components() const -> const Vector<ComponentDescriptor>&;
+
+        /**
+         * @brief Registers an individual component descriptor.
+         */
+        void register_component(const ComponentDescriptor& desc);
+
+        /**
          * @brief Gets all registered ScriptAPI tables.
          */
         auto get_apis() const -> const Vector<ScriptAPI>&;
@@ -103,6 +113,7 @@ namespace lyra
         ScriptCommandQueue                 command_queue;
         Vector<ScriptAPI>                  apis;
         Vector<ScriptDescriptor>           scripts;
+        Vector<ComponentDescriptor>        components;
         HashMap<ScriptID, bool>            script_enabled;
         HashMap<String, bool>              group_enabled;
         HashMap<ScriptID, Vector<uint8_t>> script_states;

@@ -1,5 +1,6 @@
 #include <Lyra/Utilities/Math.h>
 #include <Lyra/Scene/Camera.h>
+#include <Lyra/Scene/CameraControl.h>
 
 #include "Renderer.h"
 #include "Panels/SceneView.h"
@@ -235,7 +236,7 @@ void SampleCubeRenderer::init(AppContext& context)
     if (auto world = context.toolboard.try_get<World>()) {
         // create camera node looking down at the grid plane
         camera_node = world->create("Main Camera");
-        world->translate(camera_node, {0.0f, 3.0f, 8.0f});
+        world->translate(camera_node, {0.0f, 1.0f, 8.0f});
         world->rotate(camera_node, {1.0f, 0.0f, 0.0f}, -20.0f);
         world->add_component<Camera>(camera_node);
         world->add_component<FlyCamera>(camera_node,

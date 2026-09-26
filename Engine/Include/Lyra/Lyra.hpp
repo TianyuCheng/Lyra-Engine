@@ -47,6 +47,7 @@
 // Scenes headers
 #include <Lyra/Scene/World.h>
 #include <Lyra/Scene/Light.h>
+#include <Lyra/Scene/Camera.h>
 #include <Lyra/Scene/SceneNode.h>
 #include <Lyra/Scene/Transform.h>
 #include <Lyra/Scene/SceneTree.h>

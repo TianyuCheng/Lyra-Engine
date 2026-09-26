@@ -18,7 +18,7 @@ namespace lyra
         void update(AppContext& context);
 
     private:
-        void draw_inspector(World& world, SceneNode node);
+        void draw_inspector(AppContext& context, World& world, SceneNode node);
     };
 } // namespace lyra
 

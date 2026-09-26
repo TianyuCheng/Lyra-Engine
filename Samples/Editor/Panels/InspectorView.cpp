@@ -1,9 +1,9 @@
 #include <Lyra/Utilities/Logger.h>
 #include <Lyra/Scene/World.h>
-#include <Lyra/Scene/Camera.h>
 #include <Lyra/Scene/Light.h>
 #include <Lyra/Scene/SceneNode.h>
 #include <Lyra/Scene/Transform.h>
+#include <Lyra/Runtime/ScriptLayer.h>
 #include <Lyra/UISystem/Widgets/UI.h>
 #include <Lyra/UISystem/Widgets/UILayout.h>
 #include <Lyra/UISystem/Widgets/UIControls.h>
@@ -55,12 +55,12 @@ void InspectorView::update(AppContext& context)
         auto world     = context.toolboard.try_get<World*>();
         auto selection = context.blackboard.try_get<HierarchyView::Selection>();
         if (world && selection) {
-            draw_inspector(*world, selection->node);
+            draw_inspector(context, *world, selection->node);
         }
     });
 }
 
-void InspectorView::draw_inspector(World& world, SceneNode node)
+void InspectorView::draw_inspector(AppContext& context, World& world, SceneNode node)
 {
     if (node.entity == entt::null || !world.registry.valid(node.entity)) {
         ui::label("No node selected", ui::StatusRole::Muted);
@@ -108,71 +108,14 @@ void InspectorView::draw_inspector(World& world, SceneNode node)
         }, scale_config);
     });
 
-    draw_component<Camera>("Camera", LYRA_ICON_CAMERA, world, node, [&](Camera& camera) {
-        bool is_ortho = (camera.type == ProjectionType::ORTHOGRAPHIC);
-        ui::toggle("Orthographic", is_ortho, [&](const bool& val) {
-            camera.type = val ? ProjectionType::ORTHOGRAPHIC : ProjectionType::PERSPECTIVE;
-        });
-
-        if (camera.type == ProjectionType::PERSPECTIVE) {
-            ui::ScalarConfig fov_cfg;
-            fov_cfg.speed = 0.1f;
-            fov_cfg.min   = 1.0f;
-            fov_cfg.max   = 179.0f;
-            ui::number("FOV", camera.fov, fov_cfg);
-        } else {
-            ui::ScalarConfig size_cfg;
-            size_cfg.speed = 0.1f;
-            size_cfg.min   = 0.1f;
-            size_cfg.max   = 1000.0f;
-            ui::number("Size", camera.size, size_cfg);
+    // reflected components
+    if (auto scripting = context.toolboard.try_get<ScriptLayer*>()) {
+        for (const auto& comp : scripting->get_components()) {
+            if (comp.has_component && comp.has_component(world, node)) {
+                comp.draw_inspector(world, node);
+            }
         }
-
-        ui::ScalarConfig aspect_cfg;
-        aspect_cfg.speed = 0.01f;
-        aspect_cfg.min   = 0.1f;
-        aspect_cfg.max   = 10.0f;
-        ui::number("Aspect", camera.aspect, aspect_cfg);
-
-        ui::ScalarConfig near_cfg;
-        near_cfg.speed = 0.01f;
-        near_cfg.min   = camera.type == ProjectionType::PERSPECTIVE ? 0.001f : -1000.0f;
-        near_cfg.max   = 1000.0f;
-        ui::number("Near", camera.near_plane, near_cfg);
-
-        ui::ScalarConfig far_cfg;
-        far_cfg.speed = 1.0f;
-        far_cfg.min   = 1.0f;
-        far_cfg.max   = 10000.0f;
-        ui::number("Far", camera.far_plane, far_cfg);
-    });
-
-    draw_component<FlyCamera>("Fly Camera", LYRA_ICON_CAMERA, world, node, [&](FlyCamera& fly) {
-        ui::ScalarConfig speed_cfg;
-        speed_cfg.speed = 0.1f;
-        speed_cfg.min   = 0.1f;
-        speed_cfg.max   = 100.0f;
-        ui::number("Move Speed", fly.move_speed, speed_cfg);
-
-        ui::ScalarConfig boost_cfg;
-        boost_cfg.speed = 0.1f;
-        boost_cfg.min   = 1.0f;
-        boost_cfg.max   = 10.0f;
-        ui::number("Boost Multiplier", fly.boost_multiplier, boost_cfg);
-
-        ui::ScalarConfig sens_cfg;
-        sens_cfg.speed = 0.01f;
-        sens_cfg.min   = 0.01f;
-        sens_cfg.max   = 2.0f;
-        ui::number("Look Sensitivity", fly.look_sensitivity, sens_cfg);
-
-        ui::ScalarConfig damp_cfg;
-        damp_cfg.speed = 0.1f;
-        damp_cfg.min   = 0.0f;
-        damp_cfg.max   = 50.0f;
-        ui::number("Move Damping", fly.move_damping, damp_cfg);
-        ui::number("Look Damping", fly.look_damping, damp_cfg);
-    });
+    }
 
     draw_component<PointLight>("Point Light", LYRA_ICON_NODE, world, node, [&](PointLight& light) {
         ui::vec3("Position", light.position);

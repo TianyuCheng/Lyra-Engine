@@ -25,7 +25,13 @@ static std::string read_file(const fs::path& path)
 static std::string to_lower_snake(std::string_view name)
 {
     std::string result;
-    for (char c : name) {
+    for (size_t i = 0; i < name.size(); ++i) {
+        char c = name[i];
+        if (i > 0 && std::isupper(static_cast<unsigned char>(c)) &&
+            (std::islower(static_cast<unsigned char>(name[i - 1])) ||
+             (i + 1 < name.size() && std::islower(static_cast<unsigned char>(name[i + 1]))))) {
+            result += '_';
+        }
         if (std::isalnum(static_cast<unsigned char>(c))) {
             result += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
         } else {
@@ -102,25 +108,33 @@ int main(int argc, char* argv[])
 
         std::string content = read_file(p);
 
-        // If the file is .hxx and an include-dir is provided, stage it as a public .h file
-        if (p.extension() == ".hxx" && !inc_dir.empty()) {
+        // If an include-dir is provided, stage it as a public .h file with auto-generated module declaration
+        if ((p.extension() == ".hxx" || p.extension() == ".h") && !inc_dir.empty()) {
             fs::path staged_path = fs::path(inc_dir);
             if (!prefix.empty()) {
                 staged_path /= prefix;
             }
             staged_path /= (p.stem().string() + ".h");
 
-            std::string staged_content = content;
-            std::string mod_ns = to_lower_snake(module_name);
-            staged_content += "\n// Auto-generated script plugin declaration\n";
-            staged_content += "#include <Lyra/Scripting/ScriptTypes.h>\n\n";
-            staged_content += "namespace lyra::scripts::" + mod_ns + "\n{\n";
-            staged_content += "    auto create() -> ScriptAPI;\n";
-            staged_content += "} // namespace lyra::scripts::" + mod_ns + "\n";
+            bool is_same_file = false;
+            std::error_code ec;
+            if (fs::exists(staged_path, ec) && fs::equivalent(p, staged_path, ec)) {
+                is_same_file = true;
+            }
 
-            if (!write_if_changed(staged_path, staged_content)) {
-                std::cerr << "lyra-bindgen: error: could not write staged header: " << staged_path << std::endl;
-                return 1;
+            if (!is_same_file) {
+                std::string staged_content = content;
+                std::string mod_ns = to_lower_snake(module_name);
+                staged_content += "\n// Auto-generated script plugin declaration\n";
+                staged_content += "#include <Lyra/Scripting/ScriptTypes.h>\n\n";
+                staged_content += "namespace lyra::scripts::" + mod_ns + "\n{\n";
+                staged_content += "    auto create() -> ScriptAPI;\n";
+                staged_content += "} // namespace lyra::scripts::" + mod_ns + "\n";
+
+                if (!write_if_changed(staged_path, staged_content)) {
+                    std::cerr << "lyra-bindgen: error: could not write staged header: " << staged_path << std::endl;
+                    return 1;
+                }
             }
         }
 

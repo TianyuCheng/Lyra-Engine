@@ -61,12 +61,29 @@ void ScriptLayer::register_api(const ScriptAPI& api)
             script_states[id].resize(desc.state_size, 0);
         }
     }
+
+    if (api.get_components) {
+        uint comp_count = api.get_components(nullptr);
+        if (comp_count > 0) {
+            Vector<ComponentDescriptor> comp_descs(comp_count);
+            api.get_components(comp_descs.data());
+            for (const auto& desc : comp_descs) {
+                components.push_back(desc);
+            }
+        }
+    }
+}
+
+void ScriptLayer::register_component(const ComponentDescriptor& desc)
+{
+    components.push_back(desc);
 }
 
 void ScriptLayer::unregister_all()
 {
     apis.clear();
     scripts.clear();
+    components.clear();
     script_enabled.clear();
     group_enabled.clear();
     script_states.clear();
@@ -115,6 +132,11 @@ bool ScriptLayer::is_group_enabled(StringView group) const
 const Vector<ScriptDescriptor>& ScriptLayer::get_scripts() const
 {
     return scripts;
+}
+
+const Vector<ComponentDescriptor>& ScriptLayer::get_components() const
+{
+    return components;
 }
 
 const Vector<ScriptAPI>& ScriptLayer::get_apis() const

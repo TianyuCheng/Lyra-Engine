@@ -3,7 +3,7 @@
 
 #include "./linmath.h"
 
-struct Camera
+struct TestCamera
 {
     glm::mat4 proj;
     glm::mat4 view;

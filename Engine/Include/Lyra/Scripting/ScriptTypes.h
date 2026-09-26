@@ -70,6 +70,20 @@ namespace lyra
     };
 
     struct ScriptContext;
+    struct World;
+    struct SceneNode;
+
+    /**
+     * @brief Reflected component inspection metadata and callbacks.
+     */
+    struct ComponentDescriptor
+    {
+        CString name     = nullptr;
+        CString category = nullptr;
+        CString icon     = nullptr;
+        bool (*has_component)(World& world, SceneNode node)  = nullptr;
+        void (*draw_inspector)(World& world, SceneNode node) = nullptr;
+    };
 
     /**
      * @brief Scripting API exported by a native or dynamic module.
@@ -80,6 +94,7 @@ namespace lyra
         uint (*get_scripts)(ScriptDescriptor* out)                  = nullptr; ///< two-call pattern, house style
         void (*run)(ScriptID id, ScriptContext& ctx)                = nullptr;
         uint (*get_params)(ScriptID id, ScriptFieldDescriptor* out) = nullptr; ///< POD field descriptors: per-system settings
+        uint (*get_components)(ComponentDescriptor* out)            = nullptr; ///< reflected component descriptors
     };
 
     /**

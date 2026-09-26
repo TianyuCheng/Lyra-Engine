@@ -220,8 +220,12 @@ void Parser::parse_field(ComponentMeta& comp)
             field.tooltip = a.get_pos(0);
             continue;
         }
-        if (a.name == "label") {
+        if (a.name == "label" || a.name == "name") {
             field.label = a.get_pos(0);
+            continue;
+        }
+        if (a.name == "condition" || a.name == "visible_if") {
+            field.condition = a.get_pos(0);
             continue;
         }
     }
@@ -252,8 +256,9 @@ void Parser::parse_field(ComponentMeta& comp)
 void Parser::parse_struct(const std::vector<Attribute>& attrs, ModuleReflection& out_module)
 {
     ComponentMeta comp;
-    comp.header_file = lexer.get_filename();
-    comp.line        = current.line;
+    comp.header_file     = lexer.get_filename();
+    comp.line            = current.line;
+    comp.namespace_scope = get_current_namespace();
 
     // Apply component attributes
     for (const auto& a : attrs) {
@@ -262,8 +267,19 @@ void Parser::parse_struct(const std::vector<Attribute>& attrs, ModuleReflection&
             if (!cat.empty()) {
                 comp.category = cat;
             }
+            if (a.has_arg("category")) {
+                comp.category = a.get_arg("category");
+            }
+            if (a.has_arg("icon")) {
+                comp.icon = a.get_arg("icon");
+            }
+            if (a.has_arg("tooltip")) {
+                comp.tooltip = a.get_arg("tooltip");
+            }
         } else if (a.name == "category") {
             comp.category = a.get_pos(0);
+        } else if (a.name == "icon") {
+            comp.icon = a.get_pos(0);
         } else if (a.name == "tooltip") {
             comp.tooltip = a.get_pos(0);
         }
@@ -357,8 +373,9 @@ ParamMeta Parser::parse_parameter()
 void Parser::parse_function(const std::vector<Attribute>& attrs, ModuleReflection& out_module)
 {
     SystemMeta sys;
-    sys.header_file = lexer.get_filename();
-    sys.line        = current.line;
+    sys.header_file     = lexer.get_filename();
+    sys.line            = current.line;
+    sys.namespace_scope = get_current_namespace();
 
     for (const auto& a : attrs) {
         if (a.name != "system") {
@@ -433,9 +450,51 @@ void Parser::parse_function(const std::vector<Attribute>& attrs, ModuleReflectio
     out_module.systems.push_back(std::move(sys));
 }
 
+auto Parser::get_current_namespace() const -> std::string
+{
+    std::string ns;
+    for (size_t i = 0; i < namespace_stack.size(); ++i) {
+        if (!namespace_stack[i].first.empty()) {
+            if (!ns.empty()) ns += "::";
+            ns += namespace_stack[i].first;
+        }
+    }
+    return ns;
+}
+
 bool Parser::parse(ModuleReflection& out_module)
 {
     while (!check(TokenType::Eof)) {
+        // Track namespace scopes
+        if (check(TokenType::Identifier) && current.text == "namespace") {
+            consume(TokenType::Identifier);
+            std::string ns_name;
+            while (check(TokenType::Identifier) || check(TokenType::ColonColon)) {
+                ns_name += current.text;
+                consume(current.type);
+            }
+            if (match(TokenType::LBrace)) {
+                brace_depth++;
+                namespace_stack.push_back({ns_name, brace_depth});
+                continue;
+            }
+        }
+
+        if (match(TokenType::LBrace)) {
+            brace_depth++;
+            continue;
+        }
+
+        if (match(TokenType::RBrace)) {
+            if (!namespace_stack.empty() && namespace_stack.back().second == brace_depth) {
+                namespace_stack.pop_back();
+            }
+            if (brace_depth > 0) {
+                brace_depth--;
+            }
+            continue;
+        }
+
         std::vector<Attribute> attrs;
 
         // Check for attributes in front of struct or function

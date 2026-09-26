@@ -12,35 +12,66 @@ namespace lyra
 {
 
     // component
-    struct PointLight
+    struct [[lyra::component("Point Light", category = "Lighting", icon = "LYRA_ICON_LIGHT")]] PointLight
     {
-        Vector3 position;  // x, y, z (12 bytes)
-        float   falloff;   // falloff coefficient (4 bytes)
-        Vector3 color;     // r, g, b (12 bytes)
-        float   intensity; // intensity in watts (4 bytes)
-        Vector3 direction; // dx, dy, dz (12 bytes)
-        uint    profile;   // IES profile index (4 bytes)
+        [[lyra::speed(0.1f), lyra::label("Position")]]
+        Vector3 position = Vector3(0.0f); // x, y, z (12 bytes)
+
+        [[lyra::label("Color")]]
+        Vector3 color = Vector3(1.0f); // r, g, b (12 bytes)
+
+        [[lyra::speed(0.01f), lyra::label("Direction")]]
+        Vector3 direction = Vector3(0.0f, -1.0f, 0.0f); // dx, dy, dz (12 bytes)
+
+        [[lyra::range(0.0f, 1000.0f), lyra::label("Falloff")]]
+        float falloff = 1.0f; // falloff coefficient (4 bytes)
+
+        [[lyra::range(0.0f, 100000.0f), lyra::label("Intensity")]]
+        float intensity = 100.0f; // intensity in watts (4 bytes)
+
+        [[lyra::label("Profile")]]
+        uint profile = 0; // IES profile index (4 bytes)
     };
 
     // component
-    struct SpotLight
+    struct [[lyra::component("Spot Light", category = "Lighting", icon = "LYRA_ICON_LIGHT")]] SpotLight
     {
-        Vector3 position;  // x, y, z (12 bytes)
-        float   falloff;   // falloff coefficient (4 bytes)
-        Vector3 color;     // r, g, b (12 bytes)
-        float   intensity; // intensity in watts (4 bytes)
-        Vector3 direction; // dx, dy, dz
-        uint    profile;   // IES profile index
-        Vector2 angle;     // angle scale, angle offset
+        [[lyra::speed(0.1f), lyra::label("Position")]]
+        Vector3 position = Vector3(0.0f); // x, y, z (12 bytes)
+
+        [[lyra::label("Color")]]
+        Vector3 color = Vector3(1.0f); // r, g, b (12 bytes)
+
+        [[lyra::speed(0.01f), lyra::label("Direction")]]
+        Vector3 direction = Vector3(0.0f, -1.0f, 0.0f); // dx, dy, dz
+
+        [[lyra::label("Angle")]]
+        Vector2 angle = Vector2(0.0f); // angle scale, angle offset
+
+        [[lyra::range(0.0f, 1000.0f), lyra::label("Falloff")]]
+        float falloff = 1.0f; // falloff coefficient (4 bytes)
+
+        [[lyra::range(0.0f, 100000.0f), lyra::label("Intensity")]]
+        float intensity = 100.0f; // intensity in watts (4 bytes)
+
+        [[lyra::label("Profile")]]
+        uint profile = 0; // IES profile index
     };
 
     // component
-    struct DirectionalLight
+    struct [[lyra::component("Directional Light", category = "Lighting", icon = "LYRA_ICON_SUN")]] DirectionalLight
     {
-        Vector3 direction; // dx, dy, dz
-        uint    profile;   // IES profile index
-        Vector3 color;     // r, g, b
-        float   intensity; // intensity in candela
+        [[lyra::speed(0.01f), lyra::label("Direction")]]
+        Vector3 direction = Vector3(0.0f, -1.0f, 0.0f); // dx, dy, dz
+
+        [[lyra::label("Color")]]
+        Vector3 color = Vector3(1.0f); // r, g, b
+
+        [[lyra::range(0.0f, 100000.0f), lyra::label("Intensity")]]
+        float intensity = 1000.0f; // intensity in candela
+
+        [[lyra::label("Profile")]]
+        uint profile = 0; // IES profile index
     };
 
 } // namespace lyra

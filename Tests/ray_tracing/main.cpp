@@ -105,15 +105,14 @@ struct RayTracingApp : public TestApp
             return device.create_buffer(desc);
         });
 
-        Camera camera;
-        camera.proj = glm::perspective(fovy, aspect, 0.1f, 100.0f);
-        camera.view = glm::lookAt(glm::vec3(3.0, 3.0, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        glm::mat4 proj = glm::perspective(fovy, aspect, 0.1f, 100.0f);
+        glm::mat4 view = glm::lookAt(glm::vec3(3.0, 3.0, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
         auto mapped           = uniform.ubuffer.get_mapped_range<CameraUniform>();
-        mapped.at(0).proj     = camera.proj;
-        mapped.at(0).view     = camera.view;
-        mapped.at(0).proj_inv = glm::inverse(camera.proj);
-        mapped.at(0).view_inv = glm::inverse(camera.view);
+        mapped.at(0).proj     = proj;
+        mapped.at(0).view     = view;
+        mapped.at(0).proj_inv = glm::inverse(proj);
+        mapped.at(0).view_inv = glm::inverse(view);
     }
 
     void setup_as()

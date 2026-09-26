@@ -155,3 +155,5 @@ target_link_libraries(lyra-engine PRIVATE lyra::texture)
 target_link_libraries(lyra-engine PRIVATE lyra::material)
 target_link_libraries(lyra-engine PRIVATE lyra::preview)
 
+# link builtin scripts
+target_link_libraries(lyra-engine PUBLIC lyra::camera-control)
