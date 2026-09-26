@@ -27,7 +27,8 @@ void InputState::update(const WindowHandle& handle)
                 mouse.position = event.mouse_move;
                 break;
             case WindowInputEvent::Type::MOUSE_WHEEL:
-                mouse.scroll = event.mouse_wheel;
+                mouse.scroll.x += event.mouse_wheel.x;
+                mouse.scroll.y += event.mouse_wheel.y;
                 break;
             case WindowInputEvent::Type::FILE_DROP:
                 files.entries.resize(event.file_drop.count);
@@ -47,7 +48,16 @@ WindowInput::WindowInput()
 
 void WindowInput::update(const WindowHandle& handle)
 {
-    state_index = (state_index + 1) % 2;
+    uint prev_index = state_index;
+    state_index     = (state_index + 1) % 2;
+
+    // copy persistent state from previous frame
+    states[state_index] = states[prev_index];
+
+    // reset transient per-frame state
+    states[state_index].mouse.scroll = {};
+    states[state_index].files.entries.clear();
+
     states[state_index].update(handle);
 
     auto timestamp = std::chrono::steady_clock::now();

@@ -65,9 +65,14 @@ struct UserState
 
     void add_mouse_move_event(float xpos, float ypos)
     {
-        if (is_event_queue_full()) {
-            get_logger()->warn("Ignore mouse move event because event queue is full!");
+        if (events.num_events > 0 && events.input_events[events.num_events - 1].type == WindowInputEvent::Type::MOUSE_MOVE) {
+            events.input_events[events.num_events - 1].mouse_move.xpos = xpos;
+            events.input_events[events.num_events - 1].mouse_move.ypos = ypos;
             return;
+        }
+
+        if (is_event_queue_full()) {
+            events.num_events = static_cast<uint>(events.input_events.size() - 1);
         }
 
         auto& event           = events.input_events[events.num_events++];

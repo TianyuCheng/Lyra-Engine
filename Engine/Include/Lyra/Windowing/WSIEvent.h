@@ -112,7 +112,7 @@ namespace lyra
     // used to query current frame's input
     struct WindowInputQuery
     {
-        static constexpr uint MAX_EVENTS = 16;
+        static constexpr uint MAX_EVENTS = 128;
 
         uint                                num_events = 0;
         Array<WindowInputEvent, MAX_EVENTS> input_events;

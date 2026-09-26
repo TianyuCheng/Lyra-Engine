@@ -13,10 +13,10 @@ using namespace lyra;
  * @brief Fly camera update system handling smoothed mouse orientation and keyboard movement.
  */
 [[lyra::system(UPDATE, group = "CameraControl", run_in_editor)]]
-void fly_camera(ScriptContext& ctx, FlyCamera& camera, TransformLocal& transform)
+void update_fly_camera(ScriptContext& ctx, FlyCamera& camera, TransformLocal& transform)
 {
-    // mouse look while right mouse button is held
-    if (ctx.is_mouse_down(MouseButton::RIGHT)) {
+    // mouse look while right or left mouse button is held
+    if (ctx.is_mouse_down(MouseButton::RIGHT) || ctx.is_mouse_down(MouseButton::LEFT)) {
         Vector2 delta = ctx.mouse_delta();
         camera.target_yaw -= delta.x * camera.look_sensitivity;
         camera.target_pitch -= delta.y * camera.look_sensitivity;
@@ -62,6 +62,9 @@ void fly_camera(ScriptContext& ctx, FlyCamera& camera, TransformLocal& transform
     if (camera.move_damping > 0.0f) {
         float move_t    = 1.0f - std::exp(-camera.move_damping * ctx.dt());
         camera.velocity = glm::mix(camera.velocity, target_vel, move_t);
+        if (glm::dot(camera.velocity, camera.velocity) < 0.0001f && glm::dot(target_vel, target_vel) < 0.0001f) {
+            camera.velocity = Vector3(0.0f);
+        }
     } else {
         camera.velocity = target_vel;
     }
@@ -75,10 +78,10 @@ void fly_camera(ScriptContext& ctx, FlyCamera& camera, TransformLocal& transform
  * @brief Orbit camera update system handling rotation, auto-rotation, and scroll wheel zoom with damping.
  */
 [[lyra::system(UPDATE, group = "CameraControl", run_in_editor)]]
-void orbit_camera(ScriptContext& ctx, OrbitCamera& camera, TransformLocal& transform)
+void update_orbit_camera(ScriptContext& ctx, OrbitCamera& camera, TransformLocal& transform)
 {
     // mouse drag to orbit around target
-    if (ctx.is_mouse_down(MouseButton::RIGHT) || ctx.is_mouse_down(MouseButton::MIDDLE)) {
+    if (ctx.is_mouse_down(MouseButton::RIGHT) || ctx.is_mouse_down(MouseButton::LEFT) || ctx.is_mouse_down(MouseButton::MIDDLE)) {
         Vector2 delta = ctx.mouse_delta();
         camera.target_yaw -= delta.x * camera.look_sensitivity;
         camera.target_pitch += delta.y * camera.look_sensitivity;
@@ -123,7 +126,7 @@ void orbit_camera(ScriptContext& ctx, OrbitCamera& camera, TransformLocal& trans
  * @brief Camera projection calculation system updating perspective and orthographic matrices.
  */
 [[lyra::system(UPDATE_PRE, group = "CameraControl", run_in_editor)]]
-void camera_projection(ScriptContext& ctx, Camera& camera)
+void update_camera_projection(ScriptContext& ctx, Camera& camera)
 {
     if (camera.type == ProjectionType::PERSPECTIVE) {
         camera.projection = glm::perspective(

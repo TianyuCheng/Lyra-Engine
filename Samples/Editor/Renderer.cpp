@@ -242,7 +242,7 @@ void SampleCubeRenderer::init(AppContext& context)
         world->add_component<FlyCamera>(camera_node,
             FlyCamera{
                 .pitch        = -20.0f,
-                .target_pitch = +20.0f,
+                .target_pitch = -20.0f,
             });
     }
 }
