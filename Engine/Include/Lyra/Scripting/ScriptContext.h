@@ -14,7 +14,7 @@
 #include <Lyra/Scripting/ScriptCommandQueue.h>
 
 #include <Lyra/Windowing/WSIEnums.h>
-#include <Lyra/Runtime/InputEnums.h>
+#include <Lyra/InputSystem/InputEnums.h>
 
 namespace lyra
 {

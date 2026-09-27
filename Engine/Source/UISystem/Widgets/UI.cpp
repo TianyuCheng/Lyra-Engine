@@ -38,7 +38,6 @@ auto lyra::ui::get_mouse_pos() -> Vector2
     return Vector2{pos.x, pos.y};
 }
 
-
 bool lyra::ui::is_panel_appearing()
 {
     return ImGui::IsWindowAppearing();
@@ -253,6 +252,11 @@ bool lyra::ui::is_key_released(KeyButton key)
     return ImGui::IsKeyReleased(to_imgui_key_button(key));
 }
 
+bool lyra::ui::is_text_input_active()
+{
+    return ImGui::GetIO().WantTextInput;
+}
+
 // =============================================================================
 // 3. Texture & Image Display
 // =============================================================================
@@ -455,8 +459,8 @@ void lyra::ui::draw_circle(Vector2 center, float radius, Vector4 color, bool fil
 void lyra::ui::draw_selection_rect(Vector2 p1, Vector2 p2)
 {
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
-    ImVec2 min(std::min(p1.x, p2.x), std::min(p1.y, p2.y));
-    ImVec2 max(std::max(p1.x, p2.x), std::max(p1.y, p2.y));
+    ImVec2      min(std::min(p1.x, p2.x), std::min(p1.y, p2.y));
+    ImVec2      max(std::max(p1.x, p2.x), std::max(p1.y, p2.y));
     draw_list->AddRectFilled(min, max, ImGui::GetColorU32(ImGuiCol_Header, 0.3f));
     draw_list->AddRect(min, max, ImGui::GetColorU32(ImGuiCol_Header, 1.0f));
 }
@@ -465,7 +469,7 @@ void lyra::ui::canvas(CString id, Vector2 size, FunctionRef<void(Vector2 origin,
 {
     ImGui::PushID(id);
     ImVec2 screen_pos = ImGui::GetCursorScreenPos();
-    ImVec2 avail = ImGui::GetContentRegionAvail();
+    ImVec2 avail      = ImGui::GetContentRegionAvail();
     ImVec2 canvas_sz(size.x <= 0.0f ? avail.x : size.x, size.y <= 0.0f ? avail.y : size.y);
 
     ImGui::InvisibleButton("##canvas", canvas_sz);
@@ -477,4 +481,3 @@ void lyra::ui::canvas(CString id, Vector2 size, FunctionRef<void(Vector2 origin,
     draw_list->PopClipRect();
     ImGui::PopID();
 }
-

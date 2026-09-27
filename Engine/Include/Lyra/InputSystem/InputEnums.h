@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_ENGINE_RUNTIME_INPUT_ENUMS_H
-#define LYRA_ENGINE_RUNTIME_INPUT_ENUMS_H
+#ifndef LYRA_ENGINE_INPUT_SYSTEM_INPUT_ENUMS_H
+#define LYRA_ENGINE_INPUT_SYSTEM_INPUT_ENUMS_H
 
 #include <cstdint>
 
@@ -66,4 +66,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_ENGINE_RUNTIME_INPUT_ENUMS_H
+#endif // LYRA_ENGINE_INPUT_SYSTEM_INPUT_ENUMS_H

@@ -12,6 +12,7 @@
 #include "Common/EditorLayout.h"
 #include "SceneView.h"
 #include <Lyra/Runtime/TimingLayer.h>
+#include <Lyra/InputSystem/InputManager.h>
 
 #define LYRA_SCENE_WINDOW_NAME (LYRA_ICON_SCENE " Scene")
 
@@ -62,6 +63,12 @@ void SceneView::update(AppContext& context)
 
         canvas.update(context);
         canvas.display();
+
+        bool viewport_active = (ui::is_item_hovered() || ui::is_item_active()) && !ui::is_text_input_active();
+
+        if (auto* input = context.try_tool<InputManager>()) {
+            input->set_enabled(viewport_active);
+        }
     });
 }
 

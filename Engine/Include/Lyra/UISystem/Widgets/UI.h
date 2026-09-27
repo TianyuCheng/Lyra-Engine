@@ -48,6 +48,7 @@ namespace lyra::ui
     bool is_key_down(KeyButton key);
     bool is_key_pressed(KeyButton key);
     bool is_key_released(KeyButton key);
+    bool is_text_input_active();
 
     // =========================================================================
     // 3. Texture & Image Display

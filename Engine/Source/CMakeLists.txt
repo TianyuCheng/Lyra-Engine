@@ -126,6 +126,9 @@ target_sources(lyra-engine PRIVATE
   # jobs
   JobSystem/JobScheduler.cpp
 
+  # input
+  InputSystem/InputManager.cpp
+
   # runtime
   Runtime/Application.cpp
   Runtime/AssetLayer.cpp

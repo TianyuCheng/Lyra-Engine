@@ -70,8 +70,9 @@
 #include <Lyra/Runtime/SceneLayer.h>
 #include <Lyra/Runtime/RenderLayer.h>
 #include <Lyra/Runtime/TimingLayer.h>
-#include <Lyra/Runtime/InputEnums.h>
-#include <Lyra/Runtime/InputMap.h>
+#include <Lyra/InputSystem/InputEnums.h>
+#include <Lyra/InputSystem/InputMap.h>
+#include <Lyra/InputSystem/InputManager.h>
 #include <Lyra/Runtime/InputLayer.h>
 #include <Lyra/Runtime/UILayer.h>
 #include <Lyra/Runtime/ScriptLayer.h>

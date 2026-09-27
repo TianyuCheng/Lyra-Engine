@@ -1,12 +1,12 @@
 #pragma once
 
-#ifndef LYRA_ENGINE_RUNTIME_INPUT_MAP_H
-#define LYRA_ENGINE_RUNTIME_INPUT_MAP_H
+#ifndef LYRA_ENGINE_INPUT_SYSTEM_INPUT_MAP_H
+#define LYRA_ENGINE_INPUT_SYSTEM_INPUT_MAP_H
 
 #include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Utilities/Collections.h>
 #include <Lyra/Windowing/WSIEnums.h>
-#include <Lyra/Runtime/InputEnums.h>
+#include <Lyra/InputSystem/InputEnums.h>
 
 namespace lyra
 {
@@ -60,4 +60,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_ENGINE_RUNTIME_INPUT_MAP_H
+#endif // LYRA_ENGINE_INPUT_SYSTEM_INPUT_MAP_H
