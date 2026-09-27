@@ -50,11 +50,15 @@ TEST_CASE("scr::script_context" * doctest::description("ScriptContext facade and
     lyra::World world;
     lyra::ScriptCommandQueue queue;
     lyra::MemoryArena arena(16 * 1024);
+    lyra::WindowInput raw_input{};
+    lyra::InputManager input_mgr{};
 
-    lyra::ScriptContext ctx(&world, &queue, &arena, 0.016f, 1.25f);
+    lyra::ScriptContext ctx(&world, &queue, &arena, &raw_input, &input_mgr, 0.016f, 1.25f);
 
     CHECK_EQ(ctx.dt(), 0.016f);
     CHECK_EQ(ctx.time(), 1.25f);
+    CHECK_EQ(ctx.raw_input(), &raw_input);
+    CHECK_EQ(ctx.input(), &input_mgr);
 
     // scratch allocation
     int* scratch_val = ctx.scratch().allocate<int>(123);
@@ -187,7 +191,11 @@ TEST_CASE("scr::script_layer" * doctest::description("ScriptLayer API registrati
 
     lyra::World world;
     lyra::AppContext ctx;
+    lyra::WindowInput raw_input{};
+    lyra::InputManager input_mgr{};
     ctx.toolboard.add(&world);
+    ctx.toolboard.add(&raw_input);
+    ctx.toolboard.add(&input_mgr);
 
     SUBCASE("edit mode only runs systems with RUN_IN_EDITOR")
     {
@@ -247,7 +255,11 @@ TEST_CASE("scr::generated_bindings" * doctest::description("Verified bindings ge
     CHECK_EQ(std::string(layer.get_scripts()[0].name), "orbit");
 
     lyra::AppContext ctx;
+    lyra::WindowInput raw_input{};
+    lyra::InputManager input_mgr{};
     ctx.toolboard.add(&world);
+    ctx.toolboard.add(&raw_input);
+    ctx.toolboard.add(&input_mgr);
 
     layer.set_simulation_state(lyra::SimulationState::PLAY);
 
@@ -261,5 +273,143 @@ TEST_CASE("scr::generated_bindings" * doctest::description("Verified bindings ge
 
     // Should have rotated and flagged LOCAL_DIRTY!
     CHECK(xform.flags.contains(lyra::TransformFlag::LOCAL_DIRTY));
+}
+
+#include <Lyra/Runtime/InputLayer.h>
+#include <Lyra/Windowing/WSIState.h>
+
+namespace
+{
+    struct MockInputLayout
+    {
+        lyra::InputState states[2];
+        lyra::uint       state_index = 0;
+        float            delta_time  = 0.0f;
+        std::chrono::time_point<std::chrono::steady_clock> elapsed_time;
+    };
+}
+
+TEST_CASE("scr::input_manager" * doctest::description("InputManager actions and composite axes"))
+{
+    lyra::InputManager manager;
+
+    SUBCASE("initial default states are inactive")
+    {
+        CHECK(!manager.is_action_down(lyra::InputAction::MOVE_FORWARD));
+        CHECK(!manager.is_action_pressed(lyra::InputAction::MOVE_FORWARD));
+        CHECK(!manager.is_action_released(lyra::InputAction::MOVE_FORWARD));
+        CHECK_EQ(manager.get_axis(lyra::InputAxis::HORIZONTAL), 0.0f);
+        CHECK_EQ(manager.get_axis_2d(lyra::InputAxis2D::MOVE), lyra::Vector2(0.0f));
+    }
+
+    SUBCASE("evaluating keyboard and mouse actions with mock input")
+    {
+        MockInputLayout mock{};
+        auto* raw_input = reinterpret_cast<const lyra::WindowInput*>(&mock);
+
+        // Frame 1: press W
+        mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::W)] = lyra::ButtonState::ON;
+        manager.update(raw_input, 0.016f);
+
+        CHECK(manager.is_action_down(lyra::InputAction::MOVE_FORWARD));
+        CHECK(manager.is_action_pressed(lyra::InputAction::MOVE_FORWARD));
+        CHECK(!manager.is_action_released(lyra::InputAction::MOVE_FORWARD));
+
+        // 2d move composite should be (0, 1)
+        auto move_vec = manager.get_axis_2d(lyra::InputAxis2D::MOVE);
+        CHECK_EQ(move_vec.x, doctest::Approx(0.0f));
+        CHECK_EQ(move_vec.y, doctest::Approx(1.0f));
+
+        // Frame 2: hold W, also press D
+        mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::D)] = lyra::ButtonState::ON;
+        manager.update(raw_input, 0.016f);
+
+        CHECK(manager.is_action_down(lyra::InputAction::MOVE_FORWARD));
+        CHECK(!manager.is_action_pressed(lyra::InputAction::MOVE_FORWARD)); // already held
+        CHECK(manager.is_action_pressed(lyra::InputAction::MOVE_RIGHT));
+
+        // diagonal movement should be normalized
+        move_vec = manager.get_axis_2d(lyra::InputAxis2D::MOVE);
+        float expected = 1.0f / std::sqrt(2.0f);
+        CHECK_EQ(move_vec.x, doctest::Approx(expected));
+        CHECK_EQ(move_vec.y, doctest::Approx(expected));
+
+        // Frame 3: release W
+        mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::W)] = lyra::ButtonState::OFF;
+        manager.update(raw_input, 0.016f);
+
+        CHECK(!manager.is_action_down(lyra::InputAction::MOVE_FORWARD));
+        CHECK(manager.is_action_released(lyra::InputAction::MOVE_FORWARD));
+        CHECK(manager.is_action_down(lyra::InputAction::MOVE_RIGHT));
+    }
+
+    SUBCASE("mouse look delta and zoom scroll")
+    {
+        MockInputLayout mock{};
+        auto* raw_input = reinterpret_cast<const lyra::WindowInput*>(&mock);
+
+        mock.state_index                   = 0;
+        mock.states[0].mouse.position.xpos = 25.0f;
+        mock.states[0].mouse.position.ypos = 12.0f;
+        mock.states[1].mouse.position.xpos = 10.0f;
+        mock.states[1].mouse.position.ypos = 20.0f;
+        mock.states[0].mouse.scroll.y      = 2.5f;
+
+        manager.update(raw_input, 0.016f);
+
+        auto look = manager.get_axis_2d(lyra::InputAxis2D::LOOK);
+        CHECK_EQ(look.x, doctest::Approx(15.0f));
+        CHECK_EQ(look.y, doctest::Approx(-8.0f));
+
+        float zoom = manager.get_axis(lyra::InputAxis::ZOOM);
+        CHECK_EQ(zoom, doctest::Approx(2.5f));
+    }
+
+    SUBCASE("ScriptContext facade queries InputManager")
+    {
+        MockInputLayout mock{};
+        auto* raw_input = reinterpret_cast<const lyra::WindowInput*>(&mock);
+
+        mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::SPACE)] = lyra::ButtonState::ON;
+        manager.update(raw_input, 0.016f);
+
+        lyra::ScriptCommandQueue queue;
+        lyra::MemoryArena arena(16 * 1024);
+        lyra::ScriptContext ctx(nullptr, &queue, &arena, raw_input, &manager, 0.016f, 1.0f);
+        CHECK_EQ(ctx.raw_input(), raw_input);
+        CHECK_EQ(ctx.input(), &manager);
+        CHECK(ctx.is_action_down(lyra::InputAction::JUMP));
+        CHECK(ctx.is_action_down(lyra::InputAction::MOVE_UP));
+        CHECK_EQ(ctx.get_axis(lyra::InputAxis::ELEVATION), doctest::Approx(1.0f));
+    }
+
+    SUBCASE("clearing bindings and custom configuration")
+    {
+        MockInputLayout mock{};
+        auto* raw_input = reinterpret_cast<const lyra::WindowInput*>(&mock);
+        mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::W)] = lyra::ButtonState::ON;
+
+        // with default bindings, W triggers MOVE_FORWARD and MOVE axis (0, 1)
+        manager.update(raw_input, 0.016f);
+        CHECK(manager.is_action_down(lyra::InputAction::MOVE_FORWARD));
+        CHECK_EQ(manager.get_axis_2d(lyra::InputAxis2D::MOVE).y, doctest::Approx(1.0f));
+
+        // clear all bindings
+        manager.clear_all_bindings();
+        manager.update(raw_input, 0.016f);
+        CHECK(!manager.is_action_down(lyra::InputAction::MOVE_FORWARD));
+        CHECK_EQ(manager.get_axis_2d(lyra::InputAxis2D::MOVE), lyra::Vector2(0.0f));
+
+        // rebind custom action: I for MOVE_FORWARD
+        manager.bind_action(lyra::InputAction::MOVE_FORWARD, lyra::DeviceButton::key(lyra::KeyButton::I));
+        mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::I)] = lyra::ButtonState::ON;
+        manager.update(raw_input, 0.016f);
+        CHECK(manager.is_action_down(lyra::InputAction::MOVE_FORWARD));
+
+        // test reset back to default
+        manager.set_default_bindings();
+        manager.update(raw_input, 0.016f);
+        CHECK(manager.is_action_down(lyra::InputAction::MOVE_FORWARD));
+    }
 }
 

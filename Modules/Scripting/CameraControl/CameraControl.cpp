@@ -15,9 +15,9 @@ using namespace lyra;
 [[lyra::system(UPDATE, group = "CameraControl", run_in_editor)]]
 void update_fly_camera(ScriptContext& ctx, FlyCamera& camera, TransformLocal& transform)
 {
-    // mouse look while right or left mouse button is held
-    if (ctx.is_mouse_down(MouseButton::RIGHT) || ctx.is_mouse_down(MouseButton::LEFT)) {
-        Vector2 delta = ctx.mouse_delta();
+    // mouse look while look action is active
+    if (ctx.is_action_down(InputAction::LOOK_ACTIVATE)) {
+        Vector2 delta = ctx.get_axis_2d(InputAxis2D::LOOK);
         camera.target_yaw -= delta.x * camera.look_sensitivity;
         camera.target_pitch -= delta.y * camera.look_sensitivity;
         camera.target_pitch = std::clamp(camera.target_pitch, -89.0f, 89.0f);
@@ -43,18 +43,15 @@ void update_fly_camera(ScriptContext& ctx, FlyCamera& camera, TransformLocal& tr
     Vector3 right   = transform.rotation * glm::vec3(1.0f, 0.0f, 0.0f);
     Vector3 up      = Vector3(0.0f, 1.0f, 0.0f);
 
-    Vector3 move_dir(0.0f);
-    if (ctx.is_key_down(KeyButton::W)) move_dir += forward;
-    if (ctx.is_key_down(KeyButton::S)) move_dir -= forward;
-    if (ctx.is_key_down(KeyButton::D)) move_dir += right;
-    if (ctx.is_key_down(KeyButton::A)) move_dir -= right;
-    if (ctx.is_key_down(KeyButton::SPACE) || ctx.is_key_down(KeyButton::E)) move_dir += up;
-    if (ctx.is_key_down(KeyButton::CTRL) || ctx.is_key_down(KeyButton::Q)) move_dir -= up;
+    Vector2 move_2d  = ctx.get_axis_2d(InputAxis2D::MOVE);
+    Vector3 move_dir = forward * move_2d.y + right * move_2d.x + up * ctx.get_axis(InputAxis::ELEVATION);
 
     Vector3 target_vel(0.0f);
     if (glm::dot(move_dir, move_dir) > 0.0001f) {
         float speed = camera.move_speed;
-        if (ctx.is_key_down(KeyButton::SHIFT)) speed *= camera.boost_multiplier;
+        if (ctx.is_action_down(InputAction::SPRINT)) {
+            speed *= camera.boost_multiplier;
+        }
         target_vel = glm::normalize(move_dir) * speed;
     }
 
@@ -81,10 +78,10 @@ void update_fly_camera(ScriptContext& ctx, FlyCamera& camera, TransformLocal& tr
 void update_orbit_camera(ScriptContext& ctx, OrbitCamera& camera, TransformLocal& transform)
 {
     // mouse drag to orbit around target
-    if (ctx.is_mouse_down(MouseButton::RIGHT) || ctx.is_mouse_down(MouseButton::LEFT) || ctx.is_mouse_down(MouseButton::MIDDLE)) {
-        Vector2 delta = ctx.mouse_delta();
+    if (ctx.is_action_down(InputAction::LOOK_ACTIVATE)) {
+        Vector2 delta = ctx.get_axis_2d(InputAxis2D::LOOK);
         camera.target_yaw -= delta.x * camera.look_sensitivity;
-        camera.target_pitch += delta.y * camera.look_sensitivity;
+        camera.target_pitch -= delta.y * camera.look_sensitivity;
         camera.target_pitch = std::clamp(camera.target_pitch, -89.0f, 89.0f);
     }
 
@@ -94,9 +91,9 @@ void update_orbit_camera(ScriptContext& ctx, OrbitCamera& camera, TransformLocal
     }
 
     // mouse scroll wheel zoom
-    Vector2 scroll = ctx.mouse_scroll();
-    if (std::abs(scroll.y) > 0.0001f) {
-        camera.distance -= scroll.y * camera.zoom_speed;
+    float zoom_delta = ctx.get_axis(InputAxis::ZOOM);
+    if (std::abs(zoom_delta) > 0.0001f) {
+        camera.distance -= zoom_delta * camera.zoom_speed;
         camera.distance = std::clamp(camera.distance, camera.min_distance, camera.max_distance);
     }
 

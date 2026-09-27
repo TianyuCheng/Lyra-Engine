@@ -200,6 +200,13 @@ int main(int argc, const char* argv[])
         return std::move(layer);
     });
 
+    // input layer
+    auto input = lyra::execute([&]() {
+        auto layer = std::make_unique<InputLayer>();
+        app->bind(*layer);
+        return std::move(layer);
+    });
+
     // render layer (owns GPU deletion queue + camera ECS systems)
     auto render = lyra::execute([&]() {
         auto layer = std::make_unique<RenderLayer>();

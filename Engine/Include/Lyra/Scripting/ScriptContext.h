@@ -14,10 +14,12 @@
 #include <Lyra/Scripting/ScriptCommandQueue.h>
 
 #include <Lyra/Windowing/WSIEnums.h>
+#include <Lyra/Runtime/InputEnums.h>
 
 namespace lyra
 {
     struct WindowInput;
+    struct InputManager;
     struct AppContext;
     struct ScriptLayer;
 
@@ -80,7 +82,7 @@ namespace lyra
     {
     public:
         explicit ScriptContext(AppContext& context, ScriptLayer& layer);
-        explicit ScriptContext(World* world = nullptr, ScriptCommandQueue* queue = nullptr, MemoryArena* scratch = nullptr, float dt = 0.0f, float time = 0.0f, const WindowInput* input = nullptr);
+        explicit ScriptContext(World* world, ScriptCommandQueue* queue, MemoryArena* scratch, const WindowInput* input, const InputManager* input_mgr, float dt = 0.0f, float time = 0.0f);
 
         FORCE_INLINE bool has_world() const { return world != nullptr; }
 
@@ -92,7 +94,8 @@ namespace lyra
         FORCE_INLINE auto scratch() -> MemoryArena& { return *scratch_arena; }
 
         // Frame input facade
-        FORCE_INLINE auto input() const -> const WindowInput* { return input_state; }
+        FORCE_INLINE auto raw_input() const -> const WindowInput* { return input_state; }
+        FORCE_INLINE auto input() const -> const InputManager* { return input_manager; }
 
         bool is_key_down(KeyButton key) const;
         bool is_key_pressed(KeyButton key) const;
@@ -105,30 +108,34 @@ namespace lyra
         auto mouse_delta() const -> Vector2;
         auto mouse_scroll() const -> Vector2;
 
+        // Action & axis facade
+        bool is_action_down(InputAction action) const;
+        bool is_action_pressed(InputAction action) const;
+        bool is_action_released(InputAction action) const;
+
+        float   get_axis(InputAxis axis) const;
+        Vector2 get_axis_2d(InputAxis2D axis) const;
+
         // Deferred entity commands
         FORCE_INLINE void destroy(SceneNode node)
         {
-            if (!cmd_queue) return;
             cmd_queue->destroy(node);
         }
 
         FORCE_INLINE void create(Function<void(SceneNode)> on_created = {})
         {
-            if (!cmd_queue) return;
             cmd_queue->create(std::move(on_created));
         }
 
         template <typename T, typename... Args>
         FORCE_INLINE void add_component(SceneNode node, Args&&... args)
         {
-            if (!cmd_queue) return;
             cmd_queue->add_component<T>(node, std::forward<Args>(args)...);
         }
 
         template <typename T>
         FORCE_INLINE void remove_component(SceneNode node)
         {
-            if (!cmd_queue) return;
             cmd_queue->remove_component<T>(node);
         }
 
@@ -220,6 +227,7 @@ namespace lyra
         ScriptCommandQueue* cmd_queue     = nullptr;
         MemoryArena*        scratch_arena = nullptr;
         const WindowInput*  input_state   = nullptr;
+        const InputManager* input_manager = nullptr;
         float               delta_time    = 0.0f;
         float               total_time    = 0.0f;
     };

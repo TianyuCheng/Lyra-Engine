@@ -133,6 +133,7 @@ target_sources(lyra-engine PRIVATE
   Runtime/RenderLayer.cpp
   Runtime/TimingLayer.cpp
   Runtime/UILayer.cpp
+  Runtime/InputLayer.cpp
   Runtime/ScriptLayer.cpp
 
   # scripting
