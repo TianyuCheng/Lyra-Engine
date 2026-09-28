@@ -6,84 +6,94 @@
 using namespace lyra;
 using namespace lyra::ui;
 
-namespace
+static void begin_property_row(CString label)
 {
-    void begin_property_row(CString label)
-    {
-        if (GImGui->CurrentTable != nullptr) {
-            ImGui::TableNextRow();
-            ImGui::TableNextColumn();
-            ImGui::AlignTextToFramePadding();
-            ImGui::TextUnformatted(label);
+    if (GImGui->CurrentTable != nullptr) {
+        ImGui::TableNextRow();
+        ImGui::TableNextColumn();
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted(label);
 
-            ImGui::TableNextColumn();
-            ImGui::SetNextItemWidth(-1.0f);
-        } else {
-            ImGui::AlignTextToFramePadding();
-            ImGui::TextUnformatted(label);
-            ImGui::SameLine();
+        ImGui::TableNextColumn();
+        ImGui::SetNextItemWidth(-1.0f);
+    } else {
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted(label);
+        ImGui::SameLine();
+    }
+}
+
+static bool draw_vec_row_internal(CString label, float* values, int count, const VectorConfig& config)
+{
+    bool changed = false;
+    ImGui::PushID(label);
+
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{0, 0});
+
+    float  line_height = ImGui::GetFontSize() + ImGui::GetStyle().FramePadding.y * 2.0f;
+    ImVec2 button_size = {line_height + 3.0f, line_height};
+    float  width       = ImGui::GetContentRegionAvail().x;
+    float  item_width  = (width - static_cast<float>(count - 1) * ImGui::GetStyle().ItemSpacing.x) / static_cast<float>(count);
+
+    const char*  axis_names[] = {"X", "Y", "Z", "W"};
+    const ImVec4 colors[]     = {
+        ImVec4(0.8f, 0.12f, 0.15f, 1.0f),  // Red
+        ImVec4(0.18f, 0.65f, 0.18f, 1.0f), // Green
+        ImVec4(0.15f, 0.35f, 0.85f, 1.0f), // Blue
+        ImVec4(0.5f, 0.5f, 0.5f, 1.0f)     // Gray
+    };
+
+    for (int i = 0; i < count; ++i) {
+        if (i > 0) {
+            ImGui::SameLine(0, ImGui::GetStyle().ItemSpacing.x);
+        }
+
+        ImGui::PushStyleColor(ImGuiCol_Button, colors[i]);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(colors[i].x * 1.15f, colors[i].y * 1.15f, colors[i].z * 1.15f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(colors[i].x * 0.85f, colors[i].y * 0.85f, colors[i].z * 0.85f, 1.0f));
+
+        if (ImGui::Button(axis_names[i], button_size)) {
+            values[i] = config.reset;
+            changed   = true;
+        }
+        ImGui::PopStyleColor(3);
+
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(item_width - button_size.x);
+
+        char id_buf[16];
+        snprintf(id_buf, sizeof(id_buf), "##%s_%d", axis_names[i], i);
+        if (ImGui::DragFloat(id_buf, &values[i], config.speed, config.min, config.max, "%.2f")) {
+            changed = true;
         }
     }
 
-    bool draw_vec_row_internal(CString label, float* values, int count, const VecConfig& config)
-    {
-        bool changed = false;
-        ImGui::PushID(label);
+    ImGui::PopStyleVar();
+    ImGui::PopID();
+    return changed;
+}
 
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{0, 0});
-
-        float line_height = ImGui::GetFontSize() + ImGui::GetStyle().FramePadding.y * 2.0f;
-        ImVec2 button_size = {line_height + 3.0f, line_height};
-        float width = ImGui::GetContentRegionAvail().x;
-        float item_width = (width - static_cast<float>(count - 1) * ImGui::GetStyle().ItemSpacing.x) / static_cast<float>(count);
-
-        const char* axis_names[] = {"X", "Y", "Z", "W"};
-        const ImVec4 colors[] = {
-            ImVec4(0.8f, 0.12f, 0.15f, 1.0f),  // Red
-            ImVec4(0.18f, 0.65f, 0.18f, 1.0f),  // Green
-            ImVec4(0.15f, 0.35f, 0.85f, 1.0f),  // Blue
-            ImVec4(0.5f, 0.5f, 0.5f, 1.0f)      // Gray
-        };
-
-        for (int i = 0; i < count; ++i) {
-            if (i > 0) {
-                ImGui::SameLine(0, ImGui::GetStyle().ItemSpacing.x);
-            }
-
-            ImGui::PushStyleColor(ImGuiCol_Button, colors[i]);
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(colors[i].x * 1.15f, colors[i].y * 1.15f, colors[i].z * 1.15f, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(colors[i].x * 0.85f, colors[i].y * 0.85f, colors[i].z * 0.85f, 1.0f));
-
-            if (ImGui::Button(axis_names[i], button_size)) {
-                values[i] = config.reset;
-                changed   = true;
-            }
-            ImGui::PopStyleColor(3);
-
-            ImGui::SameLine();
-            ImGui::SetNextItemWidth(item_width - button_size.x);
-
-            char id_buf[16];
-            snprintf(id_buf, sizeof(id_buf), "##%s_%d", axis_names[i], i);
-            if (ImGui::DragFloat(id_buf, &values[i], config.speed, config.min, config.max, "%.2f")) {
-                changed = true;
-            }
-        }
-
-        ImGui::PopStyleVar();
-        ImGui::PopID();
-        return changed;
-    }
-} // namespace
+static ImGuiColorEditFlags to_imgui_color_flags(const ColorConfig& config)
+{
+    ImGuiColorEditFlags flags = ImGuiColorEditFlags_None;
+    if (config.hdr) flags |= ImGuiColorEditFlags_HDR | ImGuiColorEditFlags_Float;
+    if (!config.alpha) flags |= ImGuiColorEditFlags_NoAlpha;
+    if (config.wheel)
+        flags |= ImGuiColorEditFlags_PickerHueWheel;
+    else
+        flags |= ImGuiColorEditFlags_PickerHueBar;
+    if (!config.inputs) flags |= ImGuiColorEditFlags_NoInputs;
+    return flags;
+}
 
 void lyra::ui::section(CString title, CString icon, ActionRef content)
 {
     ImGui::PushID(title);
-    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DefaultOpen 
-                             | ImGuiTreeNodeFlags_Framed 
-                             | ImGuiTreeNodeFlags_SpanAvailWidth 
-                             | ImGuiTreeNodeFlags_AllowItemOverlap 
-                             | ImGuiTreeNodeFlags_FramePadding;
+    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DefaultOpen |
+                               ImGuiTreeNodeFlags_Framed |
+                               ImGuiTreeNodeFlags_SpanAvailWidth |
+                               ImGuiTreeNodeFlags_AllowItemOverlap |
+                               ImGuiTreeNodeFlags_FramePadding;
     ImGui::Spacing();
     char header_buf[128];
     snprintf(header_buf, sizeof(header_buf), "%s %s", icon, title);
@@ -176,30 +186,66 @@ void lyra::ui::integer(CString label, int& value, ActionRef on_change, int speed
     }
 }
 
-void lyra::ui::color(CString label, Vector3& rgb)
+void lyra::ui::color(CString label, Vector3& rgb, const ColorConfig& config)
 {
     begin_property_row(label);
-    ImGui::ColorEdit3((String("##") + label).c_str(), &rgb.x);
+    ImGuiColorEditFlags flags = to_imgui_color_flags(config) | ImGuiColorEditFlags_NoAlpha;
+    ImGui::ColorEdit3((String("##") + label).c_str(), &rgb.x, flags);
 }
 
-void lyra::ui::color(CString label, Vector3& rgb, ActionRef on_change)
+void lyra::ui::color(CString label, Vector3& rgb, ActionRef on_change, const ColorConfig& config)
 {
     begin_property_row(label);
-    if (ImGui::ColorEdit3((String("##") + label).c_str(), &rgb.x)) {
+    ImGuiColorEditFlags flags = to_imgui_color_flags(config) | ImGuiColorEditFlags_NoAlpha;
+    if (ImGui::ColorEdit3((String("##") + label).c_str(), &rgb.x, flags)) {
         on_change();
     }
 }
 
-void lyra::ui::color(CString label, Vector4& rgba)
+void lyra::ui::color(CString label, Vector4& rgba, const ColorConfig& config)
 {
     begin_property_row(label);
-    ImGui::ColorEdit4((String("##") + label).c_str(), &rgba.x);
+    ImGuiColorEditFlags flags = to_imgui_color_flags(config);
+    ImGui::ColorEdit4((String("##") + label).c_str(), &rgba.x, flags);
 }
 
-void lyra::ui::color(CString label, Vector4& rgba, ActionRef on_change)
+void lyra::ui::color(CString label, Vector4& rgba, ActionRef on_change, const ColorConfig& config)
 {
     begin_property_row(label);
-    if (ImGui::ColorEdit4((String("##") + label).c_str(), &rgba.x)) {
+    ImGuiColorEditFlags flags = to_imgui_color_flags(config);
+    if (ImGui::ColorEdit4((String("##") + label).c_str(), &rgba.x, flags)) {
+        on_change();
+    }
+}
+
+void lyra::ui::color_picker(CString label, Vector3& rgb, const ColorConfig& config)
+{
+    begin_property_row(label);
+    ImGuiColorEditFlags flags = to_imgui_color_flags(config) | ImGuiColorEditFlags_NoAlpha;
+    ImGui::ColorPicker3((String("##") + label).c_str(), &rgb.x, flags);
+}
+
+void lyra::ui::color_picker(CString label, Vector3& rgb, ActionRef on_change, const ColorConfig& config)
+{
+    begin_property_row(label);
+    ImGuiColorEditFlags flags = to_imgui_color_flags(config) | ImGuiColorEditFlags_NoAlpha;
+    if (ImGui::ColorPicker3((String("##") + label).c_str(), &rgb.x, flags)) {
+        on_change();
+    }
+}
+
+void lyra::ui::color_picker(CString label, Vector4& rgba, const ColorConfig& config)
+{
+    begin_property_row(label);
+    ImGuiColorEditFlags flags = to_imgui_color_flags(config);
+    ImGui::ColorPicker4((String("##") + label).c_str(), &rgba.x, flags);
+}
+
+void lyra::ui::color_picker(CString label, Vector4& rgba, ActionRef on_change, const ColorConfig& config)
+{
+    begin_property_row(label);
+    ImGuiColorEditFlags flags = to_imgui_color_flags(config);
+    if (ImGui::ColorPicker4((String("##") + label).c_str(), &rgba.x, flags)) {
         on_change();
     }
 }
@@ -229,5 +275,23 @@ void lyra::ui::text(CString label, char* buffer, size_t buffer_size, ActionRef o
     begin_property_row(label);
     if (ImGui::InputText((String("##") + label).c_str(), buffer, buffer_size, ImGuiInputTextFlags_EnterReturnsTrue)) {
         on_commit();
+    }
+}
+
+void lyra::ui::dropdown(CString label, CString current_item, const CString* items, size_t count, ChangeRef<size_t> on_select)
+{
+    begin_property_row(label);
+    String label_id = String("##") + label;
+    if (ImGui::BeginCombo(label_id.c_str(), current_item ? current_item : "")) {
+        for (size_t i = 0; i < count; ++i) {
+            bool is_selected = (current_item && items[i] && std::strcmp(current_item, items[i]) == 0);
+            if (ImGui::Selectable(items[i], is_selected)) {
+                on_select(i);
+            }
+            if (is_selected) {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndCombo();
     }
 }

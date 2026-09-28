@@ -3,6 +3,7 @@
 #include <Lyra/Scene/Light.h>
 #include <Lyra/Scene/SceneNode.h>
 #include <Lyra/Scene/Transform.h>
+#include <Lyra/Scripting/ScriptQuery.h>
 #include <Lyra/Runtime/ScriptLayer.h>
 #include <Lyra/UISystem/Widgets/UI.h>
 #include <Lyra/UISystem/Widgets/UILayout.h>
@@ -31,6 +32,56 @@ namespace
                 });
             });
         }
+    }
+
+    void draw_related_system_item(ScriptLayer& scripting, const RelatedSystem& item)
+    {
+        const auto& sys        = *item.descriptor;
+        ScriptID    id         = hash_script_name(sys.name);
+        bool        is_enabled = scripting.is_script_enabled(id);
+
+        ui::row([&]() {
+            ui::checkbox(sys.name, is_enabled, [&](const bool& val) {
+                scripting.set_script_enabled(id, val);
+            });
+
+            switch (sys.stage) {
+                case AppEvent::UPDATE_PRE:
+                    ui::badge("PRE_UPDATE", ui::StatusRole::Info);
+                    break;
+                case AppEvent::UPDATE:
+                    ui::badge("UPDATE", ui::StatusRole::Success);
+                    break;
+                case AppEvent::UPDATE_POST:
+                    ui::badge("POST_UPDATE", ui::StatusRole::Warning);
+                    break;
+                default:
+                    break;
+            }
+        });
+
+        if (!item.access_summary.empty()) {
+            ui::label(item.access_summary.c_str(), ui::StatusRole::Muted);
+        }
+    }
+
+    void draw_related_systems(ScriptLayer& scripting, World& world, SceneNode node)
+    {
+        auto matched_systems = find_related_systems(scripting, world, node);
+
+        ui::section("Related Systems", LYRA_ICON_SYSTEM, [&]() {
+            if (matched_systems.empty()) {
+                ui::label("No active systems for this entity", ui::StatusRole::Muted);
+                return;
+            }
+
+            for (size_t i = 0; i < matched_systems.size(); ++i) {
+                if (i > 0) {
+                    ui::separator();
+                }
+                draw_related_system_item(scripting, matched_systems[i]);
+            }
+        });
     }
 } // namespace
 
@@ -87,7 +138,7 @@ void InspectorView::draw_inspector(AppContext& context, World& world, SceneNode 
     }
 
     // components
-    draw_component<TransformLocal>("Transform", LYRA_ICON_NODE, world, node, [&](TransformLocal& transform) {
+    draw_component<TransformLocal>("Transform", LYRA_ICON_TRANSFORM, world, node, [&](TransformLocal& transform) {
         ui::vec3("Position", transform.position, [&]() {
             transform.flags.set(TransformFlag::LOCAL_DIRTY);
         });
@@ -98,7 +149,7 @@ void InspectorView::draw_inspector(AppContext& context, World& world, SceneNode 
             transform.flags.set(TransformFlag::LOCAL_DIRTY);
         });
 
-        ui::VecConfig scale_config;
+        ui::VectorConfig scale_config;
         scale_config.speed = 0.1f;
         scale_config.min   = 0.0f;
         scale_config.max   = 0.0f;
@@ -111,67 +162,15 @@ void InspectorView::draw_inspector(AppContext& context, World& world, SceneNode 
     // reflected components
     if (auto scripting = context.toolboard.try_get<ScriptLayer*>()) {
         for (const auto& comp : scripting->get_components()) {
+            if (StringView(comp.name) == "TransformLocal") {
+                continue; // transform is drawn directly above with dirty flag handling
+            }
             if (comp.has_component && comp.has_component(world, node)) {
                 comp.draw_inspector(world, node);
             }
         }
+
+        // related systems
+        draw_related_systems(*scripting, world, node);
     }
-
-    draw_component<PointLight>("Point Light", LYRA_ICON_NODE, world, node, [&](PointLight& light) {
-        ui::vec3("Position", light.position);
-        ui::color("Color", light.color);
-
-        ui::ScalarConfig intensity_cfg;
-        intensity_cfg.speed = 1.0f;
-        intensity_cfg.min   = 0.0f;
-        intensity_cfg.max   = 100000.0f;
-        ui::number("Intensity", light.intensity, intensity_cfg);
-
-        ui::ScalarConfig falloff_cfg;
-        falloff_cfg.speed = 0.1f;
-        falloff_cfg.min   = 0.0f;
-        falloff_cfg.max   = 100.0f;
-        ui::number("Falloff", light.falloff, falloff_cfg);
-    });
-
-    draw_component<SpotLight>("Spot Light", LYRA_ICON_NODE, world, node, [&](SpotLight& light) {
-        ui::vec3("Position", light.position);
-        ui::vec3("Direction", light.direction);
-        ui::color("Color", light.color);
-
-        ui::ScalarConfig intensity_cfg;
-        intensity_cfg.speed = 1.0f;
-        intensity_cfg.min   = 0.0f;
-        intensity_cfg.max   = 100000.0f;
-        ui::number("Intensity", light.intensity, intensity_cfg);
-
-        ui::ScalarConfig falloff_cfg;
-        falloff_cfg.speed = 0.1f;
-        falloff_cfg.min   = 0.0f;
-        falloff_cfg.max   = 100.0f;
-        ui::number("Falloff", light.falloff, falloff_cfg);
-
-        ui::ScalarConfig angle_in;
-        angle_in.speed = 0.1f;
-        angle_in.min   = 0.0f;
-        angle_in.max   = 90.0f;
-        ui::number("Inner Angle", light.angle.x, angle_in);
-
-        ui::ScalarConfig angle_out;
-        angle_out.speed = 0.1f;
-        angle_out.min   = 0.0f;
-        angle_out.max   = 90.0f;
-        ui::number("Outer Angle", light.angle.y, angle_out);
-    });
-
-    draw_component<DirectionalLight>("Directional Light", LYRA_ICON_NODE, world, node, [&](DirectionalLight& light) {
-        ui::vec3("Direction", light.direction);
-        ui::color("Color", light.color);
-
-        ui::ScalarConfig intensity_cfg;
-        intensity_cfg.speed = 1.0f;
-        intensity_cfg.min   = 0.0f;
-        intensity_cfg.max   = 100000.0f;
-        ui::number("Intensity", light.intensity, intensity_cfg);
-    });
 }

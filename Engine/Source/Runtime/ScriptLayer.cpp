@@ -6,6 +6,7 @@ using namespace lyra;
 
 ScriptLayer::ScriptLayer() : scratch_arena(64 * 1024)
 {
+    // do nothing
 }
 
 void ScriptLayer::bind(Application& app)

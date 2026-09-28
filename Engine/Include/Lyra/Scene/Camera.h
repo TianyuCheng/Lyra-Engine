@@ -22,7 +22,7 @@ namespace lyra
      */
     struct [[lyra::component("Camera")]] Camera
     {
-        [[lyra::edit(toggle), lyra::label("Orthographic")]]
+        [[lyra::label("Projection")]]
         ProjectionType type = ProjectionType::PERSPECTIVE;
 
         [[lyra::range(1.0f, 179.0f), lyra::label("FOV"), lyra::condition("type == ProjectionType::PERSPECTIVE")]]

@@ -239,7 +239,11 @@ void Parser::parse_field(ComponentMeta& comp)
                    ends_with(field.type, "uint32_t") || ends_with(field.type, "int32_t")) {
             field.drawer = "number";
         } else if (ends_with(field.type, "Vector2") || ends_with(field.type, "Vector3") || ends_with(field.type, "Vector4")) {
-            field.drawer = "vector";
+            if (field.name == "color" || field.label == "Color") {
+                field.drawer = "color";
+            } else {
+                field.drawer = "vector";
+            }
         } else if (ends_with(field.type, "Quaternion")) {
             field.drawer = "euler";
             if (field.drawer_options.empty()) {

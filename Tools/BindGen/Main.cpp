@@ -109,7 +109,7 @@ int main(int argc, char* argv[])
         std::string content = read_file(p);
 
         // If an include-dir is provided, stage it as a public .h file with auto-generated module declaration
-        if ((p.extension() == ".hxx" || p.extension() == ".h") && !inc_dir.empty()) {
+        if (p.extension() == ".h" && !inc_dir.empty()) {
             fs::path staged_path = fs::path(inc_dir);
             if (!prefix.empty()) {
                 staged_path /= prefix;
@@ -122,7 +122,9 @@ int main(int argc, char* argv[])
                 is_same_file = true;
             }
 
-            if (!is_same_file) {
+            bool is_module_header = !p.is_absolute() && (p.stem().string() == module_name ||
+                                     to_lower_snake(p.stem().string()) == to_lower_snake(module_name));
+            if (!is_same_file && is_module_header) {
                 std::string staged_content = content;
                 std::string mod_ns = to_lower_snake(module_name);
                 staged_content += "\n// Auto-generated script plugin declaration\n";

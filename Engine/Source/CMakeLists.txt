@@ -142,6 +142,7 @@ target_sources(lyra-engine PRIVATE
   # scripting
   Scripting/ScriptCommandQueue.cpp
   Scripting/ScriptContext.cpp
+  Scripting/ScriptQuery.cpp
 )
 
 # link headers and common

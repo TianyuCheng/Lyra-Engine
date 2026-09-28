@@ -1,5 +1,6 @@
 #include <cctype>
 #include <sstream>
+#include <iostream>
 #include "Generator.h"
 
 using namespace lyra::reflect;
@@ -107,7 +108,11 @@ std::string Generator::generate(const ModuleReflection& module, const std::strin
     // Include original source headers
     ss << "// Annotated source headers\n";
     for (const auto& header : module.included_headers) {
-        ss << "#include \"" << header << "\"\n";
+        if (header == "Camera.h" || header == "Light.h" || header == "Transform.h") {
+            ss << "#include <Lyra/Scene/" << header << ">\n";
+        } else {
+            ss << "#include \"" << header << "\"\n";
+        }
     }
     ss << "\n";
     ss << "using namespace lyra;\n\n";
@@ -296,12 +301,7 @@ std::string Generator::generate(const ModuleReflection& module, const std::strin
 
             std::string label = field.label.empty() ? to_display_label(field.name) : field.label;
 
-            if (field.type == "ProjectionType" || field.drawer == "toggle") {
-                ss << indent << "bool is_ortho = (component." << field.name << " == ProjectionType::ORTHOGRAPHIC);\n";
-                ss << indent << "ui::toggle(\"" << label << "\", is_ortho, [&](const bool& val) {\n";
-                ss << indent << "    component." << field.name << " = val ? ProjectionType::ORTHOGRAPHIC : ProjectionType::PERSPECTIVE;\n";
-                ss << indent << "});\n";
-            } else if (ends_with(field.type, "bool")) {
+            if (ends_with(field.type, "bool") || field.drawer == "toggle") {
                 ss << indent << "ui::toggle(\"" << label << "\", component." << field.name << ");\n";
             } else if (ends_with(field.type, "float") || ends_with(field.type, "double")) {
                 std::string speed   = field.speed.empty() ? "0.1f" : field.speed;
@@ -324,11 +324,18 @@ std::string Generator::generate(const ModuleReflection& module, const std::strin
                 std::string max_v = field.max_val.empty() ? "0" : field.max_val;
                 ss << indent << "ui::integer(\"" << label << "\", (int&)component." << field.name << ", "
                    << speed << ", " << min_v << ", " << max_v << ");\n";
+            } else if (field.drawer == "color" || field.drawer == "color_picker" ||
+                       to_lower_snake(field.name) == "color" || ends_with(field.type, "Color") || to_lower_snake(label) == "color") {
+                if (field.drawer == "color_picker") {
+                    ss << indent << "ui::color_picker(\"" << label << "\", component." << field.name << ");\n";
+                } else {
+                    ss << indent << "ui::color(\"" << label << "\", component." << field.name << ");\n";
+                }
             } else if (ends_with(field.type, "Vector3")) {
                 std::string speed = field.speed.empty() ? "0.1f" : field.speed;
                 std::string min_v = field.min_val.empty() ? "0.0f" : field.min_val;
                 std::string max_v = field.max_val.empty() ? "0.0f" : field.max_val;
-                ss << indent << "ui::VecConfig " << field.name << "_cfg;\n";
+                ss << indent << "ui::VectorConfig " << field.name << "_cfg;\n";
                 ss << indent << field.name << "_cfg.speed = " << speed << ";\n";
                 ss << indent << field.name << "_cfg.min   = " << min_v << ";\n";
                 ss << indent << field.name << "_cfg.max   = " << max_v << ";\n";
@@ -340,7 +347,7 @@ std::string Generator::generate(const ModuleReflection& module, const std::strin
                 std::string speed = field.speed.empty() ? "0.1f" : field.speed;
                 std::string min_v = field.min_val.empty() ? "0.0f" : field.min_val;
                 std::string max_v = field.max_val.empty() ? "0.0f" : field.max_val;
-                ss << indent << "ui::VecConfig " << field.name << "_cfg;\n";
+                ss << indent << "ui::VectorConfig " << field.name << "_cfg;\n";
                 ss << indent << field.name << "_cfg.speed = " << speed << ";\n";
                 ss << indent << field.name << "_cfg.min   = " << min_v << ";\n";
                 ss << indent << field.name << "_cfg.max   = " << max_v << ";\n";
@@ -353,6 +360,8 @@ std::string Generator::generate(const ModuleReflection& module, const std::strin
                 ss << indent << "ui::vec3(\"" << label << "\", " << field.name << "_euler, [&]() {\n";
                 ss << indent << "    component." << field.name << " = Quaternion(glm::radians(" << field.name << "_euler));\n";
                 ss << indent << "});\n";
+            } else {
+                ss << indent << "ui::enumeration(\"" << label << "\", component." << field.name << ");\n";
             }
 
             if (!field.condition.empty()) {
