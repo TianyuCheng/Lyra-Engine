@@ -41,6 +41,14 @@ namespace lyra
         FORCE_INLINE auto view() { return registry.view<T...>(); }
 
         /**
+         * @brief Create a read-only view of entities having the specified components.
+         * @tparam T Types of components to include in the view.
+         * @return An EnTT view (const — never creates component pools).
+         */
+        template <typename... T>
+        FORCE_INLINE auto view() const { return registry.view<T...>(); }
+
+        /**
          * @brief Create a view for a specific node.
          * @tparam T Types of components.
          * @param node The scene node.
@@ -48,6 +56,15 @@ namespace lyra
          */
         template <typename... T>
         FORCE_INLINE auto view(const SceneNode node) { return registry.view<T...>(node.entity); }
+
+        /**
+         * @brief Create a read-only view for a specific node.
+         * @tparam T Types of components.
+         * @param node The scene node.
+         * @return An EnTT view (const — never creates component pools).
+         */
+        template <typename... T>
+        FORCE_INLINE auto view(const SceneNode node) const { return registry.view<T...>(node.entity); }
 
         /**
          * @brief Check if a node has any of the specified components.
