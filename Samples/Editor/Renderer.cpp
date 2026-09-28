@@ -187,6 +187,10 @@ void SampleCubeRenderer::bind(Application& app)
 
 void SampleCubeRenderer::render(const Backbuffer& backbuffer, AppContext& context, GPUCommandBuffer command)
 {
+    if (!backbuffer.texture.valid() || !depth_texture.handle.valid() || backbuffer.extent.width == 0 || backbuffer.extent.height == 0) {
+        return;
+    }
+
     // color attachments
     auto color_attachment        = GPURenderPassColorAttachment{};
     color_attachment.clear_value = GPUColor{0.12f, 0.12f, 0.14f, 1.0f};
@@ -234,16 +238,23 @@ void SampleCubeRenderer::init(AppContext& context)
 
     // initialize scene nodes
     if (auto world = context.toolboard.try_get<World>()) {
-        // create camera node looking down at the grid plane
-        camera_node = world->create("Main Camera");
-        world->translate(camera_node, {0.0f, 1.0f, 8.0f});
-        world->rotate(camera_node, {1.0f, 0.0f, 0.0f}, -20.0f);
-        world->add_component<Camera>(camera_node);
-        world->add_component<FlyCamera>(camera_node,
-            FlyCamera{
-                .pitch        = -20.0f,
-                .target_pitch = -20.0f,
-            });
+        auto view = world->registry.view<Camera>();
+        if (!view.empty()) {
+            camera_node = SceneNode(*view.begin());
+        } else {
+            camera_node = world->create("Main Camera");
+            world->translate(camera_node, {0.0f, 1.0f, 8.0f});
+            world->rotate(camera_node, {1.0f, 0.0f, 0.0f}, -20.0f);
+            world->add_component<Camera>(camera_node);
+        }
+
+        if (!world->registry.any_of<FlyCamera>(camera_node.entity)) {
+            world->add_component<FlyCamera>(camera_node,
+                FlyCamera{
+                    .pitch        = -20.0f,
+                    .target_pitch = -20.0f,
+                });
+        }
     }
 }
 
@@ -270,6 +281,27 @@ void SampleCubeRenderer::update(AppContext& context)
 
     // update all transforms in the hierarchy
     hierarchy->update();
+
+    // ensure camera_node is valid across scene loads and clears
+    if (camera_node.entity == entt::null || !world->registry.valid(camera_node.entity) || !world->registry.any_of<Camera>(camera_node.entity)) {
+        auto view = world->registry.view<Camera, TransformWorld>();
+        if (view.begin() != view.end()) {
+            camera_node = SceneNode(*view.begin());
+        } else {
+            camera_node = world->create("Main Camera");
+            world->translate(camera_node, {0.0f, 1.0f, 8.0f});
+            world->rotate(camera_node, {1.0f, 0.0f, 0.0f}, -20.0f);
+            world->add_component<Camera>(camera_node);
+        }
+
+        if (!world->registry.any_of<FlyCamera>(camera_node.entity)) {
+            world->add_component<FlyCamera>(camera_node,
+                FlyCamera{
+                    .pitch        = -20.0f,
+                    .target_pitch = -20.0f,
+                });
+        }
+    }
 
     // update camera uniform buffer
     auto backbuffer = scene->get_backbuffer();

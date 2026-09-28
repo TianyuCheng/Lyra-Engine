@@ -422,7 +422,48 @@ bool lyra::ui::is_item_visible()
 }
 
 // =============================================================================
-// 8. Canvas & 2D Custom Drawing
+// 8. Drag and Drop
+// =============================================================================
+
+bool lyra::ui::drag_drop_source(CString type, const void* data, size_t size)
+{
+    if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
+        ImGui::SetDragDropPayload(type, data, size);
+        if (data) {
+            ImGui::TextUnformatted(static_cast<const char*>(data));
+        }
+        ImGui::EndDragDropSource();
+        return true;
+    }
+    return false;
+}
+
+bool lyra::ui::drag_drop_source(CString type, const void* data, size_t size, ActionRef preview)
+{
+    if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
+        ImGui::SetDragDropPayload(type, data, size);
+        preview();
+        ImGui::EndDragDropSource();
+        return true;
+    }
+    return false;
+}
+
+bool lyra::ui::drag_drop_target(CString type, FunctionRef<void(const void* data, size_t size)> on_drop)
+{
+    if (ImGui::BeginDragDropTarget()) {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(type)) {
+            on_drop(payload->Data, static_cast<size_t>(payload->DataSize));
+            ImGui::EndDragDropTarget();
+            return true;
+        }
+        ImGui::EndDragDropTarget();
+    }
+    return false;
+}
+
+// =============================================================================
+// 9. Canvas & 2D Custom Drawing
 // =============================================================================
 
 static FORCE_INLINE auto to_imgui_color(Vector4 color) -> ImU32

@@ -23,13 +23,103 @@ static void render_scene(AppContext& context, GPUCommandBuffer command)
     }
 }
 
+static bool show_new_scene_modal = false;
+static bool open_new_scene_modal = false;
+static char new_scene_name[128]  = "Untitled";
+
 static void imgui_update(AppContext& context)
 {
+    auto* scene_mgr = context.toolboard.try_get<SceneManager>();
+
+    auto trigger_new_scene = [&]() {
+        if (scene_mgr && scene_mgr->is_dirty()) {
+            if (!ui::dialog::confirm("Unsaved Changes", "The active scene has unsaved changes. Discard and create a new scene?")) {
+                return;
+            }
+        }
+        strcpy_s(new_scene_name, sizeof(new_scene_name), "Untitled");
+        show_new_scene_modal = true;
+        open_new_scene_modal = true;
+    };
+
     ui::menubar([&]() {
-        ui::menu("Project", [&]() {
-            ui::menu_item("New", [&]() {});
-            ui::menu_item("Load", "Ctrl+O", [&]() {});
-            ui::menu_item("Save", "Ctrl+S", [&]() {});
+        ui::menu("Scene", [&]() {
+            ui::menu_item("New Scene", "Ctrl+N", [&]() {
+                trigger_new_scene();
+            });
+
+            ui::menu_item("Open Scene...", "Ctrl+O", [&]() {
+                if (scene_mgr) {
+                    if (scene_mgr->is_dirty()) {
+                        if (!ui::dialog::confirm("Unsaved Changes", "The active scene has unsaved changes. Discard and open scene?")) {
+                            return;
+                        }
+                    }
+                    ui::dialog::Options opts;
+                    opts.title = "Open Scene";
+                    opts.filters = {{"Lyra Scene (*.scene)", "*.scene"}};
+                    auto selected = ui::dialog::open_file(opts);
+                    if (selected.has_value()) {
+                        auto res = scene_mgr->load(*selected, LoadMode::SINGLE);
+                        if (res == INVALID_SCENE_INSTANCE) {
+                            ui::dialog::alert("Load Failed", "Failed to load scene:\n" + selected->filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
+                        }
+                    }
+                }
+            });
+
+            ui::menu_item("Save Scene", "Ctrl+S", [&]() {
+                if (scene_mgr) {
+                    if (!scene_mgr->get_active_path().empty()) {
+                        scene_mgr->save_active();
+                    } else {
+                        ui::dialog::Options opts;
+                        opts.title = "Save Scene As";
+                        opts.filters = {{"Lyra Scene (*.scene)", "*.scene"}};
+                        auto selected = ui::dialog::save_file(opts);
+                        if (selected.has_value()) {
+                            Path p = *selected;
+                            if (p.extension() != ".scene") {
+                                p += ".scene";
+                            }
+                            scene_mgr->save(p);
+                        }
+                    }
+                }
+            });
+
+            ui::menu_item("Save Scene As...", "Ctrl+Shift+S", [&]() {
+                if (scene_mgr) {
+                    ui::dialog::Options opts;
+                    opts.title = "Save Scene As";
+                    opts.filters = {{"Lyra Scene (*.scene)", "*.scene"}};
+                    auto selected = ui::dialog::save_file(opts);
+                    if (selected.has_value()) {
+                        Path p = *selected;
+                        if (p.extension() != ".scene") {
+                            p += ".scene";
+                        }
+                        scene_mgr->save(p);
+                    }
+                }
+            });
+
+            ui::separator();
+
+            ui::menu_item("Load Additive...", [&]() {
+                if (scene_mgr) {
+                    ui::dialog::Options opts;
+                    opts.title = "Load Scene Additive";
+                    opts.filters = {{"Lyra Scene (*.scene)", "*.scene"}};
+                    auto selected = ui::dialog::open_file(opts);
+                    if (selected.has_value()) {
+                        auto res = scene_mgr->load(*selected, LoadMode::ADDITIVE);
+                        if (res == INVALID_SCENE_INSTANCE) {
+                            ui::dialog::alert("Load Failed", "Failed to load scene additively:\n" + selected->filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
+                        }
+                    }
+                }
+            });
         });
 
         if (auto* ams = context.toolboard.try_get<AssetServer>()) {
@@ -50,6 +140,95 @@ static void imgui_update(AppContext& context)
             });
         }
     });
+
+    // keyboard shortcuts
+    if (!ui::is_text_input_active() && scene_mgr) {
+        bool ctrl  = ui::is_key_down(KeyButton::CTRL);
+        bool shift = ui::is_key_down(KeyButton::SHIFT);
+
+        if (ctrl && !shift && ui::is_key_pressed(KeyButton::N)) {
+            trigger_new_scene();
+        } else if (ctrl && !shift && ui::is_key_pressed(KeyButton::O)) {
+            if (scene_mgr->is_dirty()) {
+                if (!ui::dialog::confirm("Unsaved Changes", "The active scene has unsaved changes. Discard and open scene?")) {
+                    return;
+                }
+            }
+            ui::dialog::Options opts;
+            opts.title = "Open Scene";
+            opts.filters = {{"Lyra Scene (*.scene)", "*.scene"}};
+            auto selected = ui::dialog::open_file(opts);
+            if (selected.has_value()) {
+                auto res = scene_mgr->load(*selected, LoadMode::SINGLE);
+                if (res == INVALID_SCENE_INSTANCE) {
+                    ui::dialog::alert("Load Failed", "Failed to load scene:\n" + selected->filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
+                }
+            }
+        } else if (ctrl && !shift && ui::is_key_pressed(KeyButton::S)) {
+            if (!scene_mgr->get_active_path().empty()) {
+                scene_mgr->save_active();
+            } else {
+                ui::dialog::Options opts;
+                opts.title = "Save Scene As";
+                opts.filters = {{"Lyra Scene (*.scene)", "*.scene"}};
+                auto selected = ui::dialog::save_file(opts);
+                if (selected.has_value()) {
+                    Path p = *selected;
+                    if (p.extension() != ".scene") {
+                        p += ".scene";
+                    }
+                    scene_mgr->save(p);
+                }
+            }
+        } else if (ctrl && shift && ui::is_key_pressed(KeyButton::S)) {
+            ui::dialog::Options opts;
+            opts.title = "Save Scene As";
+            opts.filters = {{"Lyra Scene (*.scene)", "*.scene"}};
+            auto selected = ui::dialog::save_file(opts);
+            if (selected.has_value()) {
+                Path p = *selected;
+                if (p.extension() != ".scene") {
+                    p += ".scene";
+                }
+                scene_mgr->save(p);
+            }
+        }
+    }
+
+    if (open_new_scene_modal) {
+        ui::open_modal(LYRA_ICON_SCENE " New Scene");
+        open_new_scene_modal = false;
+    }
+
+    if (show_new_scene_modal) {
+        ui::modal(LYRA_ICON_SCENE " New Scene", &show_new_scene_modal, [&]() {
+            ui::label("Enter scene name:");
+            ui::text_field("##new_scene_name", new_scene_name, sizeof(new_scene_name), [&]() {
+                if (new_scene_name[0] != '\0' && scene_mgr) {
+                    scene_mgr->create(new_scene_name);
+                }
+                show_new_scene_modal = false;
+                ui::close_modal();
+            });
+
+            ui::separator();
+
+            ui::row(ui::Alignment::End, [&]() {
+                ui::button("Cancel", [&]() {
+                    show_new_scene_modal = false;
+                    ui::close_modal();
+                });
+
+                ui::button("Create", [&]() {
+                    if (new_scene_name[0] != '\0' && scene_mgr) {
+                        scene_mgr->create(new_scene_name);
+                    }
+                    show_new_scene_modal = false;
+                    ui::close_modal();
+                }, ui::ButtonRole::Primary);
+            });
+        });
+    }
 }
 
 static void imgui_render(AppContext& context)

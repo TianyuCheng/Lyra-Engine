@@ -64,6 +64,11 @@ static uint extract_scene_nodes(SceneAsset& scene, const tinyusdz::Prim& prim)
                 } catch (...) {
                 }
             }
+        } else if (prop_name == "lyra:camera") {
+            std::string s;
+            if (attr.get_value(&s) && s == "1") {
+                node.has_camera = true;
+            }
         }
     }
 
@@ -165,6 +170,8 @@ static bool save_scene_asset(const void* raw_asset, OSPath path)
             file << child_pad << "custom string lyra:mesh = \"" << std::to_string(node.mesh.guid) << "\"\n";
         if (node.material.valid())
             file << child_pad << "custom string lyra:material = \"" << std::to_string(node.material.guid) << "\"\n";
+        if (node.has_camera)
+            file << child_pad << "custom string lyra:camera = \"1\"\n";
         file << child_pad << "matrix4d xformOp:transform = ( ";
         for (int r = 0; r < 4; ++r) {
             file << "(";

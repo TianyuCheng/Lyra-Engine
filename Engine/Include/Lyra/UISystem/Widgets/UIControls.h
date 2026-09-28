@@ -20,6 +20,8 @@ namespace lyra::ui
     void icon_button(CString icon, ActionRef on_click, CString tooltip = nullptr, ButtonRole role = ButtonRole::Standard);
     void icon_button(CString icon, CString tooltip = nullptr, ButtonRole role = ButtonRole::Standard);
 
+    void invisible_button(CString id, Vector2 size);
+
     // =========================================================================
     // 2. Toggle Buttons (e.g. Play/Pause state, Log level filters T/D/I/W/E/C)
     // =========================================================================

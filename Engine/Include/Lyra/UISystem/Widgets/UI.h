@@ -104,7 +104,15 @@ namespace lyra::ui
     bool is_item_visible();
 
     // =========================================================================
-    // 8. Canvas & 2D Custom Drawing
+    // 8. Drag and Drop
+    // =========================================================================
+
+    bool drag_drop_source(CString type, const void* data, size_t size);
+    bool drag_drop_source(CString type, const void* data, size_t size, ActionRef preview);
+    bool drag_drop_target(CString type, FunctionRef<void(const void* data, size_t size)> on_drop);
+
+    // =========================================================================
+    // 9. Canvas & 2D Custom Drawing
     // =========================================================================
 
     // draw primitive shapes on the current panel draw list (screen coordinates)

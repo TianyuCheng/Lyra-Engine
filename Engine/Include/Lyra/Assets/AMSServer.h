@@ -270,6 +270,11 @@ namespace lyra
         AssetID get_guid(FSPath path) const;
 
         /**
+         * @brief Register or update an asset entry in the registry.
+         */
+        void register_asset_entry(AssetID guid, const Path& path, AssetTypeID type_id, const Vector<AssetID>& dependencies = {});
+
+        /**
          * @brief Preprocess asset into engine compatible format.
          */
         Future<AssetID> import_asset(const Path& path, bool force = false);

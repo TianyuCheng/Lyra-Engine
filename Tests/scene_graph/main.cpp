@@ -380,6 +380,44 @@ TEST_CASE("scn::scene_manager" * doctest::description("Scene Manager Lifecycle a
         }
         CHECK(found_child);
     }
+
+    SUBCASE("create, save, and load by path")
+    {
+        auto new_id = scene_manager.create("Level_Alpha");
+        CHECK_NE(new_id, lyra::INVALID_SCENE_INSTANCE);
+        CHECK_EQ(scene_manager.get_active_name(), "Level_Alpha");
+        CHECK(!scene_manager.is_dirty());
+
+        // add a node and mark dirty
+        auto root = scene_manager.get_active()->root;
+        auto child = world.create("ChildAlpha");
+        world.add_child(root, child);
+        scene_manager.set_dirty(true);
+        CHECK(scene_manager.is_dirty());
+
+        // save to path
+        auto save_path = env.temp_dir / "level_alpha.scene";
+        bool saved = scene_manager.save(save_path);
+        CHECK(saved);
+        CHECK(!scene_manager.is_dirty());
+        CHECK_EQ(scene_manager.get_active_path(), save_path);
+        CHECK(std::filesystem::exists(save_path));
+        CHECK(std::filesystem::exists(env.temp_dir / "level_alpha.scene.import"));
+
+        // save_active should also succeed now that it has a path
+        scene_manager.set_dirty(true);
+        CHECK(scene_manager.save_active());
+        CHECK(!scene_manager.is_dirty());
+
+        // clear and reload by path
+        scene_manager.clear();
+        CHECK_EQ(scene_manager.get_active(), nullptr);
+
+        auto loaded_id = scene_manager.load(save_path, lyra::LoadMode::SINGLE);
+        CHECK_NE(loaded_id, lyra::INVALID_SCENE_INSTANCE);
+        CHECK_EQ(scene_manager.get_active()->id, loaded_id);
+        CHECK(!scene_manager.is_dirty());
+    }
 }
 
 

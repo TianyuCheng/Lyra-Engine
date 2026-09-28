@@ -7,9 +7,9 @@
 #include <Lyra/Utilities/String.h>
 #include <Lyra/Utilities/Function.h>
 #include <Lyra/Utilities/Collections.h>
+#include <Lyra/Scene/Mesh.h>
 #include <Lyra/Scene/World.h>
 #include <Lyra/Scene/SceneTree.h>
-#include <Lyra/Scene/Mesh.h>
 #include <Lyra/Assets/AMSServer.h>
 #include <Lyra/Assets/Format/SceneAsset.h>
 #include <Lyra/Assets/Format/ModelAsset.h>
@@ -44,6 +44,7 @@ namespace lyra
         SceneInstanceID  id     = INVALID_SCENE_INSTANCE;
         SceneAssetHandle handle = {};
         String           name   = "";
+        Path             path   = {};
         SceneNode        root;
         bool             is_active = false;
     };
@@ -65,36 +66,43 @@ namespace lyra
         /**
          * @brief spawn a ModelAsset prefab into the world (returns root SceneNode).
          */
-        auto spawn(
-            ModelAssetHandle   model,
-            const SpawnParams& params = {}) -> SceneNode;
+        SceneNode spawn(ModelAssetHandle model, const SpawnParams& params = {});
 
         // --- scene / level lifecycle ---
 
         /**
+         * @brief create a new blank scene.
+         */
+        SceneInstanceID create(const String& name = "Untitled");
+
+        /**
          * @brief load and activate a scene (SINGLE or ADDITIVE).
          */
-        auto load(
-            SceneAssetHandle handle,
-            LoadMode         mode = LoadMode::SINGLE) -> SceneInstanceID;
+        SceneInstanceID load(SceneAssetHandle handle, LoadMode mode = LoadMode::SINGLE);
+        SceneInstanceID load(SceneAssetHandle handle, const SpawnParams& params, LoadMode mode = LoadMode::SINGLE);
+        SceneInstanceID load(const Path& path, LoadMode mode = LoadMode::SINGLE);
 
-        auto load(
-            SceneAssetHandle   handle,
-            const SpawnParams& params,
-            LoadMode           mode = LoadMode::SINGLE) -> SceneInstanceID;
-
+        /**
+         * @brief unload/clear the current scene
+         */
         bool unload(SceneInstanceID instance_id);
         void clear();
 
-        // --- serialization ---
+        // --- serialization & persistence ---
 
         auto serialize() const -> SceneAsset;
+        bool save(const Path& path);
+        bool save_active();
 
         // --- queries & updates ---
 
         auto get_active() const -> const SceneInstance*;
         auto get_active_name() const -> String;
+        auto get_active_path() const -> Path;
         auto get_instance(SceneInstanceID id) const -> const SceneInstance*;
+
+        bool is_dirty() const { return dirty; }
+        void set_dirty(bool is_dirty = true) { dirty = is_dirty; }
 
         void on_loaded(LoadedCallback cb) { loaded_callbacks.push_back(std::move(cb)); }
         void on_unloaded(UnloadedCallback cb) { unloaded_callbacks.push_back(std::move(cb)); }
@@ -119,6 +127,7 @@ namespace lyra
         HashMap<SceneInstanceID, SceneInstance> instances;
         Vector<LoadedCallback>                  loaded_callbacks;
         Vector<UnloadedCallback>                unloaded_callbacks;
+        bool                                    dirty = false;
     };
 
 } // namespace lyra

@@ -12,9 +12,11 @@ namespace lyra::ui
     // 'content' is invoked only when the item is expanded.
     bool tree_item(uint64_t id, CString icon, CString label, bool is_selected, ActionRef on_select);
     bool tree_item(uint64_t id, CString icon, CString label, bool is_selected, ActionRef on_select, ActionRef content);
+    bool tree_item(uint64_t id, CString icon, CString label, bool is_selected, ActionRef on_select, ActionRef on_header, ActionRef content);
 
     bool tree_item(CString id_str, CString icon, CString label, bool is_selected, ActionRef on_select);
     bool tree_item(CString id_str, CString icon, CString label, bool is_selected, ActionRef on_select, ActionRef content);
+    bool tree_item(CString id_str, CString icon, CString label, bool is_selected, ActionRef on_select, ActionRef on_header, ActionRef content);
 
     // terminal leaf node (non-expandable)
     void tree_leaf(uint64_t id, CString icon, CString label, bool is_selected, ActionRef on_select);

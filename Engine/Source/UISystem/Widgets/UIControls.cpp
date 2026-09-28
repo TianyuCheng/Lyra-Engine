@@ -124,6 +124,15 @@ void lyra::ui::icon_button(CString icon, CString tooltip, ButtonRole role)
     }
 }
 
+void lyra::ui::invisible_button(CString id, Vector2 size)
+{
+    if (size.x <= 0.0f || size.y <= 0.0f) {
+        return;
+    }
+    internal::advance_layout_item();
+    ImGui::InvisibleButton(id, ImVec2(size.x, size.y));
+}
+
 // =============================================================================
 // 2. Toggle Buttons
 // =============================================================================
@@ -363,6 +372,7 @@ namespace
         }
 
         ImGui::Button("##card_bg", ImVec2(size, size));
+        ImGuiID button_id = ImGui::GetItemID();
 
         if (on_double_click && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
             (*on_double_click)();
@@ -371,7 +381,7 @@ namespace
         }
 
         ImGui::PopStyleColor(is_selected ? 2 : 1);
-        return card_id;
+        return button_id;
     }
 
     void finish_card(const ImVec2& pos, float size, CString label, bool is_selected, ActionRef on_click, const ActionRef* on_double_click, ImGuiID card_id)
@@ -408,9 +418,11 @@ namespace
             (*on_double_click)();
         } else if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
             on_click();
+            GImGui->ActiveId = card_id;
         }
 
         GImGui->LastItemData.ID = card_id;
+        GImGui->LastItemData.StatusFlags |= ImGuiItemStatusFlags_HoveredRect;
     }
 
     void draw_card_icon(const ImVec2& pos, float size, CString icon, const Vector4& icon_color)

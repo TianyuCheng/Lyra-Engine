@@ -1,5 +1,6 @@
 #include "ViewportCanvas.h"
 #include <Lyra/UISystem/Widgets/UI.h>
+#include <Lyra/UISystem/Widgets/UIControls.h>
 
 using namespace lyra;
 
@@ -36,11 +37,18 @@ void ViewportCanvas::update(AppContext& context)
 
 const ViewportCanvasFrame& ViewportCanvas::get_frame() const
 {
+    static const ViewportCanvasFrame empty_frame{};
+    if (frames.empty()) {
+        return empty_frame;
+    }
     return frames.at(frame_index);
 }
 
 Backbuffer ViewportCanvas::get_backbuffer() const
 {
+    if (frames.empty()) {
+        return Backbuffer{};
+    }
     auto& frame = get_frame();
 
     Backbuffer backbuffer = {};
@@ -53,8 +61,14 @@ Backbuffer ViewportCanvas::get_backbuffer() const
 
 void ViewportCanvas::display() const
 {
+    if (frames.empty()) return;
     auto& frame = get_frame();
-    ui::image(frame.tex_id.texid, frame_extent);
+    if (frame_extent.x > 0.0f && frame_extent.y > 0.0f) {
+        Vector2 start_pos = ui::get_cursor_screen_pos();
+        ui::image(frame.tex_id.texid, frame_extent);
+        ui::set_cursor_screen_pos(start_pos);
+        ui::invisible_button("##viewport_canvas", frame_extent);
+    }
 }
 
 void ViewportCanvas::detect_window()

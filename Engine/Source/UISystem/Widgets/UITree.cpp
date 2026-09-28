@@ -6,9 +6,9 @@ using namespace lyra::ui;
 
 namespace
 {
-    bool draw_tree_item_internal(const void* id_ptr, CString icon, CString label, bool is_selected, ActionRef on_select, ActionRef* content)
+    bool draw_tree_item_internal(const void* id_ptr, CString icon, CString label, bool is_selected, ActionRef on_select, ActionRef* on_header, ActionRef* content)
     {
-        ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
+        ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_DefaultOpen;
         if (is_selected) {
             flags |= ImGuiTreeNodeFlags_Selected;
         }
@@ -20,6 +20,10 @@ namespace
 
         if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
             on_select();
+        }
+
+        if (on_header) {
+            (*on_header)();
         }
 
         if (is_open) {
@@ -35,30 +39,40 @@ namespace
 
 bool lyra::ui::tree_item(uint64_t id, CString icon, CString label, bool is_selected, ActionRef on_select)
 {
-    return draw_tree_item_internal(reinterpret_cast<const void*>(static_cast<uintptr_t>(id)), icon, label, is_selected, on_select, nullptr);
+    return draw_tree_item_internal(reinterpret_cast<const void*>(static_cast<uintptr_t>(id)), icon, label, is_selected, on_select, nullptr, nullptr);
 }
 
 bool lyra::ui::tree_item(uint64_t id, CString icon, CString label, bool is_selected, ActionRef on_select, ActionRef content)
 {
-    return draw_tree_item_internal(reinterpret_cast<const void*>(static_cast<uintptr_t>(id)), icon, label, is_selected, on_select, &content);
+    return draw_tree_item_internal(reinterpret_cast<const void*>(static_cast<uintptr_t>(id)), icon, label, is_selected, on_select, nullptr, &content);
+}
+
+bool lyra::ui::tree_item(uint64_t id, CString icon, CString label, bool is_selected, ActionRef on_select, ActionRef on_header, ActionRef content)
+{
+    return draw_tree_item_internal(reinterpret_cast<const void*>(static_cast<uintptr_t>(id)), icon, label, is_selected, on_select, &on_header, &content);
 }
 
 bool lyra::ui::tree_item(CString id_str, CString icon, CString label, bool is_selected, ActionRef on_select)
 {
-    return draw_tree_item_internal(reinterpret_cast<const void*>(id_str), icon, label, is_selected, on_select, nullptr);
+    return draw_tree_item_internal(reinterpret_cast<const void*>(id_str), icon, label, is_selected, on_select, nullptr, nullptr);
 }
 
 bool lyra::ui::tree_item(CString id_str, CString icon, CString label, bool is_selected, ActionRef on_select, ActionRef content)
 {
-    return draw_tree_item_internal(reinterpret_cast<const void*>(id_str), icon, label, is_selected, on_select, &content);
+    return draw_tree_item_internal(reinterpret_cast<const void*>(id_str), icon, label, is_selected, on_select, nullptr, &content);
+}
+
+bool lyra::ui::tree_item(CString id_str, CString icon, CString label, bool is_selected, ActionRef on_select, ActionRef on_header, ActionRef content)
+{
+    return draw_tree_item_internal(reinterpret_cast<const void*>(id_str), icon, label, is_selected, on_select, &on_header, &content);
 }
 
 void lyra::ui::tree_leaf(uint64_t id, CString icon, CString label, bool is_selected, ActionRef on_select)
 {
-    draw_tree_item_internal(reinterpret_cast<const void*>(static_cast<uintptr_t>(id)), icon, label, is_selected, on_select, nullptr);
+    draw_tree_item_internal(reinterpret_cast<const void*>(static_cast<uintptr_t>(id)), icon, label, is_selected, on_select, nullptr, nullptr);
 }
 
 void lyra::ui::tree_leaf(CString id_str, CString icon, CString label, bool is_selected, ActionRef on_select)
 {
-    draw_tree_item_internal(reinterpret_cast<const void*>(id_str), icon, label, is_selected, on_select, nullptr);
+    draw_tree_item_internal(reinterpret_cast<const void*>(id_str), icon, label, is_selected, on_select, nullptr, nullptr);
 }

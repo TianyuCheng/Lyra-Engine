@@ -1,11 +1,19 @@
+#include <thread>
+#include <chrono>
+#include <fstream>
+#include <Lyra/Utilities/GUID.h>
+#include <Lyra/JobSystem/Jobs.h>
+#include <Lyra/Assets/Format/SceneAsset.h>
 #include <Lyra/Scene/SceneManager.h>
 #include <Lyra/Scene/Mesh.h>
+#include <Lyra/Scene/Camera.h>
 
 using namespace lyra;
 
 SceneManager::SceneManager(World& world, SceneTree& hierarchy, AssetServer& ams)
     : world(world), hierarchy(hierarchy), ams(ams)
 {
+    // do nothing
 }
 
 SceneNode SceneManager::spawn(ModelAssetHandle model, const SpawnParams& params)
@@ -14,7 +22,15 @@ SceneNode SceneManager::spawn(ModelAssetHandle model, const SpawnParams& params)
         return SceneNode{};
     }
 
-    const auto* asset = ams.get_asset(model);
+    auto asset = ams.get_asset(model);
+    if (!asset) {
+        JobScheduler::wait_idle();
+        int timeout = 100;
+        while ((asset = ams.get_asset(model)) == nullptr && timeout-- > 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        }
+    }
+
     if (!asset) {
         return SceneNode{};
     }
@@ -70,9 +86,14 @@ SceneNode SceneManager::spawn_scene_internal(
             world.registry.emplace<Mesh>(entity, src_node.mesh, src_node.material);
         }
 
+        // attach camera component if present
+        if (src_node.has_camera || src_node.name == "Main Camera") {
+            world.registry.emplace_or_replace<Camera>(entity);
+        }
+
         // if this node references a model asset prefab, instantiate it as a child
         if (src_node.model.valid()) {
-            const auto* model_asset = ams.get_asset(src_node.model);
+            const auto model_asset = ams.get_asset(src_node.model);
             if (model_asset) {
                 SpawnParams sub_params;
                 sub_params.parent = created_nodes[i];
@@ -90,31 +111,78 @@ SceneNode SceneManager::spawn_scene_internal(
         }
     }
 
-    // attach root node to parent if specified
-    if (params.parent.entity != entt::null && scene.root < scene.nodes.size()) {
-        world.add_child(params.parent, created_nodes[scene.root]);
+    // attach root node to parent if specified, or active scene root
+    if (scene.root < scene.nodes.size()) {
+        if (params.parent.entity != entt::null) {
+            world.add_child(params.parent, created_nodes[scene.root]);
+        } else if (const auto active = get_active()) {
+            if (active->root.entity != entt::null && active->root.entity != created_nodes[scene.root].entity) {
+                world.add_child(active->root, created_nodes[scene.root]);
+            }
+        }
     }
+
+    dirty = true;
+
+    hierarchy.update();
 
     return (scene.root < scene.nodes.size()) ? created_nodes[scene.root] : SceneNode{};
 }
 
-SceneInstanceID SceneManager::load(
-    SceneAssetHandle handle,
-    LoadMode         mode)
+SceneInstanceID SceneManager::create(const String& name)
+{
+    clear();
+
+    Entity    root_entity = world.create(name);
+    SceneNode root_node(root_entity);
+
+    // default scene contains one "Main Camera"
+    Entity    cam_entity = world.create("Main Camera");
+    SceneNode cam_node(cam_entity);
+    world.translate(cam_node, {0.0f, 1.0f, 8.0f});
+    world.rotate(cam_node, {1.0f, 0.0f, 0.0f}, -20.0f);
+    world.add_component<Camera>(cam_node);
+    world.add_child(root_node, cam_node);
+
+    SceneInstanceID id = next_instance_id++;
+    SceneInstance   instance;
+    instance.id        = id;
+    instance.name      = name;
+    instance.root      = root_node;
+    instance.is_active = true;
+
+    instances[id]      = instance;
+    active_instance_id = id;
+    dirty              = false;
+
+    hierarchy.update();
+
+    for (auto& cb : loaded_callbacks) {
+        cb(id);
+    }
+
+    return id;
+}
+
+SceneInstanceID SceneManager::load(SceneAssetHandle handle, LoadMode mode)
 {
     return load(handle, SpawnParams{}, mode);
 }
 
-SceneInstanceID SceneManager::load(
-    SceneAssetHandle   handle,
-    const SpawnParams& params,
-    LoadMode           mode)
+SceneInstanceID SceneManager::load(SceneAssetHandle handle, const SpawnParams& params, LoadMode mode)
 {
     if (!handle.valid()) {
         return INVALID_SCENE_INSTANCE;
     }
 
-    const auto* asset = ams.get_asset(handle);
+    auto asset = ams.get_asset(handle);
+    if (!asset) {
+        JobScheduler::wait_idle();
+        int timeout = 100;
+        while ((asset = ams.get_asset(handle)) == nullptr && timeout-- > 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        }
+    }
     if (!asset) {
         return INVALID_SCENE_INSTANCE;
     }
@@ -147,8 +215,79 @@ SceneInstanceID SceneManager::load(
 
     instances[id] = instance;
 
+    hierarchy.update();
+
     for (auto& cb : loaded_callbacks) {
         cb(id);
+    }
+
+    return id;
+}
+
+SceneInstanceID SceneManager::load(const Path& path, LoadMode mode)
+{
+    if (!fs::exists(path)) {
+        return INVALID_SCENE_INSTANCE;
+    }
+
+    // check for .import file to read GUID
+    Path    import_path = path.string() + ".import";
+    AssetID guid        = 0;
+
+    if (fs::exists(import_path)) {
+        std::ifstream f(import_path);
+        if (f.is_open()) {
+            try {
+                JSON meta = JSON::parse(f);
+                if (meta.contains("guid")) {
+                    guid = meta["guid"].get<AssetID>();
+                }
+            } catch (...) {
+            }
+        }
+    }
+
+    if (guid == 0) {
+        guid = ams.get_guid(path.filename().string().c_str());
+    }
+
+    if (guid == 0) {
+        guid = random_guid();
+        JSON meta;
+        meta["guid"] = guid;
+        meta["type"] = to_string(SceneAsset::type);
+
+        std::ofstream f(import_path);
+        if (f.is_open()) {
+            f << meta.dump(4);
+            f.close();
+        }
+    }
+
+    ams.register_asset_entry(guid, path, SceneAsset::type);
+
+    SceneAssetHandle handle = ams.load_asset<SceneAsset>(guid);
+    if (!handle.valid()) {
+        return INVALID_SCENE_INSTANCE;
+    }
+
+    JobScheduler::wait_idle();
+
+    int timeout = 100;
+    while (ams.get_asset(handle) == nullptr && timeout-- > 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+
+    SceneInstanceID id = load(handle, mode);
+    if (id != INVALID_SCENE_INSTANCE) {
+        auto it = instances.find(id);
+        if (it != instances.end()) {
+            it->second.path = path;
+            it->second.name = path.stem().string();
+        }
+        if (mode == LoadMode::SINGLE) {
+            dirty = false;
+        }
     }
 
     return id;
@@ -185,7 +324,7 @@ void SceneManager::clear()
             continue;
         }
 
-        auto* parent = world.registry.try_get<Parent>(entity);
+        auto parent = world.registry.try_get<Parent>(entity);
         if (!parent || parent->node.entity == entt::null || !world.registry.valid(parent->node.entity)) {
             roots_to_destroy.push_back(entity);
         }
@@ -197,6 +336,8 @@ void SceneManager::clear()
 
     instances.clear();
     active_instance_id = INVALID_SCENE_INSTANCE;
+
+    hierarchy.update();
 }
 
 SceneAsset SceneManager::serialize() const
@@ -218,14 +359,14 @@ SceneAsset SceneManager::serialize() const
         SceneAsset::Node sn;
 
         // node name
-        if (auto* name_comp = world.registry.try_get<NodeName>(entity)) {
+        if (auto name_comp = world.registry.try_get<NodeName>(entity)) {
             sn.name = name_comp->name;
         } else {
             sn.name = "node_" + std::to_string(scene_node_idx);
         }
 
         // transform
-        if (auto* local = world.registry.try_get<TransformLocal>(entity)) {
+        if (auto local = world.registry.try_get<TransformLocal>(entity)) {
             Matrix4x4 scale       = glm::scale(Matrix4x4(1.0f), local->scale);
             Matrix4x4 rotation    = glm::mat4_cast(local->rotation);
             Matrix4x4 translation = glm::translate(Matrix4x4(1.0f), local->position);
@@ -233,9 +374,14 @@ SceneAsset SceneManager::serialize() const
         }
 
         // mesh component
-        if (auto* mesh_comp = world.registry.try_get<Mesh>(entity)) {
+        if (auto mesh_comp = world.registry.try_get<Mesh>(entity)) {
             sn.mesh     = mesh_comp->mesh;
             sn.material = mesh_comp->material;
+        }
+
+        // camera component
+        if (world.registry.any_of<Camera>(entity)) {
+            sn.has_camera = true;
         }
 
         scene.nodes.push_back(sn);
@@ -256,7 +402,7 @@ SceneAsset SceneManager::serialize() const
     if (hierarchy.size() > 0) {
         // use active instance root if available, otherwise first root
         SceneTree::NodeIndex root_tree_idx = SceneTree::INVALID_NODE;
-        const auto*          active        = get_active();
+        const auto           active        = get_active();
         if (active && active->root.entity != entt::null) {
             root_tree_idx = hierarchy.find_node(active->root.entity);
         }
@@ -274,6 +420,72 @@ SceneAsset SceneManager::serialize() const
     return scene;
 }
 
+bool SceneManager::save(const Path& path)
+{
+    SceneAsset scene = serialize();
+
+    if (path.has_parent_path()) {
+        std::error_code ec;
+        fs::create_directories(path.parent_path(), ec);
+    }
+
+    if (!ams.save_asset(scene, path.c_str())) {
+        return false;
+    }
+
+    // write or verify .import metadata next to the scene file
+    Path    import_path = path.string() + ".import";
+    AssetID guid        = 0;
+    if (fs::exists(import_path)) {
+        std::ifstream f(import_path);
+        if (f.is_open()) {
+            try {
+                JSON meta = JSON::parse(f);
+                if (meta.contains("guid")) {
+                    guid = meta["guid"].get<AssetID>();
+                }
+            } catch (...) {
+            }
+        }
+    }
+
+    if (guid == 0) {
+        guid = random_guid();
+        JSON meta;
+        meta["guid"] = guid;
+        meta["type"] = to_string(SceneAsset::type);
+
+        std::ofstream f(import_path);
+        if (f.is_open()) {
+            f << meta.dump(4);
+            f.close();
+        }
+    }
+
+    ams.register_asset_entry(guid, path, SceneAsset::type);
+
+    if (active_instance_id != INVALID_SCENE_INSTANCE) {
+        auto it = instances.find(active_instance_id);
+        if (it != instances.end()) {
+            it->second.path   = path;
+            it->second.name   = path.stem().string();
+            it->second.handle = SceneAssetHandle(guid);
+        }
+    }
+
+    dirty = false;
+    return true;
+}
+
+bool SceneManager::save_active()
+{
+    const auto active = get_active();
+    if (!active || active->path.empty()) {
+        return false;
+    }
+    return save(active->path);
+}
+
 const SceneInstance* SceneManager::get_active() const
 {
     if (active_instance_id == INVALID_SCENE_INSTANCE) {
@@ -284,8 +496,14 @@ const SceneInstance* SceneManager::get_active() const
 
 String SceneManager::get_active_name() const
 {
-    const auto* active = get_active();
+    const auto active = get_active();
     return active ? active->name : "";
+}
+
+Path SceneManager::get_active_path() const
+{
+    const auto active = get_active();
+    return active ? active->path : Path{};
 }
 
 const SceneInstance* SceneManager::get_instance(SceneInstanceID id) const

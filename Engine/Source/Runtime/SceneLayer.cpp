@@ -17,6 +17,10 @@ void SceneLayer::bind(Application& app)
     app.get_toolboard().add<World*>(&world);
     app.get_toolboard().add<SceneTree*>(&hierarchy);
     app.get_toolboard().add<SceneManager*>(scene_manager.get());
+    app.bind<AppEvent::UPDATE, &SceneLayer::update>(*this);
+
+    // create default scene with Main Camera
+    scene_manager->create("Untitled");
 }
 
 void SceneLayer::update(AppContext&)

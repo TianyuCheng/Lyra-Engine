@@ -7,12 +7,15 @@
 #include <Lyra/UISystem/Widgets/UILayout.h>
 #include <Lyra/UISystem/Widgets/UIControls.h>
 
-// local imports
 #include <Lyra/UISystem/Widgets/UIIcons.h>
-#include "Common/EditorLayout.h"
-#include "SceneView.h"
+#include <Lyra/UISystem/Widgets/UIDialog.h>
+#include <Lyra/Scene/SceneManager.h>
+#include <Lyra/Assets/AMSServer.h>
+#include <Lyra/Assets/Format/ModelAsset.h>
 #include <Lyra/Runtime/TimingLayer.h>
 #include <Lyra/InputSystem/InputManager.h>
+
+#include "SceneView.h"
 
 #define LYRA_SCENE_WINDOW_NAME (LYRA_ICON_SCENE " Scene")
 
@@ -44,9 +47,19 @@ void SceneView::update(AppContext& context)
     auto clock = context.toolboard.get<Clock*>();
 
     ui::panel(LYRA_SCENE_WINDOW_NAME, [&]() {
-        bool playing = !clock->paused;
+        bool  playing   = !clock->paused;
+        auto* scene_mgr = context.toolboard.try_get<SceneManager*>();
 
-        ui::row(ui::Alignment::Center, [&]() {
+        ui::row([&]() {
+            String scene_title = (scene_mgr && !scene_mgr->get_active_name().empty())
+                ? scene_mgr->get_active_name() : "Untitled";
+            if (scene_mgr && scene_mgr->is_dirty()) {
+                scene_title += " *";
+            }
+            ui::label(LYRA_ICON_SCENE);
+            ui::label(scene_title.c_str(), ui::StatusRole::Muted);
+            ui::spacer();
+
             ui::icon_button(LYRA_ICON_PLAY, [&]() {
                 clock->paused = false;
             }, "Play", playing ? ui::ButtonRole::Success : ui::ButtonRole::Standard);
@@ -59,14 +72,53 @@ void SceneView::update(AppContext& context)
                 clock->total_time = 0.0f;
                 clock->paused     = false;
             }, "Restart", ui::ButtonRole::Standard);
+            ui::spacer();
         });
 
         canvas.update(context);
         canvas.display();
 
-        bool viewport_active = (ui::is_item_hovered() || ui::is_item_active()) && !ui::is_text_input_active();
+        ui::drag_drop_target("LYRA_ASSET_MODEL", [&](const void* data, size_t) {
+            CString path_cstr = static_cast<CString>(data);
+            auto*   ams       = context.toolboard.try_get<AssetServer*>();
+            if (ams && scene_mgr) {
+                Path model_path(path_cstr);
+                auto model_handle = ams->load_asset<ModelAsset>(path_cstr);
+                if (!model_handle.valid()) {
+                    model_handle = ams->load_asset<ModelAsset>(model_path.filename().string().c_str());
+                }
+                bool spawned = false;
+                if (model_handle.valid()) {
+                    auto node = scene_mgr->spawn(model_handle);
+                    if (node.entity != entt::null) {
+                        scene_mgr->set_dirty(true);
+                        spawned = true;
+                    }
+                }
+                if (!spawned) {
+                    ui::dialog::alert("Spawn Failed", "Failed to load or spawn model asset:\n" + model_path.filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
+                }
+            }
+        });
 
-        if (auto* input = context.try_tool<InputManager>()) {
+        ui::drag_drop_target("LYRA_ASSET_SCENE", [&](const void* data, size_t) {
+            auto path_cstr = static_cast<CString>(data);
+            auto scene_mgr = context.toolboard.try_get<SceneManager*>();
+            if (scene_mgr) {
+                if (scene_mgr->is_dirty()) {
+                    if (!ui::dialog::confirm("Unsaved Changes", "The active scene has unsaved changes. Discard and open this scene?")) {
+                        return;
+                    }
+                }
+                auto res = scene_mgr->load(Path(path_cstr), LoadMode::SINGLE);
+                if (res == INVALID_SCENE_INSTANCE) {
+                    ui::dialog::alert("Load Failed", "Failed to load scene:\n" + Path(path_cstr).filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
+                }
+            }
+        });
+
+        bool viewport_active = (ui::is_item_hovered() || ui::is_item_active()) && !ui::is_text_input_active();
+        if (auto input = context.try_tool<InputManager>()) {
             input->set_enabled(viewport_active);
         }
     });

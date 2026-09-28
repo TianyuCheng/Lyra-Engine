@@ -37,6 +37,7 @@ namespace lyra
         void show_modals(AppContext& context);
 
         // modals
+        void show_new_scene_dialog();
         void show_new_file_dialog();
         void show_new_folder_dialog();
         void show_rename_dialog();
@@ -45,6 +46,7 @@ namespace lyra
         void show_input_modal(CString title, bool* p_open, CString prompt, char* buffer, size_t buffer_size, CString action_label, FunctionRef<void(StringView)> on_submit);
 
         // actions
+        void action_create_scene(StringView name);
         void action_delete_selected();
         void action_rename(StringView old_name, StringView new_name);
         void action_create_folder(StringView name);
@@ -117,16 +119,19 @@ namespace lyra
         HashMap<String, ThumbnailTexture> thumbnails;
         Vector<std::pair<String, String>> queued_thumbnails;
 
+        bool show_new_scene_modal  = false;
         bool show_new_file_modal   = false;
         bool show_new_folder_modal = false;
         bool show_delete_modal     = false;
         bool show_rename_modal     = false;
 
+        bool open_new_scene_modal  = false;
         bool open_new_file_modal   = false;
         bool open_new_folder_modal = false;
         bool open_delete_modal     = false;
         bool open_rename_modal     = false;
 
+        char new_scene_name[256]  = "NewScene";
         char new_file_name[256]   = "";
         char new_folder_name[256] = "";
         char rename_buffer[256]   = "";

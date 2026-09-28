@@ -175,6 +175,14 @@ AssetID AssetServer::get_guid(FSPath path) const
     return registry.get_guid(path);
 }
 
+void AssetServer::register_asset_entry(AssetID guid, const Path& path, AssetTypeID type_id, const Vector<AssetID>& dependencies)
+{
+    auto [full_path, rel_path] = resolve_asset_path(path);
+    static std::mutex reg_mut;
+    std::lock_guard   lock(reg_mut);
+    registry.update(guid, rel_path.generic_string(), type_id, dependencies);
+}
+
 void* AssetServer::get_asset(AssetTypeID type_id, RawAssetHandle handle)
 {
     auto it = processors.find(type_id);

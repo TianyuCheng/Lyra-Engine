@@ -38,13 +38,13 @@ namespace lyra
         Quaternion rotation = glm::identity<Quaternion>();
 
         [[lyra::hidden]]
-        TransformFlags flags = TransformFlag::NONE;
+        TransformFlags flags = TransformFlag::LOCAL_DIRTY;
     };
 
     // component
     struct TransformWorld
     {
-        Matrix4x4 xform = Matrix4x4();
+        Matrix4x4 xform = Matrix4x4(1.0f);
     };
 
     /**

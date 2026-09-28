@@ -51,6 +51,7 @@
 #include <Lyra/Scene/SceneNode.h>
 #include <Lyra/Scene/Transform.h>
 #include <Lyra/Scene/SceneTree.h>
+#include <Lyra/Scene/SceneManager.h>
 
 // Format headers
 #include <Lyra/Assets/Format/TextAsset.h>
