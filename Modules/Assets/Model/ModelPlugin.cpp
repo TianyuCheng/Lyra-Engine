@@ -1,5 +1,4 @@
 #include <fstream>
-#include <functional>
 #include <Lyra/Utilities/Macros.h>
 #include <Lyra/Utilities/Logger.h>
 #include <Lyra/Utilities/Stdint.h>
@@ -54,15 +53,14 @@ static uint extract_model_nodes(
                 } catch (...) {
                 }
             }
-        } else if (prop_name == "xformOp:transform") {
-            tinyusdz::value::matrix4d m;
-            if (attr.get_value(&m)) {
-                for (int r = 0; r < 4; ++r) {
-                    for (int c = 0; c < 4; ++c) {
-                        node.transform[r][c] = static_cast<float>(m.m[r][c]);
-                    }
-                }
-            }
+        }
+    }
+
+    bool reset_xform = false;
+    tinyusdz::value::matrix4d m = tinyusdz::GetLocalTransform(prim, &reset_xform);
+    for (int r = 0; r < 4; ++r) {
+        for (int c = 0; c < 4; ++c) {
+            node.transform[r][c] = static_cast<float>(m.m[r][c]);
         }
     }
 
@@ -142,8 +140,8 @@ static bool save_model_asset(const void* raw_asset, OSPath path)
     auto write_node = [&](auto& self, uint idx, int indent) -> void {
         if (idx >= asset->nodes.size()) return;
         const auto& node = asset->nodes[idx];
-        String pad(indent * 4, ' ');
-        String child_pad((indent + 1) * 4, ' ');
+        String      pad(indent * 4, ' ');
+        String      child_pad((indent + 1) * 4, ' ');
 
         String prim_name = "node_" + std::to_string(idx);
 

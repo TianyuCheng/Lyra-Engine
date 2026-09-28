@@ -64,15 +64,14 @@ static uint extract_scene_nodes(SceneAsset& scene, const tinyusdz::Prim& prim)
                 } catch (...) {
                 }
             }
-        } else if (prop_name == "xformOp:transform") {
-            tinyusdz::value::matrix4d m;
-            if (attr.get_value(&m)) {
-                for (int r = 0; r < 4; ++r) {
-                    for (int c = 0; c < 4; ++c) {
-                        node.transform[r][c] = static_cast<float>(m.m[r][c]);
-                    }
-                }
-            }
+        }
+    }
+
+    bool reset_xform = false;
+    tinyusdz::value::matrix4d m = tinyusdz::GetLocalTransform(prim, &reset_xform);
+    for (int r = 0; r < 4; ++r) {
+        for (int c = 0; c < 4; ++c) {
+            node.transform[r][c] = static_cast<float>(m.m[r][c]);
         }
     }
 

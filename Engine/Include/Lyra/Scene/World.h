@@ -244,6 +244,24 @@ namespace lyra
         {
             rotate(node, glm::angleAxis(glm::radians(angle), axis));
         }
+
+        /**
+         * @brief recursively destroy a node and all of its descendants.
+         * @param node The root scene node to destroy.
+         */
+        FORCE_INLINE void destroy_tree(const SceneNode node)
+        {
+            if (!registry.valid(node.entity)) return;
+
+            if (auto* children = registry.try_get<Children>(node.entity)) {
+                auto nodes = children->nodes;
+                for (auto child : nodes) {
+                    destroy_tree(child);
+                }
+            }
+
+            registry.destroy(node.entity);
+        }
     };
 
 } // namespace lyra

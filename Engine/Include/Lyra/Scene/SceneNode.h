@@ -11,6 +11,17 @@
 namespace lyra
 {
 
+    using SceneInstanceID = uint32_t;
+
+    constexpr SceneInstanceID INVALID_SCENE_INSTANCE = 0;
+
+    /**
+     * @brief flag component to preserve an entity across LoadMode::SINGLE scene loads.
+     */
+    struct DontDestroyOnLoad
+    {
+    };
+
     struct SceneNode
     {
         Entity entity;

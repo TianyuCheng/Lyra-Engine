@@ -5,6 +5,7 @@
 
 #include <Lyra/Scene/World.h>
 #include <Lyra/Scene/SceneTree.h>
+#include <Lyra/Scene/SceneManager.h>
 
 // local import
 #include <Lyra/Runtime/Application.h>
@@ -12,7 +13,7 @@
 namespace lyra
 {
     /**
-     * @brief The SceneLayer struct manages the ECS world and its corresponding scene tree.
+     * @brief The SceneLayer struct manages the ECS world, scene tree, and scene manager.
      */
     struct SceneLayer
     {
@@ -23,7 +24,7 @@ namespace lyra
         explicit SceneLayer();
 
         /**
-         * @brief Register the World and SceneTree to the toolboard.
+         * @brief Register the World, SceneTree, and SceneManager to the toolboard.
          */
         void bind(Application& app);
 
@@ -32,9 +33,16 @@ namespace lyra
          */
         void update(AppContext&);
 
+        /**
+         * @brief Access the SceneManager instance.
+         */
+        FORCE_INLINE SceneManager& get_manager() { return *scene_manager; }
+        FORCE_INLINE const SceneManager& get_manager() const { return *scene_manager; }
+
     private:
-        World     world;     ///< The ECS world instance.
-        SceneTree hierarchy; ///< The scene graph hierarchy for the world.
+        World             world;         ///< The ECS world instance.
+        SceneTree         hierarchy;     ///< The scene graph hierarchy for the world.
+        Own<SceneManager> scene_manager; ///< The scene manager instance.
     };
 
 } // namespace lyra

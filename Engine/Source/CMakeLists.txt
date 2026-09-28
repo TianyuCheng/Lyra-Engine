@@ -122,6 +122,7 @@ target_sources(lyra-engine PRIVATE
 
   # scene
   Scene/SceneTree.cpp
+  Scene/SceneManager.cpp
 
   # jobs
   JobSystem/JobScheduler.cpp
