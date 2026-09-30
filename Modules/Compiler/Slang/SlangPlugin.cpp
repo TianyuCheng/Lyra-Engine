@@ -79,10 +79,10 @@ bool get_vertex_attributes(ShaderReflectionHandle reflection, ShaderAttributes a
     return res->get_vertex_attributes(attrs, attributes);
 }
 
-bool get_push_constant_ranges(ShaderReflectionHandle reflection, uint& count, GPUPushConstantRange* ranges)
+bool get_immediate_size(ShaderReflectionHandle reflection, uint& size)
 {
     auto res = reinterpret_cast<ReflectResultInternal*>(reflection.pointer);
-    return res->get_push_constant_ranges(count, ranges);
+    return res->get_immediate_size(size);
 }
 
 bool get_bind_group_layouts(ShaderReflectionHandle reflection, uint& count, GPUBindGroupLayoutDescriptor* layouts)
@@ -123,6 +123,6 @@ LYRA_EXPORT auto create() -> ShaderAPI
     api.get_vertex_attributes    = get_vertex_attributes;
     api.get_bind_group_layouts   = get_bind_group_layouts;
     api.get_bind_group_location  = get_bind_group_location;
-    api.get_push_constant_ranges = get_push_constant_ranges;
+    api.get_immediate_size       = get_immediate_size;
     return api;
 }

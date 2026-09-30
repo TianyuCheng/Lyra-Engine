@@ -16,12 +16,12 @@ public struct lyra_dynamicAttribute { };
 [__AttributeUsage(_AttributeTargets.Var)]
 public struct dynamicAttribute { };
 
-// a custom attribute to mark push constants
-// example usage: [[lyra::push_constant]] or [lyra::push_constant]
+// a custom attribute to mark immediates
+// example usage: [[lyra::immediates]] or [lyra::immediates]
 [__AttributeUsage(_AttributeTargets.Var)]
-public struct lyra_push_constantAttribute { };
+public struct lyra_immediatesAttribute { };
 [__AttributeUsage(_AttributeTargets.Var)]
-public struct push_constantAttribute { };
+public struct immediatesAttribute { };
 
 // explicit bind group / descriptor set assignment for ParameterBlock
 // example usage: [[lyra::group(0)]] or [[lyra::set(0)]]
@@ -333,9 +333,9 @@ static String preprocess_lyra_shader_source(const String& input, CompileTarget t
         return 't';
     };
 
-    // 1. Push constants: [[lyra::push_constant]] or [lyra::push_constant] or [push_constant]
-    static const std::regex pc_regex(R"((\[\[?\s*(?:lyra::)?push_constant\s*\]?\])\s*([^;]+);)");
-    result = regex_replace_callback(result, pc_regex, [&](const std::smatch& m) -> String {
+    // 1. Immediates: [[lyra::immediates]] or [lyra::immediates]
+    static const std::regex imm_regex(R"((\[\[?\s*(?:lyra::)?immediates\s*\]?\])\s*([^;]+);)");
+    result = regex_replace_callback(result, imm_regex, [&](const std::smatch& m) -> String {
         String attr = m[1].str();
         String decl = m[2].str();
 
@@ -345,17 +345,17 @@ static String preprocess_lyra_shader_source(const String& input, CompileTarget t
                 prefix = "[[vk::push_constant]] ";
             }
             String suffix = "";
-            if (decl.find("register") == String::npos && decl.find("PUSH_CONSTANT") == String::npos) {
-                suffix = " : register(b0, space" + std::to_string(D3D12_PushConstantRegisterSpace) + ")";
+            if (decl.find("register") == String::npos && decl.find("IMMEDIATES") == String::npos) {
+                suffix = " : register(b0, space" + std::to_string(D3D12_ImmediateRegisterSpace) + ")";
             }
             return prefix + attr + " " + decl + suffix + ";";
         } else if (target == CompileTarget::DXIL) {
-            if (decl.find("register") == String::npos && decl.find("PUSH_CONSTANT") == String::npos) {
-                return attr + " " + decl + " : register(b0, space" + std::to_string(D3D12_PushConstantRegisterSpace) + ");";
+            if (decl.find("register") == String::npos && decl.find("IMMEDIATES") == String::npos) {
+                return attr + " " + decl + " : register(b0, space" + std::to_string(D3D12_ImmediateRegisterSpace) + ");";
             }
         } else if (target == CompileTarget::MSL) {
-            if (decl.find("register") == String::npos && decl.find("PUSH_CONSTANT") == String::npos) {
-                return attr + " " + decl + " : register(b" + std::to_string(METAL_PushConstantBufferIndex) + ", space" + std::to_string(METAL_PushConstantBufferIndex) + ");";
+            if (decl.find("register") == String::npos && decl.find("IMMEDIATES") == String::npos) {
+                return attr + " " + decl + " : register(b" + std::to_string(METAL_ImmediateBufferIndex) + ", space" + std::to_string(METAL_ImmediateBufferIndex) + ");";
             }
         }
         return m[0].str();
@@ -478,22 +478,22 @@ CompilerWrapper::CompilerWrapper(const CompilerDescriptor& descriptor)
 
     Vector<slang::CompilerOptionEntry> options;
 
-    static String root_constant_key = "PUSH_CONSTANT";
-    static String root_constant_val = "register(b0, space" + std::to_string(D3D12_PushConstantRegisterSpace) + ")";
-    // metal has no register spaces; we intentionally use METAL_PushConstantBufferIndex for both the buffer
-    // slot (b) and the space field so reflection can identify the push constant by matching both values.
-    // create_push_constant() mirrors this assumption when validating the reflected offset.space.
-    static String root_constant_msl = "register(b" + std::to_string(METAL_PushConstantBufferIndex) + ", space" + std::to_string(METAL_PushConstantBufferIndex) + ")";
+    static String immediates_key = "IMMEDIATES";
+    static String immediates_val = "register(b0, space" + std::to_string(D3D12_ImmediateRegisterSpace) + ")";
+    // metal has no register spaces; we intentionally use METAL_ImmediateBufferIndex for both the buffer
+    // slot (b) and the space field so reflection can identify the immediates by matching both values.
+    // create_immediates() mirrors this assumption when validating the reflected offset.space.
+    static String immediates_msl = "register(b" + std::to_string(METAL_ImmediateBufferIndex) + ", space" + std::to_string(METAL_ImmediateBufferIndex) + ")";
 
-    // special treatment for root constants
+    // special treatment for immediates
     {
         auto entry               = slang::CompilerOptionEntry{};
         entry.name               = slang::CompilerOptionName::MacroDefine;
         entry.value.kind         = slang::CompilerOptionValueKind::String;
-        entry.value.stringValue0 = root_constant_key.c_str();
+        entry.value.stringValue0 = immediates_key.c_str();
         entry.value.stringValue1 = target == CompileTarget::MSL
-                                       ? root_constant_msl.c_str()
-                                       : root_constant_val.c_str();
+                                       ? immediates_msl.c_str()
+                                       : immediates_val.c_str();
         options.push_back(entry);
     }
 
@@ -839,20 +839,10 @@ bool ReflectResultInternal::get_bind_group_location(CString name, uint& group) c
     return true;
 }
 
-bool ReflectResultInternal::get_push_constant_ranges(uint& count, GPUPushConstantRange* ranges) const
+bool ReflectResultInternal::get_immediate_size(uint& size) const
 {
     if (has_error) return false;
-
-    count = static_cast<uint>(push_constant_ranges.size());
-
-    // check if ranges is provided, if null, simply return count
-    if (ranges == nullptr)
-        return true;
-
-    // copy the push constant ranges to caller
-    for (uint i = 0; i < count; i++)
-        ranges[i] = push_constant_ranges.at(i);
-
+    size = immediate_size;
     return true;
 }
 
@@ -1026,8 +1016,8 @@ void ReflectResultInternal::create_automatic_constant_buffer(const AccessPath& p
     fill_binding_stages(val, path);
     fill_dynamic_uniform_buffer(val, node->var_layout);
 
-    if (is_push_constant_buffer(path)) {
-        create_push_constant(path, offset, val);
+    if (is_immediates_buffer(path)) {
+        create_immediates(path, offset, val);
     } else {
         bind_groups[offset.space].push_back(val);
         get_logger()->trace("[BINDGROUP] NAME:{}\t SPACE:{} BINDING:{} (AUTOMATIC)", node->var_layout->getName(), offset.space, offset.value);
@@ -1048,9 +1038,9 @@ void ReflectResultInternal::create_binding(const AccessPath& path)
     fill_binding_stages(val, path);
     fill_dynamic_uniform_buffer(val, node->var_layout);
 
-    // check for push constant vs constant buffer view binding
-    if (is_push_constant_buffer(path)) {
-        create_push_constant(path, offset, val);
+    // check for immediates vs constant buffer view binding
+    if (is_immediates_buffer(path)) {
+        create_immediates(path, offset, val);
     } else {
         // append to bindings
         bind_groups[offset.space].push_back(val);
@@ -1058,75 +1048,41 @@ void ReflectResultInternal::create_binding(const AccessPath& path)
     }
 }
 
-void ReflectResultInternal::create_push_constant(const AccessPath& path, const CumulativeOffset& offset, const GPUBindGroupLayoutEntry& binding)
+void ReflectResultInternal::create_immediates(const AccessPath& path, const CumulativeOffset& offset, const GPUBindGroupLayoutEntry& binding)
 {
     auto node = path.leaf;
 
-    // enforce that push constant constant buffer is in the expected space/slot.
-    if (target == CompileTarget::DXIL && offset.space != D3D12_PushConstantRegisterSpace) {
-        get_logger()->error("Please use [[lyra::push_constant]] or PUSH_CONSTANT to annotate the push constant, found space {}, expected {}", offset.space, D3D12_PushConstantRegisterSpace);
+    // enforce that immediates constant buffer is in the expected space/slot.
+    if (target == CompileTarget::DXIL && offset.space != D3D12_ImmediateRegisterSpace) {
+        get_logger()->error("Please use [[lyra::immediates]] to annotate immediates, found space {}, expected {}", offset.space, D3D12_ImmediateRegisterSpace);
         has_error = true;
         return;
     }
 
-    // enforce that push constant constant buffer is in the expected space/slot.
-    if (target == CompileTarget::MSL && offset.space != METAL_PushConstantBufferIndex) {
-        get_logger()->error("Please use [[lyra::push_constant]] or PUSH_CONSTANT to annotate the push constant, found buffer slot {}, expected {}", offset.space, METAL_PushConstantBufferIndex);
+    // enforce that immediates constant buffer is in the expected space/slot.
+    if (target == CompileTarget::MSL && offset.space != METAL_ImmediateBufferIndex) {
+        get_logger()->error("Please use [[lyra::immediates]] to annotate immediates, found buffer slot {}, expected {}", offset.space, METAL_ImmediateBufferIndex);
         has_error = true;
         return;
     }
 
     if (node->var_layout->getType()->getKind() != slang::TypeReflection::Kind::ConstantBuffer) {
-        get_logger()->error("Please directly define push constant / root constant using ConstantBuffer<T>.");
+        get_logger()->error("Please directly define immediates using ConstantBuffer<T>.");
         has_error = true;
         return;
     }
 
-    if (num_push_constant_buffers++ >= 1) {
-        get_logger()->error("Please specify all push constant / root constant using only one ConstantBuffer<T>. Using multiple ConstantBuffer<T> is not allowed!");
+    if (num_immediate_buffers++ >= 1) {
+        get_logger()->error("Please specify all immediates using only one ConstantBuffer<T>. Using multiple ConstantBuffer<T> is not allowed!");
         has_error = true;
         return;
     }
 
-    auto visibility = binding.visibility;
-    if (visibility.value == 0) {
-        for (const auto& meta : metadata) {
-            visibility.set(meta.stage);
-        }
-    }
-
-    // reflect each field in the push constant block
-    auto push_constant_type = node->var_layout->getTypeLayout()->getElementTypeLayout();
-    for (unsigned j = 0; j < push_constant_type->getFieldCount(); j++) {
-        auto push_constant_field  = push_constant_type->getFieldByIndex(j);
-        auto push_constant_size   = push_constant_field->getTypeLayout()->getSize(SLANG_PARAMETER_CATEGORY_UNIFORM);
-        auto push_constant_offset = push_constant_field->getOffset(SLANG_PARAMETER_CATEGORY_UNIFORM);
-        auto push_constant_range  = GPUPushConstantRange{
-            static_cast<uint>(push_constant_offset),
-            static_cast<uint>(push_constant_size),
-            visibility, // TODO: This is a hack for now. We are populating the visibility of push constants at block level. This is not correct.
-        };
-        get_logger()->trace("[PUSH CONSTANT] NAME:{}.{}\t OFFSET:{} SIZE:{}",
-            node->var_layout->getName(),
-            push_constant_field->getName(),
-            push_constant_range.offset,
-            push_constant_range.size);
-        push_constant_ranges.push_back(push_constant_range);
-    }
-
-    // fallback for basic types (non-struct types)
-    if (push_constant_type->getFieldCount() == 0) {
-        auto push_constant_range = GPUPushConstantRange{
-            static_cast<uint>(0),
-            static_cast<uint>(push_constant_type->getSize()),
-            visibility,
-        };
-        get_logger()->trace("[PUSH CONSTANT] NAME:{}\t OFFSET:{} SIZE:{}",
-            node->var_layout->getName(),
-            push_constant_range.offset,
-            push_constant_range.size);
-        push_constant_ranges.push_back(push_constant_range);
-    }
+    auto imm_type = node->var_layout->getTypeLayout()->getElementTypeLayout();
+    immediate_size = static_cast<uint>(imm_type->getSize(SLANG_PARAMETER_CATEGORY_UNIFORM));
+    get_logger()->trace("[IMMEDIATES] NAME:{}\t SIZE:{}",
+        node->var_layout->getName(),
+        immediate_size);
 }
 
 void ReflectResultInternal::fill_binding_index(GPUBindGroupLayoutEntry& entry, CumulativeOffset offset, const AccessPath& path) const
@@ -1473,7 +1429,7 @@ GPUVertexFormat ReflectResultInternal::infer_vertex_format(slang::TypeLayoutRefl
     return GPUVertexFormat::FLOAT32x4;
 }
 
-bool ReflectResultInternal::is_push_constant_buffer(const AccessPath& path) const
+bool ReflectResultInternal::is_immediates_buffer(const AccessPath& path) const
 {
     auto node = path.leaf;
     auto type = node->var_layout->getTypeLayout();
@@ -1481,9 +1437,8 @@ bool ReflectResultInternal::is_push_constant_buffer(const AccessPath& path) cons
         return true;
 
     auto var = node->var_layout->getVariable();
-    return var->findUserAttributeByName(GLOBAL_SESSION, "lyra_push_constant") != nullptr ||
-           var->findUserAttributeByName(GLOBAL_SESSION, "push_constant") != nullptr ||
-           var->findUserAttributeByName(GLOBAL_SESSION, "vk_push_constant") != nullptr;
+    return var->findUserAttributeByName(GLOBAL_SESSION, "lyra_immediates") != nullptr ||
+           var->findUserAttributeByName(GLOBAL_SESSION, "immediates") != nullptr;
 }
 
 bool ReflectResultInternal::is_under_parameter_block(const AccessPath& node) const

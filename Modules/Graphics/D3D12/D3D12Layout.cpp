@@ -137,25 +137,17 @@ D3D12PipelineLayout::D3D12PipelineLayout(const GPUPipelineLayoutDescriptor& desc
         register_space_index++;
     }
 
-    // root constants
-    if (!desc.push_constant_ranges.empty()) {
-        auto visibility = GPUShaderStageFlags(0);
-        for (auto& range : desc.push_constant_ranges)
-            visibility = visibility | range.visibility;
-
-        uint bytes = 0;
-        for (auto& range : desc.push_constant_ranges)
-            bytes = std::max(bytes, range.offset + range.size);
-
+    // immediates (root constants)
+    if (desc.immediate_size > 0) {
         root_parameters.push_back({});
         auto& root_param                    = root_parameters.back();
         root_param.ParameterType            = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-        root_param.ShaderVisibility         = d3d12enum(visibility);
+        root_param.ShaderVisibility         = D3D12_SHADER_VISIBILITY_ALL;
         root_param.Constants.ShaderRegister = 0;
-        root_param.Constants.RegisterSpace  = D3D12_PushConstantRegisterSpace;
-        root_param.Constants.Num32BitValues = round_up_to_multiple_of(bytes, 4) / sizeof(uint);
+        root_param.Constants.RegisterSpace  = D3D12_ImmediateRegisterSpace;
+        root_param.Constants.Num32BitValues = round_up_to_multiple_of(desc.immediate_size, 4) / sizeof(uint);
 
-        this->push_constant_root_parameter = root_parameter_index++;
+        this->immediate_root_parameter = root_parameter_index++;
     }
 
     // create root signature descriptor

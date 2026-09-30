@@ -150,13 +150,11 @@ VulkanPipelineLayout::VulkanPipelineLayout(const GPUPipelineLayoutDescriptor& de
         bind_group_layouts.push_back(bind_group_layout.layout);
     }
 
-    Vector<VkPushConstantRange> push_constant_ranges;
-    for (const auto& range : desc.push_constant_ranges) {
-        push_constant_ranges.push_back({});
-        auto& push_constant      = push_constant_ranges.back();
-        push_constant.size       = range.size;
-        push_constant.offset     = range.offset;
-        push_constant.stageFlags = vkenum(range.visibility);
+    VkPushConstantRange immediate_range{};
+    if (desc.immediate_size > 0) {
+        immediate_range.stageFlags = VK_SHADER_STAGE_ALL;
+        immediate_range.offset     = 0;
+        immediate_range.size       = desc.immediate_size;
     }
 
     // prepare pipeline layout
@@ -164,8 +162,8 @@ VulkanPipelineLayout::VulkanPipelineLayout(const GPUPipelineLayoutDescriptor& de
     create_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     create_info.pSetLayouts            = bind_group_layouts.data();
     create_info.setLayoutCount         = static_cast<uint>(bind_group_layouts.size());
-    create_info.pPushConstantRanges    = push_constant_ranges.data();
-    create_info.pushConstantRangeCount = static_cast<uint>(push_constant_ranges.size());
+    create_info.pPushConstantRanges    = desc.immediate_size > 0 ? &immediate_range : nullptr;
+    create_info.pushConstantRangeCount = desc.immediate_size > 0 ? 1 : 0;
 
     // create pipeline layout
     vk_check(rhi->vtable.vkCreatePipelineLayout(rhi->device, &create_info, nullptr, &layout));

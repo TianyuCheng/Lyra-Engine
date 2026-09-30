@@ -1,6 +1,6 @@
 #include "helper.h"
 
-CString push_constants_program = R"""(
+CString immediates_program = R"""(
 import lyra;
 
 struct VertexInput
@@ -20,7 +20,7 @@ struct MVP
     float4x4 xform;
 };
 
-[[lyra::push_constant]]
+[[lyra::immediates]]
 ConstantBuffer<MVP> mvp;
 
 [shader("vertex")]
@@ -40,19 +40,19 @@ float4 fsmain(VertexOutput input) : SV_Target
 }
 )""";
 
-struct PushConstants
+struct Immediates
 {
     glm::mat4x4 mvp;
 };
 
-struct PushConstantsApp : public TestApp
+struct ImmediatesApp : public TestApp
 {
-    Uniform                 uniform;
-    Geometry                geometry;
-    SimpleRenderPipeline    pipeline;
-    Array<PushConstants, 3> push_constants;
+    Uniform               uniform;
+    Geometry              geometry;
+    SimpleRenderPipeline  pipeline;
+    Array<Immediates, 3>  immediates;
 
-    explicit PushConstantsApp(const TestAppDescriptor& desc) : TestApp(desc)
+    explicit ImmediatesApp(const TestAppDescriptor& desc) : TestApp(desc)
     {
         setup_buffers();
         setup_pipeline();
@@ -72,10 +72,10 @@ struct PushConstantsApp : public TestApp
 
         geometry = Geometry::create_triangle();
 
-        // initialize push constants
-        push_constants.at(0).mvp = proj * view * glm::translate(glm::mat4(1.0f), glm::vec3(-1.0, 0.0, 0.0));
-        push_constants.at(1).mvp = proj * view * glm::translate(glm::mat4(1.0f), glm::vec3(+0.0, 0.0, 0.0));
-        push_constants.at(2).mvp = proj * view * glm::translate(glm::mat4(1.0f), glm::vec3(+1.0, 0.0, 0.0));
+        // initialize immediates
+        immediates.at(0).mvp = proj * view * glm::translate(glm::mat4(1.0f), glm::vec3(-1.0, 0.0, 0.0));
+        immediates.at(1).mvp = proj * view * glm::translate(glm::mat4(1.0f), glm::vec3(+0.0, 0.0, 0.0));
+        immediates.at(2).mvp = proj * view * glm::translate(glm::mat4(1.0f), glm::vec3(+1.0, 0.0, 0.0));
     }
 
     void setup_pipeline()
@@ -86,7 +86,7 @@ struct PushConstantsApp : public TestApp
             auto desc   = CompileDescriptor{};
             desc.module = "test";
             desc.path   = "test.slang";
-            desc.source = push_constants_program;
+            desc.source = immediates_program;
             return compiler->compile(desc);
         });
 
@@ -142,8 +142,8 @@ struct PushConstantsApp : public TestApp
         command.set_pipeline(pipeline.pipeline);
         command.set_vertex_buffer(0, geometry.vbuffer);
         command.set_index_buffer(geometry.ibuffer, GPUIndexFormat::UINT32);
-        for (uint i = 0; i < push_constants.size(); i++) {
-            command.set_push_constants(GPUShaderStage::VERTEX, 0, push_constants.at(i));
+        for (uint i = 0; i < immediates.size(); i++) {
+            command.set_immediates(0, immediates.at(i));
             command.draw_indexed(3, 1, 0, 0, 0);
         }
         command.end_render_pass();
@@ -153,7 +153,7 @@ struct PushConstantsApp : public TestApp
 };
 
 #ifdef LYRA_VULKAN_SUPPORT
-TEST_CASE("rhi::vulkan::push_constants" * doctest::description("Rendering multiple triangles with the dynamic uniform buffer."))
+TEST_CASE("rhi::vulkan::immediates" * doctest::description("Rendering multiple triangles with immediates."))
 {
     TestAppDescriptor desc{};
     desc.name           = "vulkan";
@@ -164,12 +164,12 @@ TEST_CASE("rhi::vulkan::push_constants" * doctest::description("Rendering multip
     desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
     desc.compile_target = CompileTarget::SPIRV;
     desc.compile_flags  = CompileFlag::DEBUG;
-    PushConstantsApp(desc).run();
+    ImmediatesApp(desc).run();
 }
 #endif
 
 #ifdef WIN32
-TEST_CASE("rhi::d3d12::push_constants" * doctest::description("Rendering multiple triangles with the dynamic uniform buffer."))
+TEST_CASE("rhi::d3d12::immediates" * doctest::description("Rendering multiple triangles with immediates."))
 {
     TestAppDescriptor desc{};
     desc.name           = "d3d12";
@@ -180,12 +180,12 @@ TEST_CASE("rhi::d3d12::push_constants" * doctest::description("Rendering multipl
     desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
     desc.compile_target = CompileTarget::DXIL;
     desc.compile_flags  = CompileFlag::DEBUG;
-    PushConstantsApp(desc).run();
+    ImmediatesApp(desc).run();
 }
 #endif
 
 #ifdef __APPLE__
-TEST_CASE("rhi::metal::push_constants" * doctest::description("Rendering multiple triangles with the dynamic uniform buffer."))
+TEST_CASE("rhi::metal::immediates" * doctest::description("Rendering multiple triangles with immediates."))
 {
     TestAppDescriptor desc{};
     desc.name           = "metal";
@@ -196,6 +196,6 @@ TEST_CASE("rhi::metal::push_constants" * doctest::description("Rendering multipl
     desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
     desc.compile_target = CompileTarget::MSL;
     desc.compile_flags  = CompileFlag::DEBUG;
-    PushConstantsApp(desc).run();
+    ImmediatesApp(desc).run();
 }
 #endif

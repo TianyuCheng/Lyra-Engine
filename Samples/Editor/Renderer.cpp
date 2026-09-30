@@ -407,9 +407,9 @@ void SampleCubeRenderer::init_pipeline(GPUDevice device, Compiler compiler)
             auto blayout = device.create_bind_group_layout(desc);
             blayouts.push_back(blayout);
         }
-        auto desc                 = GPUPipelineLayoutDescriptor{};
-        desc.bind_group_layouts   = blayouts;
-        desc.push_constant_ranges = reflection->get_push_constant_ranges();
+        auto desc               = GPUPipelineLayoutDescriptor{};
+        desc.bind_group_layouts = blayouts;
+        desc.immediate_size     = reflection->get_immediate_size();
         return device.create_pipeline_layout(desc);
     });
 

@@ -171,7 +171,7 @@ namespace lyra
     struct GPUPipelineLayoutDescriptor : public GPUObjectDescriptorBase
     {
         GPUBindGroupLayoutHandles bind_group_layouts;
-        GPUPushConstantRanges     push_constant_ranges;
+        uint                      immediate_size = 0;
     };
 
     struct GPUPipelineDescriptorBase : public GPUObjectDescriptorBase

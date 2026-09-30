@@ -471,7 +471,7 @@ LYRA_EXPORT auto create() -> RenderAPI
     api.cmd_set_compute_pipeline         = cmd::set_compute_pipeline;
     api.cmd_set_raytracing_pipeline      = cmd::set_raytracing_pipeline;
     api.cmd_set_bind_group               = cmd::set_bind_group;
-    api.cmd_set_push_constants           = cmd::set_push_constants;
+    api.cmd_set_immediates               = cmd::set_immediates;
     api.cmd_set_index_buffer             = cmd::set_index_buffer;
     api.cmd_set_vertex_buffer            = cmd::set_vertex_buffer;
     api.cmd_draw                         = cmd::draw;

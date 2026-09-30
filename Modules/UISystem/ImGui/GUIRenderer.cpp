@@ -295,7 +295,7 @@ static void imgui_setup_render_state(GPUCommandBuffer cmdbuffer, GUIPipelineData
         float B = draw_data->DisplayPos.y + draw_data->DisplaySize.y;
 
         glm::mat4 mvp = glm::ortho(L, R, B, T);
-        cmdbuffer.set_push_constants(GPUShaderStage::VERTEX, 0, mvp);
+        cmdbuffer.set_immediates(0, mvp);
     }
 }
 
@@ -1059,7 +1059,7 @@ void GUIRenderer::init_pipeline_data(const GUIDescriptor& descriptor)
         auto desc                 = GPUPipelineLayoutDescriptor{};
         desc.label                = "imgui_pipeline_layout";
         desc.bind_group_layouts   = pipeline_data->blayouts;
-        desc.push_constant_ranges = refl->get_push_constant_ranges();
+        desc.immediate_size       = refl->get_immediate_size();
         return device.create_pipeline_layout(desc);
     });
 

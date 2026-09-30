@@ -112,15 +112,11 @@ GPUBindGroupLayoutDescriptors ShaderReflection::get_bind_group_layouts()
     return bind_group_layouts;
 }
 
-GPUPushConstantRanges ShaderReflection::get_push_constant_ranges()
+uint ShaderReflection::get_immediate_size()
 {
-    uint count;
-    Compiler::api()->get_push_constant_ranges(handle, count, nullptr);
-
-    push_constant_ranges.resize(count);
-    bool success = Compiler::api()->get_push_constant_ranges(handle, count, push_constant_ranges.data());
-    if (!success) throw std::runtime_error("Failed to reflect push constant ranges!");
-    return push_constant_ranges;
+    bool success = Compiler::api()->get_immediate_size(handle, immediate_size);
+    if (!success) throw std::runtime_error("Failed to reflect immediate size!");
+    return immediate_size;
 }
 
 GPUVertexAttributes ShaderReflection::get_vertex_attributes(ShaderAttributes attrs)

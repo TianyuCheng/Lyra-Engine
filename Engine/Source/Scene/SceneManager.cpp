@@ -1,5 +1,3 @@
-#include <thread>
-#include <chrono>
 #include <fstream>
 #include <Lyra/Utilities/GUID.h>
 #include <Lyra/JobSystem/Jobs.h>
@@ -25,10 +23,7 @@ SceneNode SceneManager::spawn(ModelAssetHandle model, const SpawnParams& params)
     auto asset = ams.get_asset(model);
     if (!asset) {
         JobScheduler::wait_idle();
-        int timeout = 100;
-        while ((asset = ams.get_asset(model)) == nullptr && timeout-- > 0) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(2));
-        }
+        asset = ams.get_asset(model);
     }
 
     if (!asset) {
@@ -178,10 +173,7 @@ SceneInstanceID SceneManager::load(SceneAssetHandle handle, const SpawnParams& p
     auto asset = ams.get_asset(handle);
     if (!asset) {
         JobScheduler::wait_idle();
-        int timeout = 100;
-        while ((asset = ams.get_asset(handle)) == nullptr && timeout-- > 0) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(2));
-        }
+        asset = ams.get_asset(handle);
     }
     if (!asset) {
         return INVALID_SCENE_INSTANCE;

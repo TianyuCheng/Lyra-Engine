@@ -74,6 +74,7 @@ namespace lyra
         TEXTURE_FORMATS_TIER1,
         BINDLESS,
         RAYTRACING,
+        IMMEDIATES,
     };
 
     enum struct GPUQueueType : uint

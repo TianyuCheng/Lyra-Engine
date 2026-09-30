@@ -560,9 +560,11 @@ void GPUCommandEncoder::set_bind_group(GPUIndex32 index, const GPUBindGroup& bin
     RHI::api()->cmd_set_bind_group(handle, index, bind_group, dynamic_offsets);
 }
 
-void GPUCommandEncoder::set_push_constants(GPUShaderStageFlags visibility, uint offset, uint size, void* data) const
+void GPUCommandEncoder::set_immediates(uint offset, uint size, const void* data) const
 {
-    RHI::api()->cmd_set_push_constants(handle, visibility, offset, size, data);
+    assert(offset % 4 == 0 && "Immediate offset must be a multiple of 4 bytes");
+    assert(size % 4 == 0 && "Immediate size must be a multiple of 4 bytes");
+    RHI::api()->cmd_set_immediates(handle, offset, size, data);
 }
 
 void GPUCommandEncoder::dispatch_workgroups(GPUSize32 x, GPUSize32 y, GPUSize32 z) const

@@ -24,19 +24,19 @@ ENABLE_BIT_FLAGS(lyra::GPUBVHGeometryFlag);
 
 namespace lyra
 {
-    // NOTE: D3D12 uses root constants to implement push constants,
+    // NOTE: D3D12 uses root constants to implement immediates,
     // but root constant is similar to other descriptor table based
     // bind group layouts that requires both a register space, and
-    // a base register. For simplicity, we force that push constant
+    // a base register. For simplicity, we force that immediates
     // always use space999 (max).
-    static constexpr uint D3D12_PushConstantRegisterSpace = 999;
+    static constexpr uint D3D12_ImmediateRegisterSpace = 999;
 
-    // NOTE: Metal uses buffer to implement push constsants,
-    // without explicitly annotation the push constant buffer could
+    // NOTE: Metal uses buffer to implement immediates,
+    // without explicit annotation the immediate buffer could
     // be at any buffer index, causing additional difficulty to track
     // the buffer index for other regular buffers. For simplicity,
-    // we force that push constant always use buffer(30) (max)
-    static constexpr uint METAL_PushConstantBufferIndex = 30;
+    // we force that immediates always use buffer(30) (max)
+    static constexpr uint METAL_ImmediateBufferIndex = 30;
 
     // NOTE: Metal binds vertex attributes in the same space as
     // regular buffers. Therefore as a workaround, we bind the vertex
@@ -116,8 +116,6 @@ namespace lyra
     struct GPUBindGroupLayoutDescriptor;
     using GPUBindGroupLayoutDescriptors = TypedView<GPUBindGroupLayoutDescriptor>;
 
-    struct GPUPushConstantRange;
-    using GPUPushConstantRanges = TypedView<GPUPushConstantRange>;
 
     struct GPUPipelineConstant;
     using GPUPipelineConstants = TypedView<GPUPipelineConstant>;
@@ -270,7 +268,10 @@ namespace lyra
         uint max_compute_workgroup_size_y                    = 256;
         uint max_compute_workgroup_size_z                    = 64;
         uint max_compute_workgroups_per_dimension            = 65535;
+        uint max_immediate_size                              = 128;
     };
+
+    constexpr uint GPU_IMMEDIATE_DATA_ALIGNMENT = 4;
 
     struct GPUProperties
     {
@@ -657,14 +658,6 @@ namespace lyra
         GPUSize32 array_layers     = 1;
     };
 
-    // NOTE: This is Non-WebGPU standard API, because WebGPU does not support push constants.
-    // https://github.com/gpuweb/gpuweb/issues/75
-    struct GPUPushConstantRange
-    {
-        uint                offset;
-        uint                size;
-        GPUShaderStageFlags visibility;
-    };
 
     // NOTE: Non-WebGPU standard API because WebGPU chooses to handle barriers implicitly.
     // https://github.com/gpuweb/gpuweb/issues/27

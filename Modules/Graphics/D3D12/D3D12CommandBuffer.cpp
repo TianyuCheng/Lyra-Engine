@@ -329,17 +329,14 @@ void cmd::set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GP
     }
 }
 
-void cmd::set_push_constants(GPUCommandEncoderHandle cmdbuffer, GPUShaderStageFlags visibility, uint offset, uint size, void* data)
+void cmd::set_immediates(GPUCommandEncoderHandle cmdbuffer, uint offset, uint size, const void* data)
 {
-    // we are not using this.
-    (void)visibility;
-
     auto  rhi = get_rhi();
     auto& frm = rhi->current_frame();
     auto& cmd = frm.command(cmdbuffer);
 
-    uint root_parameter = cmd.pso.layout->push_constant_root_parameter;
-    assert(root_parameter != -1 && "The currently bound pipeline does not support push constants!");
+    uint root_parameter = cmd.pso.layout->immediate_root_parameter;
+    assert(root_parameter != -1 && "The currently bound pipeline does not support immediates!");
 
     uint size_in_32b   = (size + sizeof(uint32_t) - 1) / sizeof(uint32_t);
     uint offset_in_32b = (offset + sizeof(uint32_t) - 1) / sizeof(uint32_t);

@@ -302,12 +302,12 @@ namespace lyra
         void set_pipeline(const GPURayTracingPipeline& pipeline) const;
         void set_bind_group(GPUIndex32 index, const GPUBindGroup& bind_group, const Vector<GPUBufferDynamicOffset>& dynamic_offsets = {}) const;
 
-        void set_push_constants(GPUShaderStageFlags visibility, uint offset, uint size, void* data) const;
+        void set_immediates(uint offset, uint size, const void* data) const;
 
         template <typename T>
-        void set_push_constants(GPUShaderStageFlags visibility, uint offset, T data) const
+        void set_immediates(uint offset, const T& data) const
         {
-            set_push_constants(visibility, offset, sizeof(T), reinterpret_cast<uint8_t*>(&data));
+            set_immediates(offset, sizeof(T), &data);
         }
 
         void dispatch_workgroups(GPUSize32 x, GPUSize32 y = 1, GPUSize32 z = 1) const;

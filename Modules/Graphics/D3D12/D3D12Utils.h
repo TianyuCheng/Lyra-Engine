@@ -427,8 +427,8 @@ struct D3D12PipelineLayout
     // regular bind groups
     Vector<D3D12BindGroupInfo> bindgroups = {};
 
-    // push constant is treated differently
-    uint push_constant_root_parameter = -1;
+    // immediates are treated differently
+    uint immediate_root_parameter = -1;
 
     // really awkward design, but I have no choice
     struct
@@ -875,7 +875,7 @@ namespace cmd
     void set_compute_pipeline(GPUCommandEncoderHandle cmdbuffer, GPUComputePipelineHandle pipeline);
     void set_raytracing_pipeline(GPUCommandEncoderHandle cmdbuffer, GPURayTracingPipelineHandle pipeline);
     void set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GPUBindGroupHandle bind_group, GPUBufferDynamicOffsets dynamic_offsets);
-    void set_push_constants(GPUCommandEncoderHandle cmdbuffer, GPUShaderStageFlags visibility, uint offset, uint size, void* data);
+    void set_immediates(GPUCommandEncoderHandle cmdbuffer, uint offset, uint size, const void* data);
     void set_index_buffer(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle buffer, GPUIndexFormat format, GPUSize64 offset, GPUSize64 size);
     void set_vertex_buffer(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 slot, GPUBufferHandle buffer, GPUSize64 offset, GPUSize64 size);
     void draw(GPUCommandEncoderHandle cmdbuffer, GPUSize32 vertex_count, GPUSize32 instance_count, GPUSize32 first_vertex, GPUSize32 first_instance);

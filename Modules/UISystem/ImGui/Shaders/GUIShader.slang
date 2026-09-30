@@ -20,8 +20,8 @@ struct TextureInput
     SamplerState      smp;
 };
 
-[[vk::push_constant]]
-ConstantBuffer<float4x4> xform : PUSH_CONSTANT;
+[[lyra::immediates]]
+ConstantBuffer<float4x4> xform;
 
 ParameterBlock<TextureInput> image;
 

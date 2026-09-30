@@ -38,7 +38,7 @@ namespace lyra
         Quaternion rotation = glm::identity<Quaternion>();
 
         [[lyra::hidden]]
-        TransformFlags flags = TransformFlag::LOCAL_DIRTY;
+        TransformFlags flags = TransformFlag::NONE;
     };
 
     // component

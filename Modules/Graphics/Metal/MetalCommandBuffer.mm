@@ -390,23 +390,18 @@ void cmd::set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GP
     bind_group->bind(cmd, pipeline_layout, index, offsets);
 }
 
-void cmd::set_push_constants(GPUCommandEncoderHandle cmdbuffer, GPUShaderStageFlags visibility, uint offset, uint size, void* data)
+void cmd::set_immediates(GPUCommandEncoderHandle cmdbuffer, uint offset, uint size, const void* data)
 {
+    (void)offset;
     auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
 
-    // Metal uses setBytes for small data (< 4KB)
-    // push constant slot is typically at index 0 or a reserved buffer index
-    uint buffer_index = METAL_PushConstantBufferIndex; // use high index for push constants
+    uint buffer_index = METAL_ImmediateBufferIndex;
 
-    if (cmd.render_encoder && (visibility.contains(GPUShaderStage::VERTEX) || visibility.contains(GPUShaderStage::FRAGMENT))) {
-        if (visibility.contains(GPUShaderStage::VERTEX)) {
-            [cmd.render_encoder setVertexBytes:data length:size atIndex:buffer_index];
-        }
-        if (visibility.contains(GPUShaderStage::FRAGMENT)) {
-            [cmd.render_encoder setFragmentBytes:data length:size atIndex:buffer_index];
-        }
-    } else if (cmd.compute_encoder && visibility.contains(GPUShaderStage::COMPUTE)) {
+    if (cmd.render_encoder) {
+        [cmd.render_encoder setVertexBytes:data length:size atIndex:buffer_index];
+        [cmd.render_encoder setFragmentBytes:data length:size atIndex:buffer_index];
+    } else if (cmd.compute_encoder) {
         [cmd.compute_encoder setBytes:data length:size atIndex:buffer_index];
     }
 }

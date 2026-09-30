@@ -18,7 +18,7 @@ bindless textures, ray tracing support, etc. However, it is a good enough starti
 
 After spending some time researching WebGPU, I found WebGPU to be similar to a simplified
 version of Vulkan; its abstraction is largely based on Vulkan, including the binding model,
-push constants, dynamic uniforms, etc. What is primarily simplified is resource tracking
+immediates, dynamic uniforms, etc. What is primarily simplified is resource tracking
 (lifetime, layout transition). However, I do not plan to support either in my RHI backend
 for the following reasons:
 
@@ -62,7 +62,7 @@ except for a few cases (also detailed in the next section).
 
 To eliminate shading-language-specific constructs in user shaders, Lyra provides a built-in `lyra` module
 (`import lyra;`) containing unified attributes for layout control: `[[lyra::group(N)]]`, `[[lyra::binding(N)]]`,
-`[[lyra::binding(binding, set)]]`, `[[lyra::push_constant]]`, and `[[lyra::dynamic]]`. The Slang backend
+`[[lyra::binding(binding, set)]]`, `[[lyra::immediates]]`, and `[[lyra::dynamic]]`. The Slang backend
 automatically handles target-specific lowering (SPIR-V, DXIL, MSL) under the hood while preserving
 accurate reflection.
 
@@ -74,7 +74,7 @@ article, it gave me the illusion that all three APIs are similar enough.
 
 My personal journey of implementing the backends revealed several discrepancies:
 1. binding model
-3. push constant
+3. immediates
 4. dynamic uniforms
 5. vertex attributes
 
@@ -106,7 +106,7 @@ argument buffers are also the only way to achieve bindless resources on Metal. W
 WebGPU abstraction using Metal is feasible, it is quite an odyssey.
 
 Without searching for further evidence, I feel that Vulkan's binding model is inherently less comprehensive;
-therefore, Vulkan introduced additional ad-hoc features like push constants and dynamic uniforms to provide
+therefore, Vulkan introduced additional ad-hoc features like immediates and dynamic uniforms to provide
 users with tools that enhance performance.
 
 #### Explicit Layout Control (`[[lyra::group]]`, `[[lyra::binding]]`)
@@ -165,38 +165,34 @@ In this example:
 - Out-of-order declaration is fully supported; `material` is guaranteed group 2 and `scene` is group 0.
 - All target-specific plumbing (SPIR-V descriptor sets, D3D12 register spaces `space0`/`space2`/`space3`, and Metal argument buffer slots) is generated automatically.
 
-### Push Constant
+### Immediates
 
-Push constants are a small feature that Vulkan introduced. Push constants allow setting a number of
-bytes directly with a shader invocation. Push constants are more lightweight than bindings, and widely
-used for most frequently changing parameters, for example, material id.
+Immediates (aligned with WebGPU's emerging `Features::IMMEDIATES` and `var<immediate>`) allow passing a small,
+fast block of uniform data directly to shaders without the overhead of creating or binding GPU buffers. Immediates
+are lightweight, per-draw/dispatch constants widely used for high-frequency parameters like object transforms or material IDs.
 
-While it is a Vulkan-only concept, the other two backends have alternatives to implement the same idea.
-D3D12 offers `SetComputeRoot32BitConstant` and `SetGraphicsRoot32BitConstant`. Metal directly offers
-`setBytes` to implement the same idea. However, there is still a problem with mimicking the behavior.
-WebGPU/Vulkan push constants do not have an explicit group/binding index, but in both D3D12/Metal,
-all resources require a separate binding slot. In D3D12, we explicitly reserve space 999 for push constants.
-Metal only supports 30 buffers for direct binding, so we reserve slot 30 for push constants.
+Across backends:
+- **Vulkan:** Lowered to push constants (`vkCmdPushConstants`) bound to `VK_SHADER_STAGE_ALL`.
+- **D3D12:** Lowered to 32-bit root constants (`SetGraphicsRoot32BitConstants` / `SetComputeRoot32BitConstants`) in reserved `space999`.
+- **Metal:** Lowered to direct inline bytes (`setVertexBytes` / `setFragmentBytes` / `setBytes`) at reserved buffer slot 30.
 
-In Lyra, push constants are declared cleanly using `[[lyra::push_constant]]` via the built-in `lyra` module:
+In Lyra, immediates are declared cleanly using `[[lyra::immediates]]` via the built-in `lyra` module:
 
 ```hlsl
 import lyra;
 
-[[lyra::push_constant]]
+[[lyra::immediates]]
 ConstantBuffer<MVP> mvp;
 ```
 
-The Lyra Slang backend preprocessor automatically lowers `[[lyra::push_constant]]` into the appropriate target
-constructs:
-- **SPIR-V:** Injects `[[vk::push_constant]]` (to emit the Vulkan `PushConstant` storage class) and `: register(b0, space999)`
-  (so Slang's `IMetadata` accurately tracks per-stage parameter usage).
+The Lyra Slang backend preprocessor automatically lowers `[[lyra::immediates]]` into the appropriate target constructs:
+- **SPIR-V:** Injects `[[vk::push_constant]]` and `: register(b0, space999)`.
 - **DXIL:** Appends `: register(b0, space999)`.
 - **MSL:** Appends `: register(b30, space30)`.
 
-Reflection automatically extracts push constant ranges, their offsets, and active shader stage visibility flags
-for pipeline layout creation without requiring any backend-specific annotations in the shader source. For this to work
-across all backends, push constants must be defined using `ConstantBuffer<T>` directly without a `ParameterBlock`.
+Reflection automatically extracts the required `immediate_size` for pipeline layout creation (`GPUPipelineLayoutDescriptor::immediate_size`).
+During command encoding, data is pushed using `command.set_immediates(offset, size, data)` or the typed helper `command.set_immediates(offset, value)`.
+For this to work cleanly across all backends, immediates must be defined using a single `ConstantBuffer<T>` directly without a `ParameterBlock`.
 
 ### Dynamic Uniform
 
@@ -235,6 +231,6 @@ way as other regular buffers. Hence, regular vertex attributes also consume regu
 Metal backend. As we enforce a deterministic group/binding resolution rule, our regular bind groups start
 from buffer slot 0. If we chose to bind vertex attributes starting from buffer slot 0, they would collide
 with other buffer resources. As a workaround, our implementation binds vertex attributes from the top buffer
-slots in descending order. We have already reserved the top slot for push constants, therefore we can only
-start binding vertex attributes from `slot(push constants) - 1`. The next vertex attribute would be bound
-from `slot(push constants) - 2`.
+slots in descending order. We have already reserved the top slot for immediates, therefore we can only
+start binding vertex attributes from `slot(immediates) - 1`. The next vertex attribute would be bound
+from `slot(immediates) - 2`.

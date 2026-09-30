@@ -84,10 +84,8 @@ void MetalPipelineLayout::init(const GPUPipelineLayoutDescriptor& desc)
 {
     auto rhi = get_rhi();
 
-    // store push constant ranges
-    for (const auto& range : desc.push_constant_ranges) {
-        push_constant_ranges.push_back(range);
-    }
+    // store immediate size
+    immediate_size = desc.immediate_size;
 
     // generate flat mapping
     uint current_buffer_index         = 0;
@@ -135,9 +133,9 @@ void MetalPipelineLayout::init(const GPUPipelineLayoutDescriptor& desc)
     max_sampler_index = current_sampler_index;
 
     // bounds checking
-    if (max_buffer_index >= METAL_PushConstantBufferIndex) {
+    if (max_buffer_index >= METAL_ImmediateBufferIndex) {
         get_logger()->error("Pipeline layout exceeds available Metal buffer slots! Used: {}, Available: <{}",
-            max_buffer_index, METAL_PushConstantBufferIndex);
+            max_buffer_index, METAL_ImmediateBufferIndex);
         throw GPUValidationError("Pipeline layout exceeds available Metal buffer slots");
     }
 }
@@ -145,7 +143,7 @@ void MetalPipelineLayout::init(const GPUPipelineLayoutDescriptor& desc)
 void MetalPipelineLayout::destroy()
 {
     bind_group_layouts.clear();
-    push_constant_ranges.clear();
+    immediate_size = 0;
     buffer_indices.clear();
     texture_indices.clear();
     sampler_indices.clear();

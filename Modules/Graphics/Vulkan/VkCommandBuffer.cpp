@@ -300,11 +300,11 @@ void cmd::set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GP
         static_cast<uint32_t>(dynamic_offsets.size()), dynamic_offsets.data());
 }
 
-void cmd::set_push_constants(GPUCommandEncoderHandle cmdbuffer, GPUShaderStageFlags visibility, uint offset, uint size, void* data)
+void cmd::set_immediates(GPUCommandEncoderHandle cmdbuffer, uint offset, uint size, const void* data)
 {
     auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
-    rhi->vtable.vkCmdPushConstants(cmd.command_buffer, cmd.last_bound_layout, vkenum(visibility), offset, size, data);
+    rhi->vtable.vkCmdPushConstants(cmd.command_buffer, cmd.last_bound_layout, VK_SHADER_STAGE_ALL, offset, size, data);
 }
 
 void cmd::set_index_buffer(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle buffer, GPUIndexFormat format, GPUSize64 offset, GPUSize64 size)

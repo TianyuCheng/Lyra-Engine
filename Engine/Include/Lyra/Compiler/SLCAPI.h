@@ -34,7 +34,7 @@ namespace lyra
         bool (*get_vertex_attributes)(ShaderReflectionHandle reflection, ShaderAttributes attrs, GPUVertexAttribute* attributes);
         bool (*get_bind_group_layouts)(ShaderReflectionHandle reflection, uint& count, GPUBindGroupLayoutDescriptor* layouts);
         bool (*get_bind_group_location)(ShaderReflectionHandle reflection, CString name, uint& location);
-        bool (*get_push_constant_ranges)(ShaderReflectionHandle reflection, uint& count, GPUPushConstantRange* ranges);
+        bool (*get_immediate_size)(ShaderReflectionHandle reflection, uint& size);
     };
 
 } // namespace lyra

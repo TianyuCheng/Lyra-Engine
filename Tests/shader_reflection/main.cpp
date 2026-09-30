@@ -40,7 +40,7 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
         SamplerState smp;
     };
 
-    [[lyra::push_constant]]
+    [[lyra::immediates]]
     ConstantBuffer<Xform> xform1;
 
     [[lyra::group(0)]]
@@ -260,25 +260,8 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
         }
     }
 
-    auto push_constants = reflection->get_push_constant_ranges();
-    CHECK_EQ(push_constants.size(), 2);
-
-    // TODO: We are currently populating the push constants at ParameterBlock level. This is not correct.
-    // if (push_constants.size() == 2) {
-    //     // data
-    //     CHECK_EQ(push_constants.at(0).offset, 0);
-    //     CHECK_EQ(push_constants.at(0).size, 12);
-    //     std::cerr << std::showbase << std::hex << push_constants.at(0).visibility.value << std::endl;
-    //     CHECK(!push_constants.at(0).visibility.contains(GPUShaderStage::VERTEX));
-    //     CHECK(!push_constants.at(0).visibility.contains(GPUShaderStage::FRAGMENT));
-    //
-    //     // mvp
-    //     CHECK_EQ(push_constants.at(1).offset, 16);
-    //     CHECK_EQ(push_constants.at(1).size, 64);
-    //     std::cerr << push_constants.at(1).visibility.value << std::endl;
-    //     CHECK(push_constants.at(1).visibility.contains(GPUShaderStage::VERTEX));
-    //     CHECK(!push_constants.at(1).visibility.contains(GPUShaderStage::FRAGMENT));
-    // }
+    auto immediate_size = reflection->get_immediate_size();
+    CHECK_EQ(immediate_size, 80);
 }
 
 void test_shader_explicit_group_and_binding_reflection(CompileTarget target, CompileFlags flags)
@@ -306,7 +289,7 @@ void test_shader_explicit_group_and_binding_reflection(CompileTarget target, Com
         float4x4 mvp;
     };
 
-    [[lyra::push_constant]]
+    [[lyra::immediates]]
     ConstantBuffer<Xform> xform;
 
     // declared out of order: material is explicitly group 2, scene is explicitly group 0
@@ -398,10 +381,8 @@ void test_shader_explicit_group_and_binding_reflection(CompileTarget target, Com
         }
     }
 
-    auto push_constants = reflection->get_push_constant_ranges();
-    CHECK_EQ(push_constants.size(), 1);
-    CHECK_EQ(push_constants.at(0).offset, 0);
-    CHECK_EQ(push_constants.at(0).size, 64);
+    auto immediate_size = reflection->get_immediate_size();
+    CHECK_EQ(immediate_size, 64);
 }
 
 void test_shader_explicit_two_arg_binding_reflection(CompileTarget target, CompileFlags flags)

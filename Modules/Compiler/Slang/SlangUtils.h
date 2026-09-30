@@ -134,16 +134,16 @@ struct ReflectResultInternal
     HashMap<uint, String>        bind_group_names;
     List<String>                 semantic_names; // just a container to make sure const char* is not lost
     Bindings                     bind_groups;
-    Vector<GPUVertexAttribute>   vertex_attributes;
-    Vector<GPUPushConstantRange> push_constant_ranges;
-    TraversalData                traversal_data;
-    uint                         num_push_constant_buffers = 0;
-    bool                         has_error                 = false;
+    Vector<GPUVertexAttribute> vertex_attributes;
+    uint                       immediate_size         = 0;
+    TraversalData              traversal_data;
+    uint                       num_immediate_buffers  = 0;
+    bool                       has_error              = false;
 
     bool get_vertex_attributes(ShaderAttributes attrs, GPUVertexAttribute* attributes) const;
     bool get_bind_group_layouts(uint& count, GPUBindGroupLayoutDescriptor* layouts) const;
     bool get_bind_group_location(CString name, uint& group) const;
-    bool get_push_constant_ranges(uint& count, GPUPushConstantRange* ranges) const;
+    bool get_immediate_size(uint& size) const;
 
     void init(slang::ProgramLayout* program_layout);
     void walk(slang::EntryPointReflection* entry_point, const AccessPath& path, const Callback& callback);
@@ -155,7 +155,7 @@ struct ReflectResultInternal
     void record_parameter_block_space(const AccessPath& path);
     void create_binding(const AccessPath& path);
     void create_automatic_constant_buffer(const AccessPath& path);
-    void create_push_constant(const AccessPath& path, const CumulativeOffset& offset, const GPUBindGroupLayoutEntry& binding);
+    void create_immediates(const AccessPath& path, const CumulativeOffset& offset, const GPUBindGroupLayoutEntry& binding);
     void fill_binding_type(GPUBindGroupLayoutEntry& entry, slang::TypeLayoutReflection* type) const;
     void fill_binding_index(GPUBindGroupLayoutEntry& entry, CumulativeOffset offset, const AccessPath& path) const;
     void fill_binding_count(GPUBindGroupLayoutEntry& entry, slang::TypeLayoutReflection* type) const;
@@ -163,7 +163,7 @@ struct ReflectResultInternal
     void fill_dynamic_uniform_buffer(GPUBindGroupLayoutEntry& entry, slang::VariableLayoutReflection* var_layout);
     auto infer_texture_format(slang::TypeLayoutReflection* type) const -> GPUTextureFormat;
     auto infer_vertex_format(slang::TypeLayoutReflection* type) const -> GPUVertexFormat;
-    bool is_push_constant_buffer(const AccessPath& node) const;
+    bool is_immediates_buffer(const AccessPath& node) const;
     bool is_under_parameter_block(const AccessPath& node) const;
 };
 
