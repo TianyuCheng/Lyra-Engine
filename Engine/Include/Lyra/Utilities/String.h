@@ -9,6 +9,11 @@
 #include <locale>
 #include <string>
 #include <string_view>
+#include <ostream>
+
+#if __has_include(<fmt/format.h>)
+#include <fmt/format.h>
+#endif
 
 #if !defined(_WIN32)
 // to allow compilation on non-Windows platforms (e.g. MacOS, Linux)
@@ -33,6 +38,11 @@ inline int strncpy_s(char* dest, size_t destsz, const char* src, size_t count)
     }
     dest[i] = '\0';
     return 0;
+}
+
+inline int strcpy_s(char* dest, size_t destsz, const char* src)
+{
+    return strncpy_s(dest, destsz, src, destsz ? destsz - 1 : 0);
 }
 
 #ifndef sprintf_s
@@ -132,17 +142,18 @@ namespace lyra
 
         constexpr const char* c_str() const noexcept { return data; }
         constexpr const char* data_ptr() const noexcept { return data; }
-        constexpr char* data_ptr() noexcept { return data; }
-        constexpr operator const char*() const noexcept { return data; }
+        constexpr char*       data_ptr() noexcept { return data; }
+        constexpr             operator const char*() const noexcept { return data; }
         operator StringView() const noexcept { return StringView(data); }
 
         constexpr size_t capacity() const noexcept { return N; }
-        size_t size() const noexcept { return strnlen_s(data, N); }
-        constexpr bool empty() const noexcept { return data[0] == '\0'; }
+        size_t           size() const noexcept { return strnlen_s(data, N); }
+        constexpr bool   empty() const noexcept { return data[0] == '\0'; }
 
         bool operator==(const char* other) const noexcept { return other && strcmp(data, other) == 0; }
         bool operator==(StringView other) const noexcept { return StringView(data) == other; }
-        bool operator==(const FixedString& other) const noexcept { return strcmp(data, other.data) == 0; }
+        template <size_t M>
+        bool operator==(const FixedString<M>& other) const noexcept { return strcmp(data, other.data) == 0; }
     };
 
     static_assert(std::is_standard_layout_v<FixedString<64>>);
@@ -151,6 +162,36 @@ namespace lyra
     using FixedString64  = FixedString<64>;
     using FixedString128 = FixedString<128>;
     using FixedString256 = FixedString<256>;
+
+    template <size_t N>
+    inline std::ostream& operator<<(std::ostream& os, const FixedString<N>& str)
+    {
+        return os << str.data;
+    }
+
+    template <size_t N>
+    inline std::string to_string(const FixedString<N>& str)
+    {
+        return std::string(str.data, str.size());
+    }
+
+    template <size_t N>
+    inline std::wstring to_wstring(const FixedString<N>& str)
+    {
+        return to_wstring(str.data);
+    }
 } // namespace lyra
+
+#if defined(FMT_VERSION)
+template <size_t N>
+struct fmt::formatter<lyra::FixedString<N>> : fmt::formatter<std::string_view>
+{
+    template <typename FormatContext>
+    auto format(const lyra::FixedString<N>& str, FormatContext& ctx) const
+    {
+        return fmt::formatter<std::string_view>::format(std::string_view(str.data, str.size()), ctx);
+    }
+};
+#endif
 
 #endif // LYRA_ENGINE_UTILITIES_STRING_H

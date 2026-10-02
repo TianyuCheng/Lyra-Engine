@@ -13,7 +13,7 @@
 #include <Lyra/Utilities/String.h>
 #include <Lyra/Utilities/Pointer.h>
 #include <Lyra/Utilities/Collections.h>
-#include <Lyra/Utilities/Compatibility.h> // Now includes get_environment_variable
+#include <Lyra/Utilities/Compatibility.h>
 
 namespace lyra
 {

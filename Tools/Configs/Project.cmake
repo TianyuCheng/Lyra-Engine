@@ -89,6 +89,9 @@ macro(lyra_module NAME TYPE)
         LIBRARY_OUTPUT_DIRECTORY ${LIBRARY_BIN_DIRECTORY}/
         ARCHIVE_OUTPUT_DIRECTORY ${LIBRARY_BIN_DIRECTORY}/
         PREFIX "")
+    if(APPLE)
+      set_target_properties(${TARGET_NAME} PROPERTIES SUFFIX ".dylib")
+    endif()
     target_link_libraries(${TARGET_NAME} PUBLIC lyra::engine)
     target_link_libraries(${TARGET_NAME} PUBLIC lyra::commons)
   else()

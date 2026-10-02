@@ -122,7 +122,7 @@ int main(int argc, char* argv[])
                 is_same_file = true;
             }
 
-            bool is_module_header = !p.is_absolute() && (p.stem().string() == module_name ||
+            bool is_module_header = (p.stem().string() == module_name ||
                                      to_lower_snake(p.stem().string()) == to_lower_snake(module_name));
             if (!is_same_file && is_module_header) {
                 std::string staged_content = content;

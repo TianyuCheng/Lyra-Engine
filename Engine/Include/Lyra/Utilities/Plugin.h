@@ -280,12 +280,17 @@ auto lyra::Plugin<APIType>::load_dll(const char* name) -> LYRA_PLUGIN
     std::stringstream ss;
 #if defined(__APPLE__)
     ss << name << ".dylib";
+    LYRA_PLUGIN lib = dlopen(ss.str().c_str(), RTLD_LAZY);
+    if (!lib) {
+        std::stringstream ss_so;
+        ss_so << name << ".so";
+        lib = dlopen(ss_so.str().c_str(), RTLD_LAZY);
+    }
+    return lib;
 #else
     ss << name << ".so";
+    return dlopen(ss.str().c_str(), RTLD_LAZY);
 #endif
-    String path = ss.str();
-
-    return dlopen(path.c_str(), RTLD_LAZY);
 }
 
 template <typename APIType>
