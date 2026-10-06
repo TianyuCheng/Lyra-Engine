@@ -26,7 +26,7 @@ namespace lyra
 
         alignas(64) std::atomic<int64_t> top    = 0;
         alignas(64) std::atomic<int64_t> bottom = 0;
-        alignas(64) Array<T, Capacity>   buffer{};
+        alignas(64) Array<T, Capacity> buffer{};
 
     public:
         ChaseLevDeque() = default;

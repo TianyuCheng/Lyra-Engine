@@ -606,11 +606,13 @@ TEST_CASE("utilities::toolboard::operations" * doctest::description("toolboard r
     CHECK(tb.empty());
     CHECK(tb.size() == 0);
 
-    struct DummyDevice {
+    struct DummyDevice
+    {
         int id = 7;
     } device;
 
-    struct DummyWindow {
+    struct DummyWindow
+    {
         int width = 800;
     } window;
 
@@ -638,7 +640,9 @@ TEST_CASE("utilities::toolboard::operations" * doctest::description("toolboard r
     CHECK(const_tb.get<DummyWindow>().width == 800);
     CHECK(const_tb.get<DummyWindow*>()->width == 800);
 
-    struct DummyCompiler {};
+    struct DummyCompiler
+    {
+    };
     CHECK(!const_tb.has<DummyCompiler>());
     CHECK(const_tb.try_get<DummyCompiler>() == nullptr);
 
@@ -656,5 +660,3 @@ TEST_CASE("utilities::toolboard::operations" * doctest::description("toolboard r
     CHECK(tb.empty());
     CHECK(tb.size() == 0);
 }
-
-

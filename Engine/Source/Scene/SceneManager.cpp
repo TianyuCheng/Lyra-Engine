@@ -1,5 +1,6 @@
 #include <fstream>
 #include <Lyra/Utilities/GUID.h>
+#include <Lyra/Utilities/Logger.h>
 #include <Lyra/JobSystem/Jobs.h>
 #include <Lyra/Assets/Format/SceneAsset.h>
 #include <Lyra/Scene/SceneManager.h>
@@ -12,6 +13,88 @@ SceneManager::SceneManager(World& world, SceneTree& hierarchy, AssetServer& ams)
     : world(world), hierarchy(hierarchy), ams(ams)
 {
     // do nothing
+}
+
+static void split_name_index(const String& name, String& out_prefix, uint& out_index)
+{
+    if (name.size() >= 4 && name.back() == ')') {
+        auto open_paren = name.rfind(" (");
+        if (open_paren != String::npos && open_paren + 2 < name.size() - 1) {
+            bool all_digits = true;
+            for (size_t i = open_paren + 2; i < name.size() - 1; ++i) {
+                if (!std::isdigit(static_cast<unsigned char>(name[i]))) {
+                    all_digits = false;
+                    break;
+                }
+            }
+            if (all_digits) {
+                out_prefix = name.substr(0, open_paren);
+                try {
+                    out_index = static_cast<uint>(std::stoul(name.substr(open_paren + 2, name.size() - open_paren - 3)));
+                    return;
+                } catch (const std::exception& e) {
+                    spdlog::warn("SceneManager: Failed to parse index in name '{}': {}", name, e.what());
+                    out_index = 0;
+                }
+            }
+        }
+    }
+    out_prefix = name;
+    out_index  = 0;
+}
+
+String SceneManager::resolve_unique_name(SceneNode parent, const String& base_name) const
+{
+    if (base_name.empty()) {
+        return "Node";
+    }
+
+    SceneNode effective_parent = parent;
+    if (effective_parent.entity == entt::null) {
+        if (const auto* active = get_active()) {
+            if (active->root.entity != entt::null) {
+                effective_parent = active->root;
+            }
+        }
+    }
+
+    HashSet<String> existing_names;
+
+    if (effective_parent.entity != entt::null && world.registry.valid(effective_parent.entity)) {
+        if (auto* children = world.registry.try_get<Children>(effective_parent.entity)) {
+            for (auto child : children->nodes) {
+                if (world.registry.valid(child.entity)) {
+                    if (auto* name_comp = world.registry.try_get<NodeName>(child.entity)) {
+                        existing_names.insert(name_comp->name);
+                    }
+                }
+            }
+        }
+    } else {
+        auto view = world.registry.view<NodeName>();
+        for (auto entity : view) {
+            if (!world.registry.any_of<Parent>(entity)) {
+                existing_names.insert(view.get<NodeName>(entity).name);
+            }
+        }
+    }
+
+    if (existing_names.find(base_name) == existing_names.end()) {
+        return base_name;
+    }
+
+    String prefix;
+    uint   start_index = 0;
+    split_name_index(base_name, prefix, start_index);
+
+    uint index = (start_index > 0) ? (start_index + 1) : 1;
+    while (true) {
+        String candidate = prefix + " (" + std::to_string(index) + ")";
+        if (existing_names.find(candidate) == existing_names.end()) {
+            return candidate;
+        }
+        ++index;
+    }
 }
 
 SceneNode SceneManager::spawn(ModelAssetHandle model, const SpawnParams& params)
@@ -30,7 +113,24 @@ SceneNode SceneManager::spawn(ModelAssetHandle model, const SpawnParams& params)
         return SceneNode{};
     }
 
-    return spawn_model_internal(*asset, params);
+    SpawnParams effective_params = params;
+    if (effective_params.name.empty()) {
+        if (asset->root < asset->nodes.size() && !asset->nodes[asset->root].name.empty()) {
+            effective_params.name = asset->nodes[asset->root].name;
+        } else {
+            StringView asset_path = ams.get_path(model.guid);
+            if (!asset_path.empty()) {
+                String s(asset_path);
+                auto   hash_pos = s.find('#');
+                if (hash_pos != String::npos) {
+                    s = s.substr(0, hash_pos);
+                }
+                effective_params.name = Path(s).stem().string();
+            }
+        }
+    }
+
+    return spawn_model_internal(*asset, effective_params);
 }
 
 SceneNode SceneManager::spawn_model_internal(
@@ -51,11 +151,31 @@ SceneNode SceneManager::spawn_scene_internal(
 
     Vector<SceneNode> created_nodes(scene.nodes.size());
 
+    // determine unique name for the root node
+    String root_name = params.name;
+    if (root_name.empty() && scene.root < scene.nodes.size()) {
+        root_name = scene.nodes[scene.root].name;
+    }
+    if (root_name.empty()) {
+        root_name = "Node";
+    }
+
+    SceneNode target_parent = params.parent;
+    if (target_parent.entity == entt::null) {
+        if (const auto* active = get_active()) {
+            if (active->root.entity != entt::null) {
+                target_parent = active->root;
+            }
+        }
+    }
+    root_name = resolve_unique_name(target_parent, root_name);
+
     // create entities and populate components
     for (size_t i = 0; i < scene.nodes.size(); ++i) {
-        const auto& src_node = scene.nodes[i];
-        Entity      entity   = world.create(src_node.name);
-        created_nodes[i]     = SceneNode(entity);
+        const auto& src_node  = scene.nodes[i];
+        String      node_name = (i == scene.root) ? root_name : src_node.name;
+        Entity      entity    = world.create(node_name);
+        created_nodes[i]      = SceneNode(entity);
 
         // decompose local transform
         Vector3    pos;

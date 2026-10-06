@@ -33,7 +33,7 @@ namespace lyra
         std::optional<T> storage{};
 
         template <typename Value>
-            requires std::is_convertible_v<Value&&, T>
+        requires std::is_convertible_v<Value&&, T>
         void return_value(Value&& value) noexcept(std::is_nothrow_constructible_v<T, Value&&>)
         {
             storage.emplace(std::forward<Value>(value));

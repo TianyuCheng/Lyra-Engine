@@ -93,6 +93,14 @@ namespace lyra
         return std::string(buf.data(), buf.size());
     }
 
+    inline StringView trim_whitespace(StringView s)
+    {
+        size_t first = s.find_first_not_of(" \t\n\r");
+        if (first == StringView::npos) return "";
+        size_t last = s.find_last_not_of(" \t\n\r");
+        return s.substr(first, (last - first + 1));
+    }
+
     /**
      * @brief Fixed-capacity, null-terminated inline string buffer with strict C-ABI layout.
      *

@@ -105,9 +105,9 @@ GPUCommandEncoderHandle D3D12Frame::allocate(GPUQueueType type, bool primary)
     uint handle = static_cast<uint>(allocated_command_buffers.size());
     allocated_command_buffers.push_back(CommandBuffer{});
     CommandBuffer& cmd = allocated_command_buffers.back();
-    cmd.type    = type;
-    cmd.primary = primary;
-    cmd.used    = true;
+    cmd.type           = type;
+    cmd.primary        = primary;
+    cmd.used           = true;
     switch (type) {
         case GPUQueueType::TRANSFER:
             cmd.cmd.command_queue = rhi->transfer_queue;

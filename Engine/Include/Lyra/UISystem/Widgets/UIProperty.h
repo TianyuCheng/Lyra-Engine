@@ -93,10 +93,10 @@ namespace lyra::ui
     requires std::is_enum_v<E>
     void enumeration(CString label, E& value)
     {
-        constexpr auto entries = magic_enum::enum_entries<E>();
-        auto current_name = String(magic_enum::enum_name(value));
+        constexpr auto entries      = magic_enum::enum_entries<E>();
+        auto           current_name = String(magic_enum::enum_name(value));
 
-        Array<String, entries.size()> item_strings;
+        Array<String, entries.size()>  item_strings;
         Array<CString, entries.size()> items;
         for (size_t i = 0; i < entries.size(); ++i) {
             item_strings[i] = String(entries[i].second);
@@ -114,10 +114,10 @@ namespace lyra::ui
     requires std::is_enum_v<E>
     void enumeration(CString label, E& value, ChangeRef<E> on_change)
     {
-        constexpr auto entries = magic_enum::enum_entries<E>();
-        auto current_name = String(magic_enum::enum_name(value));
+        constexpr auto entries      = magic_enum::enum_entries<E>();
+        auto           current_name = String(magic_enum::enum_name(value));
 
-        Array<String, entries.size()> item_strings;
+        Array<String, entries.size()>  item_strings;
         Array<CString, entries.size()> items;
         for (size_t i = 0; i < entries.size(); ++i) {
             item_strings[i] = String(entries[i].second);

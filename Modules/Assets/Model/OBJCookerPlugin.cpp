@@ -73,8 +73,9 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
         model.root = 0;
 
         ModelAsset::Node root_node;
-        root_node.name      = "OBJ_Root";
-        root_node.transform = Matrix4x4(1.0f);
+        String           stem_name = Path(source_path).stem().string();
+        root_node.name             = !stem_name.empty() ? stem_name : "OBJ_Root";
+        root_node.transform        = Matrix4x4(1.0f);
 
         AssetID mesh_id = deps.resolve(model_id, "mesh/0", MeshAsset::type);
         deps.set_path(mesh_id, "meshes/" + std::to_string(mesh_id) + ".mesh");

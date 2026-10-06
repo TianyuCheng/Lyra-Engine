@@ -56,9 +56,9 @@ template <typename T = std::byte>
 class BlockAllocator
 {
 private:
-    size_t                         m_capacity;
-    lyra::TreeMap<size_t, size_t>  m_free_blocks;      // offset -> size
-    lyra::TreeMap<size_t, size_t>  m_allocated_blocks; // offset -> size
+    size_t                        m_capacity;
+    lyra::TreeMap<size_t, size_t> m_free_blocks;      // offset -> size
+    lyra::TreeMap<size_t, size_t> m_allocated_blocks; // offset -> size
 
 public:
     /**

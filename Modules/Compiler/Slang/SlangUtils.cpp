@@ -1078,7 +1078,7 @@ void ReflectResultInternal::create_immediates(const AccessPath& path, const Cumu
         return;
     }
 
-    auto imm_type = node->var_layout->getTypeLayout()->getElementTypeLayout();
+    auto imm_type  = node->var_layout->getTypeLayout()->getElementTypeLayout();
     immediate_size = static_cast<uint>(imm_type->getSize(SLANG_PARAMETER_CATEGORY_UNIFORM));
     get_logger()->trace("[IMMEDIATES] NAME:{}\t SIZE:{}",
         node->var_layout->getName(),

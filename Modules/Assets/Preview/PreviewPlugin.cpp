@@ -20,7 +20,7 @@ static auto generate_thumbnail_api(
     JSON&               metadata) -> Future<Path>
 {
     Promise<Path> p;
-    Path path = preview::generate_scene_thumbnail(scene, metadata);
+    Path          path = preview::generate_scene_thumbnail(scene, metadata);
     p.set_value(path);
     return p.get_future();
 }
@@ -37,4 +37,4 @@ namespace lyra::preview
         api.generate_thumbnail = generate_thumbnail_api;
         return api;
     }
-}
+} // namespace lyra::preview

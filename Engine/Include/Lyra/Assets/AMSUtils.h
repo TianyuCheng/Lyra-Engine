@@ -110,7 +110,7 @@ namespace lyra
         AMSLoaderDescriptor loader;
         OSPath              registry;
 
-        bool watch   = false; ///< Whether to monitor the asset directory for hot-reloading.
+        bool watch = false; ///< Whether to monitor the asset directory for hot-reloading.
     };
 
 } // namespace lyra

@@ -123,10 +123,6 @@ auto lyra::preview::rasterize_scene(const PreviewScene& scene) -> PreviewTexture
             }
 
             Vector<uint8_t> resized(thumb_w * thumb_h * 4);
-            stbir_pixel_layout layout = (tex.channels == 1) ? STBIR_1CHANNEL :
-                                        (tex.channels == 2) ? STBIR_2CHANNEL :
-                                        (tex.channels == 3) ? STBIR_RGB : STBIR_RGBA;
-
             stbir_resize_uint8_linear(
                 tex.pixels.data(), tex.width, tex.height, 0,
                 resized.data(), thumb_w, thumb_h, 0,
@@ -186,7 +182,7 @@ auto lyra::preview::rasterize_scene(const PreviewScene& scene) -> PreviewTexture
         color_buffer[i * 4 + 3] = static_cast<uint8_t>(G_CONFIG.clear_color.a * 255.0f);
     }
 
-    Vector3 light_key  = glm::normalize(Vector3( 0.5f,  0.8f,  0.6f));
+    Vector3 light_key  = glm::normalize(Vector3(0.5f, 0.8f, 0.6f));
     Vector3 light_fill = glm::normalize(Vector3(-0.5f, -0.2f, -0.5f));
     Vector3 clay_color = Vector3(0.72f, 0.75f, 0.78f);
 
@@ -239,11 +235,11 @@ auto lyra::preview::rasterize_scene(const PreviewScene& scene) -> PreviewTexture
             Vector3 ndc2 = Vector3(clip2) / clip2.w;
 
             if ((ndc0.x < -1.0f && ndc1.x < -1.0f && ndc2.x < -1.0f) ||
-                (ndc0.x >  1.0f && ndc1.x >  1.0f && ndc2.x >  1.0f) ||
+                (ndc0.x > 1.0f && ndc1.x > 1.0f && ndc2.x > 1.0f) ||
                 (ndc0.y < -1.0f && ndc1.y < -1.0f && ndc2.y < -1.0f) ||
-                (ndc0.y >  1.0f && ndc1.y >  1.0f && ndc2.y >  1.0f) ||
-                (ndc0.z <  0.0f && ndc1.z <  0.0f && ndc2.z <  0.0f) ||
-                (ndc0.z >  1.0f && ndc1.z >  1.0f && ndc2.z >  1.0f)) {
+                (ndc0.y > 1.0f && ndc1.y > 1.0f && ndc2.y > 1.0f) ||
+                (ndc0.z < 0.0f && ndc1.z < 0.0f && ndc2.z < 0.0f) ||
+                (ndc0.z > 1.0f && ndc1.z > 1.0f && ndc2.z > 1.0f)) {
                 continue;
             }
 
@@ -265,9 +261,9 @@ auto lyra::preview::rasterize_scene(const PreviewScene& scene) -> PreviewTexture
             Vector3 n0, n1, n2;
             if (has_normals) {
                 Matrix3x3 norm_mat = glm::transpose(glm::inverse(Matrix3x3(mesh.transform)));
-                n0 = glm::normalize(norm_mat * mesh.normals[idx0]);
-                n1 = glm::normalize(norm_mat * mesh.normals[idx1]);
-                n2 = glm::normalize(norm_mat * mesh.normals[idx2]);
+                n0                 = glm::normalize(norm_mat * mesh.normals[idx0]);
+                n1                 = glm::normalize(norm_mat * mesh.normals[idx1]);
+                n2                 = glm::normalize(norm_mat * mesh.normals[idx2]);
             } else {
                 Vector3 geom_n = glm::normalize(glm::cross(norm_p1 - norm_p0, norm_p2 - norm_p0));
                 n0 = n1 = n2 = geom_n;
@@ -299,13 +295,13 @@ auto lyra::preview::rasterize_scene(const PreviewScene& scene) -> PreviewTexture
                     float w2 = 1.0f - w0 - w1;
 
                     if (w0 >= 0.0f && w1 >= 0.0f && w2 >= 0.0f) {
-                        float depth = w0 * ndc0.z + w1 * ndc1.z + w2 * ndc2.z;
+                        float  depth     = w0 * ndc0.z + w1 * ndc1.z + w2 * ndc2.z;
                         size_t pixel_idx = static_cast<size_t>(py * render_w + px);
 
                         if (depth >= 0.0f && depth < depth_buffer[pixel_idx]) {
                             depth_buffer[pixel_idx] = depth;
 
-                            Vector3 norm = glm::normalize(w0 * n0 + w1 * n1 + w2 * n2);
+                            Vector3 norm     = glm::normalize(w0 * n0 + w1 * n1 + w2 * n2);
                             Vector3 view_dir = glm::normalize(eye);
                             if (glm::dot(norm, view_dir) < 0.0f) {
                                 norm = -norm;
@@ -324,8 +320,8 @@ auto lyra::preview::rasterize_scene(const PreviewScene& scene) -> PreviewTexture
                             }
 
                             if (has_uvs && tex) {
-                                float inv_w = w0 * inv_w0 + w1 * inv_w1 + w2 * inv_w2;
-                                Vector2 uv = (w0 * uv0_w + w1 * uv1_w + w2 * uv2_w) / (inv_w != 0.0f ? inv_w : 1.0f);
+                                float   inv_w      = w0 * inv_w0 + w1 * inv_w1 + w2 * inv_w2;
+                                Vector2 uv         = (w0 * uv0_w + w1 * uv1_w + w2 * uv2_w) / (inv_w != 0.0f ? inv_w : 1.0f);
                                 Vector4 tex_sample = sample_bilinear(*tex, uv);
                                 albedo *= tex_sample;
                             }
@@ -384,7 +380,7 @@ auto lyra::preview::generate_scene_thumbnail(
         return Path();
     }
 
-    auto guid = metadata["guid"].get<AssetID>();
+    auto guid        = metadata["guid"].get<AssetID>();
     Path caches_root = G_CONFIG.caches_root;
     if (caches_root.empty()) {
         get_logger()->error("Preview generator caches_root not configured!");
@@ -402,7 +398,7 @@ auto lyra::preview::generate_scene_thumbnail(
         return Path();
     }
 
-    Path rel_path = fs::relative(thumb_path, caches_root);
+    Path rel_path         = fs::relative(thumb_path, caches_root);
     metadata["thumbnail"] = rel_path.generic_string();
     return rel_path;
 }

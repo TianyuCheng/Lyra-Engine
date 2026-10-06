@@ -29,7 +29,7 @@ struct AssetWatcherListener : efsw::FileWatchListener
     explicit AssetWatcherListener(AssetWatcher* owner) : owner(owner) {}
 
     void handleFileAction(efsw::WatchID, const std::string& dir, const std::string& filename,
-                          efsw::Action action, std::string old_filename) override
+        efsw::Action action, std::string old_filename) override
     {
         if (owner) {
             owner->on_file_action(dir, filename, action, old_filename);
@@ -48,17 +48,17 @@ AssetWatcher::~AssetWatcher()
 }
 
 AssetWatcher::AssetWatcher(AssetWatcher&& other) noexcept
-    : watch_root(std::move(other.watch_root))
-    , debounce_seconds(other.debounce_seconds)
-    , running(other.running.load())
-    , paused(other.paused.load())
-    , stop_requested(other.stop_requested.load())
-    , callback(std::move(other.callback))
-    , pending_map(std::move(other.pending_map))
-    , debounce_thread(std::move(other.debounce_thread))
-    , file_watcher(std::move(other.file_watcher))
-    , listener(std::move(other.listener))
-    , watch_id(other.watch_id)
+    : watch_root(std::move(other.watch_root)),
+      debounce_seconds(other.debounce_seconds),
+      running(other.running.load()),
+      paused(other.paused.load()),
+      stop_requested(other.stop_requested.load()),
+      callback(std::move(other.callback)),
+      pending_map(std::move(other.pending_map)),
+      debounce_thread(std::move(other.debounce_thread)),
+      file_watcher(std::move(other.file_watcher)),
+      listener(std::move(other.listener)),
+      watch_id(other.watch_id)
 {
     other.running.store(false);
     other.paused.store(false);
@@ -70,17 +70,17 @@ AssetWatcher& AssetWatcher::operator=(AssetWatcher&& other) noexcept
 {
     if (this != &other) {
         stop();
-        watch_root         = std::move(other.watch_root);
-        debounce_seconds   = other.debounce_seconds;
+        watch_root       = std::move(other.watch_root);
+        debounce_seconds = other.debounce_seconds;
         running.store(other.running.load());
         paused.store(other.paused.load());
         stop_requested.store(other.stop_requested.load());
-        callback           = std::move(other.callback);
-        pending_map        = std::move(other.pending_map);
-        debounce_thread    = std::move(other.debounce_thread);
-        file_watcher       = std::move(other.file_watcher);
-        listener           = std::move(other.listener);
-        watch_id           = other.watch_id;
+        callback        = std::move(other.callback);
+        pending_map     = std::move(other.pending_map);
+        debounce_thread = std::move(other.debounce_thread);
+        file_watcher    = std::move(other.file_watcher);
+        listener        = std::move(other.listener);
+        watch_id        = other.watch_id;
 
         other.running.store(false);
         other.paused.store(false);
@@ -144,10 +144,9 @@ void AssetWatcher::stop()
 
     listener.reset();
 
-    {
-        std::lock_guard lock(pending_mutex);
+    with_lock(pending_mutex, [&] {
         pending_map.clear();
-    }
+    });
 }
 
 void AssetWatcher::pause()
@@ -176,15 +175,15 @@ const Path& AssetWatcher::get_watch_root() const
 }
 
 void AssetWatcher::on_file_action(const std::string& dir, const std::string& filename,
-                                  efsw::Action action, const std::string& old_filename)
+    efsw::Action action, const std::string& old_filename)
 {
-    Path full_path = Path(dir) / filename;
+    Path            full_path = Path(dir) / filename;
     std::error_code ec;
-    Path rel_path = fs::relative(full_path, watch_root, ec);
+    Path            rel_path = fs::relative(full_path, watch_root, ec);
     if (ec || is_ignored_path(rel_path)) return;
 
     AssetWatchAction watch_action = AssetWatchAction::Modified;
-    bool valid = true;
+    bool             valid        = true;
 
     switch (action) {
         case efsw::Actions::Add:
@@ -211,28 +210,29 @@ void AssetWatcher::on_file_action(const std::string& dir, const std::string& fil
     auto debounce_dur = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
         std::chrono::duration<float>(debounce_seconds));
 
-    std::lock_guard lock(pending_mutex);
-    String key = rel_path.generic_string();
+    with_lock(pending_mutex, [&] {
+        String key = rel_path.generic_string();
 
-    auto it = pending_map.find(key);
-    if (it != pending_map.end()) {
-        if (it->second.event.action == AssetWatchAction::Added &&
-            watch_action == AssetWatchAction::Modified) {
-            watch_action = AssetWatchAction::Added;
+        auto it = pending_map.find(key);
+        if (it != pending_map.end()) {
+            if (it->second.event.action == AssetWatchAction::Added &&
+                watch_action == AssetWatchAction::Modified) {
+                watch_action = AssetWatchAction::Added;
+            }
+            it->second.event.action    = watch_action;
+            it->second.deadline        = now + debounce_dur;
+            it->second.event.timestamp = sys_now;
+        } else {
+            AssetWatchEvent evt;
+            evt.action    = watch_action;
+            evt.path      = rel_path;
+            evt.timestamp = sys_now;
+            if (watch_action == AssetWatchAction::Renamed && !old_filename.empty()) {
+                evt.old_path = fs::relative(Path(dir) / old_filename, watch_root, ec);
+            }
+            pending_map.emplace(key, AssetWatchPendingEvent{evt, now + debounce_dur});
         }
-        it->second.event.action    = watch_action;
-        it->second.deadline        = now + debounce_dur;
-        it->second.event.timestamp = sys_now;
-    } else {
-        AssetWatchEvent evt;
-        evt.action    = watch_action;
-        evt.path      = rel_path;
-        evt.timestamp = sys_now;
-        if (watch_action == AssetWatchAction::Renamed && !old_filename.empty()) {
-            evt.old_path = fs::relative(Path(dir) / old_filename, watch_root, ec);
-        }
-        pending_map.emplace(key, AssetWatchPendingEvent{evt, now + debounce_dur});
-    }
+    });
 
     pending_cv.notify_one();
 }
@@ -247,7 +247,7 @@ void AssetWatcher::run_debounce_worker()
 
         if (stop_requested.load()) break;
 
-        auto now = std::chrono::steady_clock::now();
+        auto                    now = std::chrono::steady_clock::now();
         Vector<AssetWatchEvent> ready_events;
 
         for (auto it = pending_map.begin(); it != pending_map.end();) {

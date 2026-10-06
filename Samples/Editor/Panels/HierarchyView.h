@@ -31,8 +31,14 @@ namespace lyra
         void update(AppContext& context);
 
     private:
-        SceneTree::NodeIndex selected_node      = SceneTree::INVALID_NODE;
-        char                 search_filter[256] = "";
+        SceneTree::NodeIndex selected_node             = SceneTree::INVALID_NODE;
+        char                 search_filter[256]        = "";
+        bool                 open_rename_modal         = false;
+        bool                 show_rename_modal         = false;
+        Entity               entity_to_rename          = entt::null;
+        char                 rename_buffer[256]        = "";
+        Entity               entity_to_duplicate       = entt::null;
+        Entity               entity_to_delete_children = entt::null;
     };
 } // namespace lyra
 

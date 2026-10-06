@@ -31,10 +31,10 @@ namespace lyra::detail
         using const_get_return_t = std::conditional_t<std::is_pointer_v<T>, const clean_element_t<T>*, const clean_element_t<T>&>;
 
     public:
-        Toolboard()                      = default;
+        Toolboard()                     = default;
         Toolboard(const Toolboard&)     = default;
         Toolboard(Toolboard&&) noexcept = default;
-        ~Toolboard()                     = default;
+        ~Toolboard()                    = default;
 
         Toolboard& operator=(const Toolboard&)     = default;
         Toolboard& operator=(Toolboard&&) noexcept = default;
@@ -72,12 +72,9 @@ namespace lyra::detail
         {
             using Element = clean_element_t<T>;
             assert(has<Element>());
-            if constexpr (std::is_pointer_v<T>)
-            {
+            if constexpr (std::is_pointer_v<T>) {
                 return static_cast<const Element*>(m_storage.at(typeid(Element)));
-            }
-            else
-            {
+            } else {
                 return *static_cast<const Element*>(m_storage.at(typeid(Element)));
             }
         }
@@ -87,12 +84,9 @@ namespace lyra::detail
         {
             using Element = clean_element_t<T>;
             assert(has<Element>());
-            if constexpr (std::is_pointer_v<T>)
-            {
+            if constexpr (std::is_pointer_v<T>) {
                 return static_cast<Element*>(m_storage.at(typeid(Element)));
-            }
-            else
-            {
+            } else {
                 return *static_cast<Element*>(m_storage.at(typeid(Element)));
             }
         }
@@ -104,7 +98,7 @@ namespace lyra::detail
         [[nodiscard]] const clean_element_t<T>* try_get() const
         {
             using Element = clean_element_t<T>;
-            auto it = m_storage.find(typeid(Element));
+            auto it       = m_storage.find(typeid(Element));
             return it != m_storage.cend() ? static_cast<const Element*>(it->second) : nullptr;
         }
 
@@ -112,7 +106,7 @@ namespace lyra::detail
         [[nodiscard]] clean_element_t<T>* try_get()
         {
             using Element = clean_element_t<T>;
-            auto it = m_storage.find(typeid(Element));
+            auto it       = m_storage.find(typeid(Element));
             return it != m_storage.cend() ? static_cast<Element*>(it->second) : nullptr;
         }
 

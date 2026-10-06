@@ -219,19 +219,19 @@ bool lyra::ui::is_key_down(KeyButton key)
 bool lyra::ui::is_key_pressed(KeyButton key)
 {
     if (key == KeyButton::CTRL) {
-        return ImGui::IsKeyPressed(ImGuiKey_LeftCtrl) || ImGui::IsKeyPressed(ImGuiKey_RightCtrl) ||
-               ImGui::IsKeyPressed(ImGuiKey_LeftSuper) || ImGui::IsKeyPressed(ImGuiKey_RightSuper);
+        return ImGui::IsKeyPressed(ImGuiKey_LeftCtrl, false) || ImGui::IsKeyPressed(ImGuiKey_RightCtrl, false) ||
+               ImGui::IsKeyPressed(ImGuiKey_LeftSuper, false) || ImGui::IsKeyPressed(ImGuiKey_RightSuper, false);
     }
     if (key == KeyButton::SHIFT) {
-        return ImGui::IsKeyPressed(ImGuiKey_LeftShift) || ImGui::IsKeyPressed(ImGuiKey_RightShift);
+        return ImGui::IsKeyPressed(ImGuiKey_LeftShift, false) || ImGui::IsKeyPressed(ImGuiKey_RightShift, false);
     }
     if (key == KeyButton::ALT) {
-        return ImGui::IsKeyPressed(ImGuiKey_LeftAlt) || ImGui::IsKeyPressed(ImGuiKey_RightAlt);
+        return ImGui::IsKeyPressed(ImGuiKey_LeftAlt, false) || ImGui::IsKeyPressed(ImGuiKey_RightAlt, false);
     }
     if (key == KeyButton::SUPER) {
-        return ImGui::IsKeyPressed(ImGuiKey_LeftSuper) || ImGui::IsKeyPressed(ImGuiKey_RightSuper);
+        return ImGui::IsKeyPressed(ImGuiKey_LeftSuper, false) || ImGui::IsKeyPressed(ImGuiKey_RightSuper, false);
     }
-    return ImGui::IsKeyPressed(to_imgui_key_button(key));
+    return ImGui::IsKeyPressed(to_imgui_key_button(key), false);
 }
 
 bool lyra::ui::is_key_released(KeyButton key)

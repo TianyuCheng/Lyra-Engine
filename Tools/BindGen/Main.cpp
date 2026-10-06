@@ -29,7 +29,7 @@ static std::string to_lower_snake(std::string_view name)
         char c = name[i];
         if (i > 0 && std::isupper(static_cast<unsigned char>(c)) &&
             (std::islower(static_cast<unsigned char>(name[i - 1])) ||
-             (i + 1 < name.size() && std::islower(static_cast<unsigned char>(name[i + 1]))))) {
+                (i + 1 < name.size() && std::islower(static_cast<unsigned char>(name[i + 1]))))) {
             result += '_';
         }
         if (std::isalnum(static_cast<unsigned char>(c))) {
@@ -69,13 +69,7 @@ int main(int argc, char* argv[])
 {
     cxxopts::Options options("lyra-bindgen", "Lyra Engine C++ Binding Generator");
 
-    options.add_options()
-        ("m,module", "Module name", cxxopts::value<std::string>()->default_value("Engine"))
-        ("p,prefix", "Include directory prefix (e.g. Lyra/Scene)", cxxopts::value<std::string>()->default_value(""))
-        ("I,include-dir", "Public include directory for staging", cxxopts::value<std::string>()->default_value(""))
-        ("o,output", "Output .gen.h header file", cxxopts::value<std::string>())
-        ("i,headers", "Input header files to process", cxxopts::value<std::vector<std::string>>())
-        ("h,help", "Print usage");
+    options.add_options()("m,module", "Module name", cxxopts::value<std::string>()->default_value("Engine"))("p,prefix", "Include directory prefix (e.g. Lyra/Scene)", cxxopts::value<std::string>()->default_value(""))("I,include-dir", "Public include directory for staging", cxxopts::value<std::string>()->default_value(""))("o,output", "Output .gen.h header file", cxxopts::value<std::string>())("i,headers", "Input header files to process", cxxopts::value<std::vector<std::string>>())("h,help", "Print usage");
 
     options.parse_positional({"headers"});
 
@@ -116,8 +110,9 @@ int main(int argc, char* argv[])
             }
             staged_path /= (p.stem().string() + ".h");
 
-            bool is_same_file = false;
             std::error_code ec;
+
+            bool is_same_file = false;
             if (fs::exists(staged_path, ec) && fs::equivalent(p, staged_path, ec)) {
                 is_same_file = true;
             }
@@ -126,7 +121,7 @@ int main(int argc, char* argv[])
                                      to_lower_snake(p.stem().string()) == to_lower_snake(module_name));
             if (!is_same_file && is_module_header) {
                 std::string staged_content = content;
-                std::string mod_ns = to_lower_snake(module_name);
+                std::string mod_ns         = to_lower_snake(module_name);
                 staged_content += "\n// Auto-generated script plugin declaration\n";
                 staged_content += "#include <Lyra/Scripting/ScriptTypes.h>\n\n";
                 staged_content += "namespace lyra::scripts::" + mod_ns + "\n{\n";

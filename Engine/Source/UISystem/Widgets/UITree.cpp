@@ -35,7 +35,7 @@ namespace
 
         return is_open;
     }
-}
+} // namespace
 
 bool lyra::ui::tree_item(uint64_t id, CString icon, CString label, bool is_selected, ActionRef on_select)
 {

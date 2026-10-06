@@ -95,7 +95,7 @@ void FrameGraph::compile()
     }
 
     // topological sort on active passes using Kahn's algorithm
-    Vector<uint> in_degree(passes.size(), 0);
+    Vector<uint>                 in_degree(passes.size(), 0);
     HashMap<uint, HashSet<uint>> adj;
 
     for (uint p = 0; p < passes.size(); ++p) {
@@ -162,7 +162,7 @@ void FrameGraph::compile()
         pass.deletes.clear();
     }
 
-    HashSet<uint> active_resources;
+    HashSet<uint>       active_resources;
     HashMap<uint, uint> resource_last_pass;
 
     for (uint psid : execution_order) {

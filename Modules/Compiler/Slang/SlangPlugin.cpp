@@ -111,18 +111,18 @@ LYRA_EXPORT auto cleanup() -> void
 
 LYRA_EXPORT auto create() -> ShaderAPI
 {
-    auto api                     = ShaderAPI{};
-    api.get_api_name             = get_api_name;
-    api.create_compiler          = create_compiler;
-    api.delete_compiler          = delete_compiler;
-    api.create_module            = create_module;
-    api.delete_module            = delete_module;
-    api.create_reflection        = create_reflection;
-    api.delete_reflection        = delete_reflection;
-    api.get_shader_blob          = get_shader_blob;
-    api.get_vertex_attributes    = get_vertex_attributes;
-    api.get_bind_group_layouts   = get_bind_group_layouts;
-    api.get_bind_group_location  = get_bind_group_location;
-    api.get_immediate_size       = get_immediate_size;
+    auto api                    = ShaderAPI{};
+    api.get_api_name            = get_api_name;
+    api.create_compiler         = create_compiler;
+    api.delete_compiler         = delete_compiler;
+    api.create_module           = create_module;
+    api.delete_module           = delete_module;
+    api.create_reflection       = create_reflection;
+    api.delete_reflection       = delete_reflection;
+    api.get_shader_blob         = get_shader_blob;
+    api.get_vertex_attributes   = get_vertex_attributes;
+    api.get_bind_group_layouts  = get_bind_group_layouts;
+    api.get_bind_group_location = get_bind_group_location;
+    api.get_immediate_size      = get_immediate_size;
     return api;
 }

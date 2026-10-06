@@ -30,11 +30,10 @@ namespace lyra::generated
         });
     }
 
-    inline constexpr ComponentID orbit__q0_req[] = { hash_script_name("OrbitCamera"), hash_script_name("lyra::TransformLocal") };
-    inline constexpr bool orbit__q0_w[] = { true, true };
+    inline constexpr ComponentID     orbit__q0_req[]  = {hash_script_name("OrbitCamera"), hash_script_name("lyra::TransformLocal")};
+    inline constexpr bool            orbit__q0_w[]    = {true, true};
     inline constexpr QueryDescriptor orbit__queries[] = {
-        { orbit__q0_req, orbit__q0_w, 2, nullptr, 0 }
-    };
+        {orbit__q0_req, orbit__q0_w, 2, nullptr, 0}};
 
     // =========================================================================
     // Script Descriptors Table
@@ -50,8 +49,7 @@ namespace lyra::generated
             .state_align = 0,
             .queries     = orbit__queries,
             .query_count = 1,
-        }
-    };
+        }};
 
     // =========================================================================
     // Component Pool Pre-registration
@@ -71,22 +69,22 @@ namespace lyra::generated
     {
         return ScriptAPI{
             .get_api_name = []() -> CString { return "SampleScripts"; },
-            .get_scripts = [](ScriptDescriptor* out) -> uint {
-                constexpr uint count = static_cast<uint>(std::size(script_descriptors));
-                if (!out) {
-                    return count;
-                }
-                for (uint i = 0; i < count; ++i) {
-                    out[i] = script_descriptors[i];
-                }
+            .get_scripts  = [](ScriptDescriptor* out) -> uint {
+            constexpr uint count = static_cast<uint>(std::size(script_descriptors));
+            if (!out) {
                 return count;
-            },
+            }
+            for (uint i = 0; i < count; ++i) {
+                out[i] = script_descriptors[i];
+            }
+            return count;
+        },
             .run = [](ScriptID id, ScriptContext& ctx) {
-                if (id == hash_script_name("orbit")) {
-                    orbit__run(ctx);
-                    return;
-                }
-            },
+            if (id == hash_script_name("orbit")) {
+                orbit__run(ctx);
+                return;
+            }
+        },
             .get_params = nullptr,
         };
     }

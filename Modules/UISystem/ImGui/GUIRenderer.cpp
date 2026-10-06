@@ -1056,10 +1056,10 @@ void GUIRenderer::init_pipeline_data(const GUIDescriptor& descriptor)
 
     // pipeline layout
     pipeline_data->playout = execute([&]() {
-        auto desc                 = GPUPipelineLayoutDescriptor{};
-        desc.label                = "imgui_pipeline_layout";
-        desc.bind_group_layouts   = pipeline_data->blayouts;
-        desc.immediate_size       = refl->get_immediate_size();
+        auto desc               = GPUPipelineLayoutDescriptor{};
+        desc.label              = "imgui_pipeline_layout";
+        desc.bind_group_layouts = pipeline_data->blayouts;
+        desc.immediate_size     = refl->get_immediate_size();
         return device.create_pipeline_layout(desc);
     });
 

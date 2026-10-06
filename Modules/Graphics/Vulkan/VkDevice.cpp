@@ -137,7 +137,7 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
     append_feature((VulkanBase*)&vulkan11_features);
 
     // synchronization2: support vkQueueSubmit2
-    auto synchronization2 = VkPhysicalDeviceSynchronization2Features{};
+    auto synchronization2             = VkPhysicalDeviceSynchronization2Features{};
     synchronization2.sType            = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
     synchronization2.synchronization2 = VK_TRUE;
     append_feature((VulkanBase*)&synchronization2);

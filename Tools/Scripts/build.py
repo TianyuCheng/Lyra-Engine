@@ -110,6 +110,62 @@ def do_amalgamate(args: argparse.Namespace):
         cmd.append("--check")
     execute(cmd)
 
+def do_format(args: argparse.Namespace):
+    import shutil
+
+    clang_format = shutil.which("clang-format")
+    if not clang_format:
+        print(">>> Error: 'clang-format' executable not found in PATH.")
+        sys.exit(1)
+
+    try:
+        res = subprocess.check_output(
+            ["git", "ls-files", "--", "*.h", "*.hpp", "*.c", "*.cpp", "*.inl"],
+            cwd=PROJECT_ROOT,
+            text=True,
+        )
+        all_files = [f for f in res.splitlines() if f.strip()]
+    except Exception:
+        # Fallback to filesystem scan if git is not available
+        extensions = {".h", ".hpp", ".c", ".cpp", ".inl"}
+        all_files = [
+            str(p.relative_to(PROJECT_ROOT))
+            for p in PROJECT_ROOT.rglob("*")
+            if p.suffix in extensions
+        ]
+
+    exclude_patterns = {"ThirdParty", "Vendors", "external", "_deps", "Scratch", "build"}
+    target_files = [
+        str(PROJECT_ROOT / f)
+        for f in all_files
+        if not any(pattern in f for pattern in exclude_patterns)
+    ]
+
+    if not target_files:
+        print(">>> No files found to format.")
+        return
+
+    base_cmd = [clang_format]
+    if args.check:
+        base_cmd += ["--dry-run", "--Werror"]
+    else:
+        base_cmd.append("-i")
+
+    # Run clang-format in batches to avoid command line length limits
+    batch_size = 50
+    total = len(target_files)
+    print(f">>> Formatting {total} files using {clang_format}...")
+
+    for i in range(0, total, batch_size):
+        batch = target_files[i:i + batch_size]
+        cmd = base_cmd + batch
+        proc = subprocess.run(cmd)
+        if proc.returncode != 0:
+            print(f">>> clang-format failed with exit code {proc.returncode}")
+            sys.exit(proc.returncode)
+
+    print(">>> Formatting complete.")
+
 def parse_args():
     parser = argparse.ArgumentParser("Lyra Build Helper")
     subparsers = parser.add_subparsers(dest="mode")
@@ -140,6 +196,10 @@ def parse_args():
     amalgamate_parser = subparsers.add_parser("amalgamate")
     amalgamate_parser.add_argument("--check", action="store_true", default=False)
 
+    # just format code
+    format_parser = subparsers.add_parser("format")
+    format_parser.add_argument("--check", action="store_true", default=False)
+
     return parser.parse_args()
 
 def main():
@@ -163,6 +223,9 @@ def main():
 
         elif args.mode == "amalgamate":
             do_amalgamate(args)
+
+        elif args.mode == "format":
+            do_format(args)
     except subprocess.SubprocessError:
         print(">>> Build Recipe Failed!")
         sys.exit(1)

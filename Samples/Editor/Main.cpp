@@ -42,6 +42,53 @@ static void imgui_update(AppContext& context)
         open_new_scene_modal = true;
     };
 
+    auto do_save_scene_as = [&]() {
+        if (!scene_mgr) return;
+        ui::dialog::Options opts;
+        opts.title    = "Save Scene As";
+        opts.filters  = {{"Lyra Scene (*.scene)", "*.scene"}};
+        auto selected = ui::dialog::save_file(opts);
+        if (selected.has_value()) {
+            Path p = *selected;
+            if (p.extension() != ".scene") {
+                p += ".scene";
+            }
+            if (!scene_mgr->save(p)) {
+                ui::dialog::alert("Save Failed", "Failed to save scene to:\n" + p.string(), ui::StatusRole::Error);
+            }
+        }
+    };
+
+    auto do_save_scene = [&]() {
+        if (!scene_mgr) return;
+        if (!scene_mgr->get_active_path().empty()) {
+            if (!scene_mgr->save_active()) {
+                ui::dialog::alert("Save Failed", "Failed to save active scene:\n" + scene_mgr->get_active_path().string(), ui::StatusRole::Error);
+            }
+        } else {
+            do_save_scene_as();
+        }
+    };
+
+    auto do_open_scene = [&]() {
+        if (!scene_mgr) return;
+        if (scene_mgr->is_dirty()) {
+            if (!ui::dialog::confirm("Unsaved Changes", "The active scene has unsaved changes. Discard and open scene?")) {
+                return;
+            }
+        }
+        ui::dialog::Options opts;
+        opts.title    = "Open Scene";
+        opts.filters  = {{"Lyra Scene (*.scene)", "*.scene"}};
+        auto selected = ui::dialog::open_file(opts);
+        if (selected.has_value()) {
+            auto res = scene_mgr->load(*selected, LoadMode::SINGLE);
+            if (res == INVALID_SCENE_INSTANCE) {
+                ui::dialog::alert("Load Failed", "Failed to load scene:\n" + selected->filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
+            }
+        }
+    };
+
     ui::menubar([&]() {
         ui::menu("Scene", [&]() {
             ui::menu_item("New Scene", "Ctrl+N", [&]() {
@@ -49,59 +96,15 @@ static void imgui_update(AppContext& context)
             });
 
             ui::menu_item("Open Scene...", "Ctrl+O", [&]() {
-                if (scene_mgr) {
-                    if (scene_mgr->is_dirty()) {
-                        if (!ui::dialog::confirm("Unsaved Changes", "The active scene has unsaved changes. Discard and open scene?")) {
-                            return;
-                        }
-                    }
-                    ui::dialog::Options opts;
-                    opts.title = "Open Scene";
-                    opts.filters = {{"Lyra Scene (*.scene)", "*.scene"}};
-                    auto selected = ui::dialog::open_file(opts);
-                    if (selected.has_value()) {
-                        auto res = scene_mgr->load(*selected, LoadMode::SINGLE);
-                        if (res == INVALID_SCENE_INSTANCE) {
-                            ui::dialog::alert("Load Failed", "Failed to load scene:\n" + selected->filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
-                        }
-                    }
-                }
+                do_open_scene();
             });
 
             ui::menu_item("Save Scene", "Ctrl+S", [&]() {
-                if (scene_mgr) {
-                    if (!scene_mgr->get_active_path().empty()) {
-                        scene_mgr->save_active();
-                    } else {
-                        ui::dialog::Options opts;
-                        opts.title = "Save Scene As";
-                        opts.filters = {{"Lyra Scene (*.scene)", "*.scene"}};
-                        auto selected = ui::dialog::save_file(opts);
-                        if (selected.has_value()) {
-                            Path p = *selected;
-                            if (p.extension() != ".scene") {
-                                p += ".scene";
-                            }
-                            scene_mgr->save(p);
-                        }
-                    }
-                }
+                do_save_scene();
             });
 
             ui::menu_item("Save Scene As...", "Ctrl+Shift+S", [&]() {
-                if (scene_mgr) {
-                    ui::dialog::Options opts;
-                    opts.title = "Save Scene As";
-                    opts.filters = {{"Lyra Scene (*.scene)", "*.scene"}};
-                    auto selected = ui::dialog::save_file(opts);
-                    if (selected.has_value()) {
-                        Path p = *selected;
-                        if (p.extension() != ".scene") {
-                            p += ".scene";
-                        }
-                        scene_mgr->save(p);
-                    }
-                }
+                do_save_scene_as();
             });
 
             ui::separator();
@@ -109,8 +112,8 @@ static void imgui_update(AppContext& context)
             ui::menu_item("Load Additive...", [&]() {
                 if (scene_mgr) {
                     ui::dialog::Options opts;
-                    opts.title = "Load Scene Additive";
-                    opts.filters = {{"Lyra Scene (*.scene)", "*.scene"}};
+                    opts.title    = "Load Scene Additive";
+                    opts.filters  = {{"Lyra Scene (*.scene)", "*.scene"}};
                     auto selected = ui::dialog::open_file(opts);
                     if (selected.has_value()) {
                         auto res = scene_mgr->load(*selected, LoadMode::ADDITIVE);
@@ -149,49 +152,11 @@ static void imgui_update(AppContext& context)
         if (ctrl && !shift && ui::is_key_pressed(KeyButton::N)) {
             trigger_new_scene();
         } else if (ctrl && !shift && ui::is_key_pressed(KeyButton::O)) {
-            if (scene_mgr->is_dirty()) {
-                if (!ui::dialog::confirm("Unsaved Changes", "The active scene has unsaved changes. Discard and open scene?")) {
-                    return;
-                }
-            }
-            ui::dialog::Options opts;
-            opts.title = "Open Scene";
-            opts.filters = {{"Lyra Scene (*.scene)", "*.scene"}};
-            auto selected = ui::dialog::open_file(opts);
-            if (selected.has_value()) {
-                auto res = scene_mgr->load(*selected, LoadMode::SINGLE);
-                if (res == INVALID_SCENE_INSTANCE) {
-                    ui::dialog::alert("Load Failed", "Failed to load scene:\n" + selected->filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
-                }
-            }
+            do_open_scene();
         } else if (ctrl && !shift && ui::is_key_pressed(KeyButton::S)) {
-            if (!scene_mgr->get_active_path().empty()) {
-                scene_mgr->save_active();
-            } else {
-                ui::dialog::Options opts;
-                opts.title = "Save Scene As";
-                opts.filters = {{"Lyra Scene (*.scene)", "*.scene"}};
-                auto selected = ui::dialog::save_file(opts);
-                if (selected.has_value()) {
-                    Path p = *selected;
-                    if (p.extension() != ".scene") {
-                        p += ".scene";
-                    }
-                    scene_mgr->save(p);
-                }
-            }
+            do_save_scene();
         } else if (ctrl && shift && ui::is_key_pressed(KeyButton::S)) {
-            ui::dialog::Options opts;
-            opts.title = "Save Scene As";
-            opts.filters = {{"Lyra Scene (*.scene)", "*.scene"}};
-            auto selected = ui::dialog::save_file(opts);
-            if (selected.has_value()) {
-                Path p = *selected;
-                if (p.extension() != ".scene") {
-                    p += ".scene";
-                }
-                scene_mgr->save(p);
-            }
+            do_save_scene_as();
         }
     }
 

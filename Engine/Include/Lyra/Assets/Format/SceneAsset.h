@@ -33,10 +33,10 @@ namespace lyra
         {
             String              name;
             Matrix4x4           transform = Matrix4x4(1.0f);
-            ModelAssetHandle    model;    ///< Optional prefab reference.
-            MeshAssetHandle     mesh;     ///< Direct mesh reference.
-            MaterialAssetHandle material;   ///< Direct material reference.
-            Vector<uint>        children;   ///< Indices into the nodes array.
+            ModelAssetHandle    model;              ///< Optional prefab reference.
+            MeshAssetHandle     mesh;               ///< Direct mesh reference.
+            MaterialAssetHandle material;           ///< Direct material reference.
+            Vector<uint>        children;           ///< Indices into the nodes array.
             bool                has_camera = false; ///< True if this node contains a Camera component.
         };
 

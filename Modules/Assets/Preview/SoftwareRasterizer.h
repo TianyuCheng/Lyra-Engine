@@ -25,4 +25,4 @@ namespace lyra::preview
     auto generate_scene_thumbnail(
         const PreviewScene& scene,
         JSON&               metadata) -> Path;
-}
+} // namespace lyra::preview

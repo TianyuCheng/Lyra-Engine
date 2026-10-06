@@ -40,22 +40,19 @@ auto PreviewScene::make_textured_quad(PreviewTexture texture) -> PreviewScene
     mesh.material_id = 0;
     mesh.positions   = {
         Vector3(-1.0f, -1.0f, 0.0f),
-        Vector3( 1.0f, -1.0f, 0.0f),
-        Vector3( 1.0f,  1.0f, 0.0f),
-        Vector3(-1.0f,  1.0f, 0.0f)
-    };
+        Vector3(1.0f, -1.0f, 0.0f),
+        Vector3(1.0f, 1.0f, 0.0f),
+        Vector3(-1.0f, 1.0f, 0.0f)};
     mesh.normals = {
         Vector3(0.0f, 0.0f, 1.0f),
         Vector3(0.0f, 0.0f, 1.0f),
         Vector3(0.0f, 0.0f, 1.0f),
-        Vector3(0.0f, 0.0f, 1.0f)
-    };
+        Vector3(0.0f, 0.0f, 1.0f)};
     mesh.uvs = {
         Vector2(0.0f, 1.0f),
         Vector2(1.0f, 1.0f),
         Vector2(1.0f, 0.0f),
-        Vector2(0.0f, 0.0f)
-    };
+        Vector2(0.0f, 0.0f)};
     mesh.indices = {0, 1, 2, 0, 2, 3};
 
     scene.meshes.push_back(std::move(mesh));
@@ -86,8 +83,7 @@ auto lyra::preview_api() -> AssetPreviewAPI&
         PLUGIN = std::make_unique<PreviewPlugin>(
             lyra::preview::create,
             lyra::preview::prepare,
-            lyra::preview::cleanup
-        );
+            lyra::preview::cleanup);
     }
     return *PLUGIN->get_api();
 }

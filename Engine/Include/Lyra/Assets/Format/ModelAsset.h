@@ -22,11 +22,11 @@ namespace lyra
      */
     struct ModelAsset
     {
-        static constexpr CString    name = "ModelAsset";
+        static constexpr CString     name = "ModelAsset";
         static constexpr AssetTypeID type = make_uuid("dda828d0-0003-4c32-a110-1829a9c8f003");
 
         static auto loader() -> AssetLoaderAPI;
-        static auto saver()  -> AssetSaverAPI;
+        static auto saver() -> AssetSaverAPI;
 
         // stl cooker
         struct stl
@@ -58,7 +58,7 @@ namespace lyra
             Vector<uint>        children; ///< Indices into the nodes array.
         };
 
-        uint         root = 0;   ///< Index of the root node.
+        uint         root = 0; ///< Index of the root node.
         Vector<Node> nodes;
     };
 

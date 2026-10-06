@@ -215,10 +215,10 @@ struct SceneSuiteEnv
         }
 
         auto reg_file = temp_dir / "Assets.toml";
-        loader = std::make_unique<lyra::FileLoader>(lyra::FSLoader::NATIVE);
+        loader        = std::make_unique<lyra::FileLoader>(lyra::FSLoader::NATIVE);
         loader->mount("/", temp_dir.c_str(), 0);
 
-        lyra::AMSDescriptor desc = {};
+        lyra::AMSDescriptor desc  = {};
         desc.registry             = reg_file.c_str();
         desc.loader.assets        = loader.get();
         desc.importer.assets_path = temp_dir.c_str();
@@ -299,6 +299,49 @@ TEST_CASE("scn::scene_manager" * doctest::description("Scene Manager Lifecycle a
         CHECK_EQ(child_world.xform[3][2], doctest::Approx(4.0f));
     }
 
+    SUBCASE("spawn node naming and collision resolution")
+    {
+        scene_manager.clear();
+
+        auto model_handle = env.ams->load_asset<lyra::ModelAsset>("car.model");
+        REQUIRE(model_handle.valid());
+
+        // 1. spawn with custom name
+        lyra::SpawnParams p1;
+        p1.name    = "CustomModel";
+        auto root1 = scene_manager.spawn(model_handle, p1);
+        CHECK(world.registry.valid(root1.entity));
+        CHECK_EQ(world.registry.get<lyra::NodeName>(root1.entity).name, "CustomModel");
+
+        // 2. spawn second instance with identical name -> should append (1)
+        lyra::SpawnParams p2;
+        p2.name    = "CustomModel";
+        auto root2 = scene_manager.spawn(model_handle, p2);
+        CHECK(world.registry.valid(root2.entity));
+        CHECK_EQ(world.registry.get<lyra::NodeName>(root2.entity).name, "CustomModel (1)");
+
+        // 3. spawn third instance with identical name -> should append (2)
+        lyra::SpawnParams p3;
+        p3.name    = "CustomModel";
+        auto root3 = scene_manager.spawn(model_handle, p3);
+        CHECK(world.registry.valid(root3.entity));
+        CHECK_EQ(world.registry.get<lyra::NodeName>(root3.entity).name, "CustomModel (2)");
+
+        // 4. resolve_unique_name on already-indexed name
+        auto unique_next = scene_manager.resolve_unique_name(lyra::SceneNode{}, "CustomModel (1)");
+        CHECK_EQ(unique_next, "CustomModel (3)");
+
+        // 5. child entity collision scoping
+        lyra::SpawnParams p_child;
+        p_child.parent   = root1;
+        p_child.name     = "CustomModel";
+        auto child_inst1 = scene_manager.spawn(model_handle, p_child);
+        CHECK_EQ(world.registry.get<lyra::NodeName>(child_inst1.entity).name, "CustomModel");
+
+        auto child_inst2 = scene_manager.spawn(model_handle, p_child);
+        CHECK_EQ(world.registry.get<lyra::NodeName>(child_inst2.entity).name, "CustomModel (1)");
+    }
+
     SUBCASE("load and additive load scene handle")
     {
         auto handle_a = env.ams->load_asset<lyra::SceneAsset>("scene_a.scene");
@@ -357,7 +400,7 @@ TEST_CASE("scn::scene_manager" * doctest::description("Scene Manager Lifecycle a
     {
         scene_manager.clear();
 
-        auto root = world.create("SerializedRoot");
+        auto root  = world.create("SerializedRoot");
         auto child = world.create("SerializedChild");
         world.add_child(root, child);
 
@@ -389,7 +432,7 @@ TEST_CASE("scn::scene_manager" * doctest::description("Scene Manager Lifecycle a
         CHECK(!scene_manager.is_dirty());
 
         // add a node and mark dirty
-        auto root = scene_manager.get_active()->root;
+        auto root  = scene_manager.get_active()->root;
         auto child = world.create("ChildAlpha");
         world.add_child(root, child);
         scene_manager.set_dirty(true);
@@ -397,7 +440,7 @@ TEST_CASE("scn::scene_manager" * doctest::description("Scene Manager Lifecycle a
 
         // save to path
         auto save_path = env.temp_dir / "level_alpha.scene";
-        bool saved = scene_manager.save(save_path);
+        bool saved     = scene_manager.save(save_path);
         CHECK(saved);
         CHECK(!scene_manager.is_dirty());
         CHECK_EQ(scene_manager.get_active_path(), save_path);
@@ -419,5 +462,3 @@ TEST_CASE("scn::scene_manager" * doctest::description("Scene Manager Lifecycle a
         CHECK(!scene_manager.is_dirty());
     }
 }
-
-

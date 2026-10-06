@@ -47,4 +47,3 @@ SceneAsset SceneAsset::from_model(const ModelAsset& model)
     }
     return scene;
 }
-

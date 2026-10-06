@@ -8,6 +8,9 @@
 #include <Lyra/Utilities/Function.h>
 #include <Lyra/Assets/AMSServer.h>
 #include <Lyra/Assets/AMSPreview.h>
+#include <Lyra/Assets/Format/MeshAsset.h>
+#include <Lyra/Assets/Format/ModelAsset.h>
+#include <Lyra/Assets/Format/MaterialAsset.h>
 
 using namespace lyra;
 
@@ -102,6 +105,24 @@ AssetServer::AssetServer(const AMSDescriptor& descriptor)
                 registry.rebuild(descriptor.importer.assets_path);
             }
             registry.save(descriptor.registry);
+        } else if (descriptor.importer.assets_path) {
+            // check if any entries are missing cooked paths
+            bool any_missing = false;
+            for (const auto& entry : registry.get_entries()) {
+                if (entry.cooked_path == 0xFFFFFFFF) {
+                    StringView p = registry.get_path(entry.guid);
+                    if (p.find('#') != StringView::npos ||
+                        p.ends_with(".stl") || p.ends_with(".glb") || p.ends_with(".gltf") || p.ends_with(".obj")) {
+                        any_missing = true;
+                        break;
+                    }
+                }
+            }
+            if (any_missing) {
+                spdlog::info("AssetRegistry {} contains entries without cooked paths. Rebuilding from source...", Path(descriptor.registry).string());
+                registry.rebuild(descriptor.importer.assets_path);
+                registry.save(descriptor.registry);
+            }
         }
     }
 
@@ -131,15 +152,16 @@ AssetServer::~AssetServer()
     for (auto& kv_processor : processors) {
         auto& processor = kv_processor.second;
 
-        std::unique_lock alock(*processor->mutex);
-        for (auto& kv : processor->assets) {
-            auto record = kv.second;
-            if (record->data) {
-                processor->loader.unload(record->data);
+        with_lock(*processor->mutex, [&] {
+            for (auto& kv : processor->assets) {
+                auto record = kv.second;
+                if (record->data) {
+                    processor->loader.unload(record->data);
+                }
+                delete record;
             }
-            delete record;
-        }
-        processor->assets.clear();
+            processor->assets.clear();
+        });
     }
 
     processors.clear();
@@ -150,18 +172,19 @@ void AssetServer::purge()
     for (auto& kv_processor : processors) {
         auto& processor = kv_processor.second;
 
-        std::unique_lock alock(*processor->mutex);
-        for (auto it = processor->assets.begin(); it != processor->assets.end();) {
-            auto record = it->second;
-            // only purge if refcnt is 0 and it's not currently loading (data != nullptr)
-            if (record->refcnt == 0 && record->data != nullptr) {
-                processor->loader.unload(record->data);
-                delete record;
-                processor->assets.erase(it++);
-            } else {
-                ++it;
+        with_lock(*processor->mutex, [&] {
+            for (auto it = processor->assets.begin(); it != processor->assets.end();) {
+                auto record = it->second;
+                // only purge if refcnt is 0 and it's not currently loading (data != nullptr)
+                if (record->refcnt == 0 && record->data != nullptr) {
+                    processor->loader.unload(record->data);
+                    delete record;
+                    processor->assets.erase(it++);
+                } else {
+                    ++it;
+                }
             }
-        }
+        });
     }
 }
 
@@ -172,15 +195,43 @@ void AssetServer::flush()
 
 AssetID AssetServer::get_guid(FSPath path) const
 {
-    return registry.get_guid(path);
+    if (!path || path[0] == '\0') return 0;
+
+    // direct lookup
+    AssetID guid = registry.get_guid(path);
+    if (guid != 0) return guid;
+
+    // normalize through resolve_asset_path
+    auto [full_path, rel_path] = resolve_asset_path(Path(path));
+    if (!rel_path.empty()) {
+        guid = registry.get_guid(rel_path.generic_string());
+        if (guid != 0) return guid;
+    }
+    if (!full_path.empty()) {
+        guid = registry.get_guid(full_path.generic_string());
+        if (guid != 0) return guid;
+    }
+
+    // fallback: match by filename
+    Path p(path);
+    if (p.has_filename()) {
+        guid = registry.get_guid(p.filename().generic_string());
+    }
+    return guid;
 }
 
-void AssetServer::register_asset_entry(AssetID guid, const Path& path, AssetTypeID type_id, const Vector<AssetID>& dependencies)
+StringView AssetServer::get_path(AssetID guid) const
+{
+    return registry.get_path(guid);
+}
+
+void AssetServer::register_asset_entry(AssetID guid, const Path& path, AssetTypeID type_id, const Vector<AssetID>& dependencies, const Path& cooked_path)
 {
     auto [full_path, rel_path] = resolve_asset_path(path);
     static std::mutex reg_mut;
-    std::lock_guard   lock(reg_mut);
-    registry.update(guid, rel_path.generic_string(), type_id, dependencies);
+    with_lock(reg_mut, [&] {
+        registry.update(guid, rel_path.generic_string(), type_id, dependencies, cooked_path.generic_string());
+    });
 }
 
 void* AssetServer::get_asset(AssetTypeID type_id, RawAssetHandle handle)
@@ -189,16 +240,17 @@ void* AssetServer::get_asset(AssetTypeID type_id, RawAssetHandle handle)
     if (it == processors.end()) return nullptr;
     const auto& processor = it->second;
 
-    std::shared_lock alock(*processor->mutex);
-
-    const auto it2 = processor->assets.find(handle.guid);
-    if (it2 == processor->assets.end()) return nullptr;
-    return it2->second->data;
+    return with_shared_lock(*processor->mutex, [&]() -> void* {
+        const auto it2 = processor->assets.find(handle.guid);
+        if (it2 == processor->assets.end()) return nullptr;
+        return it2->second->data;
+    });
 }
 
 RawAssetHandle AssetServer::load_asset(AssetTypeID type_id, FSPath path)
 {
-    AssetID guid = registry.get_guid(path);
+    if (!path || path[0] == '\0') return RawAssetHandle();
+    AssetID guid = get_guid(path);
     if (guid == 0) return RawAssetHandle();
 
     return load_asset(type_id, guid);
@@ -213,9 +265,7 @@ RawAssetHandle AssetServer::load_asset(AssetTypeID type_id, AssetID guid)
     bool should_load_deps = false;
     bool is_new_entry     = false;
 
-    {
-        std::unique_lock alock(*processor_ptr->mutex);
-
+    with_lock(*processor_ptr->mutex, [&] {
         auto it2 = processor_ptr->assets.find(guid);
         if (it2 == processor_ptr->assets.end()) {
             auto record                 = new AssetRecord();
@@ -228,19 +278,17 @@ RawAssetHandle AssetServer::load_asset(AssetTypeID type_id, AssetID guid)
             if (it2->second->refcnt == 0) should_load_deps = true;
             it2->second->refcnt++;
         }
-    }
+    });
 
     if (should_load_deps) {
         load_dependencies(guid);
     }
 
     if (is_new_entry) {
-        String       path   = String(registry.get_path(guid));
-        AssetRecord* record = nullptr;
-        {
-            std::shared_lock alock(*processor_ptr->mutex);
-            record = processor_ptr->assets[guid];
-        }
+        String       path   = resolve_load_path(type_id, guid);
+        AssetRecord* record = with_shared_lock(*processor_ptr->mutex, [&] {
+            return processor_ptr->assets[guid];
+        });
 
         JobScheduler::schedule(JobPriority::BACKGROUND, [this, processor_ptr, path, record]() {
             record->data = processor_ptr->loader.load(descriptor.loader.assets, path.c_str());
@@ -280,9 +328,7 @@ void AssetServer::unload_asset(AssetTypeID type_id, RawAssetHandle handle)
 
     bool should_unload_deps = false;
 
-    {
-        std::unique_lock alock(*processor->mutex);
-
+    with_lock(*processor->mutex, [&] {
         auto it2 = processor->assets.find(handle.guid);
         if (it2 != processor->assets.end()) {
             it2->second->refcnt--;
@@ -290,7 +336,7 @@ void AssetServer::unload_asset(AssetTypeID type_id, RawAssetHandle handle)
                 should_unload_deps = true;
             }
         }
-    }
+    });
 
     if (should_unload_deps) {
         unload_dependencies(handle.guid);
@@ -303,12 +349,12 @@ void AssetServer::clone_asset(AssetTypeID type_id, RawAssetHandle handle)
     if (it == processors.end()) return;
     auto& processor = it->second;
 
-    std::unique_lock alock(*processor->mutex);
-
-    auto it2 = processor->assets.find(handle.guid);
-    if (it2 != processor->assets.end()) {
-        it2->second->refcnt++;
-    }
+    with_lock(*processor->mutex, [&] {
+        auto it2 = processor->assets.find(handle.guid);
+        if (it2 != processor->assets.end()) {
+            it2->second->refcnt++;
+        }
+    });
 }
 
 auto AssetServer::find_asset_type_for_cooker(const AssetCookerAPI* cooker) const -> AssetTypeID
@@ -378,51 +424,60 @@ void AssetServer::commit_cooked_asset(const Path& import_path, const Path& rel_p
     Vector<AssetID>  dependency_guids;
 
     static std::mutex registry_mutex;
-    std::lock_guard   lock(registry_mutex);
-
-    if (metadata.contains("dependencies") && metadata["dependencies"].is_array()) {
-        for (const auto& item : metadata["dependencies"]) {
-            if (item.is_number()) {
-                AssetID dep_guid = item.get<AssetID>();
-                dependency_guids.push_back(dep_guid);
-                current_dep_guids.insert(dep_guid);
-            } else if (item.is_object() && item.contains("guid")) {
-                AssetID dep_guid = item["guid"].get<AssetID>();
-                dependency_guids.push_back(dep_guid);
-                current_dep_guids.insert(dep_guid);
-                if (item.contains("name") && item.contains("type")) {
-                    String      dep_name = item["name"].get<String>();
-                    AssetTypeID dep_type{};
-                    if (item["type"].is_string()) {
-                        dep_type = parse_uuid(item["type"].get<String>());
-                    } else if (item["type"].is_number()) {
-                        dep_type = AssetTypeID(item["type"].get<ulong>());
+    with_lock(registry_mutex, [&] {
+        if (metadata.contains("dependencies") && metadata["dependencies"].is_array()) {
+            for (const auto& item : metadata["dependencies"]) {
+                if (item.is_number()) {
+                    AssetID dep_guid = item.get<AssetID>();
+                    dependency_guids.push_back(dep_guid);
+                    current_dep_guids.insert(dep_guid);
+                } else if (item.is_object() && item.contains("guid")) {
+                    AssetID dep_guid = item["guid"].get<AssetID>();
+                    dependency_guids.push_back(dep_guid);
+                    current_dep_guids.insert(dep_guid);
+                    if (item.contains("name") && item.contains("type")) {
+                        String      dep_name = item["name"].get<String>();
+                        AssetTypeID dep_type{};
+                        if (item["type"].is_string()) {
+                            dep_type = parse_uuid(item["type"].get<String>());
+                        } else if (item["type"].is_number()) {
+                            dep_type = AssetTypeID(item["type"].get<ulong>());
+                        }
+                        String dep_vpath = rel_path.generic_string() + "#" + dep_name;
+                        String dep_cooked_path;
+                        if (item.contains("path") && item["path"].is_string()) {
+                            dep_cooked_path = item["path"].get<String>();
+                        }
+                        registry.update(dep_guid, dep_vpath, dep_type, {}, dep_cooked_path);
                     }
-                    String dep_vpath = rel_path.generic_string() + "#" + dep_name;
-                    registry.update(dep_guid, dep_vpath, dep_type, {});
                 }
             }
         }
-    }
 
-    // orphan cleanup: if prev_meta had dependencies that are no longer present
-    if (prev_meta.contains("dependencies") && prev_meta["dependencies"].is_array()) {
-        for (const auto& item : prev_meta["dependencies"]) {
-            if (item.is_object() && item.contains("guid")) {
-                AssetID prev_guid = item["guid"].get<AssetID>();
-                if (current_dep_guids.find(prev_guid) == current_dep_guids.end()) {
-                    if (descriptor.importer.caches_path && item.contains("path") && item["path"].is_string()) {
-                        Path old_cache = Path(descriptor.importer.caches_path) / item["path"].get<String>();
-                        fs::remove(old_cache, ec);
+        // orphan cleanup: if prev_meta had dependencies that are no longer present
+        if (prev_meta.contains("dependencies") && prev_meta["dependencies"].is_array()) {
+            for (const auto& item : prev_meta["dependencies"]) {
+                if (item.is_object() && item.contains("guid")) {
+                    AssetID prev_guid = item["guid"].get<AssetID>();
+                    if (current_dep_guids.find(prev_guid) == current_dep_guids.end()) {
+                        if (descriptor.importer.caches_path && item.contains("path") && item["path"].is_string()) {
+                            Path old_cache = Path(descriptor.importer.caches_path) / item["path"].get<String>();
+                            fs::remove(old_cache, ec);
+                        }
+                        unload_record(prev_guid);
+                        registry.remove(prev_guid);
                     }
-                    unload_record(prev_guid);
-                    registry.remove(prev_guid);
                 }
             }
         }
-    }
 
-    registry.update(guid, rel_path.generic_string(), type_id, dependency_guids);
+        String cooked_path;
+        if (metadata.contains("path") && metadata["path"].is_string()) {
+            cooked_path = metadata["path"].get<String>();
+        }
+
+        registry.update(guid, rel_path.generic_string(), type_id, dependency_guids, cooked_path);
+    });
 
     reload_asset(guid);
 }
@@ -585,16 +640,17 @@ void AssetServer::unload_record(AssetID guid)
     if (guid == 0) return;
 
     for (auto& [type_id, processor] : processors) {
-        std::unique_lock alock(*processor->mutex);
-        auto             it = processor->assets.find(guid);
-        if (it != processor->assets.end()) {
-            auto record = it->second;
-            if (record->data) {
-                processor->loader.unload(record->data);
+        with_lock(*processor->mutex, [&] {
+            auto it = processor->assets.find(guid);
+            if (it != processor->assets.end()) {
+                auto record = it->second;
+                if (record->data) {
+                    processor->loader.unload(record->data);
+                }
+                delete record;
+                processor->assets.erase(it);
             }
-            delete record;
-            processor->assets.erase(it);
-        }
+        });
     }
 }
 
@@ -609,8 +665,9 @@ void AssetServer::delete_metadata_and_caches(const Path& import_path, AssetID gu
     if (guid != 0) {
         unload_record(guid);
         static std::mutex registry_mutex;
-        std::lock_guard   lock(registry_mutex);
-        registry.remove(guid);
+        with_lock(registry_mutex, [&] {
+            registry.remove(guid);
+        });
     }
 
     if (fs::exists(import_path, ec)) {
@@ -637,8 +694,9 @@ void AssetServer::delete_metadata_and_caches(const Path& import_path, AssetID gu
                                 }
                                 unload_record(dep_guid);
                                 static std::mutex registry_mutex;
-                                std::lock_guard   lock(registry_mutex);
-                                registry.remove(dep_guid);
+                                with_lock(registry_mutex, [&] {
+                                    registry.remove(dep_guid);
+                                });
                             }
                         }
                     }
@@ -697,9 +755,10 @@ bool AssetServer::delete_single_asset(const Path& full_path, const Path& rel_pat
 
     if (guid == 0) {
         static std::mutex registry_mutex;
-        std::lock_guard   lock(registry_mutex);
-        registry.remove(rel_path.string());
-        registry.remove(rel_path.generic_string());
+        with_lock(registry_mutex, [&] {
+            registry.remove(rel_path.string());
+            registry.remove(rel_path.generic_string());
+        });
     }
 
     if (fs::exists(full_path, ec)) {
@@ -736,8 +795,9 @@ bool AssetServer::delete_asset(AssetID guid)
     unload_record(guid);
 
     static std::mutex registry_mutex;
-    std::lock_guard   lock(registry_mutex);
-    registry.remove(guid);
+    with_lock(registry_mutex, [&] {
+        registry.remove(guid);
+    });
 
     flush();
     return true;
@@ -823,10 +883,11 @@ bool AssetServer::move_directory_assets(const Path& src_full, const Path& src_re
     }
 
     static std::mutex reg_mut;
-    std::lock_guard   lock(reg_mut);
-    for (const auto& item : moved_entries) {
-        registry.update(item.guid, item.new_rel_path, registry.get_type(item.guid), registry.get_dependencies(item.guid));
-    }
+    with_lock(reg_mut, [&] {
+        for (const auto& item : moved_entries) {
+            registry.update(item.guid, item.new_rel_path, registry.get_type(item.guid), registry.get_dependencies(item.guid));
+        }
+    });
 
     return true;
 }
@@ -861,8 +922,9 @@ bool AssetServer::move_single_asset(const Path& src_full, const Path& src_rel, c
 
     if (guid != 0) {
         static std::mutex reg_mut;
-        std::lock_guard   lock(reg_mut);
-        registry.update(guid, dst_rel.string(), registry.get_type(guid), registry.get_dependencies(guid));
+        with_lock(reg_mut, [&] {
+            registry.update(guid, dst_rel.string(), registry.get_type(guid), registry.get_dependencies(guid));
+        });
     }
 
     return true;
@@ -925,29 +987,26 @@ void AssetServer::reload_asset(AssetID guid)
     if (it == processors.end()) return;
     AssetProcessor* proc_ptr = it->second.get();
 
-    AssetRecord* record = nullptr;
-    {
-        std::shared_lock alock(*proc_ptr->mutex);
-        auto             it2 = proc_ptr->assets.find(guid);
+    AssetRecord* record = with_shared_lock(*proc_ptr->mutex, [&]() -> AssetRecord* {
+        auto it2 = proc_ptr->assets.find(guid);
         if (it2 != proc_ptr->assets.end() && it2->second->data != nullptr && it2->second->refcnt > 0) {
-            record = it2->second;
+            return it2->second;
         }
-    }
+        return nullptr;
+    });
 
     if (!record) return;
 
-    String path = String(registry.get_path(guid));
-
+    String path = resolve_load_path(type_id, guid);
     JobScheduler::schedule(JobPriority::BACKGROUND, [this, proc_ptr, path, record, guid, type_id]() {
         try {
             void* new_data = proc_ptr->loader.load(descriptor.loader.assets, path.c_str());
             if (new_data) {
-                void* old_data = nullptr;
-                {
-                    std::unique_lock alock(*proc_ptr->mutex);
-                    old_data     = record->data;
+                void* old_data = with_lock(*proc_ptr->mutex, [&]() -> void* {
+                    void* old    = record->data;
                     record->data = new_data;
-                }
+                    return old;
+                });
                 if (old_data) {
                     proc_ptr->loader.unload(old_data);
                 }
@@ -963,6 +1022,78 @@ void AssetServer::reload_asset(AssetID guid)
             spdlog::error("Unknown error during hot-reload of asset {}", path);
         }
     });
+}
+
+String AssetServer::resolve_load_path(AssetTypeID type_id, AssetID guid)
+{
+    StringView cooked = registry.get_cooked_path(guid);
+    if (!cooked.empty()) {
+        return String(cooked);
+    }
+
+    StringView raw_path_sv = registry.get_path(guid);
+    if (raw_path_sv.empty()) {
+        return "";
+    }
+    String raw_path(raw_path_sv);
+
+    // if cooked_path is missing, try to resolve from .import sidecar
+    if (descriptor.importer.assets_path) {
+        Path   assets_dir(descriptor.importer.assets_path);
+        auto   hash_pos  = raw_path.find('#');
+        String container = (hash_pos != String::npos) ? raw_path.substr(0, hash_pos) : raw_path;
+        Path   import_p  = assets_dir / (container + ".import");
+
+        std::error_code ec;
+        if (fs::exists(import_p, ec)) {
+            try {
+                std::ifstream f(import_p);
+                if (f.good()) {
+                    JSON meta = JSON::parse(f);
+                    if (hash_pos == String::npos && meta.contains("path") && meta["path"].is_string()) {
+                        String cooked_path = meta["path"].get<String>();
+                        registry.update(guid, raw_path, type_id, registry.get_dependencies(guid), cooked_path);
+                        return cooked_path;
+                    }
+                    if (meta.contains("dependencies") && meta["dependencies"].is_array()) {
+                        String dep_name = (hash_pos != String::npos) ? raw_path.substr(hash_pos + 1) : "";
+                        for (const auto& item : meta["dependencies"]) {
+                            if (!item.is_object() || !item.contains("path") || !item["path"].is_string()) continue;
+                            bool match = (item.contains("guid") && item["guid"].is_number() && item["guid"].get<AssetID>() == guid) ||
+                                         (!dep_name.empty() && item.contains("name") && item["name"].get<String>() == dep_name);
+                            if (match) {
+                                String dep_cooked = item["path"].get<String>();
+                                registry.update(guid, raw_path, type_id, {}, dep_cooked);
+                                return dep_cooked;
+                            }
+                        }
+                    }
+                }
+            } catch (const std::exception& e) {
+                spdlog::warn("AssetServer: Failed to parse metadata from {}: {}", import_p.string(), e.what());
+            } catch (...) {
+                spdlog::warn("AssetServer: Unknown error reading metadata from {}", import_p.string());
+            }
+        }
+    }
+
+    // fallback: check caches convention if path has '#' or raw cooker extension
+    if (descriptor.importer.caches_path) {
+        static const HashMap<AssetTypeID, std::pair<CString, CString>> conventions = {
+            {ModelAsset::type, {"models", ".model"}},
+            {MaterialAsset::type, {"materials", ".material"}},
+            {MeshAsset::type, {"meshes", ".mesh"}},
+        };
+        if (auto it = conventions.find(type_id); it != conventions.end()) {
+            String candidate = String(it->second.first) + "/" + std::to_string(guid) + it->second.second;
+            if (fs::exists(Path(descriptor.importer.caches_path) / candidate)) {
+                registry.update(guid, raw_path, type_id, registry.get_dependencies(guid), candidate);
+                return candidate;
+            }
+        }
+    }
+
+    return raw_path;
 }
 
 void AssetServer::reimport_all(bool force)
@@ -1086,8 +1217,9 @@ void AssetServer::handle_watch_rename(const AssetWatchEvent& evt)
     if (guid == 0) return;
 
     static std::mutex reg_mut;
-    std::lock_guard   lock(reg_mut);
-    registry.update(guid, evt.path.string(), registry.get_type(guid), registry.get_dependencies(guid));
+    with_lock(reg_mut, [&] {
+        registry.update(guid, evt.path.string(), registry.get_type(guid), registry.get_dependencies(guid));
+    });
 
     // rename .import sidecar if it exists
     Path old_import = get_metadata_path(Path(descriptor.importer.assets_path) / evt.old_path);

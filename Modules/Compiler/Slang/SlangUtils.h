@@ -127,18 +127,18 @@ struct ReflectResultInternal
     using Bindings = TreeMap<uint, Vector<GPUBindGroupLayoutEntry>>;
     using Callback = FunctionRef<WalkAction(const AccessPath&)>;
 
-    CompileTarget                target;
-    Vector<EntryMetadata>        metadata;
-    HashMap<String, uint>        name2attributes;
-    HashMap<String, uint>        name2bindgroups;
-    HashMap<uint, String>        bind_group_names;
-    List<String>                 semantic_names; // just a container to make sure const char* is not lost
-    Bindings                     bind_groups;
+    CompileTarget              target;
+    Vector<EntryMetadata>      metadata;
+    HashMap<String, uint>      name2attributes;
+    HashMap<String, uint>      name2bindgroups;
+    HashMap<uint, String>      bind_group_names;
+    List<String>               semantic_names; // just a container to make sure const char* is not lost
+    Bindings                   bind_groups;
     Vector<GPUVertexAttribute> vertex_attributes;
-    uint                       immediate_size         = 0;
+    uint                       immediate_size = 0;
     TraversalData              traversal_data;
-    uint                       num_immediate_buffers  = 0;
-    bool                       has_error              = false;
+    uint                       num_immediate_buffers = 0;
+    bool                       has_error             = false;
 
     bool get_vertex_attributes(ShaderAttributes attrs, GPUVertexAttribute* attributes) const;
     bool get_bind_group_layouts(uint& count, GPUBindGroupLayoutDescriptor* layouts) const;

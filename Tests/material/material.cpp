@@ -215,8 +215,8 @@ TEST_CASE("ams::text_based_assets_saver")
     {
         TextAsset text_orig;
         text_orig.content = "Hello, Lyra Engine!";
-        auto text_file = temp_dir / "test.txt";
-        bool save_ok = TextAsset::saver().save(&text_orig, text_file.c_str());
+        auto text_file    = temp_dir / "test.txt";
+        bool save_ok      = TextAsset::saver().save(&text_orig, text_file.c_str());
         REQUIRE(save_ok);
         REQUIRE(fs::exists(text_file));
 
@@ -232,8 +232,8 @@ TEST_CASE("ams::text_based_assets_saver")
     {
         JsonAsset json_orig;
         json_orig.content = JSON::object({{"name", "Lyra"}, {"version", 1}});
-        auto json_file = temp_dir / "test.json";
-        bool save_ok = JsonAsset::saver().save(&json_orig, json_file.c_str());
+        auto json_file    = temp_dir / "test.json";
+        bool save_ok      = JsonAsset::saver().save(&json_orig, json_file.c_str());
         REQUIRE(save_ok);
         REQUIRE(fs::exists(json_file));
 
@@ -252,7 +252,7 @@ TEST_CASE("ams::text_based_assets_saver")
         toml_orig.content.insert_or_assign("engine", "Lyra");
         toml_orig.content.insert_or_assign("stars", 42);
         auto toml_file = temp_dir / "test.toml";
-        bool save_ok = TomlAsset::saver().save(&toml_orig, toml_file.c_str());
+        bool save_ok   = TomlAsset::saver().save(&toml_orig, toml_file.c_str());
         REQUIRE(save_ok);
         REQUIRE(fs::exists(toml_file));
 
@@ -281,9 +281,9 @@ TEST_CASE("ams::text_based_assets_saver")
         server.register_asset<TomlAsset>();
 
         TextAsset text;
-        text.content = "Server saved text";
+        text.content          = "Server saved text";
         auto server_text_file = temp_dir / "server_text.txt";
-        bool ok = server.save_asset(text, server_text_file.c_str());
+        bool ok               = server.save_asset(text, server_text_file.c_str());
         REQUIRE(ok);
         REQUIRE(fs::exists(server_text_file));
     }
@@ -332,12 +332,12 @@ TEST_CASE("ams::model_import_and_reimport")
     }
 
     // first import
-    auto fut1 = server.import_asset("cube.obj", false);
+    auto fut1  = server.import_asset("cube.obj", false);
     auto guid1 = fut1.get();
     CHECK_NE(guid1, 0);
 
     // re-import (force = true)
-    auto fut2 = server.import_asset("cube.obj", true);
+    auto fut2  = server.import_asset("cube.obj", true);
     auto guid2 = fut2.get();
     CHECK_NE(guid2, 0);
     CHECK_EQ(guid1, guid2);
@@ -364,17 +364,51 @@ TEST_CASE("ams::model_import_and_reimport")
           << "endsolid cube\n";
     }
 
-    auto stl_fut1 = server.import_asset("cube.stl", false);
+    auto stl_fut1  = server.import_asset("cube.stl", false);
     auto stl_guid1 = stl_fut1.get();
     CHECK_NE(stl_guid1, 0);
 
-    auto stl_fut2 = server.import_asset("cube.stl", true);
+    auto stl_fut2  = server.import_asset("cube.stl", true);
     auto stl_guid2 = stl_fut2.get();
     CHECK_NE(stl_guid2, 0);
     CHECK_EQ(stl_guid1, stl_guid2);
 
     auto thumb_file = caches_dir / "thumbnails" / (std::to_string(stl_guid1) + ".thumb.png");
     CHECK(fs::exists(thumb_file));
+
+    // test loading the cooked model asset using relative source path
+    auto obj_handle = server.load_asset<ModelAsset>("cube.obj");
+    CHECK(obj_handle.valid());
+    CHECK_EQ(obj_handle.guid, guid1);
+
+    JobScheduler::wait_idle();
+    auto* obj_asset = server.get_asset(obj_handle);
+    CHECK_NE(obj_asset, nullptr);
+    if (obj_asset) {
+        CHECK_FALSE(obj_asset->nodes.empty());
+    }
+
+    // test path normalization using absolute path
+    auto abs_obj_handle = server.load_asset<ModelAsset>(obj_file.string().c_str());
+    CHECK(abs_obj_handle.valid());
+    CHECK_EQ(abs_obj_handle.guid, guid1);
+
+    // test loading the cooked STL model asset using raw source path
+    auto stl_handle = server.load_asset<ModelAsset>("cube.stl");
+    CHECK(stl_handle.valid());
+    CHECK_EQ(stl_handle.guid, stl_guid1);
+
+    JobScheduler::wait_idle();
+    auto* stl_asset = server.get_asset(stl_handle);
+    CHECK_NE(stl_asset, nullptr);
+    if (stl_asset) {
+        CHECK_FALSE(stl_asset->nodes.empty());
+    }
+
+    // test resolve_load_path resolution directly
+    auto resolved_path = server.resolve_load_path(ModelAsset::type, stl_guid1);
+    CHECK_FALSE(resolved_path.empty());
+    CHECK(resolved_path.ends_with(".model"));
 
     fs::remove_all(temp_dir);
 }

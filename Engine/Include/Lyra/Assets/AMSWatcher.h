@@ -14,6 +14,7 @@
 #include <Lyra/Utilities/String.h>
 #include <Lyra/Utilities/Pointer.h>
 #include <Lyra/Utilities/Function.h>
+#include <Lyra/Utilities/Sync.h>
 #include <Lyra/Utilities/Collections.h>
 #include <Lyra/Assets/AMSEnums.h>
 

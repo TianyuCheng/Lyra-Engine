@@ -43,6 +43,7 @@ namespace lyra::reflect
         Lexer& lexer;
         Token  current;
         int    brace_depth = 0;
+
         std::vector<std::pair<std::string, int>> namespace_stack;
     };
 

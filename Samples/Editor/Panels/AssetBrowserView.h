@@ -93,9 +93,10 @@ namespace lyra
         static auto create_texture_from_memory(const void* data, size_t size, GUIRenderer* gui) -> ThumbnailTexture;
 
     private:
-        Path        root;
-        Path        curr;
-        AppContext* context = nullptr;
+        Path         root;
+        Path         curr;
+        AppContext*  context = nullptr;
+        AssetServer* ams     = nullptr;
 
         Vector<String>     files                   = {};
         Vector<String>     folders                 = {};
@@ -131,12 +132,12 @@ namespace lyra
         bool open_delete_modal     = false;
         bool open_rename_modal     = false;
 
-        char new_scene_name[256]  = "NewScene";
-        char new_file_name[256]   = "";
-        char new_folder_name[256] = "";
-        char rename_buffer[256]   = "";
-        char search_filter[256]   = "";
-        float icon_size           = 96.0f;
+        char  new_scene_name[256]  = "NewScene";
+        char  new_file_name[256]   = "";
+        char  new_folder_name[256] = "";
+        char  rename_buffer[256]   = "";
+        char  search_filter[256]   = "";
+        float icon_size            = 96.0f;
 
         Path next_path;
         bool needs_refresh = false;

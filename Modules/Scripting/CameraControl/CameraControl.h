@@ -32,13 +32,13 @@ namespace lyra
         float look_damping = 15.0f;
 
         [[lyra::hidden]]
-        float yaw   = 0.0f;
+        float yaw = 0.0f;
 
         [[lyra::hidden]]
         float pitch = 0.0f;
 
         [[lyra::hidden]]
-        float target_yaw   = 0.0f;
+        float target_yaw = 0.0f;
 
         [[lyra::hidden]]
         float target_pitch = 0.0f;
@@ -78,13 +78,13 @@ namespace lyra
         bool auto_rotate = false;
 
         [[lyra::hidden]]
-        float yaw   = 0.0f;
+        float yaw = 0.0f;
 
         [[lyra::hidden]]
         float pitch = 20.0f;
 
         [[lyra::hidden]]
-        float target_yaw   = 0.0f;
+        float target_yaw = 0.0f;
 
         [[lyra::hidden]]
         float target_pitch = 20.0f;

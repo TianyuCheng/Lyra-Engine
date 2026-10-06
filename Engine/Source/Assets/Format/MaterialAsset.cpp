@@ -35,4 +35,3 @@ AssetSaverAPI MaterialAsset::saver()
             lyra::material::saver::cleanup);
     return *PLUGIN->get_api();
 }
-

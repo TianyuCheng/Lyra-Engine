@@ -35,4 +35,3 @@ AssetSaverAPI MeshAsset::saver()
             lyra::mesh::saver::cleanup);
     return *PLUGIN->get_api();
 }
-

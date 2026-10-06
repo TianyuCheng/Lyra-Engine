@@ -30,7 +30,7 @@ using namespace lyra;
  * <uint8_t:length> <string content> (repeated for each string)
  */
 
-static constexpr uint    REGISTRY_VERSION = 0;
+static constexpr uint    REGISTRY_VERSION = 1;
 static constexpr CString REGISTRY_MAGIC   = "LYRA";
 
 bool AssetRegistry::load(const OSPath& path)
@@ -126,6 +126,14 @@ bool AssetRegistry::load_binary(const OSPath& bin_path)
         entry.path = *reinterpret_cast<const uint*>(ptr);
         ptr += sizeof(uint);
 
+        if (version >= 1) {
+            if (ptr + sizeof(uint) > end) return false;
+            entry.cooked_path = *reinterpret_cast<const uint*>(ptr);
+            ptr += sizeof(uint);
+        } else {
+            entry.cooked_path = 0xFFFFFFFF;
+        }
+
         // dependencies
         if (ptr + sizeof(uint) > end) return false;
         uint dep_count = *reinterpret_cast<const uint*>(ptr);
@@ -178,6 +186,7 @@ bool AssetRegistry::save_binary(const OSPath& bin_path)
         f.write(reinterpret_cast<const char*>(&entry.guid), sizeof(AssetID));
         f.write(reinterpret_cast<const char*>(&entry.type), sizeof(AssetTypeID));
         f.write(reinterpret_cast<const char*>(&entry.path), sizeof(uint));
+        f.write(reinterpret_cast<const char*>(&entry.cooked_path), sizeof(uint));
 
         uint dep_count = static_cast<uint>(entry.dependencies.size());
         f.write(reinterpret_cast<const char*>(&dep_count), sizeof(uint));
@@ -201,7 +210,13 @@ bool AssetRegistry::save_binary(const OSPath& bin_path)
 bool AssetRegistry::load_toml(const OSPath& toml_path)
 {
     try {
-        auto config = toml::parse_file(toml_path);
+        auto config   = toml::parse_file(toml_path);
+        auto ver_node = config["version"].as_integer();
+        if (!ver_node || ver_node->get() < REGISTRY_VERSION) {
+            spdlog::warn("AssetRegistry TOML at {} is outdated or missing version. Rebuild required.", Path(toml_path).string());
+            return false;
+        }
+
         entries.clear();
         string_table.clear();
 
@@ -217,18 +232,27 @@ bool AssetRegistry::load_toml(const OSPath& toml_path)
                             type = AssetTypeID(static_cast<ulong>(num->get()));
                         }
                     }
-                    String      path = e->get(2)->as_string()->get();
+                    String path = e->get(2)->as_string()->get();
 
                     Vector<AssetID> deps;
+                    String          cooked_path;
                     if (e->size() > 3) {
                         if (auto deps_arr = e->get(3)->as_array()) {
                             for (auto& dep : *deps_arr) {
                                 deps.push_back(dep.as_integer()->get());
                             }
+                        } else if (auto cp = e->get(3)->as_string()) {
+                            cooked_path = cp->get();
                         }
                     }
 
-                    update(guid, path, type, deps);
+                    if (e->size() > 4 && cooked_path.empty()) {
+                        if (auto cp = e->get(4)->as_string()) {
+                            cooked_path = cp->get();
+                        }
+                    }
+
+                    update(guid, path, type, deps, cooked_path);
                 }
             }
         }
@@ -260,12 +284,19 @@ bool AssetRegistry::save_toml(const OSPath& toml_path)
                 deps_arr.push_back(static_cast<int64_t>(dep));
             }
             e.push_back(std::move(deps_arr));
+        } else {
+            e.push_back(toml::array{});
+        }
+
+        if (entry.cooked_path != 0xFFFFFFFF && entry.cooked_path < string_table.size()) {
+            e.push_back(string_table[entry.cooked_path]);
         }
 
         entries_arr.push_back(e);
     }
 
     toml::table root;
+    root.insert("version", static_cast<int64_t>(REGISTRY_VERSION));
     root.insert("entries", entries_arr);
 
     f << root;
@@ -311,6 +342,11 @@ void AssetRegistry::rebuild(const OSPath& assets_dir)
                     // remove .import
                     relative_path = relative_path.substr(0, relative_path.find_last_of('.'));
 
+                    String cooked_path;
+                    if (metadata.contains("path") && metadata["path"].is_string()) {
+                        cooked_path = metadata["path"].get<String>();
+                    }
+
                     Vector<AssetID> dependencies;
                     if (metadata.contains("dependencies") && metadata["dependencies"].is_array()) {
                         for (const auto& item : metadata["dependencies"]) {
@@ -320,20 +356,24 @@ void AssetRegistry::rebuild(const OSPath& assets_dir)
                                 AssetID dep_guid = item["guid"].get<AssetID>();
                                 dependencies.push_back(dep_guid);
                                 if (item.contains("name") && item.contains("type")) {
-                                    String dep_name = item["name"].get<String>();
+                                    String      dep_name = item["name"].get<String>();
                                     AssetTypeID dep_type{};
                                     if (item["type"].is_string()) {
                                         dep_type = parse_uuid(item["type"].get<String>());
                                     } else if (item["type"].is_number()) {
                                         dep_type = AssetTypeID(item["type"].get<ulong>());
                                     }
-                                    update(dep_guid, relative_path + "#" + dep_name, dep_type, {});
+                                    String dep_cooked_path;
+                                    if (item.contains("path") && item["path"].is_string()) {
+                                        dep_cooked_path = item["path"].get<String>();
+                                    }
+                                    update(dep_guid, relative_path + "#" + dep_name, dep_type, {}, dep_cooked_path);
                                 }
                             }
                         }
                     }
 
-                    update(guid, relative_path, type, dependencies);
+                    update(guid, relative_path, type, dependencies, cooked_path);
                 }
             } catch (const std::exception& e) {
                 spdlog::error("Failed to parse metadata from {}: {}", import_path.string(), e.what());
@@ -343,7 +383,7 @@ void AssetRegistry::rebuild(const OSPath& assets_dir)
     dirty = true;
 }
 
-void AssetRegistry::update(AssetID guid, StringView path, AssetTypeID type, const Vector<AssetID>& dependencies)
+void AssetRegistry::update(AssetID guid, StringView path, AssetTypeID type, const Vector<AssetID>& dependencies, StringView cooked_path)
 {
     uint string_index = 0xFFFFFFFF;
     for (uint i = 0; i < string_table.size(); ++i) {
@@ -358,20 +398,40 @@ void AssetRegistry::update(AssetID guid, StringView path, AssetTypeID type, cons
         string_table.push_back(String(path));
     }
 
+    uint cooked_index = 0xFFFFFFFF;
+    if (!cooked_path.empty()) {
+        for (uint i = 0; i < string_table.size(); ++i) {
+            if (string_table[i] == cooked_path) {
+                cooked_index = i;
+                break;
+            }
+        }
+        if (cooked_index == 0xFFFFFFFF) {
+            cooked_index = static_cast<uint>(string_table.size());
+            string_table.push_back(String(cooked_path));
+        }
+    }
+
     auto it = guid_to_entry_index.find(guid);
     if (it != guid_to_entry_index.end()) {
-        uint entry_index                = it->second;
+        uint entry_index                  = it->second;
         entries[entry_index].path         = string_index;
         entries[entry_index].type         = type;
         entries[entry_index].dependencies = dependencies;
+        if (cooked_index != 0xFFFFFFFF) {
+            entries[entry_index].cooked_path = cooked_index;
+        }
     } else {
         uint entry_index = static_cast<uint>(entries.size());
-        entries.push_back({guid, type, string_index, dependencies});
+        entries.push_back({guid, type, string_index, dependencies, cooked_index});
         guid_to_entry_index[guid] = entry_index;
     }
 
     path_to_guid[string_table[string_index]] = guid;
-    dirty                                    = true;
+    if (cooked_index != 0xFFFFFFFF) {
+        path_to_guid[string_table[cooked_index]] = guid;
+    }
+    dirty = true;
 }
 
 bool AssetRegistry::is_guid_available(AssetID guid, StringView expected_path) const
@@ -382,6 +442,10 @@ bool AssetRegistry::is_guid_available(AssetID guid, StringView expected_path) co
     if (!expected_path.empty()) {
         uint path_idx = entries[it->second].path;
         if (path_idx < string_table.size() && string_table[path_idx] == expected_path) {
+            return true;
+        }
+        uint cooked_idx = entries[it->second].cooked_path;
+        if (cooked_idx != 0xFFFFFFFF && cooked_idx < string_table.size() && string_table[cooked_idx] == expected_path) {
             return true;
         }
     }
@@ -399,10 +463,13 @@ void AssetRegistry::remove(AssetID guid)
     if (entries[entry_index].path < string_table.size()) {
         path_to_guid.erase(string_table[entries[entry_index].path]);
     }
+    if (entries[entry_index].cooked_path != 0xFFFFFFFF && entries[entry_index].cooked_path < string_table.size()) {
+        path_to_guid.erase(string_table[entries[entry_index].cooked_path]);
+    }
     guid_to_entry_index.erase(it);
 
     if (entry_index + 1 < entries.size()) {
-        entries[entry_index] = std::move(entries.back());
+        entries[entry_index]                           = std::move(entries.back());
         guid_to_entry_index[entries[entry_index].guid] = entry_index;
     }
     entries.pop_back();
@@ -443,12 +510,54 @@ StringView AssetRegistry::get_path(AssetID guid) const
     return "";
 }
 
+StringView AssetRegistry::get_cooked_path(AssetID guid) const
+{
+    auto it = guid_to_entry_index.find(guid);
+    if (it != guid_to_entry_index.end()) {
+        uint cooked_idx = entries[it->second].cooked_path;
+        if (cooked_idx != 0xFFFFFFFF && cooked_idx < string_table.size()) {
+            return string_table[cooked_idx];
+        }
+    }
+    return "";
+}
+
+bool AssetRegistry::has_cooked_path(AssetID guid) const
+{
+    return !get_cooked_path(guid).empty();
+}
+
+StringView AssetRegistry::get_load_path(AssetID guid) const
+{
+    auto cooked = get_cooked_path(guid);
+    if (!cooked.empty()) {
+        return cooked;
+    }
+    return get_path(guid);
+}
+
 AssetID AssetRegistry::get_guid(StringView path) const
 {
+    if (path.empty()) return 0;
+
     auto it = path_to_guid.find(path);
     if (it != path_to_guid.end()) {
         return it->second;
     }
+
+    String p(path);
+    std::replace(p.begin(), p.end(), '\\', '/');
+    it = path_to_guid.find(p);
+    if (it != path_to_guid.end()) {
+        return it->second;
+    }
+
+    std::replace(p.begin(), p.end(), '/', '\\');
+    it = path_to_guid.find(p);
+    if (it != path_to_guid.end()) {
+        return it->second;
+    }
+
     return 0;
 }
 
@@ -464,7 +573,8 @@ AssetTypeID AssetRegistry::get_type(AssetID guid) const
 const Vector<AssetID>& AssetRegistry::get_dependencies(AssetID guid) const
 {
     static const Vector<AssetID> empty;
-    auto                         it = guid_to_entry_index.find(guid);
+
+    auto it = guid_to_entry_index.find(guid);
     if (it != guid_to_entry_index.end()) {
         return entries[it->second].dependencies;
     }
@@ -488,6 +598,9 @@ void AssetRegistry::build_lookup_tables()
         guid_to_entry_index[entries[i].guid] = i;
         if (entries[i].path < string_table.size()) {
             path_to_guid[string_table[entries[i].path]] = entries[i].guid;
+        }
+        if (entries[i].cooked_path != 0xFFFFFFFF && entries[i].cooked_path < string_table.size()) {
+            path_to_guid[string_table[entries[i].cooked_path]] = entries[i].guid;
         }
     }
 }

@@ -47,10 +47,10 @@ struct Immediates
 
 struct ImmediatesApp : public TestApp
 {
-    Uniform               uniform;
-    Geometry              geometry;
-    SimpleRenderPipeline  pipeline;
-    Array<Immediates, 3>  immediates;
+    Uniform              uniform;
+    Geometry             geometry;
+    SimpleRenderPipeline pipeline;
+    Array<Immediates, 3> immediates;
 
     explicit ImmediatesApp(const TestAppDescriptor& desc) : TestApp(desc)
     {

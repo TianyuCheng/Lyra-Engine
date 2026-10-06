@@ -22,6 +22,12 @@ test target="all":
     @{{PYTHON}} Tools/Scripts/build.py build --target testkit
     @{{PYTHON}} Tools/Scripts/build.py test --target {{target}}
 
+format:
+    @{{PYTHON}} Tools/Scripts/build.py format
+
+format-check:
+    @{{PYTHON}} Tools/Scripts/build.py format --check
+
 [confirm("This will clean all build products! (y/n)")]
 clean:
     @{{PYTHON}} Tools/Scripts/build.py run --target clean

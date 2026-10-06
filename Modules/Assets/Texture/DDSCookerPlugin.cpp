@@ -17,7 +17,7 @@ static bool process_dds(JSON& metadata, OSPath source_path, OSPath target_path)
         String source_path_str = Path(source_path).string();
 
         // try to load thumbnail via STB first (supports many DDS formats including DXT1/5)
-        int w = 0, h = 0, c = 0;
+        int      w = 0, h = 0, c = 0;
         stbi_uc* data = stbi_load(source_path_str.c_str(), &w, &h, &c, STBI_rgb_alpha);
         if (data) {
             generate_thumbnail_from_pixels(metadata, data, w, h, sizeof(uint8_t), VK_FORMAT_R8G8B8A8_UNORM, target_path);

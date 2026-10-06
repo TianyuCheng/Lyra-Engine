@@ -83,13 +83,20 @@ void ConsoleView::show_logs() const
 
     auto get_status_role = [](LogLevel level) -> ui::StatusRole {
         switch (level) {
-            case LogLevel::trace:    return ui::StatusRole::Muted;
-            case LogLevel::debug:    return ui::StatusRole::Info;
-            case LogLevel::info:     return ui::StatusRole::Success;
-            case LogLevel::warn:     return ui::StatusRole::Warning;
-            case LogLevel::err:      return ui::StatusRole::Error;
-            case LogLevel::critical: return ui::StatusRole::Critical;
-            default:                 return ui::StatusRole::Muted;
+            case LogLevel::trace:
+                return ui::StatusRole::Muted;
+            case LogLevel::debug:
+                return ui::StatusRole::Info;
+            case LogLevel::info:
+                return ui::StatusRole::Success;
+            case LogLevel::warn:
+                return ui::StatusRole::Warning;
+            case LogLevel::err:
+                return ui::StatusRole::Error;
+            case LogLevel::critical:
+                return ui::StatusRole::Critical;
+            default:
+                return ui::StatusRole::Muted;
         }
     };
 

@@ -6,6 +6,7 @@ using namespace lyra::reflect;
 Lexer::Lexer(std::string_view source, std::string filename)
     : source(source), filename(std::move(filename))
 {
+    // do nothing
 }
 
 char Lexer::peek(size_t offset) const

@@ -78,9 +78,9 @@ namespace lyra
      */
     struct ComponentDescriptor
     {
-        CString name     = nullptr;
-        CString category = nullptr;
-        CString icon     = nullptr;
+        CString name                                         = nullptr;
+        CString category                                     = nullptr;
+        CString icon                                         = nullptr;
         bool (*has_component)(World& world, SceneNode node)  = nullptr;
         void (*draw_inspector)(World& world, SceneNode node) = nullptr;
     };

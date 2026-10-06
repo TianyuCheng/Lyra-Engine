@@ -27,14 +27,6 @@ CMRC_DECLARE(editor);
 
 using namespace lyra;
 
-static StringView trim_whitespace(StringView s)
-{
-    size_t first = s.find_first_not_of(" \t\n\r");
-    if (first == StringView::npos) return "";
-    size_t last = s.find_last_not_of(" \t\n\r");
-    return s.substr(first, (last - first + 1));
-}
-
 AssetBrowserView::AssetBrowserView(const Path& root)
     : root(root), curr(root)
 {
@@ -69,24 +61,20 @@ auto AssetBrowserView::get_gui_renderer() const -> GUIRenderer*
 
 auto AssetBrowserView::get_asset_server() const -> AssetServer*
 {
-    if (context) {
-        if (auto ams = context->toolboard.try_get<AssetServer*>()) {
-            return ams;
-        }
-    }
-    return nullptr;
+    return ams;
 }
 
 void AssetBrowserView::bind(Application& app)
 {
     context = &app.get_context();
-    if (auto ams = get_asset_server()) {
-        last_completed_cooks = ams->get_pipeline_stats().completed_count;
-        ams->set_on_filesystem_changed([this]() {
-            needs_refresh = true;
-            force_refresh = true;
-        });
-    }
+    ams     = context->toolboard.try_get<AssetServer*>();
+    assert(ams != nullptr && "AssetBrowserView requires AssetServer to be present in toolboard");
+
+    last_completed_cooks = ams->get_pipeline_stats().completed_count;
+    ams->set_on_filesystem_changed([this]() {
+        needs_refresh = true;
+        force_refresh = true;
+    });
     app.bind<AppEvent::UPDATE, &AssetBrowserView::update>(*this);
     update_directory(root, true);
     load_editor_icons();
@@ -336,22 +324,26 @@ void AssetBrowserView::show_item(AppContext& context, StringView name, bool is_f
 
     auto on_double_click = [&, item_path, ext]() {
         if (ext == ".scene" && scene_mgr) {
-            if (scene_mgr->is_dirty()) {
-                if (!ui::dialog::confirm("Unsaved Changes", "The active scene has unsaved changes. Discard and open this scene?")) {
+            if (scene_mgr->is_dirty())
+                if (!ui::dialog::confirm("Unsaved Changes", "The active scene has unsaved changes. Discard and open this scene?"))
                     return;
-                }
-            }
+
             auto res = scene_mgr->load(item_path, LoadMode::SINGLE);
             if (res == INVALID_SCENE_INSTANCE) {
                 ui::dialog::alert("Load Failed", "Failed to load scene:\n" + item_path.filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
             }
         } else if ((ext == ".model" || ext == ".gltf" || ext == ".glb" || ext == ".obj" || ext == ".stl") && scene_mgr) {
-            auto ams = get_asset_server();
-            if (ams) {
-                Path model_path = item_path;
-                auto model_handle = ams->load_asset<ModelAsset>(model_path.string().c_str());
+            if (auto ams = get_asset_server()) {
+                std::error_code ec;
+
+                Path rel_path = fs::relative(item_path, root, ec);
+                auto path_str = (!ec && !rel_path.empty() && *rel_path.begin() != "..")
+                                    ? rel_path.generic_string()
+                                    : item_path.generic_string();
+
+                auto model_handle = ams->load_asset<ModelAsset>(path_str.c_str());
                 if (!model_handle.valid()) {
-                    model_handle = ams->load_asset<ModelAsset>(model_path.filename().string().c_str());
+                    model_handle = ams->load_asset<ModelAsset>(item_path.filename().generic_string().c_str());
                 }
                 bool spawned = false;
                 if (model_handle.valid()) {
@@ -362,7 +354,7 @@ void AssetBrowserView::show_item(AppContext& context, StringView name, bool is_f
                     }
                 }
                 if (!spawned) {
-                    ui::dialog::alert("Spawn Failed", "Failed to load or spawn model asset:\n" + model_path.filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
+                    ui::dialog::alert("Spawn Failed", "Failed to load or spawn model asset:\n" + item_path.filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
                 }
             }
         }
@@ -393,12 +385,24 @@ void AssetBrowserView::show_item(AppContext& context, StringView name, bool is_f
         }
 
         if (ext == ".model" || ext == ".gltf" || ext == ".glb" || ext == ".obj" || ext == ".stl") {
-            String path_str = item_path.string();
+            std::error_code ec;
+
+            Path rel_path = fs::relative(item_path, root, ec);
+            auto path_str = (!ec && !rel_path.empty() && *rel_path.begin() != "..")
+                                ? rel_path.generic_string()
+                                : item_path.generic_string();
+
             ui::drag_drop_source("LYRA_ASSET_MODEL", path_str.c_str(), path_str.size() + 1, [&]() {
                 ui::label(name.data());
             });
         } else if (ext == ".scene") {
-            String path_str = item_path.string();
+            std::error_code ec;
+
+            Path rel_path = fs::relative(item_path, root, ec);
+            auto path_str = (!ec && !rel_path.empty() && *rel_path.begin() != "..")
+                                ? rel_path.generic_string()
+                                : item_path.generic_string();
+
             ui::drag_drop_source("LYRA_ASSET_SCENE", path_str.c_str(), path_str.size() + 1, [&]() {
                 ui::label(name.data());
             });
@@ -432,10 +436,16 @@ void AssetBrowserView::show_item(AppContext& context, StringView name, bool is_f
                 ui::menu_item(LYRA_ICON_NODE " Spawn in Scene", [&]() {
                     auto ams = get_asset_server();
                     if (ams) {
-                        Path model_path = item_path;
-                        auto model_handle = ams->load_asset<ModelAsset>(model_path.string().c_str());
+                        std::error_code ec;
+
+                        Path rel_path = fs::relative(item_path, root, ec);
+                        auto path_str = (!ec && !rel_path.empty() && *rel_path.begin() != "..")
+                                            ? rel_path.generic_string()
+                                            : item_path.generic_string();
+
+                        auto model_handle = ams->load_asset<ModelAsset>(path_str.c_str());
                         if (!model_handle.valid()) {
-                            model_handle = ams->load_asset<ModelAsset>(model_path.filename().string().c_str());
+                            model_handle = ams->load_asset<ModelAsset>(item_path.filename().generic_string().c_str());
                         }
                         bool spawned = false;
                         if (model_handle.valid()) {
@@ -446,7 +456,7 @@ void AssetBrowserView::show_item(AppContext& context, StringView name, bool is_f
                             }
                         }
                         if (!spawned) {
-                            ui::dialog::alert("Spawn Failed", "Failed to load or spawn model asset:\n" + model_path.filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
+                            ui::dialog::alert("Spawn Failed", "Failed to load or spawn model asset:\n" + item_path.filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
                         }
                     }
                 });

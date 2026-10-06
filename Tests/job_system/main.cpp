@@ -146,7 +146,7 @@ TEST_CASE("jobs::job_system" * doctest::description("Job System and Coroutine Te
     SUBCASE("batch_awaiter")
     {
         std::atomic<int> sum{0};
-        constexpr uint batch_count = 20;
+        constexpr uint   batch_count = 20;
 
         auto test_batch = [&]() -> Task<int> {
             auto awaiter = std::make_shared<BatchAwaiter>(batch_count);

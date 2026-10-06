@@ -35,9 +35,9 @@ namespace lyra
      */
     enum struct SimulationState : uint
     {
-        EDIT,   ///< Edit mode: systems/physics pause or only run preview/editor systems
-        PLAY,   ///< Play mode: full active simulation
-        PAUSED  ///< Simulation paused: systems do not advance
+        EDIT,  ///< Edit mode: systems/physics pause or only run preview/editor systems
+        PLAY,  ///< Play mode: full active simulation
+        PAUSED ///< Simulation paused: systems do not advance
     };
 
 } // namespace lyra

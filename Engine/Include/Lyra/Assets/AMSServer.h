@@ -270,9 +270,14 @@ namespace lyra
         AssetID get_guid(FSPath path) const;
 
         /**
+         * @brief Get the virtual asset path associated with a GUID.
+         */
+        auto get_path(AssetID guid) const -> StringView;
+
+        /**
          * @brief Register or update an asset entry in the registry.
          */
-        void register_asset_entry(AssetID guid, const Path& path, AssetTypeID type_id, const Vector<AssetID>& dependencies = {});
+        void register_asset_entry(AssetID guid, const Path& path, AssetTypeID type_id, const Vector<AssetID>& dependencies = {}, const Path& cooked_path = {});
 
         /**
          * @brief Preprocess asset into engine compatible format.
@@ -315,6 +320,11 @@ namespace lyra
         void reload_asset(AssetID guid);
 
         /**
+         * @brief Resolve the effective load path for an asset (cooked cache path if available, or resolved from .import/convention).
+         */
+        auto resolve_load_path(AssetTypeID type_id, AssetID guid) -> String;
+
+        /**
          * @brief Re-import/cook all recognized assets found in the assets directory.
          */
         void reimport_all(bool force = false);
@@ -338,6 +348,11 @@ namespace lyra
          * @brief Check if an extension has a registered cooker.
          */
         bool has_cooker_for(const Path& path) const;
+
+        /**
+         * @brief Resolve an asset path (relative or absolute) to a full path and relative path to assets root.
+         */
+        auto resolve_asset_path(const Path& path) const -> std::pair<Path, Path>;
 
         /**
          * @brief Poll and dispatch queued pipeline events on the main thread.
@@ -406,7 +421,6 @@ namespace lyra
         void unload_dependencies(AssetID guid);
 
         // deletion helpers
-        auto resolve_asset_path(const Path& path) const -> std::pair<Path, Path>;
         void unload_record(AssetID guid);
         void delete_metadata_and_caches(const Path& import_path, AssetID guid);
         bool delete_directory_assets(const Path& dir_path);

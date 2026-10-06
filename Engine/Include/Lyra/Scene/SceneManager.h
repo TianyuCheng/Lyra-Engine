@@ -34,6 +34,7 @@ namespace lyra
         Vector3    position = Vector3(0.0f);               ///< local offset applied to root.
         Quaternion rotation = glm::identity<Quaternion>(); ///< local rotation applied to root.
         Vector3    scale    = Vector3(1.0f);               ///< local scale applied to root.
+        String     name     = "";                          ///< optional name for spawned root entity.
     };
 
     /**
@@ -100,6 +101,7 @@ namespace lyra
         auto get_active_name() const -> String;
         auto get_active_path() const -> Path;
         auto get_instance(SceneInstanceID id) const -> const SceneInstance*;
+        auto resolve_unique_name(SceneNode parent, const String& base_name) const -> String;
 
         bool is_dirty() const { return dirty; }
         void set_dirty(bool is_dirty = true) { dirty = is_dirty; }

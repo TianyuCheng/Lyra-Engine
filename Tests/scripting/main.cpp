@@ -18,7 +18,7 @@ namespace
 
 TEST_CASE("scr::command_queue" * doctest::description("ScriptCommandQueue deferred structural operations"))
 {
-    lyra::World world;
+    lyra::World              world;
     lyra::ScriptCommandQueue queue;
 
     auto node = world.create();
@@ -47,11 +47,11 @@ TEST_CASE("scr::command_queue" * doctest::description("ScriptCommandQueue deferr
 
 TEST_CASE("scr::script_context" * doctest::description("ScriptContext facade and query iteration"))
 {
-    lyra::World world;
+    lyra::World              world;
     lyra::ScriptCommandQueue queue;
-    lyra::MemoryArena arena(16 * 1024);
-    lyra::WindowInput raw_input{};
-    lyra::InputManager input_mgr{};
+    lyra::MemoryArena        arena(16 * 1024);
+    lyra::WindowInput        raw_input{};
+    lyra::InputManager       input_mgr{};
 
     lyra::ScriptContext ctx(&world, &queue, &arena, &raw_input, &input_mgr, 0.016f, 1.25f);
 
@@ -161,37 +161,36 @@ TEST_CASE("scr::script_layer" * doctest::description("ScriptLayer API registrati
             .group = "Gameplay/Test",
             .stage = lyra::AppEvent::UPDATE_POST,
             .flags = lyra::ScriptFlag::NONE,
-        }
-    };
+        }};
 
     lyra::ScriptAPI api = {
         .get_api_name = []() -> lyra::CString { return "TestScriptAPI"; },
-        .get_scripts = [](lyra::ScriptDescriptor* out) -> lyra::uint {
-            if (out) {
-                out[0] = descs[0];
-                out[1] = descs[1];
-                out[2] = descs[2];
-            }
-            return 3;
-        },
+        .get_scripts  = [](lyra::ScriptDescriptor* out) -> lyra::uint {
+        if (out) {
+            out[0] = descs[0];
+            out[1] = descs[1];
+            out[2] = descs[2];
+        }
+        return 3;
+    },
         .run = [](lyra::ScriptID id, lyra::ScriptContext& ctx) {
-            if (id == lyra::hash_script_name("TestPreSystem")) {
-                pre_ran = true;
-            } else if (id == lyra::hash_script_name("TestMainSystem")) {
-                main_ran = true;
-            } else if (id == lyra::hash_script_name("TestPostSystem")) {
-                post_ran = true;
-            }
-        },
+        if (id == lyra::hash_script_name("TestPreSystem")) {
+            pre_ran = true;
+        } else if (id == lyra::hash_script_name("TestMainSystem")) {
+            main_ran = true;
+        } else if (id == lyra::hash_script_name("TestPostSystem")) {
+            post_ran = true;
+        }
+    },
         .get_params = nullptr,
     };
 
     layer.register_api(api);
     CHECK_EQ(layer.get_scripts().size(), 3);
 
-    lyra::World world;
-    lyra::AppContext ctx;
-    lyra::WindowInput raw_input{};
+    lyra::World        world;
+    lyra::AppContext   ctx;
+    lyra::WindowInput  raw_input{};
     lyra::InputManager input_mgr{};
     ctx.toolboard.add(&world);
     ctx.toolboard.add(&raw_input);
@@ -254,8 +253,8 @@ TEST_CASE("scr::generated_bindings" * doctest::description("Verified bindings ge
     CHECK_EQ(layer.get_scripts().size(), 1);
     CHECK_EQ(std::string(layer.get_scripts()[0].name), "orbit");
 
-    lyra::AppContext ctx;
-    lyra::WindowInput raw_input{};
+    lyra::AppContext   ctx;
+    lyra::WindowInput  raw_input{};
     lyra::InputManager input_mgr{};
     ctx.toolboard.add(&world);
     ctx.toolboard.add(&raw_input);
@@ -282,12 +281,12 @@ namespace
 {
     struct MockInputLayout
     {
-        lyra::InputState states[2];
-        lyra::uint       state_index = 0;
-        float            delta_time  = 0.0f;
+        lyra::InputState                                   states[2];
+        lyra::uint                                         state_index = 0;
+        float                                              delta_time  = 0.0f;
         std::chrono::time_point<std::chrono::steady_clock> elapsed_time;
     };
-}
+} // namespace
 
 TEST_CASE("scr::input_manager" * doctest::description("InputManager actions and composite axes"))
 {
@@ -305,7 +304,7 @@ TEST_CASE("scr::input_manager" * doctest::description("InputManager actions and 
     SUBCASE("evaluating keyboard and mouse actions with mock input")
     {
         MockInputLayout mock{};
-        auto* raw_input = reinterpret_cast<const lyra::WindowInput*>(&mock);
+        auto*           raw_input = reinterpret_cast<const lyra::WindowInput*>(&mock);
 
         // Frame 1: press W
         mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::W)] = lyra::ButtonState::ON;
@@ -329,7 +328,7 @@ TEST_CASE("scr::input_manager" * doctest::description("InputManager actions and 
         CHECK(manager.is_action_pressed(lyra::InputAction::MOVE_RIGHT));
 
         // diagonal movement should be normalized
-        move_vec = manager.get_axis_2d(lyra::InputAxis2D::MOVE);
+        move_vec       = manager.get_axis_2d(lyra::InputAxis2D::MOVE);
         float expected = 1.0f / std::sqrt(2.0f);
         CHECK_EQ(move_vec.x, doctest::Approx(expected));
         CHECK_EQ(move_vec.y, doctest::Approx(expected));
@@ -346,7 +345,7 @@ TEST_CASE("scr::input_manager" * doctest::description("InputManager actions and 
     SUBCASE("mouse look delta and zoom scroll")
     {
         MockInputLayout mock{};
-        auto* raw_input = reinterpret_cast<const lyra::WindowInput*>(&mock);
+        auto*           raw_input = reinterpret_cast<const lyra::WindowInput*>(&mock);
 
         mock.state_index                   = 0;
         mock.states[0].mouse.position.xpos = 25.0f;
@@ -368,14 +367,14 @@ TEST_CASE("scr::input_manager" * doctest::description("InputManager actions and 
     SUBCASE("ScriptContext facade queries InputManager")
     {
         MockInputLayout mock{};
-        auto* raw_input = reinterpret_cast<const lyra::WindowInput*>(&mock);
+        auto*           raw_input = reinterpret_cast<const lyra::WindowInput*>(&mock);
 
         mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::SPACE)] = lyra::ButtonState::ON;
         manager.update(raw_input, 0.016f);
 
         lyra::ScriptCommandQueue queue;
-        lyra::MemoryArena arena(16 * 1024);
-        lyra::ScriptContext ctx(nullptr, &queue, &arena, raw_input, &manager, 0.016f, 1.0f);
+        lyra::MemoryArena        arena(16 * 1024);
+        lyra::ScriptContext      ctx(nullptr, &queue, &arena, raw_input, &manager, 0.016f, 1.0f);
         CHECK_EQ(ctx.raw_input(), raw_input);
         CHECK_EQ(ctx.input(), &manager);
         CHECK(ctx.is_action_down(lyra::InputAction::JUMP));
@@ -386,7 +385,7 @@ TEST_CASE("scr::input_manager" * doctest::description("InputManager actions and 
     SUBCASE("clearing bindings and custom configuration")
     {
         MockInputLayout mock{};
-        auto* raw_input = reinterpret_cast<const lyra::WindowInput*>(&mock);
+        auto*           raw_input                                                   = reinterpret_cast<const lyra::WindowInput*>(&mock);
         mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::W)] = lyra::ButtonState::ON;
 
         // with default bindings, W triggers MOVE_FORWARD and MOVE axis (0, 1)
@@ -415,16 +414,16 @@ TEST_CASE("scr::input_manager" * doctest::description("InputManager actions and 
     SUBCASE("input gating with set_enabled")
     {
         MockInputLayout mock{};
-        auto* raw_input = reinterpret_cast<const lyra::WindowInput*>(&mock);
+        auto*           raw_input = reinterpret_cast<const lyra::WindowInput*>(&mock);
 
-        mock.state_index                                                             = 0;
+        mock.state_index                                                              = 0;
         mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::W)]   = lyra::ButtonState::ON;
         mock.states[0].mouse.status[static_cast<lyra::uint>(lyra::MouseButton::LEFT)] = lyra::ButtonState::ON;
-        mock.states[0].mouse.position.xpos                                           = 25.0f;
-        mock.states[0].mouse.position.ypos                                           = 12.0f;
-        mock.states[1].mouse.position.xpos                                           = 10.0f;
-        mock.states[1].mouse.position.ypos                                           = 20.0f;
-        mock.states[0].mouse.scroll.y                                                = 2.5f;
+        mock.states[0].mouse.position.xpos                                            = 25.0f;
+        mock.states[0].mouse.position.ypos                                            = 12.0f;
+        mock.states[1].mouse.position.xpos                                            = 10.0f;
+        mock.states[1].mouse.position.ypos                                            = 20.0f;
+        mock.states[0].mouse.scroll.y                                                 = 2.5f;
 
         CHECK(manager.is_enabled());
 
@@ -474,5 +473,3 @@ TEST_CASE("scr::input_manager" * doctest::description("InputManager actions and 
         CHECK_EQ(manager.get_axis(lyra::InputAxis::ZOOM), doctest::Approx(0.0f));
     }
 }
-
-

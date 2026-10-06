@@ -20,7 +20,8 @@ D3D12QuerySet::D3D12QuerySet(const GPUQuerySetDescriptor& desc)
         case GPUQueryType::TIMESTAMP:
             heap_desc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
             break;
-        case GPUQueryType::BLAS_PROPERTIES: {
+        case GPUQueryType::BLAS_PROPERTIES:
+        {
             auto buffer_desc            = GPUBufferDescriptor{};
             buffer_desc.size            = desc.count * sizeof(ulong);
             buffer_desc.usage           = GPUBufferUsage::STORAGE | GPUBufferUsage::COPY_SRC;

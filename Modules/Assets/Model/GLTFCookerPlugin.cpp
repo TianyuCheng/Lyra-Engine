@@ -172,7 +172,7 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
 
         auto compute_world = [&](auto& self, int node_idx, const Matrix4x4& parent_world) -> void {
             if (node_idx < 0 || static_cast<size_t>(node_idx) >= gltf_model.nodes.size()) return;
-            Matrix4x4 world = parent_world * local_transforms[node_idx];
+            Matrix4x4 world            = parent_world * local_transforms[node_idx];
             world_transforms[node_idx] = world;
             for (int child_idx : gltf_model.nodes[node_idx].children) {
                 self(self, child_idx, world);

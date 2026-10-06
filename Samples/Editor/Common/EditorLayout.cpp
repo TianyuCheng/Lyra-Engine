@@ -31,7 +31,7 @@ void EditorLayout::update(AppContext& context)
 
 EditorLayoutInfo EditorLayout::init() const
 {
-    auto nodes = ui::workspace::get_nodes();
+    auto             nodes = ui::workspace::get_nodes();
     EditorLayoutInfo layout{};
     layout.main   = nodes.main;
     layout.top    = nodes.top;

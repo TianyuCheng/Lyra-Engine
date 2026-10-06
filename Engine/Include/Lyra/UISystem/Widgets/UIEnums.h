@@ -11,11 +11,11 @@ namespace lyra::ui
     enum struct ButtonRole : uint8_t
     {
         Standard,
-        Primary,    // Highlighted / Accent action (e.g. Save, Create, Active State)
-        Success,    // Positive / Play action (e.g. Play, Run)
-        Warning,    // Cautionary action (e.g. Pause)
-        Danger,     // Destructive action (e.g. Delete, Purge)
-        Ghost       // Borderless / Minimal (e.g. toolbars, breadcrumbs)
+        Primary, // Highlighted / Accent action (e.g. Save, Create, Active State)
+        Success, // Positive / Play action (e.g. Play, Run)
+        Warning, // Cautionary action (e.g. Pause)
+        Danger,  // Destructive action (e.g. Delete, Purge)
+        Ghost    // Borderless / Minimal (e.g. toolbars, breadcrumbs)
     };
 
     // semantic status roles for text, badges, and filters

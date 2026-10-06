@@ -36,19 +36,19 @@ namespace lyra
         /**
          * @brief Access the SceneManager instance.
          */
-        FORCE_INLINE SceneManager& get_manager() { return *scene_manager; }
+        FORCE_INLINE SceneManager&       get_manager() { return *scene_manager; }
         FORCE_INLINE const SceneManager& get_manager() const { return *scene_manager; }
 
         /**
          * @brief Access the World instance.
          */
-        FORCE_INLINE World& get_world() { return world; }
+        FORCE_INLINE World&       get_world() { return world; }
         FORCE_INLINE const World& get_world() const { return world; }
 
         /**
          * @brief Access the SceneTree instance.
          */
-        FORCE_INLINE SceneTree& get_hierarchy() { return hierarchy; }
+        FORCE_INLINE SceneTree&       get_hierarchy() { return hierarchy; }
         FORCE_INLINE const SceneTree& get_hierarchy() const { return hierarchy; }
 
     private:

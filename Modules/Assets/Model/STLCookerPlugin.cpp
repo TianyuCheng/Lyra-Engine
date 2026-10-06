@@ -187,9 +187,10 @@ static bool process_stl(JSON& metadata, OSPath source_path, OSPath caches_root)
         model.root = 0;
 
         ModelAsset::Node root_node;
-        root_node.name      = "STL_Model";
-        root_node.mesh      = AssetHandle<MeshAsset>(mesh_id);
-        root_node.transform = Matrix4x4(1.0f);
+        String           stem_name = Path(source_path).stem().string();
+        root_node.name             = !stem_name.empty() ? stem_name : "STL_Model";
+        root_node.mesh             = AssetHandle<MeshAsset>(mesh_id);
+        root_node.transform        = Matrix4x4(1.0f);
         model.nodes.push_back(root_node);
 
         Path model_cache_path = models_dir / (std::to_string(model_id) + ".model");

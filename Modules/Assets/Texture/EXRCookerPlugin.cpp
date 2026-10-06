@@ -13,7 +13,7 @@ static void configure_cooker(AssetServer* manager, const JSON& options) {}
 static bool process_exr(JSON& metadata, OSPath source_path, OSPath target_path)
 {
     try {
-        String source_path_str = Path(source_path).string();
+        String  source_path_str = Path(source_path).string();
         int     width = 0, height = 0;
         float*  pixels = nullptr;
         CString err    = nullptr;

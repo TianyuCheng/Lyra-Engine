@@ -18,14 +18,15 @@ namespace lyra
      */
     struct AssetEntry
     {
-        AssetID         guid;         ///< Globally unique identifier for the asset.
-        AssetTypeID     type;         ///< Enum-based asset type.
-        uint            path;         ///< Index into the string table for the asset path.
-        Vector<AssetID> dependencies; ///< List of GUIDs this asset depends on.
+        AssetID         guid;                     ///< Globally unique identifier for the asset.
+        AssetTypeID     type;                     ///< Enum-based asset type.
+        uint            path;                     ///< Index into the string table for the asset path.
+        Vector<AssetID> dependencies;             ///< List of GUIDs this asset depends on.
+        uint            cooked_path = 0xFFFFFFFF; ///< Index into the string table for the cooked asset path.
     };
 
     /**
-     * @brief The AssetRegistry maintains a mapping between AssetIDs and paths, 
+     * @brief The AssetRegistry maintains a mapping between AssetIDs and paths,
      * as well as the asset dependency graph for automatic loading.
      * It can be serialized to binary or TOML formats.
      */
@@ -64,7 +65,7 @@ namespace lyra
         /**
          * @brief Update or add an asset entry in the registry.
          */
-        void update(AssetID guid, StringView path, AssetTypeID type, const Vector<AssetID>& dependencies = {});
+        void update(AssetID guid, StringView path, AssetTypeID type, const Vector<AssetID>& dependencies = {}, StringView cooked_path = "");
 
         /**
          * @brief Check if a GUID is available (either not registered, or already registered to expected_path).
@@ -82,29 +83,49 @@ namespace lyra
         void remove(StringView path);
 
         /**
-         * @brief Get the asset path associated with a GUID.
+         * @brief Get the source asset path associated with a GUID.
          */
-        StringView get_path(AssetID guid) const;
+        auto get_path(AssetID guid) const -> StringView;
+
+        /**
+         * @brief Get the cooked asset cache path associated with a GUID (if any).
+         */
+        auto get_cooked_path(AssetID guid) const -> StringView;
+
+        /**
+         * @brief Check whether an asset has a cooked cache path registered.
+         */
+        bool has_cooked_path(AssetID guid) const;
+
+        /**
+         * @brief Get the effective load path for an asset (cooked cache path if available, otherwise source path).
+         */
+        auto get_load_path(AssetID guid) const -> StringView;
+
+        /**
+         * @brief Get read-only access to all asset entries in the registry.
+         */
+        auto get_entries() const -> const Vector<AssetEntry>& { return entries; }
 
         /**
          * @brief Get the GUID associated with an asset path.
          */
-        AssetID get_guid(StringView path) const;
+        auto get_guid(StringView path) const -> AssetID;
 
         /**
          * @brief Get the asset type associated with a GUID.
          */
-        AssetTypeID get_type(AssetID guid) const;
+        auto get_type(AssetID guid) const -> AssetTypeID;
 
         /**
          * @brief Get the list of dependencies for an asset.
          */
-        const Vector<AssetID>& get_dependencies(AssetID guid) const;
+        auto get_dependencies(AssetID guid) const -> const Vector<AssetID>&;
 
         /**
          * @brief Generate a new random GUID that is guaranteed to be unique within this registry.
          */
-        AssetID generate_guid();
+        auto generate_guid() -> AssetID;
 
         /**
          * @brief Check if the registry has been modified since the last save.

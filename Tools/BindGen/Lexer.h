@@ -17,22 +17,22 @@ namespace lyra::reflect
         NumberLiteral,
 
         // Brackets & delimiters
-        LBracket,        // [
-        RBracket,        // ]
-        DoubleLBracket,  // [[
-        DoubleRBracket,  // ]]
-        LParen,          // (
-        RParen,          // )
-        LBrace,          // {
-        RBrace,          // }
-        Colon,           // :
-        ColonColon,      // ::
-        Semicolon,       // ;
-        Comma,           // ,
-        Equal,           // =
-        Ampersand,       // &
-        Less,            // <
-        Greater,         // >
+        LBracket,       // [
+        RBracket,       // ]
+        DoubleLBracket, // [[
+        DoubleRBracket, // ]]
+        LParen,         // (
+        RParen,         // )
+        LBrace,         // {
+        RBrace,         // }
+        Colon,          // :
+        ColonColon,     // ::
+        Semicolon,      // ;
+        Comma,          // ,
+        Equal,          // =
+        Ampersand,      // &
+        Less,           // <
+        Greater,        // >
 
         // Keywords
         KeywordStruct,
@@ -47,7 +47,7 @@ namespace lyra::reflect
 
     struct Token
     {
-        TokenType   type   = TokenType::Eof;
+        TokenType   type = TokenType::Eof;
         std::string text;
         int         line   = 1;
         int         column = 1;

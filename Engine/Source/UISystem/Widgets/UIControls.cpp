@@ -358,7 +358,7 @@ void lyra::ui::badge(CString text, StatusRole role)
 
 namespace
 {
-    ImGuiID draw_card_frame(CString id, bool is_selected, float size, ActionRef on_click, const ActionRef* on_double_click)
+    ImGuiID draw_card_frame(CString id, bool is_selected, float size)
     {
         ImGuiID card_id = ImGui::GetID(id);
         ImGui::PushID(card_id);
@@ -373,12 +373,6 @@ namespace
 
         ImGui::Button("##card_bg", ImVec2(size, size));
         ImGuiID button_id = ImGui::GetItemID();
-
-        if (on_double_click && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-            (*on_double_click)();
-        } else if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
-            on_click();
-        }
 
         ImGui::PopStyleColor(is_selected ? 2 : 1);
         return button_id;
@@ -446,7 +440,7 @@ namespace
 
 void lyra::ui::card(CString id, CString icon, CString label, bool is_selected, ActionRef on_click, Vector4 icon_color, float size)
 {
-    ImGuiID card_id = draw_card_frame(id, is_selected, size, on_click, nullptr);
+    ImGuiID card_id = draw_card_frame(id, is_selected, size);
     ImVec2  pos     = ImGui::GetItemRectMin();
 
     draw_card_icon(pos, size, icon, icon_color);
@@ -456,7 +450,7 @@ void lyra::ui::card(CString id, CString icon, CString label, bool is_selected, A
 
 void lyra::ui::card(CString id, CString icon, CString label, bool is_selected, ActionRef on_click, ActionRef on_double_click, Vector4 icon_color, float size)
 {
-    ImGuiID card_id = draw_card_frame(id, is_selected, size, on_click, &on_double_click);
+    ImGuiID card_id = draw_card_frame(id, is_selected, size);
     ImVec2  pos     = ImGui::GetItemRectMin();
 
     draw_card_icon(pos, size, icon, icon_color);
@@ -466,7 +460,7 @@ void lyra::ui::card(CString id, CString icon, CString label, bool is_selected, A
 
 void lyra::ui::card(CString id, GUITextureHandle image, Vector2 image_size, CString label, bool is_selected, ActionRef on_click, float size)
 {
-    ImGuiID card_id = draw_card_frame(id, is_selected, size, on_click, nullptr);
+    ImGuiID card_id = draw_card_frame(id, is_selected, size);
     ImVec2  pos     = ImGui::GetItemRectMin();
 
     float  max_thumb    = size - 8.0f;
@@ -487,7 +481,7 @@ void lyra::ui::card(CString id, GUITextureHandle image, Vector2 image_size, CStr
 
 void lyra::ui::card(CString id, GUITextureHandle image, Vector2 image_size, CString label, bool is_selected, ActionRef on_click, ActionRef on_double_click, float size)
 {
-    ImGuiID card_id = draw_card_frame(id, is_selected, size, on_click, &on_double_click);
+    ImGuiID card_id = draw_card_frame(id, is_selected, size);
     ImVec2  pos     = ImGui::GetItemRectMin();
 
     float  max_thumb    = size - 8.0f;

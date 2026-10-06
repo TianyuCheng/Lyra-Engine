@@ -52,7 +52,8 @@ void SceneView::update(AppContext& context)
 
         ui::row([&]() {
             String scene_title = (scene_mgr && !scene_mgr->get_active_name().empty())
-                ? scene_mgr->get_active_name() : "Untitled";
+                                     ? scene_mgr->get_active_name()
+                                     : "Untitled";
             if (scene_mgr && scene_mgr->is_dirty()) {
                 scene_title += " *";
             }
@@ -85,11 +86,21 @@ void SceneView::update(AppContext& context)
                 Path model_path(path_cstr);
                 auto model_handle = ams->load_asset<ModelAsset>(path_cstr);
                 if (!model_handle.valid()) {
-                    model_handle = ams->load_asset<ModelAsset>(model_path.filename().string().c_str());
+                    model_handle = ams->load_asset<ModelAsset>(model_path.filename().generic_string().c_str());
+                }
+                if (!model_handle.valid() && ams->has_cooker_for(model_path)) {
+                    auto [full_path, rel_path] = ams->resolve_asset_path(model_path);
+                    auto    fut                = ams->import_asset(rel_path, false);
+                    AssetID cooked_guid        = fut.get();
+                    if (cooked_guid != 0) {
+                        model_handle = ams->load_asset<ModelAsset>(cooked_guid);
+                    }
                 }
                 bool spawned = false;
                 if (model_handle.valid()) {
-                    auto node = scene_mgr->spawn(model_handle);
+                    SpawnParams params;
+                    params.name = model_path.stem().string();
+                    auto node   = scene_mgr->spawn(model_handle, params);
                     if (node.entity != entt::null) {
                         scene_mgr->set_dirty(true);
                         spawned = true;
