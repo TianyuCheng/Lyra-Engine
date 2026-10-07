@@ -113,8 +113,19 @@ namespace lyra
         bool is_action_pressed(InputAction action) const;
         bool is_action_released(InputAction action) const;
 
+        bool is_custom_action_down(size_t index) const;
+        bool is_custom_action_pressed(size_t index) const;
+        bool is_custom_action_released(size_t index) const;
+
+        bool is_action_down(StringView name) const;
+        bool is_action_pressed(StringView name) const;
+        bool is_action_released(StringView name) const;
+
         float   get_axis(InputAxis axis) const;
         Vector2 get_axis_2d(InputAxis2D axis) const;
+
+        float   get_custom_axis(size_t index) const;
+        Vector2 get_custom_axis_2d(size_t index) const;
 
         // Deferred entity commands
         FORCE_INLINE void destroy(SceneNode node)

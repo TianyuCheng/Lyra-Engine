@@ -378,7 +378,8 @@ TEST_CASE("scr::input_manager" * doctest::description("InputManager actions and 
         MockInputLayout mock{};
         auto*           raw_input = reinterpret_cast<const lyra::WindowInput*>(&mock);
 
-        mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::SPACE)] = lyra::ButtonState::ON;
+        // verify E elevates up and SPACE/CTRL do not elevate
+        mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::E)] = lyra::ButtonState::ON;
         manager.update(raw_input, 0.016f);
 
         lyra::ScriptCommandQueue queue;
@@ -386,9 +387,92 @@ TEST_CASE("scr::input_manager" * doctest::description("InputManager actions and 
         lyra::ScriptContext      ctx(nullptr, &queue, &arena, raw_input, &manager, 0.016f, 1.0f);
         CHECK_EQ(ctx.raw_input(), raw_input);
         CHECK_EQ(ctx.input(), &manager);
-        CHECK(ctx.is_action_down(lyra::InputAction::JUMP));
         CHECK(ctx.is_action_down(lyra::InputAction::MOVE_UP));
         CHECK_EQ(ctx.get_axis(lyra::InputAxis::ELEVATION), doctest::Approx(1.0f));
+
+        // verify space and ctrl do not trigger camera elevation or move_up/move_down
+        mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::E)]     = lyra::ButtonState::OFF;
+        mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::SPACE)] = lyra::ButtonState::ON;
+        mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::CTRL)]  = lyra::ButtonState::ON;
+        manager.update(raw_input, 0.016f);
+        CHECK(!ctx.is_action_down(lyra::InputAction::MOVE_UP));
+        CHECK(!ctx.is_action_down(lyra::InputAction::MOVE_DOWN));
+        CHECK_EQ(ctx.get_axis(lyra::InputAxis::ELEVATION), doctest::Approx(0.0f));
+    }
+
+    SUBCASE("custom actions and operations")
+    {
+        MockInputLayout mock{};
+        auto*           raw_input = reinterpret_cast<const lyra::WindowInput*>(&mock);
+
+        manager.bind_custom_action(0, lyra::DeviceButton::key(lyra::KeyButton::G));
+        manager.register_action_alias("SpecialAbility", lyra::custom_action(0));
+
+        mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::G)] = lyra::ButtonState::ON;
+        manager.update(raw_input, 0.016f);
+
+        CHECK(manager.is_custom_action_down(0));
+        CHECK(manager.is_action_down("SpecialAbility"));
+
+        lyra::ScriptCommandQueue queue;
+        lyra::MemoryArena        arena(16 * 1024);
+        lyra::ScriptContext      ctx(nullptr, &queue, &arena, raw_input, &manager, 0.016f, 1.0f);
+        CHECK(ctx.is_custom_action_down(0));
+        CHECK(ctx.is_action_down("SpecialAbility"));
+    }
+
+    SUBCASE("key combinations and chord bindings for actions and axes")
+    {
+        MockInputLayout mock{};
+        auto*           raw_input = reinterpret_cast<const lyra::WindowInput*>(&mock);
+
+        manager.clear_all_bindings();
+
+        // 1. Action chord: Ctrl + S for CUSTOM_0 ("Save")
+        manager.bind_action(lyra::custom_action(0), lyra::ButtonChord::key(lyra::KeyButton::S, lyra::ModifierKey::CTRL));
+
+        // 2. Multi-modifier chord: Ctrl + Shift + Z for CUSTOM_1 ("Redo")
+        manager.bind_action(lyra::custom_action(1), lyra::ButtonChord::key(lyra::KeyButton::Z, lyra::ModifierKey::CTRL | lyra::ModifierKey::SHIFT));
+
+        // 3. Axis chord: Shift + W for boost forward (+1.0) on CUSTOM_0 1D axis
+        lyra::Axis1DComposite boost_axis{};
+        boost_axis.positive.push_back(lyra::ButtonChord::key(lyra::KeyButton::W, lyra::ModifierKey::SHIFT));
+        boost_axis.negative.push_back(lyra::ButtonChord::key(lyra::KeyButton::S, lyra::ModifierKey::SHIFT));
+        manager.bind_custom_axis_1d(0, boost_axis);
+
+        // Frame 1: Only S is pressed (Ctrl is OFF) -> Save action should NOT trigger
+        mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::S)] = lyra::ButtonState::ON;
+        manager.update(raw_input, 0.016f);
+        CHECK(!manager.is_custom_action_down(0));
+
+        // Frame 2: Ctrl + S -> Save action should trigger!
+        mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::CTRL)] = lyra::ButtonState::ON;
+        manager.update(raw_input, 0.016f);
+        CHECK(manager.is_custom_action_down(0));
+        CHECK(manager.is_custom_action_pressed(0));
+
+        // Frame 3: Only Ctrl + Z (missing Shift) -> Redo should NOT trigger
+        mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::S)] = lyra::ButtonState::OFF;
+        mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::Z)] = lyra::ButtonState::ON;
+        manager.update(raw_input, 0.016f);
+        CHECK(!manager.is_custom_action_down(1));
+
+        // Frame 4: Ctrl + Shift + Z -> Redo triggers!
+        mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::SHIFT)] = lyra::ButtonState::ON;
+        manager.update(raw_input, 0.016f);
+        CHECK(manager.is_custom_action_down(1));
+
+        // Frame 5: Shift + W -> Boost axis activates (+1.0)
+        mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::CTRL)] = lyra::ButtonState::OFF;
+        mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::Z)]    = lyra::ButtonState::OFF;
+        mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::W)]    = lyra::ButtonState::ON;
+        manager.update(raw_input, 0.016f);
+        CHECK_EQ(manager.get_custom_axis(0), doctest::Approx(1.0f));
+
+        // Frame 6: Plain W (without Shift) -> Boost axis does NOT activate (0.0)
+        mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::SHIFT)] = lyra::ButtonState::OFF;
+        manager.update(raw_input, 0.016f);
+        CHECK_EQ(manager.get_custom_axis(0), doctest::Approx(0.0f));
     }
 
     SUBCASE("clearing bindings and custom configuration")

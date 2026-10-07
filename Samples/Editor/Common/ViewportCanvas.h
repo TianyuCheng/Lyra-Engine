@@ -38,7 +38,7 @@ namespace lyra
 
         auto get_backbuffer() const -> Backbuffer;
 
-        void display() const;
+        bool display() const;
 
     private:
         void detect_window();

@@ -47,8 +47,8 @@ void SceneView::update(AppContext& context)
     auto clock = context.toolboard.get<Clock*>();
 
     ui::panel(LYRA_SCENE_WINDOW_NAME, [&]() {
-        bool  playing   = !clock->paused;
-        auto* scene_mgr = context.toolboard.try_get<SceneManager*>();
+        bool playing   = !clock->paused;
+        auto scene_mgr = context.toolboard.try_get<SceneManager*>();
 
         ui::row([&]() {
             String scene_title = (scene_mgr && !scene_mgr->get_active_name().empty())
@@ -77,11 +77,11 @@ void SceneView::update(AppContext& context)
         });
 
         canvas.update(context);
-        canvas.display();
+        bool canvas_interacted = canvas.display();
 
         ui::drag_drop_target("LYRA_ASSET_MODEL", [&](const void* data, size_t) {
-            CString path_cstr = static_cast<CString>(data);
-            auto*   ams       = context.toolboard.try_get<AssetServer*>();
+            auto path_cstr = static_cast<CString>(data);
+            auto ams       = context.toolboard.try_get<AssetServer*>();
             if (ams && scene_mgr) {
                 Path model_path(path_cstr);
                 auto model_handle = ams->load_asset<ModelAsset>(path_cstr);
@@ -128,8 +128,12 @@ void SceneView::update(AppContext& context)
             }
         });
 
-        bool viewport_active = (ui::is_item_hovered() || ui::is_item_active()) && !ui::is_text_input_active();
+        bool prev_active = viewport_active;
+        viewport_active  = canvas_interacted && !ui::is_text_input_active() && !ui::is_modal_active();
         if (auto input = context.try_tool<InputManager>()) {
+            if (prev_active && !viewport_active) {
+                input->reset();
+            }
             input->set_enabled(viewport_active);
         }
     });

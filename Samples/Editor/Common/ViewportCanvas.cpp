@@ -59,16 +59,18 @@ Backbuffer ViewportCanvas::get_backbuffer() const
     return backbuffer;
 }
 
-void ViewportCanvas::display() const
+bool ViewportCanvas::display() const
 {
-    if (frames.empty()) return;
+    if (frames.empty()) return false;
     auto& frame = get_frame();
     if (frame_extent.x > 0.0f && frame_extent.y > 0.0f) {
         Vector2 start_pos = ui::get_cursor_screen_pos();
         ui::image(frame.tex_id.texid, frame_extent);
         ui::set_cursor_screen_pos(start_pos);
         ui::invisible_button("##viewport_canvas", frame_extent);
+        return ui::is_item_hovered() || ui::is_item_active();
     }
+    return false;
 }
 
 void ViewportCanvas::detect_window()

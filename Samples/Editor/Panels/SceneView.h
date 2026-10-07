@@ -25,8 +25,11 @@ namespace lyra
             return canvas.get_backbuffer();
         }
 
+        bool is_viewport_active() const { return viewport_active; }
+
     private:
         ViewportCanvas canvas;
+        bool           viewport_active = false;
     };
 } // namespace lyra
 

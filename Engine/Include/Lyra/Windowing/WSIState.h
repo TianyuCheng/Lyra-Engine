@@ -55,6 +55,7 @@ namespace lyra
         explicit WindowInput();
 
         void update(const WindowHandle& handle);
+        void reset();
 
         auto get_delta_time() const -> float { return delta_time; }
         auto get_elapsed_time() const -> TimePoint { return elapsed_time; }

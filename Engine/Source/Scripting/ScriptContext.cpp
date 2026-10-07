@@ -89,27 +89,67 @@ Vector2 ScriptContext::mouse_scroll() const
 
 bool ScriptContext::is_action_down(InputAction action) const
 {
-    return input_manager->is_action_down(action);
+    return input_manager ? input_manager->is_action_down(action) : false;
 }
 
 bool ScriptContext::is_action_pressed(InputAction action) const
 {
-    return input_manager->is_action_pressed(action);
+    return input_manager ? input_manager->is_action_pressed(action) : false;
 }
 
 bool ScriptContext::is_action_released(InputAction action) const
 {
-    return input_manager->is_action_released(action);
+    return input_manager ? input_manager->is_action_released(action) : false;
+}
+
+bool ScriptContext::is_custom_action_down(size_t index) const
+{
+    return input_manager ? input_manager->is_custom_action_down(index) : false;
+}
+
+bool ScriptContext::is_custom_action_pressed(size_t index) const
+{
+    return input_manager ? input_manager->is_custom_action_pressed(index) : false;
+}
+
+bool ScriptContext::is_custom_action_released(size_t index) const
+{
+    return input_manager ? input_manager->is_custom_action_released(index) : false;
+}
+
+bool ScriptContext::is_action_down(StringView name) const
+{
+    return input_manager ? input_manager->is_action_down(name) : false;
+}
+
+bool ScriptContext::is_action_pressed(StringView name) const
+{
+    return input_manager ? input_manager->is_action_pressed(name) : false;
+}
+
+bool ScriptContext::is_action_released(StringView name) const
+{
+    return input_manager ? input_manager->is_action_released(name) : false;
 }
 
 float ScriptContext::get_axis(InputAxis axis) const
 {
-    return input_manager->get_axis(axis);
+    return input_manager ? input_manager->get_axis(axis) : 0.0f;
 }
 
 Vector2 ScriptContext::get_axis_2d(InputAxis2D axis) const
 {
-    return input_manager->get_axis_2d(axis);
+    return input_manager ? input_manager->get_axis_2d(axis) : Vector2(0.0f);
+}
+
+float ScriptContext::get_custom_axis(size_t index) const
+{
+    return input_manager ? input_manager->get_custom_axis(index) : 0.0f;
+}
+
+Vector2 ScriptContext::get_custom_axis_2d(size_t index) const
+{
+    return input_manager ? input_manager->get_custom_axis_2d(index) : Vector2(0.0f);
 }
 
 void ScriptContext::rotate(TransformLocal& transform, const Vector3& axis, float angle_deg)

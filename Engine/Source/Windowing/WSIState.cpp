@@ -67,6 +67,20 @@ void WindowInput::update(const WindowHandle& handle)
     elapsed_time   = timestamp;
 }
 
+void WindowInput::reset()
+{
+    for (auto& s : states) {
+        for (auto& btn : s.mouse.status) {
+            btn = ButtonState::OFF;
+        }
+        for (auto& key : s.keyboard.status) {
+            key = ButtonState::OFF;
+        }
+        s.mouse.scroll = {};
+        s.files.entries.clear();
+    }
+}
+
 bool WindowInput::is_mouse_down(MouseButton button) const
 {
     return current_state().mouse.status[static_cast<size_t>(button)] == ButtonState::ON;

@@ -49,6 +49,8 @@ namespace lyra::ui
     bool is_key_pressed(KeyButton key);
     bool is_key_released(KeyButton key);
     bool is_text_input_active();
+    bool is_mouse_captured();
+    bool is_keyboard_captured();
 
     // =========================================================================
     // 3. Texture & Image Display
@@ -80,6 +82,7 @@ namespace lyra::ui
     void modal(CString id, bool* p_open, ActionRef content);
     void open_modal(CString id);
     void close_modal();
+    bool is_modal_active();
 
     // =========================================================================
     // 7. Geometry & Item Metrics

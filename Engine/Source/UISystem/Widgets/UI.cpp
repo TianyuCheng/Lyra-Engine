@@ -257,6 +257,16 @@ bool lyra::ui::is_text_input_active()
     return ImGui::GetIO().WantTextInput;
 }
 
+bool lyra::ui::is_mouse_captured()
+{
+    return ImGui::GetIO().WantCaptureMouse;
+}
+
+bool lyra::ui::is_keyboard_captured()
+{
+    return ImGui::GetIO().WantCaptureKeyboard;
+}
+
 // =============================================================================
 // 3. Texture & Image Display
 // =============================================================================
@@ -348,6 +358,11 @@ void lyra::ui::modal(CString id, bool* p_open, ActionRef content)
 void lyra::ui::close_modal()
 {
     ImGui::CloseCurrentPopup();
+}
+
+bool lyra::ui::is_modal_active()
+{
+    return ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId);
 }
 
 // =============================================================================

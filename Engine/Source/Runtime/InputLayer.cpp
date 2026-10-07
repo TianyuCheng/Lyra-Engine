@@ -29,5 +29,10 @@ void InputLayer::update(AppContext& context)
         dt = clock->delta_time;
     }
 
-    manager.update(raw_input, dt);
+    InputFilter filter{};
+    if (filter_provider) {
+        filter = filter_provider();
+    }
+
+    manager.update(raw_input, dt, filter);
 }

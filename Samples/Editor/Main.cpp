@@ -1,19 +1,26 @@
 #include <cctype>
 #include <algorithm>
 #include <cxxopts.hpp>
+
+// uber header for lyra engine
 #include <Lyra/Lyra.hpp>
 
-// both are auto-genrated script headers
+// auto-generated script headers
 #include <Lyra/Scene/Components.h>
 #include <Lyra/Scene/CameraControl.h>
 
-#include "Renderer.h"
-#include "Common/EditorLayout.h"
+// local editor ui headers
 #include "Panels/AssetBrowserView.h"
 #include "Panels/ConsoleView.h"
 #include "Panels/HierarchyView.h"
 #include "Panels/InspectorView.h"
 #include "Panels/SceneView.h"
+
+// other common headers
+#include "Common/EditorLayout.h"
+
+// local renderer
+#include "Renderer.h"
 
 using namespace lyra;
 
@@ -425,6 +432,24 @@ int main(int argc, const char* argv[])
     // editor components (scene)
     auto sceneview = std::make_unique<SceneView>();
     app->bind<SceneView>(*sceneview);
+
+    // configure input consumption filter
+    input->set_filter_provider([&sceneview = *sceneview]() -> InputFilter {
+        InputFilter filter{};
+        // if modal is active or text input is active, block everything
+        if (ui::is_modal_active() || ui::is_text_input_active()) {
+            filter.block_mouse    = true;
+            filter.block_keyboard = true;
+            return filter;
+        }
+
+        // if scene viewport is active, allow simultaneous mouse and keyboard navigation
+        if (!sceneview.is_viewport_active()) {
+            filter.block_mouse    = true;
+            filter.block_keyboard = true;
+        }
+        return filter;
+    });
 
     // renderer (temporary solution)
     auto renderer = std::make_unique<SampleCubeRenderer>();
