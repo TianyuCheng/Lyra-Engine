@@ -38,28 +38,24 @@ void ScriptLayer::register_api(const ScriptAPI& api)
 {
     apis.push_back(api);
 
-    if (!api.get_scripts) {
-        return;
-    }
+    if (api.get_scripts) {
+        uint count = api.get_scripts(nullptr);
+        if (count > 0) {
+            Vector<ScriptDescriptor> descs(count);
+            api.get_scripts(descs.data());
 
-    uint count = api.get_scripts(nullptr);
-    if (count == 0) {
-        return;
-    }
+            for (const auto& desc : descs) {
+                scripts.push_back(desc);
+                ScriptID id = hash_script_name(desc.name);
 
-    Vector<ScriptDescriptor> descs(count);
-    api.get_scripts(descs.data());
+                if (script_enabled.find(id) == script_enabled.end()) {
+                    script_enabled[id] = true;
+                }
 
-    for (const auto& desc : descs) {
-        scripts.push_back(desc);
-        ScriptID id = hash_script_name(desc.name);
-
-        if (script_enabled.find(id) == script_enabled.end()) {
-            script_enabled[id] = true;
-        }
-
-        if (desc.state_size > 0 && script_states.find(id) == script_states.end()) {
-            script_states[id].resize(desc.state_size, 0);
+                if (desc.state_size > 0 && script_states.find(id) == script_states.end()) {
+                    script_states[id].resize(desc.state_size, 0);
+                }
+            }
         }
     }
 
@@ -69,7 +65,7 @@ void ScriptLayer::register_api(const ScriptAPI& api)
             Vector<ComponentDescriptor> comp_descs(comp_count);
             api.get_components(comp_descs.data());
             for (const auto& desc : comp_descs) {
-                components.push_back(desc);
+                register_component(desc);
             }
         }
     }
@@ -77,6 +73,12 @@ void ScriptLayer::register_api(const ScriptAPI& api)
 
 void ScriptLayer::register_component(const ComponentDescriptor& desc)
 {
+    for (auto& existing : components) {
+        if (StringView(existing.name) == StringView(desc.name)) {
+            existing = desc;
+            return;
+        }
+    }
     components.push_back(desc);
 }
 

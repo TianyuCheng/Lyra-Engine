@@ -120,6 +120,7 @@ namespace lyra::reflect
     struct ModuleReflection
     {
         std::string                module_name;
+        std::string                include_prefix;
         std::vector<ComponentMeta> components;
         std::vector<SystemMeta>    systems;
         std::vector<std::string>   included_headers;

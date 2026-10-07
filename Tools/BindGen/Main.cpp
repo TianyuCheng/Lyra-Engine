@@ -91,7 +91,8 @@ int main(int argc, char* argv[])
     }
 
     ModuleReflection module_data;
-    module_data.module_name = module_name;
+    module_data.module_name    = module_name;
+    module_data.include_prefix = prefix;
 
     for (const auto& h_str : header_paths) {
         fs::path p(h_str);

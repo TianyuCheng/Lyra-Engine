@@ -18,6 +18,7 @@
 #define LYRA_ICON_INSPECTOR  "\ue8b6"
 #define LYRA_ICON_LIGHT      "\ue0f0"
 #define LYRA_ICON_SUN        "\ue518"
+#define LYRA_ICON_MESH       "\ue871"
 #define LYRA_ICON_TRANSFORM  "\ue84d"
 #define LYRA_ICON_SETTINGS   "\ue8b8"
 #define LYRA_ICON_SYSTEM     "\ue879"

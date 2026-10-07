@@ -109,8 +109,8 @@ std::string Generator::generate(const ModuleReflection& module, const std::strin
     // Include original source headers
     ss << "// Annotated source headers\n";
     for (const auto& header : module.included_headers) {
-        if (header == "Camera.h" || header == "Light.h" || header == "Transform.h") {
-            ss << "#include <Lyra/Scene/" << header << ">\n";
+        if (!module.include_prefix.empty()) {
+            ss << "#include <" << module.include_prefix << "/" << header << ">\n";
         } else {
             ss << "#include \"" << header << "\"\n";
         }
@@ -142,7 +142,8 @@ std::string Generator::generate(const ModuleReflection& module, const std::strin
         ss << "\n";
     }
 
-    ss << "namespace lyra::generated\n{\n";
+    // each module gets its own namespace so inline symbols never collide across translation units
+    ss << "namespace lyra::generated::" << to_lower_snake(module.module_name) << "\n{\n";
 
     // 1. Thunks for each system
     ss << "    // =========================================================================\n";
@@ -362,7 +363,11 @@ std::string Generator::generate(const ModuleReflection& module, const std::strin
                 ss << indent << "    component." << field.name << " = Quaternion(glm::radians(" << field.name << "_euler));\n";
                 ss << indent << "});\n";
             } else {
-                ss << indent << "ui::enumeration(\"" << label << "\", component." << field.name << ");\n";
+                ss << indent << "if constexpr (std::is_enum_v<std::decay_t<decltype(component." << field.name << ")>>) {\n";
+                ss << indent << "    ui::enumeration(\"" << label << "\", component." << field.name << ");\n";
+                ss << indent << "} else if constexpr (requires { component." << field.name << ".valid(); }) {\n";
+                ss << indent << "    ui::label(component." << field.name << ".valid() ? \"" << label << ": Bound\" : \"" << label << ": None\");\n";
+                ss << indent << "}\n";
             }
 
             if (!field.condition.empty()) {
@@ -457,13 +462,13 @@ std::string Generator::generate(const ModuleReflection& module, const std::strin
     ss << "        };\n";
     ss << "    }\n\n";
 
-    ss << "} // namespace lyra::generated\n\n";
-
     std::string mod_ns = to_lower_snake(module.module_name);
+    ss << "} // namespace lyra::generated::" << mod_ns << "\n\n";
+
     ss << "namespace lyra::scripts::" << mod_ns << "\n{\n";
     ss << "    auto create() -> ScriptAPI\n";
     ss << "    {\n";
-    ss << "        return generated::create_script_api();\n";
+    ss << "        return lyra::generated::" << mod_ns << "::create_script_api();\n";
     ss << "    }\n";
     ss << "} // namespace lyra::scripts::" << mod_ns << "\n\n";
 

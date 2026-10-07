@@ -7,9 +7,6 @@ lyra_bindgen(lyra-camera-control
     PREFIX Lyra/Scene
     HEADERS
         CameraControl.h
-        ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Scene/Camera.h
-        ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Scene/Light.h
-        ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Scene/Transform.h
     SOURCES
         CameraControl.cpp
 )

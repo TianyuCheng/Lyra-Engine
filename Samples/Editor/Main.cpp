@@ -2,6 +2,9 @@
 #include <algorithm>
 #include <cxxopts.hpp>
 #include <Lyra/Lyra.hpp>
+
+// both are auto-genrated script headers
+#include <Lyra/Scene/Components.h>
 #include <Lyra/Scene/CameraControl.h>
 
 #include "Renderer.h"
@@ -369,6 +372,7 @@ int main(int argc, const char* argv[])
     auto scripting = lyra::execute([&]() {
         auto layer = std::make_unique<ScriptLayer>();
         layer->set_simulation_state(SimulationState::EDIT);
+        layer->register_api(scripts::components::create());
         layer->register_api(scripts::camera_control::create());
         app->bind(*layer);
         return std::move(layer);
