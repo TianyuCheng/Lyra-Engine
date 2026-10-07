@@ -315,7 +315,7 @@ void InputManager::update(const WindowInput* raw_input, float dt)
         }
         for (const auto& btn : comp.down) {
             if (is_button_down(raw_input, btn)) {
-                val -= 1.0f;
+                val.y -= 1.0f;
                 break;
             }
         }

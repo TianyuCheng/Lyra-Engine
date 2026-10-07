@@ -340,6 +340,15 @@ TEST_CASE("scr::input_manager" * doctest::description("InputManager actions and 
         CHECK(!manager.is_action_down(lyra::InputAction::MOVE_FORWARD));
         CHECK(manager.is_action_released(lyra::InputAction::MOVE_FORWARD));
         CHECK(manager.is_action_down(lyra::InputAction::MOVE_RIGHT));
+
+        // Frame 4: release D, press S (backward)
+        mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::D)] = lyra::ButtonState::OFF;
+        mock.states[0].keyboard.status[static_cast<lyra::uint>(lyra::KeyButton::S)] = lyra::ButtonState::ON;
+        manager.update(raw_input, 0.016f);
+
+        move_vec = manager.get_axis_2d(lyra::InputAxis2D::MOVE);
+        CHECK_EQ(move_vec.x, doctest::Approx(0.0f));
+        CHECK_EQ(move_vec.y, doctest::Approx(-1.0f));
     }
 
     SUBCASE("mouse look delta and zoom scroll")
