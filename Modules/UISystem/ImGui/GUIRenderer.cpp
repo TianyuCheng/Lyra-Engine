@@ -1310,10 +1310,12 @@ void GUIRenderer::update_viewport_state(ImGuiIO& io, const GUIWindowContext& ctx
     for (uint i = 0; i < query.num_events; i++) {
         const auto& event = query.input_events.at(i);
         if (event.type == WindowInputEvent::Type::WINDOW_FOCUS) {
-            bool focus = WSI::api()->get_window_focus(ctx.window);
+            bool focus = event.window_focus.focused;
             if (focus) {
                 if (io.BackendFlags & ImGuiBackendFlags_HasMouseHoveredViewport)
                     io.AddMouseViewportEvent(viewport->ID);
+            } else {
+                io.ClearInputKeys();
             }
             io.AddFocusEvent(focus);
         } else if (event.type == WindowInputEvent::Type::WINDOW_MOVE) {

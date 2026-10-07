@@ -59,16 +59,20 @@ Backbuffer ViewportCanvas::get_backbuffer() const
     return backbuffer;
 }
 
-bool ViewportCanvas::display() const
+bool ViewportCanvas::display()
 {
+    canvas_hovered = false;
+    canvas_active  = false;
     if (frames.empty()) return false;
     auto& frame = get_frame();
     if (frame_extent.x > 0.0f && frame_extent.y > 0.0f) {
-        Vector2 start_pos = ui::get_cursor_screen_pos();
+        screen_pos = ui::get_cursor_screen_pos();
         ui::image(frame.tex_id.texid, frame_extent);
-        ui::set_cursor_screen_pos(start_pos);
+        ui::set_cursor_screen_pos(screen_pos);
         ui::invisible_button("##viewport_canvas", frame_extent);
-        return ui::is_item_hovered() || ui::is_item_active();
+        canvas_hovered = ui::is_item_hovered();
+        canvas_active  = ui::is_item_active();
+        return canvas_hovered || canvas_active;
     }
     return false;
 }

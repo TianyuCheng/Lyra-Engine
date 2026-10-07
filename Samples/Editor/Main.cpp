@@ -52,12 +52,23 @@ static void imgui_update(AppContext& context)
         open_new_scene_modal = true;
     };
 
+    auto reset_input_states = [&]() {
+        if (auto input = context.toolboard.try_get<InputManager*>()) {
+            input->reset();
+        }
+        if (auto window = context.toolboard.try_get<Window*>()) {
+            window->reset_input_state();
+        }
+        ui::clear_input_keys();
+    };
+
     auto do_save_scene_as = [&]() {
         if (!scene_mgr) return;
         ui::dialog::Options opts;
         opts.title    = "Save Scene As";
         opts.filters  = {{"Lyra Scene (*.scene)", "*.scene"}};
         auto selected = ui::dialog::save_file(opts);
+        reset_input_states();
         if (selected.has_value()) {
             Path p = *selected;
             if (p.extension() != ".scene") {
@@ -75,6 +86,7 @@ static void imgui_update(AppContext& context)
             if (!scene_mgr->save_active()) {
                 ui::dialog::alert("Save Failed", "Failed to save active scene:\n" + scene_mgr->get_active_path().string(), ui::StatusRole::Error);
             }
+            reset_input_states();
         } else {
             do_save_scene_as();
         }
@@ -91,6 +103,7 @@ static void imgui_update(AppContext& context)
         opts.title    = "Open Scene";
         opts.filters  = {{"Lyra Scene (*.scene)", "*.scene"}};
         auto selected = ui::dialog::open_file(opts);
+        reset_input_states();
         if (selected.has_value()) {
             auto res = scene_mgr->load(*selected, LoadMode::SINGLE);
             if (res == INVALID_SCENE_INSTANCE) {
@@ -125,6 +138,7 @@ static void imgui_update(AppContext& context)
                     opts.title    = "Load Scene Additive";
                     opts.filters  = {{"Lyra Scene (*.scene)", "*.scene"}};
                     auto selected = ui::dialog::open_file(opts);
+                    reset_input_states();
                     if (selected.has_value()) {
                         auto res = scene_mgr->load(*selected, LoadMode::ADDITIVE);
                         if (res == INVALID_SCENE_INSTANCE) {
@@ -160,12 +174,16 @@ static void imgui_update(AppContext& context)
         bool shift = ui::is_key_down(KeyButton::SHIFT);
 
         if (ctrl && !shift && ui::is_key_pressed(KeyButton::N)) {
+            reset_input_states();
             trigger_new_scene();
         } else if (ctrl && !shift && ui::is_key_pressed(KeyButton::O)) {
+            reset_input_states();
             do_open_scene();
         } else if (ctrl && !shift && ui::is_key_pressed(KeyButton::S)) {
+            reset_input_states();
             do_save_scene();
         } else if (ctrl && shift && ui::is_key_pressed(KeyButton::S)) {
+            reset_input_states();
             do_save_scene_as();
         }
     }
@@ -443,11 +461,9 @@ int main(int argc, const char* argv[])
             return filter;
         }
 
-        // if scene viewport is active, allow simultaneous mouse and keyboard navigation
-        if (!sceneview.is_viewport_active()) {
-            filter.block_mouse    = true;
-            filter.block_keyboard = true;
-        }
+        // selective mouse and keyboard gating based on scene view state
+        filter.block_mouse    = !sceneview.is_mouse_nav_active();
+        filter.block_keyboard = !sceneview.is_keyboard_nav_active();
         return filter;
     });
 

@@ -60,11 +60,6 @@ namespace lyra
         auto get_custom_axis_2d(size_t index) const -> Vector2;
         void bind_custom_axis_2d(size_t index, const Axis2DComposite& composite);
 
-        // input gating & state reset
-        void set_enabled(bool enabled);
-        bool is_enabled() const { return enabled; }
-        void reset();
-
         // binding manipulation
         void bind_action(InputAction action, ButtonChord chord);
         void bind_action(InputAction action, DeviceButton button);
@@ -81,6 +76,9 @@ namespace lyra
 
         void set_default_bindings();
         void clear_all_bindings();
+
+        // state reset
+        void reset();
 
         // evaluation loop
         void update(const WindowInput* raw_input, float dt, const InputFilter& filter = {});
@@ -106,8 +104,6 @@ namespace lyra
         Array<Vector2, AXIS_2D_COUNT>         axis_2d_values;
 
         HashMap<String, InputAction> action_aliases;
-
-        bool enabled = true;
     };
 
 } // namespace lyra

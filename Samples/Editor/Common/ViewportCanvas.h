@@ -38,7 +38,12 @@ namespace lyra
 
         auto get_backbuffer() const -> Backbuffer;
 
-        bool display() const;
+        bool is_hovered() const { return canvas_hovered; }
+        bool is_active() const { return canvas_active; }
+        auto get_extent() const -> const Vector2& { return frame_extent; }
+        auto get_screen_pos() const -> const Vector2& { return screen_pos; }
+
+        bool display();
 
     private:
         void detect_window();
@@ -49,8 +54,11 @@ namespace lyra
         uint    frame_count   = 0;
         uint    frame_index   = 0;
         Vector2 frame_extent  = {0.0f, 0.0f};
+        Vector2 screen_pos    = {0.0f, 0.0f};
         bool    frame_changed = false;
         bool    frame_visible = false;
+        bool    canvas_hovered = false;
+        bool    canvas_active  = false;
 
         Vector<ViewportCanvasFrame> frames;
     };

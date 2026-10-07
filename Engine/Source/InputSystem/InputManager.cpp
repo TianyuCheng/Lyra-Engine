@@ -33,6 +33,26 @@ static bool is_chord_down(const WindowInput* raw_input, const ButtonChord& chord
     }
 
     // evaluate modifier keys
+    bool is_primary_ctrl  = chord.primary.type == DeviceButton::Type::KEY && chord.primary.code == static_cast<uint16_t>(KeyButton::CTRL);
+    bool is_primary_alt   = chord.primary.type == DeviceButton::Type::KEY && chord.primary.code == static_cast<uint16_t>(KeyButton::ALT);
+    bool is_primary_super = chord.primary.type == DeviceButton::Type::KEY && chord.primary.code == static_cast<uint16_t>(KeyButton::SUPER);
+
+    bool raw_ctrl  = !is_primary_ctrl && raw_input->is_key_down(KeyButton::CTRL);
+    bool raw_alt   = !is_primary_alt && raw_input->is_key_down(KeyButton::ALT);
+    bool raw_super = !is_primary_super && raw_input->is_key_down(KeyButton::SUPER);
+
+    // isolate command modifiers: reject if ctrl/alt/super is active but not requested by chord
+    if (!chord.modifiers.contains(ModifierKey::CTRL) && raw_ctrl) {
+        return false;
+    }
+    if (!chord.modifiers.contains(ModifierKey::ALT) && raw_alt) {
+        return false;
+    }
+    if (!chord.modifiers.contains(ModifierKey::SUPER) && raw_super) {
+        return false;
+    }
+
+    // require modifiers specified in chord
     if (chord.modifiers.value != 0) {
         if (filter.block_keyboard) return false;
 
@@ -392,26 +412,10 @@ void InputManager::reset()
     }
 }
 
-void InputManager::set_enabled(bool value)
-{
-    enabled = value;
-    if (!enabled) {
-        for (auto& state : action_states) {
-            state.current = false;
-        }
-        for (auto& val : axis_1d_values) {
-            val = 0.0f;
-        }
-        for (auto& val : axis_2d_values) {
-            val = Vector2(0.0f);
-        }
-    }
-}
-
 void InputManager::update(const WindowInput* raw_input, float dt, const InputFilter& filter)
 {
-    // if input is gated off or raw input is null, zero all axes and release active actions
-    if (!enabled || !raw_input) {
+    // if raw input is null, zero all axes and release active actions
+    if (!raw_input) {
         for (size_t i = 0; i < ACTION_COUNT; ++i) {
             action_states[i].previous = action_states[i].current;
             action_states[i].current  = false;

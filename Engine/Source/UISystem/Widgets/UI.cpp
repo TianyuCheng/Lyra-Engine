@@ -267,6 +267,11 @@ bool lyra::ui::is_keyboard_captured()
     return ImGui::GetIO().WantCaptureKeyboard;
 }
 
+void lyra::ui::clear_input_keys()
+{
+    ImGui::GetIO().ClearInputKeys();
+}
+
 // =============================================================================
 // 3. Texture & Image Display
 // =============================================================================

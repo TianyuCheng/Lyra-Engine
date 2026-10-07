@@ -504,7 +504,7 @@ TEST_CASE("scr::input_manager" * doctest::description("InputManager actions and 
         CHECK(manager.is_action_down(lyra::InputAction::MOVE_FORWARD));
     }
 
-    SUBCASE("input gating with set_enabled")
+    SUBCASE("input gating with InputFilter")
     {
         MockInputLayout mock{};
         auto*           raw_input = reinterpret_cast<const lyra::WindowInput*>(&mock);
@@ -518,9 +518,7 @@ TEST_CASE("scr::input_manager" * doctest::description("InputManager actions and 
         mock.states[1].mouse.position.ypos                                            = 20.0f;
         mock.states[0].mouse.scroll.y                                                 = 2.5f;
 
-        CHECK(manager.is_enabled());
-
-        // with input enabled: both keyboard and mouse evaluate simultaneously
+        // with default filter (unblocked): both keyboard and mouse evaluate simultaneously
         manager.update(raw_input, 0.016f);
         CHECK(manager.is_action_down(lyra::InputAction::MOVE_FORWARD));
         CHECK(manager.is_action_down(lyra::InputAction::ATTACK));
@@ -528,34 +526,32 @@ TEST_CASE("scr::input_manager" * doctest::description("InputManager actions and 
         CHECK_EQ(manager.get_axis_2d(lyra::InputAxis2D::LOOK).x, doctest::Approx(15.0f));
         CHECK_EQ(manager.get_axis(lyra::InputAxis::ZOOM), doctest::Approx(2.5f));
 
-        // disable input:
-        manager.set_enabled(false);
-        CHECK(!manager.is_enabled());
-        // verify immediate zeroing on set_enabled(false)
+        // block keyboard only: mouse still evaluates, keyboard is suppressed
+        lyra::InputFilter filter_no_kb{.block_mouse = false, .block_keyboard = true};
+        manager.update(raw_input, 0.016f, filter_no_kb);
         CHECK(!manager.is_action_down(lyra::InputAction::MOVE_FORWARD));
-        CHECK(!manager.is_action_down(lyra::InputAction::ATTACK));
-        CHECK_EQ(manager.get_axis_2d(lyra::InputAxis2D::MOVE), lyra::Vector2(0.0f));
-        CHECK_EQ(manager.get_axis_2d(lyra::InputAxis2D::LOOK), lyra::Vector2(0.0f));
-        CHECK_EQ(manager.get_axis(lyra::InputAxis::ZOOM), doctest::Approx(0.0f));
-
-        // updating while disabled keeps everything zeroed
-        manager.update(raw_input, 0.016f);
-        CHECK(!manager.is_action_down(lyra::InputAction::MOVE_FORWARD));
-        CHECK(!manager.is_action_down(lyra::InputAction::ATTACK));
-        CHECK_EQ(manager.get_axis_2d(lyra::InputAxis2D::MOVE), lyra::Vector2(0.0f));
-        CHECK_EQ(manager.get_axis_2d(lyra::InputAxis2D::LOOK), lyra::Vector2(0.0f));
-        CHECK_EQ(manager.get_axis(lyra::InputAxis::ZOOM), doctest::Approx(0.0f));
-
-        // re-enable input: both keyboard and mouse work together again
-        manager.set_enabled(true);
-        CHECK(manager.is_enabled());
-
-        manager.update(raw_input, 0.016f);
-        CHECK(manager.is_action_down(lyra::InputAction::MOVE_FORWARD));
         CHECK(manager.is_action_down(lyra::InputAction::ATTACK));
-        CHECK_EQ(manager.get_axis_2d(lyra::InputAxis2D::MOVE).y, doctest::Approx(1.0f));
+        CHECK_EQ(manager.get_axis_2d(lyra::InputAxis2D::MOVE), lyra::Vector2(0.0f));
         CHECK_EQ(manager.get_axis_2d(lyra::InputAxis2D::LOOK).x, doctest::Approx(15.0f));
         CHECK_EQ(manager.get_axis(lyra::InputAxis::ZOOM), doctest::Approx(2.5f));
+
+        // block mouse only: keyboard still evaluates, mouse is suppressed
+        lyra::InputFilter filter_no_mouse{.block_mouse = true, .block_keyboard = false};
+        manager.update(raw_input, 0.016f, filter_no_mouse);
+        CHECK(manager.is_action_down(lyra::InputAction::MOVE_FORWARD));
+        CHECK(!manager.is_action_down(lyra::InputAction::ATTACK));
+        CHECK_EQ(manager.get_axis_2d(lyra::InputAxis2D::MOVE).y, doctest::Approx(1.0f));
+        CHECK_EQ(manager.get_axis_2d(lyra::InputAxis2D::LOOK), lyra::Vector2(0.0f));
+        CHECK_EQ(manager.get_axis(lyra::InputAxis::ZOOM), doctest::Approx(0.0f));
+
+        // block both: all inputs suppressed
+        lyra::InputFilter filter_all{.block_mouse = true, .block_keyboard = true};
+        manager.update(raw_input, 0.016f, filter_all);
+        CHECK(!manager.is_action_down(lyra::InputAction::MOVE_FORWARD));
+        CHECK(!manager.is_action_down(lyra::InputAction::ATTACK));
+        CHECK_EQ(manager.get_axis_2d(lyra::InputAxis2D::MOVE), lyra::Vector2(0.0f));
+        CHECK_EQ(manager.get_axis_2d(lyra::InputAxis2D::LOOK), lyra::Vector2(0.0f));
+        CHECK_EQ(manager.get_axis(lyra::InputAxis::ZOOM), doctest::Approx(0.0f));
 
         // test raw_input == nullptr early return
         manager.update(nullptr, 0.016f);

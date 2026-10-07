@@ -51,6 +51,7 @@ namespace lyra::ui
     bool is_text_input_active();
     bool is_mouse_captured();
     bool is_keyboard_captured();
+    void clear_input_keys();
 
     // =========================================================================
     // 3. Texture & Image Display

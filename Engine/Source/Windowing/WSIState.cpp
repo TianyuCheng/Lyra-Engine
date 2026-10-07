@@ -35,6 +35,17 @@ void InputState::update(const WindowHandle& handle)
                 for (uint j = 0; j < event.file_drop.count; j++)
                     files.entries.at(j) = event.file_drop.files[j];
                 break;
+            case WindowInputEvent::Type::WINDOW_FOCUS:
+                if (!event.window_focus.focused) {
+                    for (auto& btn : mouse.status) {
+                        btn = ButtonState::OFF;
+                    }
+                    for (auto& key : keyboard.status) {
+                        key = ButtonState::OFF;
+                    }
+                    mouse.scroll = {};
+                }
+                break;
             default:
                 break;
         }

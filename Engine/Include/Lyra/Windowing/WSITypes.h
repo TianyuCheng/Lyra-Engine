@@ -43,6 +43,8 @@ namespace lyra
         void destroy();
 
         auto get_input_state() const -> const WindowInput& { return inputs; }
+        auto get_input_state() -> WindowInput& { return inputs; }
+        void reset_input_state() { inputs.reset(); }
 
         void get_position(int& x, int& y) const;
 

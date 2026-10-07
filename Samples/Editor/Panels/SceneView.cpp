@@ -129,12 +129,24 @@ void SceneView::update(AppContext& context)
         });
 
         bool prev_active = viewport_active;
-        viewport_active  = canvas_interacted && !ui::is_text_input_active() && !ui::is_modal_active();
+        bool modal_active = ui::is_modal_active();
+        bool text_active  = ui::is_text_input_active();
+        bool gizmo_active = is_gizmo_captured();
+        bool canvas_hover = canvas.is_hovered();
+        bool panel_focus  = ui::is_panel_focused();
+
+        // mouse navigation is active when mouse is over canvas and not consumed by gizmo or modal
+        mouse_nav_active = canvas_hover && !gizmo_active && !modal_active;
+
+        // keyboard navigation is active when panel is focused or canvas hovered, without modals or text entry
+        keyboard_nav_active = (panel_focus || canvas_hover || canvas_interacted) && !text_active && !modal_active;
+
+        viewport_active = mouse_nav_active || keyboard_nav_active;
+
         if (auto input = context.try_tool<InputManager>()) {
             if (prev_active && !viewport_active) {
                 input->reset();
             }
-            input->set_enabled(viewport_active);
         }
     });
 }
