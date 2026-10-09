@@ -21,42 +21,20 @@ bool is_required(GPUFeatureNames features, GPUFeatureName feature)
 
 void create_allocator(VulkanRHI* rhi, bool enable_buffer_device_address)
 {
-    // need to manually map functions to vma
-    VmaVulkanFunctions vulkan_functions;
-    vulkan_functions.vkGetPhysicalDeviceProperties           = vkGetPhysicalDeviceProperties;
-    vulkan_functions.vkGetPhysicalDeviceMemoryProperties     = vkGetPhysicalDeviceMemoryProperties;
-    vulkan_functions.vkGetPhysicalDeviceMemoryProperties2KHR = vkGetPhysicalDeviceMemoryProperties2KHR;
-    vulkan_functions.vkAllocateMemory                        = rhi->vtable.vkAllocateMemory;
-    vulkan_functions.vkFreeMemory                            = rhi->vtable.vkFreeMemory;
-    vulkan_functions.vkMapMemory                             = rhi->vtable.vkMapMemory;
-    vulkan_functions.vkUnmapMemory                           = rhi->vtable.vkUnmapMemory;
-    vulkan_functions.vkFlushMappedMemoryRanges               = rhi->vtable.vkFlushMappedMemoryRanges;
-    vulkan_functions.vkInvalidateMappedMemoryRanges          = rhi->vtable.vkInvalidateMappedMemoryRanges;
-    vulkan_functions.vkBindBufferMemory                      = rhi->vtable.vkBindBufferMemory;
-    vulkan_functions.vkBindImageMemory                       = rhi->vtable.vkBindImageMemory;
-    vulkan_functions.vkGetBufferMemoryRequirements           = rhi->vtable.vkGetBufferMemoryRequirements;
-    vulkan_functions.vkGetImageMemoryRequirements            = rhi->vtable.vkGetImageMemoryRequirements;
-    vulkan_functions.vkCreateBuffer                          = rhi->vtable.vkCreateBuffer;
-    vulkan_functions.vkDestroyBuffer                         = rhi->vtable.vkDestroyBuffer;
-    vulkan_functions.vkCreateImage                           = rhi->vtable.vkCreateImage;
-    vulkan_functions.vkDestroyImage                          = rhi->vtable.vkDestroyImage;
-    vulkan_functions.vkCmdCopyBuffer                         = rhi->vtable.vkCmdCopyBuffer;
-    vulkan_functions.vkGetBufferMemoryRequirements2KHR       = rhi->vtable.vkGetBufferMemoryRequirements2KHR;
-    vulkan_functions.vkGetImageMemoryRequirements2KHR        = rhi->vtable.vkGetImageMemoryRequirements2KHR;
-    vulkan_functions.vkBindBufferMemory2KHR                  = rhi->vtable.vkBindBufferMemory2KHR;
-    vulkan_functions.vkBindImageMemory2KHR                   = rhi->vtable.vkBindImageMemory2KHR;
-
-    // create allocator
     VmaAllocatorCreateInfo allocator_info = {};
     allocator_info.instance               = rhi->instance;
     allocator_info.physicalDevice         = rhi->adapter;
     allocator_info.device                 = rhi->device;
+    allocator_info.vulkanApiVersion       = VK_API_VERSION_1_3;
     allocator_info.flags                  = 0;
-    allocator_info.pVulkanFunctions       = (const VmaVulkanFunctions*)&vulkan_functions;
 
     // enable buffer device address capability for vma allocator
     if (enable_buffer_device_address)
         allocator_info.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+
+    VmaVulkanFunctions vulkan_functions = {};
+    vmaImportVulkanFunctionsFromVolk(&allocator_info, &vulkan_functions);
+    allocator_info.pVulkanFunctions       = &vulkan_functions;
 
     vk_check(vmaCreateAllocator(&allocator_info, &rhi->alloc));
 }

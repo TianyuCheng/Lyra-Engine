@@ -14,4 +14,8 @@ find_package(miniz REQUIRED)
 find_package(tinyexr REQUIRED)
 find_package(VulkanHeaders REQUIRED)
 
-target_link_libraries(lyra-texture PRIVATE gli KTX::ktx miniz::miniz Vulkan::Headers)
+target_link_libraries(lyra-texture PRIVATE
+    gli KTX::ktx
+    miniz::miniz
+    Vulkan::Headers
+    unofficial::tinyexr::tinyexr)

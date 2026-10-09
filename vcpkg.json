@@ -33,5 +33,11 @@
     "vulkan-headers",
     "vulkan-memory-allocator",
     "nativefiledialog-extended"
+  ],
+  "overrides": [
+    {
+      "name": "doctest",
+      "version": "2.4.12"
+    }
   ]
 }

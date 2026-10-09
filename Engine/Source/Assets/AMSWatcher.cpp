@@ -29,7 +29,7 @@ struct AssetWatcherListener : efsw::FileWatchListener
     explicit AssetWatcherListener(AssetWatcher* owner) : owner(owner) {}
 
     void handleFileAction(efsw::WatchID, const std::string& dir, const std::string& filename,
-        efsw::Action action, std::string old_filename) override
+        efsw::Action action, const std::string& old_filename) override
     {
         if (owner) {
             owner->on_file_action(dir, filename, action, old_filename);

@@ -1,4 +1,3 @@
-#define TINYEXR_IMPLEMENTATION
 #include <tinyexr.h>
 #include <Lyra/Utilities/Logger.h>
 #include <Lyra/Utilities/Plugin.h>
