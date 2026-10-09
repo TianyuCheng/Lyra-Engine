@@ -1,0 +1,6 @@
+add_subdirectory(Mesh)
+add_subdirectory(Model)
+add_subdirectory(Material)
+add_subdirectory(Preview)
+add_subdirectory(Scene)
+add_subdirectory(Texture)

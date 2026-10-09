@@ -3,8 +3,8 @@
 #ifndef LYRA_EDITOR_COMMON_SELECTION_MODEL_H
 #define LYRA_EDITOR_COMMON_SELECTION_MODEL_H
 
-#include <Lyra/Common/String.h>
-#include <Lyra/Common/Collections.h>
+#include <Lyra/Utilities/String.h>
+#include <Lyra/Utilities/Collections.h>
 
 namespace lyra
 {
@@ -14,7 +14,7 @@ namespace lyra
     struct SelectionModel
     {
     public:
-        Vector<String> items;         ///< List of currently selected item names.
+        Vector<String> items; ///< List of currently selected item names.
 
         /**
          * @brief Check if an item is currently selected.

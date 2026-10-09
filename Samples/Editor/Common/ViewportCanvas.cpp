@@ -1,5 +1,6 @@
 #include "ViewportCanvas.h"
-#include <Lyra/UICore/UI.h>
+#include <Lyra/UISystem/Widgets/UI.h>
+#include <Lyra/UISystem/Widgets/UIControls.h>
 
 using namespace lyra;
 
@@ -19,7 +20,7 @@ void ViewportCanvas::init(uint frames_in_flight)
     frame_index = 0;
 }
 
-void ViewportCanvas::update(Blackboard& blackboard)
+void ViewportCanvas::update(AppContext& context)
 {
     // update current frame
     frame_index = (frame_index + 1) % frame_count;
@@ -29,18 +30,25 @@ void ViewportCanvas::update(Blackboard& blackboard)
 
     // update framebuffer
     if (frame_changed) {
-        delete_frames(blackboard);
-        create_frames(blackboard);
+        delete_frames(context);
+        create_frames(context);
     }
 }
 
 const ViewportCanvasFrame& ViewportCanvas::get_frame() const
 {
+    static const ViewportCanvasFrame empty_frame{};
+    if (frames.empty()) {
+        return empty_frame;
+    }
     return frames.at(frame_index);
 }
 
 Backbuffer ViewportCanvas::get_backbuffer() const
 {
+    if (frames.empty()) {
+        return Backbuffer{};
+    }
     auto& frame = get_frame();
 
     Backbuffer backbuffer = {};
@@ -51,10 +59,22 @@ Backbuffer ViewportCanvas::get_backbuffer() const
     return backbuffer;
 }
 
-void ViewportCanvas::display() const
+bool ViewportCanvas::display()
 {
+    canvas_hovered = false;
+    canvas_active  = false;
+    if (frames.empty()) return false;
     auto& frame = get_frame();
-    ui::image(frame.tex_id.texid, frame_extent);
+    if (frame_extent.x > 0.0f && frame_extent.y > 0.0f) {
+        screen_pos = ui::get_cursor_screen_pos();
+        ui::image(frame.tex_id.texid, frame_extent);
+        ui::set_cursor_screen_pos(screen_pos);
+        ui::invisible_button("##viewport_canvas", frame_extent);
+        canvas_hovered = ui::is_item_hovered();
+        canvas_active  = ui::is_item_active();
+        return canvas_hovered || canvas_active;
+    }
+    return false;
 }
 
 void ViewportCanvas::detect_window()
@@ -68,7 +88,7 @@ void ViewportCanvas::detect_window()
         frame_changed = true;
 
     // detect window resized
-    Vector2 curr_extent = ui::available_space();
+    Vector2 curr_extent = ui::get_available_space();
     if (curr_extent.x != frame_extent.x || curr_extent.y != frame_extent.y)
         frame_changed = true;
 
@@ -77,14 +97,14 @@ void ViewportCanvas::detect_window()
     frame_extent.y = std::max(0.0f, frame_extent.y);
 }
 
-void ViewportCanvas::create_frames(Blackboard& blackboard)
+void ViewportCanvas::create_frames(AppContext& context)
 {
     auto extent   = GPUExtent2D{};
     extent.width  = std::max(64u, static_cast<uint>(frame_extent.x));
     extent.height = std::max(64u, static_cast<uint>(frame_extent.y));
 
-    auto gui = blackboard.get<GUIRenderer*>();
-    auto dev = blackboard.get<GPUDevice*>();
+    auto gui = context.toolboard.get<GUIRenderer*>();
+    auto dev = context.toolboard.get<GPUDevice*>();
     for (uint i = 0; i < frame_count; i++) {
         ViewportCanvasFrame frame = {};
 
@@ -111,9 +131,9 @@ void ViewportCanvas::create_frames(Blackboard& blackboard)
     }
 }
 
-void ViewportCanvas::delete_frames(Blackboard& blackboard)
+void ViewportCanvas::delete_frames(AppContext& context)
 {
-    auto gui = blackboard.get<GUIRenderer*>();
+    auto gui = context.toolboard.get<GUIRenderer*>();
     for (auto& frame : frames)
         gui->delete_texture(frame.tex_id);
 

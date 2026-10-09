@@ -3,13 +3,13 @@
 #ifndef LYRA_EDITOR_PANELS_ASSET_BROWSER_VIEW_H
 #define LYRA_EDITOR_PANELS_ASSET_BROWSER_VIEW_H
 
-#include <Lyra/Common/Path.h>
+#include <Lyra/Utilities/Path.h>
 #include <Lyra/Assets/AMSUtils.h>
-#include <Lyra/Render/RHITypes.h>
-#include <Lyra/UICore/GUITypes.h>
+#include <Lyra/Graphics/RHITypes.h>
+#include <Lyra/UISystem/Renderer/GUITypes.h>
 
 #include "Common/SelectionModel.h"
-#include <Lyra/Engine/Application.h>
+#include <Lyra/Runtime/Application.h>
 
 namespace lyra
 {
@@ -23,28 +23,30 @@ namespace lyra
 
         void bind(Application& app);
 
-        void update(Blackboard& blackboard);
+        void update(AppContext& context);
 
     private:
         // ui helpers
         void show_header_toolbar();
         void show_breadcrumb();
-        void show_dir_files(Blackboard& blackboard);
-        void show_item(Blackboard& blackboard, StringView name, bool is_folder);
-        void show_context_menu(Blackboard& blackboard);
+        void show_dir_files(AppContext& context);
+        void show_item(AppContext& context, StringView name, bool is_folder);
+        void show_context_menu(AppContext& context);
         void show_create_menu();
-        void show_status_bar(Blackboard& blackboard);
-        void show_modals(Blackboard& blackboard);
+        void show_status_bar(AppContext& context);
+        void show_modals(AppContext& context);
 
         // modals
+        void show_new_scene_dialog();
         void show_new_file_dialog();
         void show_new_folder_dialog();
         void show_rename_dialog();
-        void show_delete_dialog(Blackboard& blackboard);
+        void show_delete_dialog(AppContext& context);
         void show_import_indicator();
         void show_input_modal(CString title, bool* p_open, CString prompt, char* buffer, size_t buffer_size, CString action_label, FunctionRef<void(StringView)> on_submit);
 
         // actions
+        void action_create_scene(StringView name);
         void action_delete_selected();
         void action_rename(StringView old_name, StringView new_name);
         void action_create_folder(StringView name);
@@ -55,13 +57,13 @@ namespace lyra
         // data helpers
         void update_directory(const Path& path, bool force = false);
         void perform_update_directory(const Path& path, bool force = false);
-        void handle_file_drop(Blackboard& blackboard);
+        void handle_file_drop(AppContext& context);
 
         auto get_gui_renderer() const -> GUIRenderer*;
         auto get_asset_server() const -> AssetServer*;
 
-        auto get_thumbnail(Blackboard& blackboard, StringView name) -> std::pair<GUITextureHandle, Vector2>;
-        void load_thumbnails(Blackboard& blackboard);
+        auto get_thumbnail(AppContext& context, StringView name) -> std::pair<GUITextureHandle, Vector2>;
+        void load_thumbnails(AppContext& context);
         void load_editor_icons();
 
     private:
@@ -91,9 +93,10 @@ namespace lyra
         static auto create_texture_from_memory(const void* data, size_t size, GUIRenderer* gui) -> ThumbnailTexture;
 
     private:
-        Path        root;
-        Path        curr;
-        Blackboard* bboard = nullptr;
+        Path         root;
+        Path         curr;
+        AppContext*  context = nullptr;
+        AssetServer* ams     = nullptr;
 
         Vector<String>     files                   = {};
         Vector<String>     folders                 = {};
@@ -117,21 +120,24 @@ namespace lyra
         HashMap<String, ThumbnailTexture> thumbnails;
         Vector<std::pair<String, String>> queued_thumbnails;
 
+        bool show_new_scene_modal  = false;
         bool show_new_file_modal   = false;
         bool show_new_folder_modal = false;
         bool show_delete_modal     = false;
         bool show_rename_modal     = false;
 
+        bool open_new_scene_modal  = false;
         bool open_new_file_modal   = false;
         bool open_new_folder_modal = false;
         bool open_delete_modal     = false;
         bool open_rename_modal     = false;
 
-        char new_file_name[256]   = "";
-        char new_folder_name[256] = "";
-        char rename_buffer[256]   = "";
-        char search_filter[256]   = "";
-        float icon_size           = 96.0f;
+        char  new_scene_name[256]  = "NewScene";
+        char  new_file_name[256]   = "";
+        char  new_folder_name[256] = "";
+        char  rename_buffer[256]   = "";
+        char  search_filter[256]   = "";
+        float icon_size            = 96.0f;
 
         Path next_path;
         bool needs_refresh = false;

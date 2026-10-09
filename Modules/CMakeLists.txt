@@ -1,0 +1,7 @@
+add_subdirectory(Assets)
+add_subdirectory(FileSystem)
+add_subdirectory(Graphics)
+add_subdirectory(Compiler)
+add_subdirectory(Windowing)
+add_subdirectory(UISystem)
+add_subdirectory(Scripting)

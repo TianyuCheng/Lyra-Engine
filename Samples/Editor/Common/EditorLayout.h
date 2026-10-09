@@ -3,11 +3,11 @@
 #ifndef LYRA_EDITOR_COMMON_EDITOR_LAYOUT_H
 #define LYRA_EDITOR_COMMON_EDITOR_LAYOUT_H
 
-#include <Lyra/Common/Stdint.h>
-#include <Lyra/UICore/UIDock.h>
+#include <Lyra/Utilities/Stdint.h>
+#include <Lyra/UISystem/Widgets/UIDock.h>
 
 // local imports
-#include <Lyra/Engine/Application.h>
+#include <Lyra/Runtime/Application.h>
 
 namespace lyra
 {
@@ -38,7 +38,7 @@ namespace lyra
 
         void bind(Application& app);
 
-        void update(Blackboard& blackboard);
+        void update(AppContext& context);
 
     private:
         EditorLayoutInfo init() const;

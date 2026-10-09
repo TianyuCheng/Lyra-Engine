@@ -3,12 +3,12 @@
 #ifndef LYRA_EDITOR_COMMON_VIEWPORT_CANVAS_H
 #define LYRA_EDITOR_COMMON_VIEWPORT_CANVAS_H
 
-#include <Lyra/Common/Math.h>
-#include <Lyra/UICore/GUITypes.h>
-#include <Lyra/Render/RHITypes.h>
+#include <Lyra/Utilities/Math.h>
+#include <Lyra/UISystem/Renderer/GUITypes.h>
+#include <Lyra/Graphics/RHITypes.h>
 
 // local imports
-#include <Lyra/Engine/Application.h>
+#include <Lyra/Runtime/Application.h>
 
 namespace lyra
 {
@@ -28,7 +28,7 @@ namespace lyra
 
         void init(uint frames_in_flight);
 
-        void update(Blackboard& blackboard);
+        void update(AppContext& context);
 
         bool& is_visible() { return frame_visible; }
 
@@ -38,19 +38,27 @@ namespace lyra
 
         auto get_backbuffer() const -> Backbuffer;
 
-        void display() const;
+        bool is_hovered() const { return canvas_hovered; }
+        bool is_active() const { return canvas_active; }
+        auto get_extent() const -> const Vector2& { return frame_extent; }
+        auto get_screen_pos() const -> const Vector2& { return screen_pos; }
+
+        bool display();
 
     private:
         void detect_window();
-        void create_frames(Blackboard& blackboard);
-        void delete_frames(Blackboard& blackboard);
+        void create_frames(AppContext& context);
+        void delete_frames(AppContext& context);
 
     private:
         uint    frame_count   = 0;
         uint    frame_index   = 0;
         Vector2 frame_extent  = {0.0f, 0.0f};
+        Vector2 screen_pos    = {0.0f, 0.0f};
         bool    frame_changed = false;
         bool    frame_visible = false;
+        bool    canvas_hovered = false;
+        bool    canvas_active  = false;
 
         Vector<ViewportCanvasFrame> frames;
     };

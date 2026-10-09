@@ -1,0 +1,162 @@
+#pragma once
+
+#ifndef LYRA_ENGINE_ASSETS_AMSREGISTRY_H
+#define LYRA_ENGINE_ASSETS_AMSREGISTRY_H
+
+#include <Lyra/Utilities/String.h>
+#include <Lyra/Utilities/Stdint.h>
+#include <Lyra/Utilities/Collections.h>
+#include <Lyra/Utilities/Path.h>
+#include <Lyra/Utilities/Config.h>
+#include <Lyra/Assets/AMSUtils.h>
+#include <Lyra/FileSystem/VFSAPI.h>
+
+namespace lyra
+{
+    /**
+     * @brief A single entry in the asset registry.
+     */
+    struct AssetEntry
+    {
+        AssetID         guid;                     ///< Globally unique identifier for the asset.
+        AssetTypeID     type;                     ///< Enum-based asset type.
+        uint            path;                     ///< Index into the string table for the asset path.
+        Vector<AssetID> dependencies;             ///< List of GUIDs this asset depends on.
+        uint            cooked_path = 0xFFFFFFFF; ///< Index into the string table for the cooked asset path.
+    };
+
+    /**
+     * @brief The AssetRegistry maintains a mapping between AssetIDs and paths,
+     * as well as the asset dependency graph for automatic loading.
+     * It can be serialized to binary or TOML formats.
+     */
+    struct AssetRegistry
+    {
+    public:
+        AssetRegistry() = default;
+
+        /**
+         * @brief Load the registry from a file (detects format by extension: .bin or .toml).
+         * @param path Full path to the registry file.
+         * @return True if loading was successful.
+         */
+        bool load(const OSPath& path);
+
+        /**
+         * @brief Save the registry to a file (detects format by extension: .bin or .toml).
+         * @param path Full path to the target file.
+         * @return True if saving was successful.
+         */
+        bool save(const OSPath& path);
+
+        /**
+         * @brief Check if the registry is dirty and save it to the specified path if it is.
+         * @param path Full path to the target file.
+         * @return True if saving was successful or if the registry was not dirty.
+         */
+        bool flush(const OSPath& path);
+
+        /**
+         * @brief Scan the OS filesystem for existing *.import files to rebuild the registry.
+         * @param assets_dir The directory to scan recursively.
+         */
+        void rebuild(const OSPath& assets_dir);
+
+        /**
+         * @brief Update or add an asset entry in the registry.
+         */
+        void update(AssetID guid, StringView path, AssetTypeID type, const Vector<AssetID>& dependencies = {}, StringView cooked_path = "");
+
+        /**
+         * @brief Check if a GUID is available (either not registered, or already registered to expected_path).
+         */
+        bool is_guid_available(AssetID guid, StringView expected_path = "") const;
+
+        /**
+         * @brief Remove an asset entry from the registry by its GUID.
+         */
+        void remove(AssetID guid);
+
+        /**
+         * @brief Remove an asset entry from the registry by its path.
+         */
+        void remove(StringView path);
+
+        /**
+         * @brief Get the source asset path associated with a GUID.
+         */
+        auto get_path(AssetID guid) const -> StringView;
+
+        /**
+         * @brief Get the cooked asset cache path associated with a GUID (if any).
+         */
+        auto get_cooked_path(AssetID guid) const -> StringView;
+
+        /**
+         * @brief Check whether an asset has a cooked cache path registered.
+         */
+        bool has_cooked_path(AssetID guid) const;
+
+        /**
+         * @brief Get the effective load path for an asset (cooked cache path if available, otherwise source path).
+         */
+        auto get_load_path(AssetID guid) const -> StringView;
+
+        /**
+         * @brief Get read-only access to all asset entries in the registry.
+         */
+        auto get_entries() const -> const Vector<AssetEntry>& { return entries; }
+
+        /**
+         * @brief Get the GUID associated with an asset path.
+         */
+        auto get_guid(StringView path) const -> AssetID;
+
+        /**
+         * @brief Get the asset type associated with a GUID.
+         */
+        auto get_type(AssetID guid) const -> AssetTypeID;
+
+        /**
+         * @brief Get the list of dependencies for an asset.
+         */
+        auto get_dependencies(AssetID guid) const -> const Vector<AssetID>&;
+
+        /**
+         * @brief Generate a new random GUID that is guaranteed to be unique within this registry.
+         */
+        auto generate_guid() -> AssetID;
+
+        /**
+         * @brief Check if the registry has been modified since the last save.
+         */
+        bool is_dirty() const { return dirty; }
+
+        /**
+         * @brief Clear the dirty flag.
+         */
+        void clear_dirty() { dirty = false; }
+
+    private:
+        bool load_binary(const OSPath& path);
+        bool save_binary(const OSPath& path);
+        bool load_toml(const OSPath& path);
+        bool save_toml(const OSPath& path);
+
+        Vector<AssetEntry> entries;
+        Deque<String>      string_table;
+
+        HashMap<AssetID, uint>       guid_to_entry_index;
+        HashMap<StringView, AssetID> path_to_guid;
+
+        bool dirty = false;
+
+        /**
+         * @brief Internal helper to rebuild lookup tables after loading or major changes.
+         */
+        void build_lookup_tables();
+    };
+
+} // namespace lyra
+
+#endif // LYRA_ENGINE_ASSETS_AMSREGISTRY_H

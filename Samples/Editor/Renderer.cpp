@@ -1,4 +1,6 @@
-#include <Lyra/Common/Math.h>
+#include <Lyra/Utilities/Math.h>
+#include <Lyra/Scene/Camera.h>
+#include <Lyra/Scene/CameraControl.h>
 
 #include "Renderer.h"
 #include "Panels/SceneView.h"
@@ -164,7 +166,7 @@ FragmentOutput fsmain(VertexOutput input)
 }
 )""";
 
-struct Camera
+struct CameraUniform
 {
     glm::mat4 proj;
     glm::mat4 view;
@@ -176,15 +178,19 @@ struct Camera
 
 void SampleCubeRenderer::bind(Application& app)
 {
-    app.get_blackboard().add<SampleCubeRenderer*>(this);
+    app.get_toolboard().add<SampleCubeRenderer*>(this);
 
     app.bind<AppEvent::INIT, &SampleCubeRenderer::init>(*this);
     app.bind<AppEvent::UPDATE, &SampleCubeRenderer::update>(*this);
     app.bind<AppEvent::DESTROY, &SampleCubeRenderer::destroy>(*this);
 }
 
-void SampleCubeRenderer::render(const Backbuffer& backbuffer, Blackboard& blackboard, GPUCommandBuffer command)
+void SampleCubeRenderer::render(const Backbuffer& backbuffer, AppContext& context, GPUCommandBuffer command)
 {
+    if (!backbuffer.texture.valid() || !depth_texture.handle.valid() || backbuffer.extent.width == 0 || backbuffer.extent.height == 0) {
+        return;
+    }
+
     // color attachments
     auto color_attachment        = GPURenderPassColorAttachment{};
     color_attachment.clear_value = GPUColor{0.12f, 0.12f, 0.14f, 1.0f};
@@ -221,31 +227,40 @@ void SampleCubeRenderer::render(const Backbuffer& backbuffer, Blackboard& blackb
     command.pop_debug_group();
 }
 
-void SampleCubeRenderer::init(Blackboard& blackboard)
+void SampleCubeRenderer::init(AppContext& context)
 {
-    auto device   = blackboard.get<GPUDevice*>();
-    auto compiler = blackboard.get<Compiler*>();
+    auto device   = context.toolboard.get<GPUDevice*>();
+    auto compiler = context.toolboard.get<Compiler*>();
 
     init_pipeline(*device, *compiler);
     init_buffers(*device);
     init_bind_group(*device);
 
     // initialize scene nodes
-    if (auto world_ptr = blackboard.try_get<World*>()) {
-        auto& world = **world_ptr;
+    if (auto world = context.toolboard.try_get<World>()) {
+        auto view = world->registry.view<Camera>();
+        if (!view.empty()) {
+            camera_node = SceneNode(*view.begin());
+        } else {
+            camera_node = world->create("Main Camera");
+            world->translate(camera_node, {0.0f, 1.0f, 8.0f});
+            world->rotate(camera_node, {1.0f, 0.0f, 0.0f}, -20.0f);
+            world->add_component<Camera>(camera_node);
+        }
 
-        // create camera node looking down at the grid plane
-        camera_node = world.create("Main Camera");
-        world.translate(camera_node, {0.0f, 3.0f, 8.0f});
-        world.rotate(camera_node, {1.0f, 0.0f, 0.0f}, -20.0f);
-        world.add_component<PerspectiveCamera>(camera_node);
-        world.add_component<CameraProjection>(camera_node);
+        if (!world->registry.any_of<FlyCamera>(camera_node.entity)) {
+            world->add_component<FlyCamera>(camera_node,
+                FlyCamera{
+                    .pitch        = -20.0f,
+                    .target_pitch = -20.0f,
+                });
+        }
     }
 }
 
-void SampleCubeRenderer::destroy(Blackboard& blackboard)
+void SampleCubeRenderer::destroy(AppContext& context)
 {
-    auto device = blackboard.get<GPUDevice*>();
+    auto device = context.toolboard.get<GPUDevice*>();
     device->wait();
 
     vshader.destroy();
@@ -257,27 +272,45 @@ void SampleCubeRenderer::destroy(Blackboard& blackboard)
     depth_view.destroy();
 }
 
-void SampleCubeRenderer::update(Blackboard& blackboard)
+void SampleCubeRenderer::update(AppContext& context)
 {
-    auto world_ptr     = blackboard.try_get<World*>();
-    auto hierarchy_ptr = blackboard.try_get<SceneTree*>();
-    auto scene         = blackboard.try_get<SceneView*>();
-    if (!world_ptr || !hierarchy_ptr || !scene) return;
-
-    auto& world     = **world_ptr;
-    auto& hierarchy = **hierarchy_ptr;
+    auto world     = context.toolboard.try_get<World>();
+    auto hierarchy = context.toolboard.try_get<SceneTree>();
+    auto scene     = context.toolboard.try_get<SceneView>();
+    if (!world || !hierarchy || !scene) return;
 
     // update all transforms in the hierarchy
-    hierarchy.update();
+    hierarchy->update();
+
+    // ensure camera_node is valid across scene loads and clears
+    if (camera_node.entity == entt::null || !world->registry.valid(camera_node.entity) || !world->registry.any_of<Camera>(camera_node.entity)) {
+        auto view = world->registry.view<Camera, TransformWorld>();
+        if (view.begin() != view.end()) {
+            camera_node = SceneNode(*view.begin());
+        } else {
+            camera_node = world->create("Main Camera");
+            world->translate(camera_node, {0.0f, 1.0f, 8.0f});
+            world->rotate(camera_node, {1.0f, 0.0f, 0.0f}, -20.0f);
+            world->add_component<Camera>(camera_node);
+        }
+
+        if (!world->registry.any_of<FlyCamera>(camera_node.entity)) {
+            world->add_component<FlyCamera>(camera_node,
+                FlyCamera{
+                    .pitch        = -20.0f,
+                    .target_pitch = -20.0f,
+                });
+        }
+    }
 
     // update camera uniform buffer
-    auto backbuffer = (*scene)->get_backbuffer();
+    auto backbuffer = scene->get_backbuffer();
 
     // ensure depth buffer matches backbuffer size
     if (!depth_texture.handle.valid() ||
         depth_texture.width != backbuffer.extent.width ||
         depth_texture.height != backbuffer.extent.height) {
-        auto device = blackboard.get<GPUDevice*>();
+        auto device = context.toolboard.get<GPUDevice*>();
 
         if (depth_texture.handle.valid()) {
             device->wait();
@@ -302,22 +335,25 @@ void SampleCubeRenderer::update(Blackboard& blackboard)
     }
 
     auto  aspect    = (float)backbuffer.extent.width / (float)backbuffer.extent.height;
-    auto& cam_world = world.get_component<TransformWorld>(camera_node);
+    auto& cam_world = world->get_component<TransformWorld>(camera_node);
 
     // update camera projection parameters
-    auto& cam_perspective  = world.get_component<PerspectiveCamera>(camera_node);
-    cam_perspective.aspect = aspect;
+    auto& cam  = world->get_component<Camera>(camera_node);
+    cam.aspect = aspect;
+    if (cam.type == ProjectionType::PERSPECTIVE) {
+        cam.projection = glm::perspective(glm::radians(cam.fov), cam.aspect, cam.near_plane, cam.far_plane);
+    } else {
+        float half_size = cam.size * 0.5f;
+        cam.projection  = glm::ortho(-half_size * cam.aspect, half_size * cam.aspect, -half_size, half_size, cam.near_plane, cam.far_plane);
+    }
 
-    // get updated projection from RenderLayer (note: this might be 1 frame late if aspect ratio just changed)
-    auto& cam_projection = world.get_component<CameraProjection>(camera_node);
-
-    auto camera           = ubuffer.get_mapped_range<Camera>();
-    camera.at(0).proj     = cam_projection.projection;
-    camera.at(0).view     = glm::inverse(cam_world.xform);
-    camera.at(0).inv_proj = glm::inverse(cam_projection.projection);
-    camera.at(0).inv_view = cam_world.xform;
-    camera.at(0).pos      = glm::vec3(cam_world.xform[3]);
-    camera.at(0).padding  = 0.0f;
+    auto camera_gpu           = ubuffer.get_mapped_range<CameraUniform>();
+    camera_gpu.at(0).proj     = cam.projection;
+    camera_gpu.at(0).view     = glm::inverse(cam_world.xform);
+    camera_gpu.at(0).inv_proj = glm::inverse(cam.projection);
+    camera_gpu.at(0).inv_view = cam_world.xform;
+    camera_gpu.at(0).pos      = glm::vec3(cam_world.xform[3]);
+    camera_gpu.at(0).padding  = 0.0f;
 }
 
 void SampleCubeRenderer::init_buffers(GPUDevice device)
@@ -325,7 +361,7 @@ void SampleCubeRenderer::init_buffers(GPUDevice device)
     ubuffer = execute([&]() {
         auto desc               = GPUBufferDescriptor{};
         desc.label              = "camera_buffer";
-        desc.size               = sizeof(Camera);
+        desc.size               = sizeof(CameraUniform);
         desc.usage              = GPUBufferUsage::UNIFORM | GPUBufferUsage::MAP_WRITE;
         desc.mapped_at_creation = true;
         return device.create_buffer(desc);
@@ -371,9 +407,9 @@ void SampleCubeRenderer::init_pipeline(GPUDevice device, Compiler compiler)
             auto blayout = device.create_bind_group_layout(desc);
             blayouts.push_back(blayout);
         }
-        auto desc                 = GPUPipelineLayoutDescriptor{};
-        desc.bind_group_layouts   = blayouts;
-        desc.push_constant_ranges = reflection->get_push_constant_ranges();
+        auto desc               = GPUPipelineLayoutDescriptor{};
+        desc.bind_group_layouts = blayouts;
+        desc.immediate_size     = reflection->get_immediate_size();
         return device.create_pipeline_layout(desc);
     });
 

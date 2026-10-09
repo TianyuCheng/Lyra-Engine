@@ -7,21 +7,27 @@ list:
     @cmake --list-presets=all
 
 config generator preset="debug":
-    @{{PYTHON}} Scripts/build.py config {{generator}} {{preset}}
+    @{{PYTHON}} Tools/Scripts/build.py config {{generator}} {{preset}}
 
 switch preset:
-    @{{PYTHON}} Scripts/build.py switch {{preset}}
+    @{{PYTHON}} Tools/Scripts/build.py switch {{preset}}
 
 build target="all":
-    @{{PYTHON}} Scripts/build.py build --target {{target}}
+    @{{PYTHON}} Tools/Scripts/build.py build --target {{target}}
 
 run target="all" *args="":
-    @{{PYTHON}} Scripts/build.py run --target {{target}} -- {{args}}
+    @{{PYTHON}} Tools/Scripts/build.py run --target {{target}} -- {{args}}
 
 test target="all":
-    @{{PYTHON}} Scripts/build.py build --target testkit
-    @{{PYTHON}} Scripts/build.py test --target {{target}}
+    @{{PYTHON}} Tools/Scripts/build.py build --target testkit
+    @{{PYTHON}} Tools/Scripts/build.py test --target {{target}}
+
+format:
+    @{{PYTHON}} Tools/Scripts/build.py format
+
+format-check:
+    @{{PYTHON}} Tools/Scripts/build.py format --check
 
 [confirm("This will clean all build products! (y/n)")]
 clean:
-    @{{PYTHON}} Scripts/build.py run --target clean
+    @{{PYTHON}} Tools/Scripts/build.py run --target clean

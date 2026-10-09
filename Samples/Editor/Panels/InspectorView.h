@@ -4,7 +4,7 @@
 #define LYRA_EDITOR_PANELS_INSPECTOR_VIEW_H
 
 // local imports
-#include <Lyra/Engine/Application.h>
+#include <Lyra/Runtime/Application.h>
 
 namespace lyra
 {
@@ -15,10 +15,10 @@ namespace lyra
 
         void bind(Application& app);
 
-        void update(Blackboard& blackboard);
+        void update(AppContext& context);
 
     private:
-        void draw_inspector(World& world, SceneNode node);
+        void draw_inspector(AppContext& context, World& world, SceneNode node);
     };
 } // namespace lyra
 

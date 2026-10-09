@@ -2,18 +2,21 @@
 #include <algorithm>
 #include <stb_image.h>
 #include <cmrc/cmrc.hpp>
-#include <Lyra/Common/Path.h>
-#include <Lyra/Common/Logger.h>
+#include <Lyra/Utilities/Path.h>
+#include <Lyra/Utilities/Logger.h>
 #include <Lyra/Assets/AMSServer.h>
-#include <Lyra/Render/RHITypes.h>
-#include <Lyra/Render/RHIInits.h>
-#include <Lyra/UICore/UI.h>
-#include <Lyra/UICore/UILayout.h>
-#include <Lyra/UICore/UIControls.h>
-#include <Lyra/UICore/UIDock.h>
-#include <Lyra/UICore/UIDialog.h>
-#include <Lyra/UICore/UIIcons.h>
-#include <Lyra/UICore/ImGui.h>
+#include <Lyra/Graphics/RHITypes.h>
+#include <Lyra/Graphics/RHIInits.h>
+#include <Lyra/UISystem/Widgets/UI.h>
+#include <Lyra/UISystem/Widgets/UILayout.h>
+#include <Lyra/UISystem/Widgets/UIControls.h>
+#include <Lyra/UISystem/Widgets/UIDock.h>
+#include <Lyra/UISystem/Widgets/UIDialog.h>
+#include <Lyra/UISystem/Widgets/UIIcons.h>
+#include <Lyra/Utilities/GUID.h>
+#include <Lyra/Scene/SceneManager.h>
+#include <Lyra/Assets/Format/SceneAsset.h>
+#include <Lyra/Assets/Format/ModelAsset.h>
 
 // local imports
 #include "AssetBrowserView.h"
@@ -23,14 +26,6 @@ CMRC_DECLARE(editor);
 #define LYRA_FILES_WINDOW_NAME (LYRA_ICON_FOLDER " Files")
 
 using namespace lyra;
-
-static StringView trim_whitespace(StringView s)
-{
-    size_t first = s.find_first_not_of(" \t\n\r");
-    if (first == StringView::npos) return "";
-    size_t last = s.find_last_not_of(" \t\n\r");
-    return s.substr(first, (last - first + 1));
-}
 
 AssetBrowserView::AssetBrowserView(const Path& root)
     : root(root), curr(root)
@@ -61,35 +56,31 @@ AssetBrowserView::~AssetBrowserView()
 
 auto AssetBrowserView::get_gui_renderer() const -> GUIRenderer*
 {
-    return (bboard && bboard->has<GUIRenderer*>()) ? bboard->get<GUIRenderer*>() : nullptr;
+    return (context && context->toolboard.has<GUIRenderer*>()) ? context->toolboard.get<GUIRenderer*>() : nullptr;
 }
 
 auto AssetBrowserView::get_asset_server() const -> AssetServer*
 {
-    if (bboard) {
-        if (auto ams = bboard->try_get<AssetServer*>()) {
-            return *ams;
-        }
-    }
-    return nullptr;
+    return ams;
 }
 
 void AssetBrowserView::bind(Application& app)
 {
-    bboard = &app.get_blackboard();
-    if (auto ams = get_asset_server()) {
-        last_completed_cooks = ams->get_pipeline_stats().completed_count;
-        ams->set_on_filesystem_changed([this]() {
-            needs_refresh = true;
-            force_refresh = true;
-        });
-    }
+    context = &app.get_context();
+    ams     = context->toolboard.try_get<AssetServer*>();
+    assert(ams != nullptr && "AssetBrowserView requires AssetServer to be present in toolboard");
+
+    last_completed_cooks = ams->get_pipeline_stats().completed_count;
+    ams->set_on_filesystem_changed([this]() {
+        needs_refresh = true;
+        force_refresh = true;
+    });
     app.bind<AppEvent::UPDATE, &AssetBrowserView::update>(*this);
     update_directory(root, true);
     load_editor_icons();
 }
 
-void AssetBrowserView::update(Blackboard& blackboard)
+void AssetBrowserView::update(AppContext& context)
 {
     if ((!folder_icon.valid || !file_icon.valid) && get_gui_renderer()) {
         load_editor_icons();
@@ -121,25 +112,25 @@ void AssetBrowserView::update(Blackboard& blackboard)
     });
 
     ui::panel(LYRA_FILES_WINDOW_NAME, [&]() {
-        handle_file_drop(blackboard);
+        handle_file_drop(context);
         show_header_toolbar();
         ui::separator();
 
         ui::scroll_area("FileBrowser", 40.0f, [&]() {
-            if (!selection.empty() && !show_rename_modal && !show_new_file_modal && !show_new_folder_modal && !show_delete_modal) {
+            if (!selection.empty() && !show_rename_modal && !show_new_scene_modal && !show_new_file_modal && !show_new_folder_modal && !show_delete_modal) {
                 if (ui::is_panel_hovered() && !ui::is_any_item_active() && (ui::is_key_pressed(KeyButton::DEL) || ui::is_key_pressed(KeyButton::BACKSPACE))) {
                     show_delete_modal = true;
                     open_delete_modal = true;
                 }
             }
 
-            show_dir_files(blackboard);
-            show_context_menu(blackboard);
-            show_modals(blackboard);
+            show_dir_files(context);
+            show_context_menu(context);
+            show_modals(context);
         });
 
         ui::separator();
-        show_status_bar(blackboard);
+        show_status_bar(context);
     });
 }
 
@@ -154,7 +145,7 @@ void AssetBrowserView::show_header_toolbar()
     });
 }
 
-void AssetBrowserView::show_status_bar(Blackboard& blackboard)
+void AssetBrowserView::show_status_bar(AppContext& context)
 {
     ui::row([&]() {
         char count_buf[128];
@@ -178,12 +169,13 @@ void AssetBrowserView::show_status_bar(Blackboard& blackboard)
     });
 }
 
-void AssetBrowserView::show_modals(Blackboard& blackboard)
+void AssetBrowserView::show_modals(AppContext& context)
 {
+    show_new_scene_dialog();
     show_new_file_dialog();
     show_new_folder_dialog();
     show_rename_dialog();
-    show_delete_dialog(blackboard);
+    show_delete_dialog(context);
 }
 
 void AssetBrowserView::show_breadcrumb()
@@ -212,10 +204,9 @@ void AssetBrowserView::show_breadcrumb()
     ui::breadcrumb(items);
 }
 
-void AssetBrowserView::show_dir_files(Blackboard& blackboard)
+void AssetBrowserView::show_dir_files(AppContext& context)
 {
-    Vector2 mouse_pos = ui::mouse_pos();
-    ImRect  marquee_rect;
+    Vector2 mouse_pos = ui::get_mouse_pos();
 
     // explorer / finder style background click logic:
     // when clicking on empty background (no item hovered or active), start marquee drag selection
@@ -230,22 +221,23 @@ void AssetBrowserView::show_dir_files(Blackboard& blackboard)
         }
     }
 
-    bool is_releasing = false;
+    bool     is_releasing = false;
+    ui::Rect marquee_rect;
     if (is_marquee_selecting) {
         if (!ui::is_mouse_down(MouseButton::LEFT) || ui::is_mouse_released(MouseButton::LEFT)) {
             is_releasing = true;
         }
-        marquee_rect = ImRect(
-            ImVec2(std::min(marquee_start_pos.x, mouse_pos.x), std::min(marquee_start_pos.y, mouse_pos.y)),
-            ImVec2(std::max(marquee_start_pos.x, mouse_pos.x), std::max(marquee_start_pos.y, mouse_pos.y)));
+        marquee_rect = ui::Rect(
+            Vector2(std::min(marquee_start_pos.x, mouse_pos.x), std::min(marquee_start_pos.y, mouse_pos.y)),
+            Vector2(std::max(marquee_start_pos.x, mouse_pos.x), std::max(marquee_start_pos.y, mouse_pos.y)));
         selection.items = initial_selection;
     }
 
     auto handle_marquee = [&](StringView name) {
         if (is_marquee_selecting) {
-            ImVec2 pos = ImGui::GetCursorScreenPos();
-            ImRect item_rect(pos, ImVec2(pos.x + icon_size + 4.0f, pos.y + icon_size + 34.0f));
-            if (marquee_rect.Overlaps(item_rect)) {
+            Vector2  pos = ui::get_cursor_screen_pos();
+            ui::Rect item_rect(pos, Vector2(pos.x + icon_size + 4.0f, pos.y + icon_size + 34.0f));
+            if (marquee_rect.overlaps(item_rect)) {
                 if (!selection.is_selected(name)) {
                     selection.items.emplace_back(name);
                 }
@@ -268,7 +260,7 @@ void AssetBrowserView::show_dir_files(Blackboard& blackboard)
             if (!matches_filter(folder)) continue;
             ui::grid_item([&]() {
                 handle_marquee(folder);
-                show_item(blackboard, folder, true);
+                show_item(context, folder, true);
             });
         }
 
@@ -276,15 +268,13 @@ void AssetBrowserView::show_dir_files(Blackboard& blackboard)
             if (!matches_filter(file)) continue;
             ui::grid_item([&]() {
                 handle_marquee(file);
-                show_item(blackboard, file, false);
+                show_item(context, file, false);
             });
         }
     });
 
-    if (is_marquee_selecting && !is_releasing && (marquee_rect.GetWidth() > 1.0f || marquee_rect.GetHeight() > 1.0f)) {
-        ImDrawList* draw_list = ImGui::GetWindowDrawList();
-        draw_list->AddRectFilled(marquee_rect.Min, marquee_rect.Max, ImGui::GetColorU32(ImGuiCol_Header, 0.3f));
-        draw_list->AddRect(marquee_rect.Min, marquee_rect.Max, ImGui::GetColorU32(ImGuiCol_Header, 1.0f));
+    if (is_marquee_selecting && !is_releasing && (marquee_rect.width() > 1.0f || marquee_rect.height() > 1.0f)) {
+        ui::draw_selection_rect(marquee_rect.min, marquee_rect.max);
     }
 
     if (is_releasing) {
@@ -292,12 +282,18 @@ void AssetBrowserView::show_dir_files(Blackboard& blackboard)
         initial_selection.clear();
     }
 
-    load_thumbnails(blackboard);
+    load_thumbnails(context);
 }
 
 void AssetBrowserView::show_create_menu()
 {
     ui::menu(LYRA_ICON_NEW_FILE " Create", [&]() {
+        ui::menu_item(LYRA_ICON_SCENE " Create Scene", [&]() {
+            strncpy_s(new_scene_name, sizeof(new_scene_name), "NewScene", sizeof(new_scene_name) - 1);
+            show_new_scene_modal = true;
+            open_new_scene_modal = true;
+        });
+        ui::separator();
         ui::menu_item(LYRA_ICON_NEW_FILE " Create File", [&]() {
             new_file_name[0]    = '\0';
             show_new_file_modal = true;
@@ -311,7 +307,7 @@ void AssetBrowserView::show_create_menu()
     });
 }
 
-void AssetBrowserView::show_item(Blackboard& blackboard, StringView name, bool is_folder)
+void AssetBrowserView::show_item(AppContext& context, StringView name, bool is_folder)
 {
     bool is_sel = selection.is_selected(name);
 
@@ -320,6 +316,48 @@ void AssetBrowserView::show_item(Blackboard& blackboard, StringView name, bool i
             selection.toggle(name);
         else
             selection.select_only(name);
+    };
+
+    Path item_path = curr / name;
+    auto ext       = absl::AsciiStrToLower(item_path.extension().string());
+    auto scene_mgr = context.toolboard.try_get<SceneManager>();
+
+    auto on_double_click = [&, item_path, ext]() {
+        if (ext == ".scene" && scene_mgr) {
+            if (scene_mgr->is_dirty())
+                if (!ui::dialog::confirm("Unsaved Changes", "The active scene has unsaved changes. Discard and open this scene?"))
+                    return;
+
+            auto res = scene_mgr->load(item_path, LoadMode::SINGLE);
+            if (res == INVALID_SCENE_INSTANCE) {
+                ui::dialog::alert("Load Failed", "Failed to load scene:\n" + item_path.filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
+            }
+        } else if ((ext == ".model" || ext == ".gltf" || ext == ".glb" || ext == ".obj" || ext == ".stl") && scene_mgr) {
+            if (auto ams = get_asset_server()) {
+                std::error_code ec;
+
+                Path rel_path = fs::relative(item_path, root, ec);
+                auto path_str = (!ec && !rel_path.empty() && *rel_path.begin() != "..")
+                                    ? rel_path.generic_string()
+                                    : item_path.generic_string();
+
+                auto model_handle = ams->load_asset<ModelAsset>(path_str.c_str());
+                if (!model_handle.valid()) {
+                    model_handle = ams->load_asset<ModelAsset>(item_path.filename().generic_string().c_str());
+                }
+                bool spawned = false;
+                if (model_handle.valid()) {
+                    auto node = scene_mgr->spawn(model_handle);
+                    if (node.entity != entt::null) {
+                        scene_mgr->set_dirty(true);
+                        spawned = true;
+                    }
+                }
+                if (!spawned) {
+                    ui::dialog::alert("Spawn Failed", "Failed to load or spawn model asset:\n" + item_path.filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
+                }
+            }
+        }
     };
 
     if (is_folder) {
@@ -335,20 +373,96 @@ void AssetBrowserView::show_item(Blackboard& blackboard, StringView name, bool i
             }, Vector4(1.0f, 0.75f, 0.25f, 1.0f), icon_size);
         }
     } else {
-        auto [id, size] = get_thumbnail(blackboard, name);
+        auto [id, size] = get_thumbnail(context, name);
         if (id != GUITextureHandle{}) {
-            ui::card(name.data(), id, size, name.data(), is_sel, on_click, icon_size);
+            ui::card(name.data(), id, size, name.data(), is_sel, on_click, on_double_click, icon_size);
         } else if (file_icon.valid) {
             ui::card(name.data(), file_icon.gui_texture.texid,
                 Vector2((float)file_icon.texture.width, (float)file_icon.texture.height),
-                name.data(), is_sel, on_click, icon_size);
+                name.data(), is_sel, on_click, on_double_click, icon_size);
         } else {
-            ui::card(name.data(), LYRA_ICON_FILE, name.data(), is_sel, on_click, Vector4(0.0f), icon_size);
+            ui::card(name.data(), LYRA_ICON_FILE, name.data(), is_sel, on_click, on_double_click, Vector4(0.0f), icon_size);
+        }
+
+        if (ext == ".model" || ext == ".gltf" || ext == ".glb" || ext == ".obj" || ext == ".stl") {
+            std::error_code ec;
+
+            Path rel_path = fs::relative(item_path, root, ec);
+            auto path_str = (!ec && !rel_path.empty() && *rel_path.begin() != "..")
+                                ? rel_path.generic_string()
+                                : item_path.generic_string();
+
+            ui::drag_drop_source("LYRA_ASSET_MODEL", path_str.c_str(), path_str.size() + 1, [&]() {
+                ui::label(name.data());
+            });
+        } else if (ext == ".scene") {
+            std::error_code ec;
+
+            Path rel_path = fs::relative(item_path, root, ec);
+            auto path_str = (!ec && !rel_path.empty() && *rel_path.begin() != "..")
+                                ? rel_path.generic_string()
+                                : item_path.generic_string();
+
+            ui::drag_drop_source("LYRA_ASSET_SCENE", path_str.c_str(), path_str.size() + 1, [&]() {
+                ui::label(name.data());
+            });
         }
     }
 
     ui::item_context_menu([&]() {
         if (!is_sel) selection.select_only(name);
+
+        if (selection.size() == 1 && !is_folder) {
+            if (ext == ".scene" && scene_mgr) {
+                ui::menu_item(LYRA_ICON_SCENE " Open Scene", [&]() {
+                    if (scene_mgr->is_dirty()) {
+                        if (!ui::dialog::confirm("Unsaved Changes", "The active scene has unsaved changes. Discard and open this scene?")) {
+                            return;
+                        }
+                    }
+                    auto res = scene_mgr->load(item_path, LoadMode::SINGLE);
+                    if (res == INVALID_SCENE_INSTANCE) {
+                        ui::dialog::alert("Load Failed", "Failed to load scene:\n" + item_path.filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
+                    }
+                });
+                ui::menu_item(LYRA_ICON_SCENE " Load Additive", [&]() {
+                    auto res = scene_mgr->load(item_path, LoadMode::ADDITIVE);
+                    if (res == INVALID_SCENE_INSTANCE) {
+                        ui::dialog::alert("Load Failed", "Failed to load scene additively:\n" + item_path.filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
+                    }
+                });
+                ui::separator();
+            } else if ((ext == ".model" || ext == ".gltf" || ext == ".glb" || ext == ".obj" || ext == ".stl") && scene_mgr) {
+                ui::menu_item(LYRA_ICON_NODE " Spawn in Scene", [&]() {
+                    auto ams = get_asset_server();
+                    if (ams) {
+                        std::error_code ec;
+
+                        Path rel_path = fs::relative(item_path, root, ec);
+                        auto path_str = (!ec && !rel_path.empty() && *rel_path.begin() != "..")
+                                            ? rel_path.generic_string()
+                                            : item_path.generic_string();
+
+                        auto model_handle = ams->load_asset<ModelAsset>(path_str.c_str());
+                        if (!model_handle.valid()) {
+                            model_handle = ams->load_asset<ModelAsset>(item_path.filename().generic_string().c_str());
+                        }
+                        bool spawned = false;
+                        if (model_handle.valid()) {
+                            auto node = scene_mgr->spawn(model_handle);
+                            if (node.entity != entt::null) {
+                                scene_mgr->set_dirty(true);
+                                spawned = true;
+                            }
+                        }
+                        if (!spawned) {
+                            ui::dialog::alert("Spawn Failed", "Failed to load or spawn model asset:\n" + item_path.filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
+                        }
+                    }
+                });
+                ui::separator();
+            }
+        }
 
         if (selection.size() == 1) {
             ui::menu_item(LYRA_ICON_RENAME " Rename", [&]() {
@@ -371,7 +485,7 @@ void AssetBrowserView::show_item(Blackboard& blackboard, StringView name, bool i
     });
 }
 
-void AssetBrowserView::show_context_menu(Blackboard&)
+void AssetBrowserView::show_context_menu(AppContext&)
 {
     ui::panel_context_menu([&]() {
         ui::menu_item(LYRA_ICON_REFRESH " Refresh", [&]() {
@@ -385,6 +499,10 @@ void AssetBrowserView::show_context_menu(Blackboard&)
         show_create_menu();
     });
 
+    if (open_new_scene_modal) {
+        ui::open_modal(LYRA_ICON_SCENE " New Scene");
+        open_new_scene_modal = false;
+    }
     if (open_new_file_modal) {
         ui::open_modal(LYRA_ICON_NEW_FILE " New File");
         open_new_file_modal = false;
@@ -479,6 +597,60 @@ void AssetBrowserView::action_rename(StringView old_name, StringView new_name)
     update_directory(curr, true);
 }
 
+void AssetBrowserView::action_create_scene(StringView name)
+{
+    StringView trimmed = trim_whitespace(name);
+    if (trimmed.empty()) return;
+
+    String filename(trimmed);
+    if (filename.size() < 6 || filename.substr(filename.size() - 6) != ".scene") {
+        filename += ".scene";
+    }
+
+    Path new_scene_path = curr / filename;
+    try {
+        if (fs::exists(new_scene_path)) {
+            spdlog::error("Scene create error: Destination exists ({})", new_scene_path.string());
+            return;
+        }
+
+        SceneAsset new_scene;
+        new_scene.root = 0;
+
+        SceneAsset::Node root_node;
+        root_node.name = new_scene_path.stem().string();
+        root_node.children.push_back(1);
+        new_scene.nodes.push_back(root_node);
+
+        SceneAsset::Node cam_node;
+        cam_node.name         = "Main Camera";
+        Matrix4x4 translation = glm::translate(Matrix4x4(1.0f), Vector3(0.0f, 1.0f, 8.0f));
+        Matrix4x4 rotation    = glm::mat4_cast(glm::angleAxis(glm::radians(-20.0f), Vector3(1.0f, 0.0f, 0.0f)));
+        cam_node.transform    = translation * rotation;
+        cam_node.has_camera   = true;
+        new_scene.nodes.push_back(cam_node);
+
+        auto ams = get_asset_server();
+        if (ams) {
+            ams->save_asset(new_scene, new_scene_path.c_str());
+            Path    import_p = new_scene_path.string() + ".import";
+            JSON    meta;
+            AssetID guid = random_guid();
+            meta["guid"] = guid;
+            meta["type"] = to_string(SceneAsset::type);
+            std::ofstream f(import_p);
+            if (f.is_open()) {
+                f << meta.dump(4);
+                f.close();
+            }
+            ams->register_asset_entry(guid, new_scene_path, SceneAsset::type);
+        }
+        update_directory(curr, true);
+    } catch (const std::exception& e) {
+        spdlog::error("Scene create error: {}", e.what());
+    }
+}
+
 void AssetBrowserView::action_create_folder(StringView name)
 {
     StringView trimmed = trim_whitespace(name);
@@ -566,6 +738,14 @@ void AssetBrowserView::show_input_modal(CString title, bool* p_open, CString pro
     });
 }
 
+void AssetBrowserView::show_new_scene_dialog()
+{
+    show_input_modal(LYRA_ICON_SCENE " New Scene", &show_new_scene_modal, "Enter scene name:",
+        new_scene_name, sizeof(new_scene_name), "Create", [&](StringView name) {
+        action_create_scene(name);
+    });
+}
+
 void AssetBrowserView::show_new_folder_dialog()
 {
     show_input_modal(LYRA_ICON_NEW_FOLDER " New Folder", &show_new_folder_modal, "Enter folder name:",
@@ -592,7 +772,7 @@ void AssetBrowserView::show_rename_dialog()
     });
 }
 
-void AssetBrowserView::show_delete_dialog(Blackboard&)
+void AssetBrowserView::show_delete_dialog(AppContext&)
 {
     ui::modal(LYRA_ICON_DELETE " Delete", &show_delete_modal, [&]() {
         if (selection.size() == 1) {
@@ -678,9 +858,9 @@ void AssetBrowserView::perform_update_directory(const Path& path, bool force)
         all_items.push_back(f);
 }
 
-void AssetBrowserView::handle_file_drop(Blackboard& blackboard)
+void AssetBrowserView::handle_file_drop(AppContext& context)
 {
-    auto window = blackboard.get<Window*>();
+    auto window = context.toolboard.get<Window*>();
 
     if (!ui::is_panel_hovered())
         return;
@@ -751,7 +931,7 @@ void AssetBrowserView::show_import_indicator()
     }
 }
 
-std::pair<GUITextureHandle, Vector2> AssetBrowserView::get_thumbnail(Blackboard& blackboard, StringView name)
+std::pair<GUITextureHandle, Vector2> AssetBrowserView::get_thumbnail(AppContext& context, StringView name)
 {
     auto it = thumbnails.find(String(name));
     if (it != thumbnails.end()) {
@@ -778,8 +958,8 @@ std::pair<GUITextureHandle, Vector2> AssetBrowserView::get_thumbnail(Blackboard&
                 JSON j = JSON::parse(f);
                 if (j.contains("thumbnail") && j["thumbnail"].is_string()) {
                     auto thumb_rel = j["thumbnail"].get<String>();
-                    auto loader    = blackboard.try_get<FileLoader*>();
-                    if (loader && *loader && (*loader)->exists(thumb_rel.c_str())) {
+                    auto loader    = context.toolboard.try_get<FileLoader*>();
+                    if (loader && loader->exists(thumb_rel.c_str())) {
                         queued_thumbnails.push_back({name_str, thumb_rel});
                     }
                     // if file not ready on disk yet, do not mark invalid; retry next frame
@@ -891,23 +1071,23 @@ auto AssetBrowserView::upload_rgba_textures(Vector<TextureUploadEntry>& entries,
     return results;
 }
 
-void AssetBrowserView::load_thumbnails(Blackboard& blackboard)
+void AssetBrowserView::load_thumbnails(AppContext& context)
 {
     if (queued_thumbnails.empty()) return;
 
-    auto loader = blackboard.try_get<FileLoader*>();
+    auto loader = context.toolboard.try_get<FileLoader*>();
     auto gui    = get_gui_renderer();
-    if (!loader || !*loader || !gui) {
+    if (!loader || !gui) {
         queued_thumbnails.clear();
         return;
     }
 
     Vector<TextureUploadEntry> entries;
     for (const auto& [name, path] : queued_thumbnails) {
-        if (!(*loader)->exists(path.c_str())) {
+        if (!loader->exists(path.c_str())) {
             continue;
         }
-        auto content = (*loader)->read<uint8_t>(path.c_str());
+        auto content = loader->read<uint8_t>(path.c_str());
         if (content.empty()) {
             thumbnails[name] = {{}, {}, false};
             continue;

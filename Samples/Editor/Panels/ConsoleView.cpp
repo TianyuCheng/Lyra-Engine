@@ -1,12 +1,12 @@
-#include <Lyra/Common/Logger.h>
-#include <Lyra/Common/Function.h>
-#include <Lyra/UICore/UI.h>
-#include <Lyra/UICore/UILayout.h>
-#include <Lyra/UICore/UIControls.h>
-#include <Lyra/UICore/UIDock.h>
+#include <Lyra/Utilities/Logger.h>
+#include <Lyra/Utilities/Function.h>
+#include <Lyra/UISystem/Widgets/UI.h>
+#include <Lyra/UISystem/Widgets/UILayout.h>
+#include <Lyra/UISystem/Widgets/UIControls.h>
+#include <Lyra/UISystem/Widgets/UIDock.h>
 
 // local imports
-#include <Lyra/UICore/UIIcons.h>
+#include <Lyra/UISystem/Widgets/UIIcons.h>
 #include "Common/EditorLayout.h"
 #include "ConsoleView.h"
 
@@ -27,7 +27,7 @@ void ConsoleView::bind(Application& app)
     app.bind<AppEvent::UPDATE, &ConsoleView::update>(*this);
 }
 
-void ConsoleView::update(Blackboard& blackboard)
+void ConsoleView::update(AppContext&)
 {
     lyra::execute_once([&]() {
         ui::workspace::dock(LYRA_CONSOLE_WINDOW_NAME, ui::Area::Bottom);
@@ -83,13 +83,20 @@ void ConsoleView::show_logs() const
 
     auto get_status_role = [](LogLevel level) -> ui::StatusRole {
         switch (level) {
-            case LogLevel::trace:    return ui::StatusRole::Muted;
-            case LogLevel::debug:    return ui::StatusRole::Info;
-            case LogLevel::info:     return ui::StatusRole::Success;
-            case LogLevel::warn:     return ui::StatusRole::Warning;
-            case LogLevel::err:      return ui::StatusRole::Error;
-            case LogLevel::critical: return ui::StatusRole::Critical;
-            default:                 return ui::StatusRole::Muted;
+            case LogLevel::trace:
+                return ui::StatusRole::Muted;
+            case LogLevel::debug:
+                return ui::StatusRole::Info;
+            case LogLevel::info:
+                return ui::StatusRole::Success;
+            case LogLevel::warn:
+                return ui::StatusRole::Warning;
+            case LogLevel::err:
+                return ui::StatusRole::Error;
+            case LogLevel::critical:
+                return ui::StatusRole::Critical;
+            default:
+                return ui::StatusRole::Muted;
         }
     };
 

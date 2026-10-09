@@ -1,38 +1,155 @@
 #include <cctype>
 #include <algorithm>
 #include <cxxopts.hpp>
+
+// uber header for lyra engine
 #include <Lyra/Lyra.hpp>
 
-#include "Renderer.h"
-#include "Common/EditorLayout.h"
+// auto-generated script headers
+#include <Lyra/Scene/Components.h>
+#include <Lyra/Scene/CameraControl.h>
+
+// local editor ui headers
 #include "Panels/AssetBrowserView.h"
 #include "Panels/ConsoleView.h"
 #include "Panels/HierarchyView.h"
 #include "Panels/InspectorView.h"
 #include "Panels/SceneView.h"
 
+// other common headers
+#include "Common/EditorLayout.h"
+
+// local renderer
+#include "Renderer.h"
+
 using namespace lyra;
 
-static void render_scene(Blackboard& blackboard, GPUCommandBuffer command)
+static void render_scene(AppContext& context, GPUCommandBuffer command)
 {
     // apply a toy demo renderer
-    if (auto view = blackboard.try_get<SceneView*>()) {
-        auto renderer = blackboard.get<SampleCubeRenderer*>();
-        renderer->render((*view)->get_backbuffer(), blackboard, command);
+    if (auto* view = context.toolboard.try_get<SceneView>()) {
+        auto* renderer = context.toolboard.get<SampleCubeRenderer*>();
+        renderer->render(view->get_backbuffer(), context, command);
     }
 }
 
-static void imgui_update(Blackboard& blackboard)
+static bool show_new_scene_modal = false;
+static bool open_new_scene_modal = false;
+static char new_scene_name[128]  = "Untitled";
+
+static void imgui_update(AppContext& context)
 {
+    auto* scene_mgr = context.toolboard.try_get<SceneManager>();
+
+    auto trigger_new_scene = [&]() {
+        if (scene_mgr && scene_mgr->is_dirty()) {
+            if (!ui::dialog::confirm("Unsaved Changes", "The active scene has unsaved changes. Discard and create a new scene?")) {
+                return;
+            }
+        }
+        strcpy_s(new_scene_name, sizeof(new_scene_name), "Untitled");
+        show_new_scene_modal = true;
+        open_new_scene_modal = true;
+    };
+
+    auto reset_input_states = [&]() {
+        if (auto input = context.toolboard.try_get<InputManager*>()) {
+            input->reset();
+        }
+        if (auto window = context.toolboard.try_get<Window*>()) {
+            window->reset_input_state();
+        }
+        ui::clear_input_keys();
+    };
+
+    auto do_save_scene_as = [&]() {
+        if (!scene_mgr) return;
+        ui::dialog::Options opts;
+        opts.title    = "Save Scene As";
+        opts.filters  = {{"Lyra Scene (*.scene)", "*.scene"}};
+        auto selected = ui::dialog::save_file(opts);
+        reset_input_states();
+        if (selected.has_value()) {
+            Path p = *selected;
+            if (p.extension() != ".scene") {
+                p += ".scene";
+            }
+            if (!scene_mgr->save(p)) {
+                ui::dialog::alert("Save Failed", "Failed to save scene to:\n" + p.string(), ui::StatusRole::Error);
+            }
+        }
+    };
+
+    auto do_save_scene = [&]() {
+        if (!scene_mgr) return;
+        if (!scene_mgr->get_active_path().empty()) {
+            if (!scene_mgr->save_active()) {
+                ui::dialog::alert("Save Failed", "Failed to save active scene:\n" + scene_mgr->get_active_path().string(), ui::StatusRole::Error);
+            }
+            reset_input_states();
+        } else {
+            do_save_scene_as();
+        }
+    };
+
+    auto do_open_scene = [&]() {
+        if (!scene_mgr) return;
+        if (scene_mgr->is_dirty()) {
+            if (!ui::dialog::confirm("Unsaved Changes", "The active scene has unsaved changes. Discard and open scene?")) {
+                return;
+            }
+        }
+        ui::dialog::Options opts;
+        opts.title    = "Open Scene";
+        opts.filters  = {{"Lyra Scene (*.scene)", "*.scene"}};
+        auto selected = ui::dialog::open_file(opts);
+        reset_input_states();
+        if (selected.has_value()) {
+            auto res = scene_mgr->load(*selected, LoadMode::SINGLE);
+            if (res == INVALID_SCENE_INSTANCE) {
+                ui::dialog::alert("Load Failed", "Failed to load scene:\n" + selected->filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
+            }
+        }
+    };
+
     ui::menubar([&]() {
-        ui::menu("Project", [&]() {
-            ui::menu_item("New", [&]() {});
-            ui::menu_item("Load", "Ctrl+O", [&]() {});
-            ui::menu_item("Save", "Ctrl+S", [&]() {});
+        ui::menu("Scene", [&]() {
+            ui::menu_item("New Scene", "Ctrl+N", [&]() {
+                trigger_new_scene();
+            });
+
+            ui::menu_item("Open Scene...", "Ctrl+O", [&]() {
+                do_open_scene();
+            });
+
+            ui::menu_item("Save Scene", "Ctrl+S", [&]() {
+                do_save_scene();
+            });
+
+            ui::menu_item("Save Scene As...", "Ctrl+Shift+S", [&]() {
+                do_save_scene_as();
+            });
+
+            ui::separator();
+
+            ui::menu_item("Load Additive...", [&]() {
+                if (scene_mgr) {
+                    ui::dialog::Options opts;
+                    opts.title    = "Load Scene Additive";
+                    opts.filters  = {{"Lyra Scene (*.scene)", "*.scene"}};
+                    auto selected = ui::dialog::open_file(opts);
+                    reset_input_states();
+                    if (selected.has_value()) {
+                        auto res = scene_mgr->load(*selected, LoadMode::ADDITIVE);
+                        if (res == INVALID_SCENE_INSTANCE) {
+                            ui::dialog::alert("Load Failed", "Failed to load scene additively:\n" + selected->filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
+                        }
+                    }
+                }
+            });
         });
 
-        if (auto ams_ptr = blackboard.try_get<AssetServer*>()) {
-            auto ams = *ams_ptr;
+        if (auto* ams = context.toolboard.try_get<AssetServer>()) {
             ui::menu("Assets", [&]() {
                 ui::menu_item("Reimport All (Force)", [&]() {
                     ams->reimport_all(true);
@@ -51,18 +168,67 @@ static void imgui_update(Blackboard& blackboard)
         }
     });
 
-    lyra::execute_once([&]() {
-        ui::workspace::dock("Dear ImGui Demo", ui::Area::Main);
-    });
+    // keyboard shortcuts
+    if (!ui::is_text_input_active() && scene_mgr) {
+        bool ctrl  = ui::is_key_down(KeyButton::CTRL);
+        bool shift = ui::is_key_down(KeyButton::SHIFT);
 
-    ImGui::ShowDemoWindow();
+        if (ctrl && !shift && ui::is_key_pressed(KeyButton::N)) {
+            reset_input_states();
+            trigger_new_scene();
+        } else if (ctrl && !shift && ui::is_key_pressed(KeyButton::O)) {
+            reset_input_states();
+            do_open_scene();
+        } else if (ctrl && !shift && ui::is_key_pressed(KeyButton::S)) {
+            reset_input_states();
+            do_save_scene();
+        } else if (ctrl && shift && ui::is_key_pressed(KeyButton::S)) {
+            reset_input_states();
+            do_save_scene_as();
+        }
+    }
+
+    if (open_new_scene_modal) {
+        ui::open_modal(LYRA_ICON_SCENE " New Scene");
+        open_new_scene_modal = false;
+    }
+
+    if (show_new_scene_modal) {
+        ui::modal(LYRA_ICON_SCENE " New Scene", &show_new_scene_modal, [&]() {
+            ui::label("Enter scene name:");
+            ui::text_field("##new_scene_name", new_scene_name, sizeof(new_scene_name), [&]() {
+                if (new_scene_name[0] != '\0' && scene_mgr) {
+                    scene_mgr->create(new_scene_name);
+                }
+                show_new_scene_modal = false;
+                ui::close_modal();
+            });
+
+            ui::separator();
+
+            ui::row(ui::Alignment::End, [&]() {
+                ui::button("Cancel", [&]() {
+                    show_new_scene_modal = false;
+                    ui::close_modal();
+                });
+
+                ui::button("Create", [&]() {
+                    if (new_scene_name[0] != '\0' && scene_mgr) {
+                        scene_mgr->create(new_scene_name);
+                    }
+                    show_new_scene_modal = false;
+                    ui::close_modal();
+                }, ui::ButtonRole::Primary);
+            });
+        });
+    }
 }
 
-static void imgui_render(Blackboard& blackboard)
+static void imgui_render(AppContext& context)
 {
-    auto device   = blackboard.get<GPUDevice*>();
-    auto surface  = blackboard.get<GPUSurface*>();
-    auto renderer = blackboard.get<GUIRenderer*>();
+    auto device   = context.toolboard.get<GPUDevice*>();
+    auto surface  = context.toolboard.get<GPUSurface*>();
+    auto renderer = context.toolboard.get<GUIRenderer*>();
 
     // command buffer
     auto command = lyra::execute([&]() {
@@ -79,7 +245,7 @@ static void imgui_render(Blackboard& blackboard)
     command.signal(backbuffer.complete, GPUBarrierSync::RENDER_TARGET);
 
     // render scene command encoding
-    render_scene(blackboard, command);
+    render_scene(context, command);
 
     // render UI command recording
     command.resource_barrier(state_transition(backbuffer.texture, undefined_state(), color_attachment_state()));
@@ -156,7 +322,7 @@ int main(int argc, const char* argv[])
         auto loader = std::make_unique<FileLoader>(FSLoader::NATIVE);
         loader->mount("/", caches_root, 1);
         loader->mount("/", assets_root, 0);
-        app->get_blackboard().add<FileLoader*>(loader.get());
+        app->get_toolboard().add<FileLoader*>(loader.get());
         return loader;
     });
 
@@ -169,12 +335,11 @@ int main(int argc, const char* argv[])
         desc.loader.caches        = file_loader.get();
         desc.registry             = registry.c_str();
         desc.watch                = true;
-        desc.workers              = 4;
 
         auto layer = std::make_unique<AssetLayer>(desc);
         app->bind(*layer);
 
-        auto ams = app->get_blackboard().get<AssetServer*>();
+        auto ams = app->get_toolboard().get<AssetServer*>();
 
         // register assets loaders
         ams->register_asset<TextAsset>();
@@ -207,6 +372,13 @@ int main(int argc, const char* argv[])
         return std::move(layer);
     });
 
+    // input layer
+    auto input = lyra::execute([&]() {
+        auto layer = std::make_unique<InputLayer>();
+        app->bind(*layer);
+        return std::move(layer);
+    });
+
     // render layer (owns GPU deletion queue + camera ECS systems)
     auto render = lyra::execute([&]() {
         auto layer = std::make_unique<RenderLayer>();
@@ -221,17 +393,27 @@ int main(int argc, const char* argv[])
         return std::move(layer);
     });
 
-    // imgui layer
-    auto imgui = lyra::execute([&]() {
+    // script layer
+    auto scripting = lyra::execute([&]() {
+        auto layer = std::make_unique<ScriptLayer>();
+        layer->set_simulation_state(SimulationState::EDIT);
+        layer->register_api(scripts::components::create());
+        layer->register_api(scripts::camera_control::create());
+        app->bind(*layer);
+        return std::move(layer);
+    });
+
+    // ui layer
+    auto uilayer = lyra::execute([&]() {
         auto desc      = GUIDescriptor{};
-        desc.window    = *app->get_blackboard().get<Window*>();
-        desc.surface   = *app->get_blackboard().get<GPUSurface*>();
-        desc.compiler  = *app->get_blackboard().get<Compiler*>();
+        desc.window    = *app->get_toolboard().get<Window*>();
+        desc.surface   = *app->get_toolboard().get<GPUSurface*>();
+        desc.compiler  = *app->get_toolboard().get<Compiler*>();
         desc.docking   = true;
         desc.viewports = false;
 
-        auto layer = std::make_unique<ImGuiLayer>(desc);
-        layer->apply_context(); // imgui context in user application
+        auto layer = std::make_unique<UILayer>(desc);
+        layer->apply_context(); // ui context in user application
         app->bind(*layer);
         return std::move(layer);
     });
@@ -268,6 +450,22 @@ int main(int argc, const char* argv[])
     // editor components (scene)
     auto sceneview = std::make_unique<SceneView>();
     app->bind<SceneView>(*sceneview);
+
+    // configure input consumption filter
+    input->set_filter_provider([&sceneview = *sceneview]() -> InputFilter {
+        InputFilter filter{};
+        // if modal is active or text input is active, block everything
+        if (ui::is_modal_active() || ui::is_text_input_active()) {
+            filter.block_mouse    = true;
+            filter.block_keyboard = true;
+            return filter;
+        }
+
+        // selective mouse and keyboard gating based on scene view state
+        filter.block_mouse    = !sceneview.is_mouse_nav_active();
+        filter.block_keyboard = !sceneview.is_keyboard_nav_active();
+        return filter;
+    });
 
     // renderer (temporary solution)
     auto renderer = std::make_unique<SampleCubeRenderer>();

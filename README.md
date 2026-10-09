@@ -8,11 +8,11 @@ have limited time for this project after work, so please do expect slower respon
 
 ## Design
 
-For more details in project design and development, please refer to `Devlogs` directory.
+For more details in project design and development, please refer to `Docs` directory.
 
-* [Overview](Devlogs/Overview.md)
-* [RHI Design & Implementation](Devlogs/RHI.md)
-* [Asset Management System](Devlogs/Assets.md)
+* [Overview](Docs/Overview.md)
+* [RHI Design & Implementation](Docs/RHI.md)
+* [Asset Management System](Docs/Assets.md)
 
 ## Build
 

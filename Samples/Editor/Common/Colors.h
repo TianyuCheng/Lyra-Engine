@@ -3,7 +3,7 @@
 #ifndef LYRA_EDITOR_COMMON_COLORS_H
 #define LYRA_EDITOR_COMMON_COLORS_H
 
-#include <Lyra/Common/Math.h>
+#include <Lyra/Utilities/Math.h>
 
 #define LYRA_COLOR_TRACE    lyra::Vector4(0.6f, 0.6f, 0.6f, 1.0f)     // light gray
 #define LYRA_COLOR_DEBUG    lyra::Vector4(0.3f, 0.7f, 1.0f, 1.0f)     // cyan-ish
