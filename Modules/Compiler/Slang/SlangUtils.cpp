@@ -354,8 +354,12 @@ static String preprocess_lyra_shader_source(const String& input, CompileTarget t
                 return attr + " " + decl + " : register(b0, space" + std::to_string(D3D12_ImmediateRegisterSpace) + ");";
             }
         } else if (target == CompileTarget::MSL) {
+            String prefix = "";
+            if (decl.find("vk::push_constant") == String::npos && attr.find("vk::push_constant") == String::npos) {
+                prefix = "[[vk::push_constant]] ";
+            }
             if (decl.find("register") == String::npos && decl.find("IMMEDIATES") == String::npos) {
-                return attr + " " + decl + " : register(b" + std::to_string(METAL_ImmediateBufferIndex) + ", space" + std::to_string(METAL_ImmediateBufferIndex) + ");";
+                return prefix + attr + " " + decl + " : register(b" + std::to_string(METAL_ImmediateBufferIndex) + ", space" + std::to_string(METAL_ImmediateBufferIndex) + ");";
             }
         }
         return m[0].str();

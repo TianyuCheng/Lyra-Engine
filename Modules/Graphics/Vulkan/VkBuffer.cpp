@@ -28,7 +28,12 @@ VulkanBuffer::VulkanBuffer(const GPUBufferDescriptor& desc, VkBufferUsageFlags a
 
     bool dedicate_memory = true;
 
+    bool host_access = desc.mapped_at_creation ||
+                       desc.usage.contains(GPUBufferUsage::MAP_READ) ||
+                       desc.usage.contains(GPUBufferUsage::MAP_WRITE);
+
     if (desc.mapped_at_creation) {
+        alloc_create_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
         alloc_create_info.flags |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
         alloc_create_info.flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
         dedicate_memory = false;
@@ -47,7 +52,9 @@ VulkanBuffer::VulkanBuffer(const GPUBufferDescriptor& desc, VkBufferUsageFlags a
     }
 
     if (desc.usage.contains(GPUBufferUsage::UNIFORM)) {
-        alloc_create_info.flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT;
+        if (!host_access) {
+            alloc_create_info.flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT;
+        }
         alloc_create_info.flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
         dedicate_memory = false;
     }
