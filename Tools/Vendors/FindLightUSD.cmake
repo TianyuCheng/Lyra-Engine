@@ -7,6 +7,8 @@ FetchContent_Declare(
   GIT_TAG        v0.9.1
 )
 
+set(TINYUSDZ_CXX_EXCEPTIONS ON CACHE BOOL "" FORCE)
+set(TINYUSDZ_NO_WERROR ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(lightusd)
 
 if (TARGET tinyusdz_static)

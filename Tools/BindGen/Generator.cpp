@@ -362,12 +362,13 @@ std::string Generator::generate(const ModuleReflection& module, const std::strin
                 ss << indent << "ui::vec3(\"" << label << "\", " << field.name << "_euler, [&]() {\n";
                 ss << indent << "    component." << field.name << " = Quaternion(glm::radians(" << field.name << "_euler));\n";
                 ss << indent << "});\n";
-            } else {
-                ss << indent << "if constexpr (std::is_enum_v<std::decay_t<decltype(component." << field.name << ")>>) {\n";
-                ss << indent << "    ui::enumeration(\"" << label << "\", component." << field.name << ");\n";
-                ss << indent << "} else if constexpr (requires { component." << field.name << ".valid(); }) {\n";
-                ss << indent << "    ui::label(component." << field.name << ".valid() ? \"" << label << ": Bound\" : \"" << label << ": None\");\n";
-                ss << indent << "}\n";
+                ss << indent << "[&](auto& val) {\n";
+                ss << indent << "    if constexpr (std::is_enum_v<std::decay_t<decltype(val)>>) {\n";
+                ss << indent << "        ui::enumeration(\"" << label << "\", val);\n";
+                ss << indent << "    } else if constexpr (requires { val.valid(); }) {\n";
+                ss << indent << "        ui::label(val.valid() ? \"" << label << ": Bound\" : \"" << label << ": None\");\n";
+                ss << indent << "    }\n";
+                ss << indent << "}(component." << field.name << ");\n";
             }
 
             if (!field.condition.empty()) {

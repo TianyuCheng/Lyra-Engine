@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import shlex
+import shutil
 import argparse
 import subprocess
 from pathlib import Path
@@ -11,6 +12,36 @@ from dataclasses import dataclass, asdict
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 BUILD_DIR = PROJECT_ROOT / "Scratch"
+
+def ensure_windows_msvc_env():
+    if sys.platform != "win32":
+        return
+    if shutil.which("cl.exe"):
+        return
+    vswhere = os.path.expandvars(r"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe")
+    if not os.path.exists(vswhere):
+        print(">>> Warning: Visual Studio Installer (vswhere.exe) not found. Cannot locate MSVC environment.")
+        return
+    try:
+        proc = subprocess.run([vswhere, "-latest", "-property", "installationPath"], capture_output=True, text=True, check=True)
+        vs_path = proc.stdout.strip()
+        if not vs_path:
+            print(">>> Warning: No Visual Studio installation found. Please install Visual Studio with 'Desktop development with C++'.")
+            return
+        vcvars = os.path.join(vs_path, "VC", "Auxiliary", "Build", "vcvars64.bat")
+        if not os.path.exists(vcvars):
+            print(f">>> Warning: MSVC x64 toolset not found at '{vcvars}'. Ensure the 'MSVC v143 - VS 2022 C++ x64/x86 build tools' component is installed.")
+            return
+        proc = subprocess.run(["cmd.exe", "/c", vcvars, "&", "set"], capture_output=True, text=True, check=True)
+        for line in proc.stdout.splitlines():
+            if "=" in line and not line.startswith("="):
+                k, v = line.split("=", 1)
+                os.environ[k] = v
+        print(f">>> Initialized MSVC environment from: {vs_path}")
+    except Exception as e:
+        print(f">>> Warning: Failed to initialize MSVC environment: {e}")
+
+ensure_windows_msvc_env()
 
 # This is the project that editor/player will load by default.
 LYRA_DEFAULT_PROJECT = BUILD_DIR / "project"
@@ -51,6 +82,8 @@ def execute(args, env_vars={}, **kwargs):
     print(f">>> {shlex.join(args)}")
     environ = deepcopy(os.environ)
     environ.update(env_vars)
+    if "env" not in kwargs:
+        kwargs["env"] = environ
     proc = subprocess.run(args, **kwargs)
     return proc
 

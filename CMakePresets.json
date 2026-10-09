@@ -15,7 +15,11 @@
       "name": "ninja",
       "inherits": "base",
       "displayName": "Ninja",
-      "generator": "Ninja Multi-Config"
+      "generator": "Ninja Multi-Config",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      }
     },
     {
       "name": "msvc",

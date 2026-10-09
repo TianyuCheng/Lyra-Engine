@@ -2,7 +2,7 @@
 # RHI Tests (Requires GPU device, generates/verifies image output)
 # ==============================================================================
 lyra_sample(rhi-tests)
-find_package(stb REQUIRED)
+find_package(Stb REQUIRED)
 find_package(doctest REQUIRED)
 
 target_sources(lyra-rhi-tests PRIVATE
