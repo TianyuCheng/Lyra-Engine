@@ -73,7 +73,8 @@ static FilePackerAPI* create_file_packer_api(FSPacker packer)
 FileLoader::FileLoader(FSLoader loader)
 {
     api_ = create_file_loader_api(loader);
-    assert(api_->create_loader(this->loader));
+    [[maybe_unused]] bool ok = api_->create_loader(this->loader);
+    assert(ok);
 }
 
 FileLoader::FileLoader(FileLoaderAPI* api, FileLoaderHandle loader)
@@ -101,7 +102,8 @@ size_t FileLoader::size(FSPath vpath) const
 FileHandle FileLoader::open(FSPath vpath) const
 {
     FileHandle file;
-    assert(api_->open_file(loader, file, vpath));
+    [[maybe_unused]] bool ok = api_->open_file(loader, file, vpath);
+    assert(ok);
     return file;
 }
 
@@ -113,26 +115,30 @@ void FileLoader::close(FileHandle file) const
 size_t FileLoader::read(FileHandle file, void* buffer, size_t size) const
 {
     size_t read = 0;
-    assert(api_->read_file(loader, file, buffer, size, read));
+    [[maybe_unused]] bool ok = api_->read_file(loader, file, buffer, size, read);
+    assert(ok);
     return read;
 }
 
 void FileLoader::seek(FileHandle file, int64_t offset) const
 {
-    assert(api_->seek_file(loader, file, offset));
+    [[maybe_unused]] bool ok = api_->seek_file(loader, file, offset);
+    assert(ok);
 }
 
 MountHandle FileLoader::mount(FSPath vpath, const Path& path, uint priority) const
 {
     MountHandle mount;
-    assert(api_->mount(loader, mount, vpath, path.c_str(), priority));
+    [[maybe_unused]] bool ok = api_->mount(loader, mount, vpath, path.c_str(), priority);
+    assert(ok);
     return mount;
 }
 
 MountHandle FileLoader::mount(FSPath vpath, OSPath path, uint priority) const
 {
     MountHandle mount;
-    assert(api_->mount(loader, mount, vpath, path, priority));
+    [[maybe_unused]] bool ok = api_->mount(loader, mount, vpath, path, priority);
+    assert(ok);
     return mount;
 }
 
@@ -146,7 +152,8 @@ void FileLoader::unmount(MountHandle mount) const
 FilePacker::FilePacker(FSPacker packer, OSPath path)
 {
     api_ = create_file_packer_api(packer);
-    assert(api_->create_packer(this->packer, path));
+    [[maybe_unused]] bool ok = api_->create_packer(this->packer, path);
+    assert(ok);
 }
 
 FilePacker::FilePacker(FilePackerAPI* api, FilePackerHandle packer)

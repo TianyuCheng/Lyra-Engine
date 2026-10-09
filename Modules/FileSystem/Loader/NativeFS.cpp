@@ -83,7 +83,7 @@ static bool sort_mount_points(NativeMount* a, NativeMount* b)
 static Vector<fs::path> resolve_read_paths(NativeFSLoader* loader, FSPath cpath)
 {
     Vector<fs::path> out;
-    if (!cpath) return out;
+    if (!cpath || !loader) return out;
 
     String path(cpath);
     if (path.empty()) return out;
