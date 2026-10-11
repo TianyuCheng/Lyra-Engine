@@ -75,7 +75,7 @@ namespace
                 return;
             }
 
-            for (size_t i = 0; i < matched_systems.size(); ++i) {
+            for (usize i = 0; i < matched_systems.size(); ++i) {
                 if (i > 0) {
                     ui::separator();
                 }

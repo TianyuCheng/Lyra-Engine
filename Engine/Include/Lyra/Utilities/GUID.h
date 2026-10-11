@@ -32,9 +32,9 @@ namespace lyra
 
         uint64_t hash = FNV_OFFSET_BASIS;
 
-        auto hash_bytes = [&](const void* data, size_t len) {
+        auto hash_bytes = [&](const void* data, usize len) {
             const auto* bytes = static_cast<const uint8_t*>(data);
-            for (size_t i = 0; i < len; ++i) {
+            for (usize i = 0; i < len; ++i) {
                 hash ^= bytes[i];
                 hash *= FNV_PRIME;
             }

@@ -43,7 +43,7 @@ namespace lyra
         void show_rename_dialog();
         void show_delete_dialog(AppContext& context);
         void show_import_indicator();
-        void show_input_modal(CString title, bool* p_open, CString prompt, char* buffer, size_t buffer_size, CString action_label, FunctionRef<void(StringView)> on_submit);
+        void show_input_modal(CString title, bool* p_open, CString prompt, char* buffer, usize buffer_size, CString action_label, FunctionRef<void(StringView)> on_submit);
 
         // actions
         void action_create_scene(StringView name);
@@ -90,7 +90,7 @@ namespace lyra
 
         static auto upload_rgba_textures(Vector<TextureUploadEntry>& entries, GUIRenderer* gui)
             -> Vector<std::pair<String, ThumbnailTexture>>;
-        static auto create_texture_from_memory(const void* data, size_t size, GUIRenderer* gui) -> ThumbnailTexture;
+        static auto create_texture_from_memory(const void* data, usize size, GUIRenderer* gui) -> ThumbnailTexture;
 
     private:
         Path         root;

@@ -194,15 +194,15 @@ void FrameGraph::compile()
 
     struct PhysicalLifetime
     {
-        size_t first_idx  = ~0ull;
-        size_t last_idx   = 0;
-        uint   first_pass = ~0u;
-        uint   last_pass  = ~0u;
-        bool   has_access = false;
+        usize first_idx  = ~0ull;
+        usize last_idx   = 0;
+        uint  first_pass = ~0u;
+        uint  last_pass  = ~0u;
+        bool  has_access = false;
     };
 
     Vector<PhysicalLifetime> physical_lifetimes(physical_resources.size());
-    for (size_t i = 0; i < execution_order.size(); ++i) {
+    for (usize i = 0; i < execution_order.size(); ++i) {
         uint  psid = execution_order[i];
         auto& pass = passes.at(psid);
 
@@ -229,7 +229,7 @@ void FrameGraph::compile()
             update_physical(write.resource.id);
     }
 
-    for (size_t pid = 0; pid < physical_lifetimes.size(); ++pid) {
+    for (usize pid = 0; pid < physical_lifetimes.size(); ++pid) {
         auto& lt = physical_lifetimes[pid];
         if (lt.has_access && physical_resources.at(pid)->type == FrameGraphResourceType::TRANSIENT) {
             passes.at(lt.first_pass).creates.push_back(static_cast<uint>(pid));

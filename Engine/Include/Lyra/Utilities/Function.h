@@ -9,6 +9,7 @@
 #include <absl/functional/function_ref.h>
 #include <absl/functional/any_invocable.h>
 #include <Lyra/Utilities/Macros.h>
+#include <Lyra/Utilities/Stdint.h>
 
 namespace lyra
 {
@@ -46,9 +47,9 @@ namespace lyra
     template <typename R, typename... Args>
     struct function_traits<R (*)(Args...)>
     {
-        static constexpr std::size_t arity = sizeof...(Args);
-        using return_type                  = R;
-        template <std::size_t N>
+        static constexpr usize arity = sizeof...(Args);
+        using return_type            = R;
+        template <usize N>
         using arg_type = typename std::tuple_element<N, std::tuple<Args...>>::type;
     };
 
@@ -56,10 +57,10 @@ namespace lyra
     template <typename Class, typename R, typename... Args>
     struct function_traits<R (Class::*)(Args...)>
     {
-        static constexpr std::size_t arity = sizeof...(Args);
-        using return_type                  = R;
-        using class_type                   = Class;
-        template <std::size_t N>
+        static constexpr usize arity = sizeof...(Args);
+        using return_type            = R;
+        using class_type             = Class;
+        template <usize N>
         using arg_type = typename std::tuple_element<N, std::tuple<Args...>>::type;
     };
 
@@ -67,10 +68,10 @@ namespace lyra
     template <typename Class, typename R, typename... Args>
     struct function_traits<R (Class::*)(Args...) const>
     {
-        static constexpr std::size_t arity = sizeof...(Args);
-        using return_type                  = R;
-        using class_type                   = Class;
-        template <std::size_t N>
+        static constexpr usize arity = sizeof...(Args);
+        using return_type            = R;
+        using class_type             = Class;
+        template <usize N>
         using arg_type = typename std::tuple_element<N, std::tuple<Args...>>::type;
     };
 

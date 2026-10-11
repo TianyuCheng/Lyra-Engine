@@ -24,9 +24,9 @@ struct ChunkHeader
 struct MeshReader
 {
     const Vector<uint8_t>& content;
-    size_t&                offset;
+    usize&                 offset;
 
-    bool read_raw(void* dest, size_t size)
+    bool read_raw(void* dest, usize size)
     {
         if (offset + size > content.size()) return false;
         memcpy(dest, content.data() + offset, size);
@@ -128,7 +128,7 @@ static void* load_mesh_asset(FileLoader* loader, FSPath path)
         return nullptr;
     }
 
-    size_t     offset = 0;
+    usize      offset = 0;
     MeshReader reader{content, offset};
 
     // header: magic + version
@@ -152,8 +152,8 @@ static void* load_mesh_asset(FileLoader* loader, FSPath path)
         ChunkHeader chunk;
         if (!reader.read(chunk)) break;
 
-        size_t next_chunk_offset = offset + chunk.size;
-        bool   success           = true;
+        usize next_chunk_offset = offset + chunk.size;
+        bool  success           = true;
 
         if (chunk.type == MeshAsset::CHUNK_BBOX) {
             success = read_bbox_chunk(reader, asset);
@@ -195,7 +195,7 @@ static bool save_mesh_asset(const void* raw_asset, OSPath path)
     std::ofstream file(path, std::ios::binary);
     if (!file.is_open()) return false;
 
-    auto write_raw = [&](const void* data, size_t size) {
+    auto write_raw = [&](const void* data, usize size) {
         file.write(reinterpret_cast<const char*>(data), size);
     };
 

@@ -197,7 +197,7 @@ struct D3D12Buffer
     void unmap();
     bool mapped() const { return mapped_data != nullptr; }
     void destroy();
-    auto size() const -> size_t { return size_; }
+    auto size() const -> usize { return size_; }
 
     bool valid() const { return buffer != nullptr; }
 

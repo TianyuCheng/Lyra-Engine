@@ -11,7 +11,7 @@ static void* load_toml_asset(FileLoader* loader, FSPath path)
     if (content.empty()) {
         return new TomlAsset{};
     }
-    size_t size = content.size();
+    usize size = content.size();
     if (content.back() == '\0') {
         size--;
     }

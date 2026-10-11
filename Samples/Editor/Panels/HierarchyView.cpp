@@ -48,7 +48,7 @@ struct NodeRenderContext
     Entity&               entity_to_duplicate;
     Entity&               entity_to_rename;
     char*                 rename_buffer;
-    size_t                rename_buffer_size;
+    usize                 rename_buffer_size;
     bool&                 open_rename_modal;
     bool&                 show_rename_modal;
     Entity&               entity_to_delete_children;
@@ -268,7 +268,7 @@ static void render_node(
     };
 
     auto handle_drop = [&]() {
-        ui::drag_drop_target("LYRA_ASSET_MODEL", [&](const void* data, size_t) {
+        ui::drag_drop_target("LYRA_ASSET_MODEL", [&](const void* data, usize) {
             CString path_cstr = static_cast<CString>(data);
             auto*   ams       = ctx.context.toolboard.try_get<AssetServer*>();
             if (ams && ctx.scene_mgr) {
@@ -423,7 +423,7 @@ void HierarchyView::update(AppContext& context)
                 Vector2 avail = ui::get_available_space();
                 if (avail.x > 10.0f && avail.y > 10.0f) {
                     ui::invisible_button("##hierarchy_empty_space", avail);
-                    ui::drag_drop_target("LYRA_ASSET_MODEL", [&](const void* data, size_t) {
+                    ui::drag_drop_target("LYRA_ASSET_MODEL", [&](const void* data, usize) {
                         CString path_cstr = static_cast<CString>(data);
                         auto*   ams       = context.toolboard.try_get<AssetServer*>();
                         if (ams && scene_mgr) {

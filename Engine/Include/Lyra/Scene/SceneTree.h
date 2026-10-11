@@ -85,7 +85,7 @@ namespace lyra
         /**
          * @brief helper to retrieve total number of nodes in the scene.
          */
-        FORCE_INLINE std::size_t size() const { return nodes.size(); }
+        FORCE_INLINE usize size() const { return nodes.size(); }
 
     private:
         // incremental update helpers

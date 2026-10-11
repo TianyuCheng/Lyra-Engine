@@ -892,7 +892,7 @@ void cmd::build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
         // map staging buffer and copy instance data
         D3D12_RAYTRACING_INSTANCE_DESC* instance_descs = tlas.staging.map<D3D12_RAYTRACING_INSTANCE_DESC>();
 
-        for (size_t i = 0; i < entry.instances.size(); ++i) {
+        for (usize i = 0; i < entry.instances.size(); ++i) {
             auto& src = entry.instances[i];
             auto& dst = instance_descs[i];
 
@@ -972,7 +972,7 @@ void cmd::build_blases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
                 get_logger()->error("trying to build more geometries than bvh could hold!");
             }
 
-            uint geometry_count = static_cast<uint>(std::min((size_t)entry.geometries.triangles.size(), blas.geometries.size()));
+            uint geometry_count = static_cast<uint>(std::min((usize)entry.geometries.triangles.size(), blas.geometries.size()));
             for (uint k = 0; k < geometry_count; k++) {
                 auto& src = entry.geometries.triangles.at(k);
                 auto& dst = blas.geometries.at(k);

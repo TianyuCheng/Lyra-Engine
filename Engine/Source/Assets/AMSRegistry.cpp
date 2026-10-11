@@ -87,7 +87,7 @@ bool AssetRegistry::load_binary(const OSPath& bin_path)
     std::ifstream f(bin_path, std::ios::binary | std::ios::ate);
     if (!f.good()) return false;
 
-    size_t size = f.tellg();
+    usize size = static_cast<usize>(f.tellg());
     f.seekg(0, std::ios::beg);
 
     Vector<char> data(size);

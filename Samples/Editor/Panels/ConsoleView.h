@@ -11,7 +11,7 @@ namespace lyra
     struct ConsoleView
     {
     public:
-        explicit ConsoleView(size_t capacity);
+        explicit ConsoleView(usize capacity);
 
         void bind(Application& app);
 

@@ -196,7 +196,7 @@ void lyra::ui::checkbox(CString label, bool is_checked)
     ImGui::Checkbox(label, &val);
 }
 
-void lyra::ui::search_bar(char* buffer, size_t buffer_size, float width, CString hint)
+void lyra::ui::search_bar(char* buffer, usize buffer_size, float width, CString hint)
 {
     internal::advance_layout_item();
     if (width > 0.0f) {
@@ -208,7 +208,7 @@ void lyra::ui::search_bar(char* buffer, size_t buffer_size, float width, CString
     ImGui::InputTextWithHint("##LyraSearch", hint_str, buffer, buffer_size);
 }
 
-void lyra::ui::search_bar(char* buffer, size_t buffer_size, ChangeRef<StringView> on_search, float width, CString hint)
+void lyra::ui::search_bar(char* buffer, usize buffer_size, ChangeRef<StringView> on_search, float width, CString hint)
 {
     internal::advance_layout_item();
     if (width > 0.0f) {
@@ -222,7 +222,7 @@ void lyra::ui::search_bar(char* buffer, size_t buffer_size, ChangeRef<StringView
     }
 }
 
-void lyra::ui::text_field(CString id, char* buffer, size_t buffer_size)
+void lyra::ui::text_field(CString id, char* buffer, usize buffer_size)
 {
     internal::advance_layout_item();
     ImGui::PushID(id);
@@ -231,7 +231,7 @@ void lyra::ui::text_field(CString id, char* buffer, size_t buffer_size)
     ImGui::PopID();
 }
 
-void lyra::ui::text_field(CString id, char* buffer, size_t buffer_size, ActionRef on_commit)
+void lyra::ui::text_field(CString id, char* buffer, usize buffer_size, ActionRef on_commit)
 {
     internal::advance_layout_item();
     ImGui::PushID(id);
@@ -504,7 +504,7 @@ void lyra::ui::card(CString id, GUITextureHandle image, Vector2 image_size, CStr
 // 6. Navigation & Breadcrumbs
 // =============================================================================
 
-void lyra::ui::breadcrumb(const BreadcrumbItem* items, size_t count)
+void lyra::ui::breadcrumb(const BreadcrumbItem* items, usize count)
 {
     if (!items || count == 0) return;
 
@@ -524,7 +524,7 @@ void lyra::ui::breadcrumb(const BreadcrumbItem* items, size_t count)
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 1.0f, 1.0f, 0.09f));
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1.0f, 1.0f, 1.0f, 0.16f));
 
-    for (size_t i = 0; i < count; ++i) {
+    for (usize i = 0; i < count; ++i) {
         if (i > 0) {
             ImGui::SameLine(0.0f, 2.0f);
             ImGui::AlignTextToFramePadding();

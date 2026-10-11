@@ -24,7 +24,7 @@ namespace lyra
 
     struct MouseState
     {
-        static constexpr size_t COUNT = enum_count_v<MouseButton>;
+        static constexpr usize COUNT = enum_count_v<MouseButton>;
 
         MouseMoveEvent            position;
         MouseWheelEvent           scroll;
@@ -33,7 +33,7 @@ namespace lyra
 
     struct KeyboardState
     {
-        static constexpr size_t COUNT = enum_count_v<KeyButton>;
+        static constexpr usize COUNT = enum_count_v<KeyButton>;
 
         Array<ButtonState, COUNT> status;
     };

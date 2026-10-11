@@ -92,12 +92,12 @@ namespace lyra
         /**
          * @brief Number of distinct cached meshes.
          */
-        size_t size() const { return cache.size(); }
+        usize size() const { return cache.size(); }
 
         /**
          * @brief Total count of active references across all cached meshes.
          */
-        size_t total_references() const;
+        usize total_references() const;
 
     private:
         auto upload_lod(const MeshLOD& lod, uint lod_index) -> GPUMeshLOD;

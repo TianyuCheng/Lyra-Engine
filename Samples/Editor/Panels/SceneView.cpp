@@ -79,7 +79,7 @@ void SceneView::update(AppContext& context)
         canvas.update(context);
         bool canvas_interacted = canvas.display();
 
-        ui::drag_drop_target("LYRA_ASSET_MODEL", [&](const void* data, size_t) {
+        ui::drag_drop_target("LYRA_ASSET_MODEL", [&](const void* data, usize) {
             auto path_cstr = static_cast<CString>(data);
             auto ams       = context.toolboard.try_get<AssetServer*>();
             if (ams && scene_mgr) {
@@ -112,7 +112,7 @@ void SceneView::update(AppContext& context)
             }
         });
 
-        ui::drag_drop_target("LYRA_ASSET_SCENE", [&](const void* data, size_t) {
+        ui::drag_drop_target("LYRA_ASSET_SCENE", [&](const void* data, usize) {
             auto path_cstr = static_cast<CString>(data);
             auto scene_mgr = context.toolboard.try_get<SceneManager*>();
             if (scene_mgr) {

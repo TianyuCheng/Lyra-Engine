@@ -2,6 +2,7 @@
 #define LYRA_MODULE_GRAPHICS_D3D12_BLOCK_ALLOCATOR_H
 
 #include <Lyra/Utilities/Collections.h>
+#include <Lyra/Utilities/Stdint.h>
 #include <limits>
 #include <cstddef>
 
@@ -18,7 +19,7 @@ class BlockAllocator;
 class AllocationHandle
 {
 public:
-    static constexpr size_t invalid_offset = std::numeric_limits<size_t>::max();
+    static constexpr lyra::usize invalid_offset = std::numeric_limits<lyra::usize>::max();
 
     // constructs an invalid handle.
     AllocationHandle() : offset(invalid_offset) {}
@@ -33,8 +34,8 @@ public:
     auto get_offset() const { return offset; }
 
 private:
-    explicit AllocationHandle(size_t o) : offset(o) {}
-    size_t offset;
+    explicit AllocationHandle(lyra::usize o) : offset(o) {}
+    lyra::usize offset;
 
     template <typename T>
     friend class BlockAllocator;
@@ -56,9 +57,9 @@ template <typename T = std::byte>
 class BlockAllocator
 {
 private:
-    size_t                        m_capacity;
-    lyra::TreeMap<size_t, size_t> m_free_blocks;      // offset -> size
-    lyra::TreeMap<size_t, size_t> m_allocated_blocks; // offset -> size
+    lyra::usize                              m_capacity;
+    lyra::TreeMap<lyra::usize, lyra::usize> m_free_blocks;      // offset -> size
+    lyra::TreeMap<lyra::usize, lyra::usize> m_allocated_blocks; // offset -> size
 
 public:
     /**
@@ -66,7 +67,7 @@ public:
      * @param capacity the total number of bytes in the virtual memory pool.
      */
     explicit BlockAllocator() { init(0); }
-    explicit BlockAllocator(size_t capacity)
+    explicit BlockAllocator(lyra::usize capacity)
     {
         init(capacity);
     }
@@ -78,7 +79,7 @@ public:
     BlockAllocator(BlockAllocator&&)                 = delete;
     BlockAllocator& operator=(BlockAllocator&&)      = delete;
 
-    void init(size_t capacity)
+    void init(lyra::usize capacity)
     {
         m_capacity = capacity;
         if (capacity > 0) {
@@ -91,23 +92,23 @@ public:
      * @param size the size of the memory to allocate in bytes.
      * @return an `allocationhandle` to the allocated block.
      */
-    AllocationHandle allocate(size_t size)
+    AllocationHandle allocate(lyra::usize size)
     {
         if (size == 0) {
             return AllocationHandle();
         }
 
-        const size_t alignment  = alignof(T);
-        const size_t total_size = (size + alignment - 1) & ~(alignment - 1);
+        const lyra::usize alignment  = alignof(T);
+        const lyra::usize total_size = (size + alignment - 1) & ~(alignment - 1);
 
         for (auto it = m_free_blocks.begin(); it != m_free_blocks.end(); ++it) {
             if (it->second >= total_size) {
-                size_t free_offset = it->first;
-                size_t free_size   = it->second;
+                lyra::usize free_offset = it->first;
+                lyra::usize free_size   = it->second;
 
                 m_free_blocks.erase(it);
 
-                size_t remaining_size = free_size - total_size;
+                lyra::usize remaining_size = free_size - total_size;
                 if (remaining_size > 0) {
                     m_free_blocks[free_offset + total_size] = remaining_size;
                 }
@@ -134,13 +135,13 @@ public:
         // trying to free something not allocated by us, or double free
         if (it == m_allocated_blocks.end()) return;
 
-        size_t block_offset = it->first;
-        size_t block_size   = it->second;
+        lyra::usize block_offset = it->first;
+        lyra::usize block_size   = it->second;
         m_allocated_blocks.erase(it);
 
         // add to free list and coalesce
-        size_t new_free_offset = block_offset;
-        size_t new_free_size   = block_size;
+        lyra::usize new_free_offset = block_offset;
+        lyra::usize new_free_size   = block_size;
 
         // coalesce with next block
         auto next_it = m_free_blocks.find(new_free_offset + new_free_size);

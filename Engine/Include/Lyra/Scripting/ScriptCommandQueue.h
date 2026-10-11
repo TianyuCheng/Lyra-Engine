@@ -70,7 +70,7 @@ namespace lyra
         /**
          * @brief Returns the count of pending commands.
          */
-        auto size() const -> size_t;
+        auto size() const -> usize;
 
         /**
          * @brief Returns true if there are no pending commands.

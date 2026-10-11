@@ -44,7 +44,7 @@ namespace lyra
         /**
          * @brief Get the number of selected items.
          */
-        size_t size() const { return items.size(); }
+        usize size() const { return items.size(); }
     };
 
 } // namespace lyra

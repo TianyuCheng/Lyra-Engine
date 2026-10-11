@@ -56,9 +56,9 @@ static bool process_dds(JSON& metadata, OSPath source_path, OSPath target_path)
             return false;
         }
 
-        for (size_t layer = 0; layer < tex.layers(); ++layer) {
-            for (size_t face = 0; face < tex.faces(); ++face) {
-                for (size_t level = 0; level < tex.levels(); ++level) {
+        for (usize layer = 0; layer < tex.layers(); ++layer) {
+            for (usize face = 0; face < tex.faces(); ++face) {
+                for (usize level = 0; level < tex.levels(); ++level) {
                     ktxTexture_SetImageFromMemory(ktxTexture(ktx_tex), static_cast<uint32_t>(level), static_cast<uint32_t>(layer), static_cast<uint32_t>(face),
                         static_cast<const ktx_uint8_t*>(tex.data(layer, face, level)), tex.size(level));
                 }

@@ -130,7 +130,7 @@ void VulkanSwapchain::recreate(bool force)
     }
 
     // clean up excess frames if any
-    for (size_t i = count; i < frames.size(); i++)
+    for (usize i = count; i < frames.size(); i++)
         frames.at(i).destroy();
 
     // create swapchain data

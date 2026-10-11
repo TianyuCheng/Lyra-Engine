@@ -73,7 +73,7 @@ namespace lyra::texture
         return true;
     }
 
-    inline bool encode_and_save_simple(JSON& metadata, void* pixels, int width, int height, size_t pixel_size, VkFormat format, OSPath caches_root, Logger logger)
+    inline bool encode_and_save_simple(JSON& metadata, void* pixels, int width, int height, usize pixel_size, VkFormat format, OSPath caches_root, Logger logger)
     {
         if (!pixels || width <= 0 || height <= 0) {
             logger->error("Invalid image parameters for texture encoding (pixels={}, width={}, height={})", (void*)pixels, width, height);

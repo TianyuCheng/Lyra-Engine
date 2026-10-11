@@ -56,7 +56,7 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
         AssetDependencyScope deps(metadata, source_path, caches_root);
 
         ModelAsset model;
-        if (gltf_model.defaultScene >= 0 && static_cast<size_t>(gltf_model.defaultScene) < gltf_model.scenes.size() && !gltf_model.scenes[gltf_model.defaultScene].nodes.empty()) {
+        if (gltf_model.defaultScene >= 0 && static_cast<usize>(gltf_model.defaultScene) < gltf_model.scenes.size() && !gltf_model.scenes[gltf_model.defaultScene].nodes.empty()) {
             model.root = static_cast<uint>(gltf_model.scenes[gltf_model.defaultScene].nodes[0]);
         } else if (!gltf_model.scenes.empty() && !gltf_model.scenes[0].nodes.empty()) {
             model.root = static_cast<uint>(gltf_model.scenes[0].nodes[0]);
@@ -67,7 +67,7 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
         TreeMap<int, AssetID> material_map;
 
         // process materials
-        for (size_t i = 0; i < gltf_model.materials.size(); ++i) {
+        for (usize i = 0; i < gltf_model.materials.size(); ++i) {
             const auto&   g_mat = gltf_model.materials[i];
             MaterialAsset mat;
 
@@ -118,7 +118,7 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
             preview_scene.textures.push_back(std::move(ptex));
         }
 
-        for (size_t i = 0; i < gltf_model.materials.size(); ++i) {
+        for (usize i = 0; i < gltf_model.materials.size(); ++i) {
             const auto&     g_mat = gltf_model.materials[i];
             PreviewMaterial pmat;
             if (g_mat.pbrMetallicRoughness.baseColorFactor.size() == 4) {
@@ -131,9 +131,9 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
             pmat.roughness = static_cast<float>(g_mat.pbrMetallicRoughness.roughnessFactor);
             pmat.metallic  = static_cast<float>(g_mat.pbrMetallicRoughness.metallicFactor);
             int tex_idx    = g_mat.pbrMetallicRoughness.baseColorTexture.index;
-            if (tex_idx >= 0 && static_cast<size_t>(tex_idx) < gltf_model.textures.size()) {
+            if (tex_idx >= 0 && static_cast<usize>(tex_idx) < gltf_model.textures.size()) {
                 int img_idx = gltf_model.textures[tex_idx].source;
-                if (img_idx >= 0 && static_cast<size_t>(img_idx) < gltf_model.images.size()) {
+                if (img_idx >= 0 && static_cast<usize>(img_idx) < gltf_model.images.size()) {
                     pmat.albedo_texture_id = img_idx;
                 }
             }
@@ -144,7 +144,7 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
         Vector<Matrix4x4> local_transforms(gltf_model.nodes.size(), Matrix4x4(1.0f));
         Vector<Matrix4x4> world_transforms(gltf_model.nodes.size(), Matrix4x4(1.0f));
 
-        for (size_t i = 0; i < gltf_model.nodes.size(); ++i) {
+        for (usize i = 0; i < gltf_model.nodes.size(); ++i) {
             const auto& g_node = gltf_model.nodes[i];
             if (g_node.matrix.size() == 16) {
                 for (int c = 0; c < 4; ++c) {
@@ -171,7 +171,7 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
         }
 
         auto compute_world = [&](auto& self, int node_idx, const Matrix4x4& parent_world) -> void {
-            if (node_idx < 0 || static_cast<size_t>(node_idx) >= gltf_model.nodes.size()) return;
+            if (node_idx < 0 || static_cast<usize>(node_idx) >= gltf_model.nodes.size()) return;
             Matrix4x4 world            = parent_world * local_transforms[node_idx];
             world_transforms[node_idx] = world;
             for (int child_idx : gltf_model.nodes[node_idx].children) {
@@ -180,25 +180,25 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
         };
 
         int active_scene = gltf_model.defaultScene >= 0 ? gltf_model.defaultScene : 0;
-        if (active_scene >= 0 && static_cast<size_t>(active_scene) < gltf_model.scenes.size()) {
+        if (active_scene >= 0 && static_cast<usize>(active_scene) < gltf_model.scenes.size()) {
             for (int root_idx : gltf_model.scenes[active_scene].nodes) {
                 compute_world(compute_world, root_idx, Matrix4x4(1.0f));
             }
         } else {
-            for (size_t i = 0; i < gltf_model.nodes.size(); ++i) {
+            for (usize i = 0; i < gltf_model.nodes.size(); ++i) {
                 compute_world(compute_world, static_cast<int>(i), Matrix4x4(1.0f));
             }
         }
 
         // process nodes and meshes
         HashSet<int> saved_meshes;
-        for (size_t i = 0; i < gltf_model.nodes.size(); ++i) {
+        for (usize i = 0; i < gltf_model.nodes.size(); ++i) {
             const auto&      g_node = gltf_model.nodes[i];
             ModelAsset::Node node;
             node.name      = g_node.name;
             node.transform = local_transforms[i];
 
-            if (g_node.mesh >= 0 && static_cast<size_t>(g_node.mesh) < gltf_model.meshes.size()) {
+            if (g_node.mesh >= 0 && static_cast<usize>(g_node.mesh) < gltf_model.meshes.size()) {
                 const auto& g_mesh = gltf_model.meshes[g_node.mesh];
                 MeshAsset   mesh;
                 MeshLOD&    lod = mesh.lods.emplace_back();
@@ -215,11 +215,11 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
                         surface.material = AssetHandle<MaterialAsset>(material_map[primitive.material]);
                     }
 
-                    if (primitive.indices >= 0 && static_cast<size_t>(primitive.indices) < gltf_model.accessors.size()) {
+                    if (primitive.indices >= 0 && static_cast<usize>(primitive.indices) < gltf_model.accessors.size()) {
                         const auto& accessor = gltf_model.accessors[primitive.indices];
-                        if (accessor.bufferView >= 0 && static_cast<size_t>(accessor.bufferView) < gltf_model.bufferViews.size()) {
+                        if (accessor.bufferView >= 0 && static_cast<usize>(accessor.bufferView) < gltf_model.bufferViews.size()) {
                             const auto& view = gltf_model.bufferViews[accessor.bufferView];
-                            if (view.buffer >= 0 && static_cast<size_t>(view.buffer) < gltf_model.buffers.size()) {
+                            if (view.buffer >= 0 && static_cast<usize>(view.buffer) < gltf_model.buffers.size()) {
                                 const auto& buffer = gltf_model.buffers[view.buffer];
 
                                 if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
@@ -231,19 +231,19 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
                                     continue;
                                 }
 
-                                size_t idx_size = (lod.index_format == GPUIndexFormat::UINT16) ? 2 : 4;
-                                size_t stride   = accessor.ByteStride(view);
+                                usize idx_size = (lod.index_format == GPUIndexFormat::UINT16) ? 2 : 4;
+                                usize stride   = accessor.ByteStride(view);
 
                                 surface.slice.first_index = static_cast<uint>(lod.index_data.size() / idx_size);
                                 surface.slice.index_count = static_cast<uint>(accessor.count);
 
-                                size_t req_bytes = view.byteOffset + accessor.byteOffset + (accessor.count > 0 ? (accessor.count - 1) * stride + idx_size : 0);
+                                usize req_bytes = view.byteOffset + accessor.byteOffset + (accessor.count > 0 ? (accessor.count - 1) * stride + idx_size : 0);
                                 if (buffer.data.size() >= req_bytes && accessor.count > 0) {
                                     lod.index_data.resize(lod.index_data.size() + accessor.count * idx_size);
                                     uint8_t*       dst = lod.index_data.data() + surface.slice.first_index * idx_size;
                                     const uint8_t* src = buffer.data.data() + view.byteOffset + accessor.byteOffset;
 
-                                    for (size_t k = 0; k < accessor.count; ++k) {
+                                    for (usize k = 0; k < accessor.count; ++k) {
                                         memcpy(dst + k * idx_size, src + k * stride, idx_size);
                                     }
                                 }
@@ -252,11 +252,11 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
                     }
 
                     for (auto& [attr_name, attr_idx] : primitive.attributes) {
-                        if (attr_idx < 0 || static_cast<size_t>(attr_idx) >= gltf_model.accessors.size()) continue;
+                        if (attr_idx < 0 || static_cast<usize>(attr_idx) >= gltf_model.accessors.size()) continue;
                         const auto& accessor = gltf_model.accessors[attr_idx];
-                        if (accessor.bufferView < 0 || static_cast<size_t>(accessor.bufferView) >= gltf_model.bufferViews.size()) continue;
+                        if (accessor.bufferView < 0 || static_cast<usize>(accessor.bufferView) >= gltf_model.bufferViews.size()) continue;
                         const auto& view = gltf_model.bufferViews[accessor.bufferView];
-                        if (view.buffer < 0 || static_cast<size_t>(view.buffer) >= gltf_model.buffers.size()) continue;
+                        if (view.buffer < 0 || static_cast<usize>(view.buffer) >= gltf_model.buffers.size()) continue;
                         const auto& buffer = gltf_model.buffers[view.buffer];
 
                         MeshSemantics   semantic;
@@ -303,15 +303,15 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
                             attr->format    = format;
                         }
 
-                        size_t comp_size = tinygltf::GetComponentSizeInBytes(accessor.componentType);
-                        size_t num_comp  = tinygltf::GetNumComponentsInType(accessor.type);
-                        size_t elem_size = comp_size * num_comp;
-                        size_t stride    = accessor.ByteStride(view);
+                        usize comp_size = tinygltf::GetComponentSizeInBytes(accessor.componentType);
+                        usize num_comp  = tinygltf::GetNumComponentsInType(accessor.type);
+                        usize elem_size = comp_size * num_comp;
+                        usize stride    = accessor.ByteStride(view);
 
                         surface.slice.first_vertex = static_cast<uint>(attr->element_count);
                         surface.slice.vertex_count = static_cast<uint>(accessor.count);
 
-                        size_t req_bytes = view.byteOffset + accessor.byteOffset + (accessor.count > 0 ? (accessor.count - 1) * stride + elem_size : 0);
+                        usize req_bytes = view.byteOffset + accessor.byteOffset + (accessor.count > 0 ? (accessor.count - 1) * stride + elem_size : 0);
                         if (buffer.data.size() >= req_bytes && accessor.count > 0 && elem_size > 0) {
                             attr->element_count += static_cast<uint>(accessor.count);
                             attr->data.resize(attr->data.size() + accessor.count * elem_size);
@@ -319,7 +319,7 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
                             uint8_t*       dst = attr->data.data() + surface.slice.first_vertex * elem_size;
                             const uint8_t* src = buffer.data.data() + view.byteOffset + accessor.byteOffset;
 
-                            for (size_t k = 0; k < accessor.count; ++k) {
+                            for (usize k = 0; k < accessor.count; ++k) {
                                 memcpy(dst + k * elem_size, src + k * stride, elem_size);
                             }
                         }
@@ -344,19 +344,19 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
                 }
                 for (const auto& attr : lod.attributes) {
                     if (attr.semantics == MeshSemantics::POSITION) {
-                        size_t count = attr.element_count;
+                        usize count = attr.element_count;
                         if (count * sizeof(Vector3) <= attr.data.size()) {
                             rmesh.positions.resize(count);
                             memcpy(rmesh.positions.data(), attr.data.data(), count * sizeof(Vector3));
                         }
                     } else if (attr.semantics == MeshSemantics::NORMAL) {
-                        size_t count = attr.element_count;
+                        usize count = attr.element_count;
                         if (count * sizeof(Vector3) <= attr.data.size()) {
                             rmesh.normals.resize(count);
                             memcpy(rmesh.normals.data(), attr.data.data(), count * sizeof(Vector3));
                         }
                     } else if (attr.semantics == MeshSemantics::TEXCOORD0) {
-                        size_t count = attr.element_count;
+                        usize count = attr.element_count;
                         if (count * sizeof(Vector2) <= attr.data.size()) {
                             rmesh.uvs.resize(count);
                             memcpy(rmesh.uvs.data(), attr.data.data(), count * sizeof(Vector2));
@@ -364,13 +364,13 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
                     }
                 }
                 if (lod.index_format == GPUIndexFormat::UINT16) {
-                    size_t        count   = lod.index_data.size() / 2;
+                    usize         count   = lod.index_data.size() / 2;
                     const ushort* src_idx = reinterpret_cast<const ushort*>(lod.index_data.data());
                     rmesh.indices.resize(count);
-                    for (size_t k = 0; k < count; ++k)
+                    for (usize k = 0; k < count; ++k)
                         rmesh.indices[k] = src_idx[k];
                 } else if (lod.index_format == GPUIndexFormat::UINT32) {
-                    size_t      count   = lod.index_data.size() / 4;
+                    usize       count   = lod.index_data.size() / 4;
                     const uint* src_idx = reinterpret_cast<const uint*>(lod.index_data.data());
                     rmesh.indices.assign(src_idx, src_idx + count);
                 }
@@ -378,7 +378,7 @@ static bool process_gltf(JSON& metadata, OSPath source_path, OSPath caches_root)
             }
 
             for (int child_idx : g_node.children) {
-                if (child_idx >= 0 && static_cast<size_t>(child_idx) < gltf_model.nodes.size()) {
+                if (child_idx >= 0 && static_cast<usize>(child_idx) < gltf_model.nodes.size()) {
                     node.children.push_back(static_cast<uint>(child_idx));
                 }
             }

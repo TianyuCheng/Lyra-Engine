@@ -85,23 +85,23 @@ namespace lyra
         CUSTOM_3
     };
 
-    inline constexpr size_t CUSTOM_ACTION_COUNT  = 8;
-    inline constexpr size_t CUSTOM_AXIS_1D_COUNT = 4;
-    inline constexpr size_t CUSTOM_AXIS_2D_COUNT = 4;
+    inline constexpr usize CUSTOM_ACTION_COUNT  = 8;
+    inline constexpr usize CUSTOM_AXIS_1D_COUNT = 4;
+    inline constexpr usize CUSTOM_AXIS_2D_COUNT = 4;
 
-    FORCE_INLINE constexpr auto custom_action(size_t index) -> InputAction
+    FORCE_INLINE constexpr auto custom_action(usize index) -> InputAction
     {
-        return static_cast<InputAction>(static_cast<size_t>(InputAction::CUSTOM_0) + index);
+        return static_cast<InputAction>(static_cast<usize>(InputAction::CUSTOM_0) + index);
     }
 
-    FORCE_INLINE constexpr auto custom_axis(size_t index) -> InputAxis
+    FORCE_INLINE constexpr auto custom_axis(usize index) -> InputAxis
     {
-        return static_cast<InputAxis>(static_cast<size_t>(InputAxis::CUSTOM_0) + index);
+        return static_cast<InputAxis>(static_cast<usize>(InputAxis::CUSTOM_0) + index);
     }
 
-    FORCE_INLINE constexpr auto custom_axis_2d(size_t index) -> InputAxis2D
+    FORCE_INLINE constexpr auto custom_axis_2d(usize index) -> InputAxis2D
     {
-        return static_cast<InputAxis2D>(static_cast<size_t>(InputAxis2D::CUSTOM_0) + index);
+        return static_cast<InputAxis2D>(static_cast<usize>(InputAxis2D::CUSTOM_0) + index);
     }
 
 } // namespace lyra

@@ -352,7 +352,7 @@ namespace lyra
             return resource ? &resource->value : nullptr;
         }
 
-        void reset(size_t size)
+        void reset(usize size)
         {
             data.assign(size, nullptr);
         }

@@ -192,7 +192,7 @@ void AssetBrowserView::show_breadcrumb()
         [&]() { update_directory(root, is_at_root); },
         is_at_root ? "Root directory (Click to refresh)" : "Go to Root"});
 
-    for (size_t i = 0; i < breadcrumbs.size(); ++i) {
+    for (usize i = 0; i < breadcrumbs.size(); ++i) {
         const auto& bc      = breadcrumbs[i];
         const bool  is_last = (i == breadcrumbs.size() - 1);
         items.push_back({bc.name.c_str(),
@@ -711,7 +711,7 @@ void AssetBrowserView::action_reimport_selected(AssetServer* ams)
 
 // --- Modals ---
 
-void AssetBrowserView::show_input_modal(CString title, bool* p_open, CString prompt, char* buffer, size_t buffer_size, CString action_label, FunctionRef<void(StringView)> on_submit)
+void AssetBrowserView::show_input_modal(CString title, bool* p_open, CString prompt, char* buffer, usize buffer_size, CString action_label, FunctionRef<void(StringView)> on_submit)
 {
     ui::modal(title, p_open, [&]() {
         ui::label(prompt);
@@ -1114,7 +1114,7 @@ void AssetBrowserView::load_thumbnails(AppContext& context)
     }
 }
 
-auto AssetBrowserView::create_texture_from_memory(const void* data, size_t size, GUIRenderer* gui) -> ThumbnailTexture
+auto AssetBrowserView::create_texture_from_memory(const void* data, usize size, GUIRenderer* gui) -> ThumbnailTexture
 {
     if (!data || size == 0 || !gui) {
         return {};

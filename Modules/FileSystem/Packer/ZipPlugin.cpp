@@ -78,7 +78,7 @@ static void delete_packer(FilePackerHandle packer)
     }
 }
 
-static bool write(FilePackerHandle packer, FSPath path, void* buffer, size_t size)
+static bool write(FilePackerHandle packer, FSPath path, void* buffer, usize size)
 {
     if (!packer.valid() || !path || !buffer) {
         get_logger()->error("write: invalid parameters - handle valid: {}, path: {}, buffer: {}",

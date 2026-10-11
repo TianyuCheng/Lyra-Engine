@@ -33,12 +33,12 @@ namespace lyra
         bool is_action_released(InputAction action) const;
 
         // custom action queries & binding helpers
-        bool is_custom_action_down(size_t index) const;
-        bool is_custom_action_pressed(size_t index) const;
-        bool is_custom_action_released(size_t index) const;
-        void bind_custom_action(size_t index, ButtonChord chord);
-        void bind_custom_action(size_t index, DeviceButton button);
-        void clear_custom_action(size_t index);
+        bool is_custom_action_down(usize index) const;
+        bool is_custom_action_pressed(usize index) const;
+        bool is_custom_action_released(usize index) const;
+        void bind_custom_action(usize index, ButtonChord chord);
+        void bind_custom_action(usize index, DeviceButton button);
+        void clear_custom_action(usize index);
 
         // named action aliases
         void register_action_alias(StringView name, InputAction action);
@@ -54,11 +54,11 @@ namespace lyra
         auto get_axis_2d(InputAxis2D axis) const -> Vector2;
 
         // custom axis queries & binding helpers
-        auto get_custom_axis(size_t index) const -> float;
-        void bind_custom_axis_1d(size_t index, const Axis1DComposite& composite);
+        auto get_custom_axis(usize index) const -> float;
+        void bind_custom_axis_1d(usize index, const Axis1DComposite& composite);
 
-        auto get_custom_axis_2d(size_t index) const -> Vector2;
-        void bind_custom_axis_2d(size_t index, const Axis2DComposite& composite);
+        auto get_custom_axis_2d(usize index) const -> Vector2;
+        void bind_custom_axis_2d(usize index, const Axis2DComposite& composite);
 
         // binding manipulation
         void bind_action(InputAction action, ButtonChord chord);
@@ -90,9 +90,9 @@ namespace lyra
             bool previous = false;
         };
 
-        static constexpr size_t ACTION_COUNT  = enum_count_v<InputAction>;
-        static constexpr size_t AXIS_1D_COUNT = enum_count_v<InputAxis>;
-        static constexpr size_t AXIS_2D_COUNT = enum_count_v<InputAxis2D>;
+        static constexpr usize ACTION_COUNT  = enum_count_v<InputAction>;
+        static constexpr usize AXIS_1D_COUNT = enum_count_v<InputAxis>;
+        static constexpr usize AXIS_2D_COUNT = enum_count_v<InputAxis2D>;
 
         Array<SmallVector<ButtonChord, 3>, ACTION_COUNT> action_bindings;
         Array<ActionState, ACTION_COUNT>                 action_states;

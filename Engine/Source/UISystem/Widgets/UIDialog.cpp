@@ -19,7 +19,7 @@ static String clean_filter_spec(const String& spec)
 {
     String result;
     result.reserve(spec.size());
-    for (size_t i = 0; i < spec.size();) {
+    for (usize i = 0; i < spec.size();) {
         while (i < spec.size() && (spec[i] == ' ' || spec[i] == '\t' || spec[i] == ';' || spec[i] == ',')) {
             ++i;
         }
@@ -34,7 +34,7 @@ static String clean_filter_spec(const String& spec)
             result.push_back('*');
             continue;
         }
-        size_t start = 0;
+        usize start = 0;
         while (start < token.size() && (token[start] == '*' || token[start] == '.')) {
             ++start;
         }
@@ -59,7 +59,7 @@ static FilterStorage prepare_filters(const lyra::Vector<lyra::ui::dialog::Filter
         storage.specs.push_back(clean_filter_spec(f.spec));
     }
 
-    for (size_t i = 0; i < filters.size(); ++i) {
+    for (usize i = 0; i < filters.size(); ++i) {
         storage.items.push_back({storage.names[i].c_str(), storage.specs[i].c_str()});
     }
 

@@ -343,8 +343,8 @@ namespace lyra
         // Inspection & Statistics
         // =====================================================================
 
-        FORCE_INLINE size_t          size() const { return element_count; }
-        FORCE_INLINE size_t          node_count() const { return nodes.size(); }
+        FORCE_INLINE usize           size() const { return element_count; }
+        FORCE_INLINE usize           node_count() const { return nodes.size(); }
         FORCE_INLINE bool            empty() const { return element_count == 0; }
         FORCE_INLINE const Bounds2D& bounds() const { return nodes.empty() ? root_bounds : nodes[0].bounds; }
         FORCE_INLINE uint            max_depth() const { return max_depth_limit; }
@@ -613,7 +613,7 @@ namespace lyra
         Bounds2D                    root_bounds;
         uint                        max_depth_limit = 8;
         uint                        node_capacity   = 16;
-        size_t                      element_count   = 0;
+        usize                       element_count   = 0;
         Vector<Node>                nodes;
         HashMap<T, ElementLocation> element_map;
     };

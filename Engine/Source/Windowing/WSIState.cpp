@@ -94,7 +94,7 @@ void WindowInput::reset()
 
 bool WindowInput::is_mouse_down(MouseButton button) const
 {
-    return current_state().mouse.status[static_cast<size_t>(button)] == ButtonState::ON;
+    return current_state().mouse.status[static_cast<usize>(button)] == ButtonState::ON;
 }
 
 Vector2 WindowInput::get_mouse_position() const

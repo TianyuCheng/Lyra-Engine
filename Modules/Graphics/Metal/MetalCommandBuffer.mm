@@ -64,14 +64,14 @@ void MetalCommandBuffer::submit()
     end_current_encoder();
 
     // encode wait events
-    for (size_t i = 0; i < wait_events.size(); ++i) {
+    for (usize i = 0; i < wait_events.size(); ++i) {
         [command_buffer encodeWaitForEvent:wait_events[i] value:wait_values[i]];
     }
     wait_events.clear();
     wait_values.clear();
 
     // encode signal events
-    for (size_t i = 0; i < signal_events.size(); ++i) {
+    for (usize i = 0; i < signal_events.size(); ++i) {
         [command_buffer encodeSignalEvent:signal_events[i] value:signal_values[i]];
     }
     signal_events.clear();
@@ -451,8 +451,8 @@ void cmd::draw_indexed(GPUCommandEncoderHandle cmdbuffer, GPUSize32 index_count,
 
     if (!cmd.render_encoder || !cmd.bound_index_buffer) return;
 
-    size_t index_size   = (cmd.index_type == MTLIndexTypeUInt16) ? 2 : 4;
-    size_t index_offset = cmd.index_buffer_offset + first_index * index_size;
+    usize index_size   = (cmd.index_type == MTLIndexTypeUInt16) ? 2 : 4;
+    usize index_offset = cmd.index_buffer_offset + first_index * index_size;
 
     [cmd.render_encoder drawIndexedPrimitives:cmd.primitive_type
                                    indexCount:index_count
@@ -852,11 +852,11 @@ void cmd::resolve_query_set(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle
         {
             if (query_set.visibility_buffer) {
                 // copy from visibility buffer to destination
-                size_t element_size  = (query_set.type == GPUQueryType::OCCLUSION)
+                usize element_size  = (query_set.type == GPUQueryType::OCCLUSION)
                                            ? sizeof(ulong)
                                            : sizeof(MTLAccelerationStructureSizes);
-                size_t copy_size     = query_count * element_size;
-                size_t source_offset = first_query * element_size;
+                usize copy_size     = query_count * element_size;
+                usize source_offset = first_query * element_size;
 
                 [cmd.blit_encoder copyFromBuffer:query_set.visibility_buffer
                                     sourceOffset:source_offset

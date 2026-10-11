@@ -111,9 +111,9 @@ namespace lyra::ui
     // 8. Drag and Drop
     // =========================================================================
 
-    bool drag_drop_source(CString type, const void* data, size_t size);
-    bool drag_drop_source(CString type, const void* data, size_t size, ActionRef preview);
-    bool drag_drop_target(CString type, FunctionRef<void(const void* data, size_t size)> on_drop);
+    bool drag_drop_source(CString type, const void* data, usize size);
+    bool drag_drop_source(CString type, const void* data, usize size, ActionRef preview);
+    bool drag_drop_target(CString type, FunctionRef<void(const void* data, usize size)> on_drop);
 
     // =========================================================================
     // 9. Canvas & 2D Custom Drawing

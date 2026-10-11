@@ -159,32 +159,32 @@ namespace lyra
     struct MappedBufferRange
     {
         BufferSource data;
-        size_t       size;
+        usize        size;
     };
 
     template <typename T>
     struct TypedBufferRange
     {
-        T*     data;
-        size_t count;
+        T*    data;
+        usize count;
 
-        auto operator[](size_t i) -> T&
+        auto operator[](usize i) -> T&
         {
             return data[i];
         }
 
-        auto operator[](size_t i) const -> T&
+        auto operator[](usize i) const -> T&
         {
             return data[i];
         }
 
-        auto at(size_t i) -> T&
+        auto at(usize i) -> T&
         {
             assert(i < count);
             return data[i];
         }
 
-        auto at(size_t i) const -> T&
+        auto at(usize i) const -> T&
         {
             assert(i < count);
             return data[i];
@@ -560,7 +560,7 @@ namespace lyra
     // NOTE: count is non-WebGPU standard, because WebGPU does not support binding an array of resources.
     // When count = 1, we treat this the same way WebGPU handles binding.
     // When count > 0, we treat this as an array of resources.
-    // When count = ~size_t(0), we treat this bind group layout to be bindless.
+    // When count = ~usize(0), we treat this bind group layout to be bindless.
     // https://github.com/gpuweb/gpuweb/issues/822
     struct GPUBindGroupLayoutEntry
     {

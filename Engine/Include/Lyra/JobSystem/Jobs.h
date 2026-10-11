@@ -119,8 +119,8 @@ namespace lyra
         static void schedule(JobPriority priority, Job job);
 
         // closure allocator for high-performance lambda dispatch without heap churn
-        static void* allocate_closure(size_t size);
-        static void  deallocate_closure(void* ptr, size_t size);
+        static void* allocate_closure(usize size);
+        static void  deallocate_closure(void* ptr, usize size);
 
         // schedule arbitrary invocable / lambda (default priority)
         template <typename F>

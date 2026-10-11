@@ -110,7 +110,7 @@ void D3D12ObjectHeap::recycle(const D3D12CPUDescriptor& descriptor)
 
 uint D3D12ObjectHeap::find_pool_index()
 {
-    for (size_t i = heap_index; i < heaps.size(); i++) {
+    for (usize i = heap_index; i < heaps.size(); i++) {
         auto& heap = heaps.at(i);
         if (heap.count < capacity || !heap.freed.empty())
             return static_cast<uint>(i);

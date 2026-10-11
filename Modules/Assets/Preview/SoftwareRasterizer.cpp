@@ -80,7 +80,7 @@ static Vector4 sample_bilinear(const PreviewTexture& tex, Vector2 uv)
     float fy = ty - static_cast<float>(y0);
 
     auto get_pixel = [&](int x, int y) -> Vector4 {
-        size_t idx = static_cast<size_t>(y * tex.width + x) * tex.channels;
+        usize idx = static_cast<usize>(y * tex.width + x) * tex.channels;
         if (idx >= tex.pixels.size()) return Vector4(1.0f);
 
         float r = tex.pixels[idx + 0] / 255.0f;
@@ -191,21 +191,21 @@ auto lyra::preview::rasterize_scene(const PreviewScene& scene) -> PreviewTexture
         if (mesh.positions.empty()) continue;
 
         const PreviewMaterial* mat = nullptr;
-        if (mesh.material_id >= 0 && static_cast<size_t>(mesh.material_id) < scene.materials.size()) {
+        if (mesh.material_id >= 0 && static_cast<usize>(mesh.material_id) < scene.materials.size()) {
             mat = &scene.materials[mesh.material_id];
         }
 
         const PreviewTexture* tex = nullptr;
-        if (mat && mat->albedo_texture_id >= 0 && static_cast<size_t>(mat->albedo_texture_id) < scene.textures.size()) {
+        if (mat && mat->albedo_texture_id >= 0 && static_cast<usize>(mat->albedo_texture_id) < scene.textures.size()) {
             tex = &scene.textures[mat->albedo_texture_id];
         }
 
         bool has_normals = !mesh.normals.empty() && mesh.normals.size() == mesh.positions.size();
         bool has_uvs     = !mesh.uvs.empty() && mesh.uvs.size() == mesh.positions.size();
 
-        size_t num_triangles = mesh.indices.empty() ? (mesh.positions.size() / 3) : (mesh.indices.size() / 3);
+        usize num_triangles = mesh.indices.empty() ? (mesh.positions.size() / 3) : (mesh.indices.size() / 3);
 
-        for (size_t t = 0; t < num_triangles; ++t) {
+        for (usize t = 0; t < num_triangles; ++t) {
             uint idx0 = mesh.indices.empty() ? static_cast<uint>(t * 3 + 0) : mesh.indices[t * 3 + 0];
             uint idx1 = mesh.indices.empty() ? static_cast<uint>(t * 3 + 1) : mesh.indices[t * 3 + 1];
             uint idx2 = mesh.indices.empty() ? static_cast<uint>(t * 3 + 2) : mesh.indices[t * 3 + 2];
@@ -296,7 +296,7 @@ auto lyra::preview::rasterize_scene(const PreviewScene& scene) -> PreviewTexture
 
                     if (w0 >= 0.0f && w1 >= 0.0f && w2 >= 0.0f) {
                         float  depth     = w0 * ndc0.z + w1 * ndc1.z + w2 * ndc2.z;
-                        size_t pixel_idx = static_cast<size_t>(py * render_w + px);
+                        usize pixel_idx = static_cast<usize>(py * render_w + px);
 
                         if (depth >= 0.0f && depth < depth_buffer[pixel_idx]) {
                             depth_buffer[pixel_idx] = depth;
@@ -328,7 +328,7 @@ auto lyra::preview::rasterize_scene(const PreviewScene& scene) -> PreviewTexture
 
                             Vector3 final_color = glm::clamp(Vector3(albedo) * light + Vector3(rim), 0.0f, 1.0f);
 
-                            size_t c_idx            = static_cast<size_t>(pixel_idx) * 4;
+                            usize c_idx            = static_cast<usize>(pixel_idx) * 4;
                             color_buffer[c_idx + 0] = static_cast<uint8_t>(final_color.r * 255.0f);
                             color_buffer[c_idx + 1] = static_cast<uint8_t>(final_color.g * 255.0f);
                             color_buffer[c_idx + 2] = static_cast<uint8_t>(final_color.b * 255.0f);
@@ -350,7 +350,7 @@ auto lyra::preview::rasterize_scene(const PreviewScene& scene) -> PreviewTexture
                 uint r = 0, g = 0, b = 0, a = 0;
                 for (int dy = 0; dy < 2; ++dy) {
                     for (int dx = 0; dx < 2; ++dx) {
-                        size_t idx = static_cast<size_t>((src_y + dy) * render_w + (src_x + dx)) * 4;
+                        usize idx = static_cast<usize>((src_y + dy) * render_w + (src_x + dx)) * 4;
                         r += color_buffer[idx + 0];
                         g += color_buffer[idx + 1];
                         b += color_buffer[idx + 2];
@@ -358,7 +358,7 @@ auto lyra::preview::rasterize_scene(const PreviewScene& scene) -> PreviewTexture
                     }
                 }
 
-                size_t dst_idx             = static_cast<size_t>(y * G_CONFIG.width + x) * 4;
+                usize dst_idx             = static_cast<usize>(y * G_CONFIG.width + x) * 4;
                 result.pixels[dst_idx + 0] = static_cast<uint8_t>(r / 4);
                 result.pixels[dst_idx + 1] = static_cast<uint8_t>(g / 4);
                 result.pixels[dst_idx + 2] = static_cast<uint8_t>(b / 4);

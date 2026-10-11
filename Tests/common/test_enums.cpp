@@ -55,7 +55,7 @@ TEST_CASE("utilities::enums" * doctest::description("Enum utilities and magic_en
 
     SUBCASE("enum_values_v and enum_for_each")
     {
-        size_t count = 0;
+        lyra::usize count = 0;
         lyra::enum_for_each<SampleColor>([&](SampleColor color) {
             count++;
         });

@@ -102,17 +102,17 @@ bool ScriptContext::is_action_released(InputAction action) const
     return input_manager ? input_manager->is_action_released(action) : false;
 }
 
-bool ScriptContext::is_custom_action_down(size_t index) const
+bool ScriptContext::is_custom_action_down(usize index) const
 {
     return input_manager ? input_manager->is_custom_action_down(index) : false;
 }
 
-bool ScriptContext::is_custom_action_pressed(size_t index) const
+bool ScriptContext::is_custom_action_pressed(usize index) const
 {
     return input_manager ? input_manager->is_custom_action_pressed(index) : false;
 }
 
-bool ScriptContext::is_custom_action_released(size_t index) const
+bool ScriptContext::is_custom_action_released(usize index) const
 {
     return input_manager ? input_manager->is_custom_action_released(index) : false;
 }
@@ -142,12 +142,12 @@ Vector2 ScriptContext::get_axis_2d(InputAxis2D axis) const
     return input_manager ? input_manager->get_axis_2d(axis) : Vector2(0.0f);
 }
 
-float ScriptContext::get_custom_axis(size_t index) const
+float ScriptContext::get_custom_axis(usize index) const
 {
     return input_manager ? input_manager->get_custom_axis(index) : 0.0f;
 }
 
-Vector2 ScriptContext::get_custom_axis_2d(size_t index) const
+Vector2 ScriptContext::get_custom_axis_2d(usize index) const
 {
     return input_manager ? input_manager->get_custom_axis_2d(index) : Vector2(0.0f);
 }

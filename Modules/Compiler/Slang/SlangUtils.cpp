@@ -305,7 +305,7 @@ static String regex_replace_callback(const String& input, const std::regex& re, 
     auto   words_begin = std::sregex_iterator(input.begin(), input.end(), re);
     auto   words_end   = std::sregex_iterator();
 
-    size_t last_pos = 0;
+    usize last_pos = 0;
     for (auto it = words_begin; it != words_end; ++it) {
         const std::smatch& match = *it;
         result.append(input, last_pos, match.position() - last_pos);
@@ -1131,8 +1131,8 @@ void ReflectResultInternal::fill_binding_count(GPUBindGroupLayoutEntry& entry, s
         return;
     }
 
-    // possibly unbound (when count = ~size_t(0))
-    size_t count = type->getTotalArrayElementCount();
+    // possibly unbound (when count = ~usize(0))
+    usize count = type->getTotalArrayElementCount();
     entry.count  = static_cast<uint>(count);
 }
 

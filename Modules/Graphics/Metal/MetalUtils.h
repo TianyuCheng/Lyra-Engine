@@ -265,7 +265,7 @@ struct MetalBindGroupHeap
     explicit MetalBindGroupHeap();
     explicit MetalBindGroupHeap(const GPUBindGroupHeapDescriptor& desc);
 
-    void* allocate(size_t size, size_t alignment);
+    void* allocate(usize size, usize alignment);
     auto  allocate(const GPUBindGroupDescriptor& desc) -> GPUBindGroupHandle;
     void  reset();
     void  destroy();

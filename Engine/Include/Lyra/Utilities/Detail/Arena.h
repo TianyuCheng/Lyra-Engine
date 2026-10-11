@@ -5,6 +5,7 @@
 
 #include <vector>
 #include <memory_resource>
+#include <Lyra/Utilities/Stdint.h>
 
 namespace lyra::detail
 {
@@ -24,7 +25,7 @@ namespace lyra::detail
          * @param page_size The size of each page in bytes.
          * @param upstream The upstream memory resource to use for allocations. Defaults to std::pmr::get_default_resource().
          */
-        explicit MemoryArena(size_t page_size_bytes, std::pmr::memory_resource* upstream = std::pmr::get_default_resource());
+        explicit MemoryArena(usize page_size_bytes, std::pmr::memory_resource* upstream = std::pmr::get_default_resource());
 
         /**
          * @brief Destroys the MemoryArena, freeing all allocated memory.
@@ -43,7 +44,7 @@ namespace lyra::detail
          * @param alignment The required alignment of the memory block.
          * @return A pointer to the allocated memory, or nullptr if allocation fails.
          */
-        void* allocate(size_t size, size_t alignment);
+        void* allocate(usize size, usize alignment);
 
         /**
          * @brief Allocates and constructs an object of type T.
@@ -71,20 +72,20 @@ namespace lyra::detail
     private:
         struct Page
         {
-            void*  memory;
-            size_t capacity; // capacity in bytes
+            void* memory;
+            usize capacity; // capacity in bytes
         };
 
-        void new_page(size_t required_size);
+        void new_page(usize required_size);
 
         std::pmr::memory_resource* _upstream;
         std::vector<Page>          _pages;
-        size_t                     _page_size_bytes;
-        size_t                     _current_page_index = 0;
-        size_t                     _current_offset     = 0;
+        usize                      _page_size_bytes;
+        usize                      _current_page_index = 0;
+        usize                      _current_offset     = 0;
     };
 
-    inline MemoryArena::MemoryArena(size_t page_size_bytes, std::pmr::memory_resource* upstream)
+    inline MemoryArena::MemoryArena(usize page_size_bytes, std::pmr::memory_resource* upstream)
         : _upstream(upstream), _page_size_bytes(page_size_bytes)
     {
         new_page(_page_size_bytes);
@@ -126,7 +127,7 @@ namespace lyra::detail
         return *this;
     }
 
-    inline void* MemoryArena::allocate(size_t size, size_t alignment)
+    inline void* MemoryArena::allocate(usize size, usize alignment)
     {
         if (_pages.empty()) {
             new_page(size > _page_size_bytes ? size : _page_size_bytes);
@@ -134,7 +135,7 @@ namespace lyra::detail
 
         uintptr_t current_ptr    = reinterpret_cast<uintptr_t>(_pages[_current_page_index].memory) + _current_offset;
         uintptr_t aligned_ptr    = (current_ptr + (alignment - 1)) & ~(alignment - 1);
-        size_t    aligned_offset = aligned_ptr - reinterpret_cast<uintptr_t>(_pages[_current_page_index].memory);
+        usize     aligned_offset = aligned_ptr - reinterpret_cast<uintptr_t>(_pages[_current_page_index].memory);
 
         if (aligned_offset + size > _pages[_current_page_index].capacity) {
             _current_page_index++;
@@ -162,7 +163,7 @@ namespace lyra::detail
         for (const auto& page : _pages) {
             // this is problematic. We need to know the alignment used for allocation.
             // pmr requires the same alignment for deallocation. Let's assume a max alignment.
-            constexpr size_t max_alignment = 16;
+            constexpr usize max_alignment = 16;
             _upstream->deallocate(page.memory, page.capacity, max_alignment);
         }
         _pages.clear();
@@ -170,11 +171,11 @@ namespace lyra::detail
         _current_offset     = 0;
     }
 
-    inline void MemoryArena::new_page(size_t required_size)
+    inline void MemoryArena::new_page(usize required_size)
     {
-        constexpr size_t max_alignment = 16;
-        size_t           capacity      = required_size > _page_size_bytes ? required_size : _page_size_bytes;
-        void*            memory        = _upstream->allocate(capacity, max_alignment);
+        constexpr usize max_alignment = 16;
+        usize           capacity      = required_size > _page_size_bytes ? required_size : _page_size_bytes;
+        void*           memory        = _upstream->allocate(capacity, max_alignment);
         if (memory) {
             _pages.push_back({memory, capacity});
         }

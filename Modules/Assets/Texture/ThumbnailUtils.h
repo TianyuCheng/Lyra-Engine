@@ -17,7 +17,7 @@ namespace lyra::texture
         void*    pixels,
         int      width,
         int      height,
-        size_t   pixel_size,
+        usize    pixel_size,
         VkFormat format,
         OSPath /*caches_root*/ = nullptr)
     {
@@ -31,12 +31,12 @@ namespace lyra::texture
         if (format == VK_FORMAT_R32G32B32A32_SFLOAT) {
             const float* f_pixels = static_cast<const float*>(pixels);
             tex.pixels.resize(width * height * 4);
-            for (size_t i = 0; i < tex.pixels.size(); ++i) {
+            for (usize i = 0; i < tex.pixels.size(); ++i) {
                 tex.pixels[i] = static_cast<uint8_t>(std::clamp(f_pixels[i], 0.0f, 1.0f) * 255.0f);
             }
         } else {
             const uint8_t* u_pixels  = static_cast<const uint8_t*>(pixels);
-            size_t         num_bytes = static_cast<size_t>(width * height * 4);
+            usize          num_bytes = static_cast<usize>(width * height * 4);
             tex.pixels.assign(u_pixels, u_pixels + num_bytes);
         }
 

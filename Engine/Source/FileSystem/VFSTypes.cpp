@@ -94,7 +94,7 @@ bool FileLoader::exists(FSPath vpath) const
     return api_->exists_file(loader, vpath);
 }
 
-size_t FileLoader::size(FSPath vpath) const
+usize FileLoader::size(FSPath vpath) const
 {
     return api_->sizeof_file(loader, vpath);
 }
@@ -112,9 +112,9 @@ void FileLoader::close(FileHandle file) const
     api_->close_file(loader, file);
 }
 
-size_t FileLoader::read(FileHandle file, void* buffer, size_t size) const
+usize FileLoader::read(FileHandle file, void* buffer, usize size) const
 {
-    size_t                read = 0;
+    usize                 read = 0;
     [[maybe_unused]] bool ok   = api_->read_file(loader, file, buffer, size, read);
     assert(ok);
     return read;
@@ -168,7 +168,7 @@ void FilePacker::destroy()
     api_ = nullptr;
 }
 
-void FilePacker::write(FSPath vpath, void* buffer, size_t size) const
+void FilePacker::write(FSPath vpath, void* buffer, usize size) const
 {
     api_->write(packer, vpath, buffer, size);
 }
@@ -189,7 +189,7 @@ void FilePacker::write(FSPath vpath, const Path& path) const
 
     // get file size
     ifs.seekg(0, std::ios::end);
-    std::size_t file_size = static_cast<std::size_t>(ifs.tellg());
+    usize file_size = static_cast<usize>(ifs.tellg());
     ifs.seekg(0, std::ios::beg);
 
     // small file → one-shot read
@@ -206,7 +206,7 @@ void FilePacker::write(FSPath vpath, const Path& path) const
         ifs.read(buffer.data(), buffer.size());
         std::streamsize read_bytes = ifs.gcount();
         if (read_bytes > 0)
-            write(vpath, buffer.data(), static_cast<std::size_t>(read_bytes));
+            write(vpath, buffer.data(), static_cast<usize>(read_bytes));
     }
 }
 #pragma endregion FilePacker

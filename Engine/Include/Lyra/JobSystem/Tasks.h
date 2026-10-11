@@ -184,13 +184,13 @@ namespace lyra
     // -------------------------------------------------------------------------
 
     template <typename Index, typename Func>
-    inline Task<void> parallel_for(Index begin, Index end, Func&& func, size_t batch_size = 0)
+    inline Task<void> parallel_for(Index begin, Index end, Func&& func, usize batch_size = 0)
     {
         if (begin >= end) {
             co_return;
         }
 
-        size_t count = static_cast<size_t>(end - begin);
+        usize count = static_cast<usize>(end - begin);
         if (batch_size == 0) {
             batch_size = (count + 15) / 16;
             if (batch_size < 1) {
@@ -198,10 +198,10 @@ namespace lyra
             }
         }
 
-        size_t num_batches = (count + batch_size - 1) / batch_size;
-        auto   awaiter     = std::make_shared<BatchAwaiter>(static_cast<uint>(num_batches));
+        usize num_batches = (count + batch_size - 1) / batch_size;
+        auto  awaiter     = std::make_shared<BatchAwaiter>(static_cast<uint>(num_batches));
 
-        for (size_t b = 0; b < num_batches; ++b) {
+        for (usize b = 0; b < num_batches; ++b) {
             Index b_start = begin + static_cast<Index>(b * batch_size);
             Index b_end   = std::min(end, begin + static_cast<Index>((b + 1) * batch_size));
             JobScheduler::schedule(JobPriority::HIGH, [b_start, b_end, func, awaiter]() {
@@ -222,7 +222,7 @@ namespace lyra
     template <typename... Tasks>
     inline Task<void> when_all(Tasks... tasks)
     {
-        constexpr size_t N = sizeof...(Tasks);
+        constexpr usize N = sizeof...(Tasks);
         if constexpr (N == 0) {
             co_return;
         } else {

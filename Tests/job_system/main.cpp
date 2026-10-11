@@ -62,11 +62,11 @@ TEST_CASE("jobs::job_system" * doctest::description("Job System and Coroutine Te
 
     SUBCASE("parallel_for")
     {
-        constexpr size_t count = 50000;
+        constexpr usize count = 50000;
         std::vector<int> data(count, 0);
 
         auto parallel_job = [&]() -> Task<void> {
-            co_await parallel_for(static_cast<size_t>(0), count, [&](size_t i) {
+            co_await parallel_for(static_cast<usize>(0), count, [&](usize i) {
                 data[i] = static_cast<int>(i * 3);
             }, 512);
         };
@@ -74,7 +74,7 @@ TEST_CASE("jobs::job_system" * doctest::description("Job System and Coroutine Te
         sync_wait(parallel_job());
 
         bool correct = true;
-        for (size_t i = 0; i < count; ++i) {
+        for (usize i = 0; i < count; ++i) {
             if (data[i] != static_cast<int>(i * 3)) {
                 correct = false;
                 break;

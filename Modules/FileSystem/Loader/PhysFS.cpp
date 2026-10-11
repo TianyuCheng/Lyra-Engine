@@ -116,7 +116,7 @@ static bool delete_loader(FileLoaderHandle loader)
     return true;
 }
 
-static size_t sizeof_file(FileLoaderHandle loader, FSPath path)
+static usize sizeof_file(FileLoaderHandle loader, FSPath path)
 {
     if (!path) {
         get_logger()->error("sizeof_file: input path is null!");
@@ -128,7 +128,7 @@ static size_t sizeof_file(FileLoaderHandle loader, FSPath path)
     PHYSFS_Stat stat;
     if (PHYSFS_stat(v.c_str(), &stat) && stat.filetype == PHYSFS_FILETYPE_REGULAR) {
         get_logger()->trace("sizeof_file: {} -> {} bytes", path, static_cast<unsigned long long>(stat.filesize));
-        return static_cast<size_t>(stat.filesize);
+        return static_cast<usize>(stat.filesize);
     }
     return 0;
 }
@@ -177,7 +177,7 @@ static void close_file(FileLoaderHandle loader, FileHandle handle)
     PHYSFS_close(pf);
 }
 
-static bool read_file(FileLoaderHandle loader, FileHandle handle, void* buffer, size_t size, size_t& bytes_read)
+static bool read_file(FileLoaderHandle loader, FileHandle handle, void* buffer, usize size, usize& bytes_read)
 {
     bytes_read = 0;
 
@@ -193,7 +193,7 @@ static bool read_file(FileLoaderHandle loader, FileHandle handle, void* buffer, 
         get_logger()->error("read_file: PhysicsFS error: {}", PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()));
         return false;
     }
-    bytes_read = static_cast<size_t>(len);
+    bytes_read = static_cast<usize>(len);
     return true;
 }
 
@@ -216,7 +216,7 @@ static bool read_whole_file(FileLoaderHandle loader, FSPath path, void* data)
         return false;
     }
 
-    size_t sz = sizeof_file(loader, path);
+    usize sz = sizeof_file(loader, path);
     if (sz == 0) return false; // not found or empty
 
     String       v  = normalize_vpath(path);
@@ -225,7 +225,7 @@ static bool read_whole_file(FileLoaderHandle loader, FSPath path, void* data)
 
     PhysFSFilePtr guard(pf); // auto close
     PHYSFS_sint64 len = PHYSFS_readBytes(pf, data, static_cast<PHYSFS_uint64>(sz));
-    if (len < 0 || static_cast<size_t>(len) != sz) return false;
+    if (len < 0 || static_cast<usize>(len) != sz) return false;
     return true;
 }
 

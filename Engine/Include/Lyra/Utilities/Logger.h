@@ -10,6 +10,7 @@
 
 // library headers
 #include <Lyra/Utilities/Macros.h>
+#include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Utilities/String.h>
 #include <Lyra/Utilities/Pointer.h>
 #include <Lyra/Utilities/Collections.h>
@@ -59,10 +60,10 @@ namespace lyra
     struct ConsoleSink
     {
     public:
-        explicit ConsoleSink(size_t capacity = 2048);
+        explicit ConsoleSink(usize capacity = 2048);
 
         void clear();
-        void resize(size_t new_capacity);
+        void resize(usize new_capacity);
         void append(LogLevel level, LogView component, String&& payload);
 
         bool modified() const { return changed; }
@@ -70,7 +71,7 @@ namespace lyra
         // only clear "changed" flag
         void reset() { changed = false; }
 
-        size_t count(spdlog::level_t level) const;
+        usize count(spdlog::level_t level) const;
 
         template <typename F>
         void for_each(F&& f) const
@@ -81,7 +82,7 @@ namespace lyra
 
     private:
         using Logs   = RingBuffer<ConsoleLog>;
-        using Counts = Array<size_t, spdlog::level::n_levels>;
+        using Counts = Array<usize, spdlog::level::n_levels>;
 
         Logs   logs;
         Counts counts;

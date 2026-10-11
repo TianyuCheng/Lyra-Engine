@@ -21,7 +21,7 @@ static void split_name_index(const String& name, String& out_prefix, uint& out_i
         auto open_paren = name.rfind(" (");
         if (open_paren != String::npos && open_paren + 2 < name.size() - 1) {
             bool all_digits = true;
-            for (size_t i = open_paren + 2; i < name.size() - 1; ++i) {
+            for (usize i = open_paren + 2; i < name.size() - 1; ++i) {
                 if (!std::isdigit(static_cast<unsigned char>(name[i]))) {
                     all_digits = false;
                     break;
@@ -171,7 +171,7 @@ SceneNode SceneManager::spawn_scene_internal(
     root_name = resolve_unique_name(target_parent, root_name);
 
     // create entities and populate components
-    for (size_t i = 0; i < scene.nodes.size(); ++i) {
+    for (usize i = 0; i < scene.nodes.size(); ++i) {
         const auto& src_node  = scene.nodes[i];
         String      node_name = (i == scene.root) ? root_name : src_node.name;
         Entity      entity    = world.create(node_name);
@@ -218,7 +218,7 @@ SceneNode SceneManager::spawn_scene_internal(
     }
 
     // establish parent-child hierarchy
-    for (size_t i = 0; i < scene.nodes.size(); ++i) {
+    for (usize i = 0; i < scene.nodes.size(); ++i) {
         for (uint child_idx : scene.nodes[i].children) {
             if (child_idx < scene.nodes.size()) {
                 world.add_child(created_nodes[i], created_nodes[child_idx]);

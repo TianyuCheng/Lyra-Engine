@@ -23,7 +23,7 @@ namespace lyra
 
         bool exists(FSPath vpath) const;
 
-        auto size(FSPath vpath) const -> size_t;
+        auto size(FSPath vpath) const -> usize;
 
         auto open(FSPath vpath) const -> FileHandle;
 
@@ -41,7 +41,7 @@ namespace lyra
             return data;
         }
 
-        auto read(FileHandle file, void* buffer, size_t size) const -> size_t;
+        auto read(FileHandle file, void* buffer, usize size) const -> usize;
 
         void seek(FileHandle file, int64_t offset) const;
 
@@ -72,7 +72,7 @@ namespace lyra
 
         void destroy();
 
-        void write(FSPath vpath, void* buffer, size_t size) const;
+        void write(FSPath vpath, void* buffer, usize size) const;
 
         void write(FSPath vpath, const Path& path) const;
 

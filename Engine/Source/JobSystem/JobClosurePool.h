@@ -10,7 +10,7 @@
 
 namespace lyra
 {
-    constexpr size_t CLOSURE_BLOCK_SIZE = 128;
+    constexpr usize CLOSURE_BLOCK_SIZE = 128;
 
     struct alignas(16) ClosureBlock
     {
@@ -27,13 +27,13 @@ namespace lyra
         {
             std::lock_guard lock(mutex);
             if (!free_list) {
-                constexpr size_t PAGE_SIZE   = 64 * 1024;
-                constexpr size_t BLOCK_COUNT = PAGE_SIZE / CLOSURE_BLOCK_SIZE;
+                constexpr usize PAGE_SIZE   = 64 * 1024;
+                constexpr usize BLOCK_COUNT = PAGE_SIZE / CLOSURE_BLOCK_SIZE;
 
                 auto page = static_cast<uint8_t*>(std::malloc(PAGE_SIZE));
                 pages.push_back(page);
 
-                for (size_t i = 0; i < BLOCK_COUNT; ++i) {
+                for (usize i = 0; i < BLOCK_COUNT; ++i) {
                     auto block  = reinterpret_cast<ClosureBlock*>(page + i * CLOSURE_BLOCK_SIZE);
                     block->next = free_list;
                     free_list   = block;
@@ -66,9 +66,9 @@ namespace lyra
 
     struct ThreadClosureCache
     {
-        static constexpr size_t MAX_CACHED = 64;
-        ClosureBlock*           free_list  = nullptr;
-        size_t                  count      = 0;
+        static constexpr usize MAX_CACHED = 64;
+        ClosureBlock*          free_list  = nullptr;
+        usize                  count      = 0;
     };
 
 } // namespace lyra

@@ -16,7 +16,7 @@ static bool process_stb(JSON& metadata, OSPath source_path, OSPath target_path)
         int      width = 0, height = 0, channels = 0;
         bool     is_hdr     = stbi_is_hdr(source_path_str.c_str());
         void*    pixels     = nullptr;
-        size_t   pixel_size = 0;
+        usize    pixel_size = 0;
         VkFormat format     = VK_FORMAT_UNDEFINED;
 
         if (is_hdr) {

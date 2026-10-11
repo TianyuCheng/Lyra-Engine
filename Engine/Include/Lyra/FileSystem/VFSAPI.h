@@ -21,7 +21,7 @@ namespace lyra
         bool (*delete_loader)(FileLoaderHandle loader);
 
         // file query operations
-        auto (*sizeof_file)(FileLoaderHandle loader, FSPath path) -> size_t;
+        auto (*sizeof_file)(FileLoaderHandle loader, FSPath path) -> usize;
         bool (*exists_file)(FileLoaderHandle loader, FSPath path);
 
         // file open/close operations
@@ -29,7 +29,7 @@ namespace lyra
         void (*close_file)(FileLoaderHandle, FileHandle handle);
 
         // file read operations
-        bool (*read_file)(FileLoaderHandle loader, FileHandle handle, void* buffer, size_t size, size_t& bytes_read);
+        bool (*read_file)(FileLoaderHandle loader, FileHandle handle, void* buffer, usize size, usize& bytes_read);
         bool (*seek_file)(FileLoaderHandle loader, FileHandle handle, int64_t offset);
         bool (*read_whole_file)(FileLoaderHandle loader, FSPath path, void* data);
 
@@ -48,7 +48,7 @@ namespace lyra
         void (*delete_packer)(FilePackerHandle packer);
 
         // write binary to virtual file system within the archive
-        bool (*write)(FilePackerHandle packer, FSPath path, void* buffer, size_t size);
+        bool (*write)(FilePackerHandle packer, FSPath path, void* buffer, usize size);
     };
 
 } // namespace lyra

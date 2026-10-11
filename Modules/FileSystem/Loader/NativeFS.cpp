@@ -168,7 +168,7 @@ static bool delete_loader(FileLoaderHandle loader)
     return true;
 }
 
-static size_t sizeof_file(FileLoaderHandle loader, FSPath path)
+static usize sizeof_file(FileLoaderHandle loader, FSPath path)
 {
     if (!path) {
         get_logger()->error("sizeof_file: input path is null!");
@@ -240,7 +240,7 @@ static void close_file(FileLoaderHandle loader, FileHandle handle)
     delete h;
 }
 
-static bool read_file(FileLoaderHandle loader, FileHandle handle, void* buffer, size_t size, size_t& bytes_read)
+static bool read_file(FileLoaderHandle loader, FileHandle handle, void* buffer, usize size, usize& bytes_read)
 {
     bytes_read = 0;
 
@@ -257,7 +257,7 @@ static bool read_file(FileLoaderHandle loader, FileHandle handle, void* buffer, 
 
     // read bytes
     h->read(static_cast<char*>(buffer), static_cast<std::streamsize>(size));
-    bytes_read = static_cast<size_t>(h->gcount());
+    bytes_read = static_cast<usize>(h->gcount());
     return bytes_read > 0 || h->eof();
 }
 

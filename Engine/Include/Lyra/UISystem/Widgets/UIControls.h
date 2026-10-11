@@ -36,11 +36,11 @@ namespace lyra::ui
     void checkbox(CString label, bool is_checked, ChangeRef<bool> on_toggle);
     void checkbox(CString label, bool is_checked);
 
-    void search_bar(char* buffer, size_t buffer_size, float width = 0.0f, CString hint = nullptr);
-    void search_bar(char* buffer, size_t buffer_size, ChangeRef<StringView> on_search, float width = 0.0f, CString hint = nullptr);
+    void search_bar(char* buffer, usize buffer_size, float width = 0.0f, CString hint = nullptr);
+    void search_bar(char* buffer, usize buffer_size, ChangeRef<StringView> on_search, float width = 0.0f, CString hint = nullptr);
 
-    void text_field(CString id, char* buffer, size_t buffer_size);
-    void text_field(CString id, char* buffer, size_t buffer_size, ActionRef on_commit);
+    void text_field(CString id, char* buffer, usize buffer_size);
+    void text_field(CString id, char* buffer, usize buffer_size, ActionRef on_commit);
 
     void slider(CString id, float* value, float min, float max, CString format = "%.0f", float width = 0.0f);
 
@@ -79,7 +79,7 @@ namespace lyra::ui
         }
     };
 
-    void breadcrumb(const BreadcrumbItem* items, size_t count);
+    void breadcrumb(const BreadcrumbItem* items, usize count);
     void breadcrumb(const Vector<BreadcrumbItem>& items);
     void breadcrumb(InitList<BreadcrumbItem> items);
 

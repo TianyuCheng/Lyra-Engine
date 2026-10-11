@@ -278,14 +278,14 @@ MetalBindGroupHeap::MetalBindGroupHeap(const GPUBindGroupHeapDescriptor& desc)
     arena = std::make_shared<lyra::MemoryArena>(desc.page_size > 0 ? desc.page_size : 64 * 1024);
 }
 
-void* MetalBindGroupHeap::allocate(size_t size, size_t alignment)
+void* MetalBindGroupHeap::allocate(usize size, usize alignment)
 {
     return arena->allocate(size, alignment);
 }
 
 GPUBindGroupHandle MetalBindGroupHeap::allocate(const GPUBindGroupDescriptor& desc)
 {
-    size_t total_size = sizeof(MetalBindGroup) + desc.entries.size() * sizeof(MetalBindGroup::Entry);
+    usize total_size = sizeof(MetalBindGroup) + desc.entries.size() * sizeof(MetalBindGroup::Entry);
 
     void* memory = allocate(total_size, alignof(MetalBindGroup));
     if (!memory) {

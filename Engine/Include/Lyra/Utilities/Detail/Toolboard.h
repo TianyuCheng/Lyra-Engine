@@ -8,6 +8,7 @@
 #include <typeindex>
 #include <type_traits>
 #include <absl/container/flat_hash_map.h>
+#include <Lyra/Utilities/Stdint.h>
 
 namespace lyra::detail
 {
@@ -145,7 +146,7 @@ namespace lyra::detail
         /**
          * @brief Number of registered tools.
          */
-        [[nodiscard]] std::size_t size() const noexcept
+        [[nodiscard]] usize size() const noexcept
         {
             return m_storage.size();
         }

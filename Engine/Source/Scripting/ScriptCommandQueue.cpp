@@ -40,7 +40,7 @@ void ScriptCommandQueue::clear()
     commands.clear();
 }
 
-size_t ScriptCommandQueue::size() const
+usize ScriptCommandQueue::size() const
 {
     return commands.size();
 }

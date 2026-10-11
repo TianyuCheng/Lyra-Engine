@@ -18,11 +18,11 @@ namespace lyra
     // Chase-Lev lock-free work-stealing deque
     // -------------------------------------------------------------------------
 
-    template <typename T, size_t Capacity = 4096>
+    template <typename T, usize Capacity = 4096>
     struct ChaseLevDeque
     {
         static_assert((Capacity & (Capacity - 1)) == 0, "capacity must be power of two");
-        static constexpr size_t MASK = Capacity - 1;
+        static constexpr usize MASK = Capacity - 1;
 
         alignas(64) std::atomic<int64_t> top    = 0;
         alignas(64) std::atomic<int64_t> bottom = 0;
@@ -120,7 +120,7 @@ namespace lyra
             return queue.empty();
         }
 
-        size_t drain(uint max_jobs = 0)
+        usize drain(uint max_jobs = 0)
         {
             Vector<Job> to_run;
             {

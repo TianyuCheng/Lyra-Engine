@@ -8,6 +8,7 @@
 #include <cassert>
 #include <typeindex>
 #include <absl/container/flat_hash_map.h>
+#include <Lyra/Utilities/Stdint.h>
 
 namespace lyra::detail
 {
@@ -44,8 +45,8 @@ namespace lyra::detail
 
         void clear() noexcept;
 
-        [[nodiscard]] std::size_t size() const noexcept;
-        [[nodiscard]] bool        empty() const noexcept;
+        [[nodiscard]] usize size() const noexcept;
+        [[nodiscard]] bool  empty() const noexcept;
 
     private:
         absl::flat_hash_map<std::type_index, std::any> m_storage;
@@ -105,7 +106,7 @@ namespace lyra::detail
         m_storage.clear();
     }
 
-    inline std::size_t Blackboard::size() const noexcept
+    inline usize Blackboard::size() const noexcept
     {
         return m_storage.size();
     }

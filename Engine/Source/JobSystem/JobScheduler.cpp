@@ -33,7 +33,7 @@ struct AutoReleaseScope
 using namespace lyra;
 
 #pragma region Types & Aliases
-constexpr size_t PRIORITY_COUNT = enum_count_v<JobPriority>;
+constexpr usize PRIORITY_COUNT = enum_count_v<JobPriority>;
 
 using JobDeque            = ChaseLevDeque<Job>;
 using JobDequeArray       = Array<JobDeque, PRIORITY_COUNT>;
@@ -96,27 +96,27 @@ static bool pop_job_for_worker(uint worker_id, Job& job, bool& is_background)
     auto& worker = *g_scheduler.workers[worker_id];
 
     // 1. check own deques in priority order
-    for (size_t p = 0; p < PRIORITY_COUNT; ++p) {
-        if (p == static_cast<size_t>(JobPriority::BACKGROUND)) {
+    for (usize p = 0; p < PRIORITY_COUNT; ++p) {
+        if (p == static_cast<usize>(JobPriority::BACKGROUND)) {
             if (g_scheduler.active_background_workers.load(std::memory_order_relaxed) >= g_scheduler.max_background_workers) {
                 continue;
             }
         }
         if (worker.deques[p].pop_bottom(job)) {
-            is_background = (p == static_cast<size_t>(JobPriority::BACKGROUND));
+            is_background = (p == static_cast<usize>(JobPriority::BACKGROUND));
             return true;
         }
     }
 
     // 2. check global injection queues
-    for (size_t p = 0; p < PRIORITY_COUNT; ++p) {
-        if (p == static_cast<size_t>(JobPriority::BACKGROUND)) {
+    for (usize p = 0; p < PRIORITY_COUNT; ++p) {
+        if (p == static_cast<usize>(JobPriority::BACKGROUND)) {
             if (g_scheduler.active_background_workers.load(std::memory_order_relaxed) >= g_scheduler.max_background_workers) {
                 continue;
             }
         }
         if (g_scheduler.injection_queues[p].pop(job)) {
-            is_background = (p == static_cast<size_t>(JobPriority::BACKGROUND));
+            is_background = (p == static_cast<usize>(JobPriority::BACKGROUND));
             return true;
         }
     }
@@ -127,13 +127,13 @@ static bool pop_job_for_worker(uint worker_id, Job& job, bool& is_background)
         uint victim = (worker_id + 1) % num_workers;
         for (uint i = 0; i < num_workers - 1; ++i) {
             auto& peer = *g_scheduler.workers[victim];
-            for (size_t p = 0; p < PRIORITY_COUNT; ++p) {
-                if (p == static_cast<size_t>(JobPriority::BACKGROUND)) {
+            for (usize p = 0; p < PRIORITY_COUNT; ++p) {
+                if (p == static_cast<usize>(JobPriority::BACKGROUND)) {
                     if (g_scheduler.active_background_workers.load(std::memory_order_relaxed) >= g_scheduler.max_background_workers)
                         continue;
                 }
                 if (peer.deques[p].steal(job)) {
-                    is_background = (p == static_cast<size_t>(JobPriority::BACKGROUND));
+                    is_background = (p == static_cast<usize>(JobPriority::BACKGROUND));
                     return true;
                 }
             }
@@ -190,7 +190,7 @@ bool lyra::assist_work()
     } else {
         // main / external thread only steals from workers' deques to help with distributed parallel work
         for (const auto& w : g_scheduler.workers) {
-            for (size_t p = 0; p < PRIORITY_COUNT; ++p) {
+            for (usize p = 0; p < PRIORITY_COUNT; ++p) {
                 if (w->deques[p].steal(job)) {
                     job.execute();
                     return true;
@@ -299,7 +299,7 @@ void JobScheduler::schedule(JobPriority priority, Job job)
 {
     assert(is_initialized() && "JobScheduler must be initialized before scheduling jobs!");
 
-    size_t p = static_cast<size_t>(priority);
+    usize p = static_cast<usize>(priority);
     if (g_tl_worker_index >= 0 && g_tl_worker_index < static_cast<int>(g_scheduler.worker_count)) {
         if (!g_scheduler.workers[g_tl_worker_index]->deques[p].push_bottom(job)) {
             g_scheduler.injection_queues[p].push(job);
@@ -324,7 +324,7 @@ void JobScheduler::drain_main_thread(uint max_jobs)
 
 static thread_local ThreadClosureCache g_tl_closure_cache;
 
-void* JobScheduler::allocate_closure(size_t size)
+void* JobScheduler::allocate_closure(usize size)
 {
     if (size <= CLOSURE_BLOCK_SIZE) {
         if (g_tl_closure_cache.free_list) {
@@ -338,7 +338,7 @@ void* JobScheduler::allocate_closure(size_t size)
     return ::operator new(size);
 }
 
-void JobScheduler::deallocate_closure(void* ptr, size_t size)
+void JobScheduler::deallocate_closure(void* ptr, usize size)
 {
     if (size <= CLOSURE_BLOCK_SIZE && ptr) {
         if (g_tl_closure_cache.count < ThreadClosureCache::MAX_CACHED) {

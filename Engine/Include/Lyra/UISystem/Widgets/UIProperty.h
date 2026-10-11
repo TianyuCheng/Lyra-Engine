@@ -77,15 +77,15 @@ namespace lyra::ui
     void color_picker(CString label, Vector4& rgba, ActionRef on_change, const ColorConfig& config = {});
 
     // text inputs
-    void text(CString label, char* buffer, size_t buffer_size);
-    void text(CString label, char* buffer, size_t buffer_size, ActionRef on_commit);
+    void text(CString label, char* buffer, usize buffer_size);
+    void text(CString label, char* buffer, usize buffer_size, ActionRef on_commit);
 
     // toggle
     void toggle(CString label, bool& value);
     void toggle(CString label, bool& value, ChangeRef<bool> on_toggle);
 
     // dropdown selection
-    void dropdown(CString label, CString current_item, const CString* items, size_t count, ChangeRef<size_t> on_select);
+    void dropdown(CString label, CString current_item, const CString* items, usize count, ChangeRef<usize> on_select);
 
     // templated enum dropdown using magic_enum
     template <typename E>
@@ -97,12 +97,12 @@ namespace lyra::ui
 
         Array<String, entries.size()>  item_strings;
         Array<CString, entries.size()> items;
-        for (size_t i = 0; i < entries.size(); ++i) {
+        for (usize i = 0; i < entries.size(); ++i) {
             item_strings[i] = String(entries[i].second);
             items[i]        = item_strings[i].c_str();
         }
 
-        dropdown(label, current_name.c_str(), items.data(), entries.size(), [&](size_t selected_index) {
+        dropdown(label, current_name.c_str(), items.data(), entries.size(), [&](usize selected_index) {
             if (selected_index < entries.size()) {
                 value = entries[selected_index].first;
             }
@@ -118,12 +118,12 @@ namespace lyra::ui
 
         Array<String, entries.size()>  item_strings;
         Array<CString, entries.size()> items;
-        for (size_t i = 0; i < entries.size(); ++i) {
+        for (usize i = 0; i < entries.size(); ++i) {
             item_strings[i] = String(entries[i].second);
             items[i]        = item_strings[i].c_str();
         }
 
-        dropdown(label, current_name.c_str(), items.data(), entries.size(), [&](size_t selected_index) {
+        dropdown(label, current_name.c_str(), items.data(), entries.size(), [&](usize selected_index) {
             if (selected_index < entries.size()) {
                 value = entries[selected_index].first;
                 on_change(value);

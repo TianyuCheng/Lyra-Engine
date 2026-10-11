@@ -264,13 +264,13 @@ void lyra::ui::toggle(CString label, bool& value, ChangeRef<bool> on_toggle)
     }
 }
 
-void lyra::ui::text(CString label, char* buffer, size_t buffer_size)
+void lyra::ui::text(CString label, char* buffer, usize buffer_size)
 {
     begin_property_row(label);
     ImGui::InputText((String("##") + label).c_str(), buffer, buffer_size);
 }
 
-void lyra::ui::text(CString label, char* buffer, size_t buffer_size, ActionRef on_commit)
+void lyra::ui::text(CString label, char* buffer, usize buffer_size, ActionRef on_commit)
 {
     begin_property_row(label);
     if (ImGui::InputText((String("##") + label).c_str(), buffer, buffer_size, ImGuiInputTextFlags_EnterReturnsTrue)) {
@@ -278,12 +278,12 @@ void lyra::ui::text(CString label, char* buffer, size_t buffer_size, ActionRef o
     }
 }
 
-void lyra::ui::dropdown(CString label, CString current_item, const CString* items, size_t count, ChangeRef<size_t> on_select)
+void lyra::ui::dropdown(CString label, CString current_item, const CString* items, usize count, ChangeRef<usize> on_select)
 {
     begin_property_row(label);
     String label_id = String("##") + label;
     if (ImGui::BeginCombo(label_id.c_str(), current_item ? current_item : "")) {
-        for (size_t i = 0; i < count; ++i) {
+        for (usize i = 0; i < count; ++i) {
             bool is_selected = (current_item && items[i] && std::strcmp(current_item, items[i]) == 0);
             if (ImGui::Selectable(items[i], is_selected)) {
                 on_select(i);

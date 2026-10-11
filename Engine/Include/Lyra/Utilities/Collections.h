@@ -18,6 +18,7 @@
 #include <apus/slot_map.hpp>
 #include <apus/ring_buffer.hpp>
 #include <apus/small_vector.hpp>
+#include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Utilities/Detail/View.h>
 #include <Lyra/Utilities/Detail/Blackboard.h>
 #include <Lyra/Utilities/Detail/Toolboard.h>
@@ -69,7 +70,7 @@ namespace lyra
     template <typename... T>
     using Slotmap = apus::slot_map<T...>;
 
-    template <typename T, std::size_t N>
+    template <typename T, usize N>
     using SmallVector = apus::small_vector<T, N>;
 
     template <typename... T>

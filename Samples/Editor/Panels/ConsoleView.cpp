@@ -14,7 +14,7 @@
 
 using namespace lyra;
 
-ConsoleView::ConsoleView(size_t capacity)
+ConsoleView::ConsoleView(usize capacity)
 {
     get_console_sink()->get_console().resize(capacity);
 

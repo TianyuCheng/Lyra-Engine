@@ -83,28 +83,28 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
 
         TreeMap<int, AssetID> material_map;
 
-        for (size_t s = 0; s < shapes.size(); s++) {
+        for (usize s = 0; s < shapes.size(); s++) {
             MeshSurface surface;
             surface.slice.first_index = static_cast<uint>(indices.size());
             surface.min_bounds        = Vector3(std::numeric_limits<float>::max());
             surface.max_bounds        = Vector3(std::numeric_limits<float>::lowest());
 
-            size_t index_offset = 0;
-            for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
-                size_t fv = size_t(shapes[s].mesh.num_face_vertices[f]);
+            usize index_offset = 0;
+            for (usize f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
+                usize fv = usize(shapes[s].mesh.num_face_vertices[f]);
 
-                for (size_t v = 0; v < fv; v++) {
+                for (usize v = 0; v < fv; v++) {
                     if (index_offset + v >= shapes[s].mesh.indices.size()) break;
                     tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + v];
 
-                    if (idx.vertex_index < 0 || size_t(idx.vertex_index) * 3 + 2 >= attrib.vertices.size()) {
+                    if (idx.vertex_index < 0 || usize(idx.vertex_index) * 3 + 2 >= attrib.vertices.size()) {
                         continue;
                     }
 
                     Vector3 pos;
-                    pos.x = attrib.vertices[3 * size_t(idx.vertex_index) + 0];
-                    pos.y = attrib.vertices[3 * size_t(idx.vertex_index) + 1];
-                    pos.z = attrib.vertices[3 * size_t(idx.vertex_index) + 2];
+                    pos.x = attrib.vertices[3 * usize(idx.vertex_index) + 0];
+                    pos.y = attrib.vertices[3 * usize(idx.vertex_index) + 1];
+                    pos.z = attrib.vertices[3 * usize(idx.vertex_index) + 2];
                     positions.push_back(pos);
 
                     mesh.min_bounds    = Vector3(std::min(mesh.min_bounds.x, pos.x), std::min(mesh.min_bounds.y, pos.y), std::min(mesh.min_bounds.z, pos.z));
@@ -112,18 +112,18 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
                     surface.min_bounds = Vector3(std::min(surface.min_bounds.x, pos.x), std::min(surface.min_bounds.y, pos.y), std::min(surface.min_bounds.z, pos.z));
                     surface.max_bounds = Vector3(std::max(surface.max_bounds.x, pos.x), std::max(surface.max_bounds.y, pos.y), std::max(surface.max_bounds.z, pos.z));
 
-                    if (idx.normal_index >= 0 && size_t(idx.normal_index) * 3 + 2 < attrib.normals.size()) {
+                    if (idx.normal_index >= 0 && usize(idx.normal_index) * 3 + 2 < attrib.normals.size()) {
                         Vector3 norm;
-                        norm.x = attrib.normals[3 * size_t(idx.normal_index) + 0];
-                        norm.y = attrib.normals[3 * size_t(idx.normal_index) + 1];
-                        norm.z = attrib.normals[3 * size_t(idx.normal_index) + 2];
+                        norm.x = attrib.normals[3 * usize(idx.normal_index) + 0];
+                        norm.y = attrib.normals[3 * usize(idx.normal_index) + 1];
+                        norm.z = attrib.normals[3 * usize(idx.normal_index) + 2];
                         normals.push_back(norm);
                     }
 
-                    if (idx.texcoord_index >= 0 && size_t(idx.texcoord_index) * 2 + 1 < attrib.texcoords.size()) {
+                    if (idx.texcoord_index >= 0 && usize(idx.texcoord_index) * 2 + 1 < attrib.texcoords.size()) {
                         Vector2 tex;
-                        tex.x = attrib.texcoords[2 * size_t(idx.texcoord_index) + 0];
-                        tex.y = attrib.texcoords[2 * size_t(idx.texcoord_index) + 1];
+                        tex.x = attrib.texcoords[2 * usize(idx.texcoord_index) + 0];
+                        tex.y = attrib.texcoords[2 * usize(idx.texcoord_index) + 1];
                         texcoords.push_back(tex);
                     }
 
@@ -141,7 +141,7 @@ static bool process_obj(JSON& metadata, OSPath source_path, OSPath caches_root)
                 if (material_map.find(mat_idx) == material_map.end()) {
                     MaterialAsset mat;
                     String        mat_name = "material/" + std::to_string(mat_idx);
-                    if (static_cast<size_t>(mat_idx) < materials.size()) {
+                    if (static_cast<usize>(mat_idx) < materials.size()) {
                         const auto& m = materials[mat_idx];
                         if (!m.name.empty()) mat_name = "material/" + m.name;
                         mat.base_color_factor = Vector4(m.diffuse[0], m.diffuse[1], m.diffuse[2], 1.0f);

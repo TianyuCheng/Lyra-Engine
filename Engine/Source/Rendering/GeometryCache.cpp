@@ -120,9 +120,9 @@ void GeometryCache::clear()
     cache.clear();
 }
 
-size_t GeometryCache::total_references() const
+usize GeometryCache::total_references() const
 {
-    size_t total = 0;
+    usize total = 0;
     for (const auto& [_, entry] : cache) {
         total += entry.ref_count;
     }

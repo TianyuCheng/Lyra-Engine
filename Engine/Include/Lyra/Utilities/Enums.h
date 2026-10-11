@@ -7,6 +7,7 @@
 #include <magic_enum/magic_enum.hpp>
 
 #include <Lyra/Utilities/Macros.h>
+#include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Utilities/String.h>
 #include <Lyra/Utilities/Collections.h>
 
@@ -32,10 +33,10 @@ namespace lyra
 
     // compile-time variable templates
     template <typename E>
-    inline constexpr size_t enum_count_v = magic_enum::enum_count<E>();
+    inline constexpr usize enum_count_v = magic_enum::enum_count<E>();
 
     template <typename E>
-    inline constexpr size_t enum_size_v = magic_enum::enum_count<E>();
+    inline constexpr usize enum_size_v = magic_enum::enum_count<E>();
 
     template <typename E>
     inline constexpr auto enum_values_v = magic_enum::enum_values<E>();
@@ -67,7 +68,7 @@ namespace lyra
     }
 
     template <typename E>
-    FORCE_INLINE constexpr size_t enum_size() noexcept
+    FORCE_INLINE constexpr usize enum_size() noexcept
     {
         return magic_enum::enum_count<E>();
     }

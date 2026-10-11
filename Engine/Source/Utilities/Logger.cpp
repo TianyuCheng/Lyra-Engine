@@ -2,7 +2,7 @@
 
 using namespace lyra;
 
-ConsoleSink::ConsoleSink(size_t capacity)
+ConsoleSink::ConsoleSink(usize capacity)
 {
     resize(capacity);
 }
@@ -17,7 +17,7 @@ void ConsoleSink::clear()
     changed = true;
 }
 
-void ConsoleSink::resize(size_t new_capacity)
+void ConsoleSink::resize(usize new_capacity)
 {
     logs.resize(new_capacity);
     changed = true;
@@ -34,7 +34,7 @@ void ConsoleSink::append(LogLevel level, LogView component, String&& payload)
     changed = true;
 }
 
-size_t ConsoleSink::count(spdlog::level_t level) const
+usize ConsoleSink::count(spdlog::level_t level) const
 {
     return counts.at(level);
 }

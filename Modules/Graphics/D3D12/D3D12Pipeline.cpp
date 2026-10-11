@@ -133,7 +133,7 @@ D3D12Pipeline::D3D12Pipeline(const GPURenderPipelineDescriptor& desc)
 
     // render target formats
     pso_desc.NumRenderTargets = static_cast<UINT>(desc.fragment.targets.size());
-    for (size_t i = 0; i < desc.fragment.targets.size() && i < 8; ++i) {
+    for (usize i = 0; i < desc.fragment.targets.size() && i < 8; ++i) {
         auto& attachment                                          = desc.fragment.targets[i];
         pso_desc.RTVFormats[i]                                    = infer_texture_format(attachment.format);
         pso_desc.BlendState.RenderTarget[i].RenderTargetWriteMask = attachment.write_mask.value;

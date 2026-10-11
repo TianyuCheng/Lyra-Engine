@@ -171,7 +171,7 @@ void InputManager::set_default_bindings()
 
 void InputManager::bind_action(InputAction action, ButtonChord chord)
 {
-    auto idx = static_cast<size_t>(action);
+    auto idx = static_cast<usize>(action);
     if (idx >= ACTION_COUNT) return;
     auto& list = action_bindings[idx];
     for (const auto& existing : list) {
@@ -187,7 +187,7 @@ void InputManager::bind_action(InputAction action, DeviceButton button)
 
 void InputManager::clear_action(InputAction action)
 {
-    auto idx = static_cast<size_t>(action);
+    auto idx = static_cast<usize>(action);
     if (idx < ACTION_COUNT) {
         action_bindings[idx].clear();
     }
@@ -202,7 +202,7 @@ void InputManager::clear_actions()
 
 void InputManager::bind_axis_1d(InputAxis axis, const Axis1DComposite& composite)
 {
-    auto idx = static_cast<size_t>(axis);
+    auto idx = static_cast<usize>(axis);
     if (idx < AXIS_1D_COUNT) {
         axis_1d_bindings[idx] = composite;
     }
@@ -210,7 +210,7 @@ void InputManager::bind_axis_1d(InputAxis axis, const Axis1DComposite& composite
 
 void InputManager::clear_axis_1d(InputAxis axis)
 {
-    auto idx = static_cast<size_t>(axis);
+    auto idx = static_cast<usize>(axis);
     if (idx < AXIS_1D_COUNT) {
         axis_1d_bindings[idx] = Axis1DComposite{};
     }
@@ -225,7 +225,7 @@ void InputManager::clear_axes_1d()
 
 void InputManager::bind_axis_2d(InputAxis2D axis, const Axis2DComposite& composite)
 {
-    auto idx = static_cast<size_t>(axis);
+    auto idx = static_cast<usize>(axis);
     if (idx < AXIS_2D_COUNT) {
         axis_2d_bindings[idx] = composite;
     }
@@ -233,7 +233,7 @@ void InputManager::bind_axis_2d(InputAxis2D axis, const Axis2DComposite& composi
 
 void InputManager::clear_axis_2d(InputAxis2D axis)
 {
-    auto idx = static_cast<size_t>(axis);
+    auto idx = static_cast<usize>(axis);
     if (idx < AXIS_2D_COUNT) {
         axis_2d_bindings[idx] = Axis2DComposite{};
     }
@@ -256,55 +256,55 @@ void InputManager::clear_all_bindings()
 
 bool InputManager::is_action_down(InputAction action) const
 {
-    auto idx = static_cast<size_t>(action);
+    auto idx = static_cast<usize>(action);
     if (idx >= ACTION_COUNT) return false;
     return action_states[idx].current;
 }
 
 bool InputManager::is_action_pressed(InputAction action) const
 {
-    auto idx = static_cast<size_t>(action);
+    auto idx = static_cast<usize>(action);
     if (idx >= ACTION_COUNT) return false;
     return action_states[idx].current && !action_states[idx].previous;
 }
 
 bool InputManager::is_action_released(InputAction action) const
 {
-    auto idx = static_cast<size_t>(action);
+    auto idx = static_cast<usize>(action);
     if (idx >= ACTION_COUNT) return false;
     return !action_states[idx].current && action_states[idx].previous;
 }
 
-bool InputManager::is_custom_action_down(size_t index) const
+bool InputManager::is_custom_action_down(usize index) const
 {
     if (index >= CUSTOM_ACTION_COUNT) return false;
     return is_action_down(custom_action(index));
 }
 
-bool InputManager::is_custom_action_pressed(size_t index) const
+bool InputManager::is_custom_action_pressed(usize index) const
 {
     if (index >= CUSTOM_ACTION_COUNT) return false;
     return is_action_pressed(custom_action(index));
 }
 
-bool InputManager::is_custom_action_released(size_t index) const
+bool InputManager::is_custom_action_released(usize index) const
 {
     if (index >= CUSTOM_ACTION_COUNT) return false;
     return is_action_released(custom_action(index));
 }
 
-void InputManager::bind_custom_action(size_t index, ButtonChord chord)
+void InputManager::bind_custom_action(usize index, ButtonChord chord)
 {
     if (index >= CUSTOM_ACTION_COUNT) return;
     bind_action(custom_action(index), chord);
 }
 
-void InputManager::bind_custom_action(size_t index, DeviceButton button)
+void InputManager::bind_custom_action(usize index, DeviceButton button)
 {
     bind_custom_action(index, ButtonChord(button));
 }
 
-void InputManager::clear_custom_action(size_t index)
+void InputManager::clear_custom_action(usize index)
 {
     if (index >= CUSTOM_ACTION_COUNT) return;
     clear_action(custom_action(index));
@@ -362,37 +362,37 @@ void InputManager::bind_action(StringView name, DeviceButton button)
 
 float InputManager::get_axis(InputAxis axis) const
 {
-    auto idx = static_cast<size_t>(axis);
+    auto idx = static_cast<usize>(axis);
     if (idx >= AXIS_1D_COUNT) return 0.0f;
     return axis_1d_values[idx];
 }
 
 Vector2 InputManager::get_axis_2d(InputAxis2D axis) const
 {
-    auto idx = static_cast<size_t>(axis);
+    auto idx = static_cast<usize>(axis);
     if (idx >= AXIS_2D_COUNT) return Vector2(0.0f);
     return axis_2d_values[idx];
 }
 
-float InputManager::get_custom_axis(size_t index) const
+float InputManager::get_custom_axis(usize index) const
 {
     if (index >= CUSTOM_AXIS_1D_COUNT) return 0.0f;
     return get_axis(custom_axis(index));
 }
 
-void InputManager::bind_custom_axis_1d(size_t index, const Axis1DComposite& composite)
+void InputManager::bind_custom_axis_1d(usize index, const Axis1DComposite& composite)
 {
     if (index >= CUSTOM_AXIS_1D_COUNT) return;
     bind_axis_1d(custom_axis(index), composite);
 }
 
-Vector2 InputManager::get_custom_axis_2d(size_t index) const
+Vector2 InputManager::get_custom_axis_2d(usize index) const
 {
     if (index >= CUSTOM_AXIS_2D_COUNT) return Vector2(0.0f);
     return get_axis_2d(custom_axis_2d(index));
 }
 
-void InputManager::bind_custom_axis_2d(size_t index, const Axis2DComposite& composite)
+void InputManager::bind_custom_axis_2d(usize index, const Axis2DComposite& composite)
 {
     if (index >= CUSTOM_AXIS_2D_COUNT) return;
     bind_axis_2d(custom_axis_2d(index), composite);
@@ -416,7 +416,7 @@ void InputManager::update(const WindowInput* raw_input, float dt, const InputFil
 {
     // if raw input is null, zero all axes and release active actions
     if (!raw_input) {
-        for (size_t i = 0; i < ACTION_COUNT; ++i) {
+        for (usize i = 0; i < ACTION_COUNT; ++i) {
             action_states[i].previous = action_states[i].current;
             action_states[i].current  = false;
         }
@@ -430,7 +430,7 @@ void InputManager::update(const WindowInput* raw_input, float dt, const InputFil
     }
 
     // update digital actions
-    for (size_t i = 0; i < ACTION_COUNT; ++i) {
+    for (usize i = 0; i < ACTION_COUNT; ++i) {
         action_states[i].previous = action_states[i].current;
         bool is_down              = false;
         for (const auto& chord : action_bindings[i]) {
@@ -443,7 +443,7 @@ void InputManager::update(const WindowInput* raw_input, float dt, const InputFil
     }
 
     // evaluate 1d composite axes
-    for (size_t i = 0; i < AXIS_1D_COUNT; ++i) {
+    for (usize i = 0; i < AXIS_1D_COUNT; ++i) {
         const auto& comp = axis_1d_bindings[i];
         float       val  = 0.0f;
         for (const auto& chord : comp.positive) {
@@ -469,7 +469,7 @@ void InputManager::update(const WindowInput* raw_input, float dt, const InputFil
     }
 
     // evaluate 2d composite axes
-    for (size_t i = 0; i < AXIS_2D_COUNT; ++i) {
+    for (usize i = 0; i < AXIS_2D_COUNT; ++i) {
         const auto& comp = axis_2d_bindings[i];
         Vector2     val(0.0f);
         for (const auto& chord : comp.up) {
