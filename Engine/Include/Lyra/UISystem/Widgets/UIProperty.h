@@ -3,7 +3,6 @@
 #ifndef LYRA_ENGINE_UISYSTEM_WIDGETS_UIPROPERTY_H
 #define LYRA_ENGINE_UISYSTEM_WIDGETS_UIPROPERTY_H
 
-#include <array>
 #include <type_traits>
 #include <Lyra/Utilities/Enums.h>
 #include <Lyra/Utilities/Math.h>
@@ -93,8 +92,8 @@ namespace lyra::ui
     requires std::is_enum_v<E>
     void enumeration(CString label, E& value)
     {
-        constexpr auto entries      = magic_enum::enum_entries<E>();
-        auto           current_name = String(magic_enum::enum_name(value));
+        constexpr auto entries      = enum_entries_v<E>;
+        auto           current_name = enum_to_string(value);
 
         Array<String, entries.size()>  item_strings;
         Array<CString, entries.size()> items;
@@ -114,8 +113,8 @@ namespace lyra::ui
     requires std::is_enum_v<E>
     void enumeration(CString label, E& value, ChangeRef<E> on_change)
     {
-        constexpr auto entries      = magic_enum::enum_entries<E>();
-        auto           current_name = String(magic_enum::enum_name(value));
+        constexpr auto entries      = enum_entries_v<E>;
+        auto           current_name = enum_to_string(value);
 
         Array<String, entries.size()>  item_strings;
         Array<CString, entries.size()> items;

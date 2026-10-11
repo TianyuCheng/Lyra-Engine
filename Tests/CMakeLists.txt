@@ -34,6 +34,7 @@ lyra_sample(unit-tests)
 
 target_sources(lyra-unit-tests PRIVATE
   main.cpp
+  ./common/test_enums.cpp
 )
 target_link_libraries(lyra-unit-tests PRIVATE doctest::doctest)
 target_include_directories(lyra-unit-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/common)

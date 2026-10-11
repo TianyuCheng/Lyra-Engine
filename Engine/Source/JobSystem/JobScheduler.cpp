@@ -8,6 +8,7 @@
 #include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Utilities/Collections.h>
 #include <Lyra/Utilities/Pointer.h>
+#include <Lyra/Utilities/Enums.h>
 #include <Lyra/JobSystem/Jobs.h>
 #include "JobSystemInternal.h"
 #include "JobClosurePool.h"
@@ -32,7 +33,7 @@ struct AutoReleaseScope
 using namespace lyra;
 
 #pragma region Types & Aliases
-constexpr size_t PRIORITY_COUNT = static_cast<size_t>(JobPriority::COUNT);
+constexpr size_t PRIORITY_COUNT = enum_count_v<JobPriority>;
 
 using JobDeque            = ChaseLevDeque<Job>;
 using JobDequeArray       = Array<JobDeque, PRIORITY_COUNT>;

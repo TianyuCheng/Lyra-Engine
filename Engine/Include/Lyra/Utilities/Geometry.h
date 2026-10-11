@@ -6,6 +6,7 @@
 #include <Lyra/Utilities/Math.h>
 #include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Utilities/Collections.h>
+#include <Lyra/Utilities/Enums.h>
 
 namespace lyra
 {
@@ -117,11 +118,10 @@ namespace lyra
             BOTTOM,
             TOP,
             NEAR_PLANE,
-            FAR_PLANE,
-            COUNT
+            FAR_PLANE
         };
 
-        Array<Plane, 6> planes;
+        Array<Plane, enum_count_v<PlaneIndex>> planes;
 
         /**
          * @brief extract 6 view frustum clipping planes from a view-projection matrix.

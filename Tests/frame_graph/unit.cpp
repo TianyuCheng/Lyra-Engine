@@ -220,6 +220,9 @@ TEST_CASE("rhi::new_transition_states" * doctest::description("New RHI Transitio
     CHECK_EQ(resolve_dst.layout, GPUBarrierLayout::RESOLVE_DEST);
     CHECK_EQ(resolve_dst.access, GPUBarrierAccess::RESOLVE_DEST);
     CHECK_EQ(resolve_dst.sync, GPUBarrierSync::RESOLVE);
+
+    CHECK_EQ(get_index_format_size(GPUIndexFormat::UINT16), 2);
+    CHECK_EQ(get_index_format_size(GPUIndexFormat::UINT32), 4);
 }
 
 TEST_CASE("fg::direct_import" * doctest::description("FrameGraph Direct Builder Import & TLAS Resource"))

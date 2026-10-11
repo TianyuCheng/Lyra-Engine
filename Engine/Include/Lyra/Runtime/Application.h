@@ -21,7 +21,7 @@ namespace lyra
      */
     struct Application
     {
-        static constexpr size_t STAGE_COUNT = magic_enum::enum_count<AppEvent>();
+        static constexpr size_t STAGE_COUNT = enum_count_v<AppEvent>;
 
     public:
         using Callback  = Delegate<void(AppContext&)>;

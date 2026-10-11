@@ -17,8 +17,8 @@ FORWARD_DECLARE_API(lyra::packer::zip, FilePackerAPI)
 using FileLoaderPlugin = BuiltinPlugin<FileLoaderAPI>;
 using FilePackerPlugin = BuiltinPlugin<FilePackerAPI>;
 
-static constexpr uint NUM_LOADER_BACKENDS = static_cast<uint>(magic_enum::enum_count<FSLoader>());
-static constexpr uint NUM_PACKER_BACKENDS = static_cast<uint>(magic_enum::enum_count<FSPacker>());
+static constexpr uint NUM_LOADER_BACKENDS = static_cast<uint>(enum_count_v<FSLoader>);
+static constexpr uint NUM_PACKER_BACKENDS = static_cast<uint>(enum_count_v<FSPacker>);
 
 static Own<FileLoaderPlugin> loader_plugins[NUM_LOADER_BACKENDS];
 static Own<FilePackerPlugin> packer_plugins[NUM_PACKER_BACKENDS];

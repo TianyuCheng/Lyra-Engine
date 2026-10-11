@@ -90,9 +90,9 @@ namespace lyra
             bool previous = false;
         };
 
-        static constexpr size_t ACTION_COUNT  = static_cast<size_t>(InputAction::COUNT);
-        static constexpr size_t AXIS_1D_COUNT = static_cast<size_t>(InputAxis::COUNT);
-        static constexpr size_t AXIS_2D_COUNT = static_cast<size_t>(InputAxis2D::COUNT);
+        static constexpr size_t ACTION_COUNT  = enum_count_v<InputAction>;
+        static constexpr size_t AXIS_1D_COUNT = enum_count_v<InputAxis>;
+        static constexpr size_t AXIS_2D_COUNT = enum_count_v<InputAxis2D>;
 
         Array<SmallVector<ButtonChord, 3>, ACTION_COUNT> action_bindings;
         Array<ActionState, ACTION_COUNT>                 action_states;

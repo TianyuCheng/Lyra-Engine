@@ -20,8 +20,7 @@ namespace lyra
     {
         HIGH       = 0, // frame-critical work (culling, render prep, scene update)
         NORMAL     = 1, // general engine and gameplay computation (default)
-        BACKGROUND = 2, // low-urgency background compute
-        COUNT      = 3
+        BACKGROUND = 2  // low-urgency background compute
     };
 
     struct Job

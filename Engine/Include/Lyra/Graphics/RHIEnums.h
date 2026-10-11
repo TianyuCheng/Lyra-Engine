@@ -753,6 +753,21 @@ namespace lyra
     }
 
     /**
+     * @brief Returns the byte size of a single index element for a given GPUIndexFormat.
+     */
+    inline constexpr uint get_index_format_size(GPUIndexFormat format)
+    {
+        switch (format) {
+            case GPUIndexFormat::UINT16:
+                return 2;
+            case GPUIndexFormat::UINT32:
+                return 4;
+            default:
+                return 0;
+        }
+    }
+
+    /**
      * @brief Convert a GPUObjectType enum value to its string representation.
      */
     inline constexpr CString to_string(GPUObjectType type)

@@ -1,9 +1,9 @@
 #include <cstring>
-#include <Lyra/Rendering/GeometryCache.h>
-#include <Lyra/Runtime/RenderLayer.h>
 #include <Lyra/Graphics/RHIDescs.h>
 #include <Lyra/Graphics/RHIInits.h>
 #include <Lyra/Graphics/RHIUtils.h>
+#include <Lyra/Runtime/RenderLayer.h>
+#include <Lyra/Rendering/GeometryCache.h>
 
 using namespace lyra;
 
@@ -164,14 +164,14 @@ GPUMeshLOD GeometryCache::upload_lod(const MeshLOD& lod, uint lod_index)
             gpu_lod.vertex_buffer = device.create_buffer(desc);
 
             auto mapped = gpu_lod.vertex_buffer.get_mapped_range();
-            auto* dst   = static_cast<uint8_t*>(mapped.data);
+            auto dst    = static_cast<uint8_t*>(mapped.data);
 
             if (dst) {
                 // Interleave attributes into mapped memory
                 uint current_offset = 0;
                 for (const auto& attr : lod.attributes) {
-                    uint attr_elem_size = get_vertex_format_size(attr.format);
-                    const uint8_t* src  = attr.data.data();
+                    uint           attr_elem_size = get_vertex_format_size(attr.format);
+                    const uint8_t* src            = attr.data.data();
 
                     for (uint v = 0; v < vertex_count; ++v) {
                         uint8_t* dst_elem = dst + (v * stride) + current_offset;
@@ -191,8 +191,8 @@ GPUMeshLOD GeometryCache::upload_lod(const MeshLOD& lod, uint lod_index)
 
     // 2. Upload index buffer
     if (!lod.index_data.empty()) {
-        uint index_stride = (lod.index_format == GPUIndexFormat::UINT16) ? sizeof(uint16_t) : sizeof(uint32_t);
-        gpu_lod.index_count = static_cast<uint>(lod.index_data.size() / index_stride);
+        uint index_stride   = get_index_format_size(lod.index_format);
+        gpu_lod.index_count = (index_stride > 0) ? static_cast<uint>(lod.index_data.size() / index_stride) : 0;
 
         auto desc               = GPUBufferDescriptor{};
         desc.label              = "geometry_index_buffer";
