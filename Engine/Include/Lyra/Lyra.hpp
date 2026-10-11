@@ -83,5 +83,8 @@
 
 // Rendering headers
 #include <Lyra/Rendering/FrameGraph.h>
+#include <Lyra/Rendering/GPURetireQueue.h>
+#include <Lyra/Rendering/ResourceRetire.h>
+#include <Lyra/Rendering/GeometryCache.h>
 
 #endif // LYRA_ENGINE_LYRA_HPP

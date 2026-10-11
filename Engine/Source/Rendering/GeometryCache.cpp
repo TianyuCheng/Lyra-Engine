@@ -2,14 +2,15 @@
 #include <Lyra/Graphics/RHIDescs.h>
 #include <Lyra/Graphics/RHIInits.h>
 #include <Lyra/Graphics/RHIUtils.h>
-#include <Lyra/Runtime/RenderLayer.h>
+#include <Lyra/Rendering/ResourceRetire.h>
 #include <Lyra/Rendering/GeometryCache.h>
 
 using namespace lyra;
 
-GeometryCache::GeometryCache(RenderLayer* render_layer)
-    : render_layer(render_layer)
+GeometryCache::GeometryCache(ResourceRetire* resource_retire)
+    : resource_retire(resource_retire)
 {
+    // do nothing else
 }
 
 GeometryCache::~GeometryCache()
@@ -17,9 +18,9 @@ GeometryCache::~GeometryCache()
     clear();
 }
 
-void GeometryCache::set_render_layer(RenderLayer* layer)
+void GeometryCache::set_resource_retire(ResourceRetire* retire)
 {
-    render_layer = layer;
+    resource_retire = retire;
 }
 
 const GPUMeshEntry* GeometryCache::acquire(const MeshAssetHandle& handle, const MeshAsset& asset)
@@ -60,14 +61,14 @@ void GeometryCache::release(const MeshAssetHandle& handle)
         return;
     }
 
-    // ref count reached 0: destroy/enqueue buffers
+    // ref count reached 0: destroy/retire buffers
     for (auto& lod : it->second.lods) {
-        if (render_layer) {
+        if (resource_retire) {
             if (lod.vertex_buffer.valid()) {
-                render_layer->enqueue(lod.vertex_buffer);
+                resource_retire->retire(lod.vertex_buffer);
             }
             if (lod.index_buffer.valid()) {
-                render_layer->enqueue(lod.index_buffer);
+                resource_retire->retire(lod.index_buffer);
             }
         } else {
             if (lod.vertex_buffer.valid()) {
@@ -100,12 +101,12 @@ void GeometryCache::clear()
 {
     for (auto& [_, entry] : cache) {
         for (auto& lod : entry.lods) {
-            if (render_layer) {
+            if (resource_retire) {
                 if (lod.vertex_buffer.valid()) {
-                    render_layer->enqueue(lod.vertex_buffer);
+                    resource_retire->retire(lod.vertex_buffer);
                 }
                 if (lod.index_buffer.valid()) {
-                    render_layer->enqueue(lod.index_buffer);
+                    resource_retire->retire(lod.index_buffer);
                 }
             } else {
                 if (lod.vertex_buffer.valid()) {

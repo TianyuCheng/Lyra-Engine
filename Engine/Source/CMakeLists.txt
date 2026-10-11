@@ -105,6 +105,7 @@ target_sources(lyra-engine PRIVATE
   Rendering/FrameGraphBuilder.cpp
   Rendering/FrameGraphTexture.cpp
   Rendering/GeometryCache.cpp
+  Rendering/ResourceRetire.cpp
 
   # windowing
   Windowing/WSIState.cpp

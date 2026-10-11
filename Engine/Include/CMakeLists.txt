@@ -57,11 +57,12 @@ target_sources(lyra-headers INTERFACE
     Lyra/Graphics/RHIInits.h
     Lyra/Graphics/RHITypes.h
     Lyra/Graphics/RHIUtils.h
-    Lyra/Graphics/GPUDeletionQueue.h
 
     # rendering
     Lyra/Rendering/FrameGraph.h
     Lyra/Rendering/GeometryCache.h
+    Lyra/Rendering/GPURetireQueue.h
+    Lyra/Rendering/ResourceRetire.h
 
     # compiler
     Lyra/Compiler/SLCAPI.h

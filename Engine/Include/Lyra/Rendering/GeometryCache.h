@@ -12,7 +12,7 @@
 
 namespace lyra
 {
-    struct RenderLayer;
+    class ResourceRetire;
 
     /**
      * @brief GPU-resident representation of a single mesh LOD level.
@@ -42,12 +42,12 @@ namespace lyra
      *
      * Provides reference-counted deduplication across entities sharing the same MeshAsset,
      * uploads interleaved vertex attributes and index data to GPU buffers, and safely defers
-     * buffer destruction through RenderLayer's deletion queues.
+     * buffer destruction through ResourceRetire.
      */
     class GeometryCache
     {
     public:
-        explicit GeometryCache(RenderLayer* render_layer = nullptr);
+        explicit GeometryCache(ResourceRetire* resource_retire = nullptr);
         ~GeometryCache();
 
         GeometryCache(const GeometryCache&)            = delete;
@@ -57,9 +57,9 @@ namespace lyra
         GeometryCache& operator=(GeometryCache&&) noexcept = default;
 
         /**
-         * @brief Set or update the owning RenderLayer used for deferred deletions.
+         * @brief Set or update the ResourceRetire used for deferred resource retirement.
          */
-        void set_render_layer(RenderLayer* layer);
+        void set_resource_retire(ResourceRetire* retire);
 
         /**
          * @brief Acquire or upload GPU mesh buffers for a given MeshAsset.
@@ -103,7 +103,7 @@ namespace lyra
         auto upload_lod(const MeshLOD& lod, uint lod_index) -> GPUMeshLOD;
 
     private:
-        RenderLayer*                           render_layer = nullptr;
+        ResourceRetire*                        resource_retire = nullptr;
         HashMap<MeshAssetHandle, GPUMeshEntry> cache;
     };
 
