@@ -173,8 +173,8 @@ struct DepthTestApp : public TestApp
         }
 
         // commands
-        command.resource_barrier(state_transition(backbuffer.texture, undefined_state(), color_attachment_state()));
-        command.resource_barrier(state_transition(dbuffer, undefined_state(), depth_stencil_attachment_state()));
+        command.resource_barrier(state_transition(backbuffer.texture, undefined_texture_state(), color_attachment_texture_state()));
+        command.resource_barrier(state_transition(dbuffer, undefined_texture_state(), depth_stencil_attachment_texture_state()));
         command.begin_render_pass(render_pass);
         command.set_viewport(0, 0, static_cast<float>(desc.width), static_cast<float>(desc.height));
         command.set_scissor_rect(0, 0, desc.width, desc.height);

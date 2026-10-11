@@ -128,7 +128,7 @@ void SceneView::update(AppContext& context)
             }
         });
 
-        bool prev_active = viewport_active;
+        bool prev_active  = viewport_active;
         bool modal_active = ui::is_modal_active();
         bool text_active  = ui::is_text_input_active();
         bool gizmo_active = is_gizmo_captured();
@@ -154,5 +154,5 @@ void SceneView::update(AppContext& context)
 void SceneView::render_default(GPUCommandBuffer command)
 {
     auto backbuffer = get_backbuffer();
-    command.resource_barrier(state_transition(backbuffer.texture, undefined_state(), shader_resource_state(GPUBarrierSync::ALL_SHADING)));
+    command.resource_barrier(state_transition(backbuffer.texture, undefined_texture_state(), shader_resource_texture_state(GPUBarrierSync::ALL_SHADING)));
 }

@@ -51,12 +51,12 @@ namespace lyra
         void delete_frames(AppContext& context);
 
     private:
-        uint    frame_count   = 0;
-        uint    frame_index   = 0;
-        Vector2 frame_extent  = {0.0f, 0.0f};
-        Vector2 screen_pos    = {0.0f, 0.0f};
-        bool    frame_changed = false;
-        bool    frame_visible = false;
+        uint    frame_count    = 0;
+        uint    frame_index    = 0;
+        Vector2 frame_extent   = {0.0f, 0.0f};
+        Vector2 screen_pos     = {0.0f, 0.0f};
+        bool    frame_changed  = false;
+        bool    frame_visible  = false;
         bool    canvas_hovered = false;
         bool    canvas_active  = false;
 

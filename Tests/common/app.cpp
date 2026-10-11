@@ -122,9 +122,9 @@ void TestApp::run_without_window()
 void TestApp::postprocessing(const GPUCommandBuffer& cmd, GPUTextureHandle backbuffer)
 {
     if (desc.window) {
-        cmd.resource_barrier(state_transition(backbuffer, color_attachment_state(), present_src_state()));
+        cmd.resource_barrier(state_transition(backbuffer, color_attachment_texture_state(), present_src_texture_state()));
     } else {
-        cmd.resource_barrier(state_transition(backbuffer, color_attachment_state(), copy_src_state()));
+        cmd.resource_barrier(state_transition(backbuffer, color_attachment_texture_state(), copy_src_texture_state()));
         cmd.copy_texture_to_buffer(render_target.copy_src(), render_target.copy_dst(), render_target.copy_ext());
     }
 }
@@ -141,12 +141,12 @@ void TestApp::postprocessing_compute(const GPUCommandBuffer& cmd, GPUTextureHand
         dst.texture = backbuffer;
         dst.aspect  = GPUTextureAspect::COLOR;
 
-        cmd.resource_barrier(state_transition(render_target.texture, unordered_access_state(GPUBarrierSync::COMPUTE), copy_src_state()));
-        cmd.resource_barrier(state_transition(backbuffer, undefined_state(), copy_dst_state()));
+        cmd.resource_barrier(state_transition(render_target.texture, unordered_access_texture_state(GPUBarrierSync::COMPUTE), copy_src_texture_state()));
+        cmd.resource_barrier(state_transition(backbuffer, undefined_texture_state(), copy_dst_texture_state()));
         cmd.copy_texture_to_texture(src, dst, render_target.copy_ext());
-        cmd.resource_barrier(state_transition(backbuffer, copy_dst_state(), present_src_state()));
+        cmd.resource_barrier(state_transition(backbuffer, copy_dst_texture_state(), present_src_texture_state()));
     } else {
-        cmd.resource_barrier(state_transition(render_target.texture, unordered_access_state(GPUBarrierSync::COMPUTE), copy_src_state()));
+        cmd.resource_barrier(state_transition(render_target.texture, unordered_access_texture_state(GPUBarrierSync::COMPUTE), copy_src_texture_state()));
         cmd.copy_texture_to_buffer(render_target.copy_src(), render_target.copy_dst(), render_target.copy_ext());
     }
 }

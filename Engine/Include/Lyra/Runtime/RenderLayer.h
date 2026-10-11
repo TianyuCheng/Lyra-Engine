@@ -6,6 +6,7 @@
 #include <Lyra/Scene/World.h>
 #include <Lyra/Graphics/RHITypes.h>
 #include <Lyra/Graphics/GPUDeletionQueue.h>
+#include <Lyra/Rendering/GeometryCache.h>
 
 // local import
 #include <Lyra/Runtime/Application.h>
@@ -60,6 +61,12 @@ namespace lyra
          * @brief Immediately drain all pending deletions across all queues.
          */
         void drain();
+
+        /**
+         * @brief Access the GPU geometry cache.
+         */
+        GeometryCache&       get_geometry_cache() { return geometry_cache; }
+        const GeometryCache& get_geometry_cache() const { return geometry_cache; }
 
         /**
          * @brief Enqueue a GPU resource for deferred deletion.
@@ -187,6 +194,9 @@ namespace lyra
         GPUDeletionQueue<GPURenderPipeline>     render_pipelines;
         GPUDeletionQueue<GPUComputePipeline>    compute_pipelines;
         GPUDeletionQueue<GPURayTracingPipeline> raytracing_pipelines;
+
+        // -- GPU geometry residency cache --
+        GeometryCache geometry_cache;
     };
 
 } // namespace lyra

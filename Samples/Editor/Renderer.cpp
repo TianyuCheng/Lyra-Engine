@@ -211,8 +211,8 @@ void SampleCubeRenderer::render(const Backbuffer& backbuffer, AppContext& contex
     render_pass.depth_stencil_attachment = depth_attachment;
 
     command.push_debug_group("Renderer");
-    command.resource_barrier(state_transition(backbuffer.texture, undefined_state(), color_attachment_state()));
-    command.resource_barrier(state_transition(depth_texture, undefined_state(), depth_stencil_attachment_state()));
+    command.resource_barrier(state_transition(backbuffer.texture, undefined_texture_state(), color_attachment_texture_state()));
+    command.resource_barrier(state_transition(depth_texture, undefined_texture_state(), depth_stencil_attachment_texture_state()));
     command.begin_render_pass(render_pass);
     command.set_viewport(0, 0, static_cast<float>(backbuffer.extent.width), static_cast<float>(backbuffer.extent.height));
     command.set_scissor_rect(0, 0, backbuffer.extent.width, backbuffer.extent.height);
@@ -223,7 +223,7 @@ void SampleCubeRenderer::render(const Backbuffer& backbuffer, AppContext& contex
     command.draw(6, 1, 0, 0);
 
     command.end_render_pass();
-    command.resource_barrier(state_transition(backbuffer.texture, color_attachment_state(), shader_resource_state(GPUBarrierSync::ALL_SHADING)));
+    command.resource_barrier(state_transition(backbuffer.texture, color_attachment_texture_state(), shader_resource_texture_state(GPUBarrierSync::ALL_SHADING)));
     command.pop_debug_group();
 }
 

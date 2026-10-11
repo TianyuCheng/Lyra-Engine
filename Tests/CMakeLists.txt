@@ -27,16 +27,6 @@ endif()
 # alias for backwards compatibility
 add_executable(lyra-testkit ALIAS lyra-rhi-tests)
 
-# rhi test cases
-add_subdirectory(depth_test)
-add_subdirectory(ray_tracing)
-add_subdirectory(frame_graph)
-add_subdirectory(stencil_test)
-add_subdirectory(immediates)
-add_subdirectory(dynamic_uniform)
-add_subdirectory(texture_sampling)
-add_subdirectory(graphics_pipeline)
-
 # ==============================================================================
 # Unit Tests (Fast, headless, no GPU required)
 # ==============================================================================
@@ -48,7 +38,18 @@ target_sources(lyra-unit-tests PRIVATE
 target_link_libraries(lyra-unit-tests PRIVATE doctest::doctest)
 target_include_directories(lyra-unit-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/common)
 
+# rhi test cases
+add_subdirectory(depth_test)
+add_subdirectory(ray_tracing)
+add_subdirectory(frame_graph)
+add_subdirectory(stencil_test)
+add_subdirectory(immediates)
+add_subdirectory(dynamic_uniform)
+add_subdirectory(texture_sampling)
+add_subdirectory(graphics_pipeline)
+
 # non-rhi / unit test cases
+add_subdirectory(spatial)
 add_subdirectory(scene_graph)
 add_subdirectory(asset_server)
 add_subdirectory(shader_reflection)

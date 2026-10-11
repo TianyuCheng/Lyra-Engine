@@ -1054,9 +1054,9 @@ auto AssetBrowserView::upload_rgba_textures(Vector<TextureUploadEntry>& entries,
         dst_info.texture = texture;
         dst_info.aspect  = GPUTextureAspect::COLOR;
 
-        cmdbuffer.resource_barrier(state_transition(texture, undefined_state(), copy_dst_state()));
+        cmdbuffer.resource_barrier(state_transition(texture, undefined_texture_state(), copy_dst_texture_state()));
         cmdbuffer.copy_buffer_to_texture(src_info, dst_info, {(uint)item.w, (uint)item.h, 1});
-        cmdbuffer.resource_barrier(state_transition(texture, copy_dst_state(), shader_resource_state(GPUBarrierSync::PIXEL_SHADING)));
+        cmdbuffer.resource_barrier(state_transition(texture, copy_dst_texture_state(), shader_resource_texture_state(GPUBarrierSync::PIXEL_SHADING)));
 
         GUITexture gui_tex = gui->create_texture(texture, texture.create_view());
         results.push_back({item.name, ThumbnailTexture{texture, gui_tex, true}});

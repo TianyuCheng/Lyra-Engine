@@ -248,9 +248,9 @@ static void imgui_render(AppContext& context)
     render_scene(context, command);
 
     // render UI command recording
-    command.resource_barrier(state_transition(backbuffer.texture, undefined_state(), color_attachment_state()));
+    command.resource_barrier(state_transition(backbuffer.texture, undefined_texture_state(), color_attachment_texture_state()));
     renderer->render_main_viewport(command, backbuffer.view);
-    command.resource_barrier(state_transition(backbuffer.texture, color_attachment_state(), present_src_state()));
+    command.resource_barrier(state_transition(backbuffer.texture, color_attachment_texture_state(), present_src_texture_state()));
 
     // command buffer submission
     command.submit();

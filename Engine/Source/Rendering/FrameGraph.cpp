@@ -9,7 +9,12 @@ FrameGraph::~FrameGraph() = default;
 
 void FrameGraph::execute(FrameGraphContext* context, FrameGraphAllocator* allocator)
 {
+    assert(allocator && "FrameGraph::execute requires a valid FrameGraphAllocator");
+
     registry.reset(resources.size());
+    for (auto& resource : resources) {
+        registry.put(resource.rsid, resource.entry);
+    }
 
     FrameGraphBarrierBatch barriers;
 
@@ -17,14 +22,9 @@ void FrameGraph::execute(FrameGraphContext* context, FrameGraphAllocator* alloca
         auto& pass = passes.at(psid);
         if (!pass.active()) continue;
 
-        // create resources
-        for (auto& rsid : pass.creates) {
-            auto& resource = resources.at(rsid.id);
-
-            // duplicated resources share the entry with some other resources (avoid double creation)
-            if (!resource.duplicate)
-                resource.entry->create(allocator);
-            registry.put(rsid.id, resource.entry);
+        // create physical resources that become active in this pass
+        for (uint pid : pass.creates) {
+            physical_resources.at(pid)->create(allocator);
         }
 
         // pre-read
@@ -40,20 +40,26 @@ void FrameGraph::execute(FrameGraphContext* context, FrameGraphAllocator* alloca
         }
 
         // flush batched barriers before executing the pass
-        barriers.submit(context->cmdlist);
+        barriers.submit(context ? context->cmdlist : GPUCommandBuffer{});
+
+        // debug marker push
+        if (context && context->cmdlist.handle.valid() && pass.entry) {
+            context->cmdlist.push_debug_group(pass.entry->name.c_str());
+        }
 
         // execute pass callback
         if (pass.entry && pass.entry->callback) {
             std::invoke(pass.entry->callback, registry, context);
         }
 
-        // delete resources
-        for (auto& rsid : pass.deletes) {
-            auto& resource = resources.at(rsid.id);
+        // debug marker pop
+        if (context && context->cmdlist.handle.valid() && pass.entry) {
+            context->cmdlist.pop_debug_group();
+        }
 
-            // duplicated resources share the entry with some other resources (avoid double deletion)
-            if (!resource.duplicate)
-                resource.entry->destroy(allocator);
+        // delete physical resources whose lifetime ends in this pass
+        for (uint pid : pass.deletes) {
+            physical_resources.at(pid)->destroy(allocator);
         }
     }
 }
@@ -82,7 +88,7 @@ void FrameGraph::compile()
         // pop a resource and decrement refcnt of its producer
         auto& resource = resources.at(rsid);
         for_all_producers(resource, [&](auto& pass) {
-            if (pass.entry && pass.entry->is_preserved()) return;
+            if (pass.entry && pass.entry->preserved()) return;
             if (--pass.refcnt > 0) return;
 
             // decrement ref counts of resources that it reads if producer.refcnt == 0
@@ -94,33 +100,57 @@ void FrameGraph::compile()
         });
     }
 
-    // topological sort on active passes using Kahn's algorithm
-    Vector<uint>                 in_degree(passes.size(), 0);
-    HashMap<uint, HashSet<uint>> adj;
+    constexpr uint invalid_pass = std::numeric_limits<uint>::max();
 
+    // topological sort on active passes using Kahn's algorithm
+    Vector<uint> in_degree(passes.size(), 0);
+
+    HashMap<uint, HashSet<uint>> adj;
     for (uint p = 0; p < passes.size(); ++p) {
         auto& pass = passes[p];
         if (!pass.active()) continue;
 
-        // pass reads resources produced by other passes
+        // 1. Read-after-Write dependencies:
+        // Pass p reads a resource at a specific version. It depends on the pass that produced that version.
         for (auto& read : pass.reads) {
             auto& res = resources.at(read.resource.id);
-            for (uint prod : res.producers) {
-                if (prod != p && passes.at(prod).active()) {
+            if (auto it = res.version_producers.find(read.resource.version); it != res.version_producers.end()) {
+                uint prod = it->second;
+                if (prod != invalid_pass && prod != p && passes.at(prod).active()) {
                     if (adj[prod].insert(p).second) {
                         in_degree[p]++;
                     }
                 }
+            } else if (res.creator_pass != invalid_pass && res.creator_pass != p && passes.at(res.creator_pass).active()) {
+                if (adj[res.creator_pass].insert(p).second) {
+                    in_degree[p]++;
+                }
             }
         }
 
-        // write-after-read hazards: if a pass writes to a resource already read by previous passes
+        // 2. Write dependencies:
+        // Pass p writes to a resource at write.resource.version, producing version + 1.
         for (auto& write : pass.writes) {
             auto& res = resources.at(write.resource.id);
-            for (uint consumer : res.consumers) {
-                if (consumer != p && consumer < p && passes.at(consumer).active()) {
-                    if (adj[consumer].insert(p).second) {
+
+            // Previous producer dependency (Write-after-Write)
+            if (auto it = res.version_producers.find(write.resource.version); it != res.version_producers.end()) {
+                uint prev_prod = it->second;
+                if (prev_prod != invalid_pass && prev_prod != p && passes.at(prev_prod).active()) {
+                    if (adj[prev_prod].insert(p).second) {
                         in_degree[p]++;
+                    }
+                }
+            }
+
+            // Write-after-Read hazard:
+            // Any active pass that read this exact version must complete before pass p overwrites it!
+            if (auto it = res.version_consumers.find(write.resource.version); it != res.version_consumers.end()) {
+                for (uint consumer : it->second) {
+                    if (consumer != p && passes.at(consumer).active()) {
+                        if (adj[consumer].insert(p).second) {
+                            in_degree[p]++;
+                        }
                     }
                 }
             }
@@ -156,68 +186,63 @@ void FrameGraph::compile()
     }
     assert(execution_order.size() == active_count && "FrameGraph: Cycle detected in render pass dependencies!");
 
-    // determine resource lifetimes based on actual execution order
+    // determine physical resource lifetimes based on actual execution order
     for (auto& pass : passes) {
         pass.creates.clear();
         pass.deletes.clear();
     }
 
-    HashSet<uint>       active_resources;
-    HashMap<uint, uint> resource_last_pass;
+    struct PhysicalLifetime
+    {
+        size_t first_idx  = ~0ull;
+        size_t last_idx   = 0;
+        uint   first_pass = ~0u;
+        uint   last_pass  = ~0u;
+        bool   has_access = false;
+    };
 
-    for (uint psid : execution_order) {
+    Vector<PhysicalLifetime> physical_lifetimes(physical_resources.size());
+    for (size_t i = 0; i < execution_order.size(); ++i) {
+        uint  psid = execution_order[i];
         auto& pass = passes.at(psid);
-        for (auto& read : pass.reads) {
-            uint rsid = read.resource.id;
-            active_resources.insert(rsid);
-            resource_last_pass[rsid] = psid;
-        }
-        for (auto& write : pass.writes) {
-            uint rsid = write.resource.id;
-            active_resources.insert(rsid);
-            resource_last_pass[rsid] = psid;
-        }
+
+        auto update_physical = [&](uint rsid) {
+            auto& res = resources.at(rsid);
+            uint  pid = res.physical_id;
+            if (pid < physical_lifetimes.size()) {
+                auto& lt      = physical_lifetimes[pid];
+                lt.has_access = true;
+                if (i < lt.first_idx) {
+                    lt.first_idx  = i;
+                    lt.first_pass = psid;
+                }
+                if (i >= lt.last_idx) {
+                    lt.last_idx  = i;
+                    lt.last_pass = psid;
+                }
+            }
+        };
+
+        for (auto& read : pass.reads)
+            update_physical(read.resource.id);
+        for (auto& write : pass.writes)
+            update_physical(write.resource.id);
     }
 
-    for (uint rsid : active_resources) {
-        auto& res = resources.at(rsid);
-        if (passes.at(res.creator_pass).active()) {
-            passes.at(res.creator_pass).creates.push_back(FrameGraphResource{rsid});
-        }
-        if (auto it = resource_last_pass.find(rsid); it != resource_last_pass.end()) {
-            passes.at(it->second).deletes.push_back(FrameGraphResource{rsid});
+    for (size_t pid = 0; pid < physical_lifetimes.size(); ++pid) {
+        auto& lt = physical_lifetimes[pid];
+        if (lt.has_access && physical_resources.at(pid)->type == FrameGraphResourceType::TRANSIENT) {
+            passes.at(lt.first_pass).creates.push_back(static_cast<uint>(pid));
+            passes.at(lt.last_pass).deletes.push_back(static_cast<uint>(pid));
         }
     }
 }
 
 bool FrameGraph::has_cycles() const
 {
-    HashSet<uint> visited_passes;
-    HashSet<uint> recursion_set;
-    for (auto& pass : passes)
-        if (visited_passes.find(pass.psid) == visited_passes.end())
-            if (has_cycles(visited_passes, recursion_set, pass.psid))
-                return true;
-    return false;
-}
-
-bool FrameGraph::has_cycles(HashSet<uint>& visited_passes, HashSet<uint>& recursion_set, uint psid) const
-{
-    visited_passes.insert(psid);
-    recursion_set.insert(psid);
-
-    const auto& pass = passes.at(psid);
-    for (auto& write : pass.writes) {
-        const auto& resource = resources.at(write.resource.id);
-        for (auto& consumer : resource.consumers) {
-            if (visited_passes.find(consumer) == visited_passes.end()) {
-                if (has_cycles(visited_passes, recursion_set, consumer))
-                    return true;
-            } else if (recursion_set.find(consumer) != recursion_set.end()) {
-                return true;
-            }
-        }
+    uint active_count = 0;
+    for (auto& pass : passes) {
+        if (pass.active()) active_count++;
     }
-    recursion_set.erase(psid);
-    return false;
+    return execution_order.size() != active_count;
 }

@@ -289,7 +289,7 @@ struct RayTracingApp : public TestApp
         }
 
         // prepare render target barrier state
-        cmd.resource_barrier(state_transition(render_target.texture, undefined_state(), unordered_access_state(GPUBarrierSync::COMPUTE)));
+        cmd.resource_barrier(state_transition(render_target.texture, undefined_texture_state(), unordered_access_texture_state(GPUBarrierSync::COMPUTE)));
 
         // dispatch compute
         cmd.set_pipeline(pipeline.pipeline);

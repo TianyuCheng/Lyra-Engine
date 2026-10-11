@@ -154,7 +154,8 @@ namespace lyra
 
         [[nodiscard]] constexpr uint rsid() const noexcept { return id; }
         [[nodiscard]] constexpr bool valid() const noexcept { return id != ~0u; }
-        constexpr void               reset() noexcept
+
+        constexpr void reset() noexcept
         {
             id      = ~0u;
             version = 0;
@@ -182,18 +183,23 @@ namespace lyra
         Vector<GPUTextureBarrier> texture_barriers;
         Vector<GPUBufferBarrier>  buffer_barriers;
 
-        void add_texture_barrier(GPUTextureBarrier barrier)
+        void add_barrier(const GPUTextureBarrier& barrier)
         {
             texture_barriers.push_back(barrier);
         }
 
-        void add_buffer_barrier(GPUBufferBarrier barrier)
+        void add_barrier(const GPUBufferBarrier& barrier)
         {
             buffer_barriers.push_back(barrier);
         }
 
         void submit(const GPUCommandBuffer& cmdlist)
         {
+            if (!cmdlist.handle.valid()) {
+                texture_barriers.clear();
+                buffer_barriers.clear();
+                return;
+            }
             if (!texture_barriers.empty()) {
                 cmdlist.resource_barrier(texture_barriers);
                 texture_barriers.clear();
@@ -213,12 +219,17 @@ namespace lyra
     {
         FrameGraphResourceType type = FrameGraphResourceType::TRANSIENT;
 
-        virtual ~FrameGraphResourceModel()                                                                                                         = default;
-        virtual ResourceTypeID get_type_id() const                                                                                                 = 0;
-        virtual void           create(FrameGraphAllocator* allocator)                                                                              = 0;
-        virtual void           destroy(FrameGraphAllocator* allocator)                                                                             = 0;
-        virtual void           pre_read(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphReadOp op, FrameGraphBarrierBatch* barriers)   = 0;
-        virtual void           pre_write(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphWriteOp op, FrameGraphBarrierBatch* barriers) = 0;
+        virtual ~FrameGraphResourceModel() = default;
+
+        virtual ResourceTypeID get_type_id() const = 0;
+
+        virtual void create(FrameGraphAllocator* allocator) = 0;
+
+        virtual void destroy(FrameGraphAllocator* allocator) = 0;
+
+        virtual void pre_read(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphReadOp op, FrameGraphBarrierBatch* barriers) = 0;
+
+        virtual void pre_write(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphWriteOp op, FrameGraphBarrierBatch* barriers) = 0;
     };
 
     template <typename T>
@@ -234,14 +245,20 @@ namespace lyra
 
         void create(FrameGraphAllocator* allocator) override
         {
-            if (type == FrameGraphResourceType::TRANSIENT)
-                value.create(allocator, desc);
+            assert(allocator && "FrameGraphResourceEntry::create requires a valid allocator");
+            if (type == FrameGraphResourceType::TRANSIENT) {
+                if constexpr (requires { value.create(allocator, desc); })
+                    value.create(allocator, desc);
+            }
         }
 
         void destroy(FrameGraphAllocator* allocator) override
         {
-            if (type == FrameGraphResourceType::TRANSIENT)
-                value.destroy(allocator, desc);
+            assert(allocator && "FrameGraphResourceEntry::destroy requires a valid allocator");
+            if (type == FrameGraphResourceType::TRANSIENT) {
+                if constexpr (requires { value.destroy(allocator, desc); })
+                    value.destroy(allocator, desc);
+            }
         }
 
         void pre_read(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphReadOp op, FrameGraphBarrierBatch* barriers) override
@@ -272,6 +289,9 @@ namespace lyra
         bool                     duplicate    = false;
         Vector<uint>             consumers    = {};
         Vector<uint>             producers    = {};
+
+        HashMap<uint, uint>         version_producers = {};
+        HashMap<uint, Vector<uint>> version_consumers = {};
     };
 
     struct FrameGraphResources
@@ -385,13 +405,14 @@ namespace lyra
         void execute(ExecuteCallback&& f) { this->callback = std::move(f); }
 
         // prevent from being culled
-        void                     preserve() { preserved = true; }
-        [[nodiscard]] bool       is_preserved() const { return preserved; }
-        [[nodiscard]] StringView get_name() const { return name; }
+        void               preserve() { is_preserved = true; }
+        [[nodiscard]] bool preserved() const { return is_preserved; }
+
+        [[nodiscard]] auto get_name() const -> StringView { return name; }
 
     private:
-        String          name      = "";
-        bool            preserved = false;
+        String          name         = "";
+        bool            is_preserved = false;
         ExecuteCallback callback;
     };
 
@@ -402,10 +423,10 @@ namespace lyra
         uint                            refcnt  = 0;
         Vector<FrameGraphReadResource>  reads   = {};
         Vector<FrameGraphWriteResource> writes  = {};
-        Vector<FrameGraphResource>      creates = {};
-        Vector<FrameGraphResource>      deletes = {};
+        Vector<uint>                    creates = {};
+        Vector<uint>                    deletes = {};
 
-        bool active() const { return refcnt != 0 || (entry && entry->is_preserved()); }
+        bool active() const { return refcnt != 0 || (entry && entry->preserved()); }
     };
 
     // -------------------------------------------------------------------------
@@ -427,11 +448,13 @@ namespace lyra
     struct FrameGraphAllocatorEntry
     {
         T    data;
-        bool used = false;
+        bool used          = false;
+        uint unused_frames = 0;
     };
 
     using FGBufferObject = GPUBufferHandle;
-    using FGBufferVector = Vector<FrameGraphAllocatorEntry<FGBufferObject>>;
+    using FGBufferEntry  = FrameGraphAllocatorEntry<FGBufferObject>;
+    using FGBufferVector = Vector<FGBufferEntry>;
 
     struct FGTextureObject
     {
@@ -449,16 +472,31 @@ namespace lyra
         }
     };
 
-    using FGTextureVector = Vector<FrameGraphAllocatorEntry<FGTextureObject>>;
+    using FGTextureEntry  = FrameGraphAllocatorEntry<FGTextureObject>;
+    using FGTextureVector = Vector<FGTextureEntry>;
 
     struct FrameGraphAllocator
     {
     public:
+        virtual ~FrameGraphAllocator();
+
         auto allocate(const GPUBufferDescriptor& descriptor) -> FGBufferObject;
         void recycle(const GPUBufferDescriptor& descriptor, FGBufferObject buffer);
 
         auto allocate(const GPUTextureDescriptor& descriptor) -> FGTextureObject;
         void recycle(const GPUTextureDescriptor& descriptor, FGTextureObject texture);
+
+        void reclaim_unused();
+        void reclaim_unused_if(FunctionRef<bool(const GPUTextureDescriptor&)> texture_pred);
+        void reclaim_unused_if(FunctionRef<bool(const GPUBufferDescriptor&)> buffer_pred);
+        void reclaim_unused_if(FunctionRef<bool(const GPUTextureDescriptor&)> texture_pred,
+            FunctionRef<bool(const GPUBufferDescriptor&)>                     buffer_pred);
+        void tick(uint max_unused_frames = 60);
+
+        void clear();
+
+        [[nodiscard]] uint allocated_texture_count() const;
+        [[nodiscard]] uint allocated_buffer_count() const;
 
     private:
         HashMap<GPUBufferDescriptor, FGBufferVector>   buffers;
@@ -476,10 +514,11 @@ namespace lyra
 
         void create(FrameGraphAllocator* allocator, const Descriptor& descriptor)
         {
+            assert(allocator && "FrameGraphTexture::create requires a valid allocator");
             auto handle = allocator->allocate(descriptor);
             texture     = handle.texture;
             view        = handle.view;
-            state       = undefined_state();
+            state       = undefined_texture_state();
             format      = descriptor.format;
             layers      = descriptor.array_layers;
             levels      = descriptor.mip_level_count;
@@ -487,6 +526,7 @@ namespace lyra
 
         void destroy(FrameGraphAllocator* allocator, const Descriptor& descriptor)
         {
+            assert(allocator && "FrameGraphTexture::destroy requires a valid allocator");
             auto handle = FGTextureObject{texture, view};
             allocator->recycle(descriptor, handle);
             texture.reset();
@@ -496,12 +536,12 @@ namespace lyra
         void pre_read(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphReadOp op, FrameGraphBarrierBatch* barriers = nullptr);
         void pre_write(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphWriteOp op, FrameGraphBarrierBatch* barriers = nullptr);
 
-        GPUTextureHandle     texture;
-        GPUTextureViewHandle view;
-        GPUTextureFormat     format{};
-        uint                 layers = 1;
-        uint                 levels = 1;
-        TransitionState      state  = undefined_state();
+        GPUTextureHandle       texture;
+        GPUTextureViewHandle   view;
+        GPUTextureFormat       format{};
+        uint                   layers = 1;
+        uint                   levels = 1;
+        TextureTransitionState state  = undefined_texture_state();
     };
 
     struct FrameGraphBuffer
@@ -511,19 +551,36 @@ namespace lyra
 
         void create(FrameGraphAllocator* allocator, const Descriptor& descriptor)
         {
+            assert(allocator && "FrameGraphBuffer::create requires a valid allocator");
             buffer = allocator->allocate(descriptor);
+            size   = descriptor.size;
+            state  = undefined_buffer_state();
         }
 
         void destroy(FrameGraphAllocator* allocator, const Descriptor& descriptor)
         {
+            assert(allocator && "FrameGraphBuffer::destroy requires a valid allocator");
             allocator->recycle(descriptor, buffer);
             buffer.reset();
+            size  = 0;
+            state = undefined_buffer_state();
         }
 
         void pre_read(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphReadOp op, FrameGraphBarrierBatch* barriers = nullptr);
         void pre_write(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphWriteOp op, FrameGraphBarrierBatch* barriers = nullptr);
 
-        GPUBufferHandle buffer;
+        GPUBufferHandle       buffer;
+        GPUSize64             size  = 0;
+        BufferTransitionState state = undefined_buffer_state();
+    };
+
+    struct FrameGraphTlas
+    {
+        using Self       = FrameGraphTlas;
+        using Descriptor = GPUTlasDescriptor;
+
+        GPUTlasHandle         tlas;
+        BufferTransitionState state = undefined_buffer_state();
     };
 
     // -------------------------------------------------------------------------
@@ -547,11 +604,14 @@ namespace lyra
         using Resources   = FrameGraphResources;
         using Buffer      = FrameGraphBuffer;
         using Texture     = FrameGraphTexture;
+        using Tlas        = FrameGraphTlas;
         using Allocator   = FrameGraphAllocator;
+
         template <typename T>
         using Handle        = FrameGraphHandle<T>;
         using TextureHandle = FrameGraphHandle<FrameGraphTexture>;
         using BufferHandle  = FrameGraphHandle<FrameGraphBuffer>;
+        using TlasHandle    = FrameGraphHandle<FrameGraphTlas>;
 
         explicit FrameGraph()                  = default;
         explicit FrameGraph(FrameGraph&&)      = delete;
@@ -564,7 +624,6 @@ namespace lyra
         void compile();
 
         bool has_cycles() const;
-        bool has_cycles(HashSet<uint>& visited_passes, HashSet<uint>& recursion_set, uint psid) const;
 
         template <typename T>
         void for_all_consumers(const FrameGraphResourceNode& resource, T&& callback)
@@ -623,16 +682,14 @@ namespace lyra
             uint physical_id = static_cast<uint>(graph.physical_resources.size());
             graph.physical_resources.push_back(std::move(physical));
 
-            auto resource         = FrameGraphResourceNode{};
-            resource.rsid         = index;
-            resource.physical_id  = physical_id;
-            resource.creator_pass = pass_id;
-            resource.entry        = graph.physical_resources.back().get();
+            auto resource                 = FrameGraphResourceNode{};
+            resource.rsid                 = index;
+            resource.physical_id          = physical_id;
+            resource.creator_pass         = pass_id;
+            resource.entry                = graph.physical_resources.back().get();
+            resource.version_producers[0] = pass_id;
 
             graph.resources.push_back(resource);
-
-            auto& pass_node = graph.passes.at(pass_id);
-            pass_node.creates.push_back(FrameGraphResource{index});
             return FrameGraphHandle<T>{index};
         }
 
@@ -647,16 +704,14 @@ namespace lyra
             uint physical_id = static_cast<uint>(graph.physical_resources.size());
             graph.physical_resources.push_back(std::move(physical));
 
-            auto resource         = FrameGraphResourceNode{};
-            resource.rsid         = index;
-            resource.physical_id  = physical_id;
-            resource.creator_pass = pass_id;
-            resource.entry        = graph.physical_resources.back().get();
+            auto resource                 = FrameGraphResourceNode{};
+            resource.rsid                 = index;
+            resource.physical_id          = physical_id;
+            resource.creator_pass         = pass_id;
+            resource.entry                = graph.physical_resources.back().get();
+            resource.version_producers[0] = pass_id;
 
             graph.resources.push_back(resource);
-
-            auto& pass_node = graph.passes.at(pass_id);
-            pass_node.creates.push_back(FrameGraphResource{index});
             return FrameGraphHandle<T>{index};
         }
 
@@ -665,18 +720,17 @@ namespace lyra
         {
             auto& from_resource = graph.resources.at(resource.id);
 
-            uint index            = static_cast<uint>(graph.resources.size());
-            auto res_node         = FrameGraphResourceNode{};
-            res_node.rsid         = index;
-            res_node.physical_id  = from_resource.physical_id;
-            res_node.creator_pass = pass_id;
-            res_node.entry        = from_resource.entry;
-            res_node.duplicate    = true;
+            uint index                                       = static_cast<uint>(graph.resources.size());
+            auto res_node                                    = FrameGraphResourceNode{};
+            res_node.rsid                                    = index;
+            res_node.physical_id                             = from_resource.physical_id;
+            res_node.creator_pass                            = pass_id;
+            res_node.entry                                   = from_resource.entry;
+            res_node.duplicate                               = true;
+            res_node.version_producers                       = from_resource.version_producers;
+            res_node.version_producers[resource.version + 1] = pass_id;
 
             graph.resources.push_back(res_node);
-
-            auto& pass_node = graph.passes.at(pass_id);
-            pass_node.creates.push_back(FrameGraphResource{index});
             return FrameGraphHandle<T>{index, resource.version + 1};
         }
 
@@ -690,6 +744,7 @@ namespace lyra
             auto& resource_node = graph.resources.at(resource.id);
             resource_node.consumers.push_back(pass_id);
             resource_node.last_pass = pass_id;
+            resource_node.version_consumers[resource.version].push_back(pass_id);
 
             return resource;
         }
@@ -703,7 +758,8 @@ namespace lyra
 
             auto& resource_node = graph.resources.at(resource.id);
             resource_node.producers.push_back(pass_id);
-            resource_node.last_pass = pass_id;
+            resource_node.last_pass                               = pass_id;
+            resource_node.version_producers[resource.version + 1] = pass_id;
 
             return FrameGraphHandle<T>{resource.id, resource.version + 1};
         }
@@ -756,8 +812,9 @@ namespace lyra
         template <typename Data, typename Setup, typename Exec>
         Data add_pass(StringView name, Setup&& setup, Exec&& exec)
         {
-            auto&                 pass_entry = create_pass(name);
-            Data                  data{};
+            auto& pass_entry = create_pass(name);
+            Data  data{};
+
             FrameGraphPassBuilder pass_builder(*graph, this->pass);
             setup(data, pass_builder);
 
@@ -771,7 +828,8 @@ namespace lyra
         template <typename Setup, typename Exec>
         void add_pass(StringView name, Setup&& setup, Exec&& exec)
         {
-            auto&                 pass_entry = create_pass(name);
+            auto& pass_entry = create_pass(name);
+
             FrameGraphPassBuilder pass_builder(*graph, this->pass);
             setup(pass_builder);
 
@@ -785,9 +843,23 @@ namespace lyra
         template <typename T>
         [[nodiscard]] FrameGraphHandle<T> import(const T& entry)
         {
-            assert(is_pass_valid() && "must call FrameGraphBuilder::create_pass(...) prior to import(...)");
-            FrameGraphPassBuilder pb(*graph, pass);
-            return pb.import(entry);
+            uint index      = static_cast<uint>(graph->resources.size());
+            auto physical   = std::make_unique<FrameGraphResourceEntry<T>>();
+            physical->type  = FrameGraphResourceType::IMPORTED;
+            physical->value = entry;
+
+            uint physical_id = static_cast<uint>(graph->physical_resources.size());
+            graph->physical_resources.push_back(std::move(physical));
+
+            auto resource                 = FrameGraphResourceNode{};
+            resource.rsid                 = index;
+            resource.physical_id          = physical_id;
+            resource.creator_pass         = is_pass_valid() ? pass : std::numeric_limits<uint>::max();
+            resource.entry                = graph->physical_resources.back().get();
+            resource.version_producers[0] = resource.creator_pass;
+
+            graph->resources.push_back(resource);
+            return FrameGraphHandle<T>{index};
         }
 
         template <typename T>

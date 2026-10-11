@@ -30,8 +30,12 @@ void RenderLayer::bind(Application& app)
     compute_pipelines.init(frames_in_flight);
     raytracing_pipelines.init(frames_in_flight);
 
+    // initialize geometry cache
+    geometry_cache.set_render_layer(this);
+
     // register on toolboard so render passes can enqueue deletions via RenderLayer*
     app.get_toolboard().add<RenderLayer*>(this);
+    app.get_toolboard().add<GeometryCache*>(&geometry_cache);
 
     // camera projection: runs before rendering
     app.bind<AppEvent::UPDATE_PRE, &RenderLayer::update>(*this);
@@ -88,6 +92,7 @@ void RenderLayer::drain()
 
 void RenderLayer::destroy(AppContext& context)
 {
+    geometry_cache.clear();
     auto device = context.toolboard.get<GPUDevice*>();
     device->wait();
     drain();

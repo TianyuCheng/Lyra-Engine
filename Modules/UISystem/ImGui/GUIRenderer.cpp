@@ -203,9 +203,9 @@ static void imgui_update_texture(GPUCommandBuffer cmdbuffer, GUIRendererData* re
     copy_size.depth  = 1;
 
     // copy from staging buffer to texture
-    cmdbuffer.resource_barrier(state_transition(texture.texture, undefined_state(), copy_dst_state()));
+    cmdbuffer.resource_barrier(state_transition(texture.texture, undefined_texture_state(), copy_dst_texture_state()));
     cmdbuffer.copy_buffer_to_texture(source, dest, copy_size);
-    cmdbuffer.resource_barrier(state_transition(texture.texture, copy_dst_state(), shader_resource_state(GPUBarrierSync::PIXEL_SHADING)));
+    cmdbuffer.resource_barrier(state_transition(texture.texture, copy_dst_texture_state(), shader_resource_texture_state(GPUBarrierSync::PIXEL_SHADING)));
 
     // deferred deletion of the staging buffer, because this buffer is still used before the command buffer completes.
     renderer_data->garbage_buffers.push_back(GUIGarbageBuffer{staging, 0});
@@ -502,12 +502,12 @@ static void platform_render_window(ImGuiViewport* viewport, void*)
     cmdbuffer.signal(backbuffer.complete, GPUBarrierSync::RENDER_TARGET);
 
     // command recording
-    cmdbuffer.resource_barrier(state_transition(backbuffer.texture, undefined_state(), color_attachment_state()));
+    cmdbuffer.resource_barrier(state_transition(backbuffer.texture, undefined_texture_state(), color_attachment_texture_state()));
     imgui_prepare(cmdbuffer, vd->pipeline, vd->renderer, viewport->DrawData);
     imgui_begin_render_pass(cmdbuffer, backbuffer);
     imgui_render(cmdbuffer, backbuffer, vd->pipeline, vd->renderer, viewport->DrawData);
     imgui_end_render_pass(cmdbuffer);
-    cmdbuffer.resource_barrier(state_transition(backbuffer.texture, color_attachment_state(), present_src_state()));
+    cmdbuffer.resource_barrier(state_transition(backbuffer.texture, color_attachment_texture_state(), present_src_texture_state()));
     cmdbuffer.submit();
 
     // swapchain presentation

@@ -27,9 +27,9 @@ void SimpleTexture2D::upload()
     copy_ext.height = height;
     copy_ext.depth  = 1;
 
-    command.resource_barrier(state_transition(texture, undefined_state(), copy_dst_state()));
+    command.resource_barrier(state_transition(texture, undefined_texture_state(), copy_dst_texture_state()));
     command.copy_buffer_to_texture(copy_src, copy_dst, copy_ext);
-    command.resource_barrier(state_transition(texture, copy_dst_state(), shader_resource_state(GPUBarrierSync::PIXEL_SHADING)));
+    command.resource_barrier(state_transition(texture, copy_dst_texture_state(), shader_resource_texture_state(GPUBarrierSync::PIXEL_SHADING)));
     command.submit();
 
     device.wait();

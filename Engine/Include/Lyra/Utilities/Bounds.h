@@ -3,12 +3,15 @@
 #ifndef LYRA_ENGINE_UTILITIES_BOUNDS_H
 #define LYRA_ENGINE_UTILITIES_BOUNDS_H
 
+#include <cmath>
+#include <algorithm>
 #include <Lyra/Utilities/Math.h>
+#include <Lyra/Utilities/Stdint.h>
 
 namespace lyra
 {
     // =========================================================================
-    // 2D Bounds (Rect)
+    // 2D Bounds (Axis-Aligned Bounding Box / Rect)
     // =========================================================================
 
     struct Bounds2D
@@ -31,16 +34,49 @@ namespace lyra
             return p.x >= min.x && p.x <= max.x && p.y >= min.y && p.y <= max.y;
         }
 
+        constexpr bool contains(const Bounds2D& b) const
+        {
+            return b.min.x >= min.x && b.max.x <= max.x &&
+                   b.min.y >= min.y && b.max.y <= max.y;
+        }
+
         constexpr bool overlaps(const Bounds2D& b) const
         {
-            return min.x <= b.max.x && max.x >= b.min.x && min.y <= b.max.y && max.y >= b.min.y;
+            return min.x <= b.max.x && max.x >= b.min.x &&
+                   min.y <= b.max.y && max.y >= b.min.y;
+        }
+
+        constexpr void expand(Vector2 p)
+        {
+            min.x = std::min(min.x, p.x);
+            min.y = std::min(min.y, p.y);
+            max.x = std::max(max.x, p.x);
+            max.y = std::max(max.y, p.y);
+        }
+
+        constexpr void expand(const Bounds2D& b)
+        {
+            min.x = std::min(min.x, b.min.x);
+            min.y = std::min(min.y, b.min.y);
+            max.x = std::max(max.x, b.max.x);
+            max.y = std::max(max.y, b.max.y);
+        }
+
+        constexpr Bounds2D merged(const Bounds2D& b) const
+        {
+            return Bounds2D(
+                std::min(min.x, b.min.x),
+                std::min(min.y, b.min.y),
+                std::max(max.x, b.max.x),
+                std::max(max.y, b.max.y));
         }
     };
 
-    using Rect = Bounds2D;
+    using Rect          = Bounds2D;
+    using BoundingBox2D = Bounds2D;
 
     // =========================================================================
-    // 3D Bounds (Box)
+    // 3D Bounds (Axis-Aligned Bounding Box / Box)
     // =========================================================================
 
     struct Bounds3D
@@ -69,15 +105,66 @@ namespace lyra
                    p.z >= min.z && p.z <= max.z;
         }
 
+        constexpr bool contains(const Bounds3D& b) const
+        {
+            return b.min.x >= min.x && b.max.x <= max.x &&
+                   b.min.y >= min.y && b.max.y <= max.y &&
+                   b.min.z >= min.z && b.max.z <= max.z;
+        }
+
         constexpr bool overlaps(const Bounds3D& b) const
         {
             return min.x <= b.max.x && max.x >= b.min.x &&
                    min.y <= b.max.y && max.y >= b.min.y &&
                    min.z <= b.max.z && max.z >= b.min.z;
         }
+
+        constexpr void expand(Vector3 p)
+        {
+            min.x = std::min(min.x, p.x);
+            min.y = std::min(min.y, p.y);
+            min.z = std::min(min.z, p.z);
+            max.x = std::max(max.x, p.x);
+            max.y = std::max(max.y, p.y);
+            max.z = std::max(max.z, p.z);
+        }
+
+        constexpr void expand(const Bounds3D& b)
+        {
+            min.x = std::min(min.x, b.min.x);
+            min.y = std::min(min.y, b.min.y);
+            min.z = std::min(min.z, b.min.z);
+            max.x = std::max(max.x, b.max.x);
+            max.y = std::max(max.y, b.max.y);
+            max.z = std::max(max.z, b.max.z);
+        }
+
+        constexpr Bounds3D merged(const Bounds3D& b) const
+        {
+            return Bounds3D(
+                std::min(min.x, b.min.x),
+                std::min(min.y, b.min.y),
+                std::min(min.z, b.min.z),
+                std::max(max.x, b.max.x),
+                std::max(max.y, b.max.y),
+                std::max(max.z, b.max.z));
+        }
+
+        inline Bounds3D transformed(const Matrix4x4& m) const
+        {
+            Vector3 c          = center();
+            Vector3 e          = extents();
+            Vector3 new_center = Vector3(m * Vector4(c, 1.0f));
+            Vector3 new_extents(
+                std::abs(m[0][0]) * e.x + std::abs(m[1][0]) * e.y + std::abs(m[2][0]) * e.z,
+                std::abs(m[0][1]) * e.x + std::abs(m[1][1]) * e.y + std::abs(m[2][1]) * e.z,
+                std::abs(m[0][2]) * e.x + std::abs(m[1][2]) * e.y + std::abs(m[2][2]) * e.z);
+            return Bounds3D(new_center - new_extents, new_center + new_extents);
+        }
     };
 
-    using Box = Bounds3D;
+    using Box         = Bounds3D;
+    using BoundingBox = Bounds3D;
 
 } // namespace lyra
 

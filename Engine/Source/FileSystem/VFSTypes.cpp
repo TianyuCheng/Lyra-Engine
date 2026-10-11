@@ -72,7 +72,7 @@ static FilePackerAPI* create_file_packer_api(FSPacker packer)
 #pragma region FileLoader
 FileLoader::FileLoader(FSLoader loader)
 {
-    api_ = create_file_loader_api(loader);
+    api_                     = create_file_loader_api(loader);
     [[maybe_unused]] bool ok = api_->create_loader(this->loader);
     assert(ok);
 }
@@ -101,7 +101,7 @@ size_t FileLoader::size(FSPath vpath) const
 
 FileHandle FileLoader::open(FSPath vpath) const
 {
-    FileHandle file;
+    FileHandle            file;
     [[maybe_unused]] bool ok = api_->open_file(loader, file, vpath);
     assert(ok);
     return file;
@@ -114,8 +114,8 @@ void FileLoader::close(FileHandle file) const
 
 size_t FileLoader::read(FileHandle file, void* buffer, size_t size) const
 {
-    size_t read = 0;
-    [[maybe_unused]] bool ok = api_->read_file(loader, file, buffer, size, read);
+    size_t                read = 0;
+    [[maybe_unused]] bool ok   = api_->read_file(loader, file, buffer, size, read);
     assert(ok);
     return read;
 }
@@ -128,7 +128,7 @@ void FileLoader::seek(FileHandle file, int64_t offset) const
 
 MountHandle FileLoader::mount(FSPath vpath, const Path& path, uint priority) const
 {
-    MountHandle mount;
+    MountHandle           mount;
     [[maybe_unused]] bool ok = api_->mount(loader, mount, vpath, path.c_str(), priority);
     assert(ok);
     return mount;
@@ -136,7 +136,7 @@ MountHandle FileLoader::mount(FSPath vpath, const Path& path, uint priority) con
 
 MountHandle FileLoader::mount(FSPath vpath, OSPath path, uint priority) const
 {
-    MountHandle mount;
+    MountHandle           mount;
     [[maybe_unused]] bool ok = api_->mount(loader, mount, vpath, path, priority);
     assert(ok);
     return mount;
@@ -151,7 +151,7 @@ void FileLoader::unmount(MountHandle mount) const
 #pragma region FilePacker
 FilePacker::FilePacker(FSPacker packer, OSPath path)
 {
-    api_ = create_file_packer_api(packer);
+    api_                     = create_file_packer_api(packer);
     [[maybe_unused]] bool ok = api_->create_packer(this->packer, path);
     assert(ok);
 }

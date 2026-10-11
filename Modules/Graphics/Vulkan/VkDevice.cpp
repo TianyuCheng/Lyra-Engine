@@ -34,7 +34,7 @@ void create_allocator(VulkanRHI* rhi, bool enable_buffer_device_address)
 
     VmaVulkanFunctions vulkan_functions = {};
     vmaImportVulkanFunctionsFromVolk(&allocator_info, &vulkan_functions);
-    allocator_info.pVulkanFunctions       = &vulkan_functions;
+    allocator_info.pVulkanFunctions = &vulkan_functions;
 
     vk_check(vmaCreateAllocator(&allocator_info, &rhi->alloc));
 }

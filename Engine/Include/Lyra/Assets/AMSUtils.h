@@ -36,6 +36,16 @@ namespace lyra
         }
 
         FORCE_INLINE bool valid() const { return guid != 0; }
+
+        FORCE_INLINE bool operator==(const RawAssetHandle& other) const { return guid == other.guid; }
+        FORCE_INLINE bool operator!=(const RawAssetHandle& other) const { return guid != other.guid; }
+        FORCE_INLINE bool operator<(const RawAssetHandle& other) const { return guid < other.guid; }
+
+        template <typename H>
+        friend H AbslHashValue(H h, const RawAssetHandle& handle)
+        {
+            return H::combine(std::move(h), handle.guid);
+        }
     };
 
     /**

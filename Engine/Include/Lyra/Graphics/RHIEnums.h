@@ -648,6 +648,9 @@ namespace lyra
         NO_DUPLICATE_ANY_HIT_INVOCATION = 0x0002,
     };
 
+    /**
+     * @brief Check whether a texture format contains a depth component.
+     */
     inline bool is_depth_format(GPUTextureFormat format)
     {
         switch (format) {
@@ -662,6 +665,9 @@ namespace lyra
         }
     }
 
+    /**
+     * @brief Check whether a texture format contains a stencil component.
+     */
     inline bool is_stencil_format(GPUTextureFormat format)
     {
         switch (format) {
@@ -674,11 +680,81 @@ namespace lyra
         }
     }
 
+    /**
+     * @brief Check whether a texture format contains depth or stencil components.
+     */
     inline bool is_depth_stencil_format(GPUTextureFormat format)
     {
         return is_depth_format(format) || is_stencil_format(format);
     }
 
+    /**
+     * @brief Returns the byte size / stride of a single vertex element for a given GPUVertexFormat.
+     */
+    inline constexpr uint get_vertex_format_size(GPUVertexFormat format)
+    {
+        switch (format) {
+            case GPUVertexFormat::UINT8:
+            case GPUVertexFormat::SINT8:
+            case GPUVertexFormat::UNORM8:
+            case GPUVertexFormat::SNORM8:
+                return 1;
+
+            case GPUVertexFormat::UINT8x2:
+            case GPUVertexFormat::SINT8x2:
+            case GPUVertexFormat::UNORM8x2:
+            case GPUVertexFormat::SNORM8x2:
+            case GPUVertexFormat::UINT16:
+            case GPUVertexFormat::SINT16:
+            case GPUVertexFormat::UNORM16:
+            case GPUVertexFormat::SNORM16:
+            case GPUVertexFormat::FLOAT16:
+                return 2;
+
+            case GPUVertexFormat::UINT8x4:
+            case GPUVertexFormat::SINT8x4:
+            case GPUVertexFormat::UNORM8x4:
+            case GPUVertexFormat::SNORM8x4:
+            case GPUVertexFormat::UINT16x2:
+            case GPUVertexFormat::SINT16x2:
+            case GPUVertexFormat::UNORM16x2:
+            case GPUVertexFormat::SNORM16x2:
+            case GPUVertexFormat::FLOAT16x2:
+            case GPUVertexFormat::FLOAT32:
+            case GPUVertexFormat::UINT32:
+            case GPUVertexFormat::SINT32:
+            case GPUVertexFormat::UNORM10_10_10_2:
+            case GPUVertexFormat::UNORM8x4_BGRA:
+                return 4;
+
+            case GPUVertexFormat::FLOAT32x2:
+            case GPUVertexFormat::UINT32x2:
+            case GPUVertexFormat::SINT32x2:
+            case GPUVertexFormat::UINT16x4:
+            case GPUVertexFormat::SINT16x4:
+            case GPUVertexFormat::UNORM16x4:
+            case GPUVertexFormat::SNORM16x4:
+            case GPUVertexFormat::FLOAT16x4:
+                return 8;
+
+            case GPUVertexFormat::FLOAT32x3:
+            case GPUVertexFormat::UINT32x3:
+            case GPUVertexFormat::SINT32x3:
+                return 12;
+
+            case GPUVertexFormat::FLOAT32x4:
+            case GPUVertexFormat::UINT32x4:
+            case GPUVertexFormat::SINT32x4:
+                return 16;
+
+            default:
+                return 0;
+        }
+    }
+
+    /**
+     * @brief Convert a GPUObjectType enum value to its string representation.
+     */
     inline constexpr CString to_string(GPUObjectType type)
     {
         // clang-format off

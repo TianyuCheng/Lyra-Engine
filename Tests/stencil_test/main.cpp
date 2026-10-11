@@ -241,8 +241,8 @@ struct StencilTestApp : public TestApp
         }
 
         // commands
-        command.resource_barrier(state_transition(backbuffer.texture, undefined_state(), color_attachment_state()));
-        command.resource_barrier(state_transition(dsbuffer, undefined_state(), depth_stencil_attachment_state()));
+        command.resource_barrier(state_transition(backbuffer.texture, undefined_texture_state(), color_attachment_texture_state()));
+        command.resource_barrier(state_transition(dsbuffer, undefined_texture_state(), depth_stencil_attachment_texture_state()));
         render_mask(command, backbuffer, bind_group);
         render_color(command, backbuffer, bind_group);
         postprocessing(command, backbuffer.texture);

@@ -61,6 +61,7 @@ target_sources(lyra-headers INTERFACE
 
     # rendering
     Lyra/Rendering/FrameGraph.h
+    Lyra/Rendering/GeometryCache.h
 
     # compiler
     Lyra/Compiler/SLCAPI.h
