@@ -68,7 +68,8 @@ TEST_CASE("jobs::job_system" * doctest::description("Job System and Coroutine Te
         auto parallel_job = [&]() -> Task<void> {
             co_await parallel_for(static_cast<usize>(0), count, [&](usize i) {
                 data[i] = static_cast<int>(i * 3);
-            }, 512);
+            },
+                512);
         };
 
         sync_wait(parallel_job());

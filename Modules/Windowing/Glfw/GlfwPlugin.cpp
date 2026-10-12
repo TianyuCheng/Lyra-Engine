@@ -248,8 +248,8 @@ struct EventLoopInternal
             windows.begin(),
             windows.end(),
             [&](const WindowHandle& window) {
-            return handle == reinterpret_cast<GLFWwindow*>(window.window);
-        });
+                return handle == reinterpret_cast<GLFWwindow*>(window.window);
+            });
 
         // only delete when window is active
         if (it != windows.end()) {

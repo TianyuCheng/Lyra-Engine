@@ -59,7 +59,8 @@ void ConsoleView::show_bar()
             bool active = (level_filter & (1 << (int)level)) != 0;
             ui::toggle_button(label, active, role, [&](bool) {
                 level_filter ^= (1 << (int)level);
-            }, Vector2{26.0f, 0.0f});
+            },
+                Vector2{26.0f, 0.0f});
         };
 
         level_button("T", LogLevel::trace, ui::StatusRole::Muted);

@@ -139,19 +139,23 @@ namespace lyra
             if constexpr (sizeof(DecayedF) <= 128 && alignof(DecayedF) <= alignof(std::max_align_t)) {
                 auto mem = allocate_closure(sizeof(DecayedF));
                 auto fn  = new (mem) DecayedF(std::forward<F>(func));
-                schedule(priority, Job{[](void* data) {
-                    auto* callable = static_cast<DecayedF*>(data);
-                    (*callable)();
-                    callable->~DecayedF();
-                    deallocate_closure(data, sizeof(DecayedF));
-                }, fn});
+                schedule(priority,
+                    Job{[](void* data) {
+                            auto callable = static_cast<DecayedF*>(data);
+                            (*callable)();
+                            callable->~DecayedF();
+                            deallocate_closure(data, sizeof(DecayedF));
+                        },
+                        fn});
             } else {
                 auto fn = new DecayedF(std::forward<F>(func));
-                schedule(priority, Job{[](void* data) {
-                    auto* callable = static_cast<DecayedF*>(data);
-                    (*callable)();
-                    delete callable;
-                }, fn});
+                schedule(priority,
+                    Job{[](void* data) {
+                            auto callable = static_cast<DecayedF*>(data);
+                            (*callable)();
+                            delete callable;
+                        },
+                        fn});
             }
         }
 
@@ -168,9 +172,11 @@ namespace lyra
     {
         continuation = h;
         if (remaining.load(std::memory_order_acquire) == 0) {
-            JobScheduler::schedule(priority, Job{[](void* ptr) {
-                std::coroutine_handle<>::from_address(ptr).resume();
-            }, h.address()});
+            JobScheduler::schedule(priority,
+                Job{[](void* ptr) {
+                        std::coroutine_handle<>::from_address(ptr).resume();
+                    },
+                    h.address()});
         }
     }
 
@@ -178,9 +184,11 @@ namespace lyra
     {
         if (remaining.fetch_sub(1, std::memory_order_acq_rel) == 1) {
             if (continuation) {
-                JobScheduler::schedule(priority, Job{[](void* ptr) {
-                    std::coroutine_handle<>::from_address(ptr).resume();
-                }, continuation.address()});
+                JobScheduler::schedule(priority,
+                    Job{[](void* ptr) {
+                            std::coroutine_handle<>::from_address(ptr).resume();
+                        },
+                        continuation.address()});
             }
         }
     }

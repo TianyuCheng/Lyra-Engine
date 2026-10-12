@@ -164,24 +164,26 @@ TEST_CASE("scr::script_layer" * doctest::description("ScriptLayer API registrati
         }};
 
     lyra::ScriptAPI api = {
-        .get_api_name = []() -> lyra::CString { return "TestScriptAPI"; },
-        .get_scripts  = [](lyra::ScriptDescriptor* out) -> lyra::uint {
-        if (out) {
-            out[0] = descs[0];
-            out[1] = descs[1];
-            out[2] = descs[2];
-        }
-        return 3;
-    },
+        .get_api_name = []() -> lyra::CString {
+            return "TestScriptAPI";
+        },
+        .get_scripts = [](lyra::ScriptDescriptor* out) -> lyra::uint {
+            if (out) {
+                out[0] = descs[0];
+                out[1] = descs[1];
+                out[2] = descs[2];
+            }
+            return 3;
+        },
         .run = [](lyra::ScriptID id, lyra::ScriptContext& ctx) {
-        if (id == lyra::hash_script_name("TestPreSystem")) {
-            pre_ran = true;
-        } else if (id == lyra::hash_script_name("TestMainSystem")) {
-            main_ran = true;
-        } else if (id == lyra::hash_script_name("TestPostSystem")) {
-            post_ran = true;
-        }
-    },
+            if (id == lyra::hash_script_name("TestPreSystem")) {
+                pre_ran = true;
+            } else if (id == lyra::hash_script_name("TestMainSystem")) {
+                main_ran = true;
+            } else if (id == lyra::hash_script_name("TestPostSystem")) {
+                post_ran = true;
+            }
+        },
         .get_params = nullptr,
     };
 

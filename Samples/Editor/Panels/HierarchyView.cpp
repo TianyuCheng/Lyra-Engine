@@ -361,7 +361,8 @@ void HierarchyView::update(AppContext& context)
                         scene_mgr->set_dirty(true);
                     }
                 }
-            }, "Add Entity");
+            },
+                "Add Entity");
         });
         ui::separator();
 
@@ -635,7 +636,8 @@ void HierarchyView::update(AppContext& context)
                         }
                         show_rename_modal = false;
                         ui::close_modal();
-                    }, ui::ButtonRole::Primary);
+                    },
+                        ui::ButtonRole::Primary);
                 });
             });
         }

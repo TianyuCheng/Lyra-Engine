@@ -156,7 +156,8 @@ void InspectorView::draw_inspector(AppContext& context, World& world, SceneNode 
         scale_config.reset = 1.0f;
         ui::vec3("Scale", transform.scale, [&]() {
             transform.flags.set(TransformFlag::LOCAL_DIRTY);
-        }, scale_config);
+        },
+            scale_config);
     });
 
     // reflected components

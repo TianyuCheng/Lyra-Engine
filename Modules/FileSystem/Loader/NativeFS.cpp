@@ -356,7 +356,9 @@ static bool unmount(FileLoaderHandle loader, MountHandle handle)
     auto before = pointer->mounts.size();
     pointer->mounts.erase(
         std::remove_if(pointer->mounts.begin(), pointer->mounts.end(),
-            [&](NativeMount* m) { return m == handle.pointer; }),
+            [&](NativeMount* m) {
+                return m == handle.pointer;
+            }),
         pointer->mounts.end());
     auto after = pointer->mounts.size();
     return before != after;

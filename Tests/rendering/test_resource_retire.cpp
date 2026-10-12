@@ -29,18 +29,18 @@ TEST_CASE("rendering::resource_retire" * doctest::description("ResourceRetire co
         buf_desc.label = "retire_buffer";
         buf_desc.size  = 128;
         buf_desc.usage = GPUBufferUsage::STORAGE;
-        auto buffer = device.create_buffer(buf_desc);
+        auto buffer    = device.create_buffer(buf_desc);
 
         GPUTextureDescriptor tex_desc{};
         tex_desc.label  = "retire_texture";
         tex_desc.size   = GPUExtent3D{64, 64, 1};
         tex_desc.format = GPUTextureFormat::RGBA8UNORM;
         tex_desc.usage  = GPUTextureUsage::TEXTURE_BINDING;
-        auto texture = device.create_texture(tex_desc);
+        auto texture    = device.create_texture(tex_desc);
 
         GPUSamplerDescriptor samp_desc{};
         samp_desc.label = "retire_sampler";
-        auto sampler = device.create_sampler(samp_desc);
+        auto sampler    = device.create_sampler(samp_desc);
 
         auto fence = device.create_fence();
 
@@ -82,12 +82,12 @@ TEST_CASE("rendering::resource_retire" * doctest::description("ResourceRetire co
         GPUBufferDescriptor desc1{};
         desc1.size  = 64;
         desc1.usage = GPUBufferUsage::STORAGE;
-        auto buf1 = device.create_buffer(desc1);
+        auto buf1   = device.create_buffer(desc1);
 
         GPUBufferDescriptor desc2{};
         desc2.size  = 64;
         desc2.usage = GPUBufferUsage::STORAGE;
-        auto buf2 = device.create_buffer(desc2);
+        auto buf2   = device.create_buffer(desc2);
 
         retire.retire(buf1);
         retire.tick();

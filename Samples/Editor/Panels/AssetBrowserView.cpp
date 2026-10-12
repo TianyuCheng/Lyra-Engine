@@ -189,7 +189,9 @@ void AssetBrowserView::show_breadcrumb()
     bool is_at_root = (curr == root);
     items.push_back({root_name.c_str(),
         LYRA_ICON_HOME,
-        [&]() { update_directory(root, is_at_root); },
+        [&]() {
+            update_directory(root, is_at_root);
+        },
         is_at_root ? "Root directory (Click to refresh)" : "Go to Root"});
 
     for (usize i = 0; i < breadcrumbs.size(); ++i) {
@@ -197,7 +199,9 @@ void AssetBrowserView::show_breadcrumb()
         const bool  is_last = (i == breadcrumbs.size() - 1);
         items.push_back({bc.name.c_str(),
             is_last ? LYRA_ICON_FOLDER : nullptr,
-            [&bc, is_last, this]() { update_directory(bc.path, is_last); },
+            [&bc, is_last, this]() {
+                update_directory(bc.path, is_last);
+            },
             is_last ? "Current directory (Click to refresh)" : nullptr});
     }
 
@@ -362,15 +366,15 @@ void AssetBrowserView::show_item(AppContext& context, StringView name, bool is_f
 
     if (is_folder) {
         if (folder_icon.valid) {
-            ui::card(name.data(), folder_icon.gui_texture.texid,
-                Vector2((float)folder_icon.texture.width, (float)folder_icon.texture.height),
-                name.data(), is_sel, on_click, [&]() {
+            ui::card(name.data(), folder_icon.gui_texture.texid, Vector2((float)folder_icon.texture.width, (float)folder_icon.texture.height), name.data(), is_sel, on_click, [&]() {
                 update_directory(curr / name);
-            }, icon_size);
+            },
+                icon_size);
         } else {
             ui::card(name.data(), LYRA_ICON_FOLDER, name.data(), is_sel, on_click, [&]() {
                 update_directory(curr / name);
-            }, Vector4(1.0f, 0.75f, 0.25f, 1.0f), icon_size);
+            },
+                Vector4(1.0f, 0.75f, 0.25f, 1.0f), icon_size);
         }
     } else {
         auto [id, size] = get_thumbnail(context, name);
@@ -733,7 +737,8 @@ void AssetBrowserView::show_input_modal(CString title, bool* p_open, CString pro
                 on_submit(buffer);
                 *p_open = false;
                 ui::close_modal();
-            }, ui::ButtonRole::Primary);
+            },
+                ui::ButtonRole::Primary);
         });
     });
 }
@@ -742,34 +747,34 @@ void AssetBrowserView::show_new_scene_dialog()
 {
     show_input_modal(LYRA_ICON_SCENE " New Scene", &show_new_scene_modal, "Enter scene name:",
         new_scene_name, sizeof(new_scene_name), "Create", [&](StringView name) {
-        action_create_scene(name);
-    });
+            action_create_scene(name);
+        });
 }
 
 void AssetBrowserView::show_new_folder_dialog()
 {
     show_input_modal(LYRA_ICON_NEW_FOLDER " New Folder", &show_new_folder_modal, "Enter folder name:",
         new_folder_name, sizeof(new_folder_name), "Create", [&](StringView name) {
-        action_create_folder(name);
-    });
+            action_create_folder(name);
+        });
 }
 
 void AssetBrowserView::show_new_file_dialog()
 {
     show_input_modal(LYRA_ICON_NEW_FILE " New File", &show_new_file_modal, "Enter file name:",
         new_file_name, sizeof(new_file_name), "Create", [&](StringView name) {
-        action_create_file(name);
-    });
+            action_create_file(name);
+        });
 }
 
 void AssetBrowserView::show_rename_dialog()
 {
     show_input_modal(LYRA_ICON_RENAME " Rename", &show_rename_modal, "Enter new name:",
         rename_buffer, sizeof(rename_buffer), "Rename", [&](StringView name) {
-        if (!selection.empty()) {
-            action_rename(selection.items[0], name);
-        }
-    });
+            if (!selection.empty()) {
+                action_rename(selection.items[0], name);
+            }
+        });
 }
 
 void AssetBrowserView::show_delete_dialog(AppContext&)
@@ -797,7 +802,8 @@ void AssetBrowserView::show_delete_dialog(AppContext&)
                 action_delete_selected();
                 show_delete_modal = false;
                 ui::close_modal();
-            }, ui::ButtonRole::Danger);
+            },
+                ui::ButtonRole::Danger);
         });
     });
 }

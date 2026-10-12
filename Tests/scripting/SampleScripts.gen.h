@@ -68,23 +68,25 @@ namespace lyra::generated
     inline auto create_script_api() -> ScriptAPI
     {
         return ScriptAPI{
-            .get_api_name = []() -> CString { return "SampleScripts"; },
-            .get_scripts  = [](ScriptDescriptor* out) -> uint {
-            constexpr uint count = static_cast<uint>(std::size(script_descriptors));
-            if (!out) {
+            .get_api_name = []() -> CString {
+                return "SampleScripts";
+            },
+            .get_scripts = [](ScriptDescriptor* out) -> uint {
+                constexpr uint count = static_cast<uint>(std::size(script_descriptors));
+                if (!out) {
+                    return count;
+                }
+                for (uint i = 0; i < count; ++i) {
+                    out[i] = script_descriptors[i];
+                }
                 return count;
-            }
-            for (uint i = 0; i < count; ++i) {
-                out[i] = script_descriptors[i];
-            }
-            return count;
-        },
+            },
             .run = [](ScriptID id, ScriptContext& ctx) {
-            if (id == hash_script_name("orbit")) {
-                orbit__run(ctx);
-                return;
-            }
-        },
+                if (id == hash_script_name("orbit")) {
+                    orbit__run(ctx);
+                    return;
+                }
+            },
             .get_params = nullptr,
         };
     }

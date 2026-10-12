@@ -43,7 +43,7 @@ TEST_CASE("rendering::geometry_buffer_pool" * doctest::description("Megabuffer s
     ResourceRetire retire;
     retire.init(3);
 
-    const GPUSize64 slab_size = 1024; // 1 KB test slab
+    const GPUSize64    slab_size = 1024; // 1 KB test slab
     GeometryBufferPool pool(retire, slab_size);
 
     SUBCASE("sub-allocation alignment and sizes")

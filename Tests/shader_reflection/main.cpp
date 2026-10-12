@@ -108,7 +108,9 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
     CHECK_EQ(attributes.size(), 2);
 
     // attribute: position
-    auto pos_attrib_it = std::find_if(attributes.begin(), attributes.end(), [](const auto& a) { return strcmp(a.shader_semantic, "POSITION") == 0; });
+    auto pos_attrib_it = std::find_if(attributes.begin(), attributes.end(), [](const auto& a) {
+        return strcmp(a.shader_semantic, "POSITION") == 0;
+    });
     CHECK(pos_attrib_it != attributes.end());
     if (pos_attrib_it != attributes.end()) {
         switch (target) {
@@ -124,7 +126,9 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
     }
 
     // attribute: texcoord
-    auto tex_attrib_it = std::find_if(attributes.begin(), attributes.end(), [](const auto& a) { return strcmp(a.shader_semantic, "TEXCOORD") == 0; });
+    auto tex_attrib_it = std::find_if(attributes.begin(), attributes.end(), [](const auto& a) {
+        return strcmp(a.shader_semantic, "TEXCOORD") == 0;
+    });
     CHECK(tex_attrib_it != attributes.end());
     if (tex_attrib_it != attributes.end()) {
         switch (target) {
@@ -157,7 +161,9 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
     CHECK_EQ(bindgroups.size(), 2);
 
     // haha
-    auto haha_bindgroup_it = std::find_if(bindgroups.begin(), bindgroups.end(), [](const auto& a) { return strcmp(a.label, "haha") == 0; });
+    auto haha_bindgroup_it = std::find_if(bindgroups.begin(), bindgroups.end(), [](const auto& a) {
+        return strcmp(a.label, "haha") == 0;
+    });
     CHECK(haha_bindgroup_it != bindgroups.end());
     if (haha_bindgroup_it != bindgroups.end()) {
         CHECK_EQ(haha_bindgroup_it->entries.size(), 4);
@@ -209,7 +215,9 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
     }
 
     // hihi
-    auto hihi_bindgroup_it = std::find_if(bindgroups.begin(), bindgroups.end(), [](const auto& a) { return strcmp(a.label, "hihi") == 0; });
+    auto hihi_bindgroup_it = std::find_if(bindgroups.begin(), bindgroups.end(), [](const auto& a) {
+        return strcmp(a.label, "hihi") == 0;
+    });
     CHECK(hihi_bindgroup_it != bindgroups.end());
     if (hihi_bindgroup_it != bindgroups.end()) {
         CHECK_EQ(hihi_bindgroup_it->entries.size(), 4);

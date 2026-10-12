@@ -218,7 +218,8 @@ static void imgui_update(AppContext& context)
                     }
                     show_new_scene_modal = false;
                     ui::close_modal();
-                }, ui::ButtonRole::Primary);
+                },
+                    ui::ButtonRole::Primary);
             });
         });
     }

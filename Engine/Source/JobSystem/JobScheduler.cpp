@@ -364,8 +364,9 @@ bool MainThreadAwaiter::await_ready() const noexcept
 void MainThreadAwaiter::await_suspend(std::coroutine_handle<> handle) noexcept
 {
     JobScheduler::schedule_main(Job{[](void* ptr) {
-        std::coroutine_handle<>::from_address(ptr).resume();
-    }, handle.address()});
+                                        std::coroutine_handle<>::from_address(ptr).resume();
+                                    },
+        handle.address()});
 }
 
 bool WorkerAwaiter::await_ready() const noexcept
@@ -376,7 +377,8 @@ bool WorkerAwaiter::await_ready() const noexcept
 void WorkerAwaiter::await_suspend(std::coroutine_handle<> handle) noexcept
 {
     JobScheduler::schedule(priority, Job{[](void* ptr) {
-        std::coroutine_handle<>::from_address(ptr).resume();
-    }, handle.address()});
+                                             std::coroutine_handle<>::from_address(ptr).resume();
+                                         },
+                                         handle.address()});
 }
 #pragma endregion Coroutine Awaiters

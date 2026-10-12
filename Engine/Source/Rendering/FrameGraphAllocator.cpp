@@ -101,7 +101,9 @@ void FrameGraphAllocator::reclaim_unused()
             return false;
         });
     }
-    absl::erase_if(textures, [](const auto& item) { return item.second.empty(); });
+    absl::erase_if(textures, [](const auto& item) {
+        return item.second.empty();
+    });
 
     for (auto& [desc, vec] : buffers) {
         std::erase_if(vec, [api](FGBufferEntry& entry) {
@@ -114,7 +116,9 @@ void FrameGraphAllocator::reclaim_unused()
             return false;
         });
     }
-    absl::erase_if(buffers, [](const auto& item) { return item.second.empty(); });
+    absl::erase_if(buffers, [](const auto& item) {
+        return item.second.empty();
+    });
 }
 
 void FrameGraphAllocator::reclaim_unused_if(FunctionRef<bool(const GPUTextureDescriptor&)> texture_pred)
@@ -139,7 +143,9 @@ void FrameGraphAllocator::reclaim_unused_if(FunctionRef<bool(const GPUTextureDes
             });
         }
     }
-    absl::erase_if(textures, [](const auto& item) { return item.second.empty(); });
+    absl::erase_if(textures, [](const auto& item) {
+        return item.second.empty();
+    });
 }
 
 void FrameGraphAllocator::reclaim_unused_if(FunctionRef<bool(const GPUBufferDescriptor&)> buffer_pred)
@@ -159,7 +165,9 @@ void FrameGraphAllocator::reclaim_unused_if(FunctionRef<bool(const GPUBufferDesc
             });
         }
     }
-    absl::erase_if(buffers, [](const auto& item) { return item.second.empty(); });
+    absl::erase_if(buffers, [](const auto& item) {
+        return item.second.empty();
+    });
 }
 
 void FrameGraphAllocator::reclaim_unused_if(FunctionRef<bool(const GPUTextureDescriptor&)> texture_pred,
@@ -192,7 +200,9 @@ void FrameGraphAllocator::tick(uint max_unused_frames)
             return false;
         });
     }
-    absl::erase_if(textures, [](const auto& item) { return item.second.empty(); });
+    absl::erase_if(textures, [](const auto& item) {
+        return item.second.empty();
+    });
 
     for (auto& [desc, vec] : buffers) {
         std::erase_if(vec, [api, max_unused_frames](FGBufferEntry& entry) {
@@ -208,7 +218,9 @@ void FrameGraphAllocator::tick(uint max_unused_frames)
             return false;
         });
     }
-    absl::erase_if(buffers, [](const auto& item) { return item.second.empty(); });
+    absl::erase_if(buffers, [](const auto& item) {
+        return item.second.empty();
+    });
 }
 
 uint FrameGraphAllocator::allocated_texture_count() const

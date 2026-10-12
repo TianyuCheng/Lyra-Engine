@@ -48,10 +48,12 @@ static bool save_toml_asset(const void* raw_asset, OSPath path)
 
 AssetLoaderAPI TomlAsset::loader()
 {
-    auto api                     = AssetLoaderAPI{};
-    api.configure                = nullptr;
-    api.load                     = load_toml_asset;
-    api.unload                   = [](void* asset) { delete reinterpret_cast<TomlAsset*>(asset); };
+    auto api      = AssetLoaderAPI{};
+    api.configure = nullptr;
+    api.load      = load_toml_asset;
+    api.unload    = [](void* asset) {
+        delete reinterpret_cast<TomlAsset*>(asset);
+    };
     api.get_supported_extensions = get_toml_extensions;
     return api;
 }

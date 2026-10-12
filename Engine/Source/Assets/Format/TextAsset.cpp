@@ -39,10 +39,12 @@ static bool save_text_asset(const void* raw_asset, OSPath path)
 
 AssetLoaderAPI TextAsset::loader()
 {
-    auto api                     = AssetLoaderAPI{};
-    api.configure                = nullptr;
-    api.load                     = load_text_asset;
-    api.unload                   = [](void* asset) { delete reinterpret_cast<TextAsset*>(asset); };
+    auto api      = AssetLoaderAPI{};
+    api.configure = nullptr;
+    api.load      = load_text_asset;
+    api.unload    = [](void* asset) {
+        delete reinterpret_cast<TextAsset*>(asset);
+    };
     api.get_supported_extensions = get_text_extensions;
     return api;
 }

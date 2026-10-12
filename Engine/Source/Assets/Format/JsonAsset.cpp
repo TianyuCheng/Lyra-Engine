@@ -41,10 +41,12 @@ static bool save_json_asset(const void* raw_asset, OSPath path)
 
 AssetLoaderAPI JsonAsset::loader()
 {
-    auto api                     = AssetLoaderAPI{};
-    api.configure                = nullptr;
-    api.load                     = load_json_asset;
-    api.unload                   = [](void* asset) { delete reinterpret_cast<JsonAsset*>(asset); };
+    auto api      = AssetLoaderAPI{};
+    api.configure = nullptr;
+    api.load      = load_json_asset;
+    api.unload    = [](void* asset) {
+        delete reinterpret_cast<JsonAsset*>(asset);
+    };
     api.get_supported_extensions = get_json_extensions;
     return api;
 }

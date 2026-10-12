@@ -325,9 +325,10 @@ namespace lyra
             Vector<RayHit> hits;
             query(
                 ray, [&](const T& elem, const Bounds3D& b, float dist) {
-                hits.push_back({elem, dist, b});
-                return true;
-            }, max_distance);
+                    hits.push_back({elem, dist, b});
+                    return true;
+                },
+                max_distance);
             std::sort(hits.begin(), hits.end());
             return hits;
         }

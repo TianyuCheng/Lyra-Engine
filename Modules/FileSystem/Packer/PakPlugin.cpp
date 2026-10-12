@@ -71,8 +71,8 @@ static void delete_packer(FilePackerHandle packer)
     // remove the packer from the global list
     auto it = std::find_if(g_packers.begin(), g_packers.end(),
         [packer](const FilePackerHandle& p) {
-        return p.pointer == packer.pointer;
-    });
+            return p.pointer == packer.pointer;
+        });
     if (it != g_packers.end()) {
         g_packers.erase(it);
     }
@@ -101,8 +101,8 @@ static bool write(FilePackerHandle packer, FSPath path, void* buffer, usize size
     // check if file already exists and replace it
     auto existing = std::find_if(archive_data->files.begin(), archive_data->files.end(),
         [&normalized_path](const PakFileEntry& entry) {
-        return entry.filename == normalized_path;
-    });
+            return entry.filename == normalized_path;
+        });
 
     if (existing != archive_data->files.end()) {
         get_logger()->warn("write: replacing existing file {} in PAK", normalized_path);

@@ -42,7 +42,8 @@ namespace lyra
             commands.emplace_back([node, tuple = std::move(args_tuple)](World& world) mutable {
                 std::apply([&](auto&&... unpacked) {
                     world.registry.emplace_or_replace<T>(node.entity, std::forward<decltype(unpacked)>(unpacked)...);
-                }, std::move(tuple));
+                },
+                    std::move(tuple));
             });
         }
 

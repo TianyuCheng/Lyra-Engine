@@ -9,9 +9,9 @@ namespace
 {
     struct MockRetireResource
     {
-        int                   id            = 0;
-        std::shared_ptr<int>  destroy_count = nullptr;
-        bool                  is_valid      = true;
+        int                  id            = 0;
+        std::shared_ptr<int> destroy_count = nullptr;
+        bool                 is_valid      = true;
 
         bool valid() const
         {
@@ -25,7 +25,7 @@ namespace
             }
         }
     };
-}
+} // namespace
 
 TEST_CASE("graphics::gpu_retire_queue" * doctest::description("GPURetireQueue lifecycle, aging, and drain"))
 {
@@ -62,7 +62,7 @@ TEST_CASE("graphics::gpu_retire_queue" * doctest::description("GPURetireQueue li
     SUBCASE("Deferred retirement across multi-frame lifecycle")
     {
         GPURetireQueue<MockRetireResource> queue;
-        constexpr uint FRAMES_IN_FLIGHT = 3;
+        constexpr uint                     FRAMES_IN_FLIGHT = 3;
         queue.init(FRAMES_IN_FLIGHT);
         CHECK(queue.get_frames_in_flight() == 3);
 

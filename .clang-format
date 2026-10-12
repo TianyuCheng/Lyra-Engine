@@ -13,7 +13,7 @@ SortIncludes: false
 AllowAllParametersOfDeclarationOnNextLine: true
 AllowShortFunctionsOnASingleLine: true
 AllowShortIfStatementsOnASingleLine: true
-AllowShortLambdasOnASingleLine: true
+AllowShortLambdasOnASingleLine: false
 AllowAllArgumentsOnNextLine: true
 AllowShortBlocksOnASingleLine: true
 AlignAfterOpenBracket: DontAlign
@@ -44,5 +44,5 @@ BraceWrapping:
   SplitEmptyFunction: true
   SplitEmptyRecord: true
   SplitEmptyNamespace: true
-LambdaBodyIndentation: OuterScope
+LambdaBodyIndentation: Signature
 IndentRequiresClause: false

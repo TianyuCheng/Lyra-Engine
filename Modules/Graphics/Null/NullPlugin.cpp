@@ -35,7 +35,7 @@ namespace
         static Logger LOGGER = create_logger("Null", LogLevel::info);
         return LOGGER;
     }
-}
+} // namespace
 
 namespace api
 {
@@ -573,122 +573,122 @@ namespace api
         uint64_t src_id = get_buffer_id(source);
         uint64_t dst_id = get_buffer_id(destination);
 
-    auto src_it = g_buffers.find(src_id);
-    auto dst_it = g_buffers.find(dst_id);
-    if (src_it != g_buffers.end() && dst_it != g_buffers.end()) {
-        if (source_offset + size <= src_it->second.memory.size() &&
-            destination_offset + size <= dst_it->second.memory.size()) {
-            std::memcpy(
-                dst_it->second.memory.data() + destination_offset,
-                src_it->second.memory.data() + source_offset,
-                size);
+        auto src_it = g_buffers.find(src_id);
+        auto dst_it = g_buffers.find(dst_id);
+        if (src_it != g_buffers.end() && dst_it != g_buffers.end()) {
+            if (source_offset + size <= src_it->second.memory.size() &&
+                destination_offset + size <= dst_it->second.memory.size()) {
+                std::memcpy(
+                    dst_it->second.memory.data() + destination_offset,
+                    src_it->second.memory.data() + source_offset,
+                    size);
+            }
         }
+
+        get_logger()->trace("cmd_copy_buffer_to_buffer(handle={}, src={}, src_offset={}, dst={}, dst_offset={}, size={})",
+            cmdbuffer.value, source.value, source_offset, destination.value, destination_offset, size);
     }
 
-    get_logger()->trace("cmd_copy_buffer_to_buffer(handle={}, src={}, src_offset={}, dst={}, dst_offset={}, size={})",
-        cmdbuffer.value, source.value, source_offset, destination.value, destination_offset, size);
-}
+    void cmd_copy_buffer_to_texture(GPUCommandEncoderHandle cmdbuffer, const GPUTexelCopyBufferInfo&, const GPUTexelCopyTextureInfo&, GPUExtent3D)
+    {
+        get_logger()->trace("cmd_copy_buffer_to_texture(handle={})", cmdbuffer.value);
+    }
 
-void cmd_copy_buffer_to_texture(GPUCommandEncoderHandle cmdbuffer, const GPUTexelCopyBufferInfo&, const GPUTexelCopyTextureInfo&, GPUExtent3D)
-{
-    get_logger()->trace("cmd_copy_buffer_to_texture(handle={})", cmdbuffer.value);
-}
+    void cmd_copy_texture_to_buffer(GPUCommandEncoderHandle cmdbuffer, const GPUTexelCopyTextureInfo&, const GPUTexelCopyBufferInfo&, const GPUExtent3D&)
+    {
+        get_logger()->trace("cmd_copy_texture_to_buffer(handle={})", cmdbuffer.value);
+    }
 
-void cmd_copy_texture_to_buffer(GPUCommandEncoderHandle cmdbuffer, const GPUTexelCopyTextureInfo&, const GPUTexelCopyBufferInfo&, const GPUExtent3D&)
-{
-    get_logger()->trace("cmd_copy_texture_to_buffer(handle={})", cmdbuffer.value);
-}
+    void cmd_copy_texture_to_texture(GPUCommandEncoderHandle cmdbuffer, const GPUTexelCopyTextureInfo&, const GPUTexelCopyTextureInfo&, const GPUExtent3D&)
+    {
+        get_logger()->trace("cmd_copy_texture_to_texture(handle={})", cmdbuffer.value);
+    }
 
-void cmd_copy_texture_to_texture(GPUCommandEncoderHandle cmdbuffer, const GPUTexelCopyTextureInfo&, const GPUTexelCopyTextureInfo&, const GPUExtent3D&)
-{
-    get_logger()->trace("cmd_copy_texture_to_texture(handle={})", cmdbuffer.value);
-}
+    void cmd_clear_buffer(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle buffer, GPUSize64 offset, GPUSize64 size)
+    {
+        get_logger()->trace("cmd_clear_buffer(handle={}, buffer={}, offset={}, size={})", cmdbuffer.value, buffer.value, offset, size);
+    }
 
-void cmd_clear_buffer(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle buffer, GPUSize64 offset, GPUSize64 size)
-{
-    get_logger()->trace("cmd_clear_buffer(handle={}, buffer={}, offset={}, size={})", cmdbuffer.value, buffer.value, offset, size);
-}
+    void cmd_clear_texture(GPUCommandEncoderHandle cmdbuffer, GPUTextureHandle texture, const GPUTextureSubresourceRange&)
+    {
+        get_logger()->trace("cmd_clear_texture(handle={}, texture={})", cmdbuffer.value, texture.value);
+    }
 
-void cmd_clear_texture(GPUCommandEncoderHandle cmdbuffer, GPUTextureHandle texture, const GPUTextureSubresourceRange&)
-{
-    get_logger()->trace("cmd_clear_texture(handle={}, texture={})", cmdbuffer.value, texture.value);
-}
+    void cmd_set_viewport(GPUCommandEncoderHandle cmdbuffer, float x, float y, float w, float h, float min_depth, float max_depth)
+    {
+        get_logger()->trace("cmd_set_viewport(handle={}, x={}, y={}, w={}, h={})", cmdbuffer.value, x, y, w, h);
+    }
 
-void cmd_set_viewport(GPUCommandEncoderHandle cmdbuffer, float x, float y, float w, float h, float min_depth, float max_depth)
-{
-    get_logger()->trace("cmd_set_viewport(handle={}, x={}, y={}, w={}, h={})", cmdbuffer.value, x, y, w, h);
-}
+    void cmd_set_scissor_rect(GPUCommandEncoderHandle cmdbuffer, GPUIntegerCoordinate x, GPUIntegerCoordinate y, GPUIntegerCoordinate w, GPUIntegerCoordinate h)
+    {
+        get_logger()->trace("cmd_set_scissor_rect(handle={}, x={}, y={}, w={}, h={})", cmdbuffer.value, x, y, w, h);
+    }
 
-void cmd_set_scissor_rect(GPUCommandEncoderHandle cmdbuffer, GPUIntegerCoordinate x, GPUIntegerCoordinate y, GPUIntegerCoordinate w, GPUIntegerCoordinate h)
-{
-    get_logger()->trace("cmd_set_scissor_rect(handle={}, x={}, y={}, w={}, h={})", cmdbuffer.value, x, y, w, h);
-}
+    void cmd_set_blend_constant(GPUCommandEncoderHandle cmdbuffer, GPUColor color)
+    {
+        get_logger()->trace("cmd_set_blend_constant(handle={})", cmdbuffer.value);
+    }
 
-void cmd_set_blend_constant(GPUCommandEncoderHandle cmdbuffer, GPUColor color)
-{
-    get_logger()->trace("cmd_set_blend_constant(handle={})", cmdbuffer.value);
-}
+    void cmd_set_stencil_reference(GPUCommandEncoderHandle cmdbuffer, GPUStencilValue reference)
+    {
+        get_logger()->trace("cmd_set_stencil_reference(handle={}, ref={})", cmdbuffer.value, reference);
+    }
 
-void cmd_set_stencil_reference(GPUCommandEncoderHandle cmdbuffer, GPUStencilValue reference)
-{
-    get_logger()->trace("cmd_set_stencil_reference(handle={}, ref={})", cmdbuffer.value, reference);
-}
+    void cmd_begin_occlusion_query(GPUCommandEncoderHandle cmdbuffer, GPUSize32 query_index)
+    {
+        get_logger()->trace("cmd_begin_occlusion_query(handle={}, index={})", cmdbuffer.value, query_index);
+    }
 
-void cmd_begin_occlusion_query(GPUCommandEncoderHandle cmdbuffer, GPUSize32 query_index)
-{
-    get_logger()->trace("cmd_begin_occlusion_query(handle={}, index={})", cmdbuffer.value, query_index);
-}
+    void cmd_end_occlusion_query(GPUCommandEncoderHandle cmdbuffer)
+    {
+        get_logger()->trace("cmd_end_occlusion_query(handle={})", cmdbuffer.value);
+    }
 
-void cmd_end_occlusion_query(GPUCommandEncoderHandle cmdbuffer)
-{
-    get_logger()->trace("cmd_end_occlusion_query(handle={})", cmdbuffer.value);
-}
+    void cmd_write_timestamp(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle query_set, GPUSize32 query_index)
+    {
+        get_logger()->trace("cmd_write_timestamp(handle={}, set={}, index={})", cmdbuffer.value, query_set.value, query_index);
+    }
 
-void cmd_write_timestamp(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle query_set, GPUSize32 query_index)
-{
-    get_logger()->trace("cmd_write_timestamp(handle={}, set={}, index={})", cmdbuffer.value, query_set.value, query_index);
-}
+    void cmd_write_blas_properties(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle query_set, GPUSize32 query_index, GPUBlasHandle blas)
+    {
+        get_logger()->trace("cmd_write_blas_properties(handle={}, set={}, index={}, blas={})", cmdbuffer.value, query_set.value, query_index, blas.value);
+    }
 
-void cmd_write_blas_properties(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle query_set, GPUSize32 query_index, GPUBlasHandle blas)
-{
-    get_logger()->trace("cmd_write_blas_properties(handle={}, set={}, index={}, blas={})", cmdbuffer.value, query_set.value, query_index, blas.value);
-}
+    void cmd_resolve_query_set(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle query_set, GPUSize32 first_query, GPUSize32 query_count, GPUBufferHandle destination, GPUSize64 destination_offset)
+    {
+        get_logger()->trace("cmd_resolve_query_set(handle={}, set={}, first={}, count={})", cmdbuffer.value, query_set.value, first_query, query_count);
+    }
 
-void cmd_resolve_query_set(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle query_set, GPUSize32 first_query, GPUSize32 query_count, GPUBufferHandle destination, GPUSize64 destination_offset)
-{
-    get_logger()->trace("cmd_resolve_query_set(handle={}, set={}, first={}, count={})", cmdbuffer.value, query_set.value, first_query, query_count);
-}
+    void cmd_memory_barrier(GPUCommandEncoderHandle cmdbuffer, GPUMemoryBarriers)
+    {
+        get_logger()->trace("cmd_memory_barrier(handle={})", cmdbuffer.value);
+    }
 
-void cmd_memory_barrier(GPUCommandEncoderHandle cmdbuffer, GPUMemoryBarriers)
-{
-    get_logger()->trace("cmd_memory_barrier(handle={})", cmdbuffer.value);
-}
+    void cmd_buffer_barrier(GPUCommandEncoderHandle cmdbuffer, GPUBufferBarriers)
+    {
+        get_logger()->trace("cmd_buffer_barrier(handle={})", cmdbuffer.value);
+    }
 
-void cmd_buffer_barrier(GPUCommandEncoderHandle cmdbuffer, GPUBufferBarriers)
-{
-    get_logger()->trace("cmd_buffer_barrier(handle={})", cmdbuffer.value);
-}
+    void cmd_texture_barrier(GPUCommandEncoderHandle cmdbuffer, GPUTextureBarriers)
+    {
+        get_logger()->trace("cmd_texture_barrier(handle={})", cmdbuffer.value);
+    }
 
-void cmd_texture_barrier(GPUCommandEncoderHandle cmdbuffer, GPUTextureBarriers)
-{
-    get_logger()->trace("cmd_texture_barrier(handle={})", cmdbuffer.value);
-}
+    void cmd_build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratch_buffer, GPUTlasBuildEntries)
+    {
+        get_logger()->trace("cmd_build_tlases(handle={}, scratch={})", cmdbuffer.value, scratch_buffer.value);
+    }
 
-void cmd_build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratch_buffer, GPUTlasBuildEntries)
-{
-    get_logger()->trace("cmd_build_tlases(handle={}, scratch={})", cmdbuffer.value, scratch_buffer.value);
-}
+    void cmd_build_blases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratch_buffer, GPUBlasBuildEntries)
+    {
+        get_logger()->trace("cmd_build_blases(handle={}, scratch={})", cmdbuffer.value, scratch_buffer.value);
+    }
 
-void cmd_build_blases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratch_buffer, GPUBlasBuildEntries)
-{
-    get_logger()->trace("cmd_build_blases(handle={}, scratch={})", cmdbuffer.value, scratch_buffer.value);
-}
-
-void cmd_copy_blas(GPUCommandEncoderHandle cmdbuffer, GPUBlasHandle old_blas, GPUBlasHandle new_blas)
-{
-    get_logger()->trace("cmd_copy_blas(handle={}, old={}, new={})", cmdbuffer.value, old_blas.value, new_blas.value);
-}
-}
+    void cmd_copy_blas(GPUCommandEncoderHandle cmdbuffer, GPUBlasHandle old_blas, GPUBlasHandle new_blas)
+    {
+        get_logger()->trace("cmd_copy_blas(handle={}, old={}, new={})", cmdbuffer.value, old_blas.value, new_blas.value);
+    }
+} // namespace api
 
 namespace lyra::null
 {
@@ -705,107 +705,107 @@ namespace lyra::null
     auto create() -> RenderAPI
     {
         RenderAPI api{};
-    api.get_api_name                     = api::get_api_name;
-    api.create_instance                  = api::create_instance;
-    api.delete_instance                  = api::delete_instance;
-    api.create_adapter                   = api::create_adapter;
-    api.delete_adapter                   = api::delete_adapter;
-    api.create_surface                   = api::create_surface;
-    api.delete_surface                   = api::delete_surface;
-    api.get_surface_extent               = api::get_surface_extent;
-    api.get_surface_format               = api::get_surface_format;
-    api.get_surface_frames               = api::get_surface_frames;
-    api.create_device                    = api::create_device;
-    api.delete_device                    = api::delete_device;
-    api.create_fence                     = api::create_fence;
-    api.delete_fence                     = api::delete_fence;
-    api.create_buffer                    = api::create_buffer;
-    api.delete_buffer                    = api::delete_buffer;
-    api.create_sampler                   = api::create_sampler;
-    api.delete_sampler                   = api::delete_sampler;
-    api.create_texture                   = api::create_texture;
-    api.delete_texture                   = api::delete_texture;
-    api.create_texture_view              = api::create_texture_view;
-    api.delete_texture_view              = api::delete_texture_view;
-    api.create_shader_module             = api::create_shader_module;
-    api.delete_shader_module             = api::delete_shader_module;
-    api.create_query_set                 = api::create_query_set;
-    api.delete_query_set                 = api::delete_query_set;
-    api.create_blas                      = api::create_blas;
-    api.delete_blas                      = api::delete_blas;
-    api.create_tlas                      = api::create_tlas;
-    api.delete_tlas                      = api::delete_tlas;
-    api.create_pipeline_layout           = api::create_pipeline_layout;
-    api.delete_pipeline_layout           = api::delete_pipeline_layout;
-    api.create_render_pipeline           = api::create_render_pipeline;
-    api.delete_render_pipeline           = api::delete_render_pipeline;
-    api.create_compute_pipeline          = api::create_compute_pipeline;
-    api.delete_compute_pipeline          = api::delete_compute_pipeline;
-    api.create_raytracing_pipeline       = api::create_raytracing_pipeline;
-    api.delete_raytracing_pipeline       = api::delete_raytracing_pipeline;
-    api.create_bind_group                = api::create_bind_group;
-    api.create_bind_group_heap           = api::create_bind_group_heap;
-    api.delete_bind_group_heap           = api::delete_bind_group_heap;
-    api.reset_bind_group_heap            = api::reset_bind_group_heap;
-    api.create_bind_group_layout         = api::create_bind_group_layout;
-    api.delete_bind_group_layout         = api::delete_bind_group_layout;
-    api.wait_idle                        = api::wait_idle;
-    api.wait_fence                       = api::wait_fence;
-    api.map_buffer                       = api::map_buffer;
-    api.unmap_buffer                     = api::unmap_buffer;
-    api.get_mapped_state                 = api::get_mapped_state;
-    api.get_mapped_range                 = api::get_mapped_range;
-    api.create_command_buffer            = api::create_command_buffer;
-    api.create_command_bundle            = api::create_command_bundle;
-    api.submit_command_buffer            = api::submit_command_buffer;
-    api.get_blas_sizes                   = api::get_blas_sizes;
-    api.get_tlas_sizes                   = api::get_tlas_sizes;
-    api.new_frame                        = api::new_frame;
-    api.end_frame                        = api::end_frame;
-    api.acquire_next_frame               = api::acquire_next_frame;
-    api.present_curr_frame               = api::present_curr_frame;
-    api.cmd_insert_debug_marker          = api::cmd_insert_debug_marker;
-    api.cmd_push_debug_group             = api::cmd_push_debug_group;
-    api.cmd_pop_debug_group              = api::cmd_pop_debug_group;
-    api.cmd_wait_fence                   = api::cmd_wait_fence;
-    api.cmd_signal_fence                 = api::cmd_signal_fence;
-    api.cmd_begin_render_pass            = api::cmd_begin_render_pass;
-    api.cmd_end_render_pass              = api::cmd_end_render_pass;
-    api.cmd_set_render_pipeline          = api::cmd_set_render_pipeline;
-    api.cmd_set_compute_pipeline         = api::cmd_set_compute_pipeline;
-    api.cmd_set_raytracing_pipeline      = api::cmd_set_raytracing_pipeline;
-    api.cmd_set_bind_group               = api::cmd_set_bind_group;
-    api.cmd_set_immediates               = api::cmd_set_immediates;
-    api.cmd_set_index_buffer             = api::cmd_set_index_buffer;
-    api.cmd_set_vertex_buffer            = api::cmd_set_vertex_buffer;
-    api.cmd_draw                         = api::cmd_draw;
-    api.cmd_draw_indexed                 = api::cmd_draw_indexed;
-    api.cmd_draw_indirect                = api::cmd_draw_indirect;
-    api.cmd_draw_indexed_indirect        = api::cmd_draw_indexed_indirect;
-    api.cmd_dispatch_workgroups          = api::cmd_dispatch_workgroups;
-    api.cmd_dispatch_workgroups_indirect = api::cmd_dispatch_workgroups_indirect;
-    api.cmd_copy_buffer_to_buffer        = api::cmd_copy_buffer_to_buffer;
-    api.cmd_copy_buffer_to_texture       = api::cmd_copy_buffer_to_texture;
-    api.cmd_copy_texture_to_buffer       = api::cmd_copy_texture_to_buffer;
-    api.cmd_copy_texture_to_texture      = api::cmd_copy_texture_to_texture;
-    api.cmd_clear_buffer                 = api::cmd_clear_buffer;
-    api.cmd_clear_texture                = api::cmd_clear_texture;
-    api.cmd_set_viewport                 = api::cmd_set_viewport;
-    api.cmd_set_scissor_rect             = api::cmd_set_scissor_rect;
-    api.cmd_set_blend_constant           = api::cmd_set_blend_constant;
-    api.cmd_set_stencil_reference        = api::cmd_set_stencil_reference;
-    api.cmd_begin_occlusion_query        = api::cmd_begin_occlusion_query;
-    api.cmd_end_occlusion_query          = api::cmd_end_occlusion_query;
-    api.cmd_write_timestamp              = api::cmd_write_timestamp;
-    api.cmd_write_blas_properties        = api::cmd_write_blas_properties;
-    api.cmd_resolve_query_set            = api::cmd_resolve_query_set;
-    api.cmd_memory_barrier               = api::cmd_memory_barrier;
-    api.cmd_buffer_barrier               = api::cmd_buffer_barrier;
-    api.cmd_texture_barrier              = api::cmd_texture_barrier;
-    api.cmd_build_tlases                 = api::cmd_build_tlases;
-    api.cmd_build_blases                 = api::cmd_build_blases;
-    api.cmd_copy_blas                    = api::cmd_copy_blas;
-    return api;
-}
+        api.get_api_name                     = api::get_api_name;
+        api.create_instance                  = api::create_instance;
+        api.delete_instance                  = api::delete_instance;
+        api.create_adapter                   = api::create_adapter;
+        api.delete_adapter                   = api::delete_adapter;
+        api.create_surface                   = api::create_surface;
+        api.delete_surface                   = api::delete_surface;
+        api.get_surface_extent               = api::get_surface_extent;
+        api.get_surface_format               = api::get_surface_format;
+        api.get_surface_frames               = api::get_surface_frames;
+        api.create_device                    = api::create_device;
+        api.delete_device                    = api::delete_device;
+        api.create_fence                     = api::create_fence;
+        api.delete_fence                     = api::delete_fence;
+        api.create_buffer                    = api::create_buffer;
+        api.delete_buffer                    = api::delete_buffer;
+        api.create_sampler                   = api::create_sampler;
+        api.delete_sampler                   = api::delete_sampler;
+        api.create_texture                   = api::create_texture;
+        api.delete_texture                   = api::delete_texture;
+        api.create_texture_view              = api::create_texture_view;
+        api.delete_texture_view              = api::delete_texture_view;
+        api.create_shader_module             = api::create_shader_module;
+        api.delete_shader_module             = api::delete_shader_module;
+        api.create_query_set                 = api::create_query_set;
+        api.delete_query_set                 = api::delete_query_set;
+        api.create_blas                      = api::create_blas;
+        api.delete_blas                      = api::delete_blas;
+        api.create_tlas                      = api::create_tlas;
+        api.delete_tlas                      = api::delete_tlas;
+        api.create_pipeline_layout           = api::create_pipeline_layout;
+        api.delete_pipeline_layout           = api::delete_pipeline_layout;
+        api.create_render_pipeline           = api::create_render_pipeline;
+        api.delete_render_pipeline           = api::delete_render_pipeline;
+        api.create_compute_pipeline          = api::create_compute_pipeline;
+        api.delete_compute_pipeline          = api::delete_compute_pipeline;
+        api.create_raytracing_pipeline       = api::create_raytracing_pipeline;
+        api.delete_raytracing_pipeline       = api::delete_raytracing_pipeline;
+        api.create_bind_group                = api::create_bind_group;
+        api.create_bind_group_heap           = api::create_bind_group_heap;
+        api.delete_bind_group_heap           = api::delete_bind_group_heap;
+        api.reset_bind_group_heap            = api::reset_bind_group_heap;
+        api.create_bind_group_layout         = api::create_bind_group_layout;
+        api.delete_bind_group_layout         = api::delete_bind_group_layout;
+        api.wait_idle                        = api::wait_idle;
+        api.wait_fence                       = api::wait_fence;
+        api.map_buffer                       = api::map_buffer;
+        api.unmap_buffer                     = api::unmap_buffer;
+        api.get_mapped_state                 = api::get_mapped_state;
+        api.get_mapped_range                 = api::get_mapped_range;
+        api.create_command_buffer            = api::create_command_buffer;
+        api.create_command_bundle            = api::create_command_bundle;
+        api.submit_command_buffer            = api::submit_command_buffer;
+        api.get_blas_sizes                   = api::get_blas_sizes;
+        api.get_tlas_sizes                   = api::get_tlas_sizes;
+        api.new_frame                        = api::new_frame;
+        api.end_frame                        = api::end_frame;
+        api.acquire_next_frame               = api::acquire_next_frame;
+        api.present_curr_frame               = api::present_curr_frame;
+        api.cmd_insert_debug_marker          = api::cmd_insert_debug_marker;
+        api.cmd_push_debug_group             = api::cmd_push_debug_group;
+        api.cmd_pop_debug_group              = api::cmd_pop_debug_group;
+        api.cmd_wait_fence                   = api::cmd_wait_fence;
+        api.cmd_signal_fence                 = api::cmd_signal_fence;
+        api.cmd_begin_render_pass            = api::cmd_begin_render_pass;
+        api.cmd_end_render_pass              = api::cmd_end_render_pass;
+        api.cmd_set_render_pipeline          = api::cmd_set_render_pipeline;
+        api.cmd_set_compute_pipeline         = api::cmd_set_compute_pipeline;
+        api.cmd_set_raytracing_pipeline      = api::cmd_set_raytracing_pipeline;
+        api.cmd_set_bind_group               = api::cmd_set_bind_group;
+        api.cmd_set_immediates               = api::cmd_set_immediates;
+        api.cmd_set_index_buffer             = api::cmd_set_index_buffer;
+        api.cmd_set_vertex_buffer            = api::cmd_set_vertex_buffer;
+        api.cmd_draw                         = api::cmd_draw;
+        api.cmd_draw_indexed                 = api::cmd_draw_indexed;
+        api.cmd_draw_indirect                = api::cmd_draw_indirect;
+        api.cmd_draw_indexed_indirect        = api::cmd_draw_indexed_indirect;
+        api.cmd_dispatch_workgroups          = api::cmd_dispatch_workgroups;
+        api.cmd_dispatch_workgroups_indirect = api::cmd_dispatch_workgroups_indirect;
+        api.cmd_copy_buffer_to_buffer        = api::cmd_copy_buffer_to_buffer;
+        api.cmd_copy_buffer_to_texture       = api::cmd_copy_buffer_to_texture;
+        api.cmd_copy_texture_to_buffer       = api::cmd_copy_texture_to_buffer;
+        api.cmd_copy_texture_to_texture      = api::cmd_copy_texture_to_texture;
+        api.cmd_clear_buffer                 = api::cmd_clear_buffer;
+        api.cmd_clear_texture                = api::cmd_clear_texture;
+        api.cmd_set_viewport                 = api::cmd_set_viewport;
+        api.cmd_set_scissor_rect             = api::cmd_set_scissor_rect;
+        api.cmd_set_blend_constant           = api::cmd_set_blend_constant;
+        api.cmd_set_stencil_reference        = api::cmd_set_stencil_reference;
+        api.cmd_begin_occlusion_query        = api::cmd_begin_occlusion_query;
+        api.cmd_end_occlusion_query          = api::cmd_end_occlusion_query;
+        api.cmd_write_timestamp              = api::cmd_write_timestamp;
+        api.cmd_write_blas_properties        = api::cmd_write_blas_properties;
+        api.cmd_resolve_query_set            = api::cmd_resolve_query_set;
+        api.cmd_memory_barrier               = api::cmd_memory_barrier;
+        api.cmd_buffer_barrier               = api::cmd_buffer_barrier;
+        api.cmd_texture_barrier              = api::cmd_texture_barrier;
+        api.cmd_build_tlases                 = api::cmd_build_tlases;
+        api.cmd_build_blases                 = api::cmd_build_blases;
+        api.cmd_copy_blas                    = api::cmd_copy_blas;
+        return api;
+    }
 
 } // namespace lyra::null

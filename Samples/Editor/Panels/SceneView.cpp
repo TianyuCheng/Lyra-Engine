@@ -63,16 +63,19 @@ void SceneView::update(AppContext& context)
 
             ui::icon_button(LYRA_ICON_PLAY, [&]() {
                 clock->paused = false;
-            }, "Play", playing ? ui::ButtonRole::Success : ui::ButtonRole::Standard);
+            },
+                "Play", playing ? ui::ButtonRole::Success : ui::ButtonRole::Standard);
 
             ui::icon_button(LYRA_ICON_PAUSE, [&]() {
                 clock->paused = true;
-            }, "Pause", !playing ? ui::ButtonRole::Warning : ui::ButtonRole::Standard);
+            },
+                "Pause", !playing ? ui::ButtonRole::Warning : ui::ButtonRole::Standard);
 
             ui::icon_button(LYRA_ICON_RESTART, [&]() {
                 clock->total_time = 0.0f;
                 clock->paused     = false;
-            }, "Restart", ui::ButtonRole::Standard);
+            },
+                "Restart", ui::ButtonRole::Standard);
             ui::spacer();
         });
 
