@@ -62,7 +62,7 @@ TEST_CASE("jobs::job_system" * doctest::description("Job System and Coroutine Te
 
     SUBCASE("parallel_for")
     {
-        constexpr usize count = 50000;
+        constexpr usize  count = 50000;
         std::vector<int> data(count, 0);
 
         auto parallel_job = [&]() -> Task<void> {

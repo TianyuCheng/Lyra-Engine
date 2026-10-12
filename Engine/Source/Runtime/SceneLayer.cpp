@@ -10,7 +10,8 @@ SceneLayer::SceneLayer() : world(), hierarchy(world), scene_manager(nullptr)
 void SceneLayer::bind(Application& app)
 {
     // retrieve asset server from toolboard
-    auto* ams     = app.get_toolboard().get<AssetServer*>();
+    auto* ams = app.get_toolboard().get<AssetServer*>();
+    assert(ams != nullptr && "SceneLayer requires a valid AssetServer registered on the toolboard");
     scene_manager = std::make_unique<SceneManager>(world, hierarchy, *ams);
 
     // save scene objects into toolboard

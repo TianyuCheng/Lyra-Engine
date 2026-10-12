@@ -4,27 +4,43 @@
 
 using namespace lyra;
 
-using RenderPlugin = Plugin<RenderAPI>;
+// forward declarations for inlined plugins
+FORWARD_DECLARE_API(lyra::null, RenderAPI)
 
-static Own<RenderPlugin> RENDER_PLUGIN;
+using RenderPlugin        = Plugin<RenderAPI>;
+using BuiltinRenderPlugin = BuiltinPlugin<RenderAPI>;
+
+static Own<RenderPlugin>        RENDER_PLUGIN;
+static Own<BuiltinRenderPlugin> BUILTIN_RENDER_PLUGIN;
+static RenderAPI*               CURRENT_API = nullptr;
 
 #pragma region RHI
 OwnedResource<RHI> RHI::init(const RHIDescriptor& descriptor)
 {
-    if (RENDER_PLUGIN.get()) {
+    if (RENDER_PLUGIN.get() || BUILTIN_RENDER_PLUGIN.get()) {
         show_error("RHI", "Call RHI::init() exactly once!");
         exit(1);
     }
 
     switch (descriptor.backend) {
+        case RHIBackend::NONE:
+            BUILTIN_RENDER_PLUGIN = std::make_unique<BuiltinRenderPlugin>(
+                lyra::null::create,
+                lyra::null::prepare,
+                lyra::null::cleanup);
+            CURRENT_API = BUILTIN_RENDER_PLUGIN->get_api();
+            break;
         case RHIBackend::D3D12:
             RENDER_PLUGIN = std::make_unique<RenderPlugin>("lyra-d3d12");
+            CURRENT_API   = RENDER_PLUGIN->get_api();
             break;
         case RHIBackend::METAL:
             RENDER_PLUGIN = std::make_unique<RenderPlugin>("lyra-metal");
+            CURRENT_API   = RENDER_PLUGIN->get_api();
             break;
         case RHIBackend::VULKAN:
             RENDER_PLUGIN = std::make_unique<RenderPlugin>("lyra-vulkan");
+            CURRENT_API   = RENDER_PLUGIN->get_api();
             break;
     }
 
@@ -38,15 +54,20 @@ OwnedResource<RHI> RHI::init(const RHIDescriptor& descriptor)
 
 RenderAPI* RHI::api()
 {
-    return RENDER_PLUGIN->get_api();
+    return CURRENT_API;
 }
 
 void RHI::destroy() const
 {
-    RHI::api()->wait_idle();
-    RHI::api()->delete_device();
-    RHI::api()->delete_adapter();
-    RHI::api()->delete_instance();
+    if (CURRENT_API) {
+        CURRENT_API->wait_idle();
+        CURRENT_API->delete_device();
+        CURRENT_API->delete_adapter();
+        CURRENT_API->delete_instance();
+    }
+    BUILTIN_RENDER_PLUGIN.reset();
+    RENDER_PLUGIN.reset();
+    CURRENT_API = nullptr;
 }
 
 void RHI::wait()

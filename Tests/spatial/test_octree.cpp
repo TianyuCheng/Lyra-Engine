@@ -53,7 +53,7 @@ TEST_CASE("spatial::octree" * doctest::description("OctTree Spatial Partitioning
         CHECK(tree.remove(20));
         CHECK(!tree.contains(20));
         CHECK_EQ(tree.size(), 2);
-        CHECK(!tree.remove(20)); // Already removed
+        CHECK(!tree.remove(20));  // Already removed
         CHECK(!tree.remove(999)); // Nonexistent
 
         // Update in-place
@@ -137,9 +137,9 @@ TEST_CASE("spatial::octree" * doctest::description("OctTree Spatial Partitioning
         TestTree tree(lyra::Bounds3D({-1000.0f, -1000.0f, -1000.0f}, {1000.0f, 1000.0f, 1000.0f}), 4, 2);
 
         // Place entities
-        tree.insert(1, {{-1.0f, -1.0f, -10.0f}, {1.0f, 1.0f, -8.0f}}); // In front of camera
-        tree.insert(2, {{-1.0f, -1.0f, -20.0f}, {1.0f, 1.0f, -18.0f}}); // Further in front
-        tree.insert(3, {{-1.0f, -1.0f, 10.0f}, {1.0f, 1.0f, 12.0f}}); // Behind camera
+        tree.insert(1, {{-1.0f, -1.0f, -10.0f}, {1.0f, 1.0f, -8.0f}});     // In front of camera
+        tree.insert(2, {{-1.0f, -1.0f, -20.0f}, {1.0f, 1.0f, -18.0f}});    // Further in front
+        tree.insert(3, {{-1.0f, -1.0f, 10.0f}, {1.0f, 1.0f, 12.0f}});      // Behind camera
         tree.insert(4, {{-100.0f, -1.0f, -10.0f}, {-90.0f, 1.0f, -8.0f}}); // Far to the left outside FOV
 
         lyra::Camera camera;

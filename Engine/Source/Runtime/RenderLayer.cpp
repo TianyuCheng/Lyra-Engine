@@ -3,20 +3,18 @@
 using namespace lyra;
 
 RenderLayer::RenderLayer()
+    : resource_retire(), geometry_cache(resource_retire)
 {
 }
 
 void RenderLayer::bind(Application& app)
 {
     // query frame count from the surface already registered on the toolboard
-    auto surface          = app.get_toolboard().get<GPUSurface*>();
-    uint frames_in_flight = surface->get_image_count();
+    auto surface = app.get_toolboard().get<GPUSurface*>();
+    assert(surface != nullptr && "RenderLayer requires a valid GPUSurface registered on the toolboard");
 
     // initialize deferred resource retirement system
-    resource_retire.init(frames_in_flight);
-
-    // initialize geometry cache with ResourceRetire
-    geometry_cache.set_resource_retire(&resource_retire);
+    resource_retire.init(surface->get_image_count());
 
     // register on toolboard so passes and systems can resolve them
     app.get_toolboard().add<RenderLayer*>(this);
@@ -40,6 +38,7 @@ void RenderLayer::update(AppContext&)
 void RenderLayer::pre_render(AppContext&)
 {
     resource_retire.tick();
+    geometry_cache.tick();
 }
 
 void RenderLayer::drain()

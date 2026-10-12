@@ -49,6 +49,7 @@ target_sources(lyra-headers INTERFACE
     Lyra/Windowing/WSIUtils.h
 
     # graphics
+    Lyra/Graphics/GPURetireQueue.h
     Lyra/Graphics/RHIAPI.h
     Lyra/Graphics/RHIDescs.h
     Lyra/Graphics/RHIEnums.h
@@ -60,8 +61,9 @@ target_sources(lyra-headers INTERFACE
 
     # rendering
     Lyra/Rendering/FrameGraph.h
+    Lyra/Rendering/Geometry.h
+    Lyra/Rendering/GeometryBufferPool.h
     Lyra/Rendering/GeometryCache.h
-    Lyra/Rendering/GPURetireQueue.h
     Lyra/Rendering/ResourceRetire.h
 
     # compiler

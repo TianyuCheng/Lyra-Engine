@@ -295,7 +295,7 @@ auto lyra::preview::rasterize_scene(const PreviewScene& scene) -> PreviewTexture
                     float w2 = 1.0f - w0 - w1;
 
                     if (w0 >= 0.0f && w1 >= 0.0f && w2 >= 0.0f) {
-                        float  depth     = w0 * ndc0.z + w1 * ndc1.z + w2 * ndc2.z;
+                        float depth     = w0 * ndc0.z + w1 * ndc1.z + w2 * ndc2.z;
                         usize pixel_idx = static_cast<usize>(py * render_w + px);
 
                         if (depth >= 0.0f && depth < depth_buffer[pixel_idx]) {
@@ -328,7 +328,7 @@ auto lyra::preview::rasterize_scene(const PreviewScene& scene) -> PreviewTexture
 
                             Vector3 final_color = glm::clamp(Vector3(albedo) * light + Vector3(rim), 0.0f, 1.0f);
 
-                            usize c_idx            = static_cast<usize>(pixel_idx) * 4;
+                            usize c_idx             = static_cast<usize>(pixel_idx) * 4;
                             color_buffer[c_idx + 0] = static_cast<uint8_t>(final_color.r * 255.0f);
                             color_buffer[c_idx + 1] = static_cast<uint8_t>(final_color.g * 255.0f);
                             color_buffer[c_idx + 2] = static_cast<uint8_t>(final_color.b * 255.0f);
@@ -358,7 +358,7 @@ auto lyra::preview::rasterize_scene(const PreviewScene& scene) -> PreviewTexture
                     }
                 }
 
-                usize dst_idx             = static_cast<usize>(y * G_CONFIG.width + x) * 4;
+                usize dst_idx              = static_cast<usize>(y * G_CONFIG.width + x) * 4;
                 result.pixels[dst_idx + 0] = static_cast<uint8_t>(r / 4);
                 result.pixels[dst_idx + 1] = static_cast<uint8_t>(g / 4);
                 result.pixels[dst_idx + 2] = static_cast<uint8_t>(b / 4);

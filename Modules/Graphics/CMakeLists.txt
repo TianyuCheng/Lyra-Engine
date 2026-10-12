@@ -1,3 +1,6 @@
+# build null backend
+add_subdirectory(Null)
+
 # build d3d12 backend on Windows
 if(WIN32)
   add_subdirectory(D3D12)

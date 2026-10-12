@@ -28,6 +28,7 @@
 #include <Lyra/Graphics/RHIDescs.h>
 #include <Lyra/Graphics/RHITypes.h>
 #include <Lyra/Graphics/RHIInits.h>
+#include <Lyra/Graphics/GPURetireQueue.h>
 #include <Lyra/UISystem/Renderer/GUIEnums.h>
 #include <Lyra/UISystem/Renderer/GUITypes.h>
 #include <Lyra/UISystem/Widgets/UIEnums.h>
@@ -83,7 +84,8 @@
 
 // Rendering headers
 #include <Lyra/Rendering/FrameGraph.h>
-#include <Lyra/Rendering/GPURetireQueue.h>
+#include <Lyra/Rendering/Geometry.h>
+#include <Lyra/Rendering/GeometryBufferPool.h>
 #include <Lyra/Rendering/ResourceRetire.h>
 #include <Lyra/Rendering/GeometryCache.h>
 

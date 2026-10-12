@@ -61,38 +61,38 @@ void ResourceRetire::drain()
 
 bool ResourceRetire::empty() const
 {
-    return buffers.empty()
-        && textures.empty()
-        && texture_views.empty()
-        && samplers.empty()
-        && shaders.empty()
-        && query_sets.empty()
-        && fences.empty()
-        && tlases.empty()
-        && blases.empty()
-        && bind_group_heaps.empty()
-        && bind_group_layouts.empty()
-        && pipeline_layouts.empty()
-        && render_pipelines.empty()
-        && compute_pipelines.empty()
-        && raytracing_pipelines.empty();
+    return buffers.empty() &&
+           textures.empty() &&
+           texture_views.empty() &&
+           samplers.empty() &&
+           shaders.empty() &&
+           query_sets.empty() &&
+           fences.empty() &&
+           tlases.empty() &&
+           blases.empty() &&
+           bind_group_heaps.empty() &&
+           bind_group_layouts.empty() &&
+           pipeline_layouts.empty() &&
+           render_pipelines.empty() &&
+           compute_pipelines.empty() &&
+           raytracing_pipelines.empty();
 }
 
 usize ResourceRetire::size() const
 {
-    return buffers.size()
-         + textures.size()
-         + texture_views.size()
-         + samplers.size()
-         + shaders.size()
-         + query_sets.size()
-         + fences.size()
-         + tlases.size()
-         + blases.size()
-         + bind_group_heaps.size()
-         + bind_group_layouts.size()
-         + pipeline_layouts.size()
-         + render_pipelines.size()
-         + compute_pipelines.size()
-         + raytracing_pipelines.size();
+    return buffers.size() +
+           textures.size() +
+           texture_views.size() +
+           samplers.size() +
+           shaders.size() +
+           query_sets.size() +
+           fences.size() +
+           tlases.size() +
+           blases.size() +
+           bind_group_heaps.size() +
+           bind_group_layouts.size() +
+           pipeline_layouts.size() +
+           render_pipelines.size() +
+           compute_pipelines.size() +
+           raytracing_pipelines.size();
 }

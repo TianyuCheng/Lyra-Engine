@@ -26,21 +26,21 @@ TEST_CASE("fg::execution_order" * doctest::description("FrameGraph Execution Ord
     auto data_a = builder.add_pass<PassDataA>(
         "PassA",
         [&](PassDataA& data, FrameGraphPassBuilder& pb) {
-            data.tex = pb.render(base_tex);
-        },
+        data.tex = pb.render(base_tex);
+    },
         [&](const PassDataA&, FrameGraphResources&, FrameGraphContext*) {
-            execution_trace.push_back(1);
-        });
+        execution_trace.push_back(1);
+    });
 
     builder.add_pass<PassDataB>(
         "PassB",
         [&](PassDataB& data, FrameGraphPassBuilder& pb) {
-            data.tex = pb.sample(data_a.tex);
-            pb.preserve(); // preserve final output
-        },
+        data.tex = pb.sample(data_a.tex);
+        pb.preserve(); // preserve final output
+    },
         [&](const PassDataB&, FrameGraphResources&, FrameGraphContext*) {
-            execution_trace.push_back(2);
-        });
+        execution_trace.push_back(2);
+    });
 
     auto graph = builder.build();
     REQUIRE(graph != nullptr);
@@ -66,21 +66,21 @@ TEST_CASE("fg::culling" * doctest::description("FrameGraph Dead Pass Culling"))
     builder.add_pass(
         "CulledPass",
         [&](FrameGraphPassBuilder& pb) {
-            tex = pb.render(tex);
-        },
+        tex = pb.render(tex);
+    },
         [&](FrameGraphResources&, FrameGraphContext*) {
-            executed_passes.push_back("CulledPass");
-        });
+        executed_passes.push_back("CulledPass");
+    });
 
     // Pass 2: Preserved pass -> must execute
     builder.add_pass(
         "ActivePass",
         [&](FrameGraphPassBuilder& pb) {
-            pb.preserve();
-        },
+        pb.preserve();
+    },
         [&](FrameGraphResources&, FrameGraphContext*) {
-            executed_passes.push_back("ActivePass");
-        });
+        executed_passes.push_back("ActivePass");
+    });
 
     auto graph = builder.build();
     REQUIRE(graph != nullptr);
@@ -106,44 +106,44 @@ TEST_CASE("fg::ssa_write_after_read" * doctest::description("FrameGraph SSA Anti
     builder.add_pass(
         "PassWrite1",
         [&](FrameGraphPassBuilder& pb) {
-            buf = pb.write(buf);
-        },
+        buf = pb.write(buf);
+    },
         [&](FrameGraphResources&, FrameGraphContext*) {
-            execution_trace.push_back(1);
-        });
+        execution_trace.push_back(1);
+    });
 
     // Pass 2: reads buffer v1
     builder.add_pass(
         "PassRead1",
         [&](FrameGraphPassBuilder& pb) {
-            buf = pb.read(buf);
-            pb.preserve();
-        },
+        buf = pb.read(buf);
+        pb.preserve();
+    },
         [&](FrameGraphResources&, FrameGraphContext*) {
-            execution_trace.push_back(2);
-        });
+        execution_trace.push_back(2);
+    });
 
     // Pass 3: writes buffer v1 -> produces v2 (Write-after-read hazard against Pass 2)
     builder.add_pass(
         "PassWrite2",
         [&](FrameGraphPassBuilder& pb) {
-            buf = pb.write(buf);
-            pb.preserve();
-        },
+        buf = pb.write(buf);
+        pb.preserve();
+    },
         [&](FrameGraphResources&, FrameGraphContext*) {
-            execution_trace.push_back(3);
-        });
+        execution_trace.push_back(3);
+    });
 
     // Pass 4: reads buffer v2
     builder.add_pass(
         "PassRead2",
         [&](FrameGraphPassBuilder& pb) {
-            buf = pb.read(buf);
-            pb.preserve();
-        },
+        buf = pb.read(buf);
+        pb.preserve();
+    },
         [&](FrameGraphResources&, FrameGraphContext*) {
-            execution_trace.push_back(4);
-        });
+        execution_trace.push_back(4);
+    });
 
     auto graph = builder.build();
     REQUIRE(graph != nullptr);
@@ -237,25 +237,25 @@ TEST_CASE("fg::direct_import" * doctest::description("FrameGraph Direct Builder 
     auto tex_handle      = builder.import(imported_tex);
 
     FrameGraphTlas imported_tlas;
-    imported_tlas.tlas  = GPUTlasHandle{456};
-    auto tlas_handle    = builder.import(imported_tlas);
+    imported_tlas.tlas = GPUTlasHandle{456};
+    auto tlas_handle   = builder.import(imported_tlas);
 
     builder.add_pass(
         "DirectImportConsumerPass",
         [&](FrameGraphPassBuilder& pb) {
-            tex_handle  = pb.read(tex_handle);
-            tlas_handle = pb.read(tlas_handle);
-            pb.preserve();
-        },
+        tex_handle  = pb.read(tex_handle);
+        tlas_handle = pb.read(tlas_handle);
+        pb.preserve();
+    },
         [&](FrameGraphResources& res, FrameGraphContext*) {
-            auto* t = res.get<FrameGraphTexture>(tex_handle);
-            REQUIRE(t != nullptr);
-            CHECK_EQ(t->texture.value, 123);
-            auto* a = res.get<FrameGraphTlas>(tlas_handle);
-            REQUIRE(a != nullptr);
-            CHECK_EQ(a->tlas.value, 456);
-            pass_executed = true;
-        });
+        auto* t = res.get<FrameGraphTexture>(tex_handle);
+        REQUIRE(t != nullptr);
+        CHECK_EQ(t->texture.value, 123);
+        auto* a = res.get<FrameGraphTlas>(tlas_handle);
+        REQUIRE(a != nullptr);
+        CHECK_EQ(a->tlas.value, 456);
+        pass_executed = true;
+    });
 
     auto graph = builder.build();
     REQUIRE(graph != nullptr);
@@ -299,7 +299,7 @@ TEST_CASE("fg::redundant_barriers_and_depth" * doctest::description("Skip Redund
         alloc.reclaim_unused_if([](const GPUTextureDescriptor&) { return true; });
         alloc.reclaim_unused_if([](const GPUBufferDescriptor&) { return true; });
         alloc.reclaim_unused_if([](const GPUTextureDescriptor&) { return true; },
-                                [](const GPUBufferDescriptor&) { return true; });
+            [](const GPUBufferDescriptor&) { return true; });
         alloc.tick(60);
         alloc.clear();
         CHECK_EQ(alloc.allocated_texture_count(), 0);
@@ -307,3 +307,119 @@ TEST_CASE("fg::redundant_barriers_and_depth" * doctest::description("Skip Redund
     }
 }
 
+TEST_CASE("fg::allocator_real_resources" * doctest::description("FrameGraphAllocator real allocation, pooling, and recycling"))
+{
+    FrameGraphAllocator allocator;
+
+    SUBCASE("Buffer allocation and pooling reuse")
+    {
+        GPUBufferDescriptor desc{};
+        desc.label = "fg_test_buffer";
+        desc.size  = 256;
+        desc.usage = GPUBufferUsage::STORAGE;
+
+        auto buf1 = allocator.allocate(desc);
+        CHECK(buf1.value != 0);
+        CHECK_EQ(allocator.allocated_buffer_count(), 1);
+
+        // recycle buf1
+        allocator.recycle(desc, buf1);
+
+        // re-allocating identical descriptor must reuse buf1
+        auto buf2 = allocator.allocate(desc);
+        CHECK_EQ(buf1, buf2);
+        CHECK_EQ(allocator.allocated_buffer_count(), 1);
+
+        // allocating different descriptor creates a second buffer
+        GPUBufferDescriptor desc2 = desc;
+        desc2.size                = 512;
+        auto buf3                 = allocator.allocate(desc2);
+        CHECK_NE(buf1, buf3);
+        CHECK_EQ(allocator.allocated_buffer_count(), 2);
+    }
+
+    SUBCASE("Texture allocation, recycling, and aging reclamation")
+    {
+        GPUTextureDescriptor desc{};
+        desc.label        = "fg_test_tex";
+        desc.size         = GPUExtent3D{64, 64, 1};
+        desc.format       = GPUTextureFormat::RGBA8UNORM;
+        desc.usage        = GPUTextureUsage::TEXTURE_BINDING | GPUTextureUsage::RENDER_ATTACHMENT;
+        desc.sample_count = 1;
+
+        auto tex1 = allocator.allocate(desc);
+        CHECK(tex1.texture.value != 0);
+        CHECK(tex1.view.value != 0);
+        CHECK_EQ(allocator.allocated_texture_count(), 1);
+
+        allocator.recycle(desc, tex1);
+
+        // re-allocate reuses existing texture and view
+        auto tex2 = allocator.allocate(desc);
+        CHECK_EQ(tex1.texture, tex2.texture);
+        CHECK_EQ(tex1.view, tex2.view);
+        CHECK_EQ(allocator.allocated_texture_count(), 1);
+
+        // recycle and age
+        allocator.recycle(desc, tex2);
+        allocator.tick(2); // age unused frames
+        allocator.tick(2);
+        allocator.reclaim_unused();
+        CHECK_EQ(allocator.allocated_texture_count(), 0);
+    }
+}
+
+TEST_CASE("fg::transient_resource_lifecycle" * doctest::description("FrameGraph Transient Resource Allocation & Recycling"))
+{
+    FrameGraphBuilder   builder;
+    FrameGraphAllocator allocator;
+    bool                producer_executed = false;
+    bool                consumer_executed = false;
+
+    GPUTextureDescriptor tex_desc{};
+    tex_desc.label        = "transient_color";
+    tex_desc.size         = GPUExtent3D{128, 128, 1};
+    tex_desc.format       = GPUTextureFormat::RGBA8UNORM;
+    tex_desc.usage        = GPUTextureUsage::TEXTURE_BINDING | GPUTextureUsage::RENDER_ATTACHMENT;
+    tex_desc.sample_count = 1;
+
+    struct PassDataA
+    {
+        FrameGraph::TextureHandle tex;
+    };
+
+    auto data_a = builder.add_pass<PassDataA>(
+        "TransientProducer",
+        [&](PassDataA& data, FrameGraphPassBuilder& pb) {
+        data.tex = pb.create<FrameGraphTexture>(tex_desc);
+        data.tex = pb.render(data.tex);
+    },
+        [&](const PassDataA&, FrameGraphResources&, FrameGraphContext*) {
+        producer_executed = true;
+    });
+
+    struct PassDataB
+    {
+        FrameGraph::TextureHandle tex;
+    };
+
+    builder.add_pass<PassDataB>(
+        "TransientConsumer",
+        [&](PassDataB& data, FrameGraphPassBuilder& pb) {
+        data.tex = pb.sample(data_a.tex);
+        pb.preserve(); // ensure pass and resource are preserved
+    },
+        [&](const PassDataB&, FrameGraphResources&, FrameGraphContext*) {
+        consumer_executed = true;
+    });
+
+    auto graph = builder.build();
+    REQUIRE(graph != nullptr);
+
+    graph->execute(nullptr, &allocator);
+
+    CHECK(producer_executed);
+    CHECK(consumer_executed);
+    // Transient texture should have been allocated and then recycled into the allocator
+    CHECK_EQ(allocator.allocated_texture_count(), 1);
+}

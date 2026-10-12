@@ -104,6 +104,7 @@ target_sources(lyra-engine PRIVATE
   Rendering/FrameGraphAllocator.cpp
   Rendering/FrameGraphBuilder.cpp
   Rendering/FrameGraphTexture.cpp
+  Rendering/GeometryBufferPool.cpp
   Rendering/GeometryCache.cpp
   Rendering/ResourceRetire.cpp
 
@@ -162,6 +163,7 @@ target_link_libraries(lyra-engine PRIVATE lyra::packer)
 target_link_libraries(lyra-engine PRIVATE lyra::texture)
 target_link_libraries(lyra-engine PRIVATE lyra::material)
 target_link_libraries(lyra-engine PRIVATE lyra::preview)
+target_link_libraries(lyra-engine PRIVATE lyra::null)
 
 # link builtin scripts
 target_link_libraries(lyra-engine PUBLIC lyra::components)

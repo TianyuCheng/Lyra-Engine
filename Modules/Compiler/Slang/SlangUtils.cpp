@@ -1133,7 +1133,7 @@ void ReflectResultInternal::fill_binding_count(GPUBindGroupLayoutEntry& entry, s
 
     // possibly unbound (when count = ~usize(0))
     usize count = type->getTotalArrayElementCount();
-    entry.count  = static_cast<uint>(count);
+    entry.count = static_cast<uint>(count);
 }
 
 void ReflectResultInternal::fill_binding_stages(GPUBindGroupLayoutEntry& entry, const AccessPath& path) const

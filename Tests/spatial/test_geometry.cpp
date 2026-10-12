@@ -28,11 +28,11 @@ TEST_CASE("spatial::geometry" * doctest::description("Geometry Shapes Unit Tests
         CHECK_EQ(s.center, lyra::Vector3(1.0f, 2.0f, 3.0f));
         CHECK_EQ(s.radius, 3.0f);
 
-        CHECK(s.contains(lyra::Vector3(1.0f, 2.0f, 3.0f))); // center
-        CHECK(s.contains(lyra::Vector3(4.0f, 2.0f, 3.0f))); // boundary (+x)
+        CHECK(s.contains(lyra::Vector3(1.0f, 2.0f, 3.0f)));  // center
+        CHECK(s.contains(lyra::Vector3(4.0f, 2.0f, 3.0f)));  // boundary (+x)
         CHECK(s.contains(lyra::Vector3(1.0f, -1.0f, 3.0f))); // boundary (-y)
-        CHECK(s.contains(lyra::Vector3(1.0f, 2.0f, 6.0f))); // boundary (+z)
-        CHECK(s.contains(lyra::Vector3(2.0f, 4.0f, 5.0f))); // (1^2 + 2^2 + 2^2) = 9 == 3^2
+        CHECK(s.contains(lyra::Vector3(1.0f, 2.0f, 6.0f)));  // boundary (+z)
+        CHECK(s.contains(lyra::Vector3(2.0f, 4.0f, 5.0f)));  // (1^2 + 2^2 + 2^2) = 9 == 3^2
 
         CHECK(!s.contains(lyra::Vector3(4.01f, 2.0f, 3.0f)));
         CHECK(!s.contains(lyra::Vector3(1.0f, -1.01f, 3.0f)));
@@ -68,7 +68,7 @@ TEST_CASE("spatial::geometry" * doctest::description("Geometry Shapes Unit Tests
         lyra::Plane p({0.0f, 1.0f, 0.0f}, -5.0f);
         CHECK_EQ(p.signed_distance(lyra::Vector3(0.0f, 5.0f, 0.0f)), doctest::Approx(0.0f));
         CHECK_EQ(p.signed_distance(lyra::Vector3(10.0f, 7.0f, -2.0f)), doctest::Approx(2.0f)); // in front
-        CHECK_EQ(p.signed_distance(lyra::Vector3(0.0f, 2.0f, 0.0f)), doctest::Approx(-3.0f)); // behind
+        CHECK_EQ(p.signed_distance(lyra::Vector3(0.0f, 2.0f, 0.0f)), doctest::Approx(-3.0f));  // behind
 
         // normalization
         lyra::Plane unnormalized({0.0f, 2.0f, 0.0f}, -10.0f);

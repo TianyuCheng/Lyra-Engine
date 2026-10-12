@@ -33,8 +33,9 @@ add_executable(lyra-testkit ALIAS lyra-rhi-tests)
 lyra_sample(unit-tests)
 
 target_sources(lyra-unit-tests PRIVATE
-  main.cpp
+  unit_main.cpp
   ./common/test_enums.cpp
+  ./common/test_geometry_cache.cpp
 )
 target_link_libraries(lyra-unit-tests PRIVATE doctest::doctest)
 target_include_directories(lyra-unit-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/common)
@@ -57,6 +58,8 @@ add_subdirectory(shader_reflection)
 add_subdirectory(material)
 add_subdirectory(job_system)
 add_subdirectory(scripting)
+add_subdirectory(graphics)
+add_subdirectory(rendering)
 
 # ==============================================================================
 # Execution Targets

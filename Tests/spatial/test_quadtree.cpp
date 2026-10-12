@@ -54,7 +54,7 @@ TEST_CASE("spatial::quadtree" * doctest::description("QuadTree Spatial Partition
         CHECK(tree.remove(20));
         CHECK(!tree.contains(20));
         CHECK_EQ(tree.size(), 2);
-        CHECK(!tree.remove(20)); // Already removed
+        CHECK(!tree.remove(20));  // Already removed
         CHECK(!tree.remove(999)); // Nonexistent
 
         // Update in-place
@@ -159,8 +159,8 @@ TEST_CASE("spatial::quadtree" * doctest::description("QuadTree Spatial Partition
     {
         TestTree tree(lyra::Bounds2D({-100.0f, -100.0f}, {100.0f, 100.0f}), 4, 2);
 
-        tree.insert(1, {{40.0f, -5.0f}, {50.0f, 5.0f}}); // Further along +X
-        tree.insert(2, {{10.0f, -5.0f}, {20.0f, 5.0f}}); // Closer along +X
+        tree.insert(1, {{40.0f, -5.0f}, {50.0f, 5.0f}});   // Further along +X
+        tree.insert(2, {{10.0f, -5.0f}, {20.0f, 5.0f}});   // Closer along +X
         tree.insert(3, {{-50.0f, -5.0f}, {-40.0f, 5.0f}}); // Behind along -X
 
         lyra::Ray2D ray({0.0f, 0.0f}, {1.0f, 0.0f});

@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_ENGINE_RENDERING_GPU_RETIRE_QUEUE_H
-#define LYRA_ENGINE_RENDERING_GPU_RETIRE_QUEUE_H
+#ifndef LYRA_ENGINE_GRAPHICS_GPU_RETIRE_QUEUE_H
+#define LYRA_ENGINE_GRAPHICS_GPU_RETIRE_QUEUE_H
 
 #include <utility>
 #include <Lyra/Utilities/Stdint.h>
@@ -119,4 +119,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_ENGINE_RENDERING_GPU_RETIRE_QUEUE_H
+#endif // LYRA_ENGINE_GRAPHICS_GPU_RETIRE_QUEUE_H

@@ -17,6 +17,7 @@ namespace lyra
 
     enum struct RHIBackend : uint
     {
+        NONE,
         METAL,
         D3D12,
         VULKAN,

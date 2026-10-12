@@ -4,7 +4,7 @@
 #define LYRA_ENGINE_RENDERING_RESOURCE_RETIRE_H
 
 #include <Lyra/Graphics/RHITypes.h>
-#include <Lyra/Rendering/GPURetireQueue.h>
+#include <Lyra/Graphics/GPURetireQueue.h>
 
 namespace lyra
 {
