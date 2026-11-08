@@ -33,19 +33,19 @@ static bool is_chord_down(const WindowInput* raw_input, const ButtonChord& chord
     }
 
     // evaluate modifier keys
-    bool is_primary_ctrl  = chord.primary.type == DeviceButton::Type::KEY && chord.primary.code == static_cast<uint16_t>(KeyButton::CTRL);
     bool is_primary_alt   = chord.primary.type == DeviceButton::Type::KEY && chord.primary.code == static_cast<uint16_t>(KeyButton::ALT);
+    bool is_primary_ctrl  = chord.primary.type == DeviceButton::Type::KEY && chord.primary.code == static_cast<uint16_t>(KeyButton::CTRL);
     bool is_primary_super = chord.primary.type == DeviceButton::Type::KEY && chord.primary.code == static_cast<uint16_t>(KeyButton::SUPER);
 
-    bool raw_ctrl  = !is_primary_ctrl && raw_input->is_key_down(KeyButton::CTRL);
     bool raw_alt   = !is_primary_alt && raw_input->is_key_down(KeyButton::ALT);
+    bool raw_ctrl  = !is_primary_ctrl && raw_input->is_key_down(KeyButton::CTRL);
     bool raw_super = !is_primary_super && raw_input->is_key_down(KeyButton::SUPER);
 
     // isolate command modifiers: reject if ctrl/alt/super is active but not requested by chord
-    if (!chord.modifiers.contains(ModifierKey::CTRL) && raw_ctrl) {
+    if (!chord.modifiers.contains(ModifierKey::ALT) && raw_alt) {
         return false;
     }
-    if (!chord.modifiers.contains(ModifierKey::ALT) && raw_alt) {
+    if (!chord.modifiers.contains(ModifierKey::CTRL) && raw_ctrl) {
         return false;
     }
     if (!chord.modifiers.contains(ModifierKey::SUPER) && raw_super) {
@@ -410,6 +410,55 @@ void InputManager::reset()
     for (auto& val : axis_2d_values) {
         val = Vector2(0.0f);
     }
+    previous_filter = {};
+}
+
+void InputManager::reset_mouse()
+{
+    for (usize i = 0; i < ACTION_COUNT; ++i) {
+        bool has_mouse = false;
+        for (const auto& chord : action_bindings[i]) {
+            if (chord.primary.type == DeviceButton::Type::MOUSE || chord.extra.type == DeviceButton::Type::MOUSE) {
+                has_mouse = true;
+                break;
+            }
+        }
+        if (has_mouse && action_states[i].current) {
+            action_states[i].previous = true;
+            action_states[i].current  = false;
+        }
+    }
+
+    axis_2d_values[static_cast<usize>(InputAxis2D::LOOK)] = Vector2(0.0f);
+    axis_1d_values[static_cast<usize>(InputAxis::ZOOM)]   = 0.0f;
+}
+
+void InputManager::reset_keyboard()
+{
+    for (usize i = 0; i < ACTION_COUNT; ++i) {
+        bool has_key = false;
+        for (const auto& chord : action_bindings[i]) {
+            if (chord.primary.type == DeviceButton::Type::KEY || chord.extra.type == DeviceButton::Type::KEY) {
+                has_key = true;
+                break;
+            }
+        }
+        if (has_key && action_states[i].current) {
+            action_states[i].previous = true;
+            action_states[i].current  = false;
+        }
+    }
+
+    for (usize i = 0; i < AXIS_1D_COUNT; ++i) {
+        if (static_cast<InputAxis>(i) != InputAxis::ZOOM) {
+            axis_1d_values[i] = 0.0f;
+        }
+    }
+    for (usize i = 0; i < AXIS_2D_COUNT; ++i) {
+        if (static_cast<InputAxis2D>(i) != InputAxis2D::LOOK) {
+            axis_2d_values[i] = Vector2(0.0f);
+        }
+    }
 }
 
 void InputManager::update(const WindowInput* raw_input, float dt, const InputFilter& filter)
@@ -426,8 +475,18 @@ void InputManager::update(const WindowInput* raw_input, float dt, const InputFil
         for (auto& val : axis_2d_values) {
             val = Vector2(0.0f);
         }
+        previous_filter = filter;
         return;
     }
+
+    // handle filter transitions: when an input category becomes blocked, cleanly release active state
+    if (filter.block_mouse && !previous_filter.block_mouse) {
+        reset_mouse();
+    }
+    if (filter.block_keyboard && !previous_filter.block_keyboard) {
+        reset_keyboard();
+    }
+    previous_filter = filter;
 
     // update digital actions
     for (usize i = 0; i < ACTION_COUNT; ++i) {
@@ -445,7 +504,8 @@ void InputManager::update(const WindowInput* raw_input, float dt, const InputFil
     // evaluate 1d composite axes
     for (usize i = 0; i < AXIS_1D_COUNT; ++i) {
         const auto& comp = axis_1d_bindings[i];
-        float       val  = 0.0f;
+
+        float val = 0.0f;
         for (const auto& chord : comp.positive) {
             if (is_chord_down(raw_input, chord, filter)) {
                 val += 1.0f;
@@ -471,7 +531,8 @@ void InputManager::update(const WindowInput* raw_input, float dt, const InputFil
     // evaluate 2d composite axes
     for (usize i = 0; i < AXIS_2D_COUNT; ++i) {
         const auto& comp = axis_2d_bindings[i];
-        Vector2     val(0.0f);
+
+        Vector2 val(0.0f);
         for (const auto& chord : comp.up) {
             if (is_chord_down(raw_input, chord, filter)) {
                 val.y += 1.0f;

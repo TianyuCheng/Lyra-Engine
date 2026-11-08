@@ -680,6 +680,60 @@ static void show_window(WindowHandle window)
     glfwShowWindow(reinterpret_cast<GLFWwindow*>(window.window));
 }
 
+static void set_cursor_mode(WindowHandle window, CursorMode mode)
+{
+    auto handle = reinterpret_cast<GLFWwindow*>(window.window);
+    if (!handle) return;
+    switch (mode) {
+        case CursorMode::NORMAL:
+            glfwSetInputMode(handle, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            break;
+        case CursorMode::HIDDEN:
+            glfwSetInputMode(handle, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+            break;
+        case CursorMode::LOCKED:
+            glfwSetInputMode(handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            break;
+    }
+}
+
+static auto get_cursor_mode(WindowHandle window) -> CursorMode
+{
+    auto handle = reinterpret_cast<GLFWwindow*>(window.window);
+    if (!handle) return CursorMode::NORMAL;
+    int mode = glfwGetInputMode(handle, GLFW_CURSOR);
+    switch (mode) {
+        case GLFW_CURSOR_DISABLED:
+            return CursorMode::LOCKED;
+        case GLFW_CURSOR_HIDDEN:
+            return CursorMode::HIDDEN;
+        default:
+            return CursorMode::NORMAL;
+    }
+}
+
+static void set_cursor_pos(WindowHandle window, float xpos, float ypos)
+{
+    auto handle = reinterpret_cast<GLFWwindow*>(window.window);
+    if (handle) {
+        glfwSetCursorPos(handle, static_cast<double>(xpos), static_cast<double>(ypos));
+    }
+}
+
+static void get_cursor_pos(WindowHandle window, float& xpos, float& ypos)
+{
+    auto handle = reinterpret_cast<GLFWwindow*>(window.window);
+    if (handle) {
+        double x, y;
+        glfwGetCursorPos(handle, &x, &y);
+        xpos = static_cast<float>(x);
+        ypos = static_cast<float>(y);
+    } else {
+        xpos = 0.0f;
+        ypos = 0.0f;
+    }
+}
+
 static void bind_window_callback(WindowHandle window, WindowCallback callback)
 {
     auto  handle  = reinterpret_cast<GLFWwindow*>(window.window);
@@ -823,6 +877,10 @@ LYRA_EXPORT auto create() -> WindowAPI
     api.get_window_alpha      = get_window_alpha;
     api.set_window_title      = set_window_title;
     api.get_window_title      = get_window_title;
+    api.set_cursor_mode       = set_cursor_mode;
+    api.get_cursor_mode       = get_cursor_mode;
+    api.set_cursor_pos        = set_cursor_pos;
+    api.get_cursor_pos        = get_cursor_pos;
     api.set_clipboard_text    = set_clipboard_text;
     api.get_clipboard_text    = get_clipboard_text;
     api.get_window_minimized  = get_window_minimized;

@@ -36,7 +36,7 @@ void InputLayer::init(AppContext& context)
         InputFilter filter{};
         if (current.block_mouse) return filter; // already blocked by editor layer
         if (auto viewport = context.try_tool<ViewportInputProvider>()) {
-            if (viewport->is_canvas_hovered() && viewport->is_overlay_interacting()) {
+            if (viewport->is_overlay_locked() || (viewport->is_canvas_hovered() && viewport->is_overlay_interacting())) {
                 filter.block_mouse = true;
             }
         }

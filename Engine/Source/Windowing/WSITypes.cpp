@@ -58,6 +58,38 @@ void Window::get_framebuffer_scale(float& xscale, float& yscale) const
     Window::api()->get_framebuffer_scale(this->handle, xscale, yscale);
 }
 
+void Window::set_cursor_mode(CursorMode mode)
+{
+    if (Window::api()->set_cursor_mode) {
+        Window::api()->set_cursor_mode(this->handle, mode);
+    }
+}
+
+CursorMode Window::get_cursor_mode() const
+{
+    if (Window::api()->get_cursor_mode) {
+        return Window::api()->get_cursor_mode(this->handle);
+    }
+    return CursorMode::NORMAL;
+}
+
+void Window::set_cursor_pos(float xpos, float ypos)
+{
+    if (Window::api()->set_cursor_pos) {
+        Window::api()->set_cursor_pos(this->handle, xpos, ypos);
+    }
+}
+
+Vector2 Window::get_cursor_pos() const
+{
+    if (Window::api()->get_cursor_pos) {
+        float x = 0.0f, y = 0.0f;
+        Window::api()->get_cursor_pos(this->handle, x, y);
+        return Vector2(x, y);
+    }
+    return Vector2(0.0f);
+}
+
 void Window::dispatch(WindowEvent event)
 {
     switch (event) {

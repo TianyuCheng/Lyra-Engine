@@ -46,6 +46,11 @@ namespace lyra
         auto get_input_state() -> WindowInput& { return inputs; }
         void reset_input_state() { inputs.reset(); }
 
+        void set_cursor_mode(CursorMode mode);
+        auto get_cursor_mode() const -> CursorMode;
+        void set_cursor_pos(float xpos, float ypos);
+        auto get_cursor_pos() const -> Vector2;
+
         void get_position(int& x, int& y) const;
 
         void get_extent(uint& width, uint& height) const;

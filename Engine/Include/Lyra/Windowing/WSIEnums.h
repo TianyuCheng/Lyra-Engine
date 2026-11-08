@@ -14,6 +14,13 @@ namespace lyra
         FULLSCREEN = 0x4,
     };
 
+    enum struct CursorMode : uint
+    {
+        NORMAL,  ///< normal visible cursor, moves freely
+        HIDDEN,  ///< hidden cursor when over the window, moves freely
+        LOCKED,  ///< hidden cursor locked to the window with unbounded virtual delta
+    };
+
     enum struct WindowEvent : uint
     {
         START,  // window opened

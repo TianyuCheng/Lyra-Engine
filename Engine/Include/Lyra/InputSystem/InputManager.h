@@ -74,6 +74,8 @@ namespace lyra
 
         // state reset
         void reset();
+        void reset_mouse();
+        void reset_keyboard();
 
         // evaluation loop
         void update(const WindowInput* raw_input, float dt, const InputFilter& filter = {});
@@ -99,6 +101,7 @@ namespace lyra
         Array<Vector2, AXIS_2D_COUNT>         axis_2d_values;
 
         HashMap<String, InputAction> action_aliases;
+        InputFilter                  previous_filter;
     };
 
 } // namespace lyra

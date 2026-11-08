@@ -175,8 +175,10 @@ macro(lyra_toolkit NAME)
 endmacro()
 
 # define a function to bind headers for a target using lyra-bindgen
-function(lyra_bindgen TARGET_NAME)
+function(lyra_bindgen NAME)
   cmake_parse_arguments(BINDGEN "" "MODULE;PREFIX;OUTPUT;INCLUDE_DIR" "HEADERS;SOURCES" ${ARGN})
+
+  set(TARGET_NAME    "${PROJECT_NAME}-${NAME}")
 
   if(NOT BINDGEN_MODULE)
     set(BINDGEN_MODULE "${TARGET_NAME}")
@@ -237,9 +239,12 @@ function(lyra_bindgen TARGET_NAME)
   target_include_directories(${TARGET_NAME} PUBLIC "${BINDGEN_INCLUDE_DIR}")
   target_include_directories(${TARGET_NAME} PRIVATE "${OUT_DIR}")
   target_include_directories(${TARGET_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+
+  # module sources
+  target_sources(${TARGET_NAME} PRIVATE ${BINDGEN_HEADERS} ${BINDGEN_SOURCES})
+
 endfunction()
 
 function(lyra_reflect TARGET_NAME)
   lyra_bindgen(${TARGET_NAME} ${ARGN})
 endfunction()
-

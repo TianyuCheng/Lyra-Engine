@@ -6,7 +6,6 @@
 #include <Lyra/UISystem/Widgets/UIDock.h>
 #include <Lyra/UISystem/Widgets/UILayout.h>
 #include <Lyra/UISystem/Widgets/UIControls.h>
-
 #include <Lyra/UISystem/Widgets/UIIcons.h>
 #include <Lyra/UISystem/Widgets/UIDialog.h>
 #include <Lyra/Scene/SceneManager.h>
@@ -132,24 +131,68 @@ void SceneView::update(AppContext& context)
             }
         });
 
-        bool prev_active  = viewport_active;
-        bool gizmo_active = is_gizmo_captured();
         bool canvas_hover = canvas.is_hovered();
         bool panel_focus  = ui::is_panel_focused();
 
-        // mouse navigation is active when mouse is over canvas and not consumed by gizmo
-        mouse_nav_active = canvas_hover && !gizmo_active;
+        // query mouse button state for active tool drag lock and camera look capture
+        bool lmb_down = false;
+        bool rmb_down = false;
+        bool mmb_down = false;
+        if (auto window = context.try_tool<Window>()) {
+            lmb_down = window->get_input_state().is_mouse_down(MouseButton::LEFT);
+            rmb_down = window->get_input_state().is_mouse_down(MouseButton::RIGHT);
+            mmb_down = window->get_input_state().is_mouse_down(MouseButton::MIDDLE);
+        }
+        bool any_mouse_down = lmb_down || rmb_down || mmb_down;
 
-        // keyboard navigation is active when panel is focused or canvas hovered
-        keyboard_nav_active = (panel_focus || canvas_hover || canvas_interacted);
+        // active tool interaction lock:
+        // lock initiates if gizmo reports active use, or if hovered on canvas and LMB is held
+        // (suppressed if viewport drag has already claimed the mouse)
+        if (is_gizmo_using() || (!viewport_dragging && canvas_hover && is_gizmo_hovered() && lmb_down)) {
+            overlay_locked = true;
+        }
+        if (!lmb_down) {
+            overlay_locked = false;
+        }
 
-        viewport_active = mouse_nav_active || keyboard_nav_active;
+        bool overlay_active = is_overlay_interacting();
 
-        if (auto input = context.try_tool<InputManager>()) {
-            if (prev_active && !viewport_active) {
-                input->reset();
+        // viewport mouse drag capture:
+        // retains mouse navigation across the desktop until all mouse buttons are released
+        if (!overlay_active && canvas_hover && any_mouse_down) {
+            viewport_dragging = true;
+        }
+        if (!any_mouse_down) {
+            viewport_dragging = false;
+        }
+
+        // viewport camera look capture & cursor locking:
+        // begins when RMB is pressed over canvas and not interacting with overlay tools
+        if (auto window = context.try_tool<Window>()) {
+            if (!camera_capturing) {
+                if (canvas_hover && !overlay_active && rmb_down) {
+                    camera_capturing    = true;
+                    captured_cursor_pos = window->get_cursor_pos();
+                    window->set_cursor_mode(CursorMode::LOCKED);
+                }
+            } else {
+                // while capturing, keep camera look active until RMB is released
+                if (!rmb_down) {
+                    camera_capturing = false;
+                    window->set_cursor_mode(CursorMode::NORMAL);
+                    window->set_cursor_pos(captured_cursor_pos.x, captured_cursor_pos.y);
+                }
             }
         }
+
+        // mouse navigation is active when mouse is over canvas and not consumed by overlay/gizmo,
+        // or during active viewport drag / camera look capture
+        mouse_nav_active = (canvas_hover && !overlay_active) || viewport_dragging || camera_capturing;
+
+        // keyboard navigation is active when panel is focused, canvas hovered, or during active drag / capture
+        keyboard_nav_active = (panel_focus || canvas_hover || canvas_interacted || viewport_dragging || camera_capturing);
+
+        viewport_active = mouse_nav_active || keyboard_nav_active;
     });
 }
 

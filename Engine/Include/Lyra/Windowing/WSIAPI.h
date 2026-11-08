@@ -30,13 +30,18 @@ namespace lyra
         bool (*get_window_focus)(WindowHandle window);
 
         void (*set_window_alpha)(WindowHandle window, float alpha);
-        float (*get_window_alpha)(WindowHandle window);
+        auto (*get_window_alpha)(WindowHandle window) -> float;
 
         void (*set_window_title)(WindowHandle window, CString title);
-        CString (*get_window_title)(WindowHandle window);
+        auto (*get_window_title)(WindowHandle window) -> CString;
 
         void (*set_clipboard_text)(WindowHandle window, CString text);
-        CString (*get_clipboard_text)(WindowHandle window);
+        auto (*get_clipboard_text)(WindowHandle window) -> CString;
+
+        void (*set_cursor_mode)(WindowHandle window, CursorMode mode);
+        auto (*get_cursor_mode)(WindowHandle window) -> CursorMode;
+        void (*set_cursor_pos)(WindowHandle window, float xpos, float ypos);
+        void (*get_cursor_pos)(WindowHandle window, float& xpos, float& ypos);
 
         void (*get_content_scale)(WindowHandle window, float& xscale, float& yscale);
         void (*get_framebuffer_scale)(WindowHandle window, float& xscale, float& yscale);

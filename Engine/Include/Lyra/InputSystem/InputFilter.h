@@ -107,6 +107,7 @@ namespace lyra
         virtual ~ViewportInputProvider()       = default;
         virtual bool is_canvas_hovered() const = 0;
         virtual bool is_overlay_interacting() const { return false; }
+        virtual bool is_overlay_locked() const { return false; }
         virtual bool is_mouse_nav_active() const    = 0;
         virtual bool is_keyboard_nav_active() const = 0;
     };

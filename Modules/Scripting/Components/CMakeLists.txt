@@ -2,7 +2,7 @@
 lyra_module(components OBJECT)
 
 # binding generation
-lyra_bindgen(lyra-components
+lyra_bindgen(components
     MODULE Components
     PREFIX Lyra/Scene
     HEADERS
@@ -13,10 +13,4 @@ lyra_bindgen(lyra-components
         ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Scene/Transform.h
     SOURCES
         Components.cpp
-)
-
-# module sources
-target_sources(lyra-components PRIVATE
-    Components.h
-    Components.cpp
 )
