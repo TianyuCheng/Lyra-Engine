@@ -149,22 +149,29 @@ target_sources(lyra-engine PRIVATE
   Scripting/ScriptQuery.cpp
 )
 
+# reflection for core scene components
+lyra_bindgen(engine
+  MODULE Components
+  PREFIX Lyra/Scene
+  HEADERS
+    ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Scene/Mesh.h
+    ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Scene/Light.h
+    ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Scene/Camera.h
+    ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Scene/Transform.h
+)
+
 # link headers and common
 target_link_libraries(lyra-engine PUBLIC lyra::commons)
 target_link_libraries(lyra-engine PUBLIC lyra::headers)
 
 # link builtin plugins
+target_link_libraries(lyra-engine PRIVATE lyra::null)
 target_link_libraries(lyra-engine PRIVATE lyra::mesh)
 target_link_libraries(lyra-engine PRIVATE lyra::model)
 target_link_libraries(lyra-engine PRIVATE lyra::scene)
 target_link_libraries(lyra-engine PRIVATE lyra::imgui)
 target_link_libraries(lyra-engine PRIVATE lyra::loader)
 target_link_libraries(lyra-engine PRIVATE lyra::packer)
+target_link_libraries(lyra-engine PRIVATE lyra::preview)
 target_link_libraries(lyra-engine PRIVATE lyra::texture)
 target_link_libraries(lyra-engine PRIVATE lyra::material)
-target_link_libraries(lyra-engine PRIVATE lyra::preview)
-target_link_libraries(lyra-engine PRIVATE lyra::null)
-
-# link builtin scripts
-target_link_libraries(lyra-engine PUBLIC lyra::components)
-target_link_libraries(lyra-engine PUBLIC lyra::camera-control)

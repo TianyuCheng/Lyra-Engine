@@ -1,6 +1,5 @@
 #include <Lyra/Utilities/Math.h>
 #include <Lyra/Scene/Camera.h>
-#include <Lyra/Scene/CameraControl.h>
 
 #include "Renderer.h"
 #include "Panels/SceneView.h"
@@ -247,14 +246,6 @@ void SampleCubeRenderer::init(AppContext& context)
             world->rotate(camera_node, {1.0f, 0.0f, 0.0f}, -20.0f);
             world->add_component<Camera>(camera_node);
         }
-
-        if (!world->registry.any_of<FlyCamera>(camera_node.entity)) {
-            world->add_component<FlyCamera>(camera_node,
-                FlyCamera{
-                    .pitch        = -20.0f,
-                    .target_pitch = -20.0f,
-                });
-        }
     }
 }
 
@@ -292,14 +283,6 @@ void SampleCubeRenderer::update(AppContext& context)
             world->translate(camera_node, {0.0f, 1.0f, 8.0f});
             world->rotate(camera_node, {1.0f, 0.0f, 0.0f}, -20.0f);
             world->add_component<Camera>(camera_node);
-        }
-
-        if (!world->registry.any_of<FlyCamera>(camera_node.entity)) {
-            world->add_component<FlyCamera>(camera_node,
-                FlyCamera{
-                    .pitch        = -20.0f,
-                    .target_pitch = -20.0f,
-                });
         }
     }
 

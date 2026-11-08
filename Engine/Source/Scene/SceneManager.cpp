@@ -1,19 +1,13 @@
 #include <fstream>
 #include <Lyra/Utilities/GUID.h>
 #include <Lyra/Utilities/Logger.h>
-#include <Lyra/JobSystem/Jobs.h>
-#include <Lyra/Assets/Format/SceneAsset.h>
-#include <Lyra/Scene/SceneManager.h>
 #include <Lyra/Scene/Mesh.h>
 #include <Lyra/Scene/Camera.h>
+#include <Lyra/Scene/SceneManager.h>
+#include <Lyra/JobSystem/Jobs.h>
+#include <Lyra/Assets/Format/SceneAsset.h>
 
 using namespace lyra;
-
-SceneManager::SceneManager(World& world, SceneTree& hierarchy, AssetServer& ams)
-    : world(world), hierarchy(hierarchy), ams(ams)
-{
-    // do nothing
-}
 
 static void split_name_index(const String& name, String& out_prefix, uint& out_index)
 {
@@ -41,6 +35,12 @@ static void split_name_index(const String& name, String& out_prefix, uint& out_i
     }
     out_prefix = name;
     out_index  = 0;
+}
+
+SceneManager::SceneManager(World& world, SceneTree& hierarchy, AssetServer& ams)
+    : world(world), hierarchy(hierarchy), ams(ams)
+{
+    // do nothing
 }
 
 String SceneManager::resolve_unique_name(SceneNode parent, const String& base_name) const
