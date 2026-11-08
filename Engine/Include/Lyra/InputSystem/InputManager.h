@@ -8,16 +8,11 @@
 #include <Lyra/Utilities/Collections.h>
 #include <Lyra/InputSystem/InputMap.h>
 #include <Lyra/InputSystem/InputEnums.h>
+#include <Lyra/InputSystem/InputFilter.h>
 
 namespace lyra
 {
     struct WindowInput;
-
-    struct InputFilter
-    {
-        bool block_mouse    = false;
-        bool block_keyboard = false;
-    };
 
     /**
      * @brief manager evaluating abstract input actions and composite axes from physical inputs.

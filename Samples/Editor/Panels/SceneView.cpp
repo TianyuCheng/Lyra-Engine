@@ -28,7 +28,8 @@ SceneView::SceneView()
 
 void SceneView::bind(Application& app)
 {
-    // save asset manager into toolboard
+    // save viewport provider and scene view into toolboard
+    app.get_toolboard().add<ViewportInputProvider*>(this);
     app.get_toolboard().add<SceneView*>(this);
 
     // bind layout manager events
@@ -132,17 +133,15 @@ void SceneView::update(AppContext& context)
         });
 
         bool prev_active  = viewport_active;
-        bool modal_active = ui::is_modal_active();
-        bool text_active  = ui::is_text_input_active();
         bool gizmo_active = is_gizmo_captured();
         bool canvas_hover = canvas.is_hovered();
         bool panel_focus  = ui::is_panel_focused();
 
-        // mouse navigation is active when mouse is over canvas and not consumed by gizmo or modal
-        mouse_nav_active = canvas_hover && !gizmo_active && !modal_active;
+        // mouse navigation is active when mouse is over canvas and not consumed by gizmo
+        mouse_nav_active = canvas_hover && !gizmo_active;
 
-        // keyboard navigation is active when panel is focused or canvas hovered, without modals or text entry
-        keyboard_nav_active = (panel_focus || canvas_hover || canvas_interacted) && !text_active && !modal_active;
+        // keyboard navigation is active when panel is focused or canvas hovered
+        keyboard_nav_active = (panel_focus || canvas_hover || canvas_interacted);
 
         viewport_active = mouse_nav_active || keyboard_nav_active;
 

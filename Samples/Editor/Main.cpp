@@ -452,22 +452,6 @@ int main(int argc, const char* argv[])
     auto sceneview = std::make_unique<SceneView>();
     app->bind<SceneView>(*sceneview);
 
-    // configure input consumption filter
-    input->set_filter_provider([&sceneview = *sceneview]() -> InputFilter {
-        InputFilter filter{};
-        // if modal is active or text input is active, block everything
-        if (ui::is_modal_active() || ui::is_text_input_active()) {
-            filter.block_mouse    = true;
-            filter.block_keyboard = true;
-            return filter;
-        }
-
-        // selective mouse and keyboard gating based on scene view state
-        filter.block_mouse    = !sceneview.is_mouse_nav_active();
-        filter.block_keyboard = !sceneview.is_keyboard_nav_active();
-        return filter;
-    });
-
     // renderer (temporary solution)
     auto renderer = std::make_unique<SampleCubeRenderer>();
     app->bind<SampleCubeRenderer>(*renderer);
