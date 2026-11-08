@@ -30,7 +30,6 @@ namespace lyra
             return canvas.get_backbuffer();
         }
 
-        void set_gizmo_capture_query(GizmoCaptureQuery query) { gizmo_hover_query = std::move(query); }
         void set_gizmo_hover_query(GizmoCaptureQuery query) { gizmo_hover_query = std::move(query); }
         void set_gizmo_using_query(GizmoCaptureQuery query) { gizmo_using_query = std::move(query); }
         void clear_gizmo_capture_query()

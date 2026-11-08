@@ -133,16 +133,13 @@ void SceneView::update(AppContext& context)
 
         bool canvas_hover = canvas.is_hovered();
         bool panel_focus  = ui::is_panel_focused();
+        auto window       = context.try_tool<Window>();
 
         // query mouse button state for active tool drag lock and camera look capture
-        bool lmb_down = false;
-        bool rmb_down = false;
-        bool mmb_down = false;
-        if (auto window = context.try_tool<Window>()) {
-            lmb_down = window->get_input_state().is_mouse_down(MouseButton::LEFT);
-            rmb_down = window->get_input_state().is_mouse_down(MouseButton::RIGHT);
-            mmb_down = window->get_input_state().is_mouse_down(MouseButton::MIDDLE);
-        }
+        bool lmb_down = window ? window->get_input_state().is_mouse_down(MouseButton::LEFT) : false;
+        bool rmb_down = window ? window->get_input_state().is_mouse_down(MouseButton::RIGHT) : false;
+        bool mmb_down = window ? window->get_input_state().is_mouse_down(MouseButton::MIDDLE) : false;
+
         bool any_mouse_down = lmb_down || rmb_down || mmb_down;
 
         // active tool interaction lock:
@@ -168,7 +165,7 @@ void SceneView::update(AppContext& context)
 
         // viewport camera look capture & cursor locking:
         // begins when RMB is pressed over canvas and not interacting with overlay tools
-        if (auto window = context.try_tool<Window>()) {
+        if (window) {
             if (!camera_capturing) {
                 if (canvas_hover && !overlay_active && rmb_down) {
                     camera_capturing    = true;
