@@ -49,6 +49,11 @@ namespace lyra
         void register_api(const ScriptAPI& api);
 
         /**
+         * @brief Registers all statically registered ScriptAPI tables from ScriptRegistry.
+         */
+        void register_all_static();
+
+        /**
          * @brief Unregisters all registered APIs, scripts, and state.
          */
         void unregister_all();

@@ -14,8 +14,8 @@
 #include <Lyra/Utilities/Function.h>
 #include <Lyra/Utilities/Macros.h>
 #include <Lyra/Utilities/ECS.h>
-#include <Lyra/Scene/Camera.h>
-#include <Lyra/Scene/Transform.h>
+#include <Lyra/Components/Camera.h>
+#include <Lyra/Components/Transform.h>
 
 namespace lyra
 {

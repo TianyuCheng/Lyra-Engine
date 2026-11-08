@@ -1,6 +1,22 @@
 #include <Lyra/Runtime/RenderLayer.h>
+#include <Lyra/Utilities/Math.h>
+#include <Lyra/Scene/World.h>
+#include <Lyra/Components/Camera.h>
 
 using namespace lyra;
+
+static void update_camera_projection(Camera& camera)
+{
+    if (camera.type == ProjectionType::PERSPECTIVE) {
+        camera.projection = glm::perspective(
+            glm::radians(camera.fov), camera.aspect, camera.near_plane, camera.far_plane);
+    } else {
+        float half_size   = camera.size * 0.5f;
+        camera.projection = glm::ortho(
+            -half_size * camera.aspect, half_size * camera.aspect,
+            -half_size, half_size, camera.near_plane, camera.far_plane);
+    }
+}
 
 RenderLayer::RenderLayer()
     : resource_retire(), geometry_cache(resource_retire)
@@ -31,8 +47,11 @@ void RenderLayer::bind(Application& app)
     app.bind<AppEvent::DESTROY, &RenderLayer::destroy>(*this);
 }
 
-void RenderLayer::update(AppContext&)
+void RenderLayer::update(AppContext& context)
 {
+    if (auto world = context.toolboard.try_get<World>()) {
+        update_camera_projection(*world);
+    }
 }
 
 void RenderLayer::pre_render(AppContext&)
@@ -52,4 +71,25 @@ void RenderLayer::destroy(AppContext& context)
     auto device = context.toolboard.get<GPUDevice*>();
     device->wait();
     drain();
+}
+
+void RenderLayer::update_camera_projection(World& world)
+{
+    auto view = world.registry.view<Camera>();
+    for (auto entity : view) {
+        update_camera_projection(view.get<Camera>(entity));
+    }
+}
+
+void RenderLayer::update_camera_projection(Camera& camera)
+{
+    if (camera.type == ProjectionType::PERSPECTIVE) {
+        camera.projection = glm::perspective(
+            glm::radians(camera.fov), camera.aspect, camera.near_plane, camera.far_plane);
+    } else {
+        float half_size   = camera.size * 0.5f;
+        camera.projection = glm::ortho(
+            -half_size * camera.aspect, half_size * camera.aspect,
+            -half_size, half_size, camera.near_plane, camera.far_plane);
+    }
 }

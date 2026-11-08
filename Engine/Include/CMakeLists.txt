@@ -108,12 +108,26 @@ target_sources(lyra-headers INTERFACE
     Lyra/Runtime/SceneLayer.h
     Lyra/Runtime/TimingLayer.h
     Lyra/Runtime/UILayer.h
+    Lyra/Runtime/ScriptLayer.h
+
+    # scripting
+    Lyra/Scripting/Disabled.h
+    Lyra/Scripting/ScriptCommandQueue.h
+    Lyra/Scripting/ScriptContext.h
+    Lyra/Scripting/Scripting.h
+    Lyra/Scripting/ScriptQuery.h
+    Lyra/Scripting/ScriptRegistry.h
+    Lyra/Scripting/ScriptTypes.h
+
+    # components
+    Lyra/Components/Transform.h
+    Lyra/Components/Camera.h
+    Lyra/Components/Light.h
+    Lyra/Components/Mesh.h
 
     # scene
-    Lyra/Scene/Light.h
     Lyra/Scene/SceneNode.h
     Lyra/Scene/SceneTree.h
-    Lyra/Scene/Transform.h
     Lyra/Scene/World.h
 
     # uisystem

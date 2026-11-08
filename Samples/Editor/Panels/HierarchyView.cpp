@@ -3,9 +3,9 @@
 #include <algorithm>
 
 #include <Lyra/Utilities/Logger.h>
-#include <Lyra/Scene/Camera.h>
-#include <Lyra/Scene/Light.h>
-#include <Lyra/Scene/Mesh.h>
+#include <Lyra/Components/Camera.h>
+#include <Lyra/Components/Light.h>
+#include <Lyra/Components/Mesh.h>
 #include <Lyra/Scene/SceneTree.h>
 #include <Lyra/Scene/SceneNode.h>
 #include <Lyra/Scene/SceneManager.h>

@@ -1,12 +1,12 @@
 #pragma once
 
-#ifndef LYRA_ENGINE_SCENE_LIGHT_H
-#define LYRA_ENGINE_SCENE_LIGHT_H
+#ifndef LYRA_ENGINE_COMPONENTS_LIGHT_H
+#define LYRA_ENGINE_COMPONENTS_LIGHT_H
 
 #include <Lyra/Utilities/Math.h>
 #include <Lyra/Utilities/Stdint.h>
 
-// reference: `https://google.github.io/filament/Filament.md.html
+// reference: https://google.github.io/filament/Filament.md.html
 
 namespace lyra
 {
@@ -76,4 +76,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_ENGINE_SCENE_LIGHT_H
+#endif // LYRA_ENGINE_COMPONENTS_LIGHT_H

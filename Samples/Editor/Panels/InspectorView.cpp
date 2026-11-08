@@ -1,8 +1,8 @@
 #include <Lyra/Utilities/Logger.h>
 #include <Lyra/Scene/World.h>
-#include <Lyra/Scene/Light.h>
+#include <Lyra/Components/Light.h>
 #include <Lyra/Scene/SceneNode.h>
-#include <Lyra/Scene/Transform.h>
+#include <Lyra/Components/Transform.h>
 #include <Lyra/Scripting/ScriptQuery.h>
 #include <Lyra/Runtime/ScriptLayer.h>
 #include <Lyra/UISystem/Widgets/UI.h>

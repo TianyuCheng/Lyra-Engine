@@ -7,7 +7,7 @@
 
 // local imports
 #include <Lyra/Scene/SceneNode.h>
-#include <Lyra/Scene/Transform.h>
+#include <Lyra/Components/Transform.h>
 
 namespace lyra
 {

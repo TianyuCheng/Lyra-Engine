@@ -7,7 +7,7 @@
 #include <Lyra/Utilities/String.h>
 #include <Lyra/Utilities/Function.h>
 #include <Lyra/Utilities/Collections.h>
-#include <Lyra/Scene/Mesh.h>
+#include <Lyra/Components/Mesh.h>
 #include <Lyra/Scene/World.h>
 #include <Lyra/Scene/SceneTree.h>
 #include <Lyra/Assets/AMSServer.h>

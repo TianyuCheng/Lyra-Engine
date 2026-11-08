@@ -104,16 +104,13 @@ std::string Generator::generate(const ModuleReflection& module, const std::strin
     ss << "#include <Lyra/Lyra.hpp>\n";
     ss << "#include <Lyra/Scripting/ScriptTypes.h>\n";
     ss << "#include <Lyra/Scripting/ScriptContext.h>\n";
+    ss << "#include <Lyra/Scripting/ScriptRegistry.h>\n";
     ss << "#include <Lyra/Scripting/Disabled.h>\n\n";
 
     // Include original source headers
     ss << "// Annotated source headers\n";
     for (const auto& header : module.included_headers) {
-        if (!module.include_prefix.empty()) {
-            ss << "#include <" << module.include_prefix << "/" << header << ">\n";
-        } else {
-            ss << "#include \"" << header << "\"\n";
-        }
+        ss << "#include <" << header << ">\n";
     }
     ss << "\n";
     ss << "using namespace lyra;\n\n";
@@ -470,7 +467,9 @@ std::string Generator::generate(const ModuleReflection& module, const std::strin
     ss << "    auto create() -> ScriptAPI\n";
     ss << "    {\n";
     ss << "        return lyra::generated::" << mod_ns << "::create_script_api();\n";
-    ss << "    }\n";
+    ss << "    }\n\n";
+    ss << "    // auto-registration hook\n";
+    ss << "    static const ::lyra::detail::ScriptAutoRegistrar registrar__" << mod_ns << "(&create);\n";
     ss << "} // namespace lyra::scripts::" << mod_ns << "\n\n";
 
     if (!is_cpp) {

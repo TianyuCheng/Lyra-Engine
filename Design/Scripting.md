@@ -37,6 +37,7 @@ Manually writing `ScriptAPI` dispatch tables, system reflection, and Dear ImGui 
    - Component reflection descriptors and ImGui inspector widgets (`draw_inspector`).
    - The `script_descriptors` and `component_descriptors` static tables.
    - The module factory `create_script_api() -> ScriptAPI`.
+   - Automatic static registration with `ScriptRegistry` via `ScriptAutoRegistrar`.
 
 ### CMake Configuration
 A typical script module's `CMakeLists.txt` uses `lyra_module()` and `lyra_bindgen()`:
@@ -46,20 +47,14 @@ A typical script module's `CMakeLists.txt` uses `lyra_module()` and `lyra_bindge
 lyra_module(camera-control OBJECT)
 
 # trigger code generation for components and systems
-lyra_bindgen(lyra-camera-control
+lyra_bindgen(camera-control
     MODULE CameraControl
-    PREFIX Lyra/Scene
-    HEADERS
-        CameraControl.h
     SOURCES
         CameraControl.cpp
 )
-
-target_sources(lyra-camera-control PRIVATE
-    CameraControl.h
-    CameraControl.cpp
-)
 ```
+
+Linking the module (`target_link_libraries(<app> PRIVATE lyra::camera-control)`) automatically registers its systems with `ScriptLayer` via `ScriptRegistry` without requiring manual `#include` or `register_api()` calls in application code.
 
 ## Execution Facade (`ScriptContext`)
 

@@ -8,7 +8,7 @@
 #include <Lyra/Utilities/Macros.h>
 #include <Lyra/Utilities/Memory.h>
 #include <Lyra/Scene/SceneNode.h>
-#include <Lyra/Scene/Transform.h>
+#include <Lyra/Components/Transform.h>
 #include <Lyra/Scene/World.h>
 #include <Lyra/Scripting/Disabled.h>
 #include <Lyra/Scripting/ScriptCommandQueue.h>

@@ -45,12 +45,15 @@
 #include <Lyra/Assets/AMSUtils.h>
 #include <Lyra/Assets/AMSServer.h>
 
+// Components headers
+#include <Lyra/Components/Mesh.h>
+#include <Lyra/Components/Light.h>
+#include <Lyra/Components/Camera.h>
+#include <Lyra/Components/Transform.h>
+
 // Scenes headers
 #include <Lyra/Scene/World.h>
-#include <Lyra/Scene/Light.h>
-#include <Lyra/Scene/Camera.h>
 #include <Lyra/Scene/SceneNode.h>
-#include <Lyra/Scene/Transform.h>
 #include <Lyra/Scene/SceneTree.h>
 #include <Lyra/Scene/SceneManager.h>
 

@@ -1,8 +1,8 @@
 #include <fstream>
 #include <Lyra/Utilities/GUID.h>
 #include <Lyra/Utilities/Logger.h>
-#include <Lyra/Scene/Mesh.h>
-#include <Lyra/Scene/Camera.h>
+#include <Lyra/Components/Mesh.h>
+#include <Lyra/Components/Camera.h>
 #include <Lyra/Scene/SceneManager.h>
 #include <Lyra/JobSystem/Jobs.h>
 #include <Lyra/Assets/Format/SceneAsset.h>

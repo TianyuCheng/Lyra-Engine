@@ -3,10 +3,10 @@
 #ifndef LYRA_SAMPLE_SCRIPTS_H
 #define LYRA_SAMPLE_SCRIPTS_H
 
-#include <Lyra/Scene/Transform.h>
+#include <Lyra/Components/Transform.h>
 #include <Lyra/Scripting/ScriptContext.h>
 
-struct [[lyra::component("Camera")]] OrbitCamera
+struct [[lyra::component("Camera")]] SampleOrbitCamera
 {
     lyra::Vector3 axis = lyra::Vector3(0.0f, 1.0f, 0.0f);
 
@@ -15,7 +15,7 @@ struct [[lyra::component("Camera")]] OrbitCamera
 };
 
 [[lyra::system(UPDATE, group = "Gameplay/Camera")]]
-inline void orbit(lyra::ScriptContext& ctx, OrbitCamera& cam, lyra::TransformLocal& transform)
+inline void orbit(lyra::ScriptContext& ctx, SampleOrbitCamera& cam, lyra::TransformLocal& transform)
 {
     ctx.rotate(transform, cam.axis, ctx.dt() * cam.speed);
 }

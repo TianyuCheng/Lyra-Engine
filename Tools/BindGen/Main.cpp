@@ -65,11 +65,28 @@ static bool write_if_changed(const fs::path& path, const std::string& content)
     return true;
 }
 
+static std::string extract_include_path(const fs::path& p)
+{
+    std::string path_str = p.lexically_normal().generic_string();
+    size_t idx = path_str.rfind("/Include/");
+    if (idx != std::string::npos) {
+        return path_str.substr(idx + 9);
+    }
+    if (path_str.rfind("Include/", 0) == 0) {
+        return path_str.substr(8);
+    }
+    idx = path_str.find("Lyra/");
+    if (idx != std::string::npos) {
+        return path_str.substr(idx);
+    }
+    return p.filename().generic_string();
+}
+
 int main(int argc, char* argv[])
 {
     cxxopts::Options options("lyra-bindgen", "Lyra Engine C++ Binding Generator");
 
-    options.add_options()("m,module", "Module name", cxxopts::value<std::string>()->default_value("Engine"))("p,prefix", "Include directory prefix (e.g. Lyra/Scene)", cxxopts::value<std::string>()->default_value(""))("I,include-dir", "Public include directory for staging", cxxopts::value<std::string>()->default_value(""))("o,output", "Output .gen.h header file", cxxopts::value<std::string>())("i,headers", "Input header files to process", cxxopts::value<std::vector<std::string>>())("h,help", "Print usage");
+    options.add_options()("m,module", "Module name", cxxopts::value<std::string>()->default_value("Engine"))("o,output", "Output .gen.cpp file", cxxopts::value<std::string>())("i,headers", "Input header/source files to process", cxxopts::value<std::vector<std::string>>())("h,help", "Print usage");
 
     options.parse_positional({"headers"});
 
@@ -81,8 +98,6 @@ int main(int argc, char* argv[])
     }
 
     std::string module_name = result["module"].as<std::string>();
-    std::string prefix      = result.count("prefix") ? result["prefix"].as<std::string>() : "";
-    std::string inc_dir     = result.count("include-dir") ? result["include-dir"].as<std::string>() : "";
     fs::path    output_path = result["output"].as<std::string>();
 
     std::vector<std::string> header_paths;
@@ -91,8 +106,7 @@ int main(int argc, char* argv[])
     }
 
     ModuleReflection module_data;
-    module_data.module_name    = module_name;
-    module_data.include_prefix = prefix;
+    module_data.module_name = module_name;
 
     for (const auto& h_str : header_paths) {
         fs::path p(h_str);
@@ -102,39 +116,6 @@ int main(int argc, char* argv[])
         }
 
         std::string content = read_file(p);
-
-        // If an include-dir is provided, stage it as a public .h file with auto-generated module declaration
-        if (p.extension() == ".h" && !inc_dir.empty()) {
-            fs::path staged_path = fs::path(inc_dir);
-            if (!prefix.empty()) {
-                staged_path /= prefix;
-            }
-            staged_path /= (p.stem().string() + ".h");
-
-            std::error_code ec;
-
-            bool is_same_file = false;
-            if (fs::exists(staged_path, ec) && fs::equivalent(p, staged_path, ec)) {
-                is_same_file = true;
-            }
-
-            bool is_module_header = (p.stem().string() == module_name ||
-                                     to_lower_snake(p.stem().string()) == to_lower_snake(module_name));
-            if (!is_same_file && is_module_header) {
-                std::string staged_content = content;
-                std::string mod_ns         = to_lower_snake(module_name);
-                staged_content += "\n// Auto-generated script plugin declaration\n";
-                staged_content += "#include <Lyra/Scripting/ScriptTypes.h>\n\n";
-                staged_content += "namespace lyra::scripts::" + mod_ns + "\n{\n";
-                staged_content += "    auto create() -> ScriptAPI;\n";
-                staged_content += "} // namespace lyra::scripts::" + mod_ns + "\n";
-
-                if (!write_if_changed(staged_path, staged_content)) {
-                    std::cerr << "lyra-bindgen: error: could not write staged header: " << staged_path << std::endl;
-                    return 1;
-                }
-            }
-        }
 
         if (!Parser::fast_check(content)) {
             // Fast skip if no lyra annotations present
@@ -152,7 +133,7 @@ int main(int argc, char* argv[])
         // If any component or system was parsed from this file, record it in includes (headers only)
         if ((module_data.components.size() > prev_comps || module_data.systems.size() > prev_sys) &&
             p.extension() != ".cpp" && p.extension() != ".cxx" && p.extension() != ".cc") {
-            module_data.included_headers.push_back(p.filename().string());
+            module_data.included_headers.push_back(extract_include_path(p));
         }
     }
 

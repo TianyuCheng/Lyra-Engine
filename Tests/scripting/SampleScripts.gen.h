@@ -25,12 +25,12 @@ namespace lyra::generated
 
     inline void orbit__run(ScriptContext& ctx)
     {
-        ctx.each<OrbitCamera, lyra::TransformLocal>([&](OrbitCamera& a0, lyra::TransformLocal& a1) {
+        ctx.each<SampleOrbitCamera, lyra::TransformLocal>([&](SampleOrbitCamera& a0, lyra::TransformLocal& a1) {
             orbit(ctx, a0, a1);
         });
     }
 
-    inline constexpr ComponentID     orbit__q0_req[]  = {hash_script_name("OrbitCamera"), hash_script_name("lyra::TransformLocal")};
+    inline constexpr ComponentID     orbit__q0_req[]  = {hash_script_name("SampleOrbitCamera"), hash_script_name("lyra::TransformLocal")};
     inline constexpr bool            orbit__q0_w[]    = {true, true};
     inline constexpr QueryDescriptor orbit__queries[] = {
         {orbit__q0_req, orbit__q0_w, 2, nullptr, 0}};
@@ -57,8 +57,8 @@ namespace lyra::generated
 
     inline void preregister_component_pools(World& world)
     {
-        std::ignore = world.registry.storage<OrbitCamera>();
-        std::ignore = world.registry.storage<Disabled<OrbitCamera>>();
+        std::ignore = world.registry.storage<SampleOrbitCamera>();
+        std::ignore = world.registry.storage<Disabled<SampleOrbitCamera>>();
     }
 
     // =========================================================================

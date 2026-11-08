@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_ENGINE_SCENE_MESH_H
-#define LYRA_ENGINE_SCENE_MESH_H
+#ifndef LYRA_ENGINE_COMPONENTS_MESH_H
+#define LYRA_ENGINE_COMPONENTS_MESH_H
 
 #include <Lyra/Utilities/Macros.h>
 #include <Lyra/Assets/Format/MeshAsset.h>
@@ -20,4 +20,4 @@ namespace lyra
 
 } // namespace lyra
 
-#endif // LYRA_ENGINE_SCENE_MESH_H
+#endif // LYRA_ENGINE_COMPONENTS_MESH_H

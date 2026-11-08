@@ -8,5 +8,6 @@
 #include <Lyra/Scripting/ScriptContext.h>
 #include <Lyra/Scripting/ScriptCommandQueue.h>
 #include <Lyra/Scripting/ScriptQuery.h>
+#include <Lyra/Scripting/ScriptRegistry.h>
 
 #endif // LYRA_ENGINE_SCRIPTING_H

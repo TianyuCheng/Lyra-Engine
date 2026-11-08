@@ -1,5 +1,5 @@
 #include <Lyra/Utilities/Math.h>
-#include <Lyra/Scene/Camera.h>
+#include <Lyra/Components/Camera.h>
 
 #include "Renderer.h"
 #include "Panels/SceneView.h"

@@ -147,17 +147,17 @@ target_sources(lyra-engine PRIVATE
   Scripting/ScriptCommandQueue.cpp
   Scripting/ScriptContext.cpp
   Scripting/ScriptQuery.cpp
+  Scripting/ScriptRegistry.cpp
 )
 
-# reflection for core scene components
+# reflection for core components
 lyra_bindgen(engine
   MODULE Components
-  PREFIX Lyra/Scene
   HEADERS
-    ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Scene/Mesh.h
-    ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Scene/Light.h
-    ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Scene/Camera.h
-    ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Scene/Transform.h
+    ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Components/Mesh.h
+    ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Components/Light.h
+    ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Components/Camera.h
+    ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Components/Transform.h
 )
 
 # link headers and common

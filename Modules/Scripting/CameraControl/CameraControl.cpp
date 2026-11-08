@@ -1,11 +1,9 @@
 #include <cmath>
 #include <algorithm>
 #include <Lyra/Utilities/Math.h>
-#include <Lyra/Scene/Camera.h>
-#include <Lyra/Scene/Transform.h>
+#include <Lyra/Components/Camera.h>
+#include <Lyra/Components/Transform.h>
 #include <Lyra/Scripting/ScriptContext.h>
-
-#include "CameraControl.h"
 
 using namespace lyra;
 
@@ -117,21 +115,4 @@ void update_orbit_camera(ScriptContext& ctx, OrbitCamera& camera, TransformLocal
     transform.rotation = rot;
     transform.position = camera.target + Vector3(rot * glm::vec3(0.0f, 0.0f, camera.current_distance));
     transform.flags |= TransformFlag::LOCAL_DIRTY;
-}
-
-/**
- * @brief Camera projection calculation system updating perspective and orthographic matrices.
- */
-[[lyra::system(UPDATE_PRE, group = "CameraControl", run_in_editor)]]
-void update_camera_projection(ScriptContext& ctx, Camera& camera)
-{
-    if (camera.type == ProjectionType::PERSPECTIVE) {
-        camera.projection = glm::perspective(
-            glm::radians(camera.fov), camera.aspect, camera.near_plane, camera.far_plane);
-    } else {
-        float half_size   = camera.size * 0.5f;
-        camera.projection = glm::ortho(
-            -half_size * camera.aspect, half_size * camera.aspect,
-            -half_size, half_size, camera.near_plane, camera.far_plane);
-    }
 }

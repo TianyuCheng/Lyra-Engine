@@ -1,6 +1,7 @@
 #include <Lyra/Runtime/ScriptLayer.h>
 #include <Lyra/Runtime/TimingLayer.h>
 #include <Lyra/Scene/World.h>
+#include <Lyra/Scripting/ScriptRegistry.h>
 
 using namespace lyra;
 
@@ -11,10 +12,25 @@ ScriptLayer::ScriptLayer() : scratch_arena(64 * 1024)
 
 void ScriptLayer::bind(Application& app)
 {
+    // auto-register all statically registered script apis
+    register_all_static();
+
     app.get_toolboard().add<ScriptLayer*>(this);
     app.bind<AppEvent::UPDATE_PRE, &ScriptLayer::run_pre>(*this);
     app.bind<AppEvent::UPDATE, &ScriptLayer::run_main>(*this);
     app.bind<AppEvent::UPDATE_POST, &ScriptLayer::run_post>(*this);
+}
+
+void ScriptLayer::register_all_static()
+{
+    for (const auto& factory : ScriptRegistry::get_factories()) {
+        if (factory) {
+            register_api(factory());
+        }
+    }
+    for (const auto& api : ScriptRegistry::get_apis()) {
+        register_api(api);
+    }
 }
 
 void ScriptLayer::run_pre(AppContext& context)
@@ -36,6 +52,17 @@ void ScriptLayer::run_post(AppContext& context)
 
 void ScriptLayer::register_api(const ScriptAPI& api)
 {
+    if (api.get_api_name) {
+        CString name = api.get_api_name();
+        if (name) {
+            for (const auto& existing : apis) {
+                if (existing.get_api_name && StringView(existing.get_api_name()) == StringView(name)) {
+                    return;
+                }
+            }
+        }
+    }
+
     apis.push_back(api);
 
     if (api.get_scripts) {

@@ -1,6 +1,6 @@
 #include <fstream>
 #include <filesystem>
-#include <Lyra/Scene/Mesh.h>
+#include <Lyra/Components/Mesh.h>
 #include <Lyra/Scene/SceneManager.h>
 #include <Lyra/Assets/Format/SceneAsset.h>
 #include <Lyra/Assets/Format/ModelAsset.h>

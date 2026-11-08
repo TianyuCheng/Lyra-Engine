@@ -13,6 +13,7 @@
 
 namespace lyra
 {
+    struct Camera;
     /**
      * @brief The RenderLayer manages GPU rendering infrastructure and camera ECS systems.
      *
@@ -45,7 +46,17 @@ namespace lyra
         /**
          * @brief Called at UPDATE_PRE: update camera projection matrices for all cameras.
          */
-        void update(AppContext&);
+        void update(AppContext& context);
+
+        /**
+         * @brief Updates camera projection matrices for all Camera components in a World.
+         */
+        void update_camera_projection(World& world);
+
+        /**
+         * @brief Updates projection matrix for a single Camera component.
+         */
+        static void update_camera_projection(Camera& camera);
 
         /**
          * @brief Called at RENDER_PRE: advance ResourceRetire by one frame.

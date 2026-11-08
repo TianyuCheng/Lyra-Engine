@@ -176,20 +176,12 @@ endmacro()
 
 # define a function to bind headers for a target using lyra-bindgen
 function(lyra_bindgen NAME)
-  cmake_parse_arguments(BINDGEN "" "MODULE;PREFIX;OUTPUT;INCLUDE_DIR" "HEADERS;SOURCES" ${ARGN})
+  cmake_parse_arguments(BINDGEN "" "MODULE;OUTPUT" "HEADERS;SOURCES" ${ARGN})
 
-  set(TARGET_NAME    "${PROJECT_NAME}-${NAME}")
+  set(TARGET_NAME "${PROJECT_NAME}-${NAME}")
 
   if(NOT BINDGEN_MODULE)
     set(BINDGEN_MODULE "${TARGET_NAME}")
-  endif()
-
-  if(NOT BINDGEN_PREFIX)
-    set(BINDGEN_PREFIX "Lyra")
-  endif()
-
-  if(NOT BINDGEN_INCLUDE_DIR)
-    set(BINDGEN_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/Include")
   endif()
 
   if(NOT BINDGEN_OUTPUT)
@@ -197,19 +189,11 @@ function(lyra_bindgen NAME)
   endif()
 
   set(ABSOLUTE_INPUTS "")
-  set(STAGED_OUTPUTS "")
   foreach(HEADER ${BINDGEN_HEADERS})
     if(NOT IS_ABSOLUTE "${HEADER}")
       set(HEADER_ABS "${CMAKE_CURRENT_SOURCE_DIR}/${HEADER}")
     else()
       set(HEADER_ABS "${HEADER}")
-    endif()
-    get_filename_component(HEADER_EXT "${HEADER}" EXT)
-    get_filename_component(HEADER_NAME_WE "${HEADER}" NAME_WE)
-    string(TOLOWER "${HEADER_NAME_WE}" HEADER_NAME_LOWER)
-    string(TOLOWER "${BINDGEN_MODULE}" MODULE_NAME_LOWER)
-    if(("${HEADER_EXT}" STREQUAL ".h" OR "${HEADER_EXT}" STREQUAL ".hxx") AND ("${HEADER_NAME_LOWER}" STREQUAL "${MODULE_NAME_LOWER}"))
-      list(APPEND STAGED_OUTPUTS "${BINDGEN_INCLUDE_DIR}/${BINDGEN_PREFIX}/${HEADER_NAME_WE}.h")
     endif()
     list(APPEND ABSOLUTE_INPUTS "${HEADER_ABS}")
   endforeach()
@@ -226,17 +210,20 @@ function(lyra_bindgen NAME)
   get_filename_component(OUT_DIR "${BINDGEN_OUTPUT}" DIRECTORY)
 
   add_custom_command(
-    OUTPUT "${BINDGEN_OUTPUT}" ${STAGED_OUTPUTS}
+    OUTPUT "${BINDGEN_OUTPUT}"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${OUT_DIR}"
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${BINDGEN_INCLUDE_DIR}/${BINDGEN_PREFIX}"
-    COMMAND lyra-bindgen -m "${BINDGEN_MODULE}" -p "${BINDGEN_PREFIX}" -I "${BINDGEN_INCLUDE_DIR}" -o "${BINDGEN_OUTPUT}" ${ABSOLUTE_INPUTS}
+    COMMAND lyra-bindgen -m "${BINDGEN_MODULE}" -o "${BINDGEN_OUTPUT}" ${ABSOLUTE_INPUTS}
     DEPENDS lyra-bindgen ${ABSOLUTE_INPUTS}
     COMMENT "Running lyra-bindgen for ${TARGET_NAME} -> ${BINDGEN_OUTPUT}"
     VERBATIM
   )
 
-  target_sources(${TARGET_NAME} PRIVATE "${BINDGEN_OUTPUT}" ${STAGED_OUTPUTS})
-  target_include_directories(${TARGET_NAME} PUBLIC "${BINDGEN_INCLUDE_DIR}")
+  target_sources(${TARGET_NAME} PRIVATE "${BINDGEN_OUTPUT}")
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Include")
+    target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Include")
+  else()
+    target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+  endif()
   target_include_directories(${TARGET_NAME} PRIVATE "${OUT_DIR}")
   target_include_directories(${TARGET_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 

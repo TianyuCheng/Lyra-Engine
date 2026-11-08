@@ -1,6 +1,6 @@
 #include "helper.h"
 #include <Lyra/Scene/World.h>
-#include <Lyra/Scene/Transform.h>
+#include <Lyra/Components/Transform.h>
 #include <Lyra/Scripting/Scripting.h>
 
 namespace
@@ -247,7 +247,7 @@ TEST_CASE("scr::generated_bindings" * doctest::description("Verified bindings ge
     lyra::generated::preregister_component_pools(world);
 
     auto cam_node = world.create();
-    world.add_component<OrbitCamera>(cam_node, lyra::Vector3(0.0f, 1.0f, 0.0f), 45.0f);
+    world.add_component<SampleOrbitCamera>(cam_node, lyra::Vector3(0.0f, 1.0f, 0.0f), 45.0f);
 
     lyra::ScriptLayer layer;
     layer.register_api(lyra::generated::create_script_api());
@@ -274,6 +274,47 @@ TEST_CASE("scr::generated_bindings" * doctest::description("Verified bindings ge
 
     // Should have rotated and flagged LOCAL_DIRTY!
     CHECK(xform.flags.contains(lyra::TransformFlag::LOCAL_DIRTY));
+}
+
+TEST_CASE("scr::auto_registration" * doctest::description("ScriptRegistry auto-registration mechanism"))
+{
+    lyra::ScriptLayer layer;
+    layer.register_all_static();
+
+    // core components should be automatically registered via ScriptRegistry
+    bool found_components = false;
+    for (const auto& api : layer.get_apis()) {
+        if (api.get_api_name && std::string_view(api.get_api_name()) == "Components") {
+            found_components = true;
+            break;
+        }
+    }
+    CHECK(found_components);
+    CHECK(layer.get_components().size() > 0);
+}
+
+#include <Lyra/Runtime/RenderLayer.h>
+
+TEST_CASE("render::camera_projection" * doctest::description("RenderLayer update_camera_projection matrix calculation"))
+{
+    lyra::Camera camera;
+    camera.type = lyra::ProjectionType::PERSPECTIVE;
+    camera.fov = 90.0f;
+    camera.aspect = 1.0f;
+    camera.near_plane = 0.1f;
+    camera.far_plane = 100.0f;
+
+    lyra::RenderLayer::update_camera_projection(camera);
+    CHECK_NE(camera.projection, lyra::Matrix4x4(1.0f));
+
+    lyra::World world;
+    auto node = world.create();
+    world.add_component<lyra::Camera>(node, lyra::Camera{.type = lyra::ProjectionType::ORTHOGRAPHIC, .size = 20.0f});
+
+    lyra::RenderLayer render_layer;
+    render_layer.update_camera_projection(world);
+    auto& ortho_cam = world.registry.get<lyra::Camera>(node);
+    CHECK_NE(ortho_cam.projection, lyra::Matrix4x4(1.0f));
 }
 
 #include <Lyra/Runtime/InputLayer.h>
