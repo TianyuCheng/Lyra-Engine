@@ -8,11 +8,6 @@ auto UILayer::context() const -> void*
     return gui->context<void>();
 }
 
-void UILayer::apply_context() const
-{
-    ImGui::SetCurrentContext(reinterpret_cast<ImGuiContext*>(gui->context<void>()));
-}
-
 UILayer::UILayer(const GUIDescriptor& descriptor) : descriptor(descriptor)
 {
     gui = GUIRenderer::init(descriptor);

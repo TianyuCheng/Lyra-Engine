@@ -23,11 +23,14 @@ namespace lyra::ui
     void invisible_button(CString id, Vector2 size);
 
     // =========================================================================
-    // 2. Toggle Buttons (e.g. Play/Pause state, Log level filters T/D/I/W/E/C)
+    // 2. Toggle Controls & Switches
     // =========================================================================
 
     void toggle_button(CString label, bool is_active, ChangeRef<bool> on_toggle, Vector2 size = {0.0f, 0.0f});
     void toggle_button(CString label, bool is_active, StatusRole active_role, ChangeRef<bool> on_toggle, Vector2 size = {0.0f, 0.0f});
+
+    bool toggle_switch(CString id, bool is_active, ChangeRef<bool> on_toggle, CString tooltip = nullptr, Vector4 active_color = Vector4(0.0f), Vector2 size = {34.0f, 18.0f});
+    bool toggle_switch(CString id, bool* value, CString tooltip = nullptr, Vector4 active_color = Vector4(0.0f), Vector2 size = {34.0f, 18.0f});
 
     // =========================================================================
     // 3. Form & Search Inputs
@@ -82,6 +85,31 @@ namespace lyra::ui
     void breadcrumb(const BreadcrumbItem* items, usize count);
     void breadcrumb(const Vector<BreadcrumbItem>& items);
     void breadcrumb(InitList<BreadcrumbItem> items);
+
+    // =========================================================================
+    // 7. Segmented Controls (Capsule switches, tabs, domain pickers)
+    // =========================================================================
+
+    struct SegmentItem
+    {
+        CString                label       = nullptr;
+        CString                icon        = nullptr;
+        bool                   selected    = false;
+        Function<void() const> on_click    = nullptr;
+        CString                tooltip     = nullptr;
+        Vector4                active_bg   = Vector4(0.0f);
+        Vector4                active_text = Vector4(1.0f);
+
+        SegmentItem() = default;
+        SegmentItem(CString label, CString icon, bool selected, Function<void() const> on_click, CString tooltip = nullptr, Vector4 active_bg = Vector4(0.0f), Vector4 active_text = Vector4(1.0f))
+            : label(label), icon(icon), selected(selected), on_click(std::move(on_click)), tooltip(tooltip), active_bg(active_bg), active_text(active_text)
+        {
+        }
+    };
+
+    void segmented_control(const SegmentItem* items, usize count);
+    void segmented_control(const Vector<SegmentItem>& items);
+    void segmented_control(InitList<SegmentItem> items);
 
 } // namespace lyra::ui
 

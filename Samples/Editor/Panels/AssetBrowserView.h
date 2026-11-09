@@ -40,6 +40,7 @@ namespace lyra
     private:
         // ui helpers
         void show_header_toolbar();
+        void show_domain_selector();
         void show_breadcrumb();
         void show_dir_files(AppContext& context);
         void show_item(AppContext& context, StringView name, bool is_folder);

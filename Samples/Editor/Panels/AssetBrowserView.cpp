@@ -84,7 +84,10 @@ auto AssetBrowserView::get_asset_server() const -> AssetServer*
 void AssetBrowserView::bind(Application& app)
 {
     context = &app.get_context();
-    ams     = context->toolboard.try_get<AssetServer*>();
+    if (auto gui = get_gui_renderer()) {
+        ImGui::SetCurrentContext(reinterpret_cast<ImGuiContext*>(gui->context<void>()));
+    }
+    ams = context->toolboard.try_get<AssetServer*>();
     assert(ams != nullptr && "AssetBrowserView requires AssetServer to be present in toolboard");
 
     last_completed_cooks = ams->get_pipeline_stats().completed_count;
@@ -99,6 +102,10 @@ void AssetBrowserView::bind(Application& app)
 
 void AssetBrowserView::update(AppContext& context)
 {
+    if (auto gui = get_gui_renderer()) {
+        ImGui::SetCurrentContext(reinterpret_cast<ImGuiContext*>(gui->context<void>()));
+    }
+
     if ((!folder_icon.valid || !file_icon.valid) && get_gui_renderer()) {
         load_editor_icons();
     }
@@ -156,22 +163,112 @@ void AssetBrowserView::update(AppContext& context)
 void AssetBrowserView::show_header_toolbar()
 {
     ui::toolbar([&]() {
-        bool is_app = (active_domain == AssetBrowserDomain::App);
-        ui::toggle_button(LYRA_ICON_FOLDER " Project (app://)", is_app, [&](const bool& active) {
-            if (active) switch_domain(AssetBrowserDomain::App);
-        });
-        if (!sys_root.empty()) {
-            bool is_sys = (active_domain == AssetBrowserDomain::Sys);
-            ui::toggle_button(LYRA_ICON_SETTINGS " Engine (sys://)", is_sys, [&](const bool& active) {
-                if (active) switch_domain(AssetBrowserDomain::Sys);
-            });
+        show_domain_selector();
+
+        if (!breadcrumbs.empty()) {
+            ui::label(LYRA_ICON_CARET, ui::StatusRole::Muted);
+            show_breadcrumb();
+        }
+
+        ui::spacer();
+
+        ui::icon_button(LYRA_ICON_REFRESH, [&]() {
+            update_directory(curr, true);
+        }, "Refresh directory", ui::ButtonRole::Ghost);
+
+        if (!is_read_only()) {
+            ui::icon_button(LYRA_ICON_NEW_FOLDER, [&]() {
+                show_new_folder_modal = true;
+                open_new_folder_modal = true;
+            }, "Create new folder", ui::ButtonRole::Ghost);
         }
 
         ui::separator();
-        show_breadcrumb();
-        ui::spacer();
-        ui::search_bar(search_filter, sizeof(search_filter), 250.0f);
+        ui::search_bar(search_filter, sizeof(search_filter), 220.0f, "Search...");
     });
+}
+
+void AssetBrowserView::show_domain_selector()
+{
+    bool is_sys = (active_domain == AssetBrowserDomain::Sys);
+
+    // root capsule containing toggle switch in front of the protocol label
+    ImGui::BeginGroup();
+
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    draw_list->ChannelsSplit(2);
+    draw_list->ChannelsSetCurrent(1);
+
+    // 1. toggle switch (in front of the label, automatically centered in middle)
+    if (!sys_root.empty()) {
+        ui::toggle_switch(
+            "##domain_toggle",
+            is_sys,
+            [this](bool val) {
+                switch_domain(val ? AssetBrowserDomain::Sys : AssetBrowserDomain::App);
+            },
+            is_sys ? "Engine Core active (sys://) [Read-Only]\nFlip switch to Project (app://)"
+                   : "Project active (app://)\nFlip switch to Engine (sys://)",
+            Vector4(0.44f, 0.27f, 0.10f, 0.95f), // rich bronze track when active
+            Vector2(30.0f, 16.0f)
+        );
+
+        ImGui::SameLine(0.0f, 5.0f);
+    }
+
+    // 2. protocol label button (after the switch)
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.0f, 3.0f));
+
+    if (is_sys) {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 1.0f, 1.0f, 0.08f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1.0f, 1.0f, 1.0f, 0.14f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.88f, 0.55f, 1.0f)); // warm gold, highly legible
+    } else {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 1.0f, 1.0f, 0.08f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1.0f, 1.0f, 1.0f, 0.14f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.92f, 0.94f, 0.98f, 1.0f));
+    }
+
+    CString proto_label = is_sys ? (LYRA_ICON_SYSTEM "  sys://") : (LYRA_ICON_FOLDER "  app://");
+    if (ImGui::Button(proto_label)) {
+        if (curr != root) {
+            update_directory(root);
+        } else if (!sys_root.empty()) {
+            switch_domain(is_sys ? AssetBrowserDomain::App : AssetBrowserDomain::Sys);
+        }
+    }
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) {
+        ImGui::SetTooltip("%s", is_sys
+            ? (curr != root ? "Engine Core (sys://) [Read-Only]\nClick to return to root" : "Engine Core (sys://) [Read-Only]\nClick to switch to Project (app://)")
+            : (curr != root ? "Project Workspace (app://)\nClick to return to root" : "Project Workspace (app://)\nClick to switch to Engine (sys://)"));
+    }
+    ImGui::PopStyleColor(4);
+    ImGui::PopStyleVar(2);
+
+    ImGui::EndGroup();
+
+    // draw pill capsule behind the group
+    ImVec2 bb_min = ImGui::GetItemRectMin();
+    ImVec2 bb_max = ImGui::GetItemRectMax();
+
+    draw_list->ChannelsSetCurrent(0);
+    bb_min.x -= 4.0f;
+    bb_max.x += 3.0f;
+    bb_min.y -= 1.0f;
+    bb_max.y += 1.0f;
+
+    ImU32 bg_col = is_sys
+        ? ImGui::GetColorU32(ImVec4(0.24f, 0.16f, 0.08f, 0.75f))
+        : ImGui::GetColorU32(ImVec4(0.12f, 0.12f, 0.14f, 0.70f));
+    ImU32 border_col = is_sys
+        ? ImGui::GetColorU32(ImVec4(0.65f, 0.45f, 0.15f, 0.40f))
+        : ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 1.0f, 0.08f));
+    draw_list->AddRectFilled(bb_min, bb_max, bg_col, 5.0f);
+    draw_list->AddRect(bb_min, bb_max, border_col, 5.0f);
+    draw_list->ChannelsMerge();
 }
 
 void AssetBrowserView::show_status_bar(AppContext& context)
@@ -180,13 +277,6 @@ void AssetBrowserView::show_status_bar(AppContext& context)
         char count_buf[128];
         snprintf(count_buf, sizeof(count_buf), " %zu items  |  %zu selected", files.size() + folders.size(), selection.size());
         ui::label(count_buf, ui::StatusRole::Muted);
-
-        ui::separator();
-        if (is_read_only()) {
-            ui::label("[sys:// Read-Only Engine Core]", ui::StatusRole::Warning);
-        } else {
-            ui::label("[app:// Project Content]", ui::StatusRole::Success);
-        }
 
         ui::spacer();
 
@@ -217,18 +307,7 @@ void AssetBrowserView::show_modals(AppContext& context)
 void AssetBrowserView::show_breadcrumb()
 {
     Vector<ui::BreadcrumbItem> items;
-    items.reserve(breadcrumbs.size() + 1);
-
-    String  root_name = (active_domain == AssetBrowserDomain::Sys) ? "sys://" : "app://";
-    CString root_icon = (active_domain == AssetBrowserDomain::Sys) ? LYRA_ICON_SETTINGS : LYRA_ICON_HOME;
-
-    bool is_at_root = (curr == root);
-    items.push_back({root_name.c_str(),
-        root_icon,
-        [&]() {
-            update_directory(root, is_at_root);
-        },
-        is_at_root ? "Root directory (Click to refresh)" : "Go to Root"});
+    items.reserve(breadcrumbs.size());
 
     for (usize i = 0; i < breadcrumbs.size(); ++i) {
         const auto& bc      = breadcrumbs[i];
@@ -465,9 +544,6 @@ void AssetBrowserView::show_item(AppContext& context, StringView name, bool is_f
                     auto ams = get_asset_server();
                     if (ams) {
                         auto model_handle = ams->load_asset<ModelAsset>(vpath.c_str());
-                        if (!model_handle.valid()) {
-                            model_handle = ams->load_asset<ModelAsset>(item_path.filename().generic_string().c_str());
-                        }
                         bool spawned = false;
                         if (model_handle.valid()) {
                             auto node = scene_mgr->spawn(model_handle);
@@ -994,10 +1070,13 @@ std::pair<GUITextureHandle, Vector2> AssetBrowserView::get_thumbnail(AppContext&
 
                 JSON j = JSON::parse(f);
                 if (j.contains("thumbnail") && j["thumbnail"].is_string()) {
-                    auto thumb_rel = j["thumbnail"].get<String>();
-                    auto loader    = context.toolboard.try_get<FileLoader*>();
-                    if (loader && loader->exists(thumb_rel.c_str())) {
-                        queued_thumbnails.push_back({name_str, thumb_rel});
+                    auto   thumb_rel   = j["thumbnail"].get<String>();
+                    String thumb_vpath = VFSPath::has_protocol(thumb_rel)
+                        ? thumb_rel
+                        : VFSPath(get_current_scheme(), thumb_rel).to_string();
+                    auto loader = context.toolboard.try_get<FileLoader*>();
+                    if (loader && loader->exists(thumb_vpath.c_str())) {
+                        queued_thumbnails.push_back({name_str, thumb_vpath});
                     }
                     // if file not ready on disk yet, do not mark invalid; retry next frame
                 } else {

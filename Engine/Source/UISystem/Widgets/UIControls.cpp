@@ -176,6 +176,108 @@ void lyra::ui::toggle_button(CString label, bool is_active, StatusRole active_ro
     }
 }
 
+bool lyra::ui::toggle_switch(CString id, bool is_active, ChangeRef<bool> on_toggle, CString tooltip, Vector4 active_color, Vector2 size)
+{
+    internal::advance_layout_item();
+
+    ImGuiWindow* window = ImGui::GetCurrentWindow();
+    if (window->SkipItems) return false;
+
+    ImGuiContext& g = *GImGui;
+    const ImGuiID imgui_id = window->GetID(id);
+
+    float width  = (size.x > 0.0f) ? size.x : 34.0f;
+    float height = (size.y > 0.0f) ? size.y : 18.0f;
+
+    float frame_height = ImGui::GetFrameHeight();
+    float offset_y     = (frame_height > height) ? (frame_height - height) * 0.5f : 0.0f;
+
+    ImVec2 pos = window->DC.CursorPos;
+    pos.y += offset_y;
+    ImRect bb(pos, ImVec2(pos.x + width, pos.y + height));
+    ImGui::ItemSize(ImVec2(width, frame_height), 0.0f);
+    if (!ImGui::ItemAdd(bb, imgui_id)) return false;
+
+    bool hovered, held;
+    bool clicked = ImGui::ButtonBehavior(bb, imgui_id, &hovered, &held);
+    if (clicked) {
+        on_toggle(!is_active);
+    }
+
+    // smooth animation of knob position
+    ImGuiStorage* storage = ImGui::GetStateStorage();
+    float anim_t = storage->GetFloat(imgui_id, is_active ? 1.0f : 0.0f);
+    float target_t = is_active ? 1.0f : 0.0f;
+    if (anim_t != target_t) {
+        float speed = g.IO.DeltaTime * 14.0f;
+        if (anim_t < target_t) anim_t = std::min(anim_t + speed, target_t);
+        else anim_t = std::max(anim_t - speed, target_t);
+        storage->SetFloat(imgui_id, anim_t);
+    }
+
+    // render track
+    ImDrawList* draw_list = window->DrawList;
+    float radius = height * 0.5f;
+
+    ImVec4 off_track = ImVec4(0.18f, 0.19f, 0.22f, 0.90f);
+    ImVec4 on_track  = (active_color.w > 0.0f)
+        ? ImVec4(active_color.x, active_color.y, active_color.z, active_color.w)
+        : ImVec4(0.20f, 0.45f, 0.80f, 0.95f);
+
+    ImVec4 current_track(
+        off_track.x + (on_track.x - off_track.x) * anim_t,
+        off_track.y + (on_track.y - off_track.y) * anim_t,
+        off_track.z + (on_track.z - off_track.z) * anim_t,
+        off_track.w + (on_track.w - off_track.w) * anim_t
+    );
+
+    if (hovered) {
+        current_track.x = std::min(current_track.x * 1.15f, 1.0f);
+        current_track.y = std::min(current_track.y * 1.15f, 1.0f);
+        current_track.z = std::min(current_track.z * 1.15f, 1.0f);
+    }
+
+    ImU32 track_col  = ImGui::GetColorU32(current_track);
+    ImU32 border_col = ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 1.0f, hovered ? 0.25f : 0.12f));
+
+    draw_list->AddRectFilled(bb.Min, bb.Max, track_col, radius);
+    draw_list->AddRect(bb.Min, bb.Max, border_col, radius, 0, 1.0f);
+
+    // render knob
+    float knob_radius = radius - 2.5f;
+    float start_x = bb.Min.x + radius;
+    float end_x   = bb.Max.x - radius;
+    float knob_x  = start_x + (end_x - start_x) * anim_t;
+    float knob_y  = bb.Min.y + radius;
+
+    ImVec4 knob_color_off = ImVec4(0.75f, 0.78f, 0.82f, 1.0f);
+    ImVec4 knob_color_on  = (active_color.w > 0.0f)
+        ? ImVec4(1.0f, 0.92f, 0.70f, 1.0f)
+        : ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+
+    ImVec4 current_knob(
+        knob_color_off.x + (knob_color_on.x - knob_color_off.x) * anim_t,
+        knob_color_off.y + (knob_color_on.y - knob_color_off.y) * anim_t,
+        knob_color_off.z + (knob_color_on.z - knob_color_off.z) * anim_t,
+        1.0f
+    );
+
+    draw_list->AddCircleFilled(ImVec2(knob_x, knob_y), knob_radius, ImGui::GetColorU32(current_knob));
+    draw_list->AddCircle(ImVec2(knob_x, knob_y), knob_radius, ImGui::GetColorU32(ImVec4(0.0f, 0.0f, 0.0f, 0.25f)), 0, 1.0f);
+
+    if (tooltip && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) {
+        ImGui::SetTooltip("%s", tooltip);
+    }
+
+    return clicked;
+}
+
+bool lyra::ui::toggle_switch(CString id, bool* value, CString tooltip, Vector4 active_color, Vector2 size)
+{
+    if (!value) return false;
+    return toggle_switch(id, *value, [value](bool new_val) { *value = new_val; }, tooltip, active_color, size);
+}
+
 // =============================================================================
 // 3. Form & Search Inputs
 // =============================================================================
@@ -597,4 +699,104 @@ void lyra::ui::breadcrumb(const Vector<BreadcrumbItem>& items)
 void lyra::ui::breadcrumb(InitList<BreadcrumbItem> items)
 {
     breadcrumb(items.begin(), items.size());
+}
+
+// =============================================================================
+// 7. Segmented Controls
+// =============================================================================
+
+void lyra::ui::segmented_control(const SegmentItem* items, usize count)
+{
+    if (!items || count == 0) return;
+
+    internal::advance_layout_item();
+
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    draw_list->ChannelsSplit(2);
+    draw_list->ChannelsSetCurrent(1);
+
+    ImGui::BeginGroup();
+
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(1.0f, 0.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(9.0f, 3.0f));
+
+    for (usize i = 0; i < count; ++i) {
+        const auto& item = items[i];
+
+        if (i > 0) {
+            ImGui::SameLine(0.0f, 1.0f);
+        }
+
+        String text;
+        if (item.icon && item.icon[0] != '\0') {
+            text = String(item.icon) + "  " + (item.label ? item.label : "");
+        } else {
+            text = item.label ? item.label : "";
+        }
+
+        ImGui::PushID(static_cast<int>(i));
+
+        if (item.selected) {
+            ImVec4 bg = (item.active_bg.w > 0.0f)
+                ? ImVec4(item.active_bg.x, item.active_bg.y, item.active_bg.z, item.active_bg.w)
+                : ImVec4(0.18f, 0.38f, 0.65f, 0.95f);
+            ImVec4 txt = (item.active_text.w > 0.0f)
+                ? ImVec4(item.active_text.x, item.active_text.y, item.active_text.z, item.active_text.w)
+                : ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+
+            ImGui::PushStyleColor(ImGuiCol_Button, bg);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(std::min(bg.x * 1.15f, 1.0f), std::min(bg.y * 1.15f, 1.0f), std::min(bg.z * 1.15f, 1.0f), 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(bg.x * 0.85f, bg.y * 0.85f, bg.z * 0.85f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Text, txt);
+        } else {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 1.0f, 1.0f, 0.08f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1.0f, 1.0f, 1.0f, 0.14f));
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.58f, 0.61f, 0.68f, 0.85f));
+        }
+
+        if (ImGui::Button(text.c_str())) {
+            if (item.on_click) item.on_click();
+        }
+
+        if (item.tooltip && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) {
+            ImGui::SetTooltip("%s", item.tooltip);
+        }
+
+        ImGui::PopStyleColor(4);
+        ImGui::PopID();
+    }
+
+    ImGui::PopStyleVar(3);
+    ImGui::EndGroup();
+
+    // group bounding box
+    ImVec2 bb_min = ImGui::GetItemRectMin();
+    ImVec2 bb_max = ImGui::GetItemRectMax();
+
+    // background capsule in channel 0
+    draw_list->ChannelsSetCurrent(0);
+
+    bb_min.x -= 2.0f;
+    bb_max.x += 2.0f;
+    bb_min.y -= 1.0f;
+    bb_max.y += 1.0f;
+
+    ImU32 bg_col     = ImGui::GetColorU32(ImVec4(0.12f, 0.12f, 0.14f, 0.70f));
+    ImU32 border_col = ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 1.0f, 0.08f));
+    draw_list->AddRectFilled(bb_min, bb_max, bg_col, 5.0f);
+    draw_list->AddRect(bb_min, bb_max, border_col, 5.0f);
+
+    draw_list->ChannelsMerge();
+}
+
+void lyra::ui::segmented_control(const Vector<SegmentItem>& items)
+{
+    segmented_control(items.data(), items.size());
+}
+
+void lyra::ui::segmented_control(InitList<SegmentItem> items)
+{
+    segmented_control(items.begin(), items.size());
 }

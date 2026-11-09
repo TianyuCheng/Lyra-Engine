@@ -354,6 +354,10 @@ void lyra::ui::open_modal(CString id)
 
 void lyra::ui::modal(CString id, bool* p_open, ActionRef content)
 {
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSizeConstraints(ImVec2(300.0f, 0.0f), ImVec2(FLT_MAX, FLT_MAX));
+
     if (ImGui::BeginPopupModal(id, p_open, ImGuiWindowFlags_AlwaysAutoResize)) {
         content();
         ImGui::EndPopup();

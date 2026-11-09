@@ -1,6 +1,7 @@
 #include <cctype>
 #include <algorithm>
 #include <cxxopts.hpp>
+#include <imgui.h>
 
 // uber header for lyra engine
 #include <Lyra/Lyra.hpp>
@@ -303,7 +304,7 @@ int main(int argc, const char* argv[])
     // clang-format off
     cxxopts::Options options("Lyra::Editor", "Lyra engine editor program.");
     options.add_options()
-        ("p,project", "project root directory", cxxopts::value<std::filesystem::path>())
+        ("p,project", "project root directory", cxxopts::value<std::filesystem::path>()->default_value("Scratch/project"))
         ("gfxapi", "graphics API backend (vulkan, d3d12, metal)", cxxopts::value<std::string>()->default_value("vulkan"))
         ("h,help", "print usage")
     ;
@@ -464,7 +465,7 @@ int main(int argc, const char* argv[])
         desc.viewports = false;
 
         auto layer = std::make_unique<UILayer>(desc);
-        layer->apply_context(); // ui context in user application
+        layer->apply_context(); // inlined into executable, sets GImGui in lyra-editor.exe
         app->bind(*layer);
         return std::move(layer);
     });

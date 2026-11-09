@@ -3,6 +3,7 @@
 #ifndef LYRA_ENGINE_RUNTIME_UI_LAYER_H
 #define LYRA_ENGINE_RUNTIME_UI_LAYER_H
 
+#include <imgui.h>
 #include <Lyra/UISystem/Renderer/GUITypes.h>
 
 // local import
@@ -65,7 +66,10 @@ namespace lyra
         /**
          * @brief Set the GUI context as current for the current thread/library.
          */
-        void apply_context() const;
+        FORCE_INLINE void apply_context() const
+        {
+            ImGui::SetCurrentContext(reinterpret_cast<ImGuiContext*>(context()));
+        }
 
     private:
         GUIDescriptor              descriptor; ///< The GUI initialization descriptor.
