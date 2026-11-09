@@ -24,59 +24,14 @@ static Logger get_logger()
 
 static Vector<FileLoaderHandle> g_loaders;
 
-// strip a prefix from path if present. returns true if stripped.
-static bool strip_prefix(String& path, const String& prefix)
-{
-    // path and prefix are normalized with '/'
-    if (path.size() < prefix.size())
-        return false;
-
-    if (path.compare(0, prefix.size(), prefix) != 0)
-        return false;
-
-    // either exact match or next char is '/'
-    if (path.size() > prefix.size() && path[prefix.size()] != '/')
-        return false;
-
-    // strip prefix and optional '/'
-    if (path.size() == prefix.size()) {
-        path = ""; // requesting the mount root
-    } else {
-        path.erase(0, prefix.size());
-        if (!path.empty() && path.front() == '/')
-            path.erase(0, 1);
-    }
-    return true;
-}
-
-// normalize virtual path: ensure leading '/', strip trailing '/'
-static String normalize_vpath(FSPath vpath)
-{
-    if (!vpath) return String("/");
-
-    String s(vpath);
-    if (s.empty()) return String("/");
-
-    // replace backslashes with forward slashes to be consistent
-    std::replace(s.begin(), s.end(), '\\', '/');
-    if (s.front() != '/')
-        s.insert(s.begin(), '/');
-
-    // remove trailing '/'
-    while (s.size() > 1 && s.back() == '/')
-        s.pop_back();
-
-    return s;
-}
-
 static bool sort_mount_points(NativeMount* a, NativeMount* b)
 {
     // sort based on priority
     if (a->priority != b->priority)
         return a->priority > b->priority;
 
-    // longer vpath first as tiebreaker
-    return a->vpath.size() > b->vpath.size();
+    // longer subpath first as tiebreaker
+    return a->vprefix.path.size() > b->vprefix.path.size();
 }
 
 // resolve a VFS path to a list of real OS paths in search order (read side).
@@ -85,49 +40,41 @@ static Vector<fs::path> resolve_read_paths(NativeFSLoader* loader, FSPath cpath)
     Vector<fs::path> out;
     if (!cpath || !loader) return out;
 
-    String path(cpath);
-    if (path.empty()) return out;
+    StringView raw(cpath);
+    if (raw.empty()) return out;
 
-    // normalize slashes
-    std::replace(path.begin(), path.end(), '\\', '/');
-
-    fs::path probe(path);
-#if defined(_WIN32)
-    // On Windows, drive-letter paths (e.g. C:/...) or UNC paths are absolute OS paths
-    if (probe.has_root_name()) {
-        out.push_back(probe);
+    VFSPath target = VFSPath::parse(raw);
+    if (!target.is_valid()) {
+        get_logger()->error("resolve_read_paths: invalid VFS path '{}'. Scheme is strictly required (e.g. 'sys://...' or 'app://...')", raw);
         return out;
     }
-#endif
 
-    // normalize virtual path to ensure leading '/' for mount prefix matching
-    String norm_vpath = normalize_vpath(cpath);
-
-    // sort mounts by priority (desc) every time only if needed; cheap for small N
     std::lock_guard<std::mutex> lk(loader->mounts_mutex);
     Vector<NativeMount*>        mounts = loader->mounts;
     std::sort(mounts.begin(), mounts.end(), sort_mount_points);
 
-    // check file path validity
     for (const auto& m : mounts) {
-        String sub = norm_vpath;
-        if (m->vpath == "/") {
-            if (!sub.empty() && sub.front() == '/')
-                sub.erase(0, 1);
-        } else if (!m->vpath.empty()) {
-            if (!strip_prefix(sub, m->vpath))
-                continue; // not under this mount
+        if (m->vprefix.scheme != target.scheme) {
+            continue; // different protocol domain (e.g. sys vs app)
+        }
+
+        String sub = target.path;
+        if (!m->vprefix.path.empty()) {
+            if (sub == m->vprefix.path) {
+                sub = "";
+            } else if (sub.size() > m->vprefix.path.size() &&
+                       sub.compare(0, m->vprefix.path.size(), m->vprefix.path) == 0 &&
+                       sub[m->vprefix.path.size()] == '/') {
+                sub.erase(0, m->vprefix.path.size() + 1);
+            } else {
+                continue; // does not match mount subpath
+            }
         }
 
         fs::path real = m->root;
         if (!sub.empty())
             real /= fs::path(sub);
         out.push_back(real);
-    }
-
-    // fallback to direct OS path if no mount matched and the file exists on the host filesystem
-    if (out.empty() && probe.is_absolute() && fs::exists(probe)) {
-        out.push_back(probe);
     }
 
     return out;
@@ -311,11 +258,16 @@ static bool mount(FileLoaderHandle loader, MountHandle& handle, FSPath vpath, OS
 
     std::error_code ec;
 
-    auto     vp = normalize_vpath(vpath);
+    auto vprefix = VFSPath::parse(vpath ? vpath : "");
+    if (!vprefix.is_valid()) {
+        get_logger()->error("mount: invalid VFS path '{}'. Scheme is strictly required (e.g. 'sys://' or 'app://')", vpath ? vpath : "");
+        return false;
+    }
+
     fs::path root(path);
     root = fs::absolute(root, ec);
     if (ec) {
-        get_logger()->error("mount {} -> {}: {}", vp, root.string(), ec.message());
+        get_logger()->error("mount {} -> {}: {}", vprefix.to_string(), root.string(), ec.message());
         return false;
     }
 
@@ -328,7 +280,7 @@ static bool mount(FileLoaderHandle loader, MountHandle& handle, FSPath vpath, OS
 
     // prepare mount point
     auto m      = new NativeMount{};
-    m->vpath    = vp;
+    m->vprefix  = vprefix;
     m->root     = root;
     m->priority = priority;
 
@@ -339,7 +291,7 @@ static bool mount(FileLoaderHandle loader, MountHandle& handle, FSPath vpath, OS
 
     // assign pointer to handle
     handle.pointer = m;
-    get_logger()->info("mount: {} -> {} (prio {})", vp, root.string(), priority);
+    get_logger()->info("mount: {} -> {} (prio {})", vprefix.to_string(), root.string(), priority);
     return true;
 }
 
@@ -347,7 +299,7 @@ static bool unmount(FileLoaderHandle loader, MountHandle handle)
 {
     auto pointer = loader.as_type<NativeFSLoader>();
     auto pmount  = handle.as_type<NativeMount>();
-    get_logger()->info("unmount path={} from vpath={}", pmount->root.string(), pmount->vpath);
+    get_logger()->info("unmount path={} from vpath={}", pmount->root.string(), pmount->vprefix.to_string());
 
     // lock while unmount
     std::lock_guard<std::mutex> lk(pointer->mounts_mutex);

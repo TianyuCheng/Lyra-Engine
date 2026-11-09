@@ -1,17 +1,16 @@
-#include <Lyra/Assets/AMSRegistry.h>
-#include <Lyra/Utilities/Logger.h>
-#include <Lyra/Utilities/Collections.h>
+#include <cstring>
+#include <fstream>
+#include <toml++/toml.hpp>
+
 #include <Lyra/Utilities/Path.h>
+#include <Lyra/Utilities/Logger.h>
 #include <Lyra/Utilities/String.h>
 #include <Lyra/Utilities/Macros.h>
 #include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Utilities/Config.h>
-
-#include <fstream>
-#include <filesystem>
-#include <cstring>
-
-#include <toml++/toml.hpp>
+#include <Lyra/Utilities/Collections.h>
+#include <Lyra/FileSystem/VFSPath.h>
+#include <Lyra/Assets/AMSRegistry.h>
 
 using namespace lyra;
 
@@ -82,6 +81,41 @@ bool AssetRegistry::flush(const OSPath& path)
     return false;
 }
 
+bool AssetRegistry::read_binary_entry(const char*& ptr, const char* end, uint version)
+{
+    if (ptr + sizeof(AssetID) + sizeof(AssetTypeID) + sizeof(uint) > end) return false;
+
+    AssetEntry entry;
+    entry.guid = *reinterpret_cast<const AssetID*>(ptr);
+    ptr += sizeof(AssetID);
+    entry.type = *reinterpret_cast<const AssetTypeID*>(ptr);
+    ptr += sizeof(AssetTypeID);
+    entry.path = *reinterpret_cast<const uint*>(ptr);
+    ptr += sizeof(uint);
+
+    if (version >= 1) {
+        if (ptr + sizeof(uint) > end) return false;
+        entry.cooked_path = *reinterpret_cast<const uint*>(ptr);
+        ptr += sizeof(uint);
+    } else {
+        entry.cooked_path = 0xFFFFFFFF;
+    }
+
+    if (ptr + sizeof(uint) > end) return false;
+    uint dep_count = *reinterpret_cast<const uint*>(ptr);
+    ptr += sizeof(uint);
+
+    if (dep_count > 0) {
+        if (ptr + dep_count * sizeof(AssetID) > end) return false;
+        entry.dependencies.resize(dep_count);
+        std::memcpy(entry.dependencies.data(), ptr, dep_count * sizeof(AssetID));
+        ptr += dep_count * sizeof(AssetID);
+    }
+
+    entries.push_back(std::move(entry));
+    return true;
+}
+
 bool AssetRegistry::load_binary(const OSPath& bin_path)
 {
     std::ifstream f(bin_path, std::ios::binary | std::ios::ate);
@@ -115,38 +149,7 @@ bool AssetRegistry::load_binary(const OSPath& bin_path)
     entries.clear();
     entries.reserve(entry_count);
     for (uint i = 0; i < entry_count; ++i) {
-        AssetEntry entry;
-
-        // base fields
-        if (ptr + sizeof(AssetID) + sizeof(AssetTypeID) + sizeof(uint) > end) return false;
-        entry.guid = *reinterpret_cast<const AssetID*>(ptr);
-        ptr += sizeof(AssetID);
-        entry.type = *reinterpret_cast<const AssetTypeID*>(ptr);
-        ptr += sizeof(AssetTypeID);
-        entry.path = *reinterpret_cast<const uint*>(ptr);
-        ptr += sizeof(uint);
-
-        if (version >= 1) {
-            if (ptr + sizeof(uint) > end) return false;
-            entry.cooked_path = *reinterpret_cast<const uint*>(ptr);
-            ptr += sizeof(uint);
-        } else {
-            entry.cooked_path = 0xFFFFFFFF;
-        }
-
-        // dependencies
-        if (ptr + sizeof(uint) > end) return false;
-        uint dep_count = *reinterpret_cast<const uint*>(ptr);
-        ptr += sizeof(uint);
-
-        if (dep_count > 0) {
-            if (ptr + dep_count * sizeof(AssetID) > end) return false;
-            entry.dependencies.resize(dep_count);
-            std::memcpy(entry.dependencies.data(), ptr, dep_count * sizeof(AssetID));
-            ptr += dep_count * sizeof(AssetID);
-        }
-
-        entries.push_back(std::move(entry));
+        if (!read_binary_entry(ptr, end, version)) return false;
     }
 
     // string table count
@@ -207,6 +210,43 @@ bool AssetRegistry::save_binary(const OSPath& bin_path)
     return true;
 }
 
+void AssetRegistry::parse_toml_entry(const toml::array& e)
+{
+    if (e.size() < 3) return;
+
+    AssetTypeID     type{};
+    Vector<AssetID> deps;
+
+    AssetID guid = e.get(0)->as_integer()->get();
+    if (auto type_node = e.get(1)) {
+        if (auto str = type_node->as_string()) {
+            type = parse_uuid(str->get());
+        } else if (auto num = type_node->as_integer()) {
+            type = AssetTypeID(static_cast<ulong>(num->get()));
+        }
+    }
+    String path = e.get(2)->as_string()->get();
+
+    String cooked_path;
+    if (e.size() > 3) {
+        if (auto deps_arr = e.get(3)->as_array()) {
+            for (auto& dep : *deps_arr) {
+                deps.push_back(dep.as_integer()->get());
+            }
+        } else if (auto cp = e.get(3)->as_string()) {
+            cooked_path = cp->get();
+        }
+    }
+
+    if (e.size() > 4 && cooked_path.empty()) {
+        if (auto cp = e.get(4)->as_string()) {
+            cooked_path = cp->get();
+        }
+    }
+
+    update(guid, path, type, deps, cooked_path);
+}
+
 bool AssetRegistry::load_toml(const OSPath& toml_path)
 {
     try {
@@ -223,36 +263,7 @@ bool AssetRegistry::load_toml(const OSPath& toml_path)
         if (auto arr = config["entries"].as_array()) {
             for (auto& entry_node : *arr) {
                 if (auto e = entry_node.as_array()) {
-                    AssetID     guid = e->get(0)->as_integer()->get();
-                    AssetTypeID type{};
-                    if (auto type_node = e->get(1)) {
-                        if (auto str = type_node->as_string()) {
-                            type = parse_uuid(str->get());
-                        } else if (auto num = type_node->as_integer()) {
-                            type = AssetTypeID(static_cast<ulong>(num->get()));
-                        }
-                    }
-                    String path = e->get(2)->as_string()->get();
-
-                    Vector<AssetID> deps;
-                    String          cooked_path;
-                    if (e->size() > 3) {
-                        if (auto deps_arr = e->get(3)->as_array()) {
-                            for (auto& dep : *deps_arr) {
-                                deps.push_back(dep.as_integer()->get());
-                            }
-                        } else if (auto cp = e->get(3)->as_string()) {
-                            cooked_path = cp->get();
-                        }
-                    }
-
-                    if (e->size() > 4 && cooked_path.empty()) {
-                        if (auto cp = e->get(4)->as_string()) {
-                            cooked_path = cp->get();
-                        }
-                    }
-
-                    update(guid, path, type, deps, cooked_path);
+                    parse_toml_entry(*e);
                 }
             }
         }
@@ -266,6 +277,29 @@ bool AssetRegistry::load_toml(const OSPath& toml_path)
     }
 }
 
+toml::array AssetRegistry::serialize_toml_entry(const AssetEntry& entry) const
+{
+    toml::array e;
+    e.push_back(static_cast<int64_t>(entry.guid));
+    e.push_back(to_string(entry.type));
+    e.push_back(string_table[entry.path]);
+
+    if (!entry.dependencies.empty()) {
+        toml::array deps_arr;
+        for (auto dep : entry.dependencies) {
+            deps_arr.push_back(static_cast<int64_t>(dep));
+        }
+        e.push_back(std::move(deps_arr));
+    } else {
+        e.push_back(toml::array{});
+    }
+
+    if (entry.cooked_path != 0xFFFFFFFF && entry.cooked_path < string_table.size()) {
+        e.push_back(string_table[entry.cooked_path]);
+    }
+    return e;
+}
+
 bool AssetRegistry::save_toml(const OSPath& toml_path)
 {
     std::ofstream f(toml_path);
@@ -273,26 +307,7 @@ bool AssetRegistry::save_toml(const OSPath& toml_path)
 
     toml::array entries_arr;
     for (const auto& entry : entries) {
-        toml::array e;
-        e.push_back(static_cast<int64_t>(entry.guid));
-        e.push_back(to_string(entry.type));
-        e.push_back(string_table[entry.path]);
-
-        if (!entry.dependencies.empty()) {
-            toml::array deps_arr;
-            for (auto dep : entry.dependencies) {
-                deps_arr.push_back(static_cast<int64_t>(dep));
-            }
-            e.push_back(std::move(deps_arr));
-        } else {
-            e.push_back(toml::array{});
-        }
-
-        if (entry.cooked_path != 0xFFFFFFFF && entry.cooked_path < string_table.size()) {
-            e.push_back(string_table[entry.cooked_path]);
-        }
-
-        entries_arr.push_back(e);
+        entries_arr.push_back(serialize_toml_entry(entry));
     }
 
     toml::table root;
@@ -304,113 +319,135 @@ bool AssetRegistry::save_toml(const OSPath& toml_path)
     return true;
 }
 
-void AssetRegistry::rebuild(const OSPath& assets_dir)
+void AssetRegistry::parse_import_dependency(const JSON& item, StringView canonical_parent, StringView scheme, Vector<AssetID>& out_dependencies)
+{
+    if (item.is_number()) {
+        out_dependencies.push_back(item.get<AssetID>());
+        return;
+    }
+
+    if (!item.is_object() || !item.contains("guid")) {
+        return;
+    }
+
+    AssetID dep_guid = item["guid"].get<AssetID>();
+    out_dependencies.push_back(dep_guid);
+
+    if (!item.contains("name") || !item.contains("type")) {
+        return;
+    }
+
+    String      dep_name = item["name"].get<String>();
+    AssetTypeID dep_type{};
+    if (item["type"].is_string()) {
+        dep_type = parse_uuid(item["type"].get<String>());
+    } else if (item["type"].is_number()) {
+        dep_type = AssetTypeID(item["type"].get<ulong>());
+    }
+
+    String dep_cooked_path;
+    if (item.contains("path") && item["path"].is_string()) {
+        String raw_dep  = item["path"].get<String>();
+        dep_cooked_path = VFSPath::has_protocol(raw_dep) ? raw_dep : VFSPath(scheme, raw_dep).to_string();
+    }
+
+    update(dep_guid, String(canonical_parent) + "#" + dep_name, dep_type, {}, dep_cooked_path);
+}
+
+void AssetRegistry::scan_import_file(const Path& import_path, const OSPath& assets_dir, StringView scheme)
+{
+    std::ifstream f(import_path);
+    if (!f.good()) return;
+
+    try {
+        JSON metadata = JSON::parse(f);
+        if (!metadata.contains("guid")) return;
+
+        AssetID     guid = metadata["guid"].get<AssetID>();
+        AssetTypeID type{};
+        if (metadata.contains("type")) {
+            if (metadata["type"].is_string()) {
+                type = parse_uuid(metadata["type"].get<String>());
+            } else if (metadata["type"].is_number()) {
+                type = AssetTypeID(metadata["type"].get<ulong>());
+            }
+        }
+
+        // path relative to assets_dir, without .import
+        String relative_path  = fs::relative(import_path, assets_dir).generic_string();
+        relative_path         = relative_path.substr(0, relative_path.find_last_of('.'));
+        String canonical_path = VFSPath(scheme, relative_path).to_string();
+
+        String cooked_path;
+        if (metadata.contains("path") && metadata["path"].is_string()) {
+            String raw_cooked = metadata["path"].get<String>();
+            cooked_path       = VFSPath::has_protocol(raw_cooked) ? raw_cooked : VFSPath(scheme, raw_cooked).to_string();
+        }
+
+        Vector<AssetID> dependencies;
+        if (metadata.contains("dependencies") && metadata["dependencies"].is_array()) {
+            for (const auto& item : metadata["dependencies"]) {
+                parse_import_dependency(item, canonical_path, scheme, dependencies);
+            }
+        }
+
+        update(guid, canonical_path, type, dependencies, cooked_path);
+    } catch (const std::exception& e) {
+        spdlog::error("Failed to parse metadata from {}: {}", import_path.string(), e.what());
+    }
+}
+
+void AssetRegistry::scan(const OSPath& assets_dir, StringView scheme)
+{
+    namespace fs = std::filesystem;
+    if (!assets_dir || !fs::exists(assets_dir) || !fs::is_directory(assets_dir)) {
+        return;
+    }
+
+    StringView scheme_str = scheme.empty() ? vfs::SchemeApp : scheme;
+
+    for (const auto& entry : fs::recursive_directory_iterator(assets_dir)) {
+        if (!entry.is_regular_file() || entry.path().extension() != ".import") {
+            continue;
+        }
+        scan_import_file(entry.path(), assets_dir, scheme_str);
+    }
+    dirty = true;
+}
+
+void AssetRegistry::rebuild(const RebuildDesc& desc)
 {
     entries.clear();
     string_table.clear();
     guid_to_entry_index.clear();
     path_to_guid.clear();
 
-    namespace fs = std::filesystem;
-    if (!fs::exists(assets_dir) || !fs::is_directory(assets_dir)) {
-        spdlog::error("Asset directory does not exist: {}", Path(assets_dir).string());
-        return;
+    if (desc.sys) {
+        scan(desc.sys, vfs::SchemeSys);
     }
+    if (desc.app) {
+        scan(desc.app, vfs::SchemeApp);
+    }
+}
 
-    for (const auto& entry : fs::recursive_directory_iterator(assets_dir)) {
-        if (entry.is_regular_file() && entry.path().extension() == ".import") {
-            Path import_path = entry.path();
+uint AssetRegistry::intern_string(StringView str)
+{
+    if (str.empty()) return 0xFFFFFFFF;
 
-            std::ifstream f(import_path);
-            if (!f.good()) continue;
-
-            try {
-                JSON metadata = JSON::parse(f);
-                if (metadata.contains("guid")) {
-                    AssetID     guid = metadata["guid"].get<AssetID>();
-                    AssetTypeID type{};
-                    if (metadata.contains("type")) {
-                        if (metadata["type"].is_string()) {
-                            type = parse_uuid(metadata["type"].get<String>());
-                        } else if (metadata["type"].is_number()) {
-                            type = AssetTypeID(metadata["type"].get<ulong>());
-                        }
-                    }
-
-                    // path relative to assets_dir, without .import
-                    String relative_path = fs::relative(import_path, assets_dir).generic_string();
-                    // remove .import
-                    relative_path = relative_path.substr(0, relative_path.find_last_of('.'));
-
-                    String cooked_path;
-                    if (metadata.contains("path") && metadata["path"].is_string()) {
-                        cooked_path = metadata["path"].get<String>();
-                    }
-
-                    Vector<AssetID> dependencies;
-                    if (metadata.contains("dependencies") && metadata["dependencies"].is_array()) {
-                        for (const auto& item : metadata["dependencies"]) {
-                            if (item.is_number()) {
-                                dependencies.push_back(item.get<AssetID>());
-                            } else if (item.is_object() && item.contains("guid")) {
-                                AssetID dep_guid = item["guid"].get<AssetID>();
-                                dependencies.push_back(dep_guid);
-                                if (item.contains("name") && item.contains("type")) {
-                                    String      dep_name = item["name"].get<String>();
-                                    AssetTypeID dep_type{};
-                                    if (item["type"].is_string()) {
-                                        dep_type = parse_uuid(item["type"].get<String>());
-                                    } else if (item["type"].is_number()) {
-                                        dep_type = AssetTypeID(item["type"].get<ulong>());
-                                    }
-                                    String dep_cooked_path;
-                                    if (item.contains("path") && item["path"].is_string()) {
-                                        dep_cooked_path = item["path"].get<String>();
-                                    }
-                                    update(dep_guid, relative_path + "#" + dep_name, dep_type, {}, dep_cooked_path);
-                                }
-                            }
-                        }
-                    }
-
-                    update(guid, relative_path, type, dependencies, cooked_path);
-                }
-            } catch (const std::exception& e) {
-                spdlog::error("Failed to parse metadata from {}: {}", import_path.string(), e.what());
-            }
+    for (uint i = 0; i < string_table.size(); ++i) {
+        if (string_table[i] == str) {
+            return i;
         }
     }
-    dirty = true;
+    uint index = static_cast<uint>(string_table.size());
+    string_table.push_back(String(str));
+    return index;
 }
 
 void AssetRegistry::update(AssetID guid, StringView path, AssetTypeID type, const Vector<AssetID>& dependencies, StringView cooked_path)
 {
-    uint string_index = 0xFFFFFFFF;
-    for (uint i = 0; i < string_table.size(); ++i) {
-        if (string_table[i] == path) {
-            string_index = i;
-            break;
-        }
-    }
-
-    if (string_index == 0xFFFFFFFF) {
-        string_index = static_cast<uint>(string_table.size());
-        string_table.push_back(String(path));
-    }
-
-    uint cooked_index = 0xFFFFFFFF;
-    if (!cooked_path.empty()) {
-        for (uint i = 0; i < string_table.size(); ++i) {
-            if (string_table[i] == cooked_path) {
-                cooked_index = i;
-                break;
-            }
-        }
-        if (cooked_index == 0xFFFFFFFF) {
-            cooked_index = static_cast<uint>(string_table.size());
-            string_table.push_back(String(cooked_path));
-        }
-    }
+    uint string_index = intern_string(path);
+    uint cooked_index = intern_string(cooked_path);
 
     auto it = guid_to_entry_index.find(guid);
     if (it != guid_to_entry_index.end()) {
@@ -427,7 +464,9 @@ void AssetRegistry::update(AssetID guid, StringView path, AssetTypeID type, cons
         guid_to_entry_index[guid] = entry_index;
     }
 
-    path_to_guid[string_table[string_index]] = guid;
+    if (string_index != 0xFFFFFFFF) {
+        path_to_guid[string_table[string_index]] = guid;
+    }
     if (cooked_index != 0xFFFFFFFF) {
         path_to_guid[string_table[cooked_index]] = guid;
     }
@@ -482,22 +521,6 @@ void AssetRegistry::remove(StringView path)
     auto it = path_to_guid.find(path);
     if (it != path_to_guid.end()) {
         remove(it->second);
-        return;
-    }
-
-    String p(path);
-    std::replace(p.begin(), p.end(), '\\', '/');
-    it = path_to_guid.find(p);
-    if (it != path_to_guid.end()) {
-        remove(it->second);
-        return;
-    }
-
-    std::replace(p.begin(), p.end(), '/', '\\');
-    it = path_to_guid.find(p);
-    if (it != path_to_guid.end()) {
-        remove(it->second);
-        return;
     }
 }
 
@@ -544,20 +567,6 @@ AssetID AssetRegistry::get_guid(StringView path) const
     if (it != path_to_guid.end()) {
         return it->second;
     }
-
-    String p(path);
-    std::replace(p.begin(), p.end(), '\\', '/');
-    it = path_to_guid.find(p);
-    if (it != path_to_guid.end()) {
-        return it->second;
-    }
-
-    std::replace(p.begin(), p.end(), '/', '\\');
-    it = path_to_guid.find(p);
-    if (it != path_to_guid.end()) {
-        return it->second;
-    }
-
     return 0;
 }
 

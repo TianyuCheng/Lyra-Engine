@@ -33,6 +33,15 @@ namespace lyra
     struct AssetRegistry
     {
     public:
+        /**
+         * @brief Configuration for rebuilding registry from source asset directories.
+         */
+        struct RebuildDesc
+        {
+            OSPath sys = nullptr; ///< Engine assets root directory to scan under sys://
+            OSPath app = nullptr; ///< Project assets root directory to scan under app://
+        };
+
         AssetRegistry() = default;
 
         /**
@@ -58,9 +67,13 @@ namespace lyra
 
         /**
          * @brief Scan the OS filesystem for existing *.import files to rebuild the registry.
-         * @param assets_dir The directory to scan recursively.
          */
-        void rebuild(const OSPath& assets_dir);
+        void rebuild(const RebuildDesc& desc);
+
+        /**
+         * @brief Recursively scan an asset directory under a specific protocol scheme.
+         */
+        void scan(const OSPath& assets_dir, StringView scheme = vfs::SchemeApp);
 
         /**
          * @brief Update or add an asset entry in the registry.
@@ -142,6 +155,15 @@ namespace lyra
         bool save_binary(const OSPath& path);
         bool load_toml(const OSPath& path);
         bool save_toml(const OSPath& path);
+
+        bool read_binary_entry(const char*& ptr, const char* end, uint version);
+        void parse_toml_entry(const toml::array& entry_arr);
+        auto serialize_toml_entry(const AssetEntry& entry) const -> toml::array;
+
+        void scan_import_file(const Path& import_path, const OSPath& assets_dir, StringView scheme);
+        void parse_import_dependency(const JSON& item, StringView canonical_parent, StringView scheme, Vector<AssetID>& out_dependencies);
+
+        auto intern_string(StringView str) -> uint;
 
         Vector<AssetEntry> entries;
         Deque<String>      string_table;

@@ -15,11 +15,23 @@ namespace lyra
 {
     struct AssetServer;
 
+    enum class AssetBrowserDomain
+    {
+        App, ///< Project Assets (app://)
+        Sys  ///< Engine Assets (sys://)
+    };
+
     struct AssetBrowserView
     {
     public:
-        explicit AssetBrowserView(const Path& root);
+        explicit AssetBrowserView(const Path& app_root, const Path& sys_root = {});
         virtual ~AssetBrowserView();
+
+        void switch_domain(AssetBrowserDomain domain);
+        bool is_read_only() const { return active_domain == AssetBrowserDomain::Sys; }
+        auto get_current_scheme() const -> StringView;
+        auto get_app_root() const -> const Path& { return app_root; }
+        auto get_sys_root() const -> const Path& { return sys_root; }
 
         void bind(Application& app);
 
@@ -93,10 +105,13 @@ namespace lyra
         static auto create_texture_from_memory(const void* data, usize size, GUIRenderer* gui) -> ThumbnailTexture;
 
     private:
-        Path         root;
-        Path         curr;
-        AppContext*  context = nullptr;
-        AssetServer* ams     = nullptr;
+        AssetBrowserDomain active_domain = AssetBrowserDomain::App;
+        Path               app_root;
+        Path               sys_root;
+        Path               root;
+        Path               curr;
+        AppContext*        context = nullptr;
+        AssetServer*       ams     = nullptr;
 
         Vector<String>     files                   = {};
         Vector<String>     folders                 = {};

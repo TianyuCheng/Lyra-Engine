@@ -128,17 +128,15 @@ void FileLoader::seek(FileHandle file, int64_t offset) const
 
 MountHandle FileLoader::mount(FSPath vpath, const Path& path, uint priority) const
 {
-    MountHandle           mount;
-    [[maybe_unused]] bool ok = api_->mount(loader, mount, vpath, path.c_str(), priority);
-    assert(ok);
+    MountHandle mount;
+    api_->mount(loader, mount, vpath, path.c_str(), priority);
     return mount;
 }
 
 MountHandle FileLoader::mount(FSPath vpath, OSPath path, uint priority) const
 {
-    MountHandle           mount;
-    [[maybe_unused]] bool ok = api_->mount(loader, mount, vpath, path, priority);
-    assert(ok);
+    MountHandle mount;
+    api_->mount(loader, mount, vpath, path, priority);
     return mount;
 }
 

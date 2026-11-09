@@ -80,6 +80,7 @@ target_sources(lyra-engine PRIVATE
   Utilities/STBImpl.cpp
 
   # filesystem
+  FileSystem/VFSPath.cpp
   FileSystem/VFSTypes.cpp
 
   # format

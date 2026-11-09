@@ -46,10 +46,10 @@ TEST_CASE("mat::material_usd_serialization")
 
     // load via FileLoader and MaterialAsset::loader()
     FileLoader loader(FSLoader::NATIVE);
-    loader.mount("/", temp_dir.c_str(), 0);
+    loader.mount("app://", temp_dir.c_str(), 0);
 
     auto loader_api = MaterialAsset::loader();
-    auto loaded     = static_cast<MaterialAsset*>(loader_api.load(&loader, "/test.material"));
+    auto loaded     = static_cast<MaterialAsset*>(loader_api.load(&loader, "app://test.material"));
 
     REQUIRE_NE(loaded, nullptr);
 
@@ -103,10 +103,10 @@ TEST_CASE("model::model_usd_serialization")
     REQUIRE(model_save_ok);
 
     FileLoader loader(FSLoader::NATIVE);
-    loader.mount("/", temp_dir.c_str(), 0);
+    loader.mount("app://", temp_dir.c_str(), 0);
 
     auto loader_api = ModelAsset::loader();
-    auto loaded     = static_cast<ModelAsset*>(loader_api.load(&loader, "/test.model"));
+    auto loaded     = static_cast<ModelAsset*>(loader_api.load(&loader, "app://test.model"));
 
     REQUIRE_NE(loaded, nullptr);
     REQUIRE_EQ(loaded->nodes.size(), 2);
@@ -144,10 +144,10 @@ TEST_CASE("scene::scene_usd_serialization")
     REQUIRE(scene_save_ok);
 
     FileLoader loader(FSLoader::NATIVE);
-    loader.mount("/", temp_dir.c_str(), 0);
+    loader.mount("app://", temp_dir.c_str(), 0);
 
     auto loader_api = SceneAsset::loader();
-    auto loaded     = static_cast<SceneAsset*>(loader_api.load(&loader, "/test.scene"));
+    auto loaded     = static_cast<SceneAsset*>(loader_api.load(&loader, "app://test.scene"));
 
     REQUIRE_NE(loaded, nullptr);
     REQUIRE_EQ(loaded->nodes.size(), 2);
@@ -185,9 +185,9 @@ TEST_CASE("ams::asset_saver_api")
     auto registry_file = temp_dir / "Assets.toml";
 
     AMSDescriptor desc;
-    desc.importer.assets_path = temp_dir.c_str();
-    desc.importer.caches_path = caches_dir.c_str();
-    desc.registry             = registry_file.c_str();
+    desc.app.assets_path = temp_dir.c_str();
+    desc.app.caches_path = caches_dir.c_str();
+    desc.registry        = registry_file.c_str();
     AssetServer server(desc);
     server.register_asset<MaterialAsset>();
     server.register_asset<ModelAsset>();
@@ -221,8 +221,8 @@ TEST_CASE("ams::text_based_assets_saver")
         REQUIRE(fs::exists(text_file));
 
         FileLoader loader(FSLoader::NATIVE);
-        loader.mount("/", temp_dir.c_str(), 0);
-        auto loaded = static_cast<TextAsset*>(TextAsset::loader().load(&loader, "/test.txt"));
+        loader.mount("app://", temp_dir.c_str(), 0);
+        auto loaded = static_cast<TextAsset*>(TextAsset::loader().load(&loader, "app://test.txt"));
         REQUIRE_NE(loaded, nullptr);
         CHECK_EQ(loaded->content, "Hello, Lyra Engine!");
         TextAsset::loader().unload(loaded);
@@ -238,8 +238,8 @@ TEST_CASE("ams::text_based_assets_saver")
         REQUIRE(fs::exists(json_file));
 
         FileLoader loader(FSLoader::NATIVE);
-        loader.mount("/", temp_dir.c_str(), 0);
-        auto loaded = static_cast<JsonAsset*>(JsonAsset::loader().load(&loader, "/test.json"));
+        loader.mount("app://", temp_dir.c_str(), 0);
+        auto loaded = static_cast<JsonAsset*>(JsonAsset::loader().load(&loader, "app://test.json"));
         REQUIRE_NE(loaded, nullptr);
         CHECK_EQ(loaded->content["name"].get<std::string>(), "Lyra");
         CHECK_EQ(loaded->content["version"].get<int>(), 1);
@@ -257,8 +257,8 @@ TEST_CASE("ams::text_based_assets_saver")
         REQUIRE(fs::exists(toml_file));
 
         FileLoader loader(FSLoader::NATIVE);
-        loader.mount("/", temp_dir.c_str(), 0);
-        auto loaded = static_cast<TomlAsset*>(TomlAsset::loader().load(&loader, "/test.toml"));
+        loader.mount("app://", temp_dir.c_str(), 0);
+        auto loaded = static_cast<TomlAsset*>(TomlAsset::loader().load(&loader, "app://test.toml"));
         REQUIRE_NE(loaded, nullptr);
         CHECK_EQ(loaded->content["engine"].value_exact<std::string_view>(), "Lyra");
         CHECK_EQ(loaded->content["stars"].value_exact<int64_t>(), 42);
@@ -272,9 +272,9 @@ TEST_CASE("ams::text_based_assets_saver")
         auto registry_file = temp_dir / "Assets.toml";
 
         AMSDescriptor desc;
-        desc.importer.assets_path = temp_dir.c_str();
-        desc.importer.caches_path = caches_dir.c_str();
-        desc.registry             = registry_file.c_str();
+        desc.app.assets_path = temp_dir.c_str();
+        desc.app.caches_path = caches_dir.c_str();
+        desc.registry        = registry_file.c_str();
         AssetServer server(desc);
         server.register_asset<TextAsset>();
         server.register_asset<JsonAsset>();
@@ -301,15 +301,14 @@ TEST_CASE("ams::model_import_and_reimport")
     auto registry_file = temp_dir / "Assets.toml";
 
     FileLoader loader(FSLoader::NATIVE);
-    loader.mount("/", caches_dir.c_str(), 1);
-    loader.mount("/", assets_dir.c_str(), 0);
+    loader.mount("app://", caches_dir.c_str(), 1);
+    loader.mount("app://", assets_dir.c_str(), 0);
 
     AMSDescriptor desc;
-    desc.importer.assets_path = assets_dir.c_str();
-    desc.importer.caches_path = caches_dir.c_str();
-    desc.loader.assets        = &loader;
-    desc.loader.caches        = &loader;
-    desc.registry             = registry_file.c_str();
+    desc.app.assets_path = assets_dir.c_str();
+    desc.app.caches_path = caches_dir.c_str();
+    desc.loader          = &loader;
+    desc.registry        = registry_file.c_str();
 
     AssetServer server(desc);
     server.register_asset<MeshAsset>();
@@ -332,12 +331,12 @@ TEST_CASE("ams::model_import_and_reimport")
     }
 
     // first import
-    auto fut1  = server.import_asset("cube.obj", false);
+    auto fut1  = server.import_asset("app://cube.obj", false);
     auto guid1 = fut1.get();
     CHECK_NE(guid1, 0);
 
     // re-import (force = true)
-    auto fut2  = server.import_asset("cube.obj", true);
+    auto fut2  = server.import_asset("app://cube.obj", true);
     auto guid2 = fut2.get();
     CHECK_NE(guid2, 0);
     CHECK_EQ(guid1, guid2);
@@ -364,11 +363,11 @@ TEST_CASE("ams::model_import_and_reimport")
           << "endsolid cube\n";
     }
 
-    auto stl_fut1  = server.import_asset("cube.stl", false);
+    auto stl_fut1  = server.import_asset("app://cube.stl", false);
     auto stl_guid1 = stl_fut1.get();
     CHECK_NE(stl_guid1, 0);
 
-    auto stl_fut2  = server.import_asset("cube.stl", true);
+    auto stl_fut2  = server.import_asset("app://cube.stl", true);
     auto stl_guid2 = stl_fut2.get();
     CHECK_NE(stl_guid2, 0);
     CHECK_EQ(stl_guid1, stl_guid2);
@@ -376,8 +375,8 @@ TEST_CASE("ams::model_import_and_reimport")
     auto thumb_file = caches_dir / "thumbnails" / (std::to_string(stl_guid1) + ".thumb.png");
     CHECK(fs::exists(thumb_file));
 
-    // test loading the cooked model asset using relative source path
-    auto obj_handle = server.load_asset<ModelAsset>("cube.obj");
+    // test loading the cooked model asset using virtual path
+    auto obj_handle = server.load_asset<ModelAsset>("app://cube.obj");
     CHECK(obj_handle.valid());
     CHECK_EQ(obj_handle.guid, guid1);
 
@@ -388,13 +387,8 @@ TEST_CASE("ams::model_import_and_reimport")
         CHECK_FALSE(obj_asset->nodes.empty());
     }
 
-    // test path normalization using absolute path
-    auto abs_obj_handle = server.load_asset<ModelAsset>(obj_file.string().c_str());
-    CHECK(abs_obj_handle.valid());
-    CHECK_EQ(abs_obj_handle.guid, guid1);
-
-    // test loading the cooked STL model asset using raw source path
-    auto stl_handle = server.load_asset<ModelAsset>("cube.stl");
+    // test loading the cooked STL model asset using virtual path
+    auto stl_handle = server.load_asset<ModelAsset>("app://cube.stl");
     CHECK(stl_handle.valid());
     CHECK_EQ(stl_handle.guid, stl_guid1);
 

@@ -94,21 +94,12 @@ namespace lyra
     };
 
     /**
-     * @brief Configuration for importing/cooking assets during development.
+     * @brief Configuration for source asset and cooked cache import roots.
      */
     struct AMSImportDescriptor
     {
-        OSPath assets_path; ///< Directory where source assets (e.g. .png, .obj) are located.
-        OSPath caches_path; ///< Directory where processed/cooked binary files are stored.
-    };
-
-    /**
-     * @brief Configuration for loading assets at runtime.
-     */
-    struct AMSLoaderDescriptor
-    {
-        FileLoader* assets;
-        FileLoader* caches;
+        OSPath assets_path = nullptr; ///< Directory where source assets (e.g. .png, .obj) are located.
+        OSPath caches_path = nullptr; ///< Directory where processed/cooked binary files are stored.
     };
 
     /**
@@ -116,11 +107,12 @@ namespace lyra
      */
     struct AMSDescriptor
     {
-        AMSImportDescriptor importer;
-        AMSLoaderDescriptor loader;
-        OSPath              registry;
+        AMSImportDescriptor sys;                ///< Engine assets domain import paths (sys://)
+        AMSImportDescriptor app;                ///< Project assets domain import paths (app://)
+        FileLoader*         loader   = nullptr; ///< Unified file loader mounted with sys:// and app://
+        OSPath              registry = nullptr;
 
-        bool watch = false; ///< Whether to monitor the asset directory for hot-reloading.
+        bool watch = false; ///< Whether to monitor the project asset directory for hot-reloading.
     };
 
 } // namespace lyra

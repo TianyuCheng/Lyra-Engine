@@ -58,6 +58,17 @@ static void imgui_update(AppContext& context)
         ui::clear_input_keys();
     };
 
+    auto to_app_vpath = [&](const Path& os_path) -> Optional<String> {
+        if (auto* browser = context.toolboard.try_get<AssetBrowserView>()) {
+            std::error_code ec;
+            Path rel = fs::relative(os_path, browser->get_app_root(), ec);
+            if (!ec && !rel.empty() && *rel.begin() != "..") {
+                return VFSPath(vfs::SchemeApp, rel.generic_string()).to_string();
+            }
+        }
+        return std::nullopt;
+    };
+
     auto do_save_scene_as = [&]() {
         if (!scene_mgr) return;
         ui::dialog::Options opts;
@@ -70,8 +81,13 @@ static void imgui_update(AppContext& context)
             if (p.extension() != ".scene") {
                 p += ".scene";
             }
-            if (!scene_mgr->save(p)) {
-                ui::dialog::alert("Save Failed", "Failed to save scene to:\n" + p.string(), ui::StatusRole::Error);
+            auto vpath = to_app_vpath(p);
+            if (!vpath) {
+                ui::dialog::alert("Save Failed", "Scenes must be saved inside the project assets folder:\n" + p.string(), ui::StatusRole::Error);
+                return;
+            }
+            if (!scene_mgr->save(Path(*vpath))) {
+                ui::dialog::alert("Save Failed", "Failed to save scene to:\n" + *vpath, ui::StatusRole::Error);
             }
         }
     };
@@ -101,9 +117,14 @@ static void imgui_update(AppContext& context)
         auto selected = ui::dialog::open_file(opts);
         reset_input_states();
         if (selected.has_value()) {
-            auto res = scene_mgr->load(*selected, LoadMode::SINGLE);
+            auto vpath = to_app_vpath(*selected);
+            if (!vpath) {
+                ui::dialog::alert("Load Failed", "Scenes must reside inside the project assets folder:\n" + selected->string(), ui::StatusRole::Error);
+                return;
+            }
+            auto res = scene_mgr->load(Path(*vpath), LoadMode::SINGLE);
             if (res == INVALID_SCENE_INSTANCE) {
-                ui::dialog::alert("Load Failed", "Failed to load scene:\n" + selected->filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
+                ui::dialog::alert("Load Failed", "Failed to load scene:\n" + *vpath + "\n\nSee console log for error details.", ui::StatusRole::Error);
             }
         }
     };
@@ -136,9 +157,14 @@ static void imgui_update(AppContext& context)
                     auto selected = ui::dialog::open_file(opts);
                     reset_input_states();
                     if (selected.has_value()) {
-                        auto res = scene_mgr->load(*selected, LoadMode::ADDITIVE);
+                        auto vpath = to_app_vpath(*selected);
+                        if (!vpath) {
+                            ui::dialog::alert("Load Failed", "Scenes must reside inside the project assets folder:\n" + selected->string(), ui::StatusRole::Error);
+                            return;
+                        }
+                        auto res = scene_mgr->load(Path(*vpath), LoadMode::ADDITIVE);
                         if (res == INVALID_SCENE_INSTANCE) {
-                            ui::dialog::alert("Load Failed", "Failed to load scene additively:\n" + selected->filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
+                            ui::dialog::alert("Load Failed", "Failed to load scene additively:\n" + *vpath + "\n\nSee console log for error details.", ui::StatusRole::Error);
                         }
                     }
                 }
@@ -319,6 +345,15 @@ int main(int argc, const char* argv[])
 
     auto registry = root / "Assets.toml";
 
+    auto engine_root        = git_root() / "Engine";
+    auto engine_assets_root = engine_root / "Assets";
+    if (!fs::exists(engine_assets_root))
+        fs::create_directories(engine_assets_root);
+
+    auto engine_caches_root = engine_root / "Caches";
+    if (!fs::exists(engine_caches_root))
+        fs::create_directories(engine_caches_root);
+
     // application
     auto app = lyra::execute([&]() {
         auto desc = AppDescriptor();
@@ -333,21 +368,24 @@ int main(int argc, const char* argv[])
     // file loader
     auto file_loader = lyra::execute([&]() {
         auto loader = std::make_unique<FileLoader>(FSLoader::NATIVE);
-        loader->mount("/", caches_root, 1);
-        loader->mount("/", assets_root, 0);
+        loader->mount("sys://", engine_caches_root, 1);
+        loader->mount("sys://", engine_assets_root, 0);
+        loader->mount("app://", caches_root, 1);
+        loader->mount("app://", assets_root, 0);
         app->get_toolboard().add<FileLoader*>(loader.get());
         return loader;
     });
 
     // asset layer
     auto assets = lyra::execute([&]() {
-        auto desc                 = AMSDescriptor{};
-        desc.importer.assets_path = assets_root.c_str();
-        desc.importer.caches_path = caches_root.c_str();
-        desc.loader.assets        = file_loader.get();
-        desc.loader.caches        = file_loader.get();
-        desc.registry             = registry.c_str();
-        desc.watch                = true;
+        auto desc            = AMSDescriptor{};
+        desc.sys.assets_path = engine_assets_root.c_str();
+        desc.sys.caches_path = engine_caches_root.c_str();
+        desc.app.assets_path = assets_root.c_str();
+        desc.app.caches_path = caches_root.c_str();
+        desc.loader          = file_loader.get();
+        desc.registry        = registry.c_str();
+        desc.watch           = true;
 
         auto layer = std::make_unique<AssetLayer>(desc);
         app->bind(*layer);
@@ -449,7 +487,7 @@ int main(int argc, const char* argv[])
     app->bind<ConsoleView>(*console);
 
     // editor components (asset browser)
-    auto files = std::make_unique<AssetBrowserView>(assets_root);
+    auto files = std::make_unique<AssetBrowserView>(assets_root, engine_assets_root);
     app->bind<AssetBrowserView>(*files);
 
     // editor components (object inspector)

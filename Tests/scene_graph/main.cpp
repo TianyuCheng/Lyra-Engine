@@ -216,12 +216,12 @@ struct SceneSuiteEnv
 
         auto reg_file = temp_dir / "Assets.toml";
         loader        = std::make_unique<lyra::FileLoader>(lyra::FSLoader::NATIVE);
-        loader->mount("/", temp_dir.c_str(), 0);
+        loader->mount("app://", temp_dir.c_str(), 0);
 
-        lyra::AMSDescriptor desc  = {};
-        desc.registry             = reg_file.c_str();
-        desc.loader.assets        = loader.get();
-        desc.importer.assets_path = temp_dir.c_str();
+        lyra::AMSDescriptor desc = {};
+        desc.registry            = reg_file.c_str();
+        desc.loader              = loader.get();
+        desc.app.assets_path     = temp_dir.c_str();
 
         ams = std::make_unique<lyra::AssetServer>(desc);
         ams->register_asset<lyra::ModelAsset>();
@@ -255,7 +255,7 @@ TEST_CASE("scn::scene_manager" * doctest::description("Scene Manager Lifecycle a
 
     SUBCASE("spawn model asset handle")
     {
-        auto model_handle = env.ams->load_asset<lyra::ModelAsset>("car.model");
+        auto model_handle = env.ams->load_asset<lyra::ModelAsset>("app://car.model");
         REQUIRE(model_handle.valid());
 
         int timeout = 100;
@@ -303,7 +303,7 @@ TEST_CASE("scn::scene_manager" * doctest::description("Scene Manager Lifecycle a
     {
         scene_manager.clear();
 
-        auto model_handle = env.ams->load_asset<lyra::ModelAsset>("car.model");
+        auto model_handle = env.ams->load_asset<lyra::ModelAsset>("app://car.model");
         REQUIRE(model_handle.valid());
 
         // 1. spawn with custom name
@@ -344,8 +344,8 @@ TEST_CASE("scn::scene_manager" * doctest::description("Scene Manager Lifecycle a
 
     SUBCASE("load and additive load scene handle")
     {
-        auto handle_a = env.ams->load_asset<lyra::SceneAsset>("scene_a.scene");
-        auto handle_b = env.ams->load_asset<lyra::SceneAsset>("scene_b.scene");
+        auto handle_a = env.ams->load_asset<lyra::SceneAsset>("app://scene_a.scene");
+        auto handle_b = env.ams->load_asset<lyra::SceneAsset>("app://scene_b.scene");
         REQUIRE(handle_a.valid());
         REQUIRE(handle_b.valid());
 
@@ -438,13 +438,13 @@ TEST_CASE("scn::scene_manager" * doctest::description("Scene Manager Lifecycle a
         scene_manager.set_dirty(true);
         CHECK(scene_manager.is_dirty());
 
-        // save to path
-        auto save_path = env.temp_dir / "level_alpha.scene";
+        // save to virtual path
+        auto save_path = Path("app://level_alpha.scene");
         bool saved     = scene_manager.save(save_path);
         CHECK(saved);
         CHECK(!scene_manager.is_dirty());
         CHECK_EQ(scene_manager.get_active_path(), save_path);
-        CHECK(std::filesystem::exists(save_path));
+        CHECK(std::filesystem::exists(env.temp_dir / "level_alpha.scene"));
         CHECK(std::filesystem::exists(env.temp_dir / "level_alpha.scene.import"));
 
         // save_active should also succeed now that it has a path
@@ -452,7 +452,7 @@ TEST_CASE("scn::scene_manager" * doctest::description("Scene Manager Lifecycle a
         CHECK(scene_manager.save_active());
         CHECK(!scene_manager.is_dirty());
 
-        // clear and reload by path
+        // clear and reload by virtual path
         scene_manager.clear();
         CHECK_EQ(scene_manager.get_active(), nullptr);
 

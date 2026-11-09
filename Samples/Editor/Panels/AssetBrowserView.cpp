@@ -1,5 +1,6 @@
 #include <fstream>
 #include <algorithm>
+#include <imgui.h>
 #include <stb_image.h>
 #include <cmrc/cmrc.hpp>
 #include <Lyra/Utilities/Path.h>
@@ -20,6 +21,7 @@
 
 // local imports
 #include "AssetBrowserView.h"
+#include <Lyra/FileSystem/VFSPath.h>
 
 CMRC_DECLARE(editor);
 
@@ -27,11 +29,26 @@ CMRC_DECLARE(editor);
 
 using namespace lyra;
 
-AssetBrowserView::AssetBrowserView(const Path& root)
-    : root(root), curr(root)
+AssetBrowserView::AssetBrowserView(const Path& app_root, const Path& sys_root)
+    : active_domain(AssetBrowserDomain::App), app_root(app_root), sys_root(sys_root), root(app_root), curr(app_root)
 {
-    assert(std::filesystem::exists(root));
-    assert(std::filesystem::is_directory(root));
+    assert(std::filesystem::exists(app_root));
+    assert(std::filesystem::is_directory(app_root));
+}
+
+void AssetBrowserView::switch_domain(AssetBrowserDomain domain)
+{
+    if (active_domain == domain) return;
+    active_domain = domain;
+    root          = (active_domain == AssetBrowserDomain::Sys) ? sys_root : app_root;
+    curr          = root;
+    selection.clear();
+    update_directory(root, true);
+}
+
+auto AssetBrowserView::get_current_scheme() const -> StringView
+{
+    return (active_domain == AssetBrowserDomain::Sys) ? vfs::SchemeSys : vfs::SchemeApp;
 }
 
 AssetBrowserView::~AssetBrowserView()
@@ -139,6 +156,18 @@ void AssetBrowserView::update(AppContext& context)
 void AssetBrowserView::show_header_toolbar()
 {
     ui::toolbar([&]() {
+        bool is_app = (active_domain == AssetBrowserDomain::App);
+        ui::toggle_button(LYRA_ICON_FOLDER " Project (app://)", is_app, [&](const bool& active) {
+            if (active) switch_domain(AssetBrowserDomain::App);
+        });
+        if (!sys_root.empty()) {
+            bool is_sys = (active_domain == AssetBrowserDomain::Sys);
+            ui::toggle_button(LYRA_ICON_SETTINGS " Engine (sys://)", is_sys, [&](const bool& active) {
+                if (active) switch_domain(AssetBrowserDomain::Sys);
+            });
+        }
+
+        ui::separator();
         show_breadcrumb();
         ui::spacer();
         ui::search_bar(search_filter, sizeof(search_filter), 250.0f);
@@ -151,6 +180,13 @@ void AssetBrowserView::show_status_bar(AppContext& context)
         char count_buf[128];
         snprintf(count_buf, sizeof(count_buf), " %zu items  |  %zu selected", files.size() + folders.size(), selection.size());
         ui::label(count_buf, ui::StatusRole::Muted);
+
+        ui::separator();
+        if (is_read_only()) {
+            ui::label("[sys:// Read-Only Engine Core]", ui::StatusRole::Warning);
+        } else {
+            ui::label("[app:// Project Content]", ui::StatusRole::Success);
+        }
 
         ui::spacer();
 
@@ -183,12 +219,12 @@ void AssetBrowserView::show_breadcrumb()
     Vector<ui::BreadcrumbItem> items;
     items.reserve(breadcrumbs.size() + 1);
 
-    String root_name = root.filename().string();
-    if (root_name.empty()) root_name = "Assets";
+    String  root_name = (active_domain == AssetBrowserDomain::Sys) ? "sys://" : "app://";
+    CString root_icon = (active_domain == AssetBrowserDomain::Sys) ? LYRA_ICON_SETTINGS : LYRA_ICON_HOME;
 
     bool is_at_root = (curr == root);
     items.push_back({root_name.c_str(),
-        LYRA_ICON_HOME,
+        root_icon,
         [&]() {
             update_directory(root, is_at_root);
         },
@@ -326,29 +362,26 @@ void AssetBrowserView::show_item(AppContext& context, StringView name, bool is_f
     auto ext       = absl::AsciiStrToLower(item_path.extension().string());
     auto scene_mgr = context.toolboard.try_get<SceneManager>();
 
-    auto on_double_click = [&, item_path, ext]() {
+    std::error_code ec_rel;
+    Path            rel_path = fs::relative(item_path, root, ec_rel);
+    String          sub_path = (!ec_rel && !rel_path.empty() && *rel_path.begin() != "..")
+        ? rel_path.generic_string()
+        : item_path.filename().generic_string();
+    String          vpath    = VFSPath(get_current_scheme(), sub_path).to_string();
+
+    auto on_double_click = [&, vpath, ext]() {
         if (ext == ".scene" && scene_mgr) {
             if (scene_mgr->is_dirty())
                 if (!ui::dialog::confirm("Unsaved Changes", "The active scene has unsaved changes. Discard and open this scene?"))
                     return;
 
-            auto res = scene_mgr->load(item_path, LoadMode::SINGLE);
+            auto res = scene_mgr->load(Path(vpath), LoadMode::SINGLE);
             if (res == INVALID_SCENE_INSTANCE) {
-                ui::dialog::alert("Load Failed", "Failed to load scene:\n" + item_path.filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
+                ui::dialog::alert("Load Failed", "Failed to load scene:\n" + vpath + "\n\nSee console log for error details.", ui::StatusRole::Error);
             }
         } else if ((ext == ".model" || ext == ".gltf" || ext == ".glb" || ext == ".obj" || ext == ".stl") && scene_mgr) {
             if (auto ams = get_asset_server()) {
-                std::error_code ec;
-
-                Path rel_path = fs::relative(item_path, root, ec);
-                auto path_str = (!ec && !rel_path.empty() && *rel_path.begin() != "..")
-                                    ? rel_path.generic_string()
-                                    : item_path.generic_string();
-
-                auto model_handle = ams->load_asset<ModelAsset>(path_str.c_str());
-                if (!model_handle.valid()) {
-                    model_handle = ams->load_asset<ModelAsset>(item_path.filename().generic_string().c_str());
-                }
+                auto model_handle = ams->load_asset<ModelAsset>(vpath.c_str());
                 bool spawned = false;
                 if (model_handle.valid()) {
                     auto node = scene_mgr->spawn(model_handle);
@@ -358,7 +391,7 @@ void AssetBrowserView::show_item(AppContext& context, StringView name, bool is_f
                     }
                 }
                 if (!spawned) {
-                    ui::dialog::alert("Spawn Failed", "Failed to load or spawn model asset:\n" + item_path.filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
+                    ui::dialog::alert("Spawn Failed", "Failed to load or spawn model asset:\n" + vpath + "\n\nSee console log for error details.", ui::StatusRole::Error);
                 }
             }
         }
@@ -389,25 +422,11 @@ void AssetBrowserView::show_item(AppContext& context, StringView name, bool is_f
         }
 
         if (ext == ".model" || ext == ".gltf" || ext == ".glb" || ext == ".obj" || ext == ".stl") {
-            std::error_code ec;
-
-            Path rel_path = fs::relative(item_path, root, ec);
-            auto path_str = (!ec && !rel_path.empty() && *rel_path.begin() != "..")
-                                ? rel_path.generic_string()
-                                : item_path.generic_string();
-
-            ui::drag_drop_source("LYRA_ASSET_MODEL", path_str.c_str(), path_str.size() + 1, [&]() {
+            ui::drag_drop_source("LYRA_ASSET_MODEL", vpath.c_str(), vpath.size() + 1, [&]() {
                 ui::label(name.data());
             });
         } else if (ext == ".scene") {
-            std::error_code ec;
-
-            Path rel_path = fs::relative(item_path, root, ec);
-            auto path_str = (!ec && !rel_path.empty() && *rel_path.begin() != "..")
-                                ? rel_path.generic_string()
-                                : item_path.generic_string();
-
-            ui::drag_drop_source("LYRA_ASSET_SCENE", path_str.c_str(), path_str.size() + 1, [&]() {
+            ui::drag_drop_source("LYRA_ASSET_SCENE", vpath.c_str(), vpath.size() + 1, [&]() {
                 ui::label(name.data());
             });
         }
@@ -415,6 +434,11 @@ void AssetBrowserView::show_item(AppContext& context, StringView name, bool is_f
 
     ui::item_context_menu([&]() {
         if (!is_sel) selection.select_only(name);
+
+        ui::menu_item(LYRA_ICON_FILE " Copy Virtual Path", [&]() {
+            ImGui::SetClipboardText(vpath.c_str());
+        });
+        ui::separator();
 
         if (selection.size() == 1 && !is_folder) {
             if (ext == ".scene" && scene_mgr) {
@@ -424,15 +448,15 @@ void AssetBrowserView::show_item(AppContext& context, StringView name, bool is_f
                             return;
                         }
                     }
-                    auto res = scene_mgr->load(item_path, LoadMode::SINGLE);
+                    auto res = scene_mgr->load(Path(vpath), LoadMode::SINGLE);
                     if (res == INVALID_SCENE_INSTANCE) {
-                        ui::dialog::alert("Load Failed", "Failed to load scene:\n" + item_path.filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
+                        ui::dialog::alert("Load Failed", "Failed to load scene:\n" + vpath + "\n\nSee console log for error details.", ui::StatusRole::Error);
                     }
                 });
                 ui::menu_item(LYRA_ICON_SCENE " Load Additive", [&]() {
-                    auto res = scene_mgr->load(item_path, LoadMode::ADDITIVE);
+                    auto res = scene_mgr->load(Path(vpath), LoadMode::ADDITIVE);
                     if (res == INVALID_SCENE_INSTANCE) {
-                        ui::dialog::alert("Load Failed", "Failed to load scene additively:\n" + item_path.filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
+                        ui::dialog::alert("Load Failed", "Failed to load scene additively:\n" + vpath + "\n\nSee console log for error details.", ui::StatusRole::Error);
                     }
                 });
                 ui::separator();
@@ -440,14 +464,7 @@ void AssetBrowserView::show_item(AppContext& context, StringView name, bool is_f
                 ui::menu_item(LYRA_ICON_NODE " Spawn in Scene", [&]() {
                     auto ams = get_asset_server();
                     if (ams) {
-                        std::error_code ec;
-
-                        Path rel_path = fs::relative(item_path, root, ec);
-                        auto path_str = (!ec && !rel_path.empty() && *rel_path.begin() != "..")
-                                            ? rel_path.generic_string()
-                                            : item_path.generic_string();
-
-                        auto model_handle = ams->load_asset<ModelAsset>(path_str.c_str());
+                        auto model_handle = ams->load_asset<ModelAsset>(vpath.c_str());
                         if (!model_handle.valid()) {
                             model_handle = ams->load_asset<ModelAsset>(item_path.filename().generic_string().c_str());
                         }
@@ -468,24 +485,26 @@ void AssetBrowserView::show_item(AppContext& context, StringView name, bool is_f
             }
         }
 
-        if (selection.size() == 1) {
-            ui::menu_item(LYRA_ICON_RENAME " Rename", [&]() {
-                show_rename_modal = true;
-                open_rename_modal = true;
-                strncpy_s(rename_buffer, sizeof(rename_buffer), selection.items[0].c_str(), sizeof(rename_buffer) - 1);
+        if (!is_read_only()) {
+            if (selection.size() == 1) {
+                ui::menu_item(LYRA_ICON_RENAME " Rename", [&]() {
+                    show_rename_modal = true;
+                    open_rename_modal = true;
+                    strncpy_s(rename_buffer, sizeof(rename_buffer), selection.items[0].c_str(), sizeof(rename_buffer) - 1);
+                });
+            }
+            if (!is_folder) {
+                ui::menu_item(LYRA_ICON_IMPORT " Re-import", [&]() {
+                    action_reimport_selected(get_asset_server());
+                });
+            }
+            ui::menu_item(LYRA_ICON_DELETE " Delete", [&]() {
+                show_delete_modal = true;
+                open_delete_modal = true;
             });
+            ui::separator();
+            show_create_menu();
         }
-        if (!is_folder) {
-            ui::menu_item(LYRA_ICON_IMPORT " Re-import", [&]() {
-                action_reimport_selected(get_asset_server());
-            });
-        }
-        ui::menu_item(LYRA_ICON_DELETE " Delete", [&]() {
-            show_delete_modal = true;
-            open_delete_modal = true;
-        });
-        ui::separator();
-        show_create_menu();
     });
 }
 
@@ -495,12 +514,14 @@ void AssetBrowserView::show_context_menu(AppContext&)
         ui::menu_item(LYRA_ICON_REFRESH " Refresh", [&]() {
             update_directory(curr, true);
         });
-        ui::separator();
-        ui::menu_item(LYRA_ICON_IMPORT " Import", [&]() {
-            spdlog::info("Import not implemented");
-        });
-        ui::separator();
-        show_create_menu();
+        if (!is_read_only()) {
+            ui::separator();
+            ui::menu_item(LYRA_ICON_IMPORT " Import", [&]() {
+                spdlog::info("Import not implemented");
+            });
+            ui::separator();
+            show_create_menu();
+        }
     });
 
     if (open_new_scene_modal) {
@@ -529,6 +550,7 @@ void AssetBrowserView::show_context_menu(AppContext&)
 
 void AssetBrowserView::action_delete_selected()
 {
+    if (is_read_only()) return;
     auto ams = get_asset_server();
 
     for (const auto& target : selection.items) {
@@ -568,6 +590,7 @@ void AssetBrowserView::action_delete_selected()
 
 void AssetBrowserView::action_rename(StringView old_name, StringView new_name)
 {
+    if (is_read_only()) return;
     if (old_name == new_name) return;
     Path op = curr / old_name;
     Path np = curr / new_name;
@@ -603,6 +626,7 @@ void AssetBrowserView::action_rename(StringView old_name, StringView new_name)
 
 void AssetBrowserView::action_create_scene(StringView name)
 {
+    if (is_read_only()) return;
     StringView trimmed = trim_whitespace(name);
     if (trimmed.empty()) return;
 
@@ -657,6 +681,7 @@ void AssetBrowserView::action_create_scene(StringView name)
 
 void AssetBrowserView::action_create_folder(StringView name)
 {
+    if (is_read_only()) return;
     StringView trimmed = trim_whitespace(name);
     if (trimmed.empty()) return;
 
@@ -674,6 +699,7 @@ void AssetBrowserView::action_create_folder(StringView name)
 
 void AssetBrowserView::action_create_file(StringView name)
 {
+    if (is_read_only()) return;
     StringView trimmed = trim_whitespace(name);
     if (trimmed.empty()) return;
 
@@ -873,6 +899,11 @@ void AssetBrowserView::handle_file_drop(AppContext& context)
 
     if (!window->get_input_state().has_dropped_files())
         return;
+
+    if (is_read_only()) {
+        ui::dialog::alert("Read-Only", "Cannot import files into the read-only engine assets domain (sys://).", ui::StatusRole::Warning);
+        return;
+    }
 
     for (const auto& path_str : window->get_input_state().get_dropped_files()) {
         Path src(path_str);

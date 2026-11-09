@@ -4,26 +4,36 @@ The **Virtual File System** (`Lyra/FileSystem/`) decouples asset loading and eng
 
 ## Core Concepts
 
-### Virtual vs. Native Paths
-Lyra strictly differentiates between native OS paths and virtual paths:
+### Virtual vs. Native Paths & Protocol Schemes
+Lyra strictly differentiates between native OS paths and protocol-qualified virtual paths:
 
 - **`OSPath` / `Path`**: Standard filesystem paths (`std::filesystem::path`), used by cookers, file watchers, and tools that interact directly with the operating system.
-- **`FSPath`**: UTF-8 null-terminated virtual path strings (e.g., `/assets/textures/wood.ktx2`), used throughout runtime asset loaders and engine queries.
+- **`FSPath` / `VFSPath`**: Protocol-qualified UTF-8 virtual path strings. Schemes are **strictly required**; bare relative paths without a protocol scheme are rejected.
+  - `sys://`: Dedicated domain for engine assets and shaders (e.g., `sys://shaders/pbr.hlsl`).
+  - `app://`: Dedicated domain for game project assets (e.g., `app://textures/wood.png`).
 
-### Mount Points and Priority Overlays
-The virtual filesystem supports mounting both OS directories and archive packages to virtual mount points. Each mount is assigned an integer priority:
+### Mount Points, Domains, and Priority Overlays
+The virtual filesystem supports mounting OS directories and package archives into isolated protocol domains. Each mount specifies a protocol scheme/subpath and an integer priority:
 
 ```cpp
 FileLoader loader(FSLoader::NATIVE);
 
-// mount base game assets at low priority
-MountHandle base_mount = loader.mount("/assets", "C:/Games/Lyra/BaseData", 0);
+// mount engine assets under the sys:// domain
+MountHandle engine_mount = loader.mount("sys://", "C:/Lyra/Engine/Assets", 0);
 
-// mount patch / mod directory at higher priority
-MountHandle patch_mount = loader.mount("/assets", "C:/Games/Lyra/Patches", 10);
+// mount base project assets under the app:// domain
+MountHandle base_mount   = loader.mount("app://", "C:/MyGame/Assets", 0);
+
+// mount patch directory at higher priority within app://
+MountHandle patch_mount  = loader.mount("app://", "C:/MyGame/Patches", 10);
 ```
 
-When resolving a virtual path (such as `/assets/scripts/player.json`), the system searches mounts in descending priority order. Higher-priority mounts shadow files in lower-priority mounts, allowing game updates and user modifications without altering base assets.
+### Domain Isolation Policy
+Protocol domains are strictly isolated:
+- Queries targeting `sys://...` only resolve against `sys://` mounts.
+- Queries targeting `app://...` only resolve against `app://` mounts and **never** fall back to `sys://`.
+- Bare relative paths (e.g., `textures/wood.png` or `/assets/...`) without a scheme are rejected.
+- Higher-priority mounts within the same domain shadow lower-priority mounts.
 
 ## Plugin Interfaces
 
@@ -93,17 +103,17 @@ void vfs_example()
     // 1. initialize native filesystem loader
     FileLoader vfs(FSLoader::NATIVE);
 
-    // 2. mount base directory to virtual root
-    MountHandle mount = vfs.mount("/", "C:/Games/LyraEngine/Assets", 0);
+    // 2. mount project directory to app:// domain
+    MountHandle mount = vfs.mount("app://", "C:/Games/MyProject/Assets", 0);
 
-    // 3. check file existence
-    if (vfs.exists("/shaders/mesh.spv")) {
+    // 3. check file existence with mandatory scheme
+    if (vfs.exists("app://textures/wood.png")) {
         // query file size
-        size_t file_size = vfs.size("/shaders/mesh.spv");
+        size_t file_size = vfs.size("app://textures/wood.png");
 
         // bulk-read binary data directly into a vector
-        Vector<uint8_t> shader_bytes = vfs.read<uint8_t>("/shaders/mesh.spv");
-        std::cout << "Read " << shader_bytes.size() << " bytes.\n";
+        Vector<uint8_t> texture_bytes = vfs.read<uint8_t>("app://textures/wood.png");
+        std::cout << "Read " << texture_bytes.size() << " bytes.\n";
     }
 
     // 4. unmount when done

@@ -173,17 +173,18 @@ struct TextFileAsset
 void load_example()
 {
     FileLoader vfs(FSLoader::NATIVE);
-    vfs.mount("/", "C:/Project/Assets", 0);
+    vfs.mount("app://", "C:/Project/Assets", 0);
 
     AMSDescriptor desc = {};
-    desc.registry      = "C:/Project/Assets/Registry.toml";
-    desc.loader.assets = &vfs;
+    desc.registry         = "C:/Project/Assets/Registry.toml";
+    desc.app.assets_path  = "C:/Project/Assets";
+    desc.loader           = &vfs;
 
     AssetServer ams(desc);
     ams.register_asset<TextFileAsset>();
 
-    // queue asynchronous load
-    AssetHandle<TextFileAsset> handle = ams.load_asset<TextFileAsset>("/data/intro.txt");
+    // queue asynchronous load using mandatory app:// scheme
+    AssetHandle<TextFileAsset> handle = ams.load_asset<TextFileAsset>("app://data/intro.txt");
 
     // query pointer (returns nullptr while the background worker is loading)
     if (TextFileAsset* asset = ams.get_asset(handle)) {

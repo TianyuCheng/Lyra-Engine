@@ -10,6 +10,7 @@
 #include <Lyra/Utilities/Pointer.h>
 #include <Lyra/Utilities/Collections.h>
 #include <Lyra/FileSystem/VFSAPI.h>
+#include <Lyra/FileSystem/VFSPath.h>
 
 namespace lyra
 {

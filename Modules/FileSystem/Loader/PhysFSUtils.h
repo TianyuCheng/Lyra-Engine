@@ -25,10 +25,10 @@ namespace lyra::loader::physfs
 
     struct PhysMountPoint
     {
-        String vpath;
-        Path   root;
-        uint   priority = 0;
-        uint   mount_id = 0;
+        VFSPath vprefix;
+        Path    root;
+        uint    priority = 0;
+        uint    mount_id = 0;
     };
 
     struct PhysFSLoader

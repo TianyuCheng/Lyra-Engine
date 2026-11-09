@@ -9,6 +9,7 @@
 #include <Lyra/Utilities/Pointer.h>
 #include <Lyra/Utilities/Collections.h>
 #include <Lyra/FileSystem/VFSAPI.h>
+#include <Lyra/FileSystem/VFSPath.h>
 
 using namespace lyra;
 
@@ -17,9 +18,9 @@ namespace lyra::loader::native
 
     struct NativeMount
     {
-        String vpath;    // virtual mount prefix, e.g. "/textures" (no trailing slash)
-        Path   root;     // real OS directory root
-        uint   priority; // higher value = searched earlier
+        VFSPath vprefix;  // parsed virtual mount prefix, e.g. sys:// or app://
+        Path    root;     // real OS directory root
+        uint    priority; // higher value = searched earlier
     };
 
     struct NativeFSLoader

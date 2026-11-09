@@ -104,13 +104,13 @@ TEST_CASE("ams::asset_server")
 
     // initialize fileloader
     FileLoader loader(FSLoader::NATIVE);
-    loader.mount("/", temp_dir.string().c_str(), 0);
+    loader.mount("app://", temp_dir.string().c_str(), 0);
 
     // initialize assetserver
-    AMSDescriptor desc        = {};
-    desc.registry             = registry.c_str();
-    desc.loader.assets        = &loader;
-    desc.importer.assets_path = temp_dir.c_str();
+    AMSDescriptor desc   = {};
+    desc.registry        = registry.c_str();
+    desc.loader          = &loader;
+    desc.app.assets_path = temp_dir.c_str();
 
     AssetServer ams(desc);
     ams.register_asset<DummyAsset>();
@@ -123,9 +123,9 @@ TEST_CASE("ams::asset_server")
         fs::create_directories(caches_dir);
 
         // reconfigure ams for importing
-        AMSDescriptor import_desc        = desc;
-        import_desc.importer.assets_path = source_dir.c_str();
-        import_desc.importer.caches_path = caches_dir.c_str();
+        AMSDescriptor import_desc   = desc;
+        import_desc.app.assets_path = source_dir.c_str();
+        import_desc.app.caches_path = caches_dir.c_str();
 
         AssetServer import_ams(import_desc);
         import_ams.register_asset<DummyAsset>();
@@ -142,7 +142,7 @@ TEST_CASE("ams::asset_server")
         Path expected_metadata = source_dir / "new_test.dummy.import";
         if (fs::exists(expected_metadata)) fs::remove(expected_metadata);
 
-        auto future = import_ams.import_asset("new_test.dummy");
+        auto future = import_ams.import_asset("app://new_test.dummy");
         auto guid   = future.get();
         CHECK_NE(guid, 0);
 
@@ -170,8 +170,8 @@ TEST_CASE("ams::asset_server")
         auto source_dir = temp_dir / "SourceDelete";
         fs::create_directories(source_dir);
 
-        AMSDescriptor delete_desc        = desc;
-        delete_desc.importer.assets_path = source_dir.c_str();
+        AMSDescriptor delete_desc   = desc;
+        delete_desc.app.assets_path = source_dir.c_str();
 
         AssetServer del_ams(delete_desc);
         del_ams.register_asset<DummyAsset>();
@@ -194,7 +194,7 @@ TEST_CASE("ams::asset_server")
         REQUIRE(fs::exists(asset_file));
         REQUIRE(fs::exists(import_file));
 
-        bool deleted = del_ams.delete_asset("del_test.dummy");
+        bool deleted = del_ams.delete_asset("app://del_test.dummy");
         CHECK(deleted);
         CHECK(!fs::exists(asset_file));
         CHECK(!fs::exists(import_file));
@@ -205,8 +205,8 @@ TEST_CASE("ams::asset_server")
         auto source_dir = temp_dir / "SourceMove";
         fs::create_directories(source_dir);
 
-        AMSDescriptor move_desc        = desc;
-        move_desc.importer.assets_path = source_dir.c_str();
+        AMSDescriptor move_desc   = desc;
+        move_desc.app.assets_path = source_dir.c_str();
 
         AssetServer move_ams(move_desc);
         move_ams.register_asset<DummyAsset>();
@@ -230,7 +230,7 @@ TEST_CASE("ams::asset_server")
         REQUIRE(fs::exists(import_file));
 
         // test rename in same folder
-        bool moved = move_ams.move_asset("orig.dummy", "renamed.dummy");
+        bool moved = move_ams.move_asset("app://orig.dummy", "app://renamed.dummy");
         CHECK(moved);
         CHECK(!fs::exists(asset_file));
         CHECK(!fs::exists(import_file));
@@ -239,13 +239,13 @@ TEST_CASE("ams::asset_server")
         auto moved_import = source_dir / "renamed.dummy.import";
         CHECK(fs::exists(moved_asset));
         CHECK(fs::exists(moved_import));
-        CHECK_EQ(move_ams.get_guid("renamed.dummy"), 555666777);
+        CHECK_EQ(move_ams.get_guid("app://renamed.dummy"), 555666777);
 
         // test moving into a subfolder
         auto sub_dir = source_dir / "Sub";
         fs::create_directories(sub_dir);
 
-        bool moved_sub = move_ams.move_asset("renamed.dummy", "Sub");
+        bool moved_sub = move_ams.move_asset("app://renamed.dummy", "app://Sub");
         CHECK(moved_sub);
         CHECK(!fs::exists(moved_asset));
         CHECK(!fs::exists(moved_import));
@@ -258,7 +258,7 @@ TEST_CASE("ams::asset_server")
 
     SUBCASE("Basic Asynchronous Loading")
     {
-        auto handle = ams.load_asset<DummyAsset>("test.dummy");
+        auto handle = ams.load_asset<DummyAsset>("app://test.dummy");
         CHECK(handle.valid());
 
         // should be loading (data is null)
@@ -279,8 +279,8 @@ TEST_CASE("ams::asset_server")
 
     SUBCASE("Reference Counting")
     {
-        auto handle1 = ams.load_asset<DummyAsset>("test.dummy");
-        auto handle2 = ams.load_asset<DummyAsset>("test.dummy");
+        auto handle1 = ams.load_asset<DummyAsset>("app://test.dummy");
+        auto handle2 = ams.load_asset<DummyAsset>("app://test.dummy");
 
         CHECK_EQ(handle1.guid, handle2.guid);
 
@@ -309,7 +309,7 @@ TEST_CASE("ams::asset_server")
 
         for (int i = 0; i < num_threads; ++i) {
             threads.emplace_back([&ams, &handles, i]() {
-                handles[i] = ams.load_asset<DummyAsset>("test.dummy");
+                handles[i] = ams.load_asset<DummyAsset>("app://test.dummy");
             });
         }
 
@@ -426,19 +426,19 @@ TEST_CASE("ams::asset_dependencies")
     }
 
     FileLoader loader(FSLoader::NATIVE);
-    loader.mount("/", temp_dir.string().c_str(), 0);
+    loader.mount("app://", temp_dir.string().c_str(), 0);
 
-    AMSDescriptor desc        = {};
-    desc.registry             = registry.c_str();
-    desc.loader.assets        = &loader;
-    desc.importer.assets_path = temp_dir.c_str();
+    AMSDescriptor desc   = {};
+    desc.registry        = registry.c_str();
+    desc.loader          = &loader;
+    desc.app.assets_path = temp_dir.c_str();
 
     AssetServer ams(desc);
     ams.register_asset<DummyAsset>();
 
     SUBCASE("Recursive Loading")
     {
-        auto parent_handle = ams.load_asset<DummyAsset>("parent.dummy");
+        auto parent_handle = ams.load_asset<DummyAsset>("app://parent.dummy");
         CHECK(parent_handle.valid());
 
         // child should also be loading automatically
@@ -456,7 +456,7 @@ TEST_CASE("ams::asset_dependencies")
 
     SUBCASE("Recursive Unloading")
     {
-        auto                    parent_handle = ams.load_asset<DummyAsset>("parent.dummy");
+        auto                    parent_handle = ams.load_asset<DummyAsset>("app://parent.dummy");
         AssetHandle<DummyAsset> child_handle{2001};
 
         // wait for load
@@ -474,6 +474,106 @@ TEST_CASE("ams::asset_dependencies")
         CHECK_EQ(ams.get_asset(parent_handle), nullptr);
         CHECK_EQ(ams.get_asset(child_handle), nullptr);
     }
+
+    fs::remove_all(temp_dir);
+}
+
+TEST_CASE("vfs::path_protocol")
+{
+    SUBCASE("Valid Scheme Parsing")
+    {
+        auto p1 = VFSPath::parse("sys://shaders/pbr.hlsl");
+        CHECK(p1.is_valid());
+        CHECK(p1.is_sys());
+        CHECK_FALSE(p1.is_app());
+        CHECK_EQ(p1.scheme, "sys");
+        CHECK_EQ(p1.path, "shaders/pbr.hlsl");
+        CHECK_EQ(p1.to_string(), "sys://shaders/pbr.hlsl");
+
+        auto p2 = VFSPath::parse("app://textures/wood.png");
+        CHECK(p2.is_valid());
+        CHECK(p2.is_app());
+        CHECK_FALSE(p2.is_sys());
+        CHECK_EQ(p2.scheme, "app");
+        CHECK_EQ(p2.path, "textures/wood.png");
+        CHECK_EQ(p2.to_string(), "app://textures/wood.png");
+
+        auto p3 = VFSPath::parse("sys://");
+        CHECK(p3.is_valid());
+        CHECK(p3.is_sys());
+        CHECK_EQ(p3.path, "");
+        CHECK_EQ(p3.to_string(), "sys://");
+    }
+
+    SUBCASE("Subpath Normalization")
+    {
+        auto p = VFSPath::parse("app://textures/nested/../wood.png");
+        CHECK(p.is_valid());
+        CHECK_EQ(p.path, "textures/wood.png");
+
+        auto p2 = VFSPath::parse("app://textures\\foo\\bar.png");
+        CHECK(p2.is_valid());
+        CHECK_EQ(p2.path, "textures/foo/bar.png");
+    }
+
+    SUBCASE("Scheme Strictly Required - Bare Paths Invalid")
+    {
+        auto p1 = VFSPath::parse("textures/wood.png");
+        CHECK_FALSE(p1.is_valid());
+        CHECK_EQ(p1.scheme, "");
+
+        auto p2 = VFSPath::parse("/textures/wood.png");
+        CHECK_FALSE(p2.is_valid());
+
+        auto p3 = VFSPath::parse("");
+        CHECK_FALSE(p3.is_valid());
+
+        CHECK(VFSPath::has_protocol("sys://foo"));
+        CHECK(VFSPath::has_protocol("app://bar"));
+        CHECK_FALSE(VFSPath::has_protocol("textures/wood.png"));
+        CHECK_FALSE(VFSPath::has_protocol("/foo/bar"));
+    }
+}
+
+TEST_CASE("vfs::domain_isolation")
+{
+    auto temp_dir = fs::temp_directory_path() / "lyra_vfs_isolation_test";
+    auto sys_dir  = temp_dir / "Engine";
+    auto app_dir  = temp_dir / "Project";
+    fs::create_directories(sys_dir);
+    fs::create_directories(app_dir);
+
+    // create distinct files in sys and app
+    {
+        std::ofstream f(sys_dir / "engine_shader.hlsl");
+        f << "cbuffer Test {}";
+    }
+    {
+        std::ofstream f(app_dir / "game_model.gltf");
+        f << "{\"asset\":{}}";
+    }
+
+    FileLoader loader(FSLoader::NATIVE);
+
+    // mounting without scheme should fail
+    CHECK_FALSE(loader.mount("/bare", sys_dir.c_str(), 0).valid());
+
+    // mount domains
+    CHECK(loader.mount("sys://", sys_dir.c_str(), 0).valid());
+    CHECK(loader.mount("app://", app_dir.c_str(), 0).valid());
+
+    // 1. Files are visible in their respective domains
+    CHECK(loader.exists("sys://engine_shader.hlsl"));
+    CHECK(loader.exists("app://game_model.gltf"));
+
+    // 2. Cross-domain queries are rejected / not found (app:// does not fall back to sys:// and vice-versa)
+    CHECK_FALSE(loader.exists("sys://game_model.gltf"));
+    CHECK_FALSE(loader.exists("app://engine_shader.hlsl"));
+
+    // 3. Bare relative paths without scheme are rejected
+    CHECK_FALSE(loader.exists("engine_shader.hlsl"));
+    CHECK_FALSE(loader.exists("game_model.gltf"));
+    CHECK_FALSE(loader.exists("/game_model.gltf"));
 
     fs::remove_all(temp_dir);
 }

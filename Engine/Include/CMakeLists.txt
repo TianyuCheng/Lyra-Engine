@@ -76,6 +76,7 @@ target_sources(lyra-headers INTERFACE
     # filesystem
     Lyra/FileSystem/VFSAPI.h
     Lyra/FileSystem/VFSEnums.h
+    Lyra/FileSystem/VFSPath.h
     Lyra/FileSystem/VFSTypes.h
     Lyra/FileSystem/VFSUtils.h
 

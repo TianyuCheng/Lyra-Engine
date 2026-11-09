@@ -35,26 +35,29 @@ static bool sort_mount_points(PhysMountPoint* a, PhysMountPoint* b)
 {
     if (a->priority != b->priority)
         return a->priority > b->priority;
-    return a->vpath.size() > b->vpath.size(); // longer vpath first as tiebreaker
+    return a->vprefix.path.size() > b->vprefix.path.size(); // longer subpath first as tiebreaker
 }
 
-static String normalize_vpath(FSPath vpath)
+static String to_physfs_path(FSPath vpath)
 {
-    if (!vpath) return String("/");
+    if (!vpath) return "";
+    VFSPath p = VFSPath::parse(vpath);
+    if (!p.is_valid()) {
+        get_logger()->error("to_physfs_path: invalid VFS path '{}'. Scheme is strictly required (e.g. 'sys://...' or 'app://...')", vpath);
+        return "";
+    }
+    if (p.path.empty()) {
+        return p.scheme;
+    }
+    return p.scheme + "/" + p.path;
+}
 
-    String s(vpath);
-    if (s.empty()) return String("/");
-
-    // replace backslashes with forward slashes to be consistent
-    std::replace(s.begin(), s.end(), '\\', '/');
-    if (s.front() != '/')
-        s.insert(s.begin(), '/');
-
-    // remove trailing '/'
-    while (s.size() > 1 && s.back() == '/')
-        s.pop_back();
-
-    return s;
+static String to_physfs_mount_point(const VFSPath& vprefix)
+{
+    if (vprefix.path.empty()) {
+        return vprefix.scheme;
+    }
+    return vprefix.scheme + "/" + vprefix.path;
 }
 
 // rebuild the PhysicsFS search path based on current mounts
@@ -76,10 +79,11 @@ static void rebuild_mounts(PhysFSLoader* loader)
 
     // mount each in order, appending to the end (higher prio earlier in search order)
     for (const auto& m : sorted) {
-        if (!PHYSFS_mount(m->root.string().c_str(), m->vpath.c_str(), 1)) {
-            get_logger()->error("rebuild_mounts: failed to mount {} -> {}: {}", m->vpath, m->root.string(), PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()));
+        String mount_point = to_physfs_mount_point(m->vprefix);
+        if (!PHYSFS_mount(m->root.string().c_str(), mount_point.c_str(), 1)) {
+            get_logger()->error("rebuild_mounts: failed to mount {} -> {}: {}", m->vprefix.to_string(), m->root.string(), PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()));
         } else {
-            get_logger()->trace("rebuild_mounts: mounted {} -> {}", m->vpath, m->root.string());
+            get_logger()->trace("rebuild_mounts: mounted {} -> {}", m->vprefix.to_string(), m->root.string());
         }
     }
 }
@@ -123,7 +127,7 @@ static usize sizeof_file(FileLoaderHandle loader, FSPath path)
         return 0;
     }
 
-    String v = normalize_vpath(path);
+    String v = to_physfs_path(path);
 
     PHYSFS_Stat stat;
     if (PHYSFS_stat(v.c_str(), &stat) && stat.filetype == PHYSFS_FILETYPE_REGULAR) {
@@ -140,7 +144,7 @@ static bool exists_file(FileLoaderHandle loader, FSPath path)
         return false;
     }
 
-    String v = normalize_vpath(path);
+    String v = to_physfs_path(path);
 
     PHYSFS_Stat stat;
     return PHYSFS_stat(v.c_str(), &stat) && stat.filetype == PHYSFS_FILETYPE_REGULAR;
@@ -153,7 +157,7 @@ static bool open_file(FileLoaderHandle loader, FileHandle& out_handle, FSPath pa
         return false;
     }
 
-    String v = normalize_vpath(path);
+    String v = to_physfs_path(path);
 
     PHYSFS_File* pf = PHYSFS_openRead(v.c_str());
     if (!pf) {
@@ -219,7 +223,7 @@ static bool read_whole_file(FileLoaderHandle loader, FSPath path, void* data)
     usize sz = sizeof_file(loader, path);
     if (sz == 0) return false; // not found or empty
 
-    String       v  = normalize_vpath(path);
+    String       v  = to_physfs_path(path);
     PHYSFS_File* pf = PHYSFS_openRead(v.c_str());
     if (!pf) return false;
 
@@ -240,11 +244,16 @@ static bool mount(FileLoaderHandle loader, MountHandle& out_handle, FSPath vpath
 
     std::error_code ec;
 
-    auto     vp = normalize_vpath(vpath);
+    auto vprefix = VFSPath::parse(vpath ? vpath : "");
+    if (!vprefix.is_valid()) {
+        get_logger()->error("mount: invalid VFS path '{}'. Scheme is strictly required (e.g. 'sys://' or 'app://')", vpath ? vpath : "");
+        return false;
+    }
+
     fs::path root(path);
     root = fs::absolute(root, ec);
     if (ec) {
-        get_logger()->error("mount {} -> {}: {}", vp, root.string(), ec.message());
+        get_logger()->error("mount {} -> {}: {}", vprefix.to_string(), root.string(), ec.message());
         return false;
     }
 
@@ -254,7 +263,7 @@ static bool mount(FileLoaderHandle loader, MountHandle& out_handle, FSPath vpath
     }
 
     auto m      = new PhysMountPoint{};
-    m->vpath    = vp;
+    m->vprefix  = vprefix;
     m->root     = root;
     m->priority = priority;
 
@@ -266,7 +275,7 @@ static bool mount(FileLoaderHandle loader, MountHandle& out_handle, FSPath vpath
     rebuild_mounts(pointer);
 
     out_handle.pointer = m;
-    get_logger()->info("mount: {} -> {} (prio {})", vp, root.string(), priority);
+    get_logger()->info("mount: {} -> {} (prio {})", vprefix.to_string(), root.string(), priority);
     return true;
 }
 
@@ -274,7 +283,7 @@ static bool unmount(FileLoaderHandle loader, MountHandle handle)
 {
     auto pointer = loader.as_type<PhysFSLoader>();
     auto pmount  = handle.as_type<PhysMountPoint>();
-    get_logger()->info("unmount path={} from vpath={}", pmount->root.string(), pmount->vpath);
+    get_logger()->info("unmount path={} from vpath={}", pmount->root.string(), pmount->vprefix.to_string());
 
     // lock while unmount
     std::lock_guard<std::mutex> lk(pointer->mounts_mutex);

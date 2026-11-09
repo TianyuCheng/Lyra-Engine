@@ -412,7 +412,7 @@ namespace lyra
         auto find_asset_type_for_cooker(const AssetCookerAPI* cooker) const -> AssetTypeID;
         bool is_cook_up_to_date(const Path& source_path, const Path& import_path) const;
         auto resolve_or_create_guid(const Path& rel_path, const Path& import_path) -> AssetID;
-        bool execute_cooker(AssetCookerAPI* cooker, const Path& source_path, JSON& metadata);
+        bool execute_cooker(AssetCookerAPI* cooker, const Path& source_path, OSPath caches_path, JSON& metadata);
         void commit_cooked_asset(const Path& import_path, const Path& rel_path, AssetID guid, AssetTypeID type_id, const JSON& metadata);
         auto cook_asset_task(AssetCookerAPI* cooker, const Path& source_path, const Path& import_path, const Path& rel_path, AssetID guid) -> AssetID;
 
@@ -422,9 +422,9 @@ namespace lyra
 
         // deletion helpers
         void unload_record(AssetID guid);
-        void delete_metadata_and_caches(const Path& import_path, AssetID guid);
-        bool delete_directory_assets(const Path& dir_path);
-        bool delete_single_asset(const Path& full_path, const Path& rel_path);
+        void delete_metadata_and_caches(const Path& import_path, OSPath caches_path, AssetID guid);
+        bool delete_directory_assets(const Path& dir_path, OSPath caches_path);
+        bool delete_single_asset(const Path& full_path, const Path& rel_path, OSPath caches_path);
 
         // move helpers
         auto resolve_destination_path(const Path& src_full, const Path& destination) const -> std::pair<Path, Path>;

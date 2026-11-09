@@ -338,12 +338,13 @@ SceneInstanceID SceneManager::load(SceneAssetHandle handle, const SpawnParams& p
 
 SceneInstanceID SceneManager::load(const Path& path, LoadMode mode)
 {
-    if (!fs::exists(path)) {
+    auto [full_path, vpath] = ams.resolve_asset_path(path);
+    if (full_path.empty() || !fs::exists(full_path)) {
         return INVALID_SCENE_INSTANCE;
     }
 
     // check for .import file to read GUID
-    Path    import_path = path.string() + ".import";
+    Path    import_path = full_path.string() + ".import";
     AssetID guid        = 0;
 
     if (fs::exists(import_path)) {
@@ -360,7 +361,7 @@ SceneInstanceID SceneManager::load(const Path& path, LoadMode mode)
     }
 
     if (guid == 0) {
-        guid = ams.get_guid(path.filename().string().c_str());
+        guid = ams.get_guid(vpath.generic_string().c_str());
     }
 
     if (guid == 0) {
@@ -376,7 +377,7 @@ SceneInstanceID SceneManager::load(const Path& path, LoadMode mode)
         }
     }
 
-    ams.register_asset_entry(guid, path, SceneAsset::type);
+    ams.register_asset_entry(guid, vpath, SceneAsset::type);
 
     SceneAssetHandle handle = ams.load_asset<SceneAsset>(guid);
     if (!handle.valid()) {
@@ -394,8 +395,8 @@ SceneInstanceID SceneManager::load(const Path& path, LoadMode mode)
     if (id != INVALID_SCENE_INSTANCE) {
         auto it = instances.find(id);
         if (it != instances.end()) {
-            it->second.path = path;
-            it->second.name = path.stem().string();
+            it->second.path = vpath;
+            it->second.name = vpath.stem().string();
         }
         if (mode == LoadMode::SINGLE) {
             dirty = false;
@@ -534,19 +535,24 @@ SceneAsset SceneManager::serialize() const
 
 bool SceneManager::save(const Path& path)
 {
-    SceneAsset scene = serialize();
-
-    if (path.has_parent_path()) {
-        std::error_code ec;
-        fs::create_directories(path.parent_path(), ec);
+    auto [full_path, vpath] = ams.resolve_asset_path(path);
+    if (full_path.empty()) {
+        return false;
     }
 
-    if (!ams.save_asset(scene, path.c_str())) {
+    SceneAsset scene = serialize();
+
+    if (full_path.has_parent_path()) {
+        std::error_code ec;
+        fs::create_directories(full_path.parent_path(), ec);
+    }
+
+    if (!ams.save_asset(scene, full_path.c_str())) {
         return false;
     }
 
     // write or verify .import metadata next to the scene file
-    Path    import_path = path.string() + ".import";
+    Path    import_path = full_path.string() + ".import";
     AssetID guid        = 0;
     if (fs::exists(import_path)) {
         std::ifstream f(import_path);
@@ -574,13 +580,13 @@ bool SceneManager::save(const Path& path)
         }
     }
 
-    ams.register_asset_entry(guid, path, SceneAsset::type);
+    ams.register_asset_entry(guid, vpath, SceneAsset::type);
 
     if (active_instance_id != INVALID_SCENE_INSTANCE) {
         auto it = instances.find(active_instance_id);
         if (it != instances.end()) {
-            it->second.path   = path;
-            it->second.name   = path.stem().string();
+            it->second.path   = vpath;
+            it->second.name   = vpath.stem().string();
             it->second.handle = SceneAssetHandle(guid);
         }
     }

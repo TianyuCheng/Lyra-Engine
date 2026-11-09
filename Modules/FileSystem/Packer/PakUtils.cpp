@@ -25,6 +25,12 @@ String PakArchive::normalize_path(FSPath vpath)
     String s(vpath);
     if (s.empty()) return String("");
 
+    // strip protocol scheme if present (e.g. sys:// or app://)
+    auto pos = s.find("://");
+    if (pos != String::npos) {
+        s.erase(0, pos + 3);
+    }
+
     // replace backslashes with forward slashes
     std::replace(s.begin(), s.end(), '\\', '/');
 
