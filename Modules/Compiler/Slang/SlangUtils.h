@@ -171,6 +171,7 @@ struct CompilerWrapper
 {
     ComPtr<slang::ISession> session;
     ComPtr<slang::IModule>  builtin;
+    Vector<String>          search_path_strings;
 
     static void init();
 

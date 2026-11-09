@@ -162,7 +162,7 @@ namespace lyra
 
         APIType* get_api() { return &api; }
 
-        APIType* get_api() const { return &api; }
+        const APIType* get_api() const { return &api; }
 
         static auto get_error() -> String;
 
@@ -214,7 +214,7 @@ namespace lyra
 
         APIType* get_api() { return &api; }
 
-        APIType* get_api() const { return &api; }
+        const APIType* get_api() const { return &api; }
 
     private:
         APIType   api;

@@ -1,0 +1,4 @@
+add_subdirectory(ForwardPlus)
+add_subdirectory(GPUDriven)
+add_subdirectory(DeferredHybrid)
+add_subdirectory(PathTracer)

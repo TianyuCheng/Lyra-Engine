@@ -62,7 +62,7 @@ static void imgui_update(AppContext& context)
     auto to_app_vpath = [&](const Path& os_path) -> Optional<String> {
         if (auto* browser = context.toolboard.try_get<AssetBrowserView>()) {
             std::error_code ec;
-            Path rel = fs::relative(os_path, browser->get_app_root(), ec);
+            Path            rel = fs::relative(os_path, browser->get_app_root(), ec);
             if (!ec && !rel.empty() && *rel.begin() != "..") {
                 return VFSPath(vfs::SchemeApp, rel.generic_string()).to_string();
             }

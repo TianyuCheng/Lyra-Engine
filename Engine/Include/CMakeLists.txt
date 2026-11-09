@@ -65,6 +65,22 @@ target_sources(lyra-headers INTERFACE
     Lyra/Rendering/GeometryBufferPool.h
     Lyra/Rendering/GeometryCache.h
     Lyra/Rendering/ResourceRetire.h
+    Lyra/Rendering/RendererTypes.h
+    Lyra/Rendering/RendererAPI.h
+    Lyra/Rendering/RenderPrimitive.h
+    Lyra/Rendering/RenderView.h
+    Lyra/Rendering/RenderScene.h
+    Lyra/Rendering/RendererManager.h
+    Lyra/Rendering/SystemTextures.h
+    Lyra/Rendering/ShadingBuffers.h
+    Lyra/Rendering/Passes/Pass.h
+    Lyra/Rendering/Passes/DepthPrepass.h
+    Lyra/Rendering/Passes/GBufferPass.h
+    Lyra/Rendering/Passes/TonemappingPass.h
+    Lyra/Rendering/Passes/SkyboxPass.h
+    Lyra/Rendering/Passes/LightCullingPass.h
+    Lyra/Rendering/Passes/HiZPyramidPass.h
+    Lyra/Rendering/Passes/ShadowMapPass.h
 
     # compiler
     Lyra/Compiler/SLCAPI.h

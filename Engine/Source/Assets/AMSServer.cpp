@@ -157,12 +157,12 @@ static void initialize_registry(AssetRegistry& registry, const AMSDescriptor& de
 }
 
 static void register_cooked_dependencies(
-    const JSON&           metadata,
-    const Path&           rel_path,
-    StringView            scheme,
-    AssetRegistry&        registry,
-    Vector<AssetID>&      out_dep_guids,
-    HashSet<AssetID>&     out_current_guids)
+    const JSON&       metadata,
+    const Path&       rel_path,
+    StringView        scheme,
+    AssetRegistry&    registry,
+    Vector<AssetID>&  out_dep_guids,
+    HashSet<AssetID>& out_current_guids)
 {
     if (!metadata.contains("dependencies") || !metadata["dependencies"].is_array()) {
         return;
@@ -188,7 +188,7 @@ static void register_cooked_dependencies(
             continue;
         }
 
-        String dep_name = item["name"].get<String>();
+        String      dep_name = item["name"].get<String>();
         AssetTypeID dep_type{};
         if (item["type"].is_string()) {
             dep_type = parse_uuid(item["type"].get<String>());
@@ -631,7 +631,9 @@ void AssetServer::commit_cooked_asset(const Path& import_path, const Path& rel_p
         OSPath  caches_path = get_caches_path(descriptor, vp.scheme);
 
         register_cooked_dependencies(metadata, rel_path, vp.scheme, registry, dependency_guids, current_dep_guids);
-        cleanup_orphaned_dependencies(prev_meta, current_dep_guids, caches_path, registry, [this](AssetID id) { unload_record(id); });
+        cleanup_orphaned_dependencies(prev_meta, current_dep_guids, caches_path, registry, [this](AssetID id) {
+            unload_record(id);
+        });
 
         String cooked_path;
         if (metadata.contains("path") && metadata["path"].is_string()) {
@@ -811,7 +813,9 @@ void AssetServer::delete_metadata_and_caches(const Path& import_path, OSPath cac
     if (meta) {
         static std::mutex registry_mutex;
         with_lock(registry_mutex, [&] {
-            remove_metadata_cache_files(*meta, caches_path, registry, [this](AssetID id) { unload_record(id); });
+            remove_metadata_cache_files(*meta, caches_path, registry, [this](AssetID id) {
+                unload_record(id);
+            });
         });
 
         fs::remove(import_path, ec);
@@ -846,9 +850,10 @@ bool AssetServer::delete_directory_assets(const Path& dir_path, OSPath caches_pa
 bool AssetServer::delete_single_asset(const Path& full_path, const Path& rel_path, OSPath caches_path)
 {
     std::error_code ec;
-    Path import_path = get_metadata_path(full_path);
 
     AssetID guid = 0;
+
+    Path import_path = get_metadata_path(full_path);
     if (fs::exists(import_path, ec)) {
         guid = load_guid(import_path);
     }
@@ -880,10 +885,11 @@ bool AssetServer::delete_asset(const Path& path)
         return false;
     }
 
+    std::error_code ec;
+
     VFSPath vp          = VFSPath::parse(rel_path.generic_string());
     OSPath  caches_path = get_caches_path(descriptor, vp.scheme);
 
-    std::error_code ec;
     bool success = false;
     if (fs::is_directory(full_path, ec)) {
         success = delete_directory_assets(full_path, caches_path);

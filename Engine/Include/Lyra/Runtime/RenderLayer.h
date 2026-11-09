@@ -7,6 +7,10 @@
 #include <Lyra/Graphics/RHITypes.h>
 #include <Lyra/Rendering/ResourceRetire.h>
 #include <Lyra/Rendering/GeometryCache.h>
+#include <Lyra/Rendering/RendererManager.h>
+#include <Lyra/Rendering/SystemTextures.h>
+#include <Lyra/Rendering/RenderScene.h>
+#include <Lyra/Rendering/RenderView.h>
 
 // local import
 #include <Lyra/Runtime/Application.h>
@@ -74,6 +78,31 @@ namespace lyra
         void drain();
 
         /**
+         * @brief Access the swappable renderer manager.
+         */
+        RendererManager&       get_renderer_manager() { return renderer_manager; }
+        const RendererManager& get_renderer_manager() const { return renderer_manager; }
+
+        /**
+         * @brief Access standard built-in fallback system textures and procedural LUTs.
+         */
+        SystemTextures&       get_system_textures() { return system_textures; }
+        const SystemTextures& get_system_textures() const { return system_textures; }
+
+        /**
+         * @brief Access extracted scene and view packets for the current frame.
+         */
+        RenderScene&       get_extracted_scene() { return extracted_scene; }
+        const RenderScene& get_extracted_scene() const { return extracted_scene; }
+        RenderView&        get_extracted_view() { return extracted_view; }
+        const RenderView&  get_extracted_view() const { return extracted_view; }
+
+        /**
+         * @brief Extract active camera, lights, and primitives from World into RenderScene and RenderView.
+         */
+        void extract_scene_and_view(AppContext& context);
+
+        /**
          * @brief Access the GPU geometry cache.
          */
         GeometryCache&       get_geometry_cache() { return geometry_cache; }
@@ -109,6 +138,16 @@ namespace lyra
 
         // -- GPU geometry residency cache --
         GeometryCache geometry_cache;
+
+        // -- pluggable renderer manager --
+        RendererManager renderer_manager;
+
+        // -- system fallback textures & procedural LUTs --
+        SystemTextures system_textures;
+
+        // -- extracted per-frame scene & view packet --
+        RenderScene extracted_scene;
+        RenderView  extracted_view;
     };
 
 } // namespace lyra

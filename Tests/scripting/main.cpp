@@ -298,17 +298,17 @@ TEST_CASE("scr::auto_registration" * doctest::description("ScriptRegistry auto-r
 TEST_CASE("render::camera_projection" * doctest::description("RenderLayer update_camera_projection matrix calculation"))
 {
     lyra::Camera camera;
-    camera.type = lyra::ProjectionType::PERSPECTIVE;
-    camera.fov = 90.0f;
-    camera.aspect = 1.0f;
+    camera.type       = lyra::ProjectionType::PERSPECTIVE;
+    camera.fov        = 90.0f;
+    camera.aspect     = 1.0f;
     camera.near_plane = 0.1f;
-    camera.far_plane = 100.0f;
+    camera.far_plane  = 100.0f;
 
     lyra::RenderLayer::update_camera_projection(camera);
     CHECK_NE(camera.projection, lyra::Matrix4x4(1.0f));
 
     lyra::World world;
-    auto node = world.create();
+    auto        node = world.create();
     world.add_component<lyra::Camera>(node, lyra::Camera{.type = lyra::ProjectionType::ORTHOGRAPHIC, .size = 20.0f});
 
     lyra::RenderLayer render_layer;

@@ -1,5 +1,8 @@
 #include <regex>
 #include <iostream>
+#include <fstream>
+#include <sstream>
+#include <filesystem>
 #include "SlangUtils.h"
 
 static ComPtr<slang::IGlobalSession> GLOBAL_SESSION;
@@ -47,6 +50,22 @@ Logger get_logger()
 {
     return logger;
 }
+
+static std::filesystem::path find_repository_root()
+{
+    try {
+        std::filesystem::path cur = std::filesystem::current_path();
+        while (!cur.empty()) {
+            if (std::filesystem::exists(cur / "Engine" / "Assets" / "Shaders") || std::filesystem::exists(cur / ".git")) {
+                return cur;
+            }
+            if (!cur.has_parent_path() || cur == cur.parent_path()) break;
+            cur = cur.parent_path();
+        }
+    } catch (...) {
+    }
+    return {};
+};
 
 static String to_string(GPUShaderStageFlags flags)
 {
@@ -550,11 +569,35 @@ CompilerWrapper::CompilerWrapper(const CompilerDescriptor& descriptor)
     target_desc.format  = select_target(descriptor);
     target_desc.profile = select_profile(descriptor);
 
+    Vector<const char*> search_paths;
+    for (auto& inc : descriptor.includes) {
+        if (inc && inc[0] != '\0') {
+            search_paths.push_back(inc);
+        }
+    }
+
+    auto repo_root = find_repository_root();
+    if (!repo_root.empty()) {
+        search_path_strings.push_back((repo_root / "Engine" / "Assets" / "Shaders").lexically_normal().string());
+        search_path_strings.push_back((repo_root / "Assets" / "Shaders").lexically_normal().string());
+        search_path_strings.push_back(repo_root.lexically_normal().string());
+    }
+
+    search_paths.push_back("Engine/Assets/Shaders");
+    search_paths.push_back("Assets/Shaders");
+    search_paths.push_back(".");
+
+    for (const auto& sp : search_path_strings) {
+        search_paths.push_back(sp.c_str());
+    }
+
     auto session_desc                     = slang::SessionDesc{};
     session_desc.targets                  = &target_desc;
     session_desc.targetCount              = 1;
     session_desc.compilerOptionEntryCount = static_cast<uint>(options.size());
     session_desc.compilerOptionEntries    = options.data();
+    session_desc.searchPaths              = search_paths.data();
+    session_desc.searchPathCount          = static_cast<SlangInt>(search_paths.size());
 
     if (SLANG_FAILED(GLOBAL_SESSION->createSession(session_desc, session.writeRef()))) {
         get_logger()->error("Failed to create Slang session!");
@@ -608,15 +651,55 @@ bool CompilerWrapper::compile(const CompileDescriptor& desc, CompileResultIntern
     // compile result shares the session
     result.session = session;
 
-    String processed_source = preprocess_lyra_shader_source(desc.source ? desc.source : "", target);
+    String source_text;
+    if (desc.source && std::strlen(desc.source) > 0) {
+        source_text = desc.source;
+    } else if (desc.path && std::strlen(desc.path) > 0) {
+        std::filesystem::path p(desc.path);
+        if (std::filesystem::exists(p)) {
+            std::ifstream file(p, std::ios::binary);
+            if (file.is_open()) {
+                std::stringstream buffer;
+                buffer << file.rdbuf();
+                source_text = buffer.str();
+            }
+        } else {
+            Vector<std::filesystem::path> search_dirs = {
+                "Engine/Assets/Shaders",
+                "Assets/Shaders",
+                "."};
+            for (const auto& sp : search_path_strings) {
+                search_dirs.push_back(std::filesystem::path(sp));
+            }
+            for (const auto& sp : search_dirs) {
+                auto candidate = sp / p;
+                if (std::filesystem::exists(candidate)) {
+                    std::ifstream file(candidate, std::ios::binary);
+                    if (file.is_open()) {
+                        std::stringstream buffer;
+                        buffer << file.rdbuf();
+                        source_text = buffer.str();
+                        break;
+                    }
+                }
+            }
+        }
+    }
 
     // create shader module
     ComPtr<slang::IBlob> diagnostics;
-    result.module = session->loadModuleFromSourceString(
-        desc.module,              // module name
-        desc.path,                // module path
-        processed_source.c_str(), // shader source code
-        diagnostics.writeRef());  // optional diagnostic container
+    if (!source_text.empty()) {
+        String processed_source = preprocess_lyra_shader_source(source_text, target);
+        result.module           = session->loadModuleFromSourceString(
+            desc.module,                         // module name
+            desc.path ? desc.path : desc.module, // module path
+            processed_source.c_str(),            // shader source code
+            diagnostics.writeRef());             // optional diagnostic container
+    } else {
+        result.module = session->loadModule(
+            desc.module,
+            diagnostics.writeRef());
+    }
     diagnose_if_needed(diagnostics, result.module != nullptr ? SLANG_OK : SLANG_FAIL);
 
     return result.module != nullptr;
@@ -637,6 +720,9 @@ bool CompilerWrapper::reflect(ShaderEntryPoints entries, ReflectResultInternal& 
     for (auto& entry : entries) {
         auto module = reinterpret_cast<CompileResultInternal*>(entry.module.pointer);
         auto entryp = module->get_entry_point(entry.entry);
+        if (!entryp) {
+            return false;
+        }
         entry_points.push_back(entryp);
         component_types.push_back(entryp);
     }

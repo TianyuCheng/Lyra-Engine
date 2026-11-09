@@ -174,13 +174,15 @@ void AssetBrowserView::show_header_toolbar()
 
         ui::icon_button(LYRA_ICON_REFRESH, [&]() {
             update_directory(curr, true);
-        }, "Refresh directory", ui::ButtonRole::Ghost);
+        },
+            "Refresh directory", ui::ButtonRole::Ghost);
 
         if (!is_read_only()) {
             ui::icon_button(LYRA_ICON_NEW_FOLDER, [&]() {
                 show_new_folder_modal = true;
                 open_new_folder_modal = true;
-            }, "Create new folder", ui::ButtonRole::Ghost);
+            },
+                "Create new folder", ui::ButtonRole::Ghost);
         }
 
         ui::separator();
@@ -210,8 +212,7 @@ void AssetBrowserView::show_domain_selector()
             is_sys ? "Engine Core active (sys://) [Read-Only]\nFlip switch to Project (app://)"
                    : "Project active (app://)\nFlip switch to Engine (sys://)",
             Vector4(0.44f, 0.27f, 0.10f, 0.95f), // rich bronze track when active
-            Vector2(30.0f, 16.0f)
-        );
+            Vector2(30.0f, 16.0f));
 
         ImGui::SameLine(0.0f, 5.0f);
     }
@@ -242,8 +243,8 @@ void AssetBrowserView::show_domain_selector()
     }
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) {
         ImGui::SetTooltip("%s", is_sys
-            ? (curr != root ? "Engine Core (sys://) [Read-Only]\nClick to return to root" : "Engine Core (sys://) [Read-Only]\nClick to switch to Project (app://)")
-            : (curr != root ? "Project Workspace (app://)\nClick to return to root" : "Project Workspace (app://)\nClick to switch to Engine (sys://)"));
+                                    ? (curr != root ? "Engine Core (sys://) [Read-Only]\nClick to return to root" : "Engine Core (sys://) [Read-Only]\nClick to switch to Project (app://)")
+                                    : (curr != root ? "Project Workspace (app://)\nClick to return to root" : "Project Workspace (app://)\nClick to switch to Engine (sys://)"));
     }
     ImGui::PopStyleColor(4);
     ImGui::PopStyleVar(2);
@@ -260,12 +261,12 @@ void AssetBrowserView::show_domain_selector()
     bb_min.y -= 1.0f;
     bb_max.y += 1.0f;
 
-    ImU32 bg_col = is_sys
-        ? ImGui::GetColorU32(ImVec4(0.24f, 0.16f, 0.08f, 0.75f))
-        : ImGui::GetColorU32(ImVec4(0.12f, 0.12f, 0.14f, 0.70f));
+    ImU32 bg_col     = is_sys
+                           ? ImGui::GetColorU32(ImVec4(0.24f, 0.16f, 0.08f, 0.75f))
+                           : ImGui::GetColorU32(ImVec4(0.12f, 0.12f, 0.14f, 0.70f));
     ImU32 border_col = is_sys
-        ? ImGui::GetColorU32(ImVec4(0.65f, 0.45f, 0.15f, 0.40f))
-        : ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 1.0f, 0.08f));
+                           ? ImGui::GetColorU32(ImVec4(0.65f, 0.45f, 0.15f, 0.40f))
+                           : ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 1.0f, 0.08f));
     draw_list->AddRectFilled(bb_min, bb_max, bg_col, 5.0f);
     draw_list->AddRect(bb_min, bb_max, border_col, 5.0f);
     draw_list->ChannelsMerge();
@@ -444,8 +445,8 @@ void AssetBrowserView::show_item(AppContext& context, StringView name, bool is_f
     std::error_code ec_rel;
     Path            rel_path = fs::relative(item_path, root, ec_rel);
     String          sub_path = (!ec_rel && !rel_path.empty() && *rel_path.begin() != "..")
-        ? rel_path.generic_string()
-        : item_path.filename().generic_string();
+                                   ? rel_path.generic_string()
+                                   : item_path.filename().generic_string();
     String          vpath    = VFSPath(get_current_scheme(), sub_path).to_string();
 
     auto on_double_click = [&, vpath, ext]() {
@@ -461,7 +462,7 @@ void AssetBrowserView::show_item(AppContext& context, StringView name, bool is_f
         } else if ((ext == ".model" || ext == ".gltf" || ext == ".glb" || ext == ".obj" || ext == ".stl") && scene_mgr) {
             if (auto ams = get_asset_server()) {
                 auto model_handle = ams->load_asset<ModelAsset>(vpath.c_str());
-                bool spawned = false;
+                bool spawned      = false;
                 if (model_handle.valid()) {
                     auto node = scene_mgr->spawn(model_handle);
                     if (node.entity != entt::null) {
@@ -544,7 +545,7 @@ void AssetBrowserView::show_item(AppContext& context, StringView name, bool is_f
                     auto ams = get_asset_server();
                     if (ams) {
                         auto model_handle = ams->load_asset<ModelAsset>(vpath.c_str());
-                        bool spawned = false;
+                        bool spawned      = false;
                         if (model_handle.valid()) {
                             auto node = scene_mgr->spawn(model_handle);
                             if (node.entity != entt::null) {
@@ -821,6 +822,9 @@ void AssetBrowserView::show_input_modal(CString title, bool* p_open, CString pro
 {
     ui::modal(title, p_open, [&]() {
         ui::label(prompt);
+        if (ImGui::IsWindowAppearing()) {
+            ImGui::SetKeyboardFocusHere();
+        }
         ui::text_field(title, buffer, buffer_size, [&]() {
             on_submit(buffer);
             *p_open = false;
@@ -1072,9 +1076,9 @@ std::pair<GUITextureHandle, Vector2> AssetBrowserView::get_thumbnail(AppContext&
                 if (j.contains("thumbnail") && j["thumbnail"].is_string()) {
                     auto   thumb_rel   = j["thumbnail"].get<String>();
                     String thumb_vpath = VFSPath::has_protocol(thumb_rel)
-                        ? thumb_rel
-                        : VFSPath(get_current_scheme(), thumb_rel).to_string();
-                    auto loader = context.toolboard.try_get<FileLoader*>();
+                                             ? thumb_rel
+                                             : VFSPath(get_current_scheme(), thumb_rel).to_string();
+                    auto   loader      = context.toolboard.try_get<FileLoader*>();
                     if (loader && loader->exists(thumb_vpath.c_str())) {
                         queued_thumbnails.push_back({name_str, thumb_vpath});
                     }

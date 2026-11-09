@@ -68,7 +68,7 @@ static bool write_if_changed(const fs::path& path, const std::string& content)
 static std::string extract_include_path(const fs::path& p)
 {
     std::string path_str = p.lexically_normal().generic_string();
-    size_t idx = path_str.rfind("/Include/");
+    size_t      idx      = path_str.rfind("/Include/");
     if (idx != std::string::npos) {
         return path_str.substr(idx + 9);
     }

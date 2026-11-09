@@ -668,3 +668,263 @@ TEST_CASE("utilities::toolboard::operations" * doctest::description("toolboard r
     CHECK(tb.empty());
     CHECK(tb.size() == 0);
 }
+
+TEST_CASE("shader_library::modules_compilation")
+{
+    String code = R"""(
+    import lyra;
+    import Common.Sampling;
+    import Common.BSDF;
+    import Common.Noise;
+    import Common.Tonemapping;
+    import Common.Lighting;
+    import Common.RayTracing;
+    import Common.Culling;
+    import Common.Skinning;
+    import Common.Denoising;
+    import Common.Colorspace;
+    import Common.SphericalHarmonics;
+    import Common.SDF;
+    import Common.Shadows;
+    import Common.Packing;
+    import Common.Mapping;
+    import Common.ScreenSpace;
+    import Common.Camera;
+    import Procedural.Atmosphere;
+    import Procedural.Ocean;
+    import Procedural.Terrain;
+
+    struct TestOutput
+    {
+        float4 color : SV_TARGET;
+    };
+
+    [shader("fragment")]
+    TestOutput fsmain(float4 pos : SV_Position)
+    {
+        TestOutput out;
+        float2 uv = pos.xy / 800.0;
+        float n_val  = perlin_noise(uv * 10.0);
+        float s_val  = simplex_noise(float3(uv, 1.0));
+        float f_val  = fbm(uv * 4.0, 4);
+        float3 c_val = curl_noise(float3(uv, 0.5));
+        float dither = interleaved_gradient_noise(pos.xy, 0);
+
+        PBRMaterial mat;
+        mat.base_color   = float3(n_val, s_val, f_val);
+        mat.metallic     = 0.0;
+        mat.roughness    = 0.5;
+        mat.reflectance  = 0.5;
+        mat.clear_coat.factor    = 0.5;
+        mat.clear_coat.roughness = 0.04;
+        mat.clear_coat.tint      = float3(0.0);
+        mat.clear_coat.thickness = 0.0;
+
+        float3 V = float3(0.0, 0.0, 1.0);
+        float3 L = normalize(float3(1.0, 1.0, 1.0));
+        float3 N = float3(0.0, 0.0, 1.0);
+        float ies = evaluate_ies_analytical(1, L, float3(0.0, 0.0, -1.0));
+        float3 lit = mat.evaluate(V, L, N) * ies + c_val * 0.01 + dither * 0.001;
+
+        // test ray tracing utilities
+        float3 safe_origin = offset_ray(float3(pos.xy, 0.0), N);
+        float mis = power_heuristic(1.0, 2.0);
+        float3 trans = beer_lambert(float3(0.1, 0.2, 0.3), 1.0);
+        uint packed_n = pack_normal_2x16(N);
+        float3 unpacked_n = unpack_normal_2x16(packed_n);
+
+        // test culling utilities
+        float4 planes[6] = { float4(1, 0, 0, 1), float4(-1, 0, 0, 1), float4(0, 1, 0, 1), float4(0, -1, 0, 1), float4(0, 0, 1, 1), float4(0, 0, -1, 1) };
+        float3 aabb_min = float3(-1.0);
+        float3 aabb_max = float3(1.0);
+        bool culled = cull_aabb_frustum(planes, aabb_min, aabb_max);
+        bool cone_culled = cull_cluster_cone(float3(0, 5, 0), float3(0), float3(0, 1, 0), 0.5);
+
+        // test skinning utilities
+        float4 weights = normalize_weights_4(float4(0.5, 0.3, 0.2, 0.0));
+        DualQuat dq;
+        dq.real = float4(0, 0, 0, 1);
+        dq.dual = float4(0, 0, 0, 0);
+        float3 skinned_p = dq.transform_point(float3(pos.xy, 0.0));
+        float3 morph_pos = skinned_p;
+        float3 morph_norm = N;
+        float3 morph_tang = float3(1, 0, 0);
+        apply_morph_target(morph_pos, morph_norm, morph_tang, float3(0.1), float3(0), float3(0), 0.5);
+
+        // test denoising utilities
+        float3 ycocg = rgb_to_ycocg(lit);
+        float3 clipped_ycocg = clip_variance_aabb(ycocg, ycocg, float3(0.1));
+        float3 denoised = ycocg_to_rgb(clipped_ycocg);
+        float atrous_w = atrous_kernel_weight(0, 0);
+        float edge_w = edge_stopping_weight(1.0, 1.02, N, N, 0.5, 0.52, 0.01);
+
+        // test colorspace utilities
+        float3 acescg = srgb_to_acescg(denoised);
+        float3 kelvin_col = kelvin_to_rgb(6500.0);
+        float3 xyz = linear_srgb_to_xyz(kelvin_col);
+        float3 lab = xyz_to_lab(xyz);
+        float3 p3_col = srgb_to_dci_p3(denoised);
+
+        // test spherical harmonics utilities
+        SH9Color sun_sh = project_directional_light(float3(0, 1, 0), float3(1.0, 0.95, 0.9));
+        SH9Color irr_sh = convolve_cosine_lobe(sun_sh);
+        SH9Color windowed_sh = apply_sloan_windowing(irr_sh, 0.05);
+        float3 sh_irradiance = evaluate_sh_irradiance(windowed_sh, N);
+
+        // test SDF utilities (Inigo Quilez)
+        float sphere_d = sdf_sphere(float3(pos.xy, 0.0), 1.0);
+        float box_d = sdf_box(float3(pos.xy, 0.0), float3(0.5));
+        float smooth_d = op_smooth_union(sphere_d, box_d, 0.1);
+        float3 twisted_p = op_twist(float3(pos.xy, 0.0), 0.5);
+        SphereSDF s_scene;
+        s_scene.radius = 1.0;
+        float3 s_normal = sdf_calc_normal(float3(0, 1, 0), 0.001, s_scene);
+
+        // test Shadows utilities
+        float3 biased_p = apply_normal_offset_bias(float3(pos.xy, 0.0), N, L, 0.02);
+        float slope_bias = compute_slope_scaled_bias(max(dot(N, L), 0.0));
+        int cascade_idx;
+        float cascade_blend;
+        select_csm_cascade(15.0, float4(10, 30, 100, 300), 0.15, cascade_idx, cascade_blend);
+
+        // test Packing utilities
+        uint r11 = pack_float3_to_r11g11b10f(lit);
+        float3 unpacked_r11 = unpack_r11g11b10f_to_float3(r11);
+        uint pack_n, pack_t;
+        pack_tangent_frame(N, float3(1, 0, 0), 1.0, pack_n, pack_t);
+        float3 dec_n, dec_t, dec_b;
+        unpack_tangent_frame(pack_n, pack_t, dec_n, dec_t, dec_b);
+        float lin_z = linearize_reverse_z_depth(0.9, 0.1, 1000.0);
+
+        // test Mapping and ScreenSpace utilities
+        float3 tri_w = triplanar_weights(N, 4.0);
+        float edge_att = screen_edge_fade(uv);
+        float arc_ao = gtao_integrate_arc(-0.5, 0.5, 0.0);
+
+        // test Camera & Exposure utilities
+        float ev100 = camera_parameters_to_ev100(4.0, 1.0 / 125.0, 100.0);
+        float exp_scale = ev100_to_exposure(ev100);
+
+        // test 2D SDF utilities (Inigo Quilez)
+        float circ_2d = sdf_circle_2d(uv, 0.5);
+        float box_2d = sdf_box_2d(uv, float2(0.3, 0.2));
+        float extr_d = op_extrude(float3(pos.xy, 0.0), circ_2d, 0.1);
+
+        // test Procedural Atmosphere
+        AtmosphereParameters atmo = default_earth_atmosphere();
+        float3 sky_col = evaluate_sky_radiance(atmo, float3(0, 6361.0, 0), normalize(float3(0, 0.1, 1)), normalize(float3(0, 0.5, 1)), 4);
+
+        // test Procedural Ocean
+        GerstnerWave waves[4];
+        for (int w_i = 0; w_i < 4; ++w_i) {
+            waves[w_i].direction = float2(1, 0);
+            waves[w_i].amplitude = 0.5;
+            waves[w_i].wavelength = 20.0;
+            waves[w_i].steepness = 0.2;
+            waves[w_i].phase = 0.0;
+        }
+        WaterSurfacePoint water_pt = evaluate_gerstner_waves(pos.xy, 1.0, waves);
+        float3 water_trans = compute_water_transmittance(5.0);
+        float water_fresnel = compute_water_fresnel(0.8);
+
+        // test Procedural Terrain
+        TerrainBiomeConfig biome = default_mountain_biome();
+        float elev = evaluate_ridged_elevation(pos.xy);
+        float3 terr_norm = evaluate_terrain_normal(pos.xy);
+        TerrainSplatWeights splat = evaluate_terrain_splat_weights(elev * 800.0, terr_norm, biome);
+
+        out.color = float4(tonemap_aces_film(sh_irradiance * 0.1 + acescg_to_srgb(acescg) * atrous_w * edge_w * mis * trans + unpacked_n * 0.0001 + morph_pos * 0.00001 + unpacked_r11 * 0.0001 + dec_n * 0.0001 + sky_col * 0.01 + water_trans * 0.01 + splat.grass * 0.01 + (culled || cone_culled ? 0.001 : 0.0) + (smooth_d + slope_bias + lin_z + edge_att + arc_ao + exp_scale + circ_2d + box_2d + extr_d + water_fresnel) * 0.00001), 1.0);
+        return out;
+    }
+    )""";
+
+    auto compiler = execute([&]() {
+        auto desc   = CompilerDescriptor{};
+        desc.target = CompileTarget::SPIRV;
+        desc.flags  = CompileFlag::NONE;
+        return Compiler::init(desc);
+    });
+
+    auto module = execute([&]() {
+        auto desc   = CompileDescriptor{};
+        desc.module = "test_shader_library";
+        desc.path   = "test_shader_library.slang";
+        desc.source = code.c_str();
+        return compiler->compile(desc);
+    });
+
+    CHECK(module != nullptr);
+    CHECK(module->handle.valid());
+
+    auto reflection = compiler->reflect({
+        {*module, "fsmain"},
+    });
+    CHECK(reflection != nullptr);
+
+    auto ies_module = execute([&]() {
+        auto desc   = CompileDescriptor{};
+        desc.module = "LUT.IESProfiles";
+        desc.path   = "Engine/Assets/Shaders/LUT/IESProfiles.slang";
+        return compiler->compile(desc);
+    });
+    CHECK(ies_module != nullptr);
+    CHECK(ies_module->handle.valid());
+
+    auto ies_reflection = compiler->reflect({
+        {*ies_module, "csmain"},
+    });
+    CHECK(ies_reflection != nullptr);
+    CHECK_EQ(ies_reflection->get_bind_group_layouts().size(), 1);
+
+    auto culling_module = execute([&]() {
+        auto desc   = CompileDescriptor{};
+        desc.module = "GPUDriven.Culling";
+        desc.path   = "Engine/Assets/Shaders/GPUDriven/Culling.slang";
+        return compiler->compile(desc);
+    });
+    CHECK(culling_module != nullptr);
+    CHECK(culling_module->handle.valid());
+
+    auto culling_reflection = compiler->reflect({
+        {*culling_module, "csmain"},
+    });
+    CHECK(culling_reflection != nullptr);
+    CHECK_EQ(culling_reflection->get_bind_group_layouts().size(), 1);
+
+    // post-processing shaders: AutoExposure, Bloom, DepthOfField, FXAA
+    auto exposure_module = execute([&]() {
+        auto desc   = CompileDescriptor{};
+        desc.module = "PostProcess.AutoExposure";
+        desc.path   = "Engine/Assets/Shaders/PostProcess/AutoExposure.slang";
+        return compiler->compile(desc);
+    });
+    CHECK(exposure_module != nullptr);
+    CHECK(exposure_module->handle.valid());
+
+    auto bloom_module = execute([&]() {
+        auto desc   = CompileDescriptor{};
+        desc.module = "PostProcess.Bloom";
+        desc.path   = "Engine/Assets/Shaders/PostProcess/Bloom.slang";
+        return compiler->compile(desc);
+    });
+    CHECK(bloom_module != nullptr);
+    CHECK(bloom_module->handle.valid());
+
+    auto dof_module = execute([&]() {
+        auto desc   = CompileDescriptor{};
+        desc.module = "PostProcess.DepthOfField";
+        desc.path   = "Engine/Assets/Shaders/PostProcess/DepthOfField.slang";
+        return compiler->compile(desc);
+    });
+    CHECK(dof_module != nullptr);
+    CHECK(dof_module->handle.valid());
+
+    auto fxaa_module = execute([&]() {
+        auto desc   = CompileDescriptor{};
+        desc.module = "PostProcess.FXAA";
+        desc.path   = "Engine/Assets/Shaders/PostProcess/FXAA.slang";
+        return compiler->compile(desc);
+    });
+    CHECK(fxaa_module != nullptr);
+    CHECK(fxaa_module->handle.valid());
+}

@@ -15,12 +15,19 @@ VulkanTexture::VulkanTexture(const GPUTextureDescriptor& desc) : aspects(0)
 
     // determine image type
     VkImageType image_type;
-    if (desc.size.depth > 1) {
-        image_type = VK_IMAGE_TYPE_3D;
-    } else if (desc.size.height > 1) {
-        image_type = VK_IMAGE_TYPE_2D;
-    } else {
-        image_type = VK_IMAGE_TYPE_1D;
+    switch (desc.dimension) {
+        case GPUTextureDimension::x1D:
+            image_type = VK_IMAGE_TYPE_1D;
+            break;
+        case GPUTextureDimension::x2D:
+            image_type = VK_IMAGE_TYPE_2D;
+            break;
+        case GPUTextureDimension::x3D:
+            image_type = VK_IMAGE_TYPE_3D;
+            break;
+        default:
+            image_type = (desc.size.depth > 1) ? VK_IMAGE_TYPE_3D : ((desc.size.height > 1) ? VK_IMAGE_TYPE_2D : VK_IMAGE_TYPE_1D);
+            break;
     }
 
     // buffer create info

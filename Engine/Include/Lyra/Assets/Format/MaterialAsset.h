@@ -26,6 +26,19 @@ namespace lyra
     };
 
     /**
+     * @brief Shading models supported by the material system.
+     * Supports both physical-based rendering and user-defined custom material shading.
+     */
+    enum struct ShadingModel : uint
+    {
+        PBR_METALLIC_ROUGHNESS = 0,
+        UNLIT                  = 1,
+        TOON_CEL               = 2,
+        SUBSURFACE             = 3,
+        CUSTOM                 = 4,
+    };
+
+    /**
      * @brief A material asset defining the visual appearance of a mesh surface.
      *
      * Serialized as a USDA file (.material) using the UsdPreviewSurface shading model.
@@ -39,6 +52,10 @@ namespace lyra
 
         static auto saver() -> AssetSaverAPI;
         static auto loader() -> AssetLoaderAPI;
+
+        // shading model and custom shader override
+        ShadingModel shading_model      = ShadingModel::PBR_METALLIC_ROUGHNESS;
+        String       custom_shader_path = ""; // optional VFS path (e.g. sys:// or app://) for custom shaders
 
         // pbr parameters
         Vector4 base_color_factor  = Vector4(1.0f);

@@ -91,5 +91,14 @@
 #include <Lyra/Rendering/GeometryBufferPool.h>
 #include <Lyra/Rendering/ResourceRetire.h>
 #include <Lyra/Rendering/GeometryCache.h>
+#include <Lyra/Rendering/RendererTypes.h>
+#include <Lyra/Rendering/RendererAPI.h>
+#include <Lyra/Rendering/RenderPrimitive.h>
+#include <Lyra/Rendering/RenderView.h>
+#include <Lyra/Rendering/RenderScene.h>
+#include <Lyra/Rendering/RendererManager.h>
+#include <Lyra/Rendering/SystemTextures.h>
+#include <Lyra/Rendering/ShadingBuffers.h>
+#include <Lyra/Rendering/Passes/Pass.h>
 
 #endif // LYRA_ENGINE_LYRA_HPP

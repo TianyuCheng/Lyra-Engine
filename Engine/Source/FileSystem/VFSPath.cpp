@@ -15,7 +15,7 @@ static String normalize_subpath(StringView raw_path)
 
     // split into segments and normalize '.' and '..'
     Vector<String> segments;
-    usize start = 0;
+    usize          start = 0;
     while (start < s.size()) {
         usize end = s.find('/', start);
         if (end == String::npos) end = s.size();

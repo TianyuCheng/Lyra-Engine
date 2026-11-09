@@ -395,7 +395,7 @@ GPUTextureView GPUTexture::create_view()
     desc.base_array_layer         = 0;
     desc.array_layer_count        = array_layers;
     desc.base_mip_level           = 0;
-    desc.mip_level_count          = std::min(mip_level_count, static_cast<GPUIntegerCoordinate>(std::log2(std::min(width, height))));
+    desc.mip_level_count          = std::max(1u, mip_level_count);
     desc.aspect                   = static_cast<GPUTextureAspect>(aspect);
     desc.format                   = format;
     desc.usage                    = usage;

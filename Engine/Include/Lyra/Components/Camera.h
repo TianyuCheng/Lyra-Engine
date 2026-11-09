@@ -3,6 +3,8 @@
 #ifndef LYRA_ENGINE_COMPONENTS_CAMERA_H
 #define LYRA_ENGINE_COMPONENTS_CAMERA_H
 
+#include <cmath>
+#include <algorithm>
 #include <Lyra/Utilities/Math.h>
 #include <Lyra/Utilities/Stdint.h>
 
@@ -18,7 +20,17 @@ namespace lyra
     };
 
     /**
-     * @brief unified camera component with projection parameters and cached projection matrix.
+     * @brief photographic exposure mode.
+     */
+    enum struct ExposureMode : uint
+    {
+        MANUAL,          ///< photographic parameters: aperture, shutter speed, ISO
+        EV_COMPENSATION, ///< direct EV100 slider + exposure compensation
+        AUTO_HISTOGRAM   ///< dynamic GPU eye adaptation via luminance histogram
+    };
+
+    /**
+     * @brief core camera component with projection parameters and cached projection matrix.
      */
     struct [[lyra::component("Camera")]] Camera
     {
@@ -43,6 +55,63 @@ namespace lyra
         [[lyra::hidden]]
         Matrix4x4 projection = Matrix4x4(1.0f);
     };
+
+    /**
+     * @brief physically based photographic exposure and eye adaptation settings component.
+     */
+    struct [[lyra::component("CameraExposure", category = "Rendering")]] CameraExposure
+    {
+        [[lyra::label("Exposure Mode")]]
+        ExposureMode exposure_mode = ExposureMode::MANUAL;
+
+        [[lyra::range(0.5f, 64.0f), lyra::label("Aperture (f-stop)"), lyra::condition("exposure_mode == ExposureMode::MANUAL")]]
+        float aperture = 4.0f; // f/4.0
+
+        [[lyra::range(0.0001f, 10.0f), lyra::label("Shutter Speed (s)"), lyra::condition("exposure_mode == ExposureMode::MANUAL")]]
+        float shutter_speed = 1.0f / 125.0f; // 1/125s (8ms)
+
+        [[lyra::range(10.0f, 102400.0f), lyra::label("ISO"), lyra::condition("exposure_mode == ExposureMode::MANUAL")]]
+        float iso = 100.0f;
+
+        [[lyra::range(-10.0f, 20.0f), lyra::label("EV100"), lyra::condition("exposure_mode == ExposureMode::EV_COMPENSATION")]]
+        float manual_ev100 = 9.7f;
+
+        [[lyra::range(-5.0f, 5.0f), lyra::label("Exposure Compensation")]]
+        float exposure_compensation = 0.0f; // EV stops
+
+        // auto-exposure / eye adaptation parameters
+        [[lyra::range(-10.0f, 20.0f), lyra::label("Min EV"), lyra::condition("exposure_mode == ExposureMode::AUTO_HISTOGRAM")]]
+        float min_ev = -4.0f;
+
+        [[lyra::range(-10.0f, 20.0f), lyra::label("Max EV"), lyra::condition("exposure_mode == ExposureMode::AUTO_HISTOGRAM")]]
+        float max_ev = 16.0f;
+
+        [[lyra::range(0.1f, 20.0f), lyra::label("Speed Up"), lyra::condition("exposure_mode == ExposureMode::AUTO_HISTOGRAM")]]
+        float speed_up = 3.0f; // adaptation speed towards brighter environments
+
+        [[lyra::range(0.1f, 20.0f), lyra::label("Speed Down"), lyra::condition("exposure_mode == ExposureMode::AUTO_HISTOGRAM")]]
+        float speed_down = 1.0f; // adaptation speed towards darker environments
+
+        [[lyra::range(0.0f, 0.5f), lyra::label("Histogram Low %"), lyra::condition("exposure_mode == ExposureMode::AUTO_HISTOGRAM")]]
+        float low_percent = 0.10f; // discard bottom 10% darkest pixels
+
+        [[lyra::range(0.5f, 1.0f), lyra::label("Histogram High %"), lyra::condition("exposure_mode == ExposureMode::AUTO_HISTOGRAM")]]
+        float high_percent = 0.90f; // discard top 10% brightest pixels
+    };
+
+    inline float get_camera_ev100(const CameraExposure& exposure)
+    {
+        if (exposure.exposure_mode == ExposureMode::EV_COMPENSATION) {
+            return exposure.manual_ev100 - exposure.exposure_compensation;
+        }
+        float ev = std::log2((exposure.aperture * exposure.aperture / std::max(exposure.shutter_speed, 1e-5f)) * (100.0f / std::max(exposure.iso, 1e-5f)));
+        return ev - exposure.exposure_compensation;
+    }
+
+    inline float get_camera_exposure_scale(const CameraExposure& exposure)
+    {
+        return 1.0f / (1.2f * std::pow(2.0f, get_camera_ev100(exposure)));
+    }
 
     /**
      * @brief fly first-person camera controller with WASD movement, mouse look, and velocity/rotation damping.

@@ -108,6 +108,15 @@ target_sources(lyra-engine PRIVATE
   Rendering/GeometryBufferPool.cpp
   Rendering/GeometryCache.cpp
   Rendering/ResourceRetire.cpp
+  Rendering/RendererManager.cpp
+  Rendering/SystemTextures.cpp
+  Rendering/Passes/DepthPrepass.cpp
+  Rendering/Passes/GBufferPass.cpp
+  Rendering/Passes/TonemappingPass.cpp
+  Rendering/Passes/SkyboxPass.cpp
+  Rendering/Passes/LightCullingPass.cpp
+  Rendering/Passes/HiZPyramidPass.cpp
+  Rendering/Passes/ShadowMapPass.cpp
 
   # windowing
   Windowing/WSIState.cpp
