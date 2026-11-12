@@ -72,6 +72,7 @@ target_sources(lyra-headers INTERFACE
     Lyra/Rendering/RenderScene.h
     Lyra/Rendering/RendererManager.h
     Lyra/Rendering/SystemTextures.h
+    Lyra/Rendering/ProceduralMesh.h
     Lyra/Rendering/ShadingBuffers.h
     Lyra/Rendering/Passes/Pass.h
     Lyra/Rendering/Passes/DepthPrepass.h

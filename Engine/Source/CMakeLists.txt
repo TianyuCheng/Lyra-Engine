@@ -110,6 +110,7 @@ target_sources(lyra-engine PRIVATE
   Rendering/ResourceRetire.cpp
   Rendering/RendererManager.cpp
   Rendering/SystemTextures.cpp
+  Rendering/ProceduralMesh.cpp
   Rendering/Passes/DepthPrepass.cpp
   Rendering/Passes/GBufferPass.cpp
   Rendering/Passes/TonemappingPass.cpp
