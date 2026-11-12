@@ -47,12 +47,15 @@ public float evaluate_ies_profile(
 }
 
 /**
- * @brief Analytical evaluation of standard IES luminaire profiles (zero texture bandwidth).
+ * @brief Computes normalized luminous intensity for standard photometric profiles given polar angle theta.
+ *
+ * @param profile Profile index [0..15]
+ * @param theta Polar angle from luminaire pointing vector in radians [0..PI]
+ * @return Normalized photometric intensity factor in [0, 1]
  */
-public float evaluate_ies_analytical(uint profile, float3 light_to_surface, float3 light_direction)
+public float compute_ies_profile(uint profile, float theta)
 {
-    float cos_theta = clamp(dot(light_direction, light_to_surface), -1.0, 1.0);
-    float theta     = acos(cos_theta);
+    float cos_theta = cos(theta);
 
     switch (profile)
     {
@@ -94,39 +97,12 @@ public float evaluate_ies_analytical(uint profile, float3 light_to_surface, floa
     }
 }
 
-public float distribution_ggx(float3 N, float3 H, float roughness)
+/**
+ * @brief Analytical evaluation of standard IES luminaire profiles (zero texture bandwidth).
+ */
+public float evaluate_ies_analytical(uint profile, float3 light_to_surface, float3 light_direction)
 {
-    float a = roughness * roughness;
-    float a2 = a * a;
-    float NdotH = max(dot(N, H), 0.0);
-    float NdotH2 = NdotH * NdotH;
-
-    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
-    denom = PI * denom * denom;
-
-    return a2 / max(denom, 0.0000001);
-}
-
-public float geometry_schlick_ggx(float NdotV, float roughness)
-{
-    float r = (roughness + 1.0);
-    float k = (r * r) / 8.0;
-
-    float denom = NdotV * (1.0 - k) + k;
-    return NdotV / max(denom, 0.0000001);
-}
-
-public float geometry_smith(float3 N, float3 V, float3 L, float roughness)
-{
-    float NdotV = max(dot(N, V), 0.0);
-    float NdotL = max(dot(N, L), 0.0);
-    float ggx2 = geometry_schlick_ggx(NdotV, roughness);
-    float ggx1 = geometry_schlick_ggx(NdotL, roughness);
-
-    return ggx1 * ggx2;
-}
-
-public float3 fresnel_schlick(float cos_theta, float3 F0)
-{
-    return F0 + (1.0 - F0) * pow(clamp(1.0 - cos_theta, 0.0, 1.0), 5.0);
+    float cos_theta = clamp(dot(light_direction, light_to_surface), -1.0, 1.0);
+    float theta     = acos(cos_theta);
+    return compute_ies_profile(profile, theta);
 }

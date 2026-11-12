@@ -53,7 +53,7 @@ namespace lyra
     struct MeshPrimitive
     {
         IndexedGeometry     geometry;
-        uint                submesh_index      = 0;
+        uint                submesh_index = 0;
         MaterialAssetHandle material;
         Matrix4x4           transform          = Matrix4x4(1.0f);
         Bounds3D            world_bounds       = {};
@@ -68,8 +68,8 @@ namespace lyra
     struct MeshletPrimitive
     {
         MeshletGeometry     geometry;
-        uint                meshlet_offset     = 0;
-        uint                meshlet_count      = 0;
+        uint                meshlet_offset = 0;
+        uint                meshlet_count  = 0;
         MaterialAssetHandle material;
         Matrix4x4           transform          = Matrix4x4(1.0f);
         Bounds3D            world_bounds       = {};
@@ -83,9 +83,9 @@ namespace lyra
      */
     struct SDFPrimitive
     {
-        SDFShapeType        shape_type         = SDFShapeType::SPHERE;
-        SDFBlendOp          blend_op           = SDFBlendOp::UNION;
-        Vector4             parameters         = Vector4(1.0f); // e.g. radius, half-extents, smoothness
+        SDFShapeType        shape_type = SDFShapeType::SPHERE;
+        SDFBlendOp          blend_op   = SDFBlendOp::UNION;
+        Vector4             parameters = Vector4(1.0f); // e.g. radius, half-extents, smoothness
         MaterialAssetHandle material;
         Matrix4x4           transform          = Matrix4x4(1.0f);
         Bounds3D            world_bounds       = {};
@@ -99,12 +99,12 @@ namespace lyra
      */
     struct BVHPrimitive
     {
-        GPUBlasHandle       blas;
-        uint                instance_custom_index = 0;
-        uint                mask                  = 0xFF;
-        uint                sbt_offset            = 0;
-        Matrix4x4           transform             = Matrix4x4(1.0f);
-        Bounds3D            world_bounds          = {};
+        GPUBlasHandle blas;
+        uint          instance_custom_index = 0;
+        uint          mask                  = 0xFF;
+        uint          sbt_offset            = 0;
+        Matrix4x4     transform             = Matrix4x4(1.0f);
+        Bounds3D      world_bounds          = {};
     };
 
 } // namespace lyra

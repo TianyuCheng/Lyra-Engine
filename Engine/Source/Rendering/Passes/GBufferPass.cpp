@@ -32,25 +32,25 @@ GBufferData GBufferPass::add(
             normal_desc.usage       = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
             data.normal_roughness   = pass_builder.create<FrameGraphTexture>(normal_desc);
 
-            auto mat_desc           = GPUTextureDescriptor{};
-            mat_desc.label          = "gbuffer_material_info";
-            mat_desc.size.width     = extent.width;
-            mat_desc.size.height    = extent.height;
-            mat_desc.size.depth     = 1;
-            mat_desc.dimension      = GPUTextureDimension::x2D;
-            mat_desc.format         = GPUTextureFormat::RGBA8UINT;
-            mat_desc.usage          = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
-            data.material_info      = pass_builder.create<FrameGraphTexture>(mat_desc);
+            auto mat_desc        = GPUTextureDescriptor{};
+            mat_desc.label       = "gbuffer_material_info";
+            mat_desc.size.width  = extent.width;
+            mat_desc.size.height = extent.height;
+            mat_desc.size.depth  = 1;
+            mat_desc.dimension   = GPUTextureDimension::x2D;
+            mat_desc.format      = GPUTextureFormat::RGBA8UINT;
+            mat_desc.usage       = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
+            data.material_info   = pass_builder.create<FrameGraphTexture>(mat_desc);
 
-            auto depth_desc         = GPUTextureDescriptor{};
-            depth_desc.label        = "gbuffer_depth_stencil";
-            depth_desc.size.width   = extent.width;
-            depth_desc.size.height  = extent.height;
-            depth_desc.size.depth   = 1;
-            depth_desc.dimension    = GPUTextureDimension::x2D;
-            depth_desc.format       = GPUTextureFormat::DEPTH24PLUS_STENCIL8;
-            depth_desc.usage        = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
-            data.depth_stencil      = pass_builder.create<FrameGraphTexture>(depth_desc);
+            auto depth_desc        = GPUTextureDescriptor{};
+            depth_desc.label       = "gbuffer_depth_stencil";
+            depth_desc.size.width  = extent.width;
+            depth_desc.size.height = extent.height;
+            depth_desc.size.depth  = 1;
+            depth_desc.dimension   = GPUTextureDimension::x2D;
+            depth_desc.format      = GPUTextureFormat::DEPTH24PLUS_STENCIL8;
+            depth_desc.usage       = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
+            data.depth_stencil     = pass_builder.create<FrameGraphTexture>(depth_desc);
 
             data.albedo_metallic  = pass_builder.render(data.albedo_metallic);
             data.normal_roughness = pass_builder.render(data.normal_roughness);

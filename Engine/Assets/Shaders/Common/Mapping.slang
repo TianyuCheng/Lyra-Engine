@@ -221,3 +221,16 @@ public float4 sample_bicubic_catmull_rom_5tap(
 
     return color;
 }
+
+/**
+ * @brief Computes a 2D procedural checkerboard parity (0 or 1).
+ *
+ * @param uv Normalized or unnormalized 2D coordinates
+ * @param frequency Number of checks across the domain
+ * @return 0.0 or 1.0 depending on checker parity
+ */
+public float checkerboard(float2 uv, float frequency = 1.0)
+{
+    float2 f = floor(uv * frequency);
+    return fmod(f.x + f.y, 2.0);
+}

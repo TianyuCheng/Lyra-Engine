@@ -23,7 +23,7 @@ TEST_CASE("rendering::renderer_plugins" * doctest::description("Renderer plugin 
         REQUIRE(api->create_renderer != nullptr);
         REQUIRE(api->delete_renderer != nullptr);
 
-        RendererHandle handle{};
+        RendererHandle     handle{};
         RendererDescriptor desc{};
         CHECK(api->create_renderer(handle, desc));
         CHECK(handle.valid());
@@ -46,7 +46,7 @@ TEST_CASE("rendering::renderer_plugins" * doctest::description("Renderer plugin 
         CHECK(caps.features.contains(RendererFeature::COMPUTE_CULLING));
         CHECK(caps.supported_primitives.contains(PrimitiveSupport::MESHLET));
 
-        RendererHandle handle{};
+        RendererHandle     handle{};
         RendererDescriptor desc{};
         CHECK(api->create_renderer(handle, desc));
         CHECK(handle.valid());
@@ -69,7 +69,7 @@ TEST_CASE("rendering::renderer_plugins" * doctest::description("Renderer plugin 
         CHECK(caps.features.contains(RendererFeature::HARDWARE_RAYTRACING));
         CHECK(caps.supported_primitives.contains(PrimitiveSupport::BVH));
 
-        RendererHandle handle{};
+        RendererHandle     handle{};
         RendererDescriptor desc{};
         CHECK(api->create_renderer(handle, desc));
         CHECK(handle.valid());
@@ -92,7 +92,7 @@ TEST_CASE("rendering::renderer_plugins" * doctest::description("Renderer plugin 
         CHECK(caps.features.contains(RendererFeature::ACCUMULATION));
         CHECK(caps.supported_primitives.contains(PrimitiveSupport::BVH));
 
-        RendererHandle handle{};
+        RendererHandle     handle{};
         RendererDescriptor desc{};
         CHECK(api->create_renderer(handle, desc));
         CHECK(handle.valid());

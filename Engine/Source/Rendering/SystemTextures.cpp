@@ -1,245 +1,14 @@
-#include <Lyra/Rendering/SystemTextures.h>
+#include <Lyra/Utilities/Math.h>
+#include <Lyra/Utilities/Logger.h>
 #include <Lyra/Graphics/RHIAPI.h>
 #include <Lyra/Graphics/RHIEnums.h>
 #include <Lyra/Graphics/RHIDescs.h>
 #include <Lyra/Graphics/RHIInits.h>
 #include <Lyra/Graphics/RHIUtils.h>
 #include <Lyra/Compiler/SLCTypes.h>
-#include <Lyra/Utilities/Math.h>
-#include <Lyra/Utilities/Logger.h>
+#include <Lyra/Rendering/SystemTextures.h>
 
 using namespace lyra;
-
-// -----------------------------------------------------------------------------
-// Slang Compute Shader Sources for Procedural Textures
-// -----------------------------------------------------------------------------
-
-static CString k_brdf_lut_shader = R"""(
-import lyra;
-
-static const float PI      = 3.14159265358979323846;
-static const float TWO_PI  = 6.28318530717958647692;
-static const float EPSILON = 1e-6;
-
-float radical_inverse_vdc(uint bits)
-{
-    bits = reversebits(bits);
-    return float(bits) * 2.3283064365386963e-10;
-}
-
-float2 hammersley_2d(uint i, uint N)
-{
-    return float2(float(i) / float(N), radical_inverse_vdc(i));
-}
-
-float3 sample_ggx(float2 u, float roughness, float3 N)
-{
-    float a = roughness * roughness;
-    float a2 = a * a;
-    float phi = TWO_PI * u.x;
-    float cos_theta = sqrt(max(0.0, (1.0 - u.y) / (1.0 + (a2 - 1.0) * u.y)));
-    float sin_theta = sqrt(max(0.0, 1.0 - cos_theta * cos_theta));
-
-    float3 H = float3(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta);
-
-    float3 up = abs(N.z) < 0.999 ? float3(0.0, 0.0, 1.0) : float3(1.0, 0.0, 0.0);
-    float3 tangent = normalize(cross(up, N));
-    float3 bitangent = cross(N, tangent);
-    return normalize(tangent * H.x + bitangent * H.y + N * H.z);
-}
-
-float visibility_smith_ggx_correlated(float NoV, float NoL, float a2)
-{
-    float GGXV = NoL * sqrt(NoV * NoV * (1.0 - a2) + a2);
-    float GGXL = NoV * sqrt(NoL * NoL * (1.0 - a2) + a2);
-    return 0.5 / max(GGXV + GGXL, EPSILON);
-}
-
-float2 integrate_brdf(float NoV, float roughness, uint num_samples)
-{
-    NoV = clamp(NoV, 1e-4, 1.0);
-    float3 V = float3(sqrt(1.0 - NoV * NoV), 0.0, NoV);
-    float3 N = float3(0.0, 0.0, 1.0);
-    float a = roughness * roughness;
-    float a2 = a * a;
-
-    float scale = 0.0;
-    float bias  = 0.0;
-
-    for (uint i = 0; i < num_samples; ++i) {
-        float2 u = hammersley_2d(i, num_samples);
-        float3 H = sample_ggx(u, roughness, N);
-        float3 L = normalize(2.0 * dot(V, H) * H - V);
-
-        float NoL = max(L.z, 0.0);
-        float NoH = max(H.z, 0.0);
-        float VoH = max(dot(V, H), 0.0);
-
-        if (NoL > 0.0) {
-            float V_pdf = (visibility_smith_ggx_correlated(NoV, NoL, a2) * VoH) / max(NoH, EPSILON);
-            float Fc = pow(1.0 - VoH, 5.0);
-
-            scale += (1.0 - Fc) * V_pdf;
-            bias  += Fc * V_pdf;
-        }
-    }
-
-    return float2(scale, bias) * (4.0 / float(num_samples));
-}
-
-[[lyra::binding(0, 0)]]
-RWTexture2D<float4> out_lut;
-
-[shader("compute")]
-[numthreads(16, 16, 1)]
-void csmain(uint3 dispatch_thread_id : SV_DispatchThreadID)
-{
-    uint2 pixel = dispatch_thread_id.xy;
-    if (pixel.x >= 256 || pixel.y >= 256) {
-        return;
-    }
-
-    float NoV       = max((float(pixel.x) + 0.5) / 256.0, 1e-4);
-    float roughness = max((float(pixel.y) + 0.5) / 256.0, 1e-4);
-
-    float2 integrated = integrate_brdf(NoV, roughness, 1024);
-
-    out_lut[pixel] = float4(integrated.x, integrated.y, 0.0, 1.0);
-}
-)""";
-
-static CString k_skymap_shader = R"""(
-import lyra;
-
-[[lyra::binding(0, 0)]]
-RWTexture2D<float4> out_skymap;
-
-[shader("compute")]
-[numthreads(8, 8, 1)]
-void csmain(uint3 dispatch_thread_id : SV_DispatchThreadID)
-{
-    uint2 pixel = dispatch_thread_id.xy;
-    if (pixel.x >= 64 || pixel.y >= 64) {
-        return;
-    }
-
-    float v = (float(pixel.y) + 0.5) / 64.0;
-
-    float3 zenith_color  = float3(0.18, 0.42, 0.85);
-    float3 horizon_color = float3(0.70, 0.78, 0.90);
-    float3 ground_color  = float3(0.13, 0.13, 0.15);
-
-    float3 color;
-    if (v <= 0.5) {
-        float h = 1.0 - (v * 2.0);
-        float t = pow(1.0 - h, 2.2);
-        color = lerp(zenith_color, horizon_color, t);
-    } else {
-        float g = (v - 0.5) * 2.0;
-        float t = min(1.0, g * 1.8);
-        color = lerp(horizon_color, ground_color, t);
-    }
-
-    out_skymap[pixel] = float4(color, 1.0);
-}
-)""";
-
-static CString k_checkerboard_shader = R"""(
-import lyra;
-
-[[lyra::binding(0, 0)]]
-RWTexture2D<float4> out_checkerboard;
-
-[shader("compute")]
-[numthreads(8, 8, 1)]
-void csmain(uint3 dispatch_thread_id : SV_DispatchThreadID)
-{
-    uint2 pixel = dispatch_thread_id.xy;
-    if (pixel.x >= 16 || pixel.y >= 16) {
-        return;
-    }
-
-    uint tile_size = 4;
-    bool is_even = ((pixel.x / tile_size) + (pixel.y / tile_size)) % 2 == 0;
-
-    float4 color_dark  = float4(50.0 / 255.0, 50.0 / 255.0, 50.0 / 255.0, 1.0);
-    float4 color_light = float4(70.0 / 255.0, 70.0 / 255.0, 70.0 / 255.0, 1.0);
-
-    out_checkerboard[pixel] = is_even ? color_dark : color_light;
-}
-)""";
-
-static CString k_ies_profiles_shader = R"""(
-import lyra;
-
-static const float PI = 3.14159265358979323846;
-static const float HALF_PI = 1.57079632679489661923;
-
-[[lyra::binding(0, 0)]]
-RWTexture2D<float4> out_ies_atlas;
-
-float compute_ies_profile(uint profile, float theta)
-{
-    float cos_theta = cos(theta);
-
-    switch (profile)
-    {
-    case 0:
-        return 1.0;
-    case 1:
-        return pow(max(cos_theta, 0.0), 128.0);
-    case 2:
-        return pow(max(cos_theta, 0.0), 32.0);
-    case 3:
-        return pow(max(cos_theta, 0.0), 8.0);
-    case 4:
-        return pow(max(cos_theta, 0.0), 2.5);
-    case 5:
-        return max(cos_theta, 0.0);
-    case 6:
-        return max(pow(max(cos_theta, 0.0), 8.0), pow(max(-cos_theta, 0.0), 8.0));
-    case 7:
-        if (theta > HALF_PI) return 0.0;
-        return clamp((sin(theta) / (pow(theta - 0.60, 2.0) + 0.15)) * 0.28, 0.0, 1.0);
-    case 8:
-        return pow(max(-cos_theta, 0.0), 4.0);
-    case 9:
-        return pow(max(cos_theta, 0.0), 64.0) * smoothstep(PI * 0.25, 0.0, theta);
-    case 10:
-        if (theta > HALF_PI) return 0.0;
-        return pow(max(cos_theta, 0.0), 1.5) * (1.0 + 0.5 * sin(theta * 2.0));
-    case 11:
-        return clamp(pow(max(cos_theta, 0.0), 64.0) + exp(-pow((theta - 0.5) / 0.08, 2.0)) * 0.35, 0.0, 1.0);
-    case 12:
-        return pow(max(cos_theta, 0.0), 1.2);
-    case 13:
-        return 0.2 + 0.8 * smoothstep(PI * 0.9, PI * 0.2, theta);
-    case 14:
-        return pow(max(-cos_theta, 0.0), 2.0) * (0.5 + 0.5 * sin(theta));
-    case 15:
-    default:
-        return pow(max(cos_theta, 0.0), 16.0);
-    }
-}
-
-[shader("compute")]
-[numthreads(16, 16, 1)]
-void csmain(uint3 dispatch_thread_id : SV_DispatchThreadID)
-{
-    uint2 pixel = dispatch_thread_id.xy;
-    if (pixel.x >= 256 || pixel.y >= 16) {
-        return;
-    }
-
-    float u = (float(pixel.x) + 0.5) / 256.0;
-    float theta = u * PI;
-    uint profile = pixel.y;
-
-    float intensity = compute_ies_profile(profile, theta);
-
-    out_ies_atlas[pixel] = float4(intensity, intensity, intensity, 1.0);
-}
-)""";
 
 // -----------------------------------------------------------------------------
 // SystemTextures Implementation
@@ -331,26 +100,26 @@ void SystemTextures::init_solid_textures(GPUDevice device)
         return device.create_texture(desc);
     };
 
-    white_texture       = create_solid_texture("system_white");
-    white_view          = white_texture.create_view();
+    white_texture = create_solid_texture("system_white");
+    white_view    = white_texture.create_view();
 
-    black_texture       = create_solid_texture("system_black");
-    black_view          = black_texture.create_view();
+    black_texture = create_solid_texture("system_black");
+    black_view    = black_texture.create_view();
 
-    normal_texture      = create_solid_texture("system_flat_normal");
-    normal_view         = normal_texture.create_view();
+    normal_texture = create_solid_texture("system_flat_normal");
+    normal_view    = normal_texture.create_view();
 
-    bump_texture        = create_solid_texture("system_flat_bump");
-    bump_view           = bump_texture.create_view();
+    bump_texture = create_solid_texture("system_flat_bump");
+    bump_view    = bump_texture.create_view();
 
     default_pbr_texture = create_solid_texture("system_default_pbr");
     default_pbr_view    = default_pbr_texture.create_view();
 
-    magenta_texture     = create_solid_texture("system_magenta_error");
-    magenta_view        = magenta_texture.create_view();
+    magenta_texture = create_solid_texture("system_magenta_error");
+    magenta_view    = magenta_texture.create_view();
 
-    blue_noise_texture  = create_solid_texture("system_blue_noise");
-    blue_noise_view     = blue_noise_texture.create_view();
+    blue_noise_texture = create_solid_texture("system_blue_noise");
+    blue_noise_view    = blue_noise_texture.create_view();
 
     // 1x1 solid pixel values
     const uint32_t white_pixel   = 0xFFFFFFFF; // white
@@ -369,13 +138,13 @@ void SystemTextures::init_solid_textures(GPUDevice device)
     };
 
     Vector<SolidJob> jobs = {
-        {white_texture,       white_pixel,   0},
-        {black_texture,       black_pixel,   0},
-        {normal_texture,      normal_pixel,  0},
-        {bump_texture,        bump_pixel,    0},
-        {default_pbr_texture, pbr_pixel,     0},
-        {magenta_texture,     magenta_pixel, 0},
-        {blue_noise_texture,  noise_pixel,   0},
+        {white_texture, white_pixel, 0},
+        {black_texture, black_pixel, 0},
+        {normal_texture, normal_pixel, 0},
+        {bump_texture, bump_pixel, 0},
+        {default_pbr_texture, pbr_pixel, 0},
+        {magenta_texture, magenta_pixel, 0},
+        {blue_noise_texture, noise_pixel, 0},
     };
 
     // align staging offsets to 256 bytes for multi-hardware compliance
@@ -436,7 +205,7 @@ bool SystemTextures::dispatch_compute_lut(
     GPUDevice      device,
     Compiler       compiler,
     CString        module_name,
-    CString        shader_source,
+    CString        shader_path,
     GPUTexture     texture,
     GPUTextureView view,
     uint           width,
@@ -450,8 +219,8 @@ bool SystemTextures::dispatch_compute_lut(
 
     auto desc   = CompileDescriptor{};
     desc.module = module_name;
-    desc.path   = module_name;
-    desc.source = shader_source;
+    desc.path   = shader_path;
+    desc.source = nullptr;
 
     Own<ShaderModule> shader_module;
     try {
@@ -475,10 +244,10 @@ bool SystemTextures::dispatch_compute_lut(
         return false;
     }
 
-    auto sm_desc  = GPUShaderModuleDescriptor{};
-    sm_desc.label = module_name;
-    sm_desc.data  = blob->data;
-    sm_desc.size  = blob->size;
+    auto sm_desc    = GPUShaderModuleDescriptor{};
+    sm_desc.label   = module_name;
+    sm_desc.data    = blob->data;
+    sm_desc.size    = blob->size;
     auto gpu_module = device.create_shader_module(sm_desc);
 
     Vector<GPUBindGroupLayoutHandle> blayouts;
@@ -489,18 +258,18 @@ bool SystemTextures::dispatch_compute_lut(
     auto playout_desc               = GPUPipelineLayoutDescriptor{};
     playout_desc.bind_group_layouts = blayouts;
     playout_desc.immediate_size     = reflection->get_immediate_size();
-    auto playout = device.create_pipeline_layout(playout_desc);
+    auto playout                    = device.create_pipeline_layout(playout_desc);
 
     auto cp_desc                = GPUComputePipelineDescriptor{};
     cp_desc.label               = module_name;
     cp_desc.layout              = playout;
     cp_desc.compute.module      = gpu_module;
     cp_desc.compute.entry_point = "csmain";
-    auto pipeline = device.create_compute_pipeline(cp_desc);
+    auto pipeline               = device.create_compute_pipeline(cp_desc);
 
     auto heap_desc      = GPUBindGroupHeapDescriptor{};
     heap_desc.page_size = 512;
-    auto heap = device.create_bind_group_heap(heap_desc);
+    auto heap           = device.create_bind_group_heap(heap_desc);
 
     Array<GPUBindGroupEntry, 1> entries{};
     entries[0].type    = GPUResourceType::STORAGE_TEXTURE;
@@ -562,23 +331,23 @@ void SystemTextures::init_procedural_textures(GPUDevice device, Compiler compile
     };
 
     // 1. allocate textures with storage binding support
-    brdf_lut_texture     = create_storage_tex(BRDF_SIZE, BRDF_SIZE, "system_brdf_lut");
-    brdf_lut_view        = brdf_lut_texture.create_view();
+    brdf_lut_texture = create_storage_tex(BRDF_SIZE, BRDF_SIZE, "system_brdf_lut");
+    brdf_lut_view    = brdf_lut_texture.create_view();
 
-    skymap_texture       = create_storage_tex(SKY_WIDTH, SKY_HEIGHT, "system_skymap");
-    skymap_view          = skymap_texture.create_view();
+    skymap_texture = create_storage_tex(SKY_WIDTH, SKY_HEIGHT, "system_skymap");
+    skymap_view    = skymap_texture.create_view();
 
     checkerboard_texture = create_storage_tex(CHECKER_SIZE, CHECKER_SIZE, "system_checkerboard");
     checkerboard_view    = checkerboard_texture.create_view();
 
-    ies_atlas_texture    = create_storage_tex(IES_WIDTH, IES_HEIGHT, "system_ies_atlas");
-    ies_atlas_view       = ies_atlas_texture.create_view();
+    ies_atlas_texture = create_storage_tex(IES_WIDTH, IES_HEIGHT, "system_ies_atlas");
+    ies_atlas_view    = ies_atlas_texture.create_view();
 
-    // 2. attempt GPU compute shader execution
-    bool brdf_ok    = dispatch_compute_lut(device, compiler, "brdf_lut", k_brdf_lut_shader, brdf_lut_texture, brdf_lut_view, BRDF_SIZE, BRDF_SIZE, 16, 16);
-    bool skymap_ok  = dispatch_compute_lut(device, compiler, "skymap", k_skymap_shader, skymap_texture, skymap_view, SKY_WIDTH, SKY_HEIGHT, 8, 8);
-    bool checker_ok = dispatch_compute_lut(device, compiler, "checkerboard", k_checkerboard_shader, checkerboard_texture, checkerboard_view, CHECKER_SIZE, CHECKER_SIZE, 8, 8);
-    bool ies_ok     = dispatch_compute_lut(device, compiler, "ies_profiles", k_ies_profiles_shader, ies_atlas_texture, ies_atlas_view, IES_WIDTH, IES_HEIGHT, 16, 16);
+    // 2. attempt GPU compute shader execution using shader library in Engine/Assets/Shaders/LUT/
+    bool brdf_ok    = dispatch_compute_lut(device, compiler, "LUT.BRDFLut", "LUT/BRDFLut.slang", brdf_lut_texture, brdf_lut_view, BRDF_SIZE, BRDF_SIZE, 16, 16);
+    bool skymap_ok  = dispatch_compute_lut(device, compiler, "LUT.Skymap", "LUT/Skymap.slang", skymap_texture, skymap_view, SKY_WIDTH, SKY_HEIGHT, 8, 8);
+    bool checker_ok = dispatch_compute_lut(device, compiler, "LUT.Checkerboard", "LUT/Checkerboard.slang", checkerboard_texture, checkerboard_view, CHECKER_SIZE, CHECKER_SIZE, 8, 8);
+    bool ies_ok     = dispatch_compute_lut(device, compiler, "LUT.IESProfiles", "LUT/IESProfiles.slang", ies_atlas_texture, ies_atlas_view, IES_WIDTH, IES_HEIGHT, 16, 16);
 
     // 3. fast fallback if compiler is unavailable (e.g., headless unit testing)
     if (!brdf_ok || !skymap_ok || !checker_ok || !ies_ok) {

@@ -13,15 +13,15 @@ ShadowMapData ShadowMapPass::add(
     return builder.add_pass<ShadowMapData>(
         "ShadowMapPass",
         [&](ShadowMapData& data, FrameGraphPassBuilder& pass_builder) {
-            auto desc            = GPUTextureDescriptor{};
-            desc.label           = "shadow_map_cascades";
-            desc.size.width      = resolution;
-            desc.size.height     = resolution;
-            desc.size.depth      = 1;
-            desc.array_layers    = cascade_count;
-            desc.dimension       = GPUTextureDimension::x2D;
-            desc.format          = GPUTextureFormat::DEPTH24PLUS_STENCIL8;
-            desc.usage           = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
+            auto desc             = GPUTextureDescriptor{};
+            desc.label            = "shadow_map_cascades";
+            desc.size.width       = resolution;
+            desc.size.height      = resolution;
+            desc.size.depth       = 1;
+            desc.array_layers     = cascade_count;
+            desc.dimension        = GPUTextureDimension::x2D;
+            desc.format           = GPUTextureFormat::DEPTH24PLUS_STENCIL8;
+            desc.usage            = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
             data.shadow_map_array = pass_builder.create<FrameGraphTexture>(desc);
             data.shadow_map_array = pass_builder.render(data.shadow_map_array);
         },

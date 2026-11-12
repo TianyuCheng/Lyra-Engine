@@ -53,8 +53,8 @@ namespace lyra
      */
     struct RendererCaps
     {
-        RendererFeatures  features             = RendererFeature::NONE;
-        PrimitiveSupports supported_primitives = PrimitiveSupport::NONE;
+        RendererFeatures  features               = RendererFeature::NONE;
+        PrimitiveSupports supported_primitives   = PrimitiveSupport::NONE;
         uint              max_directional_lights = 4;
         uint              max_local_lights       = 4096;
         uint              max_samples_per_pixel  = 1;

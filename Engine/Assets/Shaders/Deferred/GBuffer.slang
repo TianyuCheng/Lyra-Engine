@@ -45,10 +45,10 @@ struct VertexOutput
 VertexOutput vsmain(VertexInput input)
 {
     VertexOutput output;
-    float4 world_pos = mul(instance_data.model, float4(input.position, 1.0));
+    float4 world_pos = mul(float4(input.position, 1.0), instance_data.model);
     output.world_pos = world_pos.xyz;
-    output.position  = mul(camera.proj, mul(camera.view, world_pos));
-    output.normal    = mul((float3x3)instance_data.model, input.normal);
+    output.position  = mul(mul(world_pos, camera.view), camera.proj);
+    output.normal    = mul(input.normal, (float3x3)instance_data.model);
     output.uv        = input.uv;
     return output;
 }

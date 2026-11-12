@@ -13,26 +13,26 @@ struct DeferredHybridRendererInstance
     RendererStats      stats;
 
     // device & pipeline handles
-    GPUDevice          device;
-    GPURenderPipeline  gbuffer_pipeline;
-    GPURenderPipeline  lighting_pipeline;
-    GPUPipelineLayout  gbuffer_layout;
-    GPUPipelineLayout  lighting_layout;
+    GPUDevice         device;
+    GPURenderPipeline gbuffer_pipeline;
+    GPURenderPipeline lighting_pipeline;
+    GPUPipelineLayout gbuffer_layout;
+    GPUPipelineLayout lighting_layout;
 
     // G-Buffer render targets
-    GPUTexture         albedo_metallic_tex;
-    GPUTextureView     albedo_metallic_view;
-    GPUTexture         normal_roughness_tex;
-    GPUTextureView     normal_roughness_view;
-    GPUTexture         material_info_tex;
-    GPUTextureView     material_info_view;
-    GPUTexture         depth_stencil_tex;
-    GPUTextureView     depth_stencil_view;
+    GPUTexture     albedo_metallic_tex;
+    GPUTextureView albedo_metallic_view;
+    GPUTexture     normal_roughness_tex;
+    GPUTextureView normal_roughness_view;
+    GPUTexture     material_info_tex;
+    GPUTextureView material_info_view;
+    GPUTexture     depth_stencil_tex;
+    GPUTextureView depth_stencil_view;
 
     // ray tracing acceleration & buffers
-    GPUTlas            scene_tlas;
-    GPUBuffer          camera_buffer;
-    GPUBuffer          light_storage_buffer;
+    GPUTlas   scene_tlas;
+    GPUBuffer camera_buffer;
+    GPUBuffer light_storage_buffer;
 };
 
 static auto get_name() -> CString
@@ -57,7 +57,7 @@ static auto get_capabilities() -> RendererCaps
 
 static bool create_renderer(RendererHandle& out_handle, const RendererDescriptor& descriptor)
 {
-    auto instance = std::make_unique<DeferredHybridRendererInstance>();
+    auto instance        = std::make_unique<DeferredHybridRendererInstance>();
     instance->descriptor = descriptor;
     instance->device     = descriptor.device;
 

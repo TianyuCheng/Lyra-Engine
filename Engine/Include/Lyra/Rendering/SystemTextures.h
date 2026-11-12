@@ -92,7 +92,7 @@ namespace lyra
             GPUDevice      device,
             Compiler       compiler,
             CString        module_name,
-            CString        shader_source,
+            CString        shader_path,
             GPUTexture     texture,
             GPUTextureView view,
             uint           width,
@@ -101,7 +101,7 @@ namespace lyra
             uint           group_size_y);
 
     private:
-        GPUDevice      device;
+        GPUDevice device;
 
         GPUTexture     white_texture;
         GPUTextureView white_view;
@@ -136,7 +136,7 @@ namespace lyra
         GPUTexture     blue_noise_texture;
         GPUTextureView blue_noise_view;
 
-        bool           initialized = false;
+        bool initialized = false;
     };
 
 } // namespace lyra

@@ -1,4 +1,4 @@
-add_subdirectory(ForwardPlus)
+add_subdirectory(Forward)
 add_subdirectory(GPUDriven)
-add_subdirectory(DeferredHybrid)
+add_subdirectory(Deferred)
 add_subdirectory(PathTracer)

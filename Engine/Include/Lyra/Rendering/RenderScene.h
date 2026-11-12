@@ -49,15 +49,15 @@ namespace lyra
         Vector<BVHPrimitive>     bvh_instances;
 
         // hardware acceleration structure (built when ray tracing is active)
-        GPUTlasHandle            scene_tlas;
+        GPUTlasHandle scene_tlas;
 
         // lighting and environment
-        Vector<RenderLight>      directional_lights;
-        Vector<RenderLight>      local_lights;
-        GPUTextureViewHandle     environment_map;
-        Vector3                  ambient_color     = Vector3(0.03f);
-        float                    ambient_intensity = 1.0f;
-        Vector4                  clear_color       = Vector4(0.18f, 0.18f, 0.20f, 1.0f); // neutral engine gray (similar to Unreal/Blender)
+        Vector<RenderLight>  directional_lights;
+        Vector<RenderLight>  local_lights;
+        GPUTextureViewHandle environment_map;
+        Vector3              ambient_color     = Vector3(0.03f);
+        float                ambient_intensity = 1.0f;
+        Vector4              clear_color       = Vector4(0.18f, 0.18f, 0.20f, 1.0f); // neutral engine gray (similar to Unreal/Blender)
 
         /**
          * @brief clear all extracted primitive and light buffers.
@@ -70,9 +70,9 @@ namespace lyra
             bvh_instances.clear();
             directional_lights.clear();
             local_lights.clear();
-            scene_tlas = {};
+            scene_tlas      = {};
             environment_map = {};
-            clear_color = Vector4(0.18f, 0.18f, 0.20f, 1.0f);
+            clear_color     = Vector4(0.18f, 0.18f, 0.20f, 1.0f);
         }
 
         [[nodiscard]] bool empty() const

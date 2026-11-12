@@ -71,16 +71,16 @@ namespace lyra
          */
         void draw_debug_panel();
 
-        [[nodiscard]] bool has_active_renderer() const { return active_handle.valid() && current_plugin.is_loaded(); }
+        [[nodiscard]] bool       has_active_renderer() const { return active_handle.valid() && current_plugin.is_loaded(); }
         [[nodiscard]] StringView get_active_name() const { return active_name; }
 
-        RendererAPI*        get_active_api() { return current_plugin.get_api(); }
-        const RendererAPI*  get_active_api() const { return current_plugin.get_api(); }
-        RendererHandle      get_active_handle() const { return active_handle; }
+        RendererAPI*       get_active_api() { return current_plugin.get_api(); }
+        const RendererAPI* get_active_api() const { return current_plugin.get_api(); }
+        RendererHandle     get_active_handle() const { return active_handle; }
 
         RendererSettings&       get_settings() { return settings; }
         const RendererSettings& get_settings() const { return settings; }
-        void set_settings(const RendererSettings& s);
+        void                    set_settings(const RendererSettings& s);
 
         const RendererStats& get_stats() const { return stats; }
 
@@ -88,10 +88,10 @@ namespace lyra
         RendererPlugin     current_plugin;
         RendererHandle     active_handle = {};
         String             active_name;
-        RendererDescriptor descriptor    = {};
-        RendererSettings   settings      = {};
-        RendererStats      stats         = {};
-        bool               initialized   = false;
+        RendererDescriptor descriptor  = {};
+        RendererSettings   settings    = {};
+        RendererStats      stats       = {};
+        bool               initialized = false;
     };
 
 } // namespace lyra

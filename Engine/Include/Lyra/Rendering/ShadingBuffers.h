@@ -21,15 +21,15 @@ namespace lyra
         Matrix4x4 inv_view_proj;
         Matrix4x4 prev_view_proj;
 
-        Vector3   camera_pos;
-        float     near_plane;
+        Vector3 camera_pos;
+        float   near_plane;
 
-        Vector2   jitter_offset;
-        Vector2   render_extent;
+        Vector2 jitter_offset;
+        Vector2 render_extent;
 
-        float     far_plane;
-        float     fov;
-        Vector2   padding;
+        float   far_plane;
+        float   fov;
+        Vector2 padding;
     };
 
     /**
@@ -46,10 +46,10 @@ namespace lyra
         Vector3 color;
         uint    type; // 0 = directional, 1 = point, 2 = spot
 
-        float   spot_inner_angle;
-        float   spot_outer_angle;
-        uint    cast_shadows;
-        float   padding;
+        float spot_inner_angle;
+        float spot_outer_angle;
+        uint  cast_shadows;
+        float padding;
     };
 
     static_assert(sizeof(GPULightData) == 64, "GPULightData must be 64 bytes aligned for GPU storage buffers");

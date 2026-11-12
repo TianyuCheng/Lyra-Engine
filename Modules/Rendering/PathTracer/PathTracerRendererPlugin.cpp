@@ -8,24 +8,24 @@ using namespace lyra;
 
 struct PathTracerRendererInstance
 {
-    RendererDescriptor     descriptor;
-    RendererSettings       settings;
-    RendererStats          stats;
+    RendererDescriptor descriptor;
+    RendererSettings   settings;
+    RendererStats      stats;
 
     // device & ray tracing pipeline
-    GPUDevice              device;
-    GPURayTracingPipeline  rt_pipeline;
-    GPUPipelineLayout      rt_layout;
+    GPUDevice             device;
+    GPURayTracingPipeline rt_pipeline;
+    GPUPipelineLayout     rt_layout;
 
     // shader binding table & accumulation buffers
-    GPUBuffer              sbt_buffer;
-    GPUBuffer              camera_buffer;
-    GPUTexture             accumulation_tex;
-    GPUTextureView         accumulation_view;
-    GPUComputePipeline     denoiser_pipeline;
+    GPUBuffer          sbt_buffer;
+    GPUBuffer          camera_buffer;
+    GPUTexture         accumulation_tex;
+    GPUTextureView     accumulation_view;
+    GPUComputePipeline denoiser_pipeline;
 
     // temporal accumulation state
-    uint                   accumulated_frames = 0;
+    uint accumulated_frames = 0;
 };
 
 static auto get_name() -> CString
@@ -50,7 +50,7 @@ static auto get_capabilities() -> RendererCaps
 
 static bool create_renderer(RendererHandle& out_handle, const RendererDescriptor& descriptor)
 {
-    auto instance = std::make_unique<PathTracerRendererInstance>();
+    auto instance        = std::make_unique<PathTracerRendererInstance>();
     instance->descriptor = descriptor;
     instance->device     = descriptor.device;
 

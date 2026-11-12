@@ -13,19 +13,19 @@ struct GPUDrivenRendererInstance
     RendererStats      stats;
 
     // GPU-driven pipeline state
-    GPUDevice           device;
-    GPUComputePipeline  cull_pipeline;
-    GPURenderPipeline   meshlet_pipeline;
-    GPUPipelineLayout   pipeline_layout;
+    GPUDevice          device;
+    GPUComputePipeline cull_pipeline;
+    GPURenderPipeline  meshlet_pipeline;
+    GPUPipelineLayout  pipeline_layout;
 
     // GPU buffers
-    GPUBuffer           instance_buffer;
-    GPUBuffer           indirect_draw_buffer;
-    GPUBuffer           camera_uniform_buffer;
+    GPUBuffer instance_buffer;
+    GPUBuffer indirect_draw_buffer;
+    GPUBuffer camera_uniform_buffer;
 
     // Hi-Z occlusion pyramid
-    GPUTexture          hiz_texture;
-    GPUTextureView      hiz_view;
+    GPUTexture     hiz_texture;
+    GPUTextureView hiz_view;
 };
 
 static auto get_name() -> CString
@@ -51,7 +51,7 @@ static auto get_capabilities() -> RendererCaps
 
 static bool create_renderer(RendererHandle& out_handle, const RendererDescriptor& descriptor)
 {
-    auto instance = std::make_unique<GPUDrivenRendererInstance>();
+    auto instance        = std::make_unique<GPUDrivenRendererInstance>();
     instance->descriptor = descriptor;
     instance->device     = descriptor.device;
 

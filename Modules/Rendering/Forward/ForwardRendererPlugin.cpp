@@ -13,24 +13,24 @@ struct ForwardRendererInstance
     RendererStats      stats;
 
     // device & compiler
-    GPUDevice          device;
-    Compiler           compiler;
+    GPUDevice device;
+    Compiler  compiler;
 
     // depth buffer
-    GPUTexture         depth_texture;
-    GPUTextureView     depth_view;
+    GPUTexture     depth_texture;
+    GPUTextureView depth_view;
 
     // camera buffer & heap
-    GPUBuffer          camera_buffer;
-    GPUBindGroupHeap   heap;
-    GPUBindGroup       camera_bind_group;
+    GPUBuffer        camera_buffer;
+    GPUBindGroupHeap heap;
+    GPUBindGroup     camera_bind_group;
 
     // pipelines
-    GPURenderPipeline  grid_pipeline;
-    GPUPipelineLayout  grid_layout;
+    GPURenderPipeline grid_pipeline;
+    GPUPipelineLayout grid_layout;
 
-    GPURenderPipeline  forward_pipeline;
-    GPUPipelineLayout  forward_layout;
+    GPURenderPipeline forward_pipeline;
+    GPUPipelineLayout forward_layout;
 
     // light & cluster storage buffers for Forward+
     GPUBuffer          light_buffer;
@@ -58,7 +58,7 @@ static auto get_capabilities() -> RendererCaps
 
 static bool create_renderer(RendererHandle& out_handle, const RendererDescriptor& descriptor)
 {
-    auto instance = std::make_unique<ForwardRendererInstance>();
+    auto instance        = std::make_unique<ForwardRendererInstance>();
     instance->descriptor = descriptor;
     instance->device     = descriptor.device;
     instance->compiler   = descriptor.compiler;
