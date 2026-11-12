@@ -142,6 +142,7 @@ target_sources(lyra-headers INTERFACE
     Lyra/Components/Camera.h
     Lyra/Components/Light.h
     Lyra/Components/Mesh.h
+    Lyra/Components/SDFVolume.h
 
     # scene
     Lyra/Scene/SceneNode.h
