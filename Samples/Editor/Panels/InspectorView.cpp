@@ -98,9 +98,7 @@ void InspectorView::bind(Application& app)
 
 void InspectorView::update(AppContext& context)
 {
-    lyra::execute_once([&]() {
-        ui::workspace::dock(LYRA_INSPECTOR_WINDOW_NAME, ui::Area::Right);
-    });
+    ui::workspace::dock_default(LYRA_INSPECTOR_WINDOW_NAME, ui::Area::Right);
 
     ui::panel(LYRA_INSPECTOR_WINDOW_NAME, [&]() {
         auto world     = context.toolboard.try_get<World*>();

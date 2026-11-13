@@ -189,6 +189,12 @@ static void imgui_update(AppContext& context)
                 });
             });
         }
+
+        ui::menu("Window", [&]() {
+            ui::menu_item("Reset Layout", [&]() {
+                ui::workspace::reset_layout();
+            });
+        });
     });
 
     // keyboard shortcuts
@@ -472,11 +478,10 @@ int main(int argc, const char* argv[])
 
     // layout layer
     auto layout = lyra::execute([&]() {
-        auto desc   = EditorLayoutDescriptor{};
-        desc.left   = 0.2f;
-        desc.right  = 0.3f;
-        desc.top    = 0.2f;
-        desc.bottom = 0.4f;
+        auto desc = EditorLayoutDescriptor{};
+        desc.layout.left   = 0.20f;
+        desc.layout.right  = 0.25f;
+        desc.layout.bottom = 0.35f;
 
         auto layer = std::make_unique<EditorLayout>(desc);
         app->bind(*layer);

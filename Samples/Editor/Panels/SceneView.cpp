@@ -40,9 +40,7 @@ void SceneView::bind(Application& app)
 
 void SceneView::update(AppContext& context)
 {
-    lyra::execute_once([&]() {
-        ui::workspace::dock(LYRA_SCENE_WINDOW_NAME, ui::Area::Main);
-    });
+    ui::workspace::dock_default(LYRA_SCENE_WINDOW_NAME, ui::Area::Main);
 
     auto clock = context.toolboard.get<Clock*>();
 

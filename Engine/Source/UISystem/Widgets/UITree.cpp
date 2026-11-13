@@ -11,11 +11,12 @@ namespace
         // handle imperative/declarative opening flags
         if (desc.flags.contains(TreeNodeFlag::ForceOpen)) {
             ImGui::SetNextItemOpen(true, ImGuiCond_Always);
-        } else if (desc.flags.contains(TreeNodeFlag::DefaultOpen)) {
-            ImGui::SetNextItemOpen(true, ImGuiCond_Appearing);
         }
 
         ImGuiTreeNodeFlags im_flags = ImGuiTreeNodeFlags_OpenOnArrow;
+        if (desc.flags.contains(TreeNodeFlag::DefaultOpen)) {
+            im_flags |= ImGuiTreeNodeFlags_DefaultOpen;
+        }
         if (desc.flags.contains(TreeNodeFlag::SpanFullWidth)) {
             im_flags |= ImGuiTreeNodeFlags_SpanAvailWidth;
         }
@@ -94,40 +95,4 @@ TreeItemResponse lyra::ui::tree_node(const TreeItemDescriptor& desc, ActionRef c
 TreeItemResponse lyra::ui::tree_node(const TreeItemDescriptor& desc, ActionRef on_header, ActionRef children)
 {
     return draw_tree_node_internal(desc, &on_header, &children);
-}
-
-void lyra::ui::tree_set_next_open(bool is_open)
-{
-    ImGui::SetNextItemOpen(is_open, ImGuiCond_Always);
-}
-
-float lyra::ui::calc_tree_item_width(CString label, CString icon, bool reserve_scrollbar)
-{
-    float width = 0.0f;
-
-    // tree node arrow / indent spacing (matching IndentSpacing = 16.0f)
-    width += 16.0f;
-
-    // icon glyph and following space
-    if (icon && *icon != '\0') {
-        width += ImGui::CalcTextSize(icon).x + ImGui::CalcTextSize("  ").x;
-    }
-
-    // label text
-    if (label && *label != '\0') {
-        width += ImGui::CalcTextSize(label).x;
-    }
-
-    // frame padding (matching FramePadding.x = 4.0f)
-    width += 4.0f * 2.0f;
-
-    // container window padding
-    width += ImGui::GetStyle().WindowPadding.x * 2.0f;
-
-    // reserve space for vertical scrollbar and spacing so items never clip
-    if (reserve_scrollbar) {
-        width += ImGui::GetStyle().ScrollbarSize + ImGui::GetStyle().ItemSpacing.x;
-    }
-
-    return width;
 }

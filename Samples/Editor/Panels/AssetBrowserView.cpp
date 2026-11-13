@@ -65,6 +65,7 @@ void AssetBrowserView::navigate_to(const Path& path, AssetBrowserDomain domain, 
         active_domain = domain;
         root          = (active_domain == AssetBrowserDomain::Sys) ? sys_root : app_root;
     }
+    needs_tree_reveal = true;
     update_directory(path);
 }
 
@@ -171,16 +172,42 @@ void AssetBrowserView::update(AppContext& context)
         force_refresh = false;
     }
 
-    lyra::execute_once([&]() {
-        ui::workspace::dock(LYRA_FILES_WINDOW_NAME, ui::Area::Bottom);
-    });
+    ui::workspace::dock_default(LYRA_FILES_WINDOW_NAME, ui::Area::Bottom);
 
     if (sidebar_width <= 0.0f) {
-        // calculate initial sidebar width using character metrics of top-level roots
-        float sys_w = ui::calc_tree_item_width("Engine (sys://)", LYRA_ICON_SYSTEM);
-        float app_w = ui::calc_tree_item_width("Project (app://)", LYRA_ICON_HOME);
-        // ensure enough width to cover longest root "Project (app://)" (16 chars) + icon, tree arrow, padding, and scrollbar (~26 chars)
-        sidebar_width = std::max({sys_w, app_w, ui::calc_text_width(26)});
+        // calculate tree row width required by the root items dynamically:
+        // arrow (font_size + padding) + icon + spacing + label text + frame padding
+        const float font_size  = ui::get_font_size();
+        const float char_width = ui::get_char_width();
+
+        auto calc_root_item_width = [&](CString label, CString icon) -> float {
+            float width = 0.0f;
+            // arrow and indentation
+            width += font_size + 4.0f;
+            // icon glyph and following spacing
+            if (icon && *icon != '\0') {
+                width += ui::calc_text_size(icon).x + ui::calc_text_size("  ").x;
+            }
+            // label text
+            if (label && *label != '\0') {
+                width += ui::calc_text_size(label).x;
+            }
+            // item frame padding (left & right)
+            width += 8.0f;
+            return width;
+        };
+
+        float sys_w = calc_root_item_width("Engine (sys://)", LYRA_ICON_SYSTEM);
+        float app_w = calc_root_item_width("Project (app://)", LYRA_ICON_HOME);
+        float max_root_width = std::max(sys_w, app_w);
+
+        // container window padding (left & right) + vertical scrollbar allowance
+        float container_overhead = 32.0f;
+
+        // additional breathing room (~8 characters of margin so child hierarchy has room to expand)
+        float additional_margin = char_width * 8.0f + 32.0f;
+
+        sidebar_width = max_root_width + container_overhead + additional_margin;
     }
 
     ui::panel(LYRA_FILES_WINDOW_NAME, ui::PanelFlag::NoScroll, [&]() {
@@ -293,6 +320,9 @@ void AssetBrowserView::show_sidebar_tree()
     if (!app_root.empty() && std::filesystem::exists(app_root)) {
         show_tree_root("Project (app://)", LYRA_ICON_HOME, app_root, AssetBrowserDomain::App);
     }
+
+    // consume one-shot tree reveal request once rendered
+    needs_tree_reveal = false;
 }
 
 void AssetBrowserView::show_tree_root(CString label, CString icon, const Path& root_path, AssetBrowserDomain domain)
@@ -302,14 +332,15 @@ void AssetBrowserView::show_tree_root(CString label, CString icon, const Path& r
     // auto-open root if current directory belongs to this domain
     std::error_code ec;
     auto rel = std::filesystem::relative(curr, root_path, ec);
-    bool auto_open = (!ec && !rel.empty() && *rel.begin() != "..");
+    bool is_ancestor = (!ec && !rel.empty() && *rel.begin() != "..");
 
     ui::TreeItemDescriptor desc;
     desc.id          = std::hash<String>{}(to_string(root_path));
     desc.label       = label;
     desc.icon        = icon;
     desc.is_selected = is_selected;
-    if (auto_open) {
+    desc.flags      |= ui::TreeNodeFlag::DefaultOpen;
+    if (needs_tree_reveal && is_ancestor) {
         desc.flags |= ui::TreeNodeFlag::ForceOpen;
     }
 
@@ -348,9 +379,9 @@ void AssetBrowserView::show_directory_node(const Path& dir_path, const Path& dom
 
         uint64_t node_id = std::hash<String>{}(to_string(sub_path));
 
-        // auto-open if current directory is inside this sub_path
+        // auto-open if current directory is inside this sub_path and a navigation event occurred
         auto rel = std::filesystem::relative(curr, sub_path, ec);
-        bool auto_open = (!ec && !rel.empty() && *rel.begin() != "..");
+        bool is_ancestor = (!ec && !rel.empty() && *rel.begin() != "..");
 
         ui::TreeItemDescriptor desc;
         desc.id          = node_id;
@@ -360,7 +391,7 @@ void AssetBrowserView::show_directory_node(const Path& dir_path, const Path& dom
         if (!has_children) {
             desc.flags |= ui::TreeNodeFlag::Leaf;
         }
-        if (auto_open) {
+        if (needs_tree_reveal && is_ancestor) {
             desc.flags |= ui::TreeNodeFlag::ForceOpen;
         }
 

@@ -304,7 +304,7 @@ static void render_node(
     };
 
     ui::TreeItemDescriptor desc;
-    desc.id          = static_cast<uint64_t>(entity);
+    desc.id          = static_cast<uint64_t>(entity) + 1;
     desc.label       = label;
     desc.icon        = icon;
     desc.is_selected = is_selected;
@@ -336,8 +336,9 @@ static void render_node(
 
 void HierarchyView::update(AppContext& context)
 {
+    ui::workspace::dock_default(LYRA_TREE_VIEW_WINDOW_NAME, ui::Area::Left);
+
     lyra::execute_once([&]() {
-        ui::workspace::dock(LYRA_TREE_VIEW_WINDOW_NAME, ui::Area::Left);
         context.blackboard.add<Selection>(Selection{});
     });
 

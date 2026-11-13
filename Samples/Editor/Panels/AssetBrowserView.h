@@ -138,6 +138,7 @@ namespace lyra
         uint32_t           session_start_failed    = 0;
         uint32_t           last_completed_cooks    = 0;
         bool               was_cooking             = false;
+        bool               needs_tree_reveal       = true;
         float              notification_timer      = 0.0f;
 
         SelectionModel selection;

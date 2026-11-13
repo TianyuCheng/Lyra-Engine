@@ -29,9 +29,7 @@ void ConsoleView::bind(Application& app)
 
 void ConsoleView::update(AppContext&)
 {
-    lyra::execute_once([&]() {
-        ui::workspace::dock(LYRA_CONSOLE_WINDOW_NAME, ui::Area::Bottom);
-    });
+    ui::workspace::dock_default(LYRA_CONSOLE_WINDOW_NAME, ui::Area::Bottom);
 
     ui::panel(LYRA_CONSOLE_WINDOW_NAME, [&]() {
         show_bar();
