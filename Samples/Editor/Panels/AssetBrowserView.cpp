@@ -302,16 +302,24 @@ void AssetBrowserView::show_tree_root(CString label, CString icon, const Path& r
     // auto-open root if current directory belongs to this domain
     std::error_code ec;
     auto rel = std::filesystem::relative(curr, root_path, ec);
-    if (!ec && !rel.empty() && *rel.begin() != "..") {
-        ui::tree_set_next_open(true);
+    bool auto_open = (!ec && !rel.empty() && *rel.begin() != "..");
+
+    ui::TreeItemDescriptor desc;
+    desc.id          = std::hash<String>{}(to_string(root_path));
+    desc.label       = label;
+    desc.icon        = icon;
+    desc.is_selected = is_selected;
+    if (auto_open) {
+        desc.flags |= ui::TreeNodeFlag::ForceOpen;
     }
 
-    uint64_t node_id = std::hash<String>{}(to_string(root_path));
-    ui::tree_item(node_id, icon, label, is_selected, [&]() {
-        navigate_to(root_path, domain);
-    }, [&]() {
+    auto res = ui::tree_node(desc, [&]() {
         show_directory_node(root_path, root_path, domain);
     });
+
+    if (res.is_clicked) {
+        navigate_to(root_path, domain);
+    }
 }
 
 void AssetBrowserView::show_directory_node(const Path& dir_path, const Path& domain_root, AssetBrowserDomain domain)
@@ -342,20 +350,26 @@ void AssetBrowserView::show_directory_node(const Path& dir_path, const Path& dom
 
         // auto-open if current directory is inside this sub_path
         auto rel = std::filesystem::relative(curr, sub_path, ec);
-        if (!ec && !rel.empty() && *rel.begin() != "..") {
-            ui::tree_set_next_open(true);
+        bool auto_open = (!ec && !rel.empty() && *rel.begin() != "..");
+
+        ui::TreeItemDescriptor desc;
+        desc.id          = node_id;
+        desc.label       = folder_name.c_str();
+        desc.icon        = LYRA_ICON_FOLDER;
+        desc.is_selected = is_selected;
+        if (!has_children) {
+            desc.flags |= ui::TreeNodeFlag::Leaf;
+        }
+        if (auto_open) {
+            desc.flags |= ui::TreeNodeFlag::ForceOpen;
         }
 
-        if (has_children) {
-            ui::tree_item(node_id, LYRA_ICON_FOLDER, folder_name.c_str(), is_selected, [&]() {
-                navigate_to(sub_path, domain);
-            }, [&]() {
-                show_directory_node(sub_path, domain_root, domain);
-            });
-        } else {
-            ui::tree_leaf(node_id, LYRA_ICON_FOLDER, folder_name.c_str(), is_selected, [&]() {
-                navigate_to(sub_path, domain);
-            });
+        auto res = has_children ? ui::tree_node(desc, [&]() {
+            show_directory_node(sub_path, domain_root, domain);
+        }) : ui::tree_node(desc);
+
+        if (res.is_clicked) {
+            navigate_to(sub_path, domain);
         }
     }
 }

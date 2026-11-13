@@ -303,22 +303,34 @@ static void render_node(
         });
     };
 
+    ui::TreeItemDescriptor desc;
+    desc.id          = static_cast<uint64_t>(entity);
+    desc.label       = label;
+    desc.icon        = icon;
+    desc.is_selected = is_selected;
     if (is_leaf) {
-        ui::tree_leaf(static_cast<uint64_t>(entity), icon, label, is_selected, on_select);
+        desc.flags |= ui::TreeNodeFlag::Leaf;
+    }
+
+    auto on_header = [&]() {
         handle_drop();
         on_item_context();
-    } else {
-        auto on_header = [&]() {
-            handle_drop();
-            on_item_context();
-        };
-        ui::tree_item(static_cast<uint64_t>(entity), icon, label, is_selected, on_select, on_header, [&]() {
-            SceneTree::NodeIndex child_idx = node.first_child;
-            while (child_idx != SceneTree::INVALID_NODE) {
-                render_node(ctx, child_idx);
-                child_idx = hierarchy.at(child_idx).next_sibling;
-            }
-        });
+    };
+
+    auto res = is_leaf ? ui::tree_node(desc) : ui::tree_node(desc, on_header, [&]() {
+        SceneTree::NodeIndex child_idx = node.first_child;
+        while (child_idx != SceneTree::INVALID_NODE) {
+            render_node(ctx, child_idx);
+            child_idx = hierarchy.at(child_idx).next_sibling;
+        }
+    });
+
+    if (is_leaf) {
+        on_header();
+    }
+
+    if (res.is_clicked) {
+        on_select();
     }
 }
 
