@@ -134,6 +134,7 @@ target_sources(lyra-engine PRIVATE
   UISystem/Widgets/UITree.cpp
   UISystem/Widgets/UIDock.cpp
   UISystem/Widgets/UIDialog.cpp
+  UISystem/Widgets/UICommand.cpp
 
   # scene
   Scene/SceneTree.cpp

@@ -24,7 +24,7 @@ namespace lyra
             const Vector<uint32_t>&         indices,
             const Vector3&                  min_bounds,
             const Vector3&                  max_bounds);
-    }
+    } // namespace detail
 
     // deterministic identifiers for standard procedural mesh primitives
     inline constexpr AssetID PROCEDURAL_CUBE_GUID      = 0xC0BE000000000001ULL;

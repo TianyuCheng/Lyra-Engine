@@ -197,8 +197,8 @@ void AssetBrowserView::update(AppContext& context)
             return width;
         };
 
-        float sys_w = calc_root_item_width("Engine (sys://)", LYRA_ICON_SYSTEM);
-        float app_w = calc_root_item_width("Project (app://)", LYRA_ICON_HOME);
+        float sys_w          = calc_root_item_width("Engine (sys://)", LYRA_ICON_SYSTEM);
+        float app_w          = calc_root_item_width("Project (app://)", LYRA_ICON_HOME);
         float max_root_width = std::max(sys_w, app_w);
 
         // container window padding (left & right) + vertical scrollbar allowance
@@ -242,7 +242,8 @@ void AssetBrowserView::update(AppContext& context)
         if (show_sidebar) {
             ui::split_pane("##AssetBrowserSplitter", sidebar_width, [&]() {
                 show_sidebar_tree();
-            }, render_file_browser, 160.0f, 200.0f, reserve_bottom);
+            },
+                render_file_browser, 160.0f, 200.0f, reserve_bottom);
         } else {
             ui::scroll_area("FileBrowser", reserve_bottom, render_file_browser);
         }
@@ -260,7 +261,9 @@ void AssetBrowserView::show_header_toolbar()
         // 1. Toggle Sidebar Button
         ui::icon_button(
             LYRA_ICON_TREE,
-            [&]() { show_sidebar = !show_sidebar; },
+            [&]() {
+                show_sidebar = !show_sidebar;
+            },
             show_sidebar ? "Hide folder tree" : "Show folder tree",
             show_sidebar ? ui::ButtonRole::Primary : ui::ButtonRole::Ghost);
 
@@ -269,7 +272,9 @@ void AssetBrowserView::show_header_toolbar()
         // 2. Navigation Back & Forward Buttons
         ui::icon_button(
             LYRA_ICON_NAV_BACK,
-            [&]() { action_navigate_back(); },
+            [&]() {
+                action_navigate_back();
+            },
             can_go_back() ? "Back (Alt+Left)" : nullptr,
             can_go_back(),
             ui::ButtonRole::Ghost);
@@ -278,7 +283,9 @@ void AssetBrowserView::show_header_toolbar()
 
         ui::icon_button(
             LYRA_ICON_NAV_FORWARD,
-            [&]() { action_navigate_forward(); },
+            [&]() {
+                action_navigate_forward();
+            },
             can_go_forward() ? "Forward (Alt+Right)" : nullptr,
             can_go_forward(),
             ui::ButtonRole::Ghost);
@@ -295,13 +302,15 @@ void AssetBrowserView::show_header_toolbar()
         // 4. Actions (Refresh, New Folder)
         ui::icon_button(LYRA_ICON_REFRESH, [&]() {
             update_directory(curr, true);
-        }, "Refresh directory", ui::ButtonRole::Ghost);
+        },
+            "Refresh directory", ui::ButtonRole::Ghost);
 
         if (!is_read_only()) {
             ui::icon_button(LYRA_ICON_NEW_FOLDER, [&]() {
                 show_new_folder_modal = true;
                 open_new_folder_modal = true;
-            }, "Create new folder", ui::ButtonRole::Ghost);
+            },
+                "Create new folder", ui::ButtonRole::Ghost);
         }
 
         ui::separator();
@@ -331,15 +340,15 @@ void AssetBrowserView::show_tree_root(CString label, CString icon, const Path& r
 
     // auto-open root if current directory belongs to this domain
     std::error_code ec;
-    auto rel = std::filesystem::relative(curr, root_path, ec);
-    bool is_ancestor = (!ec && !rel.empty() && *rel.begin() != "..");
+    auto            rel         = std::filesystem::relative(curr, root_path, ec);
+    bool            is_ancestor = (!ec && !rel.empty() && *rel.begin() != "..");
 
     ui::TreeItemDescriptor desc;
     desc.id          = std::hash<String>{}(to_string(root_path));
     desc.label       = label;
     desc.icon        = icon;
     desc.is_selected = is_selected;
-    desc.flags      |= ui::TreeNodeFlag::DefaultOpen;
+    desc.flags |= ui::TreeNodeFlag::DefaultOpen;
     if (needs_tree_reveal && is_ancestor) {
         desc.flags |= ui::TreeNodeFlag::ForceOpen;
     }
@@ -356,7 +365,7 @@ void AssetBrowserView::show_tree_root(CString label, CString icon, const Path& r
 void AssetBrowserView::show_directory_node(const Path& dir_path, const Path& domain_root, AssetBrowserDomain domain)
 {
     std::error_code ec;
-    Vector<Path> subdirs;
+    Vector<Path>    subdirs;
     for (const auto& entry : std::filesystem::directory_iterator(dir_path, ec)) {
         if (entry.is_directory(ec) && entry.path().extension() != ".import") {
             subdirs.push_back(entry.path());
@@ -366,7 +375,7 @@ void AssetBrowserView::show_directory_node(const Path& dir_path, const Path& dom
 
     for (const auto& sub_path : subdirs) {
         String folder_name = to_string(sub_path.filename());
-        bool is_selected = (active_domain == domain && curr == sub_path);
+        bool   is_selected = (active_domain == domain && curr == sub_path);
 
         // check if subfolder has its own child subdirectories
         bool has_children = false;
@@ -380,7 +389,7 @@ void AssetBrowserView::show_directory_node(const Path& dir_path, const Path& dom
         uint64_t node_id = std::hash<String>{}(to_string(sub_path));
 
         // auto-open if current directory is inside this sub_path and a navigation event occurred
-        auto rel = std::filesystem::relative(curr, sub_path, ec);
+        auto rel         = std::filesystem::relative(curr, sub_path, ec);
         bool is_ancestor = (!ec && !rel.empty() && *rel.begin() != "..");
 
         ui::TreeItemDescriptor desc;
@@ -397,7 +406,8 @@ void AssetBrowserView::show_directory_node(const Path& dir_path, const Path& dom
 
         auto res = has_children ? ui::tree_node(desc, [&]() {
             show_directory_node(sub_path, domain_root, domain);
-        }) : ui::tree_node(desc);
+        })
+                                : ui::tree_node(desc);
 
         if (res.is_clicked) {
             navigate_to(sub_path, domain);
@@ -447,15 +457,13 @@ void AssetBrowserView::show_breadcrumb()
     bool is_root = breadcrumbs.empty();
 
     // root domain breadcrumb item
-    items.push_back({
-        is_sys ? "Engine" : "Project",
+    items.push_back({is_sys ? "Engine" : "Project",
         is_sys ? LYRA_ICON_SYSTEM : LYRA_ICON_HOME,
         [this, is_sys]() {
             navigate_to(is_sys ? sys_root : app_root, active_domain);
         },
         is_root ? (is_sys ? "Engine Core (sys://) [Read-Only] (Click to refresh)" : "Project Workspace (app://) (Click to refresh)")
-                : (is_sys ? "Engine Core (sys://) [Read-Only] - Click to return to engine root" : "Project Workspace (app://) - Click to return to project root")
-    });
+                : (is_sys ? "Engine Core (sys://) [Read-Only] - Click to return to engine root" : "Project Workspace (app://) - Click to return to project root")});
 
     for (usize i = 0; i < breadcrumbs.size(); ++i) {
         const auto& bc      = breadcrumbs[i];
@@ -826,9 +834,13 @@ void AssetBrowserView::action_rename(StringView old_name, StringView new_name)
     auto ams = get_asset_server();
 
     if (ams) {
-        Path rel_op = std::filesystem::relative(op, root);
-        Path rel_np = std::filesystem::relative(np, root);
-        if (!ams->move_asset(rel_op, rel_np)) {
+        StringView      scheme = get_current_scheme();
+        std::error_code ec;
+        Path            rel_op = std::filesystem::relative(op, root, ec);
+        Path            rel_np = std::filesystem::relative(np, root, ec);
+        String          vfs_op = VFSPath(scheme, rel_op.generic_string()).to_string();
+        String          vfs_np = VFSPath(scheme, rel_np.generic_string()).to_string();
+        if (!ams->move_asset(vfs_op, vfs_np)) {
             spdlog::error("Failed to move/rename asset: {} to {}", op.string(), np.string());
         }
     } else {
@@ -849,6 +861,7 @@ void AssetBrowserView::action_rename(StringView old_name, StringView new_name)
             spdlog::error("Rename error: {}", e.what());
         }
     }
+    selection.select_only(new_name);
     update_directory(curr, true);
 }
 

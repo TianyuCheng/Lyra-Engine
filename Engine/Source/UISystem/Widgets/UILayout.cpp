@@ -238,19 +238,19 @@ void lyra::ui::split_pane(CString id, float& split_width, ActionRef left_pane, A
     ImVec2 splitter_pos = ImVec2(start_pos.x + split_width, start_pos.y);
     ImRect splitter_bb(splitter_pos, ImVec2(splitter_pos.x + splitter_w, splitter_pos.y + avail_h));
 
-    float size1 = split_width;
-    float size2 = right_w;
+    float size1  = split_width;
+    float size2  = right_w;
     ImU32 bg_col = ImGui::GetColorU32(ImGuiCol_WindowBg);
-    bool held = ImGui::SplitterBehavior(splitter_bb, splitter_id, ImGuiAxis_X, &size1, &size2, min_left, min_right, 4.0f, 0.04f, bg_col);
-    split_width = size1;
+    bool  held   = ImGui::SplitterBehavior(splitter_bb, splitter_id, ImGuiAxis_X, &size1, &size2, min_left, min_right, 4.0f, 0.04f, bg_col);
+    split_width  = size1;
 
-    bool is_hovered = ImGui::IsItemHovered();
-    ImDrawList* draw_list = window->DrawList;
+    bool        is_hovered = ImGui::IsItemHovered();
+    ImDrawList* draw_list  = window->DrawList;
     if (bg_col & IM_COL32_A_MASK) {
         draw_list->AddRectFilled(splitter_bb.Min, splitter_bb.Max, bg_col, 0.0f);
     }
 
-    float mid_x = std::round(splitter_bb.Min.x + splitter_w * 0.5f);
+    float mid_x    = std::round(splitter_bb.Min.x + splitter_w * 0.5f);
     ImU32 line_col = held ? ImGui::GetColorU32(ImGuiCol_SeparatorActive)
                           : (is_hovered ? ImGui::GetColorU32(ImGuiCol_SeparatorHovered)
                                         : ImGui::GetColorU32(ImGuiCol_Separator));

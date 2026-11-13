@@ -53,9 +53,9 @@ namespace lyra
     struct MeshPrimitive
     {
         IndexedGeometry     geometry;
-        uint                submesh_index      = 0;
-        uint                first_index        = 0;
-        uint                index_count        = 0;
+        uint                submesh_index = 0;
+        uint                first_index   = 0;
+        uint                index_count   = 0;
         MaterialAssetHandle material;
         Matrix4x4           transform          = Matrix4x4(1.0f);
         Bounds3D            world_bounds       = {};
@@ -70,8 +70,8 @@ namespace lyra
     struct MeshletPrimitive
     {
         MeshletGeometry     geometry;
-        uint                meshlet_offset     = 0;
-        uint                meshlet_count      = 0;
+        uint                meshlet_offset = 0;
+        uint                meshlet_count  = 0;
         MaterialAssetHandle material;
         Matrix4x4           transform          = Matrix4x4(1.0f);
         Bounds3D            world_bounds       = {};

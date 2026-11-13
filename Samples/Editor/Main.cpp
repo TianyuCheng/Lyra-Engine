@@ -5,6 +5,7 @@
 
 // uber header for lyra engine
 #include <Lyra/Lyra.hpp>
+#include <Lyra/UISystem/Widgets/UICommand.h>
 
 // local editor ui headers
 #include "Panels/AssetBrowserView.h"
@@ -15,6 +16,7 @@
 
 // other common headers
 #include "Common/EditorLayout.h"
+#include "Common/EditorCommands.h"
 
 // local renderer
 #include "Renderer.h"
@@ -30,228 +32,72 @@ static void render_scene(AppContext& context, GPUCommandBuffer command)
     }
 }
 
-static bool show_new_scene_modal = false;
-static bool open_new_scene_modal = false;
-static char new_scene_name[128]  = "Untitled";
-
 static void imgui_update(AppContext& context)
 {
+    lyra::execute_once([&context]() {
+        setup_editor_commands(context);
+    });
+
     auto* scene_mgr = context.toolboard.try_get<SceneManager>();
-
-    auto trigger_new_scene = [&]() {
-        if (scene_mgr && scene_mgr->is_dirty()) {
-            if (!ui::dialog::confirm("Unsaved Changes", "The active scene has unsaved changes. Discard and create a new scene?")) {
-                return;
-            }
-        }
-        strcpy_s(new_scene_name, sizeof(new_scene_name), "Untitled");
-        show_new_scene_modal = true;
-        open_new_scene_modal = true;
-    };
-
-    auto reset_input_states = [&]() {
-        if (auto input = context.toolboard.try_get<InputManager*>()) {
-            input->reset();
-        }
-        if (auto window = context.toolboard.try_get<Window*>()) {
-            window->reset_input_state();
-        }
-        ui::clear_input_keys();
-    };
-
-    auto to_app_vpath = [&](const Path& os_path) -> Optional<String> {
-        if (auto* browser = context.toolboard.try_get<AssetBrowserView>()) {
-            std::error_code ec;
-            Path            rel = fs::relative(os_path, browser->get_app_root(), ec);
-            if (!ec && !rel.empty() && *rel.begin() != "..") {
-                return VFSPath(vfs::SchemeApp, rel.generic_string()).to_string();
-            }
-        }
-        return std::nullopt;
-    };
-
-    auto do_save_scene_as = [&]() {
-        if (!scene_mgr) return;
-        ui::dialog::Options opts;
-        opts.title    = "Save Scene As";
-        opts.filters  = {{"Lyra Scene (*.scene)", "*.scene"}};
-        auto selected = ui::dialog::save_file(opts);
-        reset_input_states();
-        if (selected.has_value()) {
-            Path p = *selected;
-            if (p.extension() != ".scene") {
-                p += ".scene";
-            }
-            auto vpath = to_app_vpath(p);
-            if (!vpath) {
-                ui::dialog::alert("Save Failed", "Scenes must be saved inside the project assets folder:\n" + p.string(), ui::StatusRole::Error);
-                return;
-            }
-            if (!scene_mgr->save(Path(*vpath))) {
-                ui::dialog::alert("Save Failed", "Failed to save scene to:\n" + *vpath, ui::StatusRole::Error);
-            }
-        }
-    };
-
-    auto do_save_scene = [&]() {
-        if (!scene_mgr) return;
-        if (!scene_mgr->get_active_path().empty()) {
-            if (!scene_mgr->save_active()) {
-                ui::dialog::alert("Save Failed", "Failed to save active scene:\n" + scene_mgr->get_active_path().string(), ui::StatusRole::Error);
-            }
-            reset_input_states();
-        } else {
-            do_save_scene_as();
-        }
-    };
-
-    auto do_open_scene = [&]() {
-        if (!scene_mgr) return;
-        if (scene_mgr->is_dirty()) {
-            if (!ui::dialog::confirm("Unsaved Changes", "The active scene has unsaved changes. Discard and open scene?")) {
-                return;
-            }
-        }
-        ui::dialog::Options opts;
-        opts.title    = "Open Scene";
-        opts.filters  = {{"Lyra Scene (*.scene)", "*.scene"}};
-        auto selected = ui::dialog::open_file(opts);
-        reset_input_states();
-        if (selected.has_value()) {
-            auto vpath = to_app_vpath(*selected);
-            if (!vpath) {
-                ui::dialog::alert("Load Failed", "Scenes must reside inside the project assets folder:\n" + selected->string(), ui::StatusRole::Error);
-                return;
-            }
-            auto res = scene_mgr->load(Path(*vpath), LoadMode::SINGLE);
-            if (res == INVALID_SCENE_INSTANCE) {
-                ui::dialog::alert("Load Failed", "Failed to load scene:\n" + *vpath + "\n\nSee console log for error details.", ui::StatusRole::Error);
-            }
-        }
-    };
 
     ui::menubar([&]() {
         ui::menu("Scene", [&]() {
             ui::menu_item("New Scene", "Ctrl+N", [&]() {
-                trigger_new_scene();
+                ui::command::execute("scene.new");
             });
 
             ui::menu_item("Open Scene...", "Ctrl+O", [&]() {
-                do_open_scene();
+                ui::command::execute("scene.open");
             });
 
             ui::menu_item("Save Scene", "Ctrl+S", [&]() {
-                do_save_scene();
+                ui::command::execute("scene.save");
             });
 
             ui::menu_item("Save Scene As...", "Ctrl+Shift+S", [&]() {
-                do_save_scene_as();
+                ui::command::execute("scene.save_as");
             });
 
             ui::separator();
 
             ui::menu_item("Load Additive...", [&]() {
-                if (scene_mgr) {
-                    ui::dialog::Options opts;
-                    opts.title    = "Load Scene Additive";
-                    opts.filters  = {{"Lyra Scene (*.scene)", "*.scene"}};
-                    auto selected = ui::dialog::open_file(opts);
-                    reset_input_states();
-                    if (selected.has_value()) {
-                        auto vpath = to_app_vpath(*selected);
-                        if (!vpath) {
-                            ui::dialog::alert("Load Failed", "Scenes must reside inside the project assets folder:\n" + selected->string(), ui::StatusRole::Error);
-                            return;
-                        }
-                        auto res = scene_mgr->load(Path(*vpath), LoadMode::ADDITIVE);
-                        if (res == INVALID_SCENE_INSTANCE) {
-                            ui::dialog::alert("Load Failed", "Failed to load scene additively:\n" + *vpath + "\n\nSee console log for error details.", ui::StatusRole::Error);
-                        }
-                    }
-                }
+                ui::command::execute("scene.load_additive");
             });
         });
 
         if (auto* ams = context.toolboard.try_get<AssetServer>()) {
             ui::menu("Assets", [&]() {
                 ui::menu_item("Reimport All (Force)", [&]() {
-                    ams->reimport_all(true);
+                    ui::command::execute("assets.reimport_all");
                 });
                 ui::menu_item("Purge Unused Assets", [&]() {
-                    ams->purge();
+                    ui::command::execute("assets.purge");
                 });
                 ui::menu_item("Flush Registry to Disk", [&]() {
-                    ams->flush();
+                    ui::command::execute("assets.flush");
                 });
                 ui::separator();
                 ui::menu_check_item("Watch Source Directory", ams->is_watching(), [&](const bool& watching) {
-                    ams->set_watching(watching);
+                    ui::command::execute("assets.toggle_watching");
                 });
             });
         }
 
         ui::menu("Window", [&]() {
+            ui::menu_item("Command Palette", "Ctrl+P", [&]() {
+                ui::command::toggle_palette();
+            });
+            ui::separator();
             ui::menu_item("Reset Layout", [&]() {
-                ui::workspace::reset_layout();
+                ui::command::execute("window.reset_layout");
             });
         });
     });
 
-    // keyboard shortcuts
-    if (!ui::is_text_input_active() && scene_mgr) {
-        bool ctrl  = ui::is_key_down(KeyButton::CTRL);
-        bool shift = ui::is_key_down(KeyButton::SHIFT);
-
-        if (ctrl && !shift && ui::is_key_pressed(KeyButton::N)) {
-            reset_input_states();
-            trigger_new_scene();
-        } else if (ctrl && !shift && ui::is_key_pressed(KeyButton::O)) {
-            reset_input_states();
-            do_open_scene();
-        } else if (ctrl && !shift && ui::is_key_pressed(KeyButton::S)) {
-            reset_input_states();
-            do_save_scene();
-        } else if (ctrl && shift && ui::is_key_pressed(KeyButton::S)) {
-            reset_input_states();
-            do_save_scene_as();
-        }
-    }
-
-    if (open_new_scene_modal) {
-        ui::open_modal(LYRA_ICON_SCENE " New Scene");
-        open_new_scene_modal = false;
-    }
-
-    if (show_new_scene_modal) {
-        ui::modal(LYRA_ICON_SCENE " New Scene", &show_new_scene_modal, [&]() {
-            ui::label("Enter scene name:");
-            ui::text_field("##new_scene_name", new_scene_name, sizeof(new_scene_name), [&]() {
-                if (new_scene_name[0] != '\0' && scene_mgr) {
-                    scene_mgr->create(new_scene_name);
-                }
-                show_new_scene_modal = false;
-                ui::close_modal();
-            });
-
-            ui::separator();
-
-            ui::row(ui::Alignment::End, [&]() {
-                ui::button("Cancel", [&]() {
-                    show_new_scene_modal = false;
-                    ui::close_modal();
-                });
-
-                ui::button("Create", [&]() {
-                    if (new_scene_name[0] != '\0' && scene_mgr) {
-                        scene_mgr->create(new_scene_name);
-                    }
-                    show_new_scene_modal = false;
-                    ui::close_modal();
-                },
-                    ui::ButtonRole::Primary);
-            });
-        });
-    }
+    // global shortcuts and command palette modal
+    ui::command::dispatch_shortcuts();
+    ui::command::palette();
+    render_editor_modals(context);
 }
 
 static void imgui_render(AppContext& context)
@@ -478,7 +324,7 @@ int main(int argc, const char* argv[])
 
     // layout layer
     auto layout = lyra::execute([&]() {
-        auto desc = EditorLayoutDescriptor{};
+        auto desc          = EditorLayoutDescriptor{};
         desc.layout.left   = 0.20f;
         desc.layout.right  = 0.25f;
         desc.layout.bottom = 0.35f;

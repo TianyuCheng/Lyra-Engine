@@ -846,4 +846,3 @@ auto lyra::ui::get_clipboard_text() -> CString
 {
     return ImGui::GetClipboardText();
 }
-

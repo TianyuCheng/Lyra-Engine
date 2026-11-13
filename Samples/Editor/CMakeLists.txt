@@ -15,6 +15,8 @@ target_sources(lyra-editor PRIVATE
   Renderer.cpp
 
   Common/Colors.h
+  Common/EditorCommands.h
+  Common/EditorCommands.cpp
   Common/EditorLayout.h
   Common/EditorLayout.cpp
   Common/SelectionModel.h

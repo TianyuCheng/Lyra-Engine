@@ -758,20 +758,60 @@ Future<AssetID> AssetServer::import_asset(const Path& path, bool force)
 
 auto AssetServer::resolve_asset_path(const Path& path) const -> std::pair<Path, Path>
 {
-    VFSPath vp = VFSPath::parse(path.generic_string());
-    if (!vp.is_valid()) {
-        return {};
+    std::error_code ec;
+
+    String path_str = path.generic_string();
+
+    // 1. check if path is already a valid VFS path with scheme (e.g. "app://..." or "sys://...")
+    if (VFSPath::has_protocol(path_str)) {
+        VFSPath vp = VFSPath::parse(path_str);
+        if (vp.is_valid()) {
+            OSPath base = get_assets_path(descriptor, vp.scheme);
+            if (base) {
+                Path full_path = Path(base) / vp.path;
+                Path rel_path  = Path(vp.to_string());
+                strip_import_extension(full_path, rel_path);
+                return {full_path, rel_path};
+            }
+        }
     }
 
-    OSPath base = get_assets_path(descriptor, vp.scheme);
-    if (!base) {
-        return {};
+    // 2. check if path is an absolute OS path
+    Path norm = path.lexically_normal();
+    if (norm.is_absolute()) {
+        if (descriptor.app.assets_path) {
+            Path base = Path(descriptor.app.assets_path).lexically_normal();
+            Path rel  = fs::relative(norm, base, ec);
+            if (!ec && !rel.empty() && *rel.begin() != "..") {
+                Path   full_path = norm;
+                String sub       = (rel == ".") ? "" : rel.generic_string();
+                Path   rel_path  = Path(VFSPath(vfs::SchemeApp, sub).to_string());
+                strip_import_extension(full_path, rel_path);
+                return {full_path, rel_path};
+            }
+        }
+        if (descriptor.sys.assets_path) {
+            Path base = Path(descriptor.sys.assets_path).lexically_normal();
+            Path rel  = fs::relative(norm, base, ec);
+            if (!ec && !rel.empty() && *rel.begin() != "..") {
+                Path   full_path = norm;
+                String sub       = (rel == ".") ? "" : rel.generic_string();
+                Path   rel_path  = Path(VFSPath(vfs::SchemeSys, sub).to_string());
+                strip_import_extension(full_path, rel_path);
+                return {full_path, rel_path};
+            }
+        }
     }
 
-    Path full_path = Path(base) / vp.path;
-    Path rel_path  = vp.to_string();
-    strip_import_extension(full_path, rel_path);
-    return {full_path, rel_path};
+    // 3. bare relative path without scheme: default to app:// scheme
+    if (descriptor.app.assets_path) {
+        Path full_path = Path(descriptor.app.assets_path) / path;
+        Path rel_path  = Path(VFSPath(vfs::SchemeApp, path.generic_string()).to_string());
+        strip_import_extension(full_path, rel_path);
+        return {full_path, rel_path};
+    }
+
+    return {};
 }
 
 void AssetServer::unload_record(AssetID guid)

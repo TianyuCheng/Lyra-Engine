@@ -24,7 +24,7 @@ RenderWorld::RenderWorld(GeometryCache& geometry_cache, AssetServer* ams)
 void RenderWorld::extract(
     const World&                ecs_world,
     const RendererCapabilities& capabilities,
-    float                       /*delta_time*/)
+    float /*delta_time*/)
 {
     scene.clear();
 
@@ -57,7 +57,7 @@ void RenderWorld::extract_view(const World& ecs_world)
                 proj = glm::perspective(glm::radians(cam.fov), cam.aspect, cam.near_plane, cam.far_plane);
             } else {
                 float half_size = cam.size * 0.5f;
-                proj = glm::ortho(-half_size * cam.aspect, half_size * cam.aspect, -half_size, half_size, cam.near_plane, cam.far_plane);
+                proj            = glm::ortho(-half_size * cam.aspect, half_size * cam.aspect, -half_size, half_size, cam.near_plane, cam.far_plane);
             }
         }
 
@@ -251,15 +251,15 @@ void RenderWorld::extract_meshes(const World& ecs_world, const RendererCapabilit
 
         // 2. meshlet cluster presentation extraction
         if (capabilities.supported_primitives.contains(PrimitiveSupport::MESHLET) && lod0.meshlet.has_value()) {
-            auto prim          = MeshletPrimitive{};
-            prim.geometry      = *lod0.meshlet;
+            auto prim           = MeshletPrimitive{};
+            prim.geometry       = *lod0.meshlet;
             prim.meshlet_offset = 0;
-            prim.meshlet_count = lod0.meshlet->meshlet_count;
-            prim.material      = mesh_comp.material;
-            prim.transform     = world_xform;
-            prim.world_bounds  = entry->local_bounds.transformed(world_xform);
-            prim.instance_id   = static_cast<uint>(entt::to_integral(entity));
-            prim.shading_model = shading_model;
+            prim.meshlet_count  = lod0.meshlet->meshlet_count;
+            prim.material       = mesh_comp.material;
+            prim.transform      = world_xform;
+            prim.world_bounds   = entry->local_bounds.transformed(world_xform);
+            prim.instance_id    = static_cast<uint>(entt::to_integral(entity));
+            prim.shading_model  = shading_model;
             scene.meshlets.push_back(prim);
         }
 

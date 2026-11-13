@@ -15,10 +15,10 @@ namespace lyra
      */
     struct [[lyra::component("Mesh", category = "Rendering", icon = "LYRA_ICON_MESH")]] Mesh
     {
-        MeshAssetHandle       mesh;                                                      ///< reference to MeshAsset.
-        MaterialAssetHandle   material;                                                  ///< reference to MaterialAsset.
+        MeshAssetHandle     mesh;                                    ///< reference to MeshAsset.
+        MaterialAssetHandle material;                                ///< reference to MaterialAsset.
         GeometryForms       preferred_forms = GeometryForm::INDEXED; ///< requested geometry forms.
-        bool                  cast_shadows            = true;                            ///< whether this mesh casts shadows.
+        bool                cast_shadows    = true;                  ///< whether this mesh casts shadows.
     };
 
 } // namespace lyra

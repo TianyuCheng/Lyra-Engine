@@ -125,12 +125,12 @@ TEST_CASE("rendering::procedural_mesh" * doctest::description("Verify generation
         auto ico0 = create_icosphere_mesh(1.0f, 0);
         REQUIRE_EQ(ico0.lods.size(), 1);
         CHECK_EQ(ico0.lods[0].surfaces[0].slice.index_count, 60); // 20 faces * 3
-        CHECK_EQ(ico0.lods[0].attributes[0].element_count, 12); // 12 base vertices
+        CHECK_EQ(ico0.lods[0].attributes[0].element_count, 12);   // 12 base vertices
 
         auto ico1 = create_icosphere_mesh(2.0f, 1);
         REQUIRE_EQ(ico1.lods.size(), 1);
         CHECK_EQ(ico1.lods[0].surfaces[0].slice.index_count, 240); // 20 * 4 * 3
-        CHECK_EQ(ico1.lods[0].attributes[0].element_count, 42); // 12 + 30 midpoints
+        CHECK_EQ(ico1.lods[0].attributes[0].element_count, 42);    // 12 + 30 midpoints
         CHECK_EQ(ico1.min_bounds.x, doctest::Approx(-2.0f));
         CHECK_EQ(ico1.max_bounds.x, doctest::Approx(2.0f));
 
@@ -161,23 +161,23 @@ TEST_CASE("rendering::procedural_mesh" * doctest::description("Verify generation
 
 TEST_CASE("rendering::render_world" * doctest::description("Verify RenderWorld multi-form geometry extraction and ECS synchronization"))
 {
-    World ecs_world;
+    World          ecs_world;
     ResourceRetire retire;
-    GeometryCache cache(retire);
-    RenderWorld render_world(cache);
+    GeometryCache  cache(retire);
+    RenderWorld    render_world(cache);
 
     SUBCASE("Extract view, directional lights, and point lights")
     {
-        auto cam_entity = ecs_world.create("Camera");
-        auto& cam = ecs_world.add_component<Camera>(cam_entity);
-        cam.fov = 60.0f;
-        cam.near_plane = 0.1f;
-        cam.far_plane = 1000.0f;
+        auto  cam_entity = ecs_world.create("Camera");
+        auto& cam        = ecs_world.add_component<Camera>(cam_entity);
+        cam.fov          = 60.0f;
+        cam.near_plane   = 0.1f;
+        cam.far_plane    = 1000.0f;
 
-        auto light_entity = ecs_world.create("Sun");
-        auto& dir = ecs_world.add_component<DirectionalLight>(light_entity);
-        dir.color = Vector3(1.0f, 0.95f, 0.9f);
-        dir.intensity = 5.0f;
+        auto  light_entity = ecs_world.create("Sun");
+        auto& dir          = ecs_world.add_component<DirectionalLight>(light_entity);
+        dir.color          = Vector3(1.0f, 0.95f, 0.9f);
+        dir.intensity      = 5.0f;
 
         RendererCapabilities caps{};
         render_world.extract(ecs_world, caps);
@@ -190,13 +190,13 @@ TEST_CASE("rendering::render_world" * doctest::description("Verify RenderWorld m
 
     SUBCASE("Extract procedural meshes (Trimesh form)")
     {
-        auto cube_entity = ecs_world.create("TestCube");
-        auto& cube_mesh = ecs_world.add_component<Mesh>(cube_entity);
-        cube_mesh.mesh = MeshAssetHandle(PROCEDURAL_CUBE_GUID);
+        auto  cube_entity = ecs_world.create("TestCube");
+        auto& cube_mesh   = ecs_world.add_component<Mesh>(cube_entity);
+        cube_mesh.mesh    = MeshAssetHandle(PROCEDURAL_CUBE_GUID);
 
-        auto ico_entity = ecs_world.create("TestIcosphere");
-        auto& ico_mesh = ecs_world.add_component<Mesh>(ico_entity);
-        ico_mesh.mesh = MeshAssetHandle(PROCEDURAL_ICOSPHERE_GUID);
+        auto  ico_entity = ecs_world.create("TestIcosphere");
+        auto& ico_mesh   = ecs_world.add_component<Mesh>(ico_entity);
+        ico_mesh.mesh    = MeshAssetHandle(PROCEDURAL_ICOSPHERE_GUID);
 
         RendererCapabilities caps{};
         caps.supported_primitives = PrimitiveSupport::MESH;
@@ -207,11 +207,11 @@ TEST_CASE("rendering::render_world" * doctest::description("Verify RenderWorld m
 
     SUBCASE("Extract SDF volume (SDF form)")
     {
-        auto sdf_entity = ecs_world.create("TestSDFSphere");
-        auto& sdf = ecs_world.add_component<SDFVolume>(sdf_entity);
-        sdf.shape_type = SDFShapeType::SPHERE;
-        sdf.blend_op   = SDFBlendOp::SMOOTH_UNION;
-        sdf.parameters = Vector4(2.5f, 0.0f, 0.0f, 0.2f);
+        auto  sdf_entity = ecs_world.create("TestSDFSphere");
+        auto& sdf        = ecs_world.add_component<SDFVolume>(sdf_entity);
+        sdf.shape_type   = SDFShapeType::SPHERE;
+        sdf.blend_op     = SDFBlendOp::SMOOTH_UNION;
+        sdf.parameters   = Vector4(2.5f, 0.0f, 0.0f, 0.2f);
 
         RendererCapabilities caps{};
         caps.supported_primitives = PrimitiveSupport::SDF;

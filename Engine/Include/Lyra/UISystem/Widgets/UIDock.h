@@ -31,8 +31,8 @@ namespace lyra::ui::workspace
         float left             = 0.20f;
         float right            = 0.25f;
         float bottom           = 0.30f;
-        float top              = 0.0f;  // 0.0f = no top split
-        bool  left_full_height = true;  // left sidebar extends full height
+        float top              = 0.0f; // 0.0f = no top split
+        bool  left_full_height = true; // left sidebar extends full height
     };
 
     // primary workspace dockspace submission (called every frame in layout layer)

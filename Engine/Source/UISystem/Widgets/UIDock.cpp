@@ -18,13 +18,14 @@ namespace
         ImGuiID bottom = 0;
     };
 
-    WorkspaceNodes          g_nodes;
-    bool                    s_is_building_default_layout = false;
-    bool                    s_pending_reset              = false;
-    HashMap<String, Area>   s_dock_registrations;
+    WorkspaceNodes        g_nodes;
+    bool                  s_is_building_default_layout = false;
+    bool                  s_pending_reset              = false;
+    HashMap<String, Area> s_dock_registrations;
 
     ImGuiID get_area_node(Area area)
     {
+        // clang-format off
         switch (area) {
             case Area::Main:   return g_nodes.main;
             case Area::Left:   return g_nodes.left ? g_nodes.left : g_nodes.main;
@@ -32,6 +33,7 @@ namespace
             case Area::Top:    return g_nodes.top ? g_nodes.top : g_nodes.main;
             case Area::Bottom: return g_nodes.bottom ? g_nodes.bottom : g_nodes.main;
         }
+        // clang-format on
         return g_nodes.main;
     }
 } // namespace
@@ -58,8 +60,8 @@ void lyra::ui::workspace::dockspace(DockSpaceFlags flags, const WorkspaceLayout&
     ImGuiID dockspace_id = ImGui::GetMainViewport()->ID;
     ImGui::DockSpaceOverViewport(dockspace_id, ImGui::GetMainViewport(), im_flags);
 
-    ImGuiDockNode* node = ImGui::DockBuilderGetNode(dockspace_id);
-    bool needs_build    = s_pending_reset || node == nullptr || (node->ChildNodes[0] == nullptr && node->ChildNodes[1] == nullptr && !node->IsCentralNode());
+    auto node        = ImGui::DockBuilderGetNode(dockspace_id);
+    bool needs_build = s_pending_reset || node == nullptr || (node->ChildNodes[0] == nullptr && node->ChildNodes[1] == nullptr && !node->IsCentralNode());
 
     if (needs_build) {
         s_is_building_default_layout = true;
