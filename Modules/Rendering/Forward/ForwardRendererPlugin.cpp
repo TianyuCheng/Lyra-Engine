@@ -43,9 +43,9 @@ static auto get_name() -> CString
     return "Forward/ForwardPlus Renderer";
 }
 
-static auto get_capabilities() -> RendererCaps
+static auto get_capabilities() -> RendererCapabilities
 {
-    RendererCaps caps{};
+    RendererCapabilities caps{};
     caps.features = RendererFeature::RASTERIZATION |
                     RendererFeature::POST_PROCESSING |
                     RendererFeature::DEBUG_VISUALIZATION;

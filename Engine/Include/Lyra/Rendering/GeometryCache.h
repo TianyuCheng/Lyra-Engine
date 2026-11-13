@@ -50,7 +50,7 @@ namespace lyra
         auto acquire(
             const MeshAssetHandle& handle,
             const MeshAsset&       asset,
-            GeometryPresentations  presentations = GeometryPresentation::TRADITIONAL)
+            GeometryForms          forms = GeometryForm::INDEXED)
             -> const MeshGeometryEntry*;
 
         /**
@@ -130,8 +130,8 @@ namespace lyra
         const GeometryBufferPool& get_buffer_pool() const { return buffer_pool; }
 
     private:
-        void upload_presentations(MeshGeometryEntry& entry, const MeshAsset& asset, GeometryPresentations requested);
-        void upload_traditional_lod(GeometryLOD& gpu_lod, const MeshLOD& lod, Vector<GeometryCopy>& copy_ops, Vector<uint8_t>& cpu_staging);
+        void upload_forms(MeshGeometryEntry& entry, const MeshAsset& asset, GeometryForms requested);
+        void upload_indexed_lod(GeometryLOD& gpu_lod, const MeshLOD& lod, Vector<GeometryCopy>& copy_ops, Vector<uint8_t>& cpu_staging);
         void upload_meshlet_lod(GeometryLOD& gpu_lod, const MeshLOD& lod, Vector<GeometryCopy>& copy_ops, Vector<uint8_t>& cpu_staging);
         void free_entry_geometry(MeshGeometryEntry& entry);
 

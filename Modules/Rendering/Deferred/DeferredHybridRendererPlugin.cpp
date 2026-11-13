@@ -40,9 +40,9 @@ static auto get_name() -> CString
     return "Deferred Hybrid Renderer";
 }
 
-static auto get_capabilities() -> RendererCaps
+static auto get_capabilities() -> RendererCapabilities
 {
-    RendererCaps caps{};
+    RendererCapabilities caps{};
     caps.features = RendererFeature::RASTERIZATION |
                     RendererFeature::HARDWARE_RAYTRACING |
                     RendererFeature::POST_PROCESSING |

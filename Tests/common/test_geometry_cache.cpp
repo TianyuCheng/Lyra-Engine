@@ -8,21 +8,21 @@ using namespace lyra;
 
 TEST_CASE("rendering::geometry_types" * doctest::description("Geometry types, bitflags, and slices"))
 {
-    SUBCASE("GeometryPresentations bitflags")
+    SUBCASE("GeometryForms bitflags")
     {
-        GeometryPresentations flags = GeometryPresentation::TRADITIONAL;
-        CHECK(flags.contains(GeometryPresentation::TRADITIONAL));
-        CHECK(!flags.contains(GeometryPresentation::MESHLET));
-        CHECK(!flags.contains(GeometryPresentation::RAY_TRACING));
+        GeometryForms flags = GeometryForm::INDEXED;
+        CHECK(flags.contains(GeometryForm::INDEXED));
+        CHECK(!flags.contains(GeometryForm::MESHLET));
+        CHECK(!flags.contains(GeometryForm::RAY_TRACING));
 
-        flags.set(GeometryPresentation::MESHLET);
-        CHECK(flags.contains(GeometryPresentation::TRADITIONAL));
-        CHECK(flags.contains(GeometryPresentation::MESHLET));
+        flags.set(GeometryForm::MESHLET);
+        CHECK(flags.contains(GeometryForm::INDEXED));
+        CHECK(flags.contains(GeometryForm::MESHLET));
 
-        auto combined = GeometryPresentation::TRADITIONAL | GeometryPresentation::RAY_TRACING;
-        CHECK(combined.contains(GeometryPresentation::TRADITIONAL));
-        CHECK(combined.contains(GeometryPresentation::RAY_TRACING));
-        CHECK(!combined.contains(GeometryPresentation::MESHLET));
+        auto combined = GeometryForm::INDEXED | GeometryForm::RAY_TRACING;
+        CHECK(combined.contains(GeometryForm::INDEXED));
+        CHECK(combined.contains(GeometryForm::RAY_TRACING));
+        CHECK(!combined.contains(GeometryForm::MESHLET));
     }
 
     SUBCASE("BufferSlice validity")
@@ -133,7 +133,7 @@ TEST_CASE("rendering::geometry_cache" * doctest::description("GeometryCache resi
 
     SUBCASE("acquire and reference counting")
     {
-        auto entry1 = cache.acquire(handle1, mock_asset, GeometryPresentation::TRADITIONAL);
+        auto entry1 = cache.acquire(handle1, mock_asset, GeometryForm::INDEXED);
         REQUIRE(entry1 != nullptr);
         CHECK(entry1->ref_count == 1);
         CHECK(cache.active_count() == 1);
@@ -142,7 +142,7 @@ TEST_CASE("rendering::geometry_cache" * doctest::description("GeometryCache resi
         CHECK(cache.contains(handle1));
 
         // acquire again -> increments ref count
-        auto entry2 = cache.acquire(handle1, mock_asset, GeometryPresentation::TRADITIONAL);
+        auto entry2 = cache.acquire(handle1, mock_asset, GeometryForm::INDEXED);
         CHECK(entry2 == entry1);
         CHECK(entry1->ref_count == 2);
         CHECK(cache.total_references() == 2);
@@ -160,7 +160,7 @@ TEST_CASE("rendering::geometry_cache" * doctest::description("GeometryCache resi
         CHECK(cache.contains(handle1)); // still resident in standby!
 
         // re-acquire -> hits standby cache, restored without re-allocation!
-        auto entry_restored = cache.acquire(handle1, mock_asset, GeometryPresentation::TRADITIONAL);
+        auto entry_restored = cache.acquire(handle1, mock_asset, GeometryForm::INDEXED);
         REQUIRE(entry_restored != nullptr);
         CHECK(entry_restored->ref_count == 1);
         CHECK(cache.active_count() == 1);
@@ -171,9 +171,9 @@ TEST_CASE("rendering::geometry_cache" * doctest::description("GeometryCache resi
 
     SUBCASE("on-demand presentation acquisition")
     {
-        auto entry = cache.acquire(handle1, mock_asset, GeometryPresentation::TRADITIONAL);
+        auto entry = cache.acquire(handle1, mock_asset, GeometryForm::INDEXED);
         REQUIRE(entry != nullptr);
-        CHECK(entry->lods[0].traditional.has_value());
+        CHECK(entry->lods[0].indexed.has_value());
         CHECK(!entry->lods[0].meshlet.has_value());
 
         // acquire meshlet presentation on demand

@@ -98,19 +98,19 @@ const MeshAsset* lyra::find_procedural_mesh(AssetID guid)
 void lyra::init_procedural_meshes(GeometryCache& cache)
 {
     if (const auto* cube = find_procedural_mesh(PROCEDURAL_CUBE_GUID)) {
-        cache.acquire(MeshAssetHandle(PROCEDURAL_CUBE_GUID), *cube, GeometryPresentation::TRADITIONAL);
+        cache.acquire(MeshAssetHandle(PROCEDURAL_CUBE_GUID), *cube, GeometryForm::INDEXED);
     }
     if (const auto* sphere = find_procedural_mesh(PROCEDURAL_SPHERE_GUID)) {
-        cache.acquire(MeshAssetHandle(PROCEDURAL_SPHERE_GUID), *sphere, GeometryPresentation::TRADITIONAL);
+        cache.acquire(MeshAssetHandle(PROCEDURAL_SPHERE_GUID), *sphere, GeometryForm::INDEXED);
     }
     if (const auto* plane = find_procedural_mesh(PROCEDURAL_PLANE_GUID)) {
-        cache.acquire(MeshAssetHandle(PROCEDURAL_PLANE_GUID), *plane, GeometryPresentation::TRADITIONAL);
+        cache.acquire(MeshAssetHandle(PROCEDURAL_PLANE_GUID), *plane, GeometryForm::INDEXED);
     }
     if (const auto* cylinder = find_procedural_mesh(PROCEDURAL_CYLINDER_GUID)) {
-        cache.acquire(MeshAssetHandle(PROCEDURAL_CYLINDER_GUID), *cylinder, GeometryPresentation::TRADITIONAL);
+        cache.acquire(MeshAssetHandle(PROCEDURAL_CYLINDER_GUID), *cylinder, GeometryForm::INDEXED);
     }
     if (const auto* icosphere = find_procedural_mesh(PROCEDURAL_ICOSPHERE_GUID)) {
-        cache.acquire(MeshAssetHandle(PROCEDURAL_ICOSPHERE_GUID), *icosphere, GeometryPresentation::TRADITIONAL);
+        cache.acquire(MeshAssetHandle(PROCEDURAL_ICOSPHERE_GUID), *icosphere, GeometryForm::INDEXED);
     }
 }
 

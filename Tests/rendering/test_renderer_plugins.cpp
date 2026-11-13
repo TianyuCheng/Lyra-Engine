@@ -1,6 +1,12 @@
 #include <doctest/doctest.h>
 #include <Lyra/Rendering/RendererAPI.h>
 #include <Lyra/Rendering/ProceduralMesh.h>
+#include <Lyra/Rendering/RenderWorld.h>
+#include <Lyra/Rendering/ResourceRetire.h>
+#include <Lyra/Components/Camera.h>
+#include <Lyra/Components/Light.h>
+#include <Lyra/Components/Mesh.h>
+#include <Lyra/Components/SDFVolume.h>
 
 using namespace lyra;
 
@@ -150,5 +156,70 @@ TEST_CASE("rendering::procedural_mesh" * doctest::description("Verify generation
 
         auto cyl = create_cylinder_mesh(1.0f, 2.0f, 12);
         CHECK_GT(cyl.lods[0].surfaces[0].slice.index_count, 0);
+    }
+}
+
+TEST_CASE("rendering::render_world" * doctest::description("Verify RenderWorld multi-form geometry extraction and ECS synchronization"))
+{
+    World ecs_world;
+    ResourceRetire retire;
+    GeometryCache cache(retire);
+    RenderWorld render_world(cache);
+
+    SUBCASE("Extract view, directional lights, and point lights")
+    {
+        auto cam_entity = ecs_world.create("Camera");
+        auto& cam = ecs_world.add_component<Camera>(cam_entity);
+        cam.fov = 60.0f;
+        cam.near_plane = 0.1f;
+        cam.far_plane = 1000.0f;
+
+        auto light_entity = ecs_world.create("Sun");
+        auto& dir = ecs_world.add_component<DirectionalLight>(light_entity);
+        dir.color = Vector3(1.0f, 0.95f, 0.9f);
+        dir.intensity = 5.0f;
+
+        RendererCapabilities caps{};
+        render_world.extract(ecs_world, caps);
+
+        CHECK_EQ(render_world.get_scene().directional_lights.size(), 1);
+        CHECK_EQ(render_world.get_scene().directional_lights[0].intensity, 5.0f);
+        CHECK_EQ(render_world.get_view().fov, 60.0f);
+        CHECK_EQ(render_world.get_view().near_plane, 0.1f);
+    }
+
+    SUBCASE("Extract procedural meshes (Trimesh form)")
+    {
+        auto cube_entity = ecs_world.create("TestCube");
+        auto& cube_mesh = ecs_world.add_component<Mesh>(cube_entity);
+        cube_mesh.mesh = MeshAssetHandle(PROCEDURAL_CUBE_GUID);
+
+        auto ico_entity = ecs_world.create("TestIcosphere");
+        auto& ico_mesh = ecs_world.add_component<Mesh>(ico_entity);
+        ico_mesh.mesh = MeshAssetHandle(PROCEDURAL_ICOSPHERE_GUID);
+
+        RendererCapabilities caps{};
+        caps.supported_primitives = PrimitiveSupport::MESH;
+        render_world.extract(ecs_world, caps);
+
+        CHECK_EQ(render_world.get_scene().meshes.size(), 2);
+    }
+
+    SUBCASE("Extract SDF volume (SDF form)")
+    {
+        auto sdf_entity = ecs_world.create("TestSDFSphere");
+        auto& sdf = ecs_world.add_component<SDFVolume>(sdf_entity);
+        sdf.shape_type = SDFShapeType::SPHERE;
+        sdf.blend_op   = SDFBlendOp::SMOOTH_UNION;
+        sdf.parameters = Vector4(2.5f, 0.0f, 0.0f, 0.2f);
+
+        RendererCapabilities caps{};
+        caps.supported_primitives = PrimitiveSupport::SDF;
+        render_world.extract(ecs_world, caps);
+
+        CHECK_EQ(render_world.get_scene().sdfs.size(), 1);
+        CHECK_EQ(render_world.get_scene().sdfs[0].shape_type, SDFShapeType::SPHERE);
+        CHECK_EQ(render_world.get_scene().sdfs[0].blend_op, SDFBlendOp::SMOOTH_UNION);
+        CHECK_EQ(render_world.get_scene().sdfs[0].parameters.x, 2.5f);
     }
 }

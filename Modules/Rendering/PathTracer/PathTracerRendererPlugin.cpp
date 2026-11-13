@@ -33,9 +33,9 @@ static auto get_name() -> CString
     return "PathTracer";
 }
 
-static auto get_capabilities() -> RendererCaps
+static auto get_capabilities() -> RendererCapabilities
 {
-    RendererCaps caps{};
+    RendererCapabilities caps{};
     caps.features = RendererFeature::HARDWARE_RAYTRACING |
                     RendererFeature::ACCUMULATION |
                     RendererFeature::POST_PROCESSING |

@@ -26,22 +26,22 @@ namespace lyra
     };
 
     /**
-     * @brief Geometry presentation formats supported by the rendering system.
+     * @brief GPU geometry data representations supported by the rendering system.
      */
-    enum struct GeometryPresentation : uint
+    enum struct GeometryForm : uint
     {
-        TRADITIONAL  = 1 << 0, ///< Traditional VBO / IBO indexed rendering.
-        MESHLET      = 1 << 1, ///< Meshlet / cluster data for task & mesh shaders.
-        RAY_TRACING  = 1 << 2, ///< Bottom-Level Acceleration Structure (BLAS).
-        BINDLESS_RAW = 1 << 3, ///< Byte-addressable storage buffer representation.
+        INDEXED     = 1 << 0, ///< Traditional VBO / IBO indexed rendering.
+        MESHLET     = 1 << 1, ///< Meshlet / cluster data for task & mesh shaders.
+        RAY_TRACING = 1 << 2, ///< Bottom-Level Acceleration Structure (BLAS).
+        BINDLESS    = 1 << 3, ///< Byte-addressable storage buffer representation.
     };
 } // namespace lyra
 
-ENABLE_BIT_FLAGS(lyra::GeometryPresentation)
+ENABLE_BIT_FLAGS(lyra::GeometryForm)
 
 namespace lyra
 {
-    using GeometryPresentations = BitFlags<GeometryPresentation>;
+    using GeometryForms = BitFlags<GeometryForm>;
 
     /**
      * @brief Traditional indexed geometry presentation.
@@ -105,7 +105,7 @@ namespace lyra
      */
     struct GeometryLOD
     {
-        Optional<IndexedGeometry>    traditional;
+        Optional<IndexedGeometry>    indexed;
         Optional<MeshletGeometry>    meshlet;
         Optional<RayTracingGeometry> ray_tracing;
         Vector<MeshSurface>          surfaces;
@@ -116,11 +116,11 @@ namespace lyra
      */
     struct MeshGeometryEntry
     {
-        Vector<GeometryLOD>   lods;
-        Bounds3D              local_bounds;
-        uint                  ref_count            = 0;
-        uint                  last_used_frame      = 0;
-        GeometryPresentations loaded_presentations = GeometryPresentation::TRADITIONAL;
+        Vector<GeometryLOD> lods;
+        Bounds3D            local_bounds;
+        uint                ref_count       = 0;
+        uint                last_used_frame = 0;
+        GeometryForms       loaded_forms    = GeometryForm::INDEXED;
     };
 
 } // namespace lyra

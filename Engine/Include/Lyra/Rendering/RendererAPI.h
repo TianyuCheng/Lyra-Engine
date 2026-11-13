@@ -20,7 +20,7 @@ namespace lyra
     {
         // identification & capabilities
         CString (*get_name)();
-        RendererCaps (*get_capabilities)();
+        RendererCapabilities (*get_capabilities)();
 
         // lifecycle
         bool (*create_renderer)(RendererHandle& out_handle, const RendererDescriptor& descriptor);

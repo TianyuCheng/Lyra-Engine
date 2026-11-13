@@ -22,7 +22,7 @@ GeometryCache::~GeometryCache()
 const MeshGeometryEntry* GeometryCache::acquire(
     const MeshAssetHandle& handle,
     const MeshAsset&       asset,
-    GeometryPresentations  presentations)
+    GeometryForms          forms)
 {
     if (!handle.valid() || asset.lods.empty()) {
         return nullptr;
@@ -34,8 +34,8 @@ const MeshGeometryEntry* GeometryCache::acquire(
         ++active_it->second.ref_count;
         active_it->second.last_used_frame = current_frame;
 
-        if ((active_it->second.loaded_presentations & presentations) != presentations) {
-            upload_presentations(active_it->second, asset, presentations);
+        if ((active_it->second.loaded_forms & forms) != forms) {
+            upload_forms(active_it->second, asset, forms);
         }
         return &active_it->second;
     }
@@ -49,8 +49,8 @@ const MeshGeometryEntry* GeometryCache::acquire(
         entry.ref_count       = 1;
         entry.last_used_frame = current_frame;
 
-        if ((entry.loaded_presentations & presentations) != presentations) {
-            upload_presentations(entry, asset, presentations);
+        if ((entry.loaded_forms & forms) != forms) {
+            upload_forms(entry, asset, forms);
         }
 
         auto [inserted_it, _] = active_cache.emplace(handle, std::move(entry));
@@ -64,7 +64,7 @@ const MeshGeometryEntry* GeometryCache::acquire(
     entry.local_bounds    = Bounds3D(asset.min_bounds, asset.max_bounds);
     entry.lods.resize(asset.lods.size());
 
-    upload_presentations(entry, asset, presentations);
+    upload_forms(entry, asset, forms);
 
     auto [inserted_it, _] = active_cache.emplace(handle, std::move(entry));
     return &inserted_it->second;
@@ -77,12 +77,12 @@ bool GeometryCache::acquire_meshlet(const MeshAssetHandle& handle, const MeshAss
         return false;
     }
 
-    if (it->second.loaded_presentations.contains(GeometryPresentation::MESHLET)) {
+    if (it->second.loaded_forms.contains(GeometryForm::MESHLET)) {
         return true;
     }
 
-    upload_presentations(it->second, asset, GeometryPresentation::MESHLET);
-    return it->second.loaded_presentations.contains(GeometryPresentation::MESHLET);
+    upload_forms(it->second, asset, GeometryForm::MESHLET);
+    return it->second.loaded_forms.contains(GeometryForm::MESHLET);
 }
 
 bool GeometryCache::acquire_ray_tracing(const MeshAssetHandle& handle, const MeshAsset& asset)
@@ -92,12 +92,12 @@ bool GeometryCache::acquire_ray_tracing(const MeshAssetHandle& handle, const Mes
         return false;
     }
 
-    if (it->second.loaded_presentations.contains(GeometryPresentation::RAY_TRACING)) {
+    if (it->second.loaded_forms.contains(GeometryForm::RAY_TRACING)) {
         return true;
     }
 
-    upload_presentations(it->second, asset, GeometryPresentation::RAY_TRACING);
-    return it->second.loaded_presentations.contains(GeometryPresentation::RAY_TRACING);
+    upload_forms(it->second, asset, GeometryForm::RAY_TRACING);
+    return it->second.loaded_forms.contains(GeometryForm::RAY_TRACING);
 }
 
 void GeometryCache::release(const MeshAssetHandle& handle)
@@ -206,10 +206,10 @@ usize GeometryCache::total_references() const
     return total;
 }
 
-void GeometryCache::upload_presentations(
-    MeshGeometryEntry&    entry,
-    const MeshAsset&      asset,
-    GeometryPresentations requested)
+void GeometryCache::upload_forms(
+    MeshGeometryEntry& entry,
+    const MeshAsset&   asset,
+    GeometryForms      requested)
 {
     Vector<GeometryCopy> copy_ops;
     Vector<uint8_t>      cpu_staging;
@@ -223,13 +223,13 @@ void GeometryCache::upload_presentations(
         const auto& lod     = asset.lods[i];
         gpu_lod.surfaces    = lod.surfaces;
 
-        // 1. Traditional Indexed Presentation
-        if (requested.contains(GeometryPresentation::TRADITIONAL) && !gpu_lod.traditional.has_value()) {
-            upload_traditional_lod(gpu_lod, lod, copy_ops, cpu_staging);
+        // 1. Indexed Presentation
+        if (requested.contains(GeometryForm::INDEXED) && !gpu_lod.indexed.has_value()) {
+            upload_indexed_lod(gpu_lod, lod, copy_ops, cpu_staging);
         }
 
         // 2. Meshlet Presentation
-        if (requested.contains(GeometryPresentation::MESHLET) && !gpu_lod.meshlet.has_value()) {
+        if (requested.contains(GeometryForm::MESHLET) && !gpu_lod.meshlet.has_value()) {
             upload_meshlet_lod(gpu_lod, lod, copy_ops, cpu_staging);
         }
     }
@@ -269,10 +269,10 @@ void GeometryCache::upload_presentations(
         }
     }
 
-    entry.loaded_presentations |= requested;
+    entry.loaded_forms |= requested;
 }
 
-void GeometryCache::upload_traditional_lod(
+void GeometryCache::upload_indexed_lod(
     GeometryLOD&          gpu_lod,
     const MeshLOD&        lod,
     Vector<GeometryCopy>& copy_ops,
@@ -347,7 +347,7 @@ void GeometryCache::upload_traditional_lod(
         copy_ops.push_back(op);
     }
 
-    gpu_lod.traditional = std::move(geom);
+    gpu_lod.indexed = std::move(geom);
 }
 
 void GeometryCache::upload_meshlet_lod(
@@ -376,11 +376,11 @@ void GeometryCache::upload_meshlet_lod(
 void GeometryCache::free_entry_geometry(MeshGeometryEntry& entry)
 {
     for (auto& lod : entry.lods) {
-        if (lod.traditional.has_value()) {
-            buffer_pool.free(lod.traditional->vertex_slice);
-            buffer_pool.free(lod.traditional->position_slice);
-            buffer_pool.free(lod.traditional->index_slice);
-            lod.traditional.reset();
+        if (lod.indexed.has_value()) {
+            buffer_pool.free(lod.indexed->vertex_slice);
+            buffer_pool.free(lod.indexed->position_slice);
+            buffer_pool.free(lod.indexed->index_slice);
+            lod.indexed.reset();
         }
 
         if (lod.meshlet.has_value()) {

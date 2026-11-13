@@ -33,9 +33,9 @@ static auto get_name() -> CString
     return "GPU Driven Renderer";
 }
 
-static auto get_capabilities() -> RendererCaps
+static auto get_capabilities() -> RendererCapabilities
 {
-    RendererCaps caps{};
+    RendererCapabilities caps{};
     caps.features = RendererFeature::RASTERIZATION |
                     RendererFeature::COMPUTE_CULLING |
                     RendererFeature::MESH_SHADERS |

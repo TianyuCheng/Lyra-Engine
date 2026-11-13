@@ -31,11 +31,11 @@ namespace lyra
      */
     enum struct ShadingModel : uint
     {
-        PBR_METALLIC_ROUGHNESS = 0,
-        UNLIT                  = 1,
-        TOON_CEL               = 2,
-        SUBSURFACE             = 3,
-        CUSTOM                 = 4,
+        PBR        = 0,
+        TOON       = 2,
+        UNLIT      = 1,
+        SUBSURFACE = 3,
+        CUSTOM     = 4,
     };
 
     /**
@@ -54,7 +54,7 @@ namespace lyra
         static auto loader() -> AssetLoaderAPI;
 
         // shading model and custom shader override
-        ShadingModel shading_model      = ShadingModel::PBR_METALLIC_ROUGHNESS;
+        ShadingModel shading_model      = ShadingModel::PBR;
         String       custom_shader_path = ""; // optional VFS path (e.g. sys:// or app://) for custom shaders
 
         // pbr parameters

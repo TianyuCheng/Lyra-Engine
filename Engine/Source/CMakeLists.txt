@@ -111,6 +111,7 @@ target_sources(lyra-engine PRIVATE
   Rendering/RendererManager.cpp
   Rendering/SystemTextures.cpp
   Rendering/ProceduralMesh.cpp
+  Rendering/RenderWorld.cpp
   Rendering/Passes/DepthPrepass.cpp
   Rendering/Passes/GBufferPass.cpp
   Rendering/Passes/TonemappingPass.cpp

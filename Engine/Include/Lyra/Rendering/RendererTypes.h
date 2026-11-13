@@ -51,7 +51,7 @@ namespace lyra
     /**
      * @brief reported capabilities of a renderer plugin.
      */
-    struct RendererCaps
+    struct RendererCapabilities
     {
         RendererFeatures  features               = RendererFeature::NONE;
         PrimitiveSupports supported_primitives   = PrimitiveSupport::NONE;

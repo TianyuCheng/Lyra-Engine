@@ -178,8 +178,8 @@ void RenderLayer::extract_scene_and_view(AppContext& context)
         }
 
         if (auto entry = geometry_cache.get(mesh_comp.mesh)) {
-            if (!entry->lods.empty() && entry->lods[0].traditional) {
-                prim.geometry = *entry->lods[0].traditional;
+            if (!entry->lods.empty() && entry->lods[0].indexed) {
+                prim.geometry = *entry->lods[0].indexed;
             }
             prim.world_bounds = entry->local_bounds.transformed(xform.xform);
         }
