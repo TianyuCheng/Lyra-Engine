@@ -34,9 +34,15 @@ namespace lyra::ui
     // dynamic flexible spacer (spring): pushes subsequent items in a row to the far right
     void spacer();
 
+    // explicit fixed horizontal spacing
+    void space(float width);
+
     // responsive grid layout: automatically arranges items in columns based on cell width
     void grid(CString id, float item_width, ActionRef content);
     void grid_item(ActionRef content);
+
+    // resizable horizontal two-pane split container (e.g. sidebar + main content)
+    void split_pane(CString id, float& split_width, ActionRef left_pane, ActionRef right_pane, float min_left = 120.0f, float min_right = 200.0f, float reserve_bottom = 0.0f);
 
     // semantic divider between items or sections
     void separator();

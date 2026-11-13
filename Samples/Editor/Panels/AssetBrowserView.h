@@ -28,6 +28,12 @@ namespace lyra
         virtual ~AssetBrowserView();
 
         void switch_domain(AssetBrowserDomain domain);
+        void navigate_to(const Path& path, AssetBrowserDomain domain, bool record_history = true);
+        bool can_go_back() const { return history_cursor > 0; }
+        bool can_go_forward() const { return history_cursor + 1 < history.size(); }
+        void action_navigate_back();
+        void action_navigate_forward();
+
         bool is_read_only() const { return active_domain == AssetBrowserDomain::Sys; }
         auto get_current_scheme() const -> StringView;
         auto get_app_root() const -> const Path& { return app_root; }
@@ -40,7 +46,9 @@ namespace lyra
     private:
         // ui helpers
         void show_header_toolbar();
-        void show_domain_selector();
+        void show_sidebar_tree();
+        void show_tree_root(CString label, CString icon, const Path& root_path, AssetBrowserDomain domain);
+        void show_directory_node(const Path& dir_path, const Path& domain_root, AssetBrowserDomain domain);
         void show_breadcrumb();
         void show_dir_files(AppContext& context);
         void show_item(AppContext& context, StringView name, bool is_folder);
@@ -84,6 +92,12 @@ namespace lyra
         {
             String name;
             Path   path;
+        };
+
+        struct HistoryEntry
+        {
+            Path               path;
+            AssetBrowserDomain domain;
         };
 
         struct ThumbnailTexture
@@ -153,7 +167,15 @@ namespace lyra
         char  new_folder_name[256] = "";
         char  rename_buffer[256]   = "";
         char  search_filter[256]   = "";
-        float icon_size            = 96.0f;
+        float icon_size            = 128.0f;
+
+        // sidebar and history state
+        bool  show_sidebar  = true;
+        float sidebar_width = 0.0f;
+
+        static constexpr usize MAX_HISTORY    = 64;
+        Vector<HistoryEntry>   history        = {};
+        usize                  history_cursor = 0;
 
         Path next_path;
         bool needs_refresh = false;

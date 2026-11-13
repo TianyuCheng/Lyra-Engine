@@ -8,10 +8,38 @@ using namespace lyra::ui;
 // 1. Panels & Viewport
 // =============================================================================
 
+void lyra::ui::set_context(void* context)
+{
+    ImGui::SetCurrentContext(reinterpret_cast<ImGuiContext*>(context));
+}
+
+namespace
+{
+    auto to_imgui_window_flags(PanelFlags flags) -> ImGuiWindowFlags
+    {
+        ImGuiWindowFlags imgui_flags = ImGuiWindowFlags_None;
+        if (flags.contains(PanelFlag::NoScrollbar)) {
+            imgui_flags |= ImGuiWindowFlags_NoScrollbar;
+        }
+        if (flags.contains(PanelFlag::NoScrollWithMouse)) {
+            imgui_flags |= ImGuiWindowFlags_NoScrollWithMouse;
+        }
+        if (flags.contains(PanelFlag::MenuBar)) {
+            imgui_flags |= ImGuiWindowFlags_MenuBar;
+        }
+        return imgui_flags;
+    }
+} // namespace
+
 void lyra::ui::panel(CString title, ActionRef content)
 {
+    panel(title, PanelFlag::None, content);
+}
+
+void lyra::ui::panel(CString title, PanelFlags flags, ActionRef content)
+{
     internal::reset_layout_counters();
-    if (ImGui::Begin(title)) {
+    if (ImGui::Begin(title, nullptr, to_imgui_window_flags(flags))) {
         content();
     }
     ImGui::End();
@@ -19,8 +47,13 @@ void lyra::ui::panel(CString title, ActionRef content)
 
 void lyra::ui::panel(CString title, bool* p_open, ActionRef content)
 {
+    panel(title, p_open, PanelFlag::None, content);
+}
+
+void lyra::ui::panel(CString title, bool* p_open, PanelFlags flags, ActionRef content)
+{
     internal::reset_layout_counters();
-    if (ImGui::Begin(title, p_open)) {
+    if (ImGui::Begin(title, p_open, to_imgui_window_flags(flags))) {
         content();
     }
     ImGui::End();
@@ -398,6 +431,32 @@ auto lyra::ui::get_cursor_pos() -> Vector2
 void lyra::ui::set_cursor_pos(Vector2 pos)
 {
     ImGui::SetCursorPos(ImVec2(pos.x, pos.y));
+}
+
+float lyra::ui::get_font_size()
+{
+    return ImGui::GetFontSize();
+}
+
+float lyra::ui::get_char_width()
+{
+    ImVec2 sz = ImGui::CalcTextSize("M");
+    if (sz.x > 0.0f) {
+        return sz.x;
+    }
+    return ImGui::GetFontSize() * 0.5f;
+}
+
+Vector2 lyra::ui::calc_text_size(CString text)
+{
+    if (!text || *text == '\0') return Vector2(0.0f, 0.0f);
+    ImVec2 sz = ImGui::CalcTextSize(text);
+    return Vector2(sz.x, sz.y);
+}
+
+float lyra::ui::calc_text_width(usize num_chars)
+{
+    return static_cast<float>(num_chars) * get_char_width();
 }
 
 auto lyra::ui::get_item_rect() -> Rect

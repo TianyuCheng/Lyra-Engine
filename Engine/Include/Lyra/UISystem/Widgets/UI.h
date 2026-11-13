@@ -19,12 +19,17 @@ namespace lyra::ui
     template <typename T>
     using ChangeRef = FunctionRef<void(const T&)>;
 
+    // context management
+    void set_context(void* context);
+
     // =========================================================================
     // 1. Panels (Top-level workspace panels)
     // =========================================================================
 
     void panel(CString title, ActionRef content);
+    void panel(CString title, PanelFlags flags, ActionRef content);
     void panel(CString title, bool* p_open, ActionRef content);
+    void panel(CString title, bool* p_open, PanelFlags flags, ActionRef content);
 
     // panel context & state
     auto get_available_space() -> Vector2;
@@ -96,6 +101,12 @@ namespace lyra::ui
     void set_cursor_screen_pos(Vector2 pos);
     auto get_cursor_pos() -> Vector2;
     void set_cursor_pos(Vector2 pos);
+
+    // font & character metrics
+    auto get_font_size() -> float;
+    auto get_char_width() -> float;
+    auto calc_text_size(CString text) -> Vector2;
+    auto calc_text_width(usize num_chars) -> float;
 
     // item bounds and interaction state (queries the most recent UI item)
     auto get_item_rect() -> Rect;

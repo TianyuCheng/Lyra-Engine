@@ -18,9 +18,13 @@ namespace lyra::ui
     void button(CString label, ButtonRole role = ButtonRole::Standard);
 
     void icon_button(CString icon, ActionRef on_click, CString tooltip = nullptr, ButtonRole role = ButtonRole::Standard);
+    void icon_button(CString icon, ActionRef on_click, CString tooltip, bool enabled, ButtonRole role = ButtonRole::Standard);
     void icon_button(CString icon, CString tooltip = nullptr, ButtonRole role = ButtonRole::Standard);
 
     void invisible_button(CString id, Vector2 size);
+
+    // interaction blocking and visual dimming container
+    void disabled(bool is_disabled, ActionRef content);
 
     // =========================================================================
     // 2. Toggle Controls & Switches
@@ -44,6 +48,7 @@ namespace lyra::ui
 
     void text_field(CString id, char* buffer, usize buffer_size);
     void text_field(CString id, char* buffer, usize buffer_size, ActionRef on_commit);
+    void set_keyboard_focus();
 
     void slider(CString id, float* value, float min, float max, CString format = "%.0f", float width = 0.0f);
 
@@ -54,6 +59,7 @@ namespace lyra::ui
     void label(CString text);
     void label(CString text, StatusRole role);
     void badge(CString text, StatusRole role);
+    void tooltip(CString text);
 
     // =========================================================================
     // 5. Selectable Cards (Grid items, asset browsers, pickers)
@@ -110,6 +116,13 @@ namespace lyra::ui
     void segmented_control(const SegmentItem* items, usize count);
     void segmented_control(const Vector<SegmentItem>& items);
     void segmented_control(InitList<SegmentItem> items);
+
+    // =========================================================================
+    // 8. Clipboard & OS Integration
+    // =========================================================================
+
+    void set_clipboard_text(CString text);
+    auto get_clipboard_text() -> CString;
 
 } // namespace lyra::ui
 

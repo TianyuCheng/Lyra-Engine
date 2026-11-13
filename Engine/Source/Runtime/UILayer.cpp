@@ -73,7 +73,7 @@ void UILayer::theme(AppContext&)
     style.ItemInnerSpacing.x   = 6.0f;
     style.ItemInnerSpacing.y   = 6.0f;
     style.GrabMinSize          = 10.0f;
-    style.DockingSeparatorSize = 3.0f;
+    style.DockingSeparatorSize = 6.0f;
     style.IndentSpacing        = 20.0f;
 
     // corners

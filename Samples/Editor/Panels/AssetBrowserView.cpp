@@ -1,6 +1,5 @@
 #include <fstream>
 #include <algorithm>
-#include <imgui.h>
 #include <stb_image.h>
 #include <cmrc/cmrc.hpp>
 #include <Lyra/Utilities/Path.h>
@@ -11,6 +10,7 @@
 #include <Lyra/UISystem/Widgets/UI.h>
 #include <Lyra/UISystem/Widgets/UILayout.h>
 #include <Lyra/UISystem/Widgets/UIControls.h>
+#include <Lyra/UISystem/Widgets/UITree.h>
 #include <Lyra/UISystem/Widgets/UIDock.h>
 #include <Lyra/UISystem/Widgets/UIDialog.h>
 #include <Lyra/UISystem/Widgets/UIIcons.h>
@@ -34,16 +34,56 @@ AssetBrowserView::AssetBrowserView(const Path& app_root, const Path& sys_root)
 {
     assert(std::filesystem::exists(app_root));
     assert(std::filesystem::is_directory(app_root));
+
+    history.push_back({app_root, AssetBrowserDomain::App});
+    history_cursor = 0;
 }
 
 void AssetBrowserView::switch_domain(AssetBrowserDomain domain)
 {
     if (active_domain == domain) return;
-    active_domain = domain;
-    root          = (active_domain == AssetBrowserDomain::Sys) ? sys_root : app_root;
-    curr          = root;
-    selection.clear();
-    update_directory(root, true);
+    const auto& new_root = (domain == AssetBrowserDomain::Sys) ? sys_root : app_root;
+    navigate_to(new_root, domain, true);
+}
+
+void AssetBrowserView::navigate_to(const Path& path, AssetBrowserDomain domain, bool record_history)
+{
+    if (record_history) {
+        if (history.empty() || history[history_cursor].path != path || history[history_cursor].domain != domain) {
+            if (history_cursor + 1 < history.size()) {
+                history.erase(history.begin() + history_cursor + 1, history.end());
+            }
+            history.push_back({path, domain});
+            if (history.size() > MAX_HISTORY) {
+                history.erase(history.begin());
+            }
+            history_cursor = history.size() - 1;
+        }
+    }
+
+    if (active_domain != domain) {
+        active_domain = domain;
+        root          = (active_domain == AssetBrowserDomain::Sys) ? sys_root : app_root;
+    }
+    update_directory(path);
+}
+
+void AssetBrowserView::action_navigate_back()
+{
+    if (can_go_back()) {
+        --history_cursor;
+        const auto& entry = history[history_cursor];
+        navigate_to(entry.path, entry.domain, false);
+    }
+}
+
+void AssetBrowserView::action_navigate_forward()
+{
+    if (can_go_forward()) {
+        ++history_cursor;
+        const auto& entry = history[history_cursor];
+        navigate_to(entry.path, entry.domain, false);
+    }
 }
 
 auto AssetBrowserView::get_current_scheme() const -> StringView
@@ -85,7 +125,7 @@ void AssetBrowserView::bind(Application& app)
 {
     context = &app.get_context();
     if (auto gui = get_gui_renderer()) {
-        ImGui::SetCurrentContext(reinterpret_cast<ImGuiContext*>(gui->context<void>()));
+        ui::set_context(gui->context<void>());
     }
     ams = context->toolboard.try_get<AssetServer*>();
     assert(ams != nullptr && "AssetBrowserView requires AssetServer to be present in toolboard");
@@ -103,7 +143,7 @@ void AssetBrowserView::bind(Application& app)
 void AssetBrowserView::update(AppContext& context)
 {
     if (auto gui = get_gui_renderer()) {
-        ImGui::SetCurrentContext(reinterpret_cast<ImGuiContext*>(gui->context<void>()));
+        ui::set_context(gui->context<void>());
     }
 
     if ((!folder_icon.valid || !file_icon.valid) && get_gui_renderer()) {
@@ -135,12 +175,30 @@ void AssetBrowserView::update(AppContext& context)
         ui::workspace::dock(LYRA_FILES_WINDOW_NAME, ui::Area::Bottom);
     });
 
-    ui::panel(LYRA_FILES_WINDOW_NAME, [&]() {
+    if (sidebar_width <= 0.0f) {
+        // calculate initial sidebar width using character metrics of top-level roots
+        float sys_w = ui::calc_tree_item_width("Engine (sys://)", LYRA_ICON_SYSTEM);
+        float app_w = ui::calc_tree_item_width("Project (app://)", LYRA_ICON_HOME);
+        // ensure enough width to cover longest root "Project (app://)" (16 chars) + icon, tree arrow, padding, and scrollbar (~26 chars)
+        sidebar_width = std::max({sys_w, app_w, ui::calc_text_width(26)});
+    }
+
+    ui::panel(LYRA_FILES_WINDOW_NAME, ui::PanelFlag::NoScroll, [&]() {
         handle_file_drop(context);
+
+        // keyboard shortcuts for back / forward navigation
+        if (ui::is_panel_hovered() && !ui::is_any_item_active()) {
+            if (ui::is_key_down(KeyButton::ALT) && ui::is_key_pressed(KeyButton::LEFT)) {
+                action_navigate_back();
+            } else if (ui::is_key_down(KeyButton::ALT) && ui::is_key_pressed(KeyButton::RIGHT)) {
+                action_navigate_forward();
+            }
+        }
+
         show_header_toolbar();
         ui::separator();
 
-        ui::scroll_area("FileBrowser", 40.0f, [&]() {
+        auto render_file_browser = [&]() {
             if (!selection.empty() && !show_rename_modal && !show_new_scene_modal && !show_new_file_modal && !show_new_folder_modal && !show_delete_modal) {
                 if (ui::is_panel_hovered() && !ui::is_any_item_active() && (ui::is_key_pressed(KeyButton::DEL) || ui::is_key_pressed(KeyButton::BACKSPACE))) {
                     show_delete_modal = true;
@@ -151,7 +209,16 @@ void AssetBrowserView::update(AppContext& context)
             show_dir_files(context);
             show_context_menu(context);
             show_modals(context);
-        });
+        };
+
+        constexpr float reserve_bottom = 44.0f;
+        if (show_sidebar) {
+            ui::split_pane("##AssetBrowserSplitter", sidebar_width, [&]() {
+                show_sidebar_tree();
+            }, render_file_browser, 160.0f, 200.0f, reserve_bottom);
+        } else {
+            ui::scroll_area("FileBrowser", reserve_bottom, render_file_browser);
+        }
 
         ui::separator();
         show_status_bar(context);
@@ -163,26 +230,51 @@ void AssetBrowserView::update(AppContext& context)
 void AssetBrowserView::show_header_toolbar()
 {
     ui::toolbar([&]() {
-        show_domain_selector();
+        // 1. Toggle Sidebar Button
+        ui::icon_button(
+            LYRA_ICON_TREE,
+            [&]() { show_sidebar = !show_sidebar; },
+            show_sidebar ? "Hide folder tree" : "Show folder tree",
+            show_sidebar ? ui::ButtonRole::Primary : ui::ButtonRole::Ghost);
 
-        if (!breadcrumbs.empty()) {
-            ui::label(LYRA_ICON_CARET, ui::StatusRole::Muted);
-            show_breadcrumb();
-        }
+        ui::space(4.0f);
+
+        // 2. Navigation Back & Forward Buttons
+        ui::icon_button(
+            LYRA_ICON_NAV_BACK,
+            [&]() { action_navigate_back(); },
+            can_go_back() ? "Back (Alt+Left)" : nullptr,
+            can_go_back(),
+            ui::ButtonRole::Ghost);
+
+        ui::space(2.0f);
+
+        ui::icon_button(
+            LYRA_ICON_NAV_FORWARD,
+            [&]() { action_navigate_forward(); },
+            can_go_forward() ? "Forward (Alt+Right)" : nullptr,
+            can_go_forward(),
+            ui::ButtonRole::Ghost);
+
+        ui::space(6.0f);
+        ui::separator();
+        ui::space(6.0f);
+
+        // 3. Breadcrumbs (Unified hierarchy starting from domain root)
+        show_breadcrumb();
 
         ui::spacer();
 
+        // 4. Actions (Refresh, New Folder)
         ui::icon_button(LYRA_ICON_REFRESH, [&]() {
             update_directory(curr, true);
-        },
-            "Refresh directory", ui::ButtonRole::Ghost);
+        }, "Refresh directory", ui::ButtonRole::Ghost);
 
         if (!is_read_only()) {
             ui::icon_button(LYRA_ICON_NEW_FOLDER, [&]() {
                 show_new_folder_modal = true;
                 open_new_folder_modal = true;
-            },
-                "Create new folder", ui::ButtonRole::Ghost);
+            }, "Create new folder", ui::ButtonRole::Ghost);
         }
 
         ui::separator();
@@ -190,86 +282,82 @@ void AssetBrowserView::show_header_toolbar()
     });
 }
 
-void AssetBrowserView::show_domain_selector()
+void AssetBrowserView::show_sidebar_tree()
 {
-    bool is_sys = (active_domain == AssetBrowserDomain::Sys);
-
-    // root capsule containing toggle switch in front of the protocol label
-    ImGui::BeginGroup();
-
-    ImDrawList* draw_list = ImGui::GetWindowDrawList();
-    draw_list->ChannelsSplit(2);
-    draw_list->ChannelsSetCurrent(1);
-
-    // 1. toggle switch (in front of the label, automatically centered in middle)
-    if (!sys_root.empty()) {
-        ui::toggle_switch(
-            "##domain_toggle",
-            is_sys,
-            [this](bool val) {
-                switch_domain(val ? AssetBrowserDomain::Sys : AssetBrowserDomain::App);
-            },
-            is_sys ? "Engine Core active (sys://) [Read-Only]\nFlip switch to Project (app://)"
-                   : "Project active (app://)\nFlip switch to Engine (sys://)",
-            Vector4(0.44f, 0.27f, 0.10f, 0.95f), // rich bronze track when active
-            Vector2(30.0f, 16.0f));
-
-        ImGui::SameLine(0.0f, 5.0f);
+    // 1. engine root node (sys://)
+    if (!sys_root.empty() && std::filesystem::exists(sys_root)) {
+        show_tree_root("Engine (sys://)", LYRA_ICON_SYSTEM, sys_root, AssetBrowserDomain::Sys);
     }
 
-    // 2. protocol label button (after the switch)
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.0f, 3.0f));
+    // 2. project root node (app://)
+    if (!app_root.empty() && std::filesystem::exists(app_root)) {
+        show_tree_root("Project (app://)", LYRA_ICON_HOME, app_root, AssetBrowserDomain::App);
+    }
+}
 
-    if (is_sys) {
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 1.0f, 1.0f, 0.08f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1.0f, 1.0f, 1.0f, 0.14f));
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.88f, 0.55f, 1.0f)); // warm gold, highly legible
-    } else {
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 1.0f, 1.0f, 0.08f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1.0f, 1.0f, 1.0f, 0.14f));
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.92f, 0.94f, 0.98f, 1.0f));
+void AssetBrowserView::show_tree_root(CString label, CString icon, const Path& root_path, AssetBrowserDomain domain)
+{
+    bool is_selected = (active_domain == domain && curr == root_path);
+
+    // auto-open root if current directory belongs to this domain
+    std::error_code ec;
+    auto rel = std::filesystem::relative(curr, root_path, ec);
+    if (!ec && !rel.empty() && *rel.begin() != "..") {
+        ui::tree_set_next_open(true);
     }
 
-    CString proto_label = is_sys ? (LYRA_ICON_SYSTEM "  sys://") : (LYRA_ICON_FOLDER "  app://");
-    if (ImGui::Button(proto_label)) {
-        if (curr != root) {
-            update_directory(root);
-        } else if (!sys_root.empty()) {
-            switch_domain(is_sys ? AssetBrowserDomain::App : AssetBrowserDomain::Sys);
+    uint64_t node_id = std::hash<String>{}(to_string(root_path));
+    ui::tree_item(node_id, icon, label, is_selected, [&]() {
+        navigate_to(root_path, domain);
+    }, [&]() {
+        show_directory_node(root_path, root_path, domain);
+    });
+}
+
+void AssetBrowserView::show_directory_node(const Path& dir_path, const Path& domain_root, AssetBrowserDomain domain)
+{
+    std::error_code ec;
+    Vector<Path> subdirs;
+    for (const auto& entry : std::filesystem::directory_iterator(dir_path, ec)) {
+        if (entry.is_directory(ec) && entry.path().extension() != ".import") {
+            subdirs.push_back(entry.path());
         }
     }
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) {
-        ImGui::SetTooltip("%s", is_sys
-                                    ? (curr != root ? "Engine Core (sys://) [Read-Only]\nClick to return to root" : "Engine Core (sys://) [Read-Only]\nClick to switch to Project (app://)")
-                                    : (curr != root ? "Project Workspace (app://)\nClick to return to root" : "Project Workspace (app://)\nClick to switch to Engine (sys://)"));
+    std::sort(subdirs.begin(), subdirs.end());
+
+    for (const auto& sub_path : subdirs) {
+        String folder_name = to_string(sub_path.filename());
+        bool is_selected = (active_domain == domain && curr == sub_path);
+
+        // check if subfolder has its own child subdirectories
+        bool has_children = false;
+        for (const auto& child_entry : std::filesystem::directory_iterator(sub_path, ec)) {
+            if (child_entry.is_directory(ec) && child_entry.path().extension() != ".import") {
+                has_children = true;
+                break;
+            }
+        }
+
+        uint64_t node_id = std::hash<String>{}(to_string(sub_path));
+
+        // auto-open if current directory is inside this sub_path
+        auto rel = std::filesystem::relative(curr, sub_path, ec);
+        if (!ec && !rel.empty() && *rel.begin() != "..") {
+            ui::tree_set_next_open(true);
+        }
+
+        if (has_children) {
+            ui::tree_item(node_id, LYRA_ICON_FOLDER, folder_name.c_str(), is_selected, [&]() {
+                navigate_to(sub_path, domain);
+            }, [&]() {
+                show_directory_node(sub_path, domain_root, domain);
+            });
+        } else {
+            ui::tree_leaf(node_id, LYRA_ICON_FOLDER, folder_name.c_str(), is_selected, [&]() {
+                navigate_to(sub_path, domain);
+            });
+        }
     }
-    ImGui::PopStyleColor(4);
-    ImGui::PopStyleVar(2);
-
-    ImGui::EndGroup();
-
-    // draw pill capsule behind the group
-    ImVec2 bb_min = ImGui::GetItemRectMin();
-    ImVec2 bb_max = ImGui::GetItemRectMax();
-
-    draw_list->ChannelsSetCurrent(0);
-    bb_min.x -= 4.0f;
-    bb_max.x += 3.0f;
-    bb_min.y -= 1.0f;
-    bb_max.y += 1.0f;
-
-    ImU32 bg_col     = is_sys
-                           ? ImGui::GetColorU32(ImVec4(0.24f, 0.16f, 0.08f, 0.75f))
-                           : ImGui::GetColorU32(ImVec4(0.12f, 0.12f, 0.14f, 0.70f));
-    ImU32 border_col = is_sys
-                           ? ImGui::GetColorU32(ImVec4(0.65f, 0.45f, 0.15f, 0.40f))
-                           : ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 1.0f, 0.08f));
-    draw_list->AddRectFilled(bb_min, bb_max, bg_col, 5.0f);
-    draw_list->AddRect(bb_min, bb_max, border_col, 5.0f);
-    draw_list->ChannelsMerge();
 }
 
 void AssetBrowserView::show_status_bar(AppContext& context)
@@ -292,7 +380,7 @@ void AssetBrowserView::show_status_bar(AppContext& context)
         show_import_indicator();
 
         ui::separator();
-        ui::slider("icon_size", &icon_size, 64.0f, 128.0f, "%.0f px", 100.0f);
+        ui::slider("icon_size", &icon_size, 64.0f, 256.0f, "%.0f px", 120.0f);
     });
 }
 
@@ -308,7 +396,21 @@ void AssetBrowserView::show_modals(AppContext& context)
 void AssetBrowserView::show_breadcrumb()
 {
     Vector<ui::BreadcrumbItem> items;
-    items.reserve(breadcrumbs.size());
+    items.reserve(breadcrumbs.size() + 1);
+
+    bool is_sys  = (active_domain == AssetBrowserDomain::Sys);
+    bool is_root = breadcrumbs.empty();
+
+    // root domain breadcrumb item
+    items.push_back({
+        is_sys ? "Engine" : "Project",
+        is_sys ? LYRA_ICON_SYSTEM : LYRA_ICON_HOME,
+        [this, is_sys]() {
+            navigate_to(is_sys ? sys_root : app_root, active_domain);
+        },
+        is_root ? (is_sys ? "Engine Core (sys://) [Read-Only] (Click to refresh)" : "Project Workspace (app://) (Click to refresh)")
+                : (is_sys ? "Engine Core (sys://) [Read-Only] - Click to return to engine root" : "Project Workspace (app://) - Click to return to project root")
+    });
 
     for (usize i = 0; i < breadcrumbs.size(); ++i) {
         const auto& bc      = breadcrumbs[i];
@@ -316,7 +418,11 @@ void AssetBrowserView::show_breadcrumb()
         items.push_back({bc.name.c_str(),
             is_last ? LYRA_ICON_FOLDER : nullptr,
             [&bc, is_last, this]() {
-                update_directory(bc.path, is_last);
+                if (is_last) {
+                    update_directory(bc.path, true);
+                } else {
+                    navigate_to(bc.path, active_domain);
+                }
             },
             is_last ? "Current directory (Click to refresh)" : nullptr});
     }
@@ -480,12 +586,12 @@ void AssetBrowserView::show_item(AppContext& context, StringView name, bool is_f
     if (is_folder) {
         if (folder_icon.valid) {
             ui::card(name.data(), folder_icon.gui_texture.texid, Vector2((float)folder_icon.texture.width, (float)folder_icon.texture.height), name.data(), is_sel, on_click, [&]() {
-                update_directory(curr / name);
+                navigate_to(curr / name, active_domain);
             },
                 icon_size);
         } else {
             ui::card(name.data(), LYRA_ICON_FOLDER, name.data(), is_sel, on_click, [&]() {
-                update_directory(curr / name);
+                navigate_to(curr / name, active_domain);
             },
                 Vector4(1.0f, 0.75f, 0.25f, 1.0f), icon_size);
         }
@@ -516,7 +622,7 @@ void AssetBrowserView::show_item(AppContext& context, StringView name, bool is_f
         if (!is_sel) selection.select_only(name);
 
         ui::menu_item(LYRA_ICON_FILE " Copy Virtual Path", [&]() {
-            ImGui::SetClipboardText(vpath.c_str());
+            ui::set_clipboard_text(vpath.c_str());
         });
         ui::separator();
 
@@ -822,8 +928,8 @@ void AssetBrowserView::show_input_modal(CString title, bool* p_open, CString pro
 {
     ui::modal(title, p_open, [&]() {
         ui::label(prompt);
-        if (ImGui::IsWindowAppearing()) {
-            ImGui::SetKeyboardFocusHere();
+        if (ui::is_panel_appearing()) {
+            ui::set_keyboard_focus();
         }
         ui::text_field(title, buffer, buffer_size, [&]() {
             on_submit(buffer);

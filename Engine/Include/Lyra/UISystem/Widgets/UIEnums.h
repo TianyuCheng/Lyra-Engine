@@ -4,9 +4,27 @@
 #define LYRA_ENGINE_UISYSTEM_WIDGETS_UIENUMS_H
 
 #include <Lyra/Utilities/Stdint.h>
+#include <Lyra/Utilities/BitFlags.h>
 
 namespace lyra::ui
 {
+    // panel window flags
+    enum struct PanelFlag : uint32_t
+    {
+        None              = 0,
+        NoScrollbar       = 1 << 0,
+        NoScrollWithMouse = 1 << 1,
+        NoScroll          = NoScrollbar | NoScrollWithMouse,
+        MenuBar           = 1 << 2,
+    };
+} // namespace lyra::ui
+
+ENABLE_BIT_FLAGS(lyra::ui::PanelFlag);
+
+namespace lyra::ui
+{
+    using PanelFlags = BitFlags<PanelFlag>;
+
     // semantic button roles (dictates uniform styling across the engine)
     enum struct ButtonRole : uint8_t
     {

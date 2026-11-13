@@ -111,6 +111,17 @@ void lyra::ui::icon_button(CString icon, ActionRef on_click, CString tooltip, Bu
     }
 }
 
+void lyra::ui::icon_button(CString icon, ActionRef on_click, CString tooltip, bool enabled, ButtonRole role)
+{
+    if (!enabled) {
+        ImGui::BeginDisabled(true);
+    }
+    icon_button(icon, on_click, tooltip, role);
+    if (!enabled) {
+        ImGui::EndDisabled();
+    }
+}
+
 void lyra::ui::icon_button(CString icon, CString tooltip, ButtonRole role)
 {
     internal::advance_layout_item();
@@ -131,6 +142,17 @@ void lyra::ui::invisible_button(CString id, Vector2 size)
     }
     internal::advance_layout_item();
     ImGui::InvisibleButton(id, ImVec2(size.x, size.y));
+}
+
+void lyra::ui::disabled(bool is_disabled, ActionRef content)
+{
+    if (is_disabled) {
+        ImGui::BeginDisabled(true);
+    }
+    content();
+    if (is_disabled) {
+        ImGui::EndDisabled();
+    }
 }
 
 // =============================================================================
@@ -347,6 +369,11 @@ void lyra::ui::text_field(CString id, char* buffer, usize buffer_size, ActionRef
     ImGui::PopID();
 }
 
+void lyra::ui::set_keyboard_focus()
+{
+    ImGui::SetKeyboardFocusHere();
+}
+
 void lyra::ui::slider(CString id, float* value, float min, float max, CString format, float width)
 {
     if (!value) return;
@@ -457,6 +484,13 @@ void lyra::ui::badge(CString text, StatusRole role)
     ImGui::PopStyleColor(2);
 }
 
+void lyra::ui::tooltip(CString text)
+{
+    if (text && ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("%s", text);
+    }
+}
+
 // =============================================================================
 // 5. Selectable Cards
 // =============================================================================
@@ -515,13 +549,12 @@ namespace
         // clicking anywhere on the card group (icon or label) triggers selection / double click
         if (on_double_click && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
             (*on_double_click)();
-        } else if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+        } else if (ImGui::IsItemClicked(ImGuiMouseButton_Left) || ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
             on_click();
             GImGui->ActiveId = card_id;
         }
 
         GImGui->LastItemData.ID = card_id;
-        GImGui->LastItemData.StatusFlags |= ImGuiItemStatusFlags_HoveredRect;
     }
 
     void draw_card_icon(const ImVec2& pos, float size, CString icon, const Vector4& icon_color)
@@ -803,3 +836,14 @@ void lyra::ui::segmented_control(InitList<SegmentItem> items)
 {
     segmented_control(items.begin(), items.size());
 }
+
+void lyra::ui::set_clipboard_text(CString text)
+{
+    ImGui::SetClipboardText(text);
+}
+
+auto lyra::ui::get_clipboard_text() -> CString
+{
+    return ImGui::GetClipboardText();
+}
+

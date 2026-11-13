@@ -157,6 +157,11 @@ void lyra::ui::spacer()
     current.is_first_item   = false;
 }
 
+void lyra::ui::space(float width)
+{
+    ImGui::SameLine(0.0f, width);
+}
+
 void lyra::ui::separator()
 {
     if (g_layout_stack.empty() || !g_layout_stack.top().in_row) {
@@ -180,7 +185,13 @@ void lyra::ui::separator()
 
 void lyra::ui::grid(CString id, float item_width, ActionRef content)
 {
-    float avail_x = ImGui::GetContentRegionAvail().x;
+    constexpr float padding_x = 8.0f;
+    constexpr float padding_y = 8.0f;
+
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + padding_x);
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + padding_y);
+
+    float avail_x = ImGui::GetContentRegionAvail().x - padding_x;
     float spacing = ImGui::GetStyle().ItemSpacing.x;
     int   cols    = std::max(1, static_cast<int>(avail_x / (item_width + spacing)));
 
@@ -194,4 +205,69 @@ void lyra::ui::grid_item(ActionRef content)
 {
     ImGui::TableNextColumn();
     content();
+}
+
+void lyra::ui::split_pane(CString id, float& split_width, ActionRef left_pane, ActionRef right_pane, float min_left, float min_right, float reserve_bottom)
+{
+    internal::advance_layout_item();
+
+    ImGuiWindow* window = ImGui::GetCurrentWindow();
+    if (window->SkipItems) return;
+
+    ImGuiID splitter_id = window->GetID(id);
+    float   avail_w     = ImGui::GetContentRegionAvail().x;
+    float   avail_h     = std::max(20.0f, ImGui::GetContentRegionAvail().y - reserve_bottom);
+
+    float splitter_w = 4.0f;
+
+    float max_left = std::max(min_left, avail_w - min_right - splitter_w);
+    split_width    = std::clamp(split_width, min_left, max_left);
+    float right_w  = std::max(min_right, avail_w - split_width - splitter_w);
+
+    ImVec2 start_pos = window->DC.CursorPos;
+
+    // 1. left pane child
+    char left_child_id[64];
+    snprintf(left_child_id, sizeof(left_child_id), "%s_Left", id);
+    if (ImGui::BeginChild(left_child_id, ImVec2(split_width, avail_h), false)) {
+        left_pane();
+    }
+    ImGui::EndChild();
+
+    // 2. splitter bar: thin, cohesive inner divider with subtle gutter and bright hover highlight
+    ImVec2 splitter_pos = ImVec2(start_pos.x + split_width, start_pos.y);
+    ImRect splitter_bb(splitter_pos, ImVec2(splitter_pos.x + splitter_w, splitter_pos.y + avail_h));
+
+    float size1 = split_width;
+    float size2 = right_w;
+    ImU32 bg_col = ImGui::GetColorU32(ImGuiCol_WindowBg);
+    bool held = ImGui::SplitterBehavior(splitter_bb, splitter_id, ImGuiAxis_X, &size1, &size2, min_left, min_right, 4.0f, 0.04f, bg_col);
+    split_width = size1;
+
+    bool is_hovered = ImGui::IsItemHovered();
+    ImDrawList* draw_list = window->DrawList;
+    if (bg_col & IM_COL32_A_MASK) {
+        draw_list->AddRectFilled(splitter_bb.Min, splitter_bb.Max, bg_col, 0.0f);
+    }
+
+    float mid_x = std::round(splitter_bb.Min.x + splitter_w * 0.5f);
+    ImU32 line_col = held ? ImGui::GetColorU32(ImGuiCol_SeparatorActive)
+                          : (is_hovered ? ImGui::GetColorU32(ImGuiCol_SeparatorHovered)
+                                        : ImGui::GetColorU32(ImGuiCol_Separator));
+    draw_list->AddLine(ImVec2(mid_x, splitter_bb.Min.y), ImVec2(mid_x, splitter_bb.Max.y), line_col, is_hovered || held ? splitter_w : 1.5f);
+
+    // 3. right pane child: position cursor strictly after the splitter
+    ImVec2 right_pos = ImVec2(splitter_pos.x + splitter_w, start_pos.y);
+    ImGui::SetCursorScreenPos(right_pos);
+
+    char right_child_id[64];
+    snprintf(right_child_id, sizeof(right_child_id), "%s_Right", id);
+    if (ImGui::BeginChild(right_child_id, ImVec2(right_w, avail_h), false)) {
+        right_pane();
+    }
+    ImGui::EndChild();
+
+    // advance cursor below both panes
+    ImGui::SetCursorScreenPos(ImVec2(start_pos.x, start_pos.y + avail_h + ImGui::GetStyle().ItemSpacing.y));
+    window->DC.CursorMaxPos.y = std::max(window->DC.CursorMaxPos.y, start_pos.y + avail_h);
 }
