@@ -34,7 +34,6 @@ VulkanBuffer::VulkanBuffer(const GPUBufferDescriptor& desc, VkBufferUsageFlags a
 
     if (desc.mapped_at_creation) {
         alloc_create_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
-        alloc_create_info.flags |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
         alloc_create_info.flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
         dedicate_memory = false;
     }
@@ -69,8 +68,7 @@ VulkanBuffer::VulkanBuffer(const GPUBufferDescriptor& desc, VkBufferUsageFlags a
         &buffer, &allocation, &alloc_info));
 
     if (desc.mapped_at_creation) {
-        mapped_data = reinterpret_cast<uint8_t*>(alloc_info.pMappedData);
-        mapped_size = desc.size;
+        map();
     }
 
     if (desc.virtual_address) {
@@ -104,6 +102,8 @@ void VulkanBuffer::destroy()
 {
     if (buffer == VK_NULL_HANDLE) return;
 
+    if (mapped()) unmap();
+
     auto rhi = get_rhi();
     if (rhi && rhi->alloc)
         vmaDestroyBuffer(rhi->alloc, buffer, allocation);
@@ -114,6 +114,7 @@ void VulkanBuffer::destroy()
     mapped_data    = nullptr;
     mapped_size    = 0ull;
     device_address = 0ull;
+    flags          = VulkanBufferFlag::NONE;
 }
 
 VkDeviceAddress get_buffer_device_address(VkBuffer buffer)

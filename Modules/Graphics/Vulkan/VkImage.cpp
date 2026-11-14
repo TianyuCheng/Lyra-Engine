@@ -52,6 +52,8 @@ VulkanTexture::VulkanTexture(const GPUTextureDescriptor& desc) : aspects(0)
         &tex_create_info, &alloc_create_info,
         &image, &allocation, &alloc_info));
 
+    flags.set(VulkanTextureFlag::OWNED_ALLOCATION);
+
     // initialize aspects
     if (is_depth_format(desc.format))
         aspects |= VK_IMAGE_ASPECT_DEPTH_BIT;
@@ -75,12 +77,16 @@ void VulkanTexture::destroy()
 {
     if (image == VK_NULL_HANDLE) return;
 
-    // only delete the image and its memory when it is NOT externally managed.
+    // only delete the image and its memory when it is an owned allocation.
     auto rhi = get_rhi();
-    if (alloc_info.size != 0 && rhi && rhi->alloc) {
+    if (is_owned() && rhi && rhi->alloc) {
         vmaDestroyImage(rhi->alloc, image, allocation);
     }
-    image = VK_NULL_HANDLE;
+
+    image      = VK_NULL_HANDLE;
+    allocation = {};
+    alloc_info = {};
+    flags      = VulkanTextureFlag::NONE;
 }
 
 VulkanTextureView::VulkanTextureView()

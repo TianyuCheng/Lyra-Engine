@@ -29,6 +29,7 @@
 #include <vk_mem_alloc.h>
 #include <sstream>
 
+#include <Lyra/Utilities/BitFlags.h>
 #include <Lyra/Utilities/Logger.h>
 #include <Lyra/Utilities/Msgbox.h>
 #include <Lyra/Utilities/Function.h>
@@ -46,6 +47,24 @@ using namespace lyra;
 
 static const char* KHR_PORTABILITY_EXTENSION_NAME = "VK_KHR_portability_subset";
 static const char* LUNARG_VALIDATION_LAYER_NAME   = "VK_LAYER_KHRONOS_validation";
+
+enum class VulkanBufferFlag : uint32_t
+{
+    NONE = 0,
+};
+
+enum class VulkanTextureFlag : uint32_t
+{
+    NONE             = 0,
+    OWNED_ALLOCATION = 1 << 0,
+    SWAPCHAIN_IMAGE  = 1 << 1,
+};
+
+ENABLE_BIT_FLAGS(VulkanBufferFlag);
+using VulkanBufferFlags = BitFlags<VulkanBufferFlag>;
+
+ENABLE_BIT_FLAGS(VulkanTextureFlag);
+using VulkanTextureFlags = BitFlags<VulkanTextureFlag>;
 
 template <typename T>
 struct VulkanDestroyer
@@ -87,8 +106,9 @@ struct VulkanBuffer
     VmaAllocationInfo alloc_info     = {};
     VkDeviceAddress   device_address = 0ull;
 
-    uint8_t* mapped_data = nullptr;
-    uint64_t mapped_size = 0ull;
+    uint8_t*          mapped_data = nullptr;
+    uint64_t          mapped_size = 0ull;
+    VulkanBufferFlags flags       = VulkanBufferFlag::NONE;
 
     // implementation in VkBuffer.cpp
     explicit VulkanBuffer();
@@ -118,12 +138,13 @@ struct VulkanBuffer
 struct VulkanTextureView;
 struct VulkanTexture
 {
-    VkImage            image = VK_NULL_HANDLE;
-    VmaAllocation      allocation;
+    VkImage            image      = VK_NULL_HANDLE;
+    VmaAllocation      allocation = {};
     VmaAllocationInfo  alloc_info = {};
     VkFormat           format     = VK_FORMAT_UNDEFINED;
     VkImageAspectFlags aspects    = 0;
     VkExtent2D         area       = {}; // only used for Render Area
+    VulkanTextureFlags flags      = VulkanTextureFlag::NONE;
 
     // implementation in VkImage.cpp
     explicit VulkanTexture();
@@ -132,6 +153,8 @@ struct VulkanTexture
     void destroy();
 
     bool valid() const { return image != VK_NULL_HANDLE; }
+    bool is_owned() const { return flags.contains(VulkanTextureFlag::OWNED_ALLOCATION); }
+    bool is_swapchain() const { return flags.contains(VulkanTextureFlag::SWAPCHAIN_IMAGE); }
 };
 
 struct VulkanTextureView

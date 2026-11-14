@@ -199,6 +199,7 @@ void VulkanSwapchain::Frame::init(VkImage image, VkFormat format, VkExtent2D ext
     texture.format  = format;
     texture.aspects = VK_IMAGE_ASPECT_COLOR_BIT;
     texture.area    = extent;
+    texture.flags   = VulkanTextureFlag::SWAPCHAIN_IMAGE;
     this->texture   = GPUTextureHandle::create(rhi->textures.add(texture));
 
     // re-create new texture view
