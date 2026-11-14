@@ -185,9 +185,9 @@ DXGI_FORMAT infer_texture_format(GPUTextureFormat format)
         case GPUTextureFormat::DEPTH16UNORM:
             return DXGI_FORMAT_D16_UNORM;
         case GPUTextureFormat::DEPTH24PLUS:
-            return DXGI_FORMAT_D24_UNORM_S8_UINT; // TODO: Check if this mapping is correct.
+            return DXGI_FORMAT_D32_FLOAT;
         case GPUTextureFormat::DEPTH24PLUS_STENCIL8:
-            return DXGI_FORMAT_D24_UNORM_S8_UINT;
+            return DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
         case GPUTextureFormat::DEPTH32FLOAT:
             return DXGI_FORMAT_D32_FLOAT;
         case GPUTextureFormat::DEPTH32FLOAT_STENCIL8:
@@ -835,6 +835,7 @@ uint size_of(DXGI_FORMAT format)
             return 4;
 
         // 64-bit formats
+        case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
         case DXGI_FORMAT_R16G16B16A16_UNORM:
         case DXGI_FORMAT_R16G16B16A16_SNORM:
         case DXGI_FORMAT_R16G16B16A16_UINT:
