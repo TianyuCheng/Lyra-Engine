@@ -18,7 +18,7 @@ namespace
     Vector<PendingFence> g_pending_fences;
     Atomic<usize>        g_pending_count{0};
     Atomic<bool>         g_monitor_initialized{false};
-}
+} // namespace
 
 void GPUCompletionMonitor::init()
 {

@@ -33,7 +33,7 @@ ISlangUnknown* SlangBlobImpl::getInterface(const SlangUUID& uuid)
     return nullptr;
 }
 
-void const* SlangBlobImpl::getBufferPointer()
+const void* SlangBlobImpl::getBufferPointer()
 {
     return data_.empty() ? "" : data_.data();
 }
@@ -79,7 +79,7 @@ void* SlangVFSFileSystem::castAs(const SlangUUID& guid)
     return getInterface(guid);
 }
 
-SlangResult SlangVFSFileSystem::loadFile(char const* path, ISlangBlob** outBlob)
+SlangResult SlangVFSFileSystem::loadFile(const char* path, ISlangBlob** outBlob)
 {
     if (!path || !outBlob) return SLANG_E_INVALID_ARG;
     *outBlob = nullptr;
@@ -144,7 +144,7 @@ SlangResult SlangVFSFileSystem::calcCombinedPath(
 
     // if fromPath has protocol, combine target relative path with fromPath's VFS location
     if (loader_ && fromPath && VFSPath::has_protocol(fromPath)) {
-        VFSPath from = VFSPath::parse(fromPath);
+        VFSPath               from = VFSPath::parse(fromPath);
         std::filesystem::path from_sub(from.path);
 
         std::filesystem::path dir;
@@ -154,15 +154,15 @@ SlangResult SlangVFSFileSystem::calcCombinedPath(
             dir = from_sub.parent_path();
         }
 
-        std::filesystem::path combined = dir.empty() ? std::filesystem::path(path) : (dir / path);
-        String normalized = combined.lexically_normal().generic_string();
+        std::filesystem::path combined   = dir.empty() ? std::filesystem::path(path) : (dir / path);
+        String                normalized = combined.lexically_normal().generic_string();
 
         while (!normalized.empty() && (normalized.front() == '/' || normalized.front() == '\\')) {
             normalized.erase(0, 1);
         }
 
         String result = from.scheme + "://" + normalized;
-        *pathOut = make_blob(result).detach();
+        *pathOut      = make_blob(result).detach();
         return SLANG_OK;
     }
 
@@ -182,7 +182,7 @@ SlangResult SlangVFSFileSystem::calcCombinedPath(
     }
 
     String result = combined.lexically_normal().generic_string();
-    *pathOut = make_blob(result).detach();
+    *pathOut      = make_blob(result).detach();
     return SLANG_OK;
 }
 
@@ -197,20 +197,20 @@ SlangResult SlangVFSFileSystem::getFileUniqueIdentity(
         VFSPath parsed = VFSPath::parse(path);
         if (parsed.is_valid()) {
             std::filesystem::path p(parsed.path);
-            String norm = p.lexically_normal().generic_string();
+            String                norm = p.lexically_normal().generic_string();
             while (!norm.empty() && (norm.front() == '/' || norm.front() == '\\')) {
                 norm.erase(0, 1);
             }
             String canonical_vpath = parsed.scheme + "://" + norm;
-            *outUniqueIdentity = make_blob(canonical_vpath).detach();
+            *outUniqueIdentity     = make_blob(canonical_vpath).detach();
             return SLANG_OK;
         }
     }
 
     std::error_code ec;
-    auto canonical_p = std::filesystem::weakly_canonical(path, ec);
-    String ident = ec ? String(path) : canonical_p.generic_string();
-    *outUniqueIdentity = make_blob(ident).detach();
+    auto            canonical_p = std::filesystem::weakly_canonical(path, ec);
+    String          ident       = ec ? String(path) : canonical_p.generic_string();
+    *outUniqueIdentity          = make_blob(ident).detach();
     return SLANG_OK;
 }
 
@@ -228,9 +228,9 @@ SlangResult SlangVFSFileSystem::getPathType(
         return SLANG_E_NOT_FOUND;
     }
 
-    std::error_code ec;
+    std::error_code       ec;
     std::filesystem::path p(path);
-    auto status = std::filesystem::status(p, ec);
+    auto                  status = std::filesystem::status(p, ec);
     if (!ec && std::filesystem::exists(status)) {
         if (std::filesystem::is_directory(status)) {
             *pathTypeOut = SLANG_PATH_TYPE_DIRECTORY;

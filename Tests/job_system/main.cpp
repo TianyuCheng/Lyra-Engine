@@ -205,9 +205,15 @@ TEST_CASE("jobs::job_system" * doctest::description("Job System and Coroutine Te
         auto composed = []() -> Task<void> {
             Atomic<int> accum{0};
 
-            auto t1 = dispatch([&accum] { accum.fetch_add(10, memory_order_relaxed); });
-            auto t2 = dispatch([&accum] { accum.fetch_add(20, memory_order_relaxed); });
-            auto t3 = dispatch([&accum] { accum.fetch_add(30, memory_order_relaxed); });
+            auto t1 = dispatch([&accum] {
+                accum.fetch_add(10, memory_order_relaxed);
+            });
+            auto t2 = dispatch([&accum] {
+                accum.fetch_add(20, memory_order_relaxed);
+            });
+            auto t3 = dispatch([&accum] {
+                accum.fetch_add(30, memory_order_relaxed);
+            });
 
             co_await when_all(std::move(t1), std::move(t2), std::move(t3));
             CHECK_EQ(accum.load(), 60);

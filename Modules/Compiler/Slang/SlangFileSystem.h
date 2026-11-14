@@ -21,8 +21,8 @@ public:
 
     SLANG_IUNKNOWN_ALL
 
-    SLANG_NO_THROW void const* SLANG_MCALL getBufferPointer() override;
-    SLANG_NO_THROW size_t SLANG_MCALL getBufferSize() override;
+    SLANG_NO_THROW const void* SLANG_MCALL getBufferPointer() override;
+    SLANG_NO_THROW size_t SLANG_MCALL      getBufferSize() override;
 
 private:
     std::atomic<uint32_t> m_refCount{0};
@@ -44,7 +44,7 @@ public:
 
     SLANG_NO_THROW void* SLANG_MCALL castAs(const SlangUUID& guid) override;
 
-    SLANG_NO_THROW SlangResult SLANG_MCALL loadFile(char const* path, ISlangBlob** outBlob) override;
+    SLANG_NO_THROW SlangResult SLANG_MCALL loadFile(const char* path, ISlangBlob** outBlob) override;
 
     SLANG_NO_THROW SlangResult SLANG_MCALL calcCombinedPath(
         SlangPathType fromPathType,

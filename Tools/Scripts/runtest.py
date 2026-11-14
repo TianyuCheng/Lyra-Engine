@@ -78,8 +78,9 @@ def parse_tests(path):
     return tests
 
 def list_tests(args):
+    git_root = find_git_root()
     output = os.path.join(args.directory, "tests.xml")
-    subprocess.check_call([args.executable, '-ltc', "-r=xml", f"-out={output}"])
+    subprocess.check_call([args.executable, '-ltc', "-r=xml", f"-out={output}"], cwd=git_root)
     return parse_tests(output)
 
 def filter_env_tests(tests):
@@ -137,9 +138,9 @@ def run_unit_tests(args):
     exec_ext = os.path.splitext(args.executable)[1]
     unit_exec = os.path.join(exec_dir, f"lyra-unit-tests{exec_ext}")
     if os.path.exists(unit_exec):
-        subprocess.check_call([unit_exec])
+        subprocess.check_call([unit_exec], cwd=git_root)
     else:
-        subprocess.check_call([args.executable, f"-tce=rhi*"])
+        subprocess.check_call([args.executable, f"-tce=rhi*"], cwd=git_root)
 
 
 def generate_html_report(args, results):

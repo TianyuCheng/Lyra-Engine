@@ -68,6 +68,18 @@ AppDescriptor& AppDescriptor::with_workers(uint workers)
     this->jobs.max_workers = workers;
     return *this;
 }
+
+AppDescriptor& AppDescriptor::with_file_loader(FileLoader* loader)
+{
+    this->slc.fs_loader = loader;
+    return *this;
+}
+
+AppDescriptor& AppDescriptor::with_shader_includes(const Vector<CString>& includes)
+{
+    this->slc.includes = includes;
+    return *this;
+}
 #pragma endregion AppDescriptor
 
 #pragma region Application
@@ -172,9 +184,11 @@ void Application::init_compiler()
 {
     // initialize SLC (shader langauge compiler)
     slc = lyra::execute([&]() {
-        auto desc   = CompilerDescriptor{};
-        desc.target = descriptor.slc.target;
-        desc.flags  = descriptor.slc.flags;
+        auto desc      = CompilerDescriptor{};
+        desc.target    = descriptor.slc.target;
+        desc.flags     = descriptor.slc.flags;
+        desc.fs_loader = descriptor.slc.fs_loader;
+        desc.includes  = descriptor.slc.includes;
         return Compiler::init(desc);
     });
 }

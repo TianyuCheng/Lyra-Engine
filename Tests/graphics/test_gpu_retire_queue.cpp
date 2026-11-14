@@ -9,9 +9,9 @@ namespace
 {
     struct MockRetireResource
     {
-        int       id            = 0;
-        Ref<int>  destroy_count = nullptr;
-        bool      is_valid      = true;
+        int      id            = 0;
+        Ref<int> destroy_count = nullptr;
+        bool     is_valid      = true;
 
         bool valid() const
         {

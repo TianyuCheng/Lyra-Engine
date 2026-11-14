@@ -44,22 +44,6 @@ public struct lyra_bindingAttribute { public int index; };
 public struct bindingAttribute { public int index; };
 )""";
 
-static std::filesystem::path find_repository_root()
-{
-    try {
-        std::filesystem::path cur = std::filesystem::current_path();
-        while (!cur.empty()) {
-            if (std::filesystem::exists(cur / "Engine" / "Assets" / "Shaders") || std::filesystem::exists(cur / ".git")) {
-                return cur;
-            }
-            if (!cur.has_parent_path() || cur == cur.parent_path()) break;
-            cur = cur.parent_path();
-        }
-    } catch (...) {
-    }
-    return {};
-}
-
 static uint get_shader_entry_point_index(slang::ProgramLayout* layout, slang::EntryPointReflection* refl)
 {
     for (uint i = 0; i < layout->getEntryPointCount(); i++)
@@ -151,47 +135,18 @@ CompilerWrapper::CompilerWrapper(const CompilerDescriptor& descriptor)
     target_desc.format  = select_target(descriptor);
     target_desc.profile = select_profile(descriptor);
 
-    Vector<const char*> search_paths;
-    if (fs_loader) {
-        search_paths.push_back("sys://Shaders");
-        search_paths.push_back("sys://shaders");
-        search_paths.push_back("app://Shaders");
-        search_paths.push_back("app://shaders");
-    }
-
+    Vector<CString> search_paths;
+    Vector<String>  all_os_search_dirs;
     for (auto& inc : descriptor.includes) {
         if (inc && inc[0] != '\0') {
             search_paths.push_back(inc);
-        }
-    }
-
-    auto repo_root = find_repository_root();
-    if (!repo_root.empty()) {
-        search_path_strings.push_back((repo_root / "Engine" / "Assets" / "Shaders").lexically_normal().string());
-        search_path_strings.push_back((repo_root / "Assets" / "Shaders").lexically_normal().string());
-        search_path_strings.push_back(repo_root.lexically_normal().string());
-    }
-
-    search_paths.push_back("Engine/Assets/Shaders");
-    search_paths.push_back("Assets/Shaders");
-    search_paths.push_back(".");
-
-    for (const auto& sp : search_path_strings) {
-        search_paths.push_back(sp.c_str());
-    }
-
-    Vector<String> all_os_search_dirs;
-    all_os_search_dirs.push_back("Engine/Assets/Shaders");
-    all_os_search_dirs.push_back("Assets/Shaders");
-    all_os_search_dirs.push_back(".");
-    for (const auto& sp : search_path_strings) {
-        all_os_search_dirs.push_back(sp);
-    }
-    for (const auto& inc : descriptor.includes) {
-        if (inc && inc[0] != '\0') {
+            search_path_strings.push_back(inc);
             all_os_search_dirs.push_back(inc);
         }
     }
+
+    search_paths.push_back(".");
+    all_os_search_dirs.push_back(".");
 
     file_system = ComPtr<ISlangFileSystemExt>(new SlangVFSFileSystem(fs_loader, all_os_search_dirs));
 
@@ -275,22 +230,30 @@ bool CompilerWrapper::compile(const CompileDescriptor& desc, CompileResultIntern
                     source_text = buffer.str();
                 }
             } else {
-                Vector<std::filesystem::path> search_dirs = {
-                    "Engine/Assets/Shaders",
-                    "Assets/Shaders",
-                    "."};
                 for (const auto& sp : search_path_strings) {
-                    search_dirs.push_back(std::filesystem::path(sp));
-                }
-                for (const auto& sp : search_dirs) {
-                    auto candidate = sp / p;
-                    if (std::filesystem::exists(candidate)) {
-                        std::ifstream file(candidate, std::ios::binary);
-                        if (file.is_open()) {
-                            std::stringstream buffer;
-                            buffer << file.rdbuf();
-                            source_text = buffer.str();
-                            break;
+                    if (fs_loader && VFSPath::has_protocol(sp)) {
+                        String vpath = sp;
+                        if (!vpath.empty() && vpath.back() != '/' && vpath.back() != '\\') {
+                            vpath += '/';
+                        }
+                        vpath += desc.path;
+                        if (fs_loader->exists(vpath.c_str())) {
+                            auto data = fs_loader->read<char>(vpath.c_str());
+                            if (!data.empty()) {
+                                source_text = String(data.data(), data.size());
+                                break;
+                            }
+                        }
+                    } else if (!VFSPath::has_protocol(sp)) {
+                        auto candidate = std::filesystem::path(sp) / p;
+                        if (std::filesystem::exists(candidate)) {
+                            std::ifstream file(candidate, std::ios::binary);
+                            if (file.is_open()) {
+                                std::stringstream buffer;
+                                buffer << file.rdbuf();
+                                source_text = buffer.str();
+                                break;
+                            }
                         }
                     }
                 }

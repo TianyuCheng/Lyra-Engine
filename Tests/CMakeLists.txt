@@ -69,6 +69,7 @@ add_subdirectory(rendering)
 add_custom_target(
   unit-tests
   COMMAND $<TARGET_FILE:lyra-unit-tests>
+  WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
   COMMENT "Run Lyra Unit Tests"
   DEPENDS lyra-unit-tests
   VERBATIM)
@@ -78,6 +79,7 @@ set_target_properties(unit-tests PROPERTIES FOLDER "Targets")
 add_custom_target(
   rhi-tests
   COMMAND $<TARGET_FILE:lyra-rhi-tests>
+  WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
   COMMENT "Run Lyra RHI Tests"
   DEPENDS lyra-rhi-tests
   VERBATIM)

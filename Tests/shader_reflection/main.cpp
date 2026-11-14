@@ -842,9 +842,11 @@ TEST_CASE("shader_library::modules_compilation")
     )""";
 
     auto compiler = execute([&]() {
-        auto desc   = CompilerDescriptor{};
-        desc.target = CompileTarget::SPIRV;
-        desc.flags  = CompileFlag::NONE;
+        static CString includes[] = {"Engine/Assets/Shaders"};
+        auto           desc       = CompilerDescriptor{};
+        desc.target               = CompileTarget::SPIRV;
+        desc.flags                = CompileFlag::NONE;
+        desc.includes             = includes;
         return Compiler::init(desc);
     });
 
@@ -1032,8 +1034,7 @@ TEST_CASE("shader_compiler::protocol_include_handling" * doctest::description("q
         // Without fs_loader, protocol includes cannot be resolved and compilation throws
         CHECK_THROWS_AS(
             compiler->compile(CompileDescriptor{"vfs_fail", nullptr, code_fail.c_str()}),
-            std::runtime_error
-        );
+            std::runtime_error);
     }
 
     std::filesystem::remove_all(temp_dir);

@@ -5,7 +5,7 @@
 using namespace lyra;
 
 static ComPtr<slang::IGlobalSession> GLOBAL_SESSION;
-static Logger logger = create_logger("Slang", LogLevel::trace);
+static Logger                        logger = create_logger("Slang", LogLevel::trace);
 
 Logger get_logger()
 {

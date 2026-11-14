@@ -37,11 +37,11 @@ namespace
     {
         if (cat == "Scene") {
             return {
-                ImColor(16, 185, 129, 32),   // icon bg
-                ImColor(52, 211, 153, 255),  // icon text
-                ImColor(16, 185, 129, 24),   // badge bg
-                ImColor(16, 185, 129, 75),   // badge border
-                ImColor(52, 211, 153, 240)   // badge text
+                ImColor(16, 185, 129, 32),  // icon bg
+                ImColor(52, 211, 153, 255), // icon text
+                ImColor(16, 185, 129, 24),  // badge bg
+                ImColor(16, 185, 129, 75),  // badge border
+                ImColor(52, 211, 153, 240)  // badge text
             };
         } else if (cat == "Assets") {
             return {
@@ -49,46 +49,41 @@ namespace
                 ImColor(251, 191, 36, 255),
                 ImColor(245, 158, 11, 24),
                 ImColor(245, 158, 11, 75),
-                ImColor(251, 191, 36, 240)
-            };
+                ImColor(251, 191, 36, 240)};
         } else if (cat == "Window") {
             return {
                 ImColor(168, 85, 247, 32),
                 ImColor(192, 132, 252, 255),
                 ImColor(168, 85, 247, 24),
                 ImColor(168, 85, 247, 75),
-                ImColor(192, 132, 252, 240)
-            };
+                ImColor(192, 132, 252, 240)};
         } else if (cat == "Entity") {
             return {
                 ImColor(56, 189, 248, 32),
                 ImColor(56, 189, 248, 255),
                 ImColor(56, 189, 248, 24),
                 ImColor(56, 189, 248, 75),
-                ImColor(56, 189, 248, 240)
-            };
+                ImColor(56, 189, 248, 240)};
         } else if (cat == "Console") {
             return {
                 ImColor(244, 63, 94, 32),
                 ImColor(251, 113, 133, 255),
                 ImColor(244, 63, 94, 24),
                 ImColor(244, 63, 94, 75),
-                ImColor(251, 113, 133, 240)
-            };
+                ImColor(251, 113, 133, 240)};
         }
         return {
             ImColor(148, 163, 184, 28),
             ImColor(148, 163, 184, 255),
             ImColor(148, 163, 184, 20),
             ImColor(148, 163, 184, 65),
-            ImColor(148, 163, 184, 220)
-        };
+            ImColor(148, 163, 184, 220)};
     }
 
     auto split_shortcut(StringView shortcut) -> Vector<String>
     {
         Vector<String> keys;
-        usize start = 0;
+        usize          start = 0;
         while (start < shortcut.size()) {
             usize plus = shortcut.find('+', start);
             if (plus == StringView::npos) {
@@ -134,12 +129,14 @@ namespace
 
         // split query into whitespace-separated tokens
         Vector<String> tokens;
-        usize start = 0;
+        usize          start = 0;
         while (start < q_lower.size()) {
-            while (start < q_lower.size() && std::isspace(static_cast<unsigned char>(q_lower[start]))) ++start;
+            while (start < q_lower.size() && std::isspace(static_cast<unsigned char>(q_lower[start])))
+                ++start;
             if (start >= q_lower.size()) break;
             usize end = start;
-            while (end < q_lower.size() && !std::isspace(static_cast<unsigned char>(q_lower[end]))) ++end;
+            while (end < q_lower.size() && !std::isspace(static_cast<unsigned char>(q_lower[end])))
+                ++end;
             tokens.push_back(q_lower.substr(start, end - start));
             start = end;
         }
@@ -151,8 +148,10 @@ namespace
         for (const auto& token : tokens) {
             if (full.find(token) != String::npos) {
                 score += 100;
-                if (tit_lower.starts_with(token)) score += 300;
-                else if (tit_lower.find(token) != String::npos) score += 150;
+                if (tit_lower.starts_with(token))
+                    score += 300;
+                else if (tit_lower.find(token) != String::npos)
+                    score += 150;
             } else if (fuzzy_subsequence(token, full)) {
                 score += 40;
             } else {
@@ -161,9 +160,12 @@ namespace
         }
 
         // exact and prefix bonuses
-        if (tit_lower == q_lower) score += 2000;
-        else if (tit_lower.starts_with(q_lower)) score += 1000;
-        else if (full.starts_with(q_lower)) score += 500;
+        if (tit_lower == q_lower)
+            score += 2000;
+        else if (tit_lower.starts_with(q_lower))
+            score += 1000;
+        else if (full.starts_with(q_lower))
+            score += 500;
 
         return score;
     }
@@ -447,7 +449,7 @@ void lyra::ui::command::palette()
         }
 
         InputCallbackData cb_data{&g_palette.selected_index, matched_count};
-        auto input_cb = [](ImGuiInputTextCallbackData* data) -> int {
+        auto              input_cb = [](ImGuiInputTextCallbackData* data) -> int {
             auto* cb = static_cast<InputCallbackData*>(data->UserData);
             if (data->EventKey == ImGuiKey_UpArrow) {
                 if (*cb->selected_index > 0) {
@@ -474,8 +476,8 @@ void lyra::ui::command::palette()
         ImGui::PopStyleColor(2);
 
         // handle execute
-        const CommandDescriptor* cmd_to_execute = nullptr;
-        auto trigger_execute = [&](int idx) {
+        const CommandDescriptor* cmd_to_execute  = nullptr;
+        auto                     trigger_execute = [&](int idx) {
             if (idx >= 0 && idx < matched_count) {
                 const auto* item = scored[idx].cmd;
                 if (!item->is_enabled || item->is_enabled()) {
@@ -509,8 +511,8 @@ void lyra::ui::command::palette()
                                       ? std::min(matched_count, max_visible) * (item_height + 4.0f) + 4.0f
                                       : 64.0f;
 
-        static int s_prev_selected_index = -1;
-        bool need_scroll_to_selected = (g_palette.selected_index != s_prev_selected_index);
+        static int s_prev_selected_index   = -1;
+        bool       need_scroll_to_selected = (g_palette.selected_index != s_prev_selected_index);
         if (need_scroll_to_selected) {
             s_prev_selected_index = g_palette.selected_index;
         }
@@ -606,8 +608,8 @@ void lyra::ui::command::palette()
                         cmd->category.c_str());
 
                     // 4. command title (crisp white when highlighted, fully legible)
-                    float title_x = badge_x + badge_w + 12.0f;
-                    float title_y = cur_pos.y + (item_height - font_h) * 0.5f;
+                    float title_x   = badge_x + badge_w + 12.0f;
+                    float title_y   = cur_pos.y + (item_height - font_h) * 0.5f;
                     ImU32 title_col = is_cmd_enabled
                                           ? (is_selected ? IM_COL32(255, 255, 255, 255) : IM_COL32(226, 232, 240, 245))
                                           : IM_COL32(100, 116, 139, 180);
@@ -626,12 +628,12 @@ void lyra::ui::command::palette()
 
                         for (int k = static_cast<int>(keys.size()) - 1; k >= 0; --k) {
                             const auto& key_str = keys[k];
-                            ImVec2 key_sz = ImGui::CalcTextSize(key_str.c_str());
-                            float cap_w  = std::max(key_sz.x + 12.0f, 22.0f);
-                            float cap_h  = 20.0f;
-                            float cap_x  = right_x - cap_w;
-                            float cap_y  = cur_pos.y + (item_height - cap_h) * 0.5f;
-                            float txt_y  = cap_y + (cap_h - font_h) * 0.5f;
+                            ImVec2      key_sz  = ImGui::CalcTextSize(key_str.c_str());
+                            float       cap_w   = std::max(key_sz.x + 12.0f, 22.0f);
+                            float       cap_h   = 20.0f;
+                            float       cap_x   = right_x - cap_w;
+                            float       cap_y   = cur_pos.y + (item_height - cap_h) * 0.5f;
+                            float       txt_y   = cap_y + (cap_h - font_h) * 0.5f;
 
                             // keycap shadow
                             list_draw->AddRectFilled(ImVec2(cap_x, cap_y + 1.0f), ImVec2(cap_x + cap_w, cap_y + cap_h + 1.0f), IM_COL32(0, 0, 0, 120), 4.0f);
@@ -675,17 +677,17 @@ void lyra::ui::command::palette()
         // active item breadcrumb on the left
         if (g_palette.selected_index >= 0 && g_palette.selected_index < matched_count) {
             const auto* sel_cmd = scored[g_palette.selected_index].cmd;
-            char breadcrumb_buf[128];
+            char        breadcrumb_buf[128];
             snprintf(breadcrumb_buf, sizeof(breadcrumb_buf), "%s  \xe2\x80\xba  %s", sel_cmd->category.c_str(), sel_cmd->title.c_str());
             draw->AddText(ImVec2(footer_pos.x + 8.0f, footer_center_y), IM_COL32(148, 163, 184, 220), breadcrumb_buf);
         }
 
         // keyboard navigation hints on the right
         auto draw_hint_pill = [&](float& cur_r_x, CString key_txt, CString label_txt) {
-            ImVec2 lbl_sz = ImGui::CalcTextSize(label_txt);
-            ImVec2 k_sz   = ImGui::CalcTextSize(key_txt);
-            float  cap_w  = k_sz.x + 8.0f;
-            float  cap_h  = k_sz.y + 4.0f;
+            ImVec2 lbl_sz  = ImGui::CalcTextSize(label_txt);
+            ImVec2 k_sz    = ImGui::CalcTextSize(key_txt);
+            float  cap_w   = k_sz.x + 8.0f;
+            float  cap_h   = k_sz.y + 4.0f;
             float  total_w = cap_w + 6.0f + lbl_sz.x;
             float  start_x = cur_r_x - total_w;
             float  cap_y   = footer_pos.y + (footer_height - cap_h) * 0.5f;

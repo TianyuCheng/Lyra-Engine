@@ -52,29 +52,29 @@ using ThreadList = Vector<std::thread>;
 
 struct SchedulerState
 {
-    std::thread::id         main_thread_id;
-    Atomic<bool>            initialized               = false;
-    Atomic<bool>            running                   = false;
-    Atomic<uint>            active_workers            = 0;
-    Atomic<uint>            active_background_workers = 0;
-    uint                    worker_count              = 0;
-    uint                    max_background_workers    = 0;
-    WorkerList              workers;
-    ThreadList              threads;
-    InjectionQueueArray     injection_queues;
-    ConcurrentJobQueue      main_queue;
-    Mutex                   sleep_mutex;
-    ConditionVariable       sleep_cv;
-    CentralClosurePool      closure_pool;
+    std::thread::id     main_thread_id;
+    Atomic<bool>        initialized               = false;
+    Atomic<bool>        running                   = false;
+    Atomic<uint>        active_workers            = 0;
+    Atomic<uint>        active_background_workers = 0;
+    uint                worker_count              = 0;
+    uint                max_background_workers    = 0;
+    WorkerList          workers;
+    ThreadList          threads;
+    InjectionQueueArray injection_queues;
+    ConcurrentJobQueue  main_queue;
+    Mutex               sleep_mutex;
+    ConditionVariable   sleep_cv;
+    CentralClosurePool  closure_pool;
 
     ~SchedulerState();
 };
 #pragma endregion Types& Aliases
 
 #pragma region Internal Helpers
-static SchedulerState   g_scheduler;
-static thread_local int g_tl_worker_index = -1;
-static Atomic<JobScheduler::ExternalPumpFn> g_external_pump = nullptr;
+static SchedulerState                       g_scheduler;
+static thread_local int                     g_tl_worker_index = -1;
+static Atomic<JobScheduler::ExternalPumpFn> g_external_pump   = nullptr;
 
 static bool has_any_work()
 {

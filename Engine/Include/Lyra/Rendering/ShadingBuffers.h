@@ -74,16 +74,16 @@ namespace lyra
      */
     struct alignas(16) GPUMaterialData
     {
-        Vector4 base_color_factor;
-        Vector3 emissive_factor;
+        Vector4      base_color_factor;
+        Vector3      emissive_factor;
         float        roughness_factor;
         float        metallic_factor;
         ShadingModel shading_model = ShadingModel::PBR;
         uint         base_color_texture_idx;
-        uint    normal_texture_idx;
-        uint    roughness_metallic_texture_idx;
-        uint    custom_params_offset; // offset into custom material buffer
-        Vector3 custom_data;          // general-purpose extra material vector for custom shading
+        uint         normal_texture_idx;
+        uint         roughness_metallic_texture_idx;
+        uint         custom_params_offset; // offset into custom material buffer
+        Vector3      custom_data;          // general-purpose extra material vector for custom shading
     };
 
 } // namespace lyra

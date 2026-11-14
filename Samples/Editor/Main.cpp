@@ -207,6 +207,16 @@ int main(int argc, const char* argv[])
     if (!fs::exists(engine_caches_root))
         fs::create_directories(engine_caches_root);
 
+    // file loader
+    auto file_loader = lyra::execute([&]() {
+        auto loader = std::make_unique<FileLoader>(FSLoader::NATIVE);
+        loader->mount("sys://", engine_caches_root, 1);
+        loader->mount("sys://", engine_assets_root, 0);
+        loader->mount("app://", caches_root, 1);
+        loader->mount("app://", assets_root, 0);
+        return loader;
+    });
+
     // application
     auto app = lyra::execute([&]() {
         auto desc = AppDescriptor();
@@ -215,19 +225,11 @@ int main(int argc, const char* argv[])
         desc.with_window_maximized();
         desc.with_graphics_backend(backend);
         desc.with_graphics_validation(true, true);
+        desc.with_file_loader(file_loader.get());
+        desc.with_shader_includes({"sys://Shaders", "app://Shaders"});
         return std::make_unique<Application>(desc);
     });
-
-    // file loader
-    auto file_loader = lyra::execute([&]() {
-        auto loader = std::make_unique<FileLoader>(FSLoader::NATIVE);
-        loader->mount("sys://", engine_caches_root, 1);
-        loader->mount("sys://", engine_assets_root, 0);
-        loader->mount("app://", caches_root, 1);
-        loader->mount("app://", assets_root, 0);
-        app->get_toolboard().add<FileLoader*>(loader.get());
-        return loader;
-    });
+    app->get_toolboard().add<FileLoader*>(file_loader.get());
 
     // asset layer
     auto assets = lyra::execute([&]() {

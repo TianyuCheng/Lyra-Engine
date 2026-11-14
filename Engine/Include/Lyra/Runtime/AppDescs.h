@@ -13,6 +13,7 @@
 namespace lyra
 {
     struct Application;
+    struct FileLoader;
 
     using AppWindowDescriptor = WindowDescriptor;
     using AppJobDescriptor    = JobSystemDescriptor;
@@ -32,8 +33,10 @@ namespace lyra
      */
     struct AppCompilerDescriptor
     {
-        CompileTarget target; ///< The shader compilation target (e.g., SPIR-V, DXIL).
-        CompileFlags  flags;  ///< Compiler flags.
+        CompileTarget   target;               ///< The shader compilation target (e.g., SPIR-V, DXIL).
+        CompileFlags    flags;                ///< Compiler flags.
+        FileLoader*     fs_loader = nullptr;  ///< Virtual filesystem loader for include/import resolution.
+        Vector<CString> includes  = {};       ///< Additional shader include search paths.
     };
 
     /**
@@ -76,6 +79,14 @@ namespace lyra
          * @brief Set the worker concurrency for the job system (0 = auto-detect).
          */
         AppDescriptor& with_workers(uint workers);
+        /**
+         * @brief Set the virtual file loader for the shader compiler.
+         */
+        AppDescriptor& with_file_loader(FileLoader* loader);
+        /**
+         * @brief Set additional shader include search paths.
+         */
+        AppDescriptor& with_shader_includes(const Vector<CString>& includes);
 
     private:
         AppWindowDescriptor   wsi;

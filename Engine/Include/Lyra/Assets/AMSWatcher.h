@@ -101,12 +101,12 @@ namespace lyra
         void run_debounce_worker();
 
     private:
-        Path              watch_root;
-        float             debounce_seconds;
-        Atomic<bool>      running{false};
-        Atomic<bool>      paused{false};
-        Atomic<bool>      stop_requested{false};
-        WatchCallback     callback;
+        Path          watch_root;
+        float         debounce_seconds;
+        Atomic<bool>  running{false};
+        Atomic<bool>  paused{false};
+        Atomic<bool>  stop_requested{false};
+        WatchCallback callback;
 
         Mutex                                   pending_mutex;
         ConditionVariable                       pending_cv;
