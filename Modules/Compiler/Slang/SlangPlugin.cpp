@@ -3,7 +3,7 @@
 #include <Lyra/Utilities/Plugin.h>
 #include <Lyra/Compiler/SLCAPI.h>
 
-#include "SlangUtils.h"
+#include "SlangCompiler.h"
 
 using namespace lyra;
 

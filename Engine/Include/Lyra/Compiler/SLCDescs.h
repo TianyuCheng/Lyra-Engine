@@ -11,6 +11,7 @@
 
 namespace lyra
 {
+    struct FileLoader;
 
     struct CompilerDescriptor
     {
@@ -18,6 +19,7 @@ namespace lyra
         CompileTarget  target    = CompileTarget::SPIRV;
         ShaderDefines  defines   = {};
         ShaderIncludes includes  = {};
+        FileLoader*    fs_loader = nullptr;
         LogLevel       log_level = LogLevel::warn;
     };
 

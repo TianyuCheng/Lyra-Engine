@@ -3,9 +3,15 @@ lyra_module(slang MODULE)
 
 # plugin sources
 target_sources(lyra-slang PRIVATE
+  SlangCommon.h
+  SlangCommon.cpp
+  SlangFileSystem.h
+  SlangFileSystem.cpp
+  SlangReflection.h
+  SlangReflection.cpp
+  SlangCompiler.h
+  SlangCompiler.cpp
   SlangPlugin.cpp
-  SlangUtils.cpp
-  SlangUtils.h
 )
 
 # link dependencies

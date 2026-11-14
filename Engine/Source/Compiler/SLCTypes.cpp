@@ -1,5 +1,6 @@
 #include <fstream>
 #include <Lyra/Utilities/Plugin.h>
+#include <Lyra/FileSystem/VFSPath.h>
 #include <Lyra/Compiler/SLCAPI.h>
 #include <Lyra/Compiler/SLCTypes.h>
 
@@ -32,20 +33,24 @@ void Compiler::destroy()
 
 Own<ShaderModule> Compiler::compile(const Path& path)
 {
-    std::ifstream file(path);
-    assert(file.good());
-
-    // read entire file into buffer
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    String source = buffer.str();
-
-    auto descriptor   = CompileDescriptor{};
-    auto path_str     = path.string();
+    auto path_str     = path.generic_string();
     auto stem_str     = path.stem().string();
+    auto descriptor   = CompileDescriptor{};
     descriptor.path   = path_str.c_str();
     descriptor.module = stem_str.c_str();
-    descriptor.source = source.c_str();
+
+    String source;
+    if (VFSPath::has_protocol(path_str)) {
+        descriptor.source = nullptr;
+    } else {
+        std::ifstream file(path);
+        assert(file.good());
+
+        std::stringstream buffer;
+        buffer << file.rdbuf();
+        source            = buffer.str();
+        descriptor.source = source.c_str();
+    }
     return compile(descriptor);
 }
 

@@ -1,21 +1,15 @@
-#ifndef LYRA_MODULE_COMPILER_SLANG_UTILS_H
-#define LYRA_MODULE_COMPILER_SLANG_UTILS_H
+#pragma once
 
-#include <slang.h>
-#include <slang-com-ptr.h>
-#include <slang-com-helper.h>
+#ifndef LYRA_MODULE_COMPILER_SLANG_REFLECTION_H
+#define LYRA_MODULE_COMPILER_SLANG_REFLECTION_H
 
-// both Slang and spdlog includes
-#include <sstream>
-#include <Lyra/Utilities/Logger.h>
+#include "SlangCommon.h"
 #include <Lyra/Utilities/Function.h>
 #include <Lyra/Compiler/SLCAPI.h>
+#include <Lyra/Graphics/RHIDescs.h>
+#include <sstream>
 
 using namespace lyra;
-
-using Slang::ComPtr;
-
-auto get_logger() -> Logger;
 
 enum class WalkAction
 {
@@ -105,23 +99,6 @@ struct TraverseDepthHandle
     TraversalData& data;
 };
 
-struct CompileResultInternal
-{
-    ComPtr<slang::ISession> session;
-    ComPtr<slang::IModule>  module;
-
-    // cached compiled binaries — keyed by entry point name.
-    // blob.data pointers returned to callers are stable views into this storage;
-    // they are freed automatically when this struct is destroyed (delete_module).
-    HashMap<String, Vector<uint8_t>> compiled_blobs;
-
-    auto get_entry_point(CString entry) const -> ComPtr<slang::IEntryPoint>;
-    auto get_linked_program(CString entry) const -> ComPtr<slang::IComponentType>;
-    auto get_composed_program(CString entry) const -> ComPtr<slang::IComponentType>;
-
-    bool get_shader_blob(CString entry, ShaderBlob& blob);
-};
-
 struct ReflectResultInternal
 {
     using Bindings = TreeMap<uint, Vector<GPUBindGroupLayoutEntry>>;
@@ -132,7 +109,7 @@ struct ReflectResultInternal
     HashMap<String, uint>      name2attributes;
     HashMap<String, uint>      name2bindgroups;
     HashMap<uint, String>      bind_group_names;
-    List<String>               semantic_names; // just a container to make sure const char* is not lost
+    List<String>               semantic_names; // container to make sure const char* is not lost
     Bindings                   bind_groups;
     Vector<GPUVertexAttribute> vertex_attributes;
     uint                       immediate_size = 0;
@@ -167,27 +144,4 @@ struct ReflectResultInternal
     bool is_under_parameter_block(const AccessPath& node) const;
 };
 
-struct CompilerWrapper
-{
-    ComPtr<slang::ISession> session;
-    ComPtr<slang::IModule>  builtin;
-    Vector<String>          search_path_strings;
-
-    static void init();
-
-    explicit CompilerWrapper(const CompilerDescriptor& descriptor);
-
-    auto select_profile(const CompilerDescriptor& descriptor) const -> SlangProfileID;
-
-    auto select_target(const CompilerDescriptor& descriptor) const -> SlangCompileTarget;
-
-    void init_builtin_module();
-
-    bool compile(const CompileDescriptor& desc, CompileResultInternal& result);
-
-    bool reflect(ShaderEntryPoints entries, ReflectResultInternal& result);
-
-    CompileTarget target;
-};
-
-#endif // LYRA_MODULE_COMPILER_SLANG_UTILS_H
+#endif // LYRA_MODULE_COMPILER_SLANG_REFLECTION_H

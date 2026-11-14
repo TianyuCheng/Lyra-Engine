@@ -1,6 +1,9 @@
 #include "helper.h"
 #include <algorithm>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <Lyra/FileSystem/VFSTypes.h>
 
 void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags flags)
 {
@@ -927,4 +930,111 @@ TEST_CASE("shader_library::modules_compilation")
     });
     CHECK(fxaa_module != nullptr);
     CHECK(fxaa_module->handle.valid());
+}
+
+TEST_CASE("shader_compiler::protocol_include_handling" * doctest::description("quoted protocol URI includes and VFS resolution"))
+{
+    auto temp_dir = std::filesystem::temp_directory_path() / "lyra_slc_vfs_test";
+    std::filesystem::remove_all(temp_dir);
+    std::filesystem::create_directories(temp_dir / "sub");
+
+    // write a virtual header
+    {
+        std::ofstream h(temp_dir / "common.slang");
+        h << "struct VFSIncludedData { float4 val; };\n";
+    }
+
+    // write a virtual nested shader that relatively includes ../common.slang
+    {
+        std::ofstream n(temp_dir / "sub" / "nested.slang");
+        n << "#include \"../common.slang\"\n"
+          << "struct NestedData { VFSIncludedData base; };\n";
+    }
+
+    // 1. With FileLoader: protocol-based include handling enabled
+    {
+        FileLoader loader(FSLoader::NATIVE);
+        loader.mount("sys://test_shaders", temp_dir, 0);
+
+        auto compiler = execute([&]() {
+            auto desc      = CompilerDescriptor{};
+            desc.target    = CompileTarget::SPIRV;
+            desc.flags     = CompileFlag::NONE;
+            desc.fs_loader = &loader;
+            return Compiler::init(desc);
+        });
+
+        // test direct quoted protocol include
+        String code1 = R"""(
+            #include "sys://test_shaders/common.slang"
+            [shader("compute")]
+            [numthreads(1, 1, 1)]
+            void csmain()
+            {
+                VFSIncludedData d;
+                d.val = float4(1, 2, 3, 4);
+            }
+        )""";
+
+        auto module1 = execute([&]() {
+            auto desc   = CompileDescriptor{};
+            desc.module = "vfs_test1";
+            desc.source = code1.c_str();
+            return compiler->compile(desc);
+        });
+        CHECK(module1 != nullptr);
+        CHECK(module1->handle.valid());
+
+        // test nested include with relative navigation inside VFS
+        String code2 = R"""(
+            #include "sys://test_shaders/sub/nested.slang"
+            [shader("compute")]
+            [numthreads(1, 1, 1)]
+            void csmain()
+            {
+                NestedData n;
+                n.base.val = float4(5, 6, 7, 8);
+            }
+        )""";
+
+        auto module2 = execute([&]() {
+            auto desc   = CompileDescriptor{};
+            desc.module = "vfs_test2";
+            desc.source = code2.c_str();
+            return compiler->compile(desc);
+        });
+        CHECK(module2 != nullptr);
+        CHECK(module2->handle.valid());
+
+        // test compiling direct VFS path
+        auto module3 = compiler->compile(Path("sys://test_shaders/sub/nested.slang"));
+        CHECK(module3 != nullptr);
+        CHECK(module3->handle.valid());
+    }
+
+    // 2. Without FileLoader (fs_loader == nullptr): protocol-based include handling disabled
+    {
+        auto compiler = execute([&]() {
+            auto desc      = CompilerDescriptor{};
+            desc.target    = CompileTarget::SPIRV;
+            desc.flags     = CompileFlag::NONE;
+            desc.fs_loader = nullptr;
+            return Compiler::init(desc);
+        });
+
+        String code_fail = R"""(
+            #include "sys://test_shaders/common.slang"
+            [shader("compute")]
+            [numthreads(1, 1, 1)]
+            void csmain() {}
+        )""";
+
+        // Without fs_loader, protocol includes cannot be resolved and compilation throws
+        CHECK_THROWS_AS(
+            compiler->compile(CompileDescriptor{"vfs_fail", nullptr, code_fail.c_str()}),
+            std::runtime_error
+        );
+    }
+
+    std::filesystem::remove_all(temp_dir);
 }
