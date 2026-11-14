@@ -13,6 +13,7 @@
 #include <Lyra/Windowing/WSITypes.h>
 #include <Lyra/Compiler/SLCTypes.h>
 #include <Lyra/Graphics/RHITypes.h>
+#include <Lyra/FileSystem/VFSTypes.h>
 
 namespace lyra
 {
@@ -110,6 +111,9 @@ namespace lyra
         auto& get_graphics_descriptor() const { return descriptor.rhi; }
         auto& get_compiler_descriptor() const { return descriptor.slc; }
         auto& get_job_system_descriptor() const { return descriptor.jobs; }
+        auto& get_filesystem_descriptor() const { return descriptor.vfs; }
+        auto  get_file_loader() -> FileLoader* { return loader ? loader.get() : descriptor.slc.fs_loader; }
+        auto  get_file_loader() const -> const FileLoader* { return loader ? loader.get() : descriptor.slc.fs_loader; }
         auto  get_max_workers() const -> uint { return descriptor.jobs.max_workers; }
         auto  get_max_background_workers() const -> uint { return descriptor.jobs.max_background_workers; }
 
@@ -122,6 +126,7 @@ namespace lyra
 
     private:
         void init_logger();
+        void init_filesystem();
         void init_window();
         void init_graphics();
         void init_compiler();
@@ -144,6 +149,7 @@ namespace lyra
         OwnedResource<Window>   wsi;
         OwnedResource<RHI>      rhi;
         OwnedResource<Compiler> slc;
+        Own<FileLoader>         loader;
         GPUDevice               device;
         GPUAdapter              adapter;
         GPUSurface              surface;

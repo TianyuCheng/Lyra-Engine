@@ -5,9 +5,11 @@
 
 #include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Utilities/String.h>
+#include <Lyra/Utilities/Path.h>
 #include <Lyra/Windowing/WSIDescs.h>
 #include <Lyra/Graphics/RHIDescs.h>
 #include <Lyra/Compiler/SLCDescs.h>
+#include <Lyra/FileSystem/VFSAPI.h>
 #include <Lyra/JobSystem/JobScheduler.h>
 
 namespace lyra
@@ -33,10 +35,29 @@ namespace lyra
      */
     struct AppCompilerDescriptor
     {
-        CompileTarget   target;               ///< The shader compilation target (e.g., SPIR-V, DXIL).
-        CompileFlags    flags;                ///< Compiler flags.
-        FileLoader*     fs_loader = nullptr;  ///< Virtual filesystem loader for include/import resolution.
-        Vector<CString> includes  = {};       ///< Additional shader include search paths.
+        CompileTarget   target;              ///< The shader compilation target (e.g., SPIR-V, DXIL).
+        CompileFlags    flags;               ///< Compiler flags.
+        FileLoader*     fs_loader = nullptr; ///< Virtual filesystem loader for include/import resolution.
+        Vector<CString> includes  = {};      ///< Additional shader include search paths.
+    };
+
+    /**
+     * @brief Virtual filesystem mount configuration.
+     */
+    struct AppMountPoint
+    {
+        String scheme;
+        Path   physical;
+        uint   priority = 0;
+    };
+
+    /**
+     * @brief File system configuration for the application.
+     */
+    struct AppFileSystemDescriptor
+    {
+        FSLoader              backend = FSLoader::NATIVE;
+        Vector<AppMountPoint> mounts  = {};
     };
 
     /**
@@ -80,6 +101,14 @@ namespace lyra
          */
         AppDescriptor& with_workers(uint workers);
         /**
+         * @brief Set the preferred filesystem backend.
+         */
+        AppDescriptor& with_filesystem_backend(FSLoader backend);
+        /**
+         * @brief Add a virtual filesystem mount point.
+         */
+        AppDescriptor& with_mount(CString scheme, const Path& physical, uint priority = 0);
+        /**
          * @brief Set the virtual file loader for the shader compiler.
          */
         AppDescriptor& with_file_loader(FileLoader* loader);
@@ -89,10 +118,11 @@ namespace lyra
         AppDescriptor& with_shader_includes(const Vector<CString>& includes);
 
     private:
-        AppWindowDescriptor   wsi;
-        AppGraphicsDescriptor rhi;
-        AppCompilerDescriptor slc;
-        JobSystemDescriptor   jobs;
+        AppWindowDescriptor     wsi;
+        AppGraphicsDescriptor   rhi;
+        AppCompilerDescriptor   slc;
+        JobSystemDescriptor     jobs;
+        AppFileSystemDescriptor vfs;
     };
 
 } // namespace lyra

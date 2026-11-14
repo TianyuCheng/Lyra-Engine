@@ -69,6 +69,18 @@ AppDescriptor& AppDescriptor::with_workers(uint workers)
     return *this;
 }
 
+AppDescriptor& AppDescriptor::with_filesystem_backend(FSLoader backend)
+{
+    this->vfs.backend = backend;
+    return *this;
+}
+
+AppDescriptor& AppDescriptor::with_mount(CString scheme, const Path& physical, uint priority)
+{
+    this->vfs.mounts.push_back(AppMountPoint{scheme ? scheme : "", physical, priority});
+    return *this;
+}
+
 AppDescriptor& AppDescriptor::with_file_loader(FileLoader* loader)
 {
     this->slc.fs_loader = loader;
@@ -90,6 +102,7 @@ Application::Application(const AppDescriptor& descriptor)
     : descriptor(descriptor)
 {
     init_logger();
+    init_filesystem();
     init_job_system();
     init_window();
     init_graphics();
@@ -98,6 +111,9 @@ Application::Application(const AppDescriptor& descriptor)
 
     // adding commonly used components into toolboard
     context.toolboard.add<Application*>(this);
+    if (auto fl = get_file_loader()) {
+        context.toolboard.add<FileLoader*>(fl);
+    }
     context.toolboard.add<Window*>(wsi.get());
     context.toolboard.add<Compiler*>(slc.get());
     context.toolboard.add<GPUAdapter*>(&adapter);
@@ -120,6 +136,23 @@ Application::~Application()
     slc.reset();
     rhi.reset();
     wsi.reset();
+    if (loader) {
+        loader->destroy();
+        loader.reset();
+    }
+}
+
+/**
+ * @brief Initialize the virtual file system loader.
+ */
+void Application::init_filesystem()
+{
+    if (!descriptor.vfs.mounts.empty()) {
+        loader = make_own<FileLoader>(descriptor.vfs.backend);
+        for (const auto& m : descriptor.vfs.mounts) {
+            loader->mount(m.scheme.c_str(), m.physical, m.priority);
+        }
+    }
 }
 
 /**
@@ -187,8 +220,38 @@ void Application::init_compiler()
         auto desc      = CompilerDescriptor{};
         desc.target    = descriptor.slc.target;
         desc.flags     = descriptor.slc.flags;
-        desc.fs_loader = descriptor.slc.fs_loader;
-        desc.includes  = descriptor.slc.includes;
+        desc.fs_loader = get_file_loader();
+
+        Vector<CString> includes = descriptor.slc.includes;
+        if (desc.fs_loader) {
+            bool has_sys = false;
+            bool has_app = false;
+            for (const auto& m : descriptor.vfs.mounts) {
+                if (m.scheme.starts_with("sys://")) has_sys = true;
+                if (m.scheme.starts_with("app://")) has_app = true;
+            }
+            if (has_sys) {
+                bool found = false;
+                for (auto inc : includes) {
+                    if (std::strcmp(inc, "sys://Shaders") == 0) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) includes.push_back("sys://Shaders");
+            }
+            if (has_app) {
+                bool found = false;
+                for (auto inc : includes) {
+                    if (std::strcmp(inc, "app://Shaders") == 0) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) includes.push_back("app://Shaders");
+            }
+        }
+        desc.includes = includes;
         return Compiler::init(desc);
     });
 }
