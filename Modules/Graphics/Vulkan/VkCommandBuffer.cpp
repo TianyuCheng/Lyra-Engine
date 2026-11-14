@@ -312,10 +312,10 @@ void cmd::set_index_buffer(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle bu
     auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
     auto& buf = fetch_resource(rhi->buffers, buffer);
-    if (size == 0) {
-        rhi->vtable.vkCmdBindIndexBuffer(cmd.command_buffer, buf.buffer, offset, vkenum(format));
-    } else {
+    if (size != 0 && rhi->vtable.vkCmdBindIndexBuffer2KHR) {
         rhi->vtable.vkCmdBindIndexBuffer2KHR(cmd.command_buffer, buf.buffer, offset, size, vkenum(format));
+    } else {
+        rhi->vtable.vkCmdBindIndexBuffer(cmd.command_buffer, buf.buffer, offset, vkenum(format));
     }
 }
 
@@ -324,10 +324,10 @@ void cmd::set_vertex_buffer(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 slot, 
     auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
     auto& buf = fetch_resource(rhi->buffers, buffer);
-    if (size == 0) {
-        rhi->vtable.vkCmdBindVertexBuffers(cmd.command_buffer, slot, 1, &buf.buffer, &offset);
-    } else {
+    if (size != 0 && rhi->vtable.vkCmdBindVertexBuffers2) {
         rhi->vtable.vkCmdBindVertexBuffers2(cmd.command_buffer, slot, 1, &buf.buffer, &offset, &size, nullptr);
+    } else {
+        rhi->vtable.vkCmdBindVertexBuffers(cmd.command_buffer, slot, 1, &buf.buffer, &offset);
     }
 }
 

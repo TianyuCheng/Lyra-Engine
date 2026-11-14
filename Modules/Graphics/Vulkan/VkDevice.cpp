@@ -63,6 +63,9 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
         debugger_extensions.push_back(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
     }
 
+    // check availability of extensions
+    auto supported_extensions = get_supported_device_extensions(rhi->adapter);
+
     // add portability (if present)
     if (has_portability_subset(rhi->adapter)) {
         device_extensions.push_back(KHR_PORTABILITY_EXTENSION_NAME);
@@ -203,6 +206,16 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
         append_feature((VulkanBase*)&ray_query);
     }
 
+    // optional: used to support sized index buffer binding (vkCmdBindIndexBuffer2KHR)
+    auto maintenance5 = VkPhysicalDeviceMaintenance5FeaturesKHR{};
+    if (supported_extensions.contains(VK_KHR_MAINTENANCE_5_EXTENSION_NAME)) {
+        device_extensions.push_back(VK_KHR_MAINTENANCE_5_EXTENSION_NAME);
+        maintenance5.sType        = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES_KHR;
+        maintenance5.pNext        = nullptr;
+        maintenance5.maintenance5 = VK_TRUE;
+        append_feature((VulkanBase*)&maintenance5);
+    }
+
     // logger
     if (!device_extensions.empty()) {
         logger->debug("Create VkDevice with extensions:");
@@ -224,7 +237,6 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
     }
 
     // check availability of extensions
-    auto supported_extensions        = get_supported_device_extensions(rhi->adapter);
     uint unsatisfied_extension_count = 0;
     for (auto& extension : device_extensions) {
         auto ext = String(extension);
