@@ -1,5 +1,5 @@
 #include <doctest/doctest.h>
-#include <memory>
+#include <Lyra/Utilities/Pointer.h>
 #include <Lyra/Graphics/GPURetireQueue.h>
 #include <Lyra/Graphics/RHITypes.h>
 
@@ -9,9 +9,9 @@ namespace
 {
     struct MockRetireResource
     {
-        int                  id            = 0;
-        std::shared_ptr<int> destroy_count = nullptr;
-        bool                 is_valid      = true;
+        int       id            = 0;
+        Ref<int>  destroy_count = nullptr;
+        bool      is_valid      = true;
 
         bool valid() const
         {
@@ -29,7 +29,7 @@ namespace
 
 TEST_CASE("graphics::gpu_retire_queue" * doctest::description("GPURetireQueue lifecycle, aging, and drain"))
 {
-    auto destroy_counter = std::make_shared<int>(0);
+    auto destroy_counter = make_ref<int>(0);
 
     SUBCASE("Uninitialized queue destroys immediately")
     {

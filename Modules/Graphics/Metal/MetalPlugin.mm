@@ -445,6 +445,7 @@ LYRA_EXPORT auto create() -> RenderAPI
     api.reset_bind_group_heap            = api::reset_bind_group_heap;
     api.wait_idle                        = api::wait_idle;
     api.wait_fence                       = api::wait_fence;
+    api.poll_fence                       = api::poll_fence;
     api.map_buffer                       = api::map_buffer;
     api.unmap_buffer                     = api::unmap_buffer;
     api.get_mapped_state                 = api::get_mapped_state;

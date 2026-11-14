@@ -49,8 +49,8 @@ static Vector<fs::path> resolve_read_paths(NativeFSLoader* loader, FSPath cpath)
         return out;
     }
 
-    std::lock_guard<std::mutex> lk(loader->mounts_mutex);
-    Vector<NativeMount*>        mounts = loader->mounts;
+    LockGuard            lk(loader->mounts_mutex);
+    Vector<NativeMount*> mounts = loader->mounts;
     std::sort(mounts.begin(), mounts.end(), sort_mount_points);
 
     for (const auto& m : mounts) {
@@ -285,7 +285,7 @@ static bool mount(FileLoaderHandle loader, MountHandle& handle, FSPath vpath, OS
     m->priority = priority;
 
     // save this mount point, and sort according to priority
-    std::lock_guard<std::mutex> lk(pointer->mounts_mutex);
+    LockGuard lk(pointer->mounts_mutex);
     pointer->mounts.push_back(m);
     std::sort(pointer->mounts.begin(), pointer->mounts.end(), sort_mount_points);
 
@@ -302,7 +302,7 @@ static bool unmount(FileLoaderHandle loader, MountHandle handle)
     get_logger()->info("unmount path={} from vpath={}", pmount->root.string(), pmount->vprefix.to_string());
 
     // lock while unmount
-    std::lock_guard<std::mutex> lk(pointer->mounts_mutex);
+    LockGuard lk(pointer->mounts_mutex);
 
     // remove mount point
     auto before = pointer->mounts.size();

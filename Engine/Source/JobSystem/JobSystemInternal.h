@@ -3,13 +3,13 @@
 #ifndef LYRA_ENGINE_JOBSYSTEM_INTERNAL_H
 #define LYRA_ENGINE_JOBSYSTEM_INTERNAL_H
 
-#include <mutex>
 #include <atomic>
 
 #include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Utilities/Collections.h>
 #include <Lyra/Utilities/Pointer.h>
-#include <Lyra/JobSystem/Jobs.h>
+#include <Lyra/Utilities/Sync.h>
+#include <Lyra/JobSystem/JobScheduler.h>
 
 namespace lyra
 {
@@ -24,8 +24,8 @@ namespace lyra
         static_assert((Capacity & (Capacity - 1)) == 0, "capacity must be power of two");
         static constexpr usize MASK = Capacity - 1;
 
-        alignas(64) std::atomic<int64_t> top    = 0;
-        alignas(64) std::atomic<int64_t> bottom = 0;
+        alignas(64) Atomic<int64_t> top    = 0;
+        alignas(64) Atomic<int64_t> bottom = 0;
         alignas(64) Array<T, Capacity> buffer{};
 
     public:
@@ -33,47 +33,47 @@ namespace lyra
 
         bool push_bottom(const T& item) noexcept
         {
-            int64_t b = bottom.load(std::memory_order_relaxed);
-            int64_t t = top.load(std::memory_order_acquire);
+            int64_t b = bottom.load(memory_order_relaxed);
+            int64_t t = top.load(memory_order_acquire);
             if (b - t >= static_cast<int64_t>(Capacity)) {
                 return false;
             }
             buffer[b & MASK] = item;
-            std::atomic_thread_fence(std::memory_order_release);
-            bottom.store(b + 1, std::memory_order_relaxed);
+            atomic_thread_fence(memory_order_release);
+            bottom.store(b + 1, memory_order_relaxed);
             return true;
         }
 
         bool pop_bottom(T& item) noexcept
         {
-            int64_t b = bottom.load(std::memory_order_relaxed) - 1;
-            bottom.store(b, std::memory_order_relaxed);
-            std::atomic_thread_fence(std::memory_order_seq_cst);
-            int64_t t = top.load(std::memory_order_relaxed);
+            int64_t b = bottom.load(memory_order_relaxed) - 1;
+            bottom.store(b, memory_order_relaxed);
+            atomic_thread_fence(memory_order_seq_cst);
+            int64_t t = top.load(memory_order_relaxed);
             if (t <= b) {
                 item = buffer[b & MASK];
                 if (t == b) {
-                    if (!top.compare_exchange_strong(t, t + 1, std::memory_order_seq_cst, std::memory_order_relaxed)) {
-                        bottom.store(b + 1, std::memory_order_relaxed);
+                    if (!top.compare_exchange_strong(t, t + 1, memory_order_seq_cst, memory_order_relaxed)) {
+                        bottom.store(b + 1, memory_order_relaxed);
                         return false;
                     }
-                    bottom.store(b + 1, std::memory_order_relaxed);
+                    bottom.store(b + 1, memory_order_relaxed);
                 }
                 return true;
             } else {
-                bottom.store(b + 1, std::memory_order_relaxed);
+                bottom.store(b + 1, memory_order_relaxed);
                 return false;
             }
         }
 
         bool steal(T& item) noexcept
         {
-            int64_t t = top.load(std::memory_order_acquire);
-            std::atomic_thread_fence(std::memory_order_seq_cst);
-            int64_t b = bottom.load(std::memory_order_acquire);
+            int64_t t = top.load(memory_order_acquire);
+            atomic_thread_fence(memory_order_seq_cst);
+            int64_t b = bottom.load(memory_order_acquire);
             if (t < b) {
                 item = buffer[t & MASK];
-                if (top.compare_exchange_strong(t, t + 1, std::memory_order_seq_cst, std::memory_order_relaxed)) {
+                if (top.compare_exchange_strong(t, t + 1, memory_order_seq_cst, memory_order_relaxed)) {
                     return true;
                 }
             }
@@ -94,18 +94,18 @@ namespace lyra
 
     struct ConcurrentJobQueue
     {
-        mutable std::mutex mutex;
-        Deque<Job>         queue;
+        mutable Mutex mutex;
+        Deque<Job>    queue;
 
         void push(const Job& job)
         {
-            std::lock_guard lock(mutex);
+            LockGuard lock(mutex);
             queue.push_back(job);
         }
 
         bool pop(Job& job)
         {
-            std::lock_guard lock(mutex);
+            LockGuard lock(mutex);
             if (queue.empty()) {
                 return false;
             }
@@ -116,7 +116,7 @@ namespace lyra
 
         bool empty() const
         {
-            std::lock_guard lock(mutex);
+            LockGuard lock(mutex);
             return queue.empty();
         }
 
@@ -124,7 +124,7 @@ namespace lyra
         {
             Vector<Job> to_run;
             {
-                std::lock_guard lock(mutex);
+                LockGuard lock(mutex);
                 if (queue.empty()) {
                     return 0;
                 }

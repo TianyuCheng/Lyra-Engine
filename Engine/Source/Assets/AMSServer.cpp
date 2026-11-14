@@ -441,7 +441,7 @@ void AssetServer::register_asset_entry(AssetID guid, const Path& path, AssetType
     VFSPath vp = VFSPath::parse(path.generic_string());
     if (!vp.is_valid()) return;
 
-    static std::mutex reg_mut;
+    static Mutex reg_mut;
     with_lock(reg_mut, [&] {
         registry.update(guid, vp.to_string(), type_id, dependencies, cooked_path.generic_string());
     });
@@ -625,7 +625,7 @@ void AssetServer::commit_cooked_asset(const Path& import_path, const Path& rel_p
     HashSet<AssetID> current_dep_guids;
     Vector<AssetID>  dependency_guids;
 
-    static std::mutex registry_mutex;
+    static Mutex registry_mutex;
     with_lock(registry_mutex, [&] {
         VFSPath vp          = VFSPath::parse(rel_path.generic_string());
         OSPath  caches_path = get_caches_path(descriptor, vp.scheme);
@@ -741,7 +741,7 @@ Future<AssetID> AssetServer::import_asset(const Path& path, bool force)
 
     pending_cooks++;
 
-    auto promise = std::make_shared<Promise<AssetID>>();
+    auto promise = make_ref<Promise<AssetID>>();
     auto future  = promise->get_future();
 
     JobScheduler::schedule(JobPriority::BACKGROUND, [this, cooker = it->second, source_path, import_path, rel_path, guid, promise]() {
@@ -843,7 +843,7 @@ void AssetServer::delete_metadata_and_caches(const Path& import_path, OSPath cac
 
     if (guid != 0) {
         unload_record(guid);
-        static std::mutex registry_mutex;
+        static Mutex registry_mutex;
         with_lock(registry_mutex, [&] {
             registry.remove(guid);
         });
@@ -851,7 +851,7 @@ void AssetServer::delete_metadata_and_caches(const Path& import_path, OSPath cac
 
     auto meta = load_json_file(import_path);
     if (meta) {
-        static std::mutex registry_mutex;
+        static Mutex registry_mutex;
         with_lock(registry_mutex, [&] {
             remove_metadata_cache_files(*meta, caches_path, registry, [this](AssetID id) {
                 unload_record(id);
@@ -904,7 +904,7 @@ bool AssetServer::delete_single_asset(const Path& full_path, const Path& rel_pat
     delete_metadata_and_caches(import_path, caches_path, guid);
 
     if (guid == 0) {
-        static std::mutex registry_mutex;
+        static Mutex registry_mutex;
         with_lock(registry_mutex, [&] {
             registry.remove(rel_path.generic_string());
         });
@@ -950,7 +950,7 @@ bool AssetServer::delete_asset(AssetID guid)
 
     unload_record(guid);
 
-    static std::mutex registry_mutex;
+    static Mutex registry_mutex;
     with_lock(registry_mutex, [&] {
         registry.remove(guid);
     });
@@ -1017,7 +1017,7 @@ bool AssetServer::move_directory_assets(const Path& src_full, const Path& src_re
         fs::rename(src_dir_import, dst_dir_import, ec);
     }
 
-    static std::mutex reg_mut;
+    static Mutex reg_mut;
     with_lock(reg_mut, [&] {
         for (const auto& item : moved_entries) {
             registry.update(item.guid, item.new_rel_path, registry.get_type(item.guid), registry.get_dependencies(item.guid));
@@ -1053,7 +1053,7 @@ bool AssetServer::move_single_asset(const Path& src_full, const Path& src_rel, c
     }
 
     if (guid != 0) {
-        static std::mutex reg_mut;
+        static Mutex reg_mut;
         with_lock(reg_mut, [&] {
             registry.update(guid, dst_rel.generic_string(), registry.get_type(guid), registry.get_dependencies(guid));
         });
@@ -1315,7 +1315,7 @@ void AssetServer::handle_watch_rename(const AssetWatchEvent& evt)
     AssetID guid = registry.get_guid(old_vpath);
     if (guid == 0) return;
 
-    static std::mutex reg_mut;
+    static Mutex reg_mut;
     with_lock(reg_mut, [&] {
         registry.update(guid, new_vpath, registry.get_type(guid), registry.get_dependencies(guid));
     });

@@ -4,8 +4,10 @@
 #define LYRA_ENGINE_UTILITIES_SYNC_H
 
 #include <mutex>
+#include <atomic>
 #include <utility>
 #include <shared_mutex>
+#include <condition_variable>
 
 #include <Lyra/Utilities/Macros.h>
 
@@ -24,6 +26,28 @@ namespace lyra
 
     template <typename M>
     using SharedLock = std::shared_lock<M>;
+
+    // Condition variable aliases
+    using ConditionVariable    = std::condition_variable;
+    using ConditionVariableAny = std::condition_variable_any;
+    using CVStatus             = std::cv_status;
+
+    // Atomic aliases & memory order
+    template <typename T>
+    using Atomic = std::atomic<T>;
+
+    using AtomicFlag  = std::atomic_flag;
+    using MemoryOrder = std::memory_order;
+
+    inline constexpr auto memory_order_relaxed = std::memory_order_relaxed;
+    inline constexpr auto memory_order_consume = std::memory_order_consume;
+    inline constexpr auto memory_order_acquire = std::memory_order_acquire;
+    inline constexpr auto memory_order_release = std::memory_order_release;
+    inline constexpr auto memory_order_acq_rel = std::memory_order_acq_rel;
+    inline constexpr auto memory_order_seq_cst = std::memory_order_seq_cst;
+
+    using std::atomic_thread_fence;
+    using std::atomic_signal_fence;
 
     /**
      * @brief Executes a callable while holding an exclusive lock on the mutex.

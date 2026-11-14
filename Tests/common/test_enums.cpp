@@ -1,7 +1,7 @@
 #include <doctest/doctest.h>
 #include <Lyra/Utilities/Enums.h>
 #include <Lyra/InputSystem/InputEnums.h>
-#include <Lyra/JobSystem/Jobs.h>
+#include <Lyra/JobSystem/JobScheduler.h>
 #include <Lyra/Utilities/Geometry.h>
 
 namespace

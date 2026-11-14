@@ -3,10 +3,10 @@
 #ifndef LYRA_ENGINE_JOBSYSTEM_CLOSURE_POOL_H
 #define LYRA_ENGINE_JOBSYSTEM_CLOSURE_POOL_H
 
-#include <mutex>
 #include <cstdlib>
 #include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Utilities/Collections.h>
+#include <Lyra/Utilities/Sync.h>
 
 namespace lyra
 {
@@ -19,13 +19,13 @@ namespace lyra
 
     struct CentralClosurePool
     {
-        std::mutex    mutex;
+        Mutex         mutex;
         Vector<void*> pages;
         ClosureBlock* free_list = nullptr;
 
         void* allocate()
         {
-            std::lock_guard lock(mutex);
+            LockGuard lock(mutex);
             if (!free_list) {
                 constexpr usize PAGE_SIZE   = 64 * 1024;
                 constexpr usize BLOCK_COUNT = PAGE_SIZE / CLOSURE_BLOCK_SIZE;
@@ -47,15 +47,15 @@ namespace lyra
 
         void deallocate(void* ptr)
         {
-            std::lock_guard lock(mutex);
-            auto            block = static_cast<ClosureBlock*>(ptr);
-            block->next           = free_list;
-            free_list             = block;
+            LockGuard lock(mutex);
+            auto      block = static_cast<ClosureBlock*>(ptr);
+            block->next     = free_list;
+            free_list       = block;
         }
 
         void clear()
         {
-            std::lock_guard lock(mutex);
+            LockGuard lock(mutex);
             for (void* page : pages) {
                 std::free(page);
             }

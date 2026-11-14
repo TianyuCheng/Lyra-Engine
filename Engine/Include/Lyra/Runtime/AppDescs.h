@@ -8,7 +8,7 @@
 #include <Lyra/Windowing/WSIDescs.h>
 #include <Lyra/Graphics/RHIDescs.h>
 #include <Lyra/Compiler/SLCDescs.h>
-#include <Lyra/JobSystem/Jobs.h>
+#include <Lyra/JobSystem/JobScheduler.h>
 
 namespace lyra
 {

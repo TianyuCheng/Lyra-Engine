@@ -1,4 +1,3 @@
-#include <mutex>
 #include <thread>
 #include <atomic>
 #include <cstdlib>
@@ -9,7 +8,9 @@
 #include <Lyra/Utilities/Collections.h>
 #include <Lyra/Utilities/Pointer.h>
 #include <Lyra/Utilities/Enums.h>
-#include <Lyra/JobSystem/Jobs.h>
+#include <Lyra/Utilities/Sync.h>
+#include <Lyra/JobSystem/JobScheduler.h>
+#include <Lyra/JobSystem/Task.h>
 #include "JobSystemInternal.h"
 #include "JobClosurePool.h"
 
@@ -52,18 +53,18 @@ using ThreadList = Vector<std::thread>;
 struct SchedulerState
 {
     std::thread::id         main_thread_id;
-    std::atomic<bool>       initialized               = false;
-    std::atomic<bool>       running                   = false;
-    std::atomic<uint>       active_workers            = 0;
-    std::atomic<uint>       active_background_workers = 0;
+    Atomic<bool>            initialized               = false;
+    Atomic<bool>            running                   = false;
+    Atomic<uint>            active_workers            = 0;
+    Atomic<uint>            active_background_workers = 0;
     uint                    worker_count              = 0;
     uint                    max_background_workers    = 0;
     WorkerList              workers;
     ThreadList              threads;
     InjectionQueueArray     injection_queues;
     ConcurrentJobQueue      main_queue;
-    std::mutex              sleep_mutex;
-    std::condition_variable sleep_cv;
+    Mutex                   sleep_mutex;
+    ConditionVariable       sleep_cv;
     CentralClosurePool      closure_pool;
 
     ~SchedulerState();
@@ -73,6 +74,7 @@ struct SchedulerState
 #pragma region Internal Helpers
 static SchedulerState   g_scheduler;
 static thread_local int g_tl_worker_index = -1;
+static Atomic<JobScheduler::ExternalPumpFn> g_external_pump = nullptr;
 
 static bool has_any_work()
 {
@@ -168,7 +170,7 @@ static void worker_thread_main(uint worker_id)
         }
 
         // back off and sleep if no work is found
-        std::unique_lock lock(g_scheduler.sleep_mutex);
+        UniqueLock lock(g_scheduler.sleep_mutex);
         if (has_any_work()) {
             continue;
         }
@@ -180,6 +182,10 @@ static void worker_thread_main(uint worker_id)
 
 bool lyra::assist_work()
 {
+    if (auto pump = g_external_pump.load(std::memory_order_relaxed)) {
+        pump();
+    }
+
     Job  job;
     bool is_background = false;
     if (g_tl_worker_index >= 0 && g_tl_worker_index < static_cast<int>(g_scheduler.worker_count)) {
@@ -319,7 +325,15 @@ void JobScheduler::schedule_main(Job job)
 
 void JobScheduler::drain_main_thread(uint max_jobs)
 {
+    if (auto pump = g_external_pump.load(std::memory_order_relaxed)) {
+        pump();
+    }
     g_scheduler.main_queue.drain(max_jobs);
+}
+
+void JobScheduler::register_external_pump(ExternalPumpFn fn)
+{
+    g_external_pump.store(fn, std::memory_order_release);
 }
 
 static thread_local ThreadClosureCache g_tl_closure_cache;
@@ -361,10 +375,10 @@ bool MainThreadAwaiter::await_ready() const noexcept
     return JobScheduler::is_main_thread();
 }
 
-void MainThreadAwaiter::await_suspend(std::coroutine_handle<> handle) noexcept
+void MainThreadAwaiter::await_suspend(CoroutineHandle<> handle) noexcept
 {
     JobScheduler::schedule_main(Job{[](void* ptr) {
-                                        std::coroutine_handle<>::from_address(ptr).resume();
+                                        CoroutineHandle<>::from_address(ptr).resume();
                                     },
         handle.address()});
 }
@@ -374,10 +388,10 @@ bool WorkerAwaiter::await_ready() const noexcept
     return JobScheduler::is_worker_thread();
 }
 
-void WorkerAwaiter::await_suspend(std::coroutine_handle<> handle) noexcept
+void WorkerAwaiter::await_suspend(CoroutineHandle<> handle) noexcept
 {
     JobScheduler::schedule(priority, Job{[](void* ptr) {
-                                             std::coroutine_handle<>::from_address(ptr).resume();
+                                             CoroutineHandle<>::from_address(ptr).resume();
                                          },
                                          handle.address()});
 }

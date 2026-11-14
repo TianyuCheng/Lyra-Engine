@@ -138,3 +138,10 @@ void api::wait_fence(GPUFenceHandle handle)
     auto& fence = fetch_resource(rhi->fences, handle);
     fence.wait();
 }
+
+bool api::poll_fence(GPUFenceHandle handle)
+{
+    auto  rhi   = get_rhi();
+    auto& fence = fetch_resource(rhi->fences, handle);
+    return fence.ready();
+}

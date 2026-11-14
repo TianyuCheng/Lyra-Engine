@@ -406,6 +406,12 @@ void api::wait_fence(GPUFenceHandle handle)
     fetch_resource(rhi->fences, handle).wait();
 }
 
+bool api::poll_fence(GPUFenceHandle handle)
+{
+    auto rhi = get_rhi();
+    return fetch_resource(rhi->fences, handle).ready();
+}
+
 LYRA_EXPORT auto prepare() -> void
 {
     get_logger()->set_level(parse_log_level_from_env("LYRA_VULKAN_VERBOSITY"));
@@ -469,6 +475,7 @@ LYRA_EXPORT auto create() -> RenderAPI
     api.reset_bind_group_heap            = api::reset_bind_group_heap;
     api.wait_idle                        = api::wait_idle;
     api.wait_fence                       = api::wait_fence;
+    api.poll_fence                       = api::poll_fence;
     api.new_frame                        = api::new_frame;
     api.end_frame                        = api::end_frame;
     api.map_buffer                       = api::map_buffer;

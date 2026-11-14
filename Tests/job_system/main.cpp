@@ -17,11 +17,11 @@ TEST_CASE("jobs::job_system" * doctest::description("Job System and Coroutine Te
 
     SUBCASE("basic_job_scheduling")
     {
-        std::atomic<int> counter_val = 0;
+        Atomic<int> counter_val = 0;
 
         for (int i = 0; i < 100; ++i) {
             JobScheduler::schedule([&counter_val] {
-                counter_val.fetch_add(1, std::memory_order_relaxed);
+                counter_val.fetch_add(1, memory_order_relaxed);
             });
         }
 
@@ -104,20 +104,20 @@ TEST_CASE("jobs::job_system" * doctest::description("Job System and Coroutine Te
 
     SUBCASE("when_all")
     {
-        std::atomic<int> completed{0};
+        Atomic<int> completed{0};
 
         auto task_a = [&]() -> Task<void> {
-            completed.fetch_add(10, std::memory_order_relaxed);
+            completed.fetch_add(10, memory_order_relaxed);
             co_return;
         };
 
         auto task_b = [&]() -> Task<void> {
-            completed.fetch_add(20, std::memory_order_relaxed);
+            completed.fetch_add(20, memory_order_relaxed);
             co_return;
         };
 
         auto task_c = [&]() -> Task<void> {
-            completed.fetch_add(30, std::memory_order_relaxed);
+            completed.fetch_add(30, memory_order_relaxed);
             co_return;
         };
 
@@ -131,11 +131,11 @@ TEST_CASE("jobs::job_system" * doctest::description("Job System and Coroutine Te
 
     SUBCASE("wait_idle")
     {
-        std::atomic<int> count{0};
+        Atomic<int> count{0};
 
         for (int i = 0; i < 50; ++i) {
             JobScheduler::schedule([&count] {
-                count.fetch_add(1, std::memory_order_relaxed);
+                count.fetch_add(1, memory_order_relaxed);
             });
         }
 
@@ -146,14 +146,14 @@ TEST_CASE("jobs::job_system" * doctest::description("Job System and Coroutine Te
 
     SUBCASE("batch_awaiter")
     {
-        std::atomic<int> sum{0};
-        constexpr uint   batch_count = 20;
+        Atomic<int>    sum{0};
+        constexpr uint batch_count = 20;
 
         auto test_batch = [&]() -> Task<int> {
-            auto awaiter = std::make_shared<BatchAwaiter>(batch_count);
+            auto awaiter = make_ref<BatchAwaiter>(batch_count);
             for (uint i = 0; i < batch_count; ++i) {
                 JobScheduler::schedule([awaiter, &sum] {
-                    sum.fetch_add(1, std::memory_order_relaxed);
+                    sum.fetch_add(1, memory_order_relaxed);
                     awaiter->finish();
                 });
             }
@@ -163,5 +163,56 @@ TEST_CASE("jobs::job_system" * doctest::description("Job System and Coroutine Te
 
         int res = sync_wait(test_batch());
         CHECK_EQ(res, 20);
+    }
+
+    SUBCASE("job_promise")
+    {
+        JobPromise<int> promise;
+        auto            task = promise.get_task();
+
+        JobScheduler::schedule([p = promise]() mutable {
+            p.set_value(777);
+        });
+
+        int result = sync_wait(std::move(task));
+        CHECK_EQ(result, 777);
+    }
+
+    SUBCASE("dispatch_cpu")
+    {
+        auto test_dispatch = []() -> Task<int> {
+            // dispatch typed
+            int v = co_await dispatch([] {
+                return 40 + 2;
+            });
+
+            // dispatch void
+            Atomic<bool> flag{false};
+            co_await dispatch([&flag] {
+                flag.store(true, memory_order_release);
+            });
+
+            CHECK(flag.load());
+            co_return v;
+        };
+
+        int res = sync_wait(test_dispatch());
+        CHECK_EQ(res, 42);
+    }
+
+    SUBCASE("dispatch_composition_when_all")
+    {
+        auto composed = []() -> Task<void> {
+            Atomic<int> accum{0};
+
+            auto t1 = dispatch([&accum] { accum.fetch_add(10, memory_order_relaxed); });
+            auto t2 = dispatch([&accum] { accum.fetch_add(20, memory_order_relaxed); });
+            auto t3 = dispatch([&accum] { accum.fetch_add(30, memory_order_relaxed); });
+
+            co_await when_all(std::move(t1), std::move(t2), std::move(t3));
+            CHECK_EQ(accum.load(), 60);
+        };
+
+        sync_wait(composed());
     }
 }

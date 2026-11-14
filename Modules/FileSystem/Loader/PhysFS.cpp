@@ -71,7 +71,7 @@ static void rebuild_mounts(PhysFSLoader* loader)
         PHYSFS_freeList(search_path);
     }
 
-    std::lock_guard<std::mutex> lock(loader->mounts_mutex);
+    LockGuard lock(loader->mounts_mutex);
 
     // sort mounts by priority descending (higher priority first)
     Vector<PhysMountPoint*> sorted = loader->mounts;
@@ -269,7 +269,7 @@ static bool mount(FileLoaderHandle loader, MountHandle& out_handle, FSPath vpath
 
     // save to global mount points
     {
-        std::lock_guard<std::mutex> lk(pointer->mounts_mutex);
+        LockGuard lk(pointer->mounts_mutex);
         pointer->mounts.push_back(m);
     }
     rebuild_mounts(pointer);
@@ -286,7 +286,7 @@ static bool unmount(FileLoaderHandle loader, MountHandle handle)
     get_logger()->info("unmount path={} from vpath={}", pmount->root.string(), pmount->vprefix.to_string());
 
     // lock while unmount
-    std::lock_guard<std::mutex> lk(pointer->mounts_mutex);
+    LockGuard lk(pointer->mounts_mutex);
 
     auto before = pointer->mounts.size();
     pointer->mounts.erase(

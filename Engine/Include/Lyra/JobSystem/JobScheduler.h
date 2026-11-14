@@ -1,16 +1,21 @@
 #pragma once
 
-#ifndef LYRA_ENGINE_JOBSYSTEM_JOBS_H
-#define LYRA_ENGINE_JOBSYSTEM_JOBS_H
-
-#include <atomic>
-#include <coroutine>
-#include <type_traits>
+#ifndef LYRA_ENGINE_JOBSYSTEM_JOB_SCHEDULER_H
+#define LYRA_ENGINE_JOBSYSTEM_JOB_SCHEDULER_H
 
 #include <Lyra/Utilities/Stdint.h>
+#include <Lyra/Utilities/Macros.h>
+#include <Lyra/Utilities/TypeTraits.h>
 
 namespace lyra
 {
+
+    // -------------------------------------------------------------------------
+    // Forward declarations for coroutine awaiters
+    // -------------------------------------------------------------------------
+
+    struct WorkerAwaiter;
+    struct MainThreadAwaiter;
 
     // -------------------------------------------------------------------------
     // Priority levels & POD Job
@@ -32,62 +37,6 @@ namespace lyra
         {
             if (fn) fn(data);
         }
-    };
-
-    // -------------------------------------------------------------------------
-    // Coroutine awaiters
-    // -------------------------------------------------------------------------
-
-    struct MainThreadAwaiter
-    {
-        bool await_ready() const noexcept;
-        void await_suspend(std::coroutine_handle<> handle) noexcept;
-        void await_resume() const noexcept {}
-    };
-
-    struct WorkerAwaiter
-    {
-        JobPriority priority;
-
-        bool await_ready() const noexcept;
-        void await_suspend(std::coroutine_handle<> handle) noexcept;
-        void await_resume() const noexcept {}
-    };
-
-    struct FinalAwaiter
-    {
-        std::coroutine_handle<> continuation = nullptr;
-
-        bool await_ready() const noexcept
-        {
-            return false;
-        }
-
-        std::coroutine_handle<> await_suspend(std::coroutine_handle<>) const noexcept
-        {
-            return continuation ? continuation : std::noop_coroutine();
-        }
-
-        void await_resume() const noexcept {}
-    };
-
-    struct BatchAwaiter
-    {
-        std::atomic<uint>       remaining;
-        std::coroutine_handle<> continuation = nullptr;
-        JobPriority             priority     = JobPriority::NORMAL;
-
-        explicit BatchAwaiter(uint count, JobPriority priority = JobPriority::NORMAL)
-            : remaining(count), priority(priority) {}
-
-        bool await_ready() const noexcept
-        {
-            return remaining.load(std::memory_order_acquire) == 0;
-        }
-
-        void await_resume() const noexcept {}
-        void await_suspend(std::coroutine_handle<> h) noexcept;
-        void finish();
     };
 
     // -------------------------------------------------------------------------
@@ -163,39 +112,18 @@ namespace lyra
         static void schedule_main(Job job);
         static void drain_main_thread(uint max_jobs = 0);
 
-        // coroutine awaiters
-        static auto main_thread() noexcept { return MainThreadAwaiter{}; }
-        static auto worker(JobPriority priority = JobPriority::NORMAL) noexcept { return WorkerAwaiter{priority}; }
+        // register external completion pump (e.g. GPU fence monitor)
+        using ExternalPumpFn = void (*)();
+        static void register_external_pump(ExternalPumpFn fn);
+
+        // coroutine awaiters (defined in Task.h)
+        static MainThreadAwaiter main_thread() noexcept;
+        static WorkerAwaiter     worker(JobPriority priority = JobPriority::NORMAL) noexcept;
     };
-
-    inline void BatchAwaiter::await_suspend(std::coroutine_handle<> h) noexcept
-    {
-        continuation = h;
-        if (remaining.load(std::memory_order_acquire) == 0) {
-            JobScheduler::schedule(priority,
-                Job{[](void* ptr) {
-                        std::coroutine_handle<>::from_address(ptr).resume();
-                    },
-                    h.address()});
-        }
-    }
-
-    inline void BatchAwaiter::finish()
-    {
-        if (remaining.fetch_sub(1, std::memory_order_acq_rel) == 1) {
-            if (continuation) {
-                JobScheduler::schedule(priority,
-                    Job{[](void* ptr) {
-                            std::coroutine_handle<>::from_address(ptr).resume();
-                        },
-                        continuation.address()});
-            }
-        }
-    }
 
     // internal helper to assist running available work while waiting
     bool assist_work();
 
 } // namespace lyra
 
-#endif // LYRA_ENGINE_JOBSYSTEM_JOBS_H
+#endif // LYRA_ENGINE_JOBSYSTEM_JOB_SCHEDULER_H

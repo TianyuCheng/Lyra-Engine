@@ -4,7 +4,7 @@
 #include <Lyra/Components/Mesh.h>
 #include <Lyra/Components/Camera.h>
 #include <Lyra/Scene/SceneManager.h>
-#include <Lyra/JobSystem/Jobs.h>
+#include <Lyra/JobSystem/JobScheduler.h>
 #include <Lyra/Assets/Format/SceneAsset.h>
 
 using namespace lyra;

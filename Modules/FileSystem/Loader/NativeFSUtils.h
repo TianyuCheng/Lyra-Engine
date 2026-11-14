@@ -3,8 +3,7 @@
 #ifndef LYRA_MODULE_FILESYSTEM_NATIVE_FS_UTILS_H
 #define LYRA_MODULE_FILESYSTEM_NATIVE_FS_UTILS_H
 
-#include <mutex>
-
+#include <Lyra/Utilities/Sync.h>
 #include <Lyra/Utilities/String.h>
 #include <Lyra/Utilities/Pointer.h>
 #include <Lyra/Utilities/Collections.h>
@@ -26,7 +25,7 @@ namespace lyra::loader::native
     struct NativeFSLoader
     {
         Vector<NativeMount*> mounts;
-        std::mutex           mounts_mutex;
+        Mutex                mounts_mutex;
     };
 
 } // namespace lyra::loader::native

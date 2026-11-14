@@ -34,6 +34,12 @@ void MetalFence::wait(ulong timeout)
     }
 }
 
+bool MetalFence::ready() const
+{
+    if (!event) return true;
+    return event.signaledValue >= target;
+}
+
 void MetalFence::signal(ulong value)
 {
     target = value;

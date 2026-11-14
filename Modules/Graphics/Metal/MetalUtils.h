@@ -142,6 +142,7 @@ struct MetalFence
     explicit MetalFence(bool signaled);
 
     void wait(ulong timeout = UINT64_MAX);
+    bool ready() const;
     void signal(ulong value);
     void signal(id<MTLCommandBuffer> cmdbuf, ulong value);
     void destroy();
@@ -665,6 +666,7 @@ namespace api
     // device/queue related APIs
     void wait_idle();
     void wait_fence(GPUFenceHandle handle);
+    bool poll_fence(GPUFenceHandle handle);
 
 } // namespace api
 

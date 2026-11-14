@@ -443,6 +443,11 @@ void GPUSampler::destroy()
 #pragma endregion GPUSampler
 
 #pragma region GPUFence
+bool GPUFence::poll() const
+{
+    return RHI::api()->poll_fence ? RHI::api()->poll_fence(handle) : true;
+}
+
 void GPUFence::wait() const
 {
     RHI::api()->wait_fence(handle);

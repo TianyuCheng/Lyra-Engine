@@ -675,6 +675,7 @@ namespace api
     // device/queue related
     void wait_idle();
     void wait_fence(GPUFenceHandle handle);
+    bool poll_fence(GPUFenceHandle handle);
 
 } // namespace api
 

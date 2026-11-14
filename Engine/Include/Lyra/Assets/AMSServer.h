@@ -378,8 +378,8 @@ namespace lyra
     private:
         struct AssetRecord
         {
-            void*             data   = nullptr;
-            std::atomic<uint> refcnt = 0;
+            void*        data   = nullptr;
+            Atomic<uint> refcnt = 0;
         };
 
         struct AssetProcessor
@@ -389,10 +389,10 @@ namespace lyra
             AssetLoaderAPI                 loader;
             Optional<AssetSaverAPI>        saver;
             List<AssetCookerAPI>           cookers; // storage for cookers (stable pointers)
-            Own<std::shared_mutex>         mutex;
+            Own<SharedMutex>               mutex;
             HashMap<AssetID, AssetRecord*> assets;
 
-            AssetProcessor() : mutex(std::make_unique<std::shared_mutex>()) {}
+            AssetProcessor() : mutex(std::make_unique<SharedMutex>()) {}
             AssetProcessor(const AssetProcessor&)                      = delete;
             AssetProcessor(AssetProcessor&& other) noexcept            = default;
             AssetProcessor& operator=(const AssetProcessor&)           = delete;
@@ -440,10 +440,10 @@ namespace lyra
         HashMap<String, AssetCookerAPI*>          cooker_extensions;
 
         Own<AssetWatcher>                       watcher;
-        std::atomic<uint>                       pending_cooks   = 0;
-        std::atomic<uint>                       completed_cooks = 0;
-        std::atomic<uint>                       failed_cooks    = 0;
-        mutable std::mutex                      pipeline_mutex;
+        Atomic<uint>                            pending_cooks   = 0;
+        Atomic<uint>                            completed_cooks = 0;
+        Atomic<uint>                            failed_cooks    = 0;
+        mutable Mutex                           pipeline_mutex;
         String                                  current_cooking_asset;
         Deque<AssetWatchEvent>                  queued_fs_events;
         Vector<std::pair<AssetID, AssetTypeID>> queued_reloaded_assets;

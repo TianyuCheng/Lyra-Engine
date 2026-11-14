@@ -4,6 +4,8 @@
 #define LYRA_ENGINE_UTILITIES_POINTER_H
 
 #include <memory>
+#include <utility>
+#include <Lyra/Utilities/Macros.h>
 
 namespace lyra
 {
@@ -12,6 +14,18 @@ namespace lyra
 
     template <typename T>
     using Ref = std::shared_ptr<T>;
+
+    template <typename T, typename... Args>
+    FORCE_INLINE Ref<T> make_ref(Args&&... args)
+    {
+        return std::make_shared<T>(std::forward<Args>(args)...);
+    }
+
+    template <typename T, typename... Args>
+    FORCE_INLINE Own<T> make_own(Args&&... args)
+    {
+        return std::make_unique<T>(std::forward<Args>(args)...);
+    }
 
     template <typename T>
     struct Destroyer

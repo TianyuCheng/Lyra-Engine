@@ -34,6 +34,7 @@ namespace lyra
 
         FORCE_INLINE bool valid() const { return handle.valid(); }
 
+        bool poll() const;
         void wait() const;
 
         void destroy();

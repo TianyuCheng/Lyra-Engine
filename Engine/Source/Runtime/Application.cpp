@@ -1,5 +1,5 @@
 #include <Lyra/Runtime/Application.h>
-#include <Lyra/JobSystem/Jobs.h>
+#include <Lyra/JobSystem/JobScheduler.h>
 
 using namespace lyra;
 

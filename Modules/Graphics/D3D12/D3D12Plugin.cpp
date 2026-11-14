@@ -395,6 +395,12 @@ void api::wait_fence(GPUFenceHandle handle)
     fetch_resource(rhi->fences, handle).wait();
 }
 
+bool api::poll_fence(GPUFenceHandle handle)
+{
+    auto rhi = get_rhi();
+    return fetch_resource(rhi->fences, handle).ready();
+}
+
 LYRA_EXPORT auto prepare() -> void
 {
     get_logger()->set_level(parse_log_level_from_env("LYRA_D3D12_VERBOSITY"));
@@ -452,6 +458,7 @@ LYRA_EXPORT auto create() -> RenderAPI
     api.delete_bind_group_layout         = api::delete_bind_group_layout;
     api.wait_idle                        = api::wait_idle;
     api.wait_fence                       = api::wait_fence;
+    api.poll_fence                       = api::poll_fence;
     api.map_buffer                       = api::map_buffer;
     api.unmap_buffer                     = api::unmap_buffer;
     api.get_mapped_state                 = api::get_mapped_state;

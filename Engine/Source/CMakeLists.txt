@@ -142,6 +142,7 @@ target_sources(lyra-engine PRIVATE
 
   # jobs
   JobSystem/JobScheduler.cpp
+  JobSystem/Dispatch.cpp
 
   # input
   InputSystem/InputManager.cpp

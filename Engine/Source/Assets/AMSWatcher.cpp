@@ -240,7 +240,7 @@ void AssetWatcher::on_file_action(const std::string& dir, const std::string& fil
 void AssetWatcher::run_debounce_worker()
 {
     while (!stop_requested.load()) {
-        std::unique_lock lock(pending_mutex);
+        UniqueLock lock(pending_mutex);
         pending_cv.wait_for(lock, std::chrono::milliseconds(50), [&]() {
             return stop_requested.load();
         });

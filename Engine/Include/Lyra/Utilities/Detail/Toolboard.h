@@ -9,6 +9,7 @@
 #include <type_traits>
 #include <absl/container/flat_hash_map.h>
 #include <Lyra/Utilities/Stdint.h>
+#include <Lyra/Utilities/TypeTraits.h>
 
 namespace lyra::detail
 {
@@ -26,10 +27,10 @@ namespace lyra::detail
         using clean_element_t = std::remove_cv_t<std::remove_pointer_t<std::remove_reference_t<T>>>;
 
         template <typename T>
-        using get_return_t = std::conditional_t<std::is_pointer_v<T>, clean_element_t<T>*, clean_element_t<T>&>;
+        using get_return_t = Conditional<std::is_pointer_v<T>, clean_element_t<T>*, clean_element_t<T>&>;
 
         template <typename T>
-        using const_get_return_t = std::conditional_t<std::is_pointer_v<T>, const clean_element_t<T>*, const clean_element_t<T>&>;
+        using const_get_return_t = Conditional<std::is_pointer_v<T>, const clean_element_t<T>*, const clean_element_t<T>&>;
 
     public:
         Toolboard()                     = default;
@@ -44,9 +45,9 @@ namespace lyra::detail
          * @brief Register a pointer to an external tool/subsystem.
          */
         template <typename T = void, typename U>
-        clean_element_t<std::conditional_t<std::is_void_v<T>, U, T>>* add(U* instance)
+        clean_element_t<Conditional<std::is_void_v<T>, U, T>>* add(U* instance)
         {
-            using Element = clean_element_t<std::conditional_t<std::is_void_v<T>, U, T>>;
+            using Element = clean_element_t<Conditional<std::is_void_v<T>, U, T>>;
             assert(instance != nullptr);
             assert(!has<Element>());
             m_storage[typeid(Element)] = static_cast<void*>(static_cast<Element*>(instance));
@@ -57,9 +58,9 @@ namespace lyra::detail
          * @brief Register a reference to an external tool/subsystem.
          */
         template <typename T = void, typename U>
-        clean_element_t<std::conditional_t<std::is_void_v<T>, U, T>>& add(U& instance)
+        clean_element_t<Conditional<std::is_void_v<T>, U, T>>& add(U& instance)
         {
-            using Element = clean_element_t<std::conditional_t<std::is_void_v<T>, U, T>>;
+            using Element = clean_element_t<Conditional<std::is_void_v<T>, U, T>>;
             assert(!has<Element>());
             m_storage[typeid(Element)] = static_cast<void*>(static_cast<Element*>(std::addressof(instance)));
             return static_cast<Element&>(instance);

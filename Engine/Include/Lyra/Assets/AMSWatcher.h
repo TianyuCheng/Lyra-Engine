@@ -103,13 +103,13 @@ namespace lyra
     private:
         Path              watch_root;
         float             debounce_seconds;
-        std::atomic<bool> running{false};
-        std::atomic<bool> paused{false};
-        std::atomic<bool> stop_requested{false};
+        Atomic<bool>      running{false};
+        Atomic<bool>      paused{false};
+        Atomic<bool>      stop_requested{false};
         WatchCallback     callback;
 
-        std::mutex                              pending_mutex;
-        std::condition_variable                 pending_cv;
+        Mutex                                   pending_mutex;
+        ConditionVariable                       pending_cv;
         HashMap<String, AssetWatchPendingEvent> pending_map;
         std::thread                             debounce_thread;
 

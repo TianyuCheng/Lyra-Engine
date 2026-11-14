@@ -5,6 +5,7 @@
 #include <Lyra/Utilities/String.h>
 #include <Lyra/Utilities/Logger.h>
 #include <Lyra/Utilities/Collections.h>
+#include <Lyra/Utilities/Sync.h>
 #include <Lyra/FileSystem/VFSTypes.h>
 
 #include <physfs.h>
@@ -34,7 +35,7 @@ namespace lyra::loader::physfs
     struct PhysFSLoader
     {
         Vector<PhysMountPoint*> mounts;
-        std::mutex              mounts_mutex;
+        Mutex                   mounts_mutex;
     };
 
     using PhysFSFilePtr = Own<PHYSFS_File, PhysFSFileDeleter>;

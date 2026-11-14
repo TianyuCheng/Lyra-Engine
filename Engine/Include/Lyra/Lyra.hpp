@@ -19,6 +19,10 @@
 #include <Lyra/Utilities/Function.h>
 #include <Lyra/Utilities/Collections.h>
 #include <Lyra/Utilities/Compatibility.h>
+#include <Lyra/Utilities/Coroutine.h>
+#include <Lyra/Utilities/TypeTraits.h>
+#include <Lyra/Utilities/Sync.h>
+#include <Lyra/JobSystem/JobSystem.h>
 
 // Plugins headers
 #include <Lyra/Windowing/WSIDescs.h>

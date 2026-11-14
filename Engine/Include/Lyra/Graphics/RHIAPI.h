@@ -88,6 +88,7 @@ namespace lyra
 
         void (*wait_idle)();
         void (*wait_fence)(GPUFenceHandle fence);
+        bool (*poll_fence)(GPUFenceHandle fence);
 
         bool (*get_blas_sizes)(GPUBlasHandle blas, GPUBVHSizes& sizes);
         bool (*get_tlas_sizes)(GPUTlasHandle tlas, GPUBVHSizes& sizes);

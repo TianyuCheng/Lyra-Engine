@@ -413,6 +413,12 @@ namespace api
         get_logger()->trace("wait_fence(handle={})", fence.value);
     }
 
+    bool poll_fence(GPUFenceHandle fence)
+    {
+        get_logger()->trace("poll_fence(handle={})", fence.value);
+        return true;
+    }
+
     bool get_blas_sizes(GPUBlasHandle blas, GPUBVHSizes& sizes)
     {
         sizes.bvh_size    = 1024;
@@ -751,6 +757,7 @@ namespace lyra::null
         api.delete_bind_group_layout         = api::delete_bind_group_layout;
         api.wait_idle                        = api::wait_idle;
         api.wait_fence                       = api::wait_fence;
+        api.poll_fence                       = api::poll_fence;
         api.map_buffer                       = api::map_buffer;
         api.unmap_buffer                     = api::unmap_buffer;
         api.get_mapped_state                 = api::get_mapped_state;
