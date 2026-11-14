@@ -60,7 +60,7 @@ namespace lyra
         Matrix4x4           transform          = Matrix4x4(1.0f);
         Bounds3D            world_bounds       = {};
         uint                instance_id        = 0;
-        uint                shading_model      = 0; // 0 = PBR, 1 = Unlit, 2 = Toon, 3 = Subsurface, 4 = Custom
+        ShadingModel        shading_model      = ShadingModel::PBR;
         uint                custom_pipeline_id = 0; // TODO: support per-primitive custom shading pipeline overrides
     };
 
@@ -76,7 +76,7 @@ namespace lyra
         Matrix4x4           transform          = Matrix4x4(1.0f);
         Bounds3D            world_bounds       = {};
         uint                instance_id        = 0;
-        uint                shading_model      = 0; // 0 = PBR, 1 = Unlit, 2 = Toon, 3 = Subsurface, 4 = Custom
+        ShadingModel        shading_model      = ShadingModel::PBR;
         uint                custom_pipeline_id = 0; // TODO: support per-primitive custom shading pipeline overrides
     };
 
@@ -92,7 +92,7 @@ namespace lyra
         Matrix4x4           transform          = Matrix4x4(1.0f);
         Bounds3D            world_bounds       = {};
         uint                instance_id        = 0;
-        uint                shading_model      = 0; // 0 = PBR, 1 = Unlit, 2 = Toon, 3 = Subsurface, 4 = Custom
+        ShadingModel        shading_model      = ShadingModel::PBR;
         uint                custom_pipeline_id = 0; // TODO: support custom procedural SDF shaders
     };
 

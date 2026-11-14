@@ -5,6 +5,7 @@
 
 #include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Utilities/Math.h>
+#include <Lyra/Assets/Format/MaterialAsset.h>
 
 namespace lyra
 {
@@ -75,10 +76,10 @@ namespace lyra
     {
         Vector4 base_color_factor;
         Vector3 emissive_factor;
-        float   roughness_factor;
-        float   metallic_factor;
-        uint    shading_model; // 0 = PBR, 1 = Unlit, 2 = Toon, 3 = Subsurface, 4 = Custom
-        uint    base_color_texture_idx;
+        float        roughness_factor;
+        float        metallic_factor;
+        ShadingModel shading_model = ShadingModel::PBR;
+        uint         base_color_texture_idx;
         uint    normal_texture_idx;
         uint    roughness_metallic_texture_idx;
         uint    custom_params_offset; // offset into custom material buffer

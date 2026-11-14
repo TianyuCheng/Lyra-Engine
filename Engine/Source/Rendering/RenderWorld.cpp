@@ -204,8 +204,8 @@ void RenderWorld::extract_meshes(const World& ecs_world, const RendererCapabilit
         const auto& lod0 = entry->lods[0];
 
         // resolve material shading model
-        uint shading_model = 0;
-        auto mat_handle    = mesh_comp.material;
+        ShadingModel shading_model = ShadingModel::PBR;
+        auto         mat_handle    = mesh_comp.material;
         if (mat_handle.valid() && ams) {
             auto mat_ptr = ams->get_asset(mat_handle);
             if (!mat_ptr) {
@@ -213,7 +213,7 @@ void RenderWorld::extract_meshes(const World& ecs_world, const RendererCapabilit
                 mat_ptr = ams->get_asset(mat_handle);
             }
             if (mat_ptr) {
-                shading_model = static_cast<uint>(mat_ptr->shading_model);
+                shading_model = mat_ptr->shading_model;
             }
         }
 
@@ -303,7 +303,7 @@ void RenderWorld::extract_sdfs(const World& ecs_world)
 
         if (sdf_comp.material.valid() && ams) {
             if (auto mat_ptr = ams->get_asset(sdf_comp.material)) {
-                prim.shading_model = static_cast<uint>(mat_ptr->shading_model);
+                prim.shading_model = mat_ptr->shading_model;
             }
         }
 

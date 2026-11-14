@@ -32,8 +32,8 @@ namespace lyra
     enum struct ShadingModel : uint
     {
         PBR        = 0,
-        TOON       = 2,
         UNLIT      = 1,
+        TOON       = 2,
         SUBSURFACE = 3,
         CUSTOM     = 4,
     };

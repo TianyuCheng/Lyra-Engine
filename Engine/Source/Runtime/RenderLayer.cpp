@@ -173,7 +173,7 @@ void RenderLayer::extract_scene_and_view(AppContext& context)
 
         if (mesh_comp.material.valid() && ams) {
             if (auto mat_ptr = ams->get_asset(mesh_comp.material)) {
-                prim.shading_model = static_cast<uint>(mat_ptr->shading_model);
+                prim.shading_model = mat_ptr->shading_model;
             }
         }
 
