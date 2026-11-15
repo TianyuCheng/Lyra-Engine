@@ -16,11 +16,6 @@ namespace
         Vector3   pos;
         float     padding = 0.0f;
     };
-
-    struct InstanceData
-    {
-        Matrix4x4 model;
-    };
 } // namespace
 
 bool DepthPrepass::init(
@@ -111,14 +106,16 @@ bool DepthPrepass::init(
         return device.create_render_pipeline(desc);
     });
 
-    camera_buffer = execute([&]() {
-        auto desc               = GPUBufferDescriptor{};
-        desc.label              = "depth_prepass_camera_buffer";
-        desc.size               = sizeof(CameraUniform);
-        desc.usage              = GPUBufferUsage::UNIFORM | GPUBufferUsage::MAP_WRITE;
-        desc.mapped_at_creation = true;
-        return device.create_buffer(desc);
-    });
+    for (uint i = 0; i < FRAMES_IN_FLIGHT; ++i) {
+        camera_buffers[i] = execute([&]() {
+            auto desc               = GPUBufferDescriptor{};
+            desc.label              = "depth_prepass_camera_buffer";
+            desc.size               = sizeof(CameraUniform);
+            desc.usage              = GPUBufferUsage::UNIFORM | GPUBufferUsage::MAP_WRITE;
+            desc.mapped_at_creation = true;
+            return device.create_buffer(desc);
+        });
+    }
 
     heap = execute([&]() {
         auto desc      = GPUBindGroupHeapDescriptor{};
@@ -126,22 +123,26 @@ bool DepthPrepass::init(
         return device.create_bind_group_heap(desc);
     });
 
-    bind_group = execute([&]() {
-        Array<GPUBindGroupEntry, 1> entries = {};
+    if (!blayouts.empty()) {
+        for (uint i = 0; i < FRAMES_IN_FLIGHT; ++i) {
+            bind_groups[i] = execute([&]() {
+                Array<GPUBindGroupEntry, 1> entries = {};
 
-        auto& entry         = entries.at(0);
-        entry.type          = GPUResourceType::BUFFER;
-        entry.binding       = 0;
-        entry.buffer.buffer = camera_buffer;
-        entry.buffer.offset = 0;
-        entry.buffer.size   = 0;
+                auto& entry         = entries.at(0);
+                entry.type          = GPUResourceType::BUFFER;
+                entry.binding       = 0;
+                entry.buffer.buffer = camera_buffers[i];
+                entry.buffer.offset = 0;
+                entry.buffer.size   = 0;
 
-        auto desc    = GPUBindGroupDescriptor{};
-        desc.heap    = heap;
-        desc.layout  = blayouts.at(0);
-        desc.entries = entries;
-        return device.create_bind_group(desc);
-    });
+                auto desc    = GPUBindGroupDescriptor{};
+                desc.heap    = heap;
+                desc.layout  = blayouts.at(0);
+                desc.entries = entries;
+                return device.create_bind_group(desc);
+            });
+        }
+    }
 
     initialized = true;
     return true;
@@ -156,25 +157,31 @@ void DepthPrepass::destroy()
     device.wait();
 
     if (heap.valid()) heap.destroy();
-    if (camera_buffer.valid()) camera_buffer.destroy();
+    for (auto& buf : camera_buffers) {
+        if (buf.valid()) {
+            buf.destroy();
+        }
+    }
+    camera_buffers.fill({});
+    bind_groups.fill({});
+
     if (pipeline.valid()) pipeline.destroy();
     if (playout.valid()) playout.destroy();
     if (fshader.valid()) fshader.destroy();
     if (vshader.valid()) vshader.destroy();
     blayouts.clear();
     geometry_bind_groups.clear();
-    bind_group = {};
 
     initialized = false;
 }
 
-void DepthPrepass::update_camera_uniform(const RenderView& view)
+void DepthPrepass::update_camera_uniform(uint slot, const RenderView& view)
 {
-    if (!camera_buffer.valid()) {
+    if (slot >= FRAMES_IN_FLIGHT || !camera_buffers[slot].valid()) {
         return;
     }
 
-    auto camera_gpu           = camera_buffer.get_mapped_range<CameraUniform>();
+    auto camera_gpu           = camera_buffers[slot].get_mapped_range<CameraUniform>();
     camera_gpu.at(0).proj     = view.projection;
     camera_gpu.at(0).view     = view.view;
     camera_gpu.at(0).inv_proj = view.inv_projection;
@@ -189,7 +196,10 @@ DepthPrepassData DepthPrepass::add(
     const RenderScene& scene,
     GPUExtent2D        extent)
 {
-    update_camera_uniform(view);
+    frame_slot        = (frame_slot + 1) % FRAMES_IN_FLIGHT;
+    uint current_slot = frame_slot;
+
+    update_camera_uniform(current_slot, view);
 
     return builder.add_pass<DepthPrepassData>(
         "DepthPrepass",
@@ -206,7 +216,7 @@ DepthPrepassData DepthPrepass::add(
             data.depth_texture = pass_builder.create<FrameGraphTexture>(desc);
             data.depth_texture = pass_builder.render(data.depth_texture);
         },
-        [this, extent, &scene](const DepthPrepassData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
+        [this, current_slot, extent, &scene](const DepthPrepassData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
             if (!ctx || !ctx->cmdlist.handle.valid() || !pipeline.valid()) {
                 return;
             }
@@ -230,7 +240,9 @@ DepthPrepassData DepthPrepass::add(
             command.set_viewport(0.0f, 0.0f, static_cast<float>(extent.width), static_cast<float>(extent.height));
             command.set_scissor_rect(0, 0, extent.width, extent.height);
             command.set_pipeline(pipeline);
-            command.set_bind_group(0, bind_group);
+            if (bind_groups[current_slot].valid()) {
+                command.set_bind_group(0, bind_groups[current_slot]);
+            }
 
             uint64_t last_bound_vbuf = ~0ull;
 
@@ -259,6 +271,7 @@ DepthPrepassData DepthPrepass::add(
                         bg_desc.heap    = heap;
                         bg_desc.layout  = blayouts[1];
                         bg_desc.entries = entries;
+
                         it = geometry_bind_groups.emplace(vb_handle.value, device.create_bind_group(bg_desc)).first;
                     }
 

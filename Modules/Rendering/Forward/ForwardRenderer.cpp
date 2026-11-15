@@ -76,7 +76,8 @@ FrameGraphHandle<FrameGraphTexture> ForwardRenderer::render(const RenderFrameCon
     auto& builder = ctx.builder;
 
     // ensure depth target handle is valid
-    auto depth_h = ctx.depth_target;
+    auto depth_h           = ctx.depth_target;
+    bool needs_depth_clear = false;
     if (!depth_h.valid()) {
         auto depth_desc   = GPUTextureDescriptor{};
         depth_desc.label  = "forward_depth_buffer";
@@ -84,6 +85,7 @@ FrameGraphHandle<FrameGraphTexture> ForwardRenderer::render(const RenderFrameCon
         depth_desc.format = ctx.depth_format;
         depth_desc.usage  = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
         depth_h           = builder.create<FrameGraphTexture>(depth_desc);
+        needs_depth_clear = true;
     }
 
     // 1. Cascaded shadow mapping pass (if shadows enabled and directional lights exist)
@@ -91,12 +93,13 @@ FrameGraphHandle<FrameGraphTexture> ForwardRenderer::render(const RenderFrameCon
         shadow_pass.add(builder, ctx.view, ctx.scene);
     }
 
-    // 2. Depth Prepass (if enabled in settings)
+    // 2. Depth Prepass (only when explicitly requested or in depth debug mode)
     bool prepass_active = false;
-    if (settings.debug_mode == 0 && depth_prepass.valid()) {
-        auto dp_data   = depth_prepass.add(builder, ctx.view, ctx.scene, extent);
-        depth_h        = dp_data.depth_texture;
-        prepass_active = true;
+    if (settings.debug_mode == 5 && depth_prepass.valid()) {
+        auto dp_data      = depth_prepass.add(builder, ctx.view, ctx.scene, extent);
+        depth_h           = dp_data.depth_texture;
+        prepass_active    = true;
+        needs_depth_clear = false;
     }
 
     // 3. Clustered Light Culling (Forward+)
@@ -105,13 +108,16 @@ FrameGraphHandle<FrameGraphTexture> ForwardRenderer::render(const RenderFrameCon
     }
 
     // 4. Atmospheric Skybox Pass (rendered over clear color at far plane)
+    auto current_color = ctx.color_target;
     if (skybox_pass.valid()) {
-        skybox_pass.add(builder, ctx.color_target, depth_h, ctx.view, ctx.scene);
+        auto sky_data     = skybox_pass.add(builder, current_color, depth_h, ctx.view, ctx.scene, needs_depth_clear ? GPULoadOp::CLEAR : GPULoadOp::LOAD);
+        current_color     = sky_data.color_output;
+        needs_depth_clear = false;
     }
 
     // 5. Forward Base Pass
     passes::ForwardPassParams params{
-        .color_target         = ctx.color_target,
+        .color_target         = current_color,
         .depth_target         = depth_h,
         .view                 = ctx.view,
         .scene                = ctx.scene,
@@ -120,6 +126,7 @@ FrameGraphHandle<FrameGraphTexture> ForwardRenderer::render(const RenderFrameCon
         .depth_format         = ctx.depth_format,
         .depth_prepass_active = prepass_active,
         .color_load_op        = GPULoadOp::LOAD, // load skybox / scene clear
+        .depth_load_op        = needs_depth_clear ? GPULoadOp::CLEAR : GPULoadOp::LOAD,
     };
 
     auto fp_data = forward_pass.add(builder, params);

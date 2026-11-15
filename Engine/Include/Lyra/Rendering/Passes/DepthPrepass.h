@@ -75,19 +75,22 @@ namespace lyra::passes
         static_assert(sizeof(InstanceData) == 80);
         static_assert(offsetof(InstanceData, pos_offset) == 64);
 
-        void update_camera_uniform(const RenderView& view);
+        void update_camera_uniform(uint slot, const RenderView& view);
 
     private:
-        GPUDevice                        device;
-        GPURenderPipeline                pipeline;
-        GPUPipelineLayout                playout;
-        GPUShaderModule                  vshader;
-        GPUShaderModule                  fshader;
-        GPUBuffer                        camera_buffer;
-        GPUBindGroupHeap                 heap;
-        GPUBindGroup                     bind_group;
-        Vector<GPUBindGroupLayoutHandle> blayouts;
-        HashMap<uint64_t, GPUBindGroup>  geometry_bind_groups;
+        static constexpr uint FRAMES_IN_FLIGHT = 3;
+
+        GPUDevice                             device;
+        GPURenderPipeline                     pipeline;
+        GPUPipelineLayout                     playout;
+        GPUShaderModule                       vshader;
+        GPUShaderModule                       fshader;
+        Array<GPUBuffer, FRAMES_IN_FLIGHT>    camera_buffers{};
+        Array<GPUBindGroup, FRAMES_IN_FLIGHT> bind_groups{};
+        uint                                  frame_slot = 0;
+        GPUBindGroupHeap                      heap;
+        Vector<GPUBindGroupLayoutHandle>      blayouts;
+        HashMap<uint64_t, GPUBindGroup>       geometry_bind_groups;
 
         GPUTextureFormat cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;
         bool             initialized         = false;

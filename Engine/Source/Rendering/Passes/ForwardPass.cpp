@@ -119,15 +119,17 @@ bool ForwardPass::init(
         return false;
     }
 
-    // 4. camera uniform buffer and bind group
-    camera_buffer = execute([&]() {
-        auto desc               = GPUBufferDescriptor{};
-        desc.label              = "forward_camera_uniform_buffer";
-        desc.size               = sizeof(CameraUniforms);
-        desc.usage              = GPUBufferUsage::UNIFORM | GPUBufferUsage::MAP_WRITE;
-        desc.mapped_at_creation = true;
-        return device.create_buffer(desc);
-    });
+    // 4. camera uniform buffers and bind groups (multi-buffered for frames in flight)
+    for (uint i = 0; i < FRAMES_IN_FLIGHT; ++i) {
+        camera_buffers[i] = execute([&]() {
+            auto desc               = GPUBufferDescriptor{};
+            desc.label              = "forward_camera_uniform_buffer";
+            desc.size               = sizeof(CameraUniforms);
+            desc.usage              = GPUBufferUsage::UNIFORM | GPUBufferUsage::MAP_WRITE;
+            desc.mapped_at_creation = true;
+            return device.create_buffer(desc);
+        });
+    }
 
     heap = execute([&]() {
         auto desc      = GPUBindGroupHeapDescriptor{};
@@ -136,20 +138,22 @@ bool ForwardPass::init(
     });
 
     if (!blayouts.empty()) {
-        camera_bind_group = execute([&]() {
-            Array<GPUBindGroupEntry, 1> entries{};
-            entries[0].type          = GPUResourceType::BUFFER;
-            entries[0].binding       = 0;
-            entries[0].buffer.buffer = camera_buffer.handle;
-            entries[0].buffer.offset = 0;
-            entries[0].buffer.size   = sizeof(CameraUniforms);
+        for (uint i = 0; i < FRAMES_IN_FLIGHT; ++i) {
+            camera_bind_groups[i] = execute([&]() {
+                Array<GPUBindGroupEntry, 1> entries{};
+                entries[0].type          = GPUResourceType::BUFFER;
+                entries[0].binding       = 0;
+                entries[0].buffer.buffer = camera_buffers[i].handle;
+                entries[0].buffer.offset = 0;
+                entries[0].buffer.size   = sizeof(CameraUniforms);
 
-            auto desc    = GPUBindGroupDescriptor{};
-            desc.heap    = heap;
-            desc.layout  = blayouts[0];
-            desc.entries = entries;
-            return device.create_bind_group(desc);
-        });
+                auto desc    = GPUBindGroupDescriptor{};
+                desc.heap    = heap;
+                desc.layout  = blayouts[0];
+                desc.entries = entries;
+                return device.create_bind_group(desc);
+            });
+        }
     }
 
     initialized = true;
@@ -167,9 +171,14 @@ void ForwardPass::destroy()
     if (heap.valid()) {
         heap.destroy();
     }
-    if (camera_buffer.valid()) {
-        camera_buffer.destroy();
+    for (auto& buf : camera_buffers) {
+        if (buf.valid()) {
+            buf.destroy();
+        }
     }
+    camera_buffers.fill({});
+    camera_bind_groups.fill({});
+
     if (pipeline.valid()) {
         pipeline.destroy();
     }
@@ -184,17 +193,16 @@ void ForwardPass::destroy()
     }
     blayouts.clear();
     geometry_bind_groups.clear();
-    camera_bind_group = {};
-    initialized       = false;
+    initialized = false;
 }
 
-void ForwardPass::update_camera_buffer(const RenderView& view, const RenderScene& scene)
+void ForwardPass::update_camera_buffer(uint slot, const RenderView& view, const RenderScene& scene)
 {
-    if (!camera_buffer.valid()) {
+    if (slot >= FRAMES_IN_FLIGHT || !camera_buffers[slot].valid()) {
         return;
     }
 
-    auto mapped = camera_buffer.get_mapped_range<CameraUniforms>();
+    auto mapped = camera_buffers[slot].get_mapped_range<CameraUniforms>();
     if (mapped.count > 0) {
         mapped.at(0).proj     = view.projection;
         mapped.at(0).view     = view.view;
@@ -236,7 +244,10 @@ ForwardPassData ForwardPass::add(
         return out;
     }
 
-    update_camera_buffer(params.view, params.scene);
+    frame_slot = (frame_slot + 1) % FRAMES_IN_FLIGHT;
+    uint current_slot = frame_slot;
+
+    update_camera_buffer(current_slot, params.view, params.scene);
 
     return builder.add_pass<ForwardPassData>(
         "ForwardPass",
@@ -259,7 +270,7 @@ ForwardPassData ForwardPass::add(
                 data.triangles_rendered += mesh.index_count / 3;
             }
         },
-        [this, params](const ForwardPassData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
+        [this, current_slot, params](const ForwardPassData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
             if (!ctx || !ctx->cmdlist.handle.valid() || !pipeline.valid()) {
                 return;
             }
@@ -270,8 +281,6 @@ ForwardPassData ForwardPass::add(
                 return;
             }
 
-            update_camera_buffer(params.view, params.scene);
-
             auto color_attachment        = GPURenderPassColorAttachment{};
             color_attachment.view        = color_tex->view;
             color_attachment.clear_value = GPUColor{params.scene.clear_color.r, params.scene.clear_color.g, params.scene.clear_color.b, params.scene.clear_color.a};
@@ -281,7 +290,7 @@ ForwardPassData ForwardPass::add(
             auto depth_attachment              = GPURenderPassDepthStencilAttachment{};
             depth_attachment.view              = depth_tex->view;
             depth_attachment.depth_clear_value = 1.0f;
-            depth_attachment.depth_load_op     = params.depth_prepass_active ? GPULoadOp::LOAD : GPULoadOp::CLEAR;
+            depth_attachment.depth_load_op     = params.depth_load_op;
             depth_attachment.depth_store_op    = GPUStoreOp::STORE;
 
             auto pass_desc                     = GPURenderPassDescriptor{};
@@ -293,8 +302,8 @@ ForwardPassData ForwardPass::add(
             command.set_viewport(0.0f, 0.0f, static_cast<float>(params.extent.width), static_cast<float>(params.extent.height));
             command.set_scissor_rect(0, 0, params.extent.width, params.extent.height);
             command.set_pipeline(pipeline);
-            if (camera_bind_group.valid()) {
-                command.set_bind_group(0, camera_bind_group);
+            if (camera_bind_groups[current_slot].valid()) {
+                command.set_bind_group(0, camera_bind_groups[current_slot]);
             }
 
             uint64_t last_bound_vbuf = ~0ull;

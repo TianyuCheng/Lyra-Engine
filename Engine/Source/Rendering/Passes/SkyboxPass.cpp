@@ -120,14 +120,16 @@ bool SkyboxPass::init(
         return device.create_render_pipeline(desc);
     });
 
-    camera_buffer = execute([&]() {
-        auto desc               = GPUBufferDescriptor{};
-        desc.label              = "skybox_camera_buffer";
-        desc.size               = sizeof(SkyboxUniform);
-        desc.usage              = GPUBufferUsage::UNIFORM | GPUBufferUsage::MAP_WRITE;
-        desc.mapped_at_creation = true;
-        return device.create_buffer(desc);
-    });
+    for (uint i = 0; i < FRAMES_IN_FLIGHT; ++i) {
+        camera_buffers[i] = execute([&]() {
+            auto desc               = GPUBufferDescriptor{};
+            desc.label              = "skybox_camera_buffer";
+            desc.size               = sizeof(SkyboxUniform);
+            desc.usage              = GPUBufferUsage::UNIFORM | GPUBufferUsage::MAP_WRITE;
+            desc.mapped_at_creation = true;
+            return device.create_buffer(desc);
+        });
+    }
 
     heap = execute([&]() {
         auto desc      = GPUBindGroupHeapDescriptor{};
@@ -135,22 +137,26 @@ bool SkyboxPass::init(
         return device.create_bind_group_heap(desc);
     });
 
-    bind_group = execute([&]() {
-        Array<GPUBindGroupEntry, 1> entries = {};
+    if (!blayouts.empty()) {
+        for (uint i = 0; i < FRAMES_IN_FLIGHT; ++i) {
+            bind_groups[i] = execute([&]() {
+                Array<GPUBindGroupEntry, 1> entries = {};
 
-        auto& entry         = entries.at(0);
-        entry.type          = GPUResourceType::BUFFER;
-        entry.binding       = 0;
-        entry.buffer.buffer = camera_buffer;
-        entry.buffer.offset = 0;
-        entry.buffer.size   = 0;
+                auto& entry         = entries.at(0);
+                entry.type          = GPUResourceType::BUFFER;
+                entry.binding       = 0;
+                entry.buffer.buffer = camera_buffers[i];
+                entry.buffer.offset = 0;
+                entry.buffer.size   = 0;
 
-        auto desc    = GPUBindGroupDescriptor{};
-        desc.heap    = heap;
-        desc.layout  = blayouts.at(0);
-        desc.entries = entries;
-        return device.create_bind_group(desc);
-    });
+                auto desc    = GPUBindGroupDescriptor{};
+                desc.heap    = heap;
+                desc.layout  = blayouts.at(0);
+                desc.entries = entries;
+                return device.create_bind_group(desc);
+            });
+        }
+    }
 
     initialized = true;
     return true;
@@ -165,24 +171,30 @@ void SkyboxPass::destroy()
     device.wait();
 
     if (heap.valid()) heap.destroy();
-    if (camera_buffer.valid()) camera_buffer.destroy();
+    for (auto& buf : camera_buffers) {
+        if (buf.valid()) {
+            buf.destroy();
+        }
+    }
+    camera_buffers.fill({});
+    bind_groups.fill({});
+
     if (pipeline.valid()) pipeline.destroy();
     if (playout.valid()) playout.destroy();
     if (fshader.valid()) fshader.destroy();
     if (vshader.valid()) vshader.destroy();
     blayouts.clear();
-    bind_group = {};
 
     initialized = false;
 }
 
-void SkyboxPass::update_camera_uniform(const RenderView& view, const RenderScene& scene)
+void SkyboxPass::update_camera_uniform(uint slot, const RenderView& view, const RenderScene& scene)
 {
-    if (!camera_buffer.valid()) {
+    if (slot >= FRAMES_IN_FLIGHT || !camera_buffers[slot].valid()) {
         return;
     }
 
-    auto u = camera_buffer.get_mapped_range<SkyboxUniform>();
+    auto u = camera_buffers[slot].get_mapped_range<SkyboxUniform>();
     if (u.count == 0) {
         return;
     }
@@ -221,9 +233,13 @@ SkyboxData SkyboxPass::add(
     FrameGraphHandle<FrameGraphTexture> color_target,
     FrameGraphHandle<FrameGraphTexture> depth_target,
     const RenderView&                   view,
-    const RenderScene&                  scene)
+    const RenderScene&                  scene,
+    GPULoadOp                           depth_load_op)
 {
-    update_camera_uniform(view, scene);
+    frame_slot = (frame_slot + 1) % FRAMES_IN_FLIGHT;
+    uint current_slot = frame_slot;
+
+    update_camera_uniform(current_slot, view, scene);
 
     return builder.add_pass<SkyboxData>(
         "SkyboxPass",
@@ -231,7 +247,7 @@ SkyboxData SkyboxPass::add(
             data.color_output = pass_builder.render(color_target);
             data.depth_input  = pass_builder.read(depth_target);
         },
-        [this, extent = view.render_extent](const SkyboxData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
+        [this, current_slot, depth_load_op, extent = view.render_extent](const SkyboxData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
             if (!ctx || !ctx->cmdlist.handle.valid() || !pipeline.valid()) {
                 return;
             }
@@ -249,7 +265,8 @@ SkyboxData SkyboxPass::add(
 
             auto depth_attachment           = GPURenderPassDepthStencilAttachment{};
             depth_attachment.view           = depth_tex->view;
-            depth_attachment.depth_load_op  = GPULoadOp::LOAD;
+            depth_attachment.depth_clear_value = 1.0f;
+            depth_attachment.depth_load_op  = depth_load_op;
             depth_attachment.depth_store_op = GPUStoreOp::STORE;
 
             auto desc                     = GPURenderPassDescriptor{};
@@ -261,7 +278,9 @@ SkyboxData SkyboxPass::add(
             command.set_viewport(0.0f, 0.0f, static_cast<float>(extent.width), static_cast<float>(extent.height));
             command.set_scissor_rect(0, 0, extent.width, extent.height);
             command.set_pipeline(pipeline);
-            command.set_bind_group(0, bind_group);
+            if (bind_groups[current_slot].valid()) {
+                command.set_bind_group(0, bind_groups[current_slot]);
+            }
             command.draw(6, 1, 0, 0);
             command.end_render_pass();
         });

@@ -38,6 +38,7 @@ namespace lyra::passes
         GPUTextureFormat                    depth_format         = GPUTextureFormat::DEPTH32FLOAT;
         bool                                depth_prepass_active = false;
         GPULoadOp                           color_load_op        = GPULoadOp::CLEAR;
+        GPULoadOp                           depth_load_op        = GPULoadOp::LOAD;
     };
 
     /**
@@ -110,19 +111,22 @@ namespace lyra::passes
         static_assert(offsetof(InstanceData, norm_offset) == 100);
         static_assert(offsetof(InstanceData, uv_offset) == 104);
 
-        void update_camera_buffer(const RenderView& view, const RenderScene& scene);
+        void update_camera_buffer(uint slot, const RenderView& view, const RenderScene& scene);
 
     private:
-        GPUDevice                        device;
-        GPURenderPipeline                pipeline;
-        GPUPipelineLayout                playout;
-        GPUShaderModule                  vshader;
-        GPUShaderModule                  fshader;
-        Vector<GPUBindGroupLayoutHandle> blayouts;
-        GPUBindGroupHeap                 heap;
-        GPUBuffer                        camera_buffer;
-        GPUBindGroup                     camera_bind_group;
-        HashMap<uint64_t, GPUBindGroup>  geometry_bind_groups;
+        static constexpr uint FRAMES_IN_FLIGHT = 3;
+
+        GPUDevice                             device;
+        GPURenderPipeline                     pipeline;
+        GPUPipelineLayout                     playout;
+        GPUShaderModule                       vshader;
+        GPUShaderModule                       fshader;
+        Vector<GPUBindGroupLayoutHandle>      blayouts;
+        GPUBindGroupHeap                      heap;
+        Array<GPUBuffer, FRAMES_IN_FLIGHT>    camera_buffers{};
+        Array<GPUBindGroup, FRAMES_IN_FLIGHT> camera_bind_groups{};
+        uint                                  frame_slot = 0;
+        HashMap<uint64_t, GPUBindGroup>       geometry_bind_groups;
 
         GPUTextureFormat cached_color_format = GPUTextureFormat::RGBA8UNORM;
         GPUTextureFormat cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;

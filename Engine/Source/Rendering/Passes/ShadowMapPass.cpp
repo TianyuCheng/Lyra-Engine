@@ -106,15 +106,17 @@ bool ShadowMapPass::init(
         return false;
     }
 
-    // 4. cascade uniform buffer and bind group
-    cascade_uniform_buffer = execute([&]() {
-        auto desc               = GPUBufferDescriptor{};
-        desc.label              = "shadow_cascade_uniform_buffer";
-        desc.size               = sizeof(ShadowCascadeData);
-        desc.usage              = GPUBufferUsage::UNIFORM | GPUBufferUsage::MAP_WRITE;
-        desc.mapped_at_creation = true;
-        return device.create_buffer(desc);
-    });
+    // 4. cascade uniform buffers and bind groups (multi-buffered for frames in flight)
+    for (uint i = 0; i < FRAMES_IN_FLIGHT; ++i) {
+        cascade_uniform_buffers[i] = execute([&]() {
+            auto desc               = GPUBufferDescriptor{};
+            desc.label              = "shadow_cascade_uniform_buffer";
+            desc.size               = sizeof(ShadowCascadeData);
+            desc.usage              = GPUBufferUsage::UNIFORM | GPUBufferUsage::MAP_WRITE;
+            desc.mapped_at_creation = true;
+            return device.create_buffer(desc);
+        });
+    }
 
     heap = execute([&]() {
         auto desc      = GPUBindGroupHeapDescriptor{};
@@ -123,20 +125,22 @@ bool ShadowMapPass::init(
     });
 
     if (!blayouts.empty()) {
-        bind_group = execute([&]() {
-            Array<GPUBindGroupEntry, 1> entries{};
-            entries[0].type          = GPUResourceType::BUFFER;
-            entries[0].binding       = 0;
-            entries[0].buffer.buffer = cascade_uniform_buffer.handle;
-            entries[0].buffer.offset = 0;
-            entries[0].buffer.size   = sizeof(ShadowCascadeData);
+        for (uint i = 0; i < FRAMES_IN_FLIGHT; ++i) {
+            bind_groups[i] = execute([&]() {
+                Array<GPUBindGroupEntry, 1> entries{};
+                entries[0].type          = GPUResourceType::BUFFER;
+                entries[0].binding       = 0;
+                entries[0].buffer.buffer = cascade_uniform_buffers[i].handle;
+                entries[0].buffer.offset = 0;
+                entries[0].buffer.size   = sizeof(ShadowCascadeData);
 
-            auto desc    = GPUBindGroupDescriptor{};
-            desc.heap    = heap;
-            desc.layout  = blayouts[0];
-            desc.entries = entries;
-            return device.create_bind_group(desc);
-        });
+                auto desc    = GPUBindGroupDescriptor{};
+                desc.heap    = heap;
+                desc.layout  = blayouts[0];
+                desc.entries = entries;
+                return device.create_bind_group(desc);
+            });
+        }
     }
 
     initialized = true;
@@ -154,9 +158,14 @@ void ShadowMapPass::destroy()
     if (heap.valid()) {
         heap.destroy();
     }
-    if (cascade_uniform_buffer.valid()) {
-        cascade_uniform_buffer.destroy();
+    for (auto& buf : cascade_uniform_buffers) {
+        if (buf.valid()) {
+            buf.destroy();
+        }
     }
+    cascade_uniform_buffers.fill({});
+    bind_groups.fill({});
+
     if (pipeline.valid()) {
         pipeline.destroy();
     }
@@ -171,7 +180,6 @@ void ShadowMapPass::destroy()
     }
     blayouts.clear();
     geometry_bind_groups.clear();
-    bind_group  = {};
     initialized = false;
 }
 
@@ -182,6 +190,26 @@ ShadowMapData ShadowMapPass::add(
     uint               cascade_count,
     uint               resolution)
 {
+    frame_slot = (frame_slot + 1) % FRAMES_IN_FLIGHT;
+    uint current_slot = frame_slot;
+
+    // calculate directional light view-proj and update uniform buffer for current frame slot
+    Vector3 light_dir = scene.directional_lights.empty()
+                            ? glm::normalize(Vector3(0.5f, -1.0f, 0.5f))
+                            : glm::normalize(scene.directional_lights[0].direction);
+
+    Vector3   light_pos = view.camera_position - light_dir * 50.0f;
+    Matrix4x4 l_view    = glm::lookAt(light_pos, view.camera_position, Vector3(0.0f, 1.0f, 0.0f));
+    Matrix4x4 l_proj    = glm::ortho(-30.0f, 30.0f, -30.0f, 30.0f, 0.1f, 100.0f);
+    Matrix4x4 l_vp      = l_proj * l_view;
+
+    if (cascade_uniform_buffers[current_slot].valid()) {
+        auto mapped = cascade_uniform_buffers[current_slot].get_mapped_range<ShadowCascadeData>();
+        if (mapped.count > 0) {
+            mapped.at(0).light_view_proj = l_vp;
+        }
+    }
+
     return builder.add_pass<ShadowMapData>(
         "ShadowMapPass",
         [&](ShadowMapData& data, FrameGraphPassBuilder& pass_builder) {
@@ -197,7 +225,7 @@ ShadowMapData ShadowMapPass::add(
             data.shadow_map_array = pass_builder.create<FrameGraphTexture>(desc);
             data.shadow_map_array = pass_builder.render(data.shadow_map_array);
         },
-        [this, resolution, &view, &scene](const ShadowMapData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
+        [this, current_slot, resolution, &scene](const ShadowMapData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
             if (!ctx || !ctx->cmdlist.handle.valid() || !pipeline.valid()) {
                 return;
             }
@@ -205,23 +233,6 @@ ShadowMapData ShadowMapPass::add(
             auto shadow_tex = resources.get<FrameGraphTexture>(data.shadow_map_array);
             if (!shadow_tex) {
                 return;
-            }
-
-            // calculate directional light view-proj
-            Vector3 light_dir = scene.directional_lights.empty()
-                                    ? glm::normalize(Vector3(0.5f, -1.0f, 0.5f))
-                                    : glm::normalize(scene.directional_lights[0].direction);
-
-            Vector3   light_pos = view.camera_position - light_dir * 50.0f;
-            Matrix4x4 l_view    = glm::lookAt(light_pos, view.camera_position, Vector3(0.0f, 1.0f, 0.0f));
-            Matrix4x4 l_proj    = glm::ortho(-30.0f, 30.0f, -30.0f, 30.0f, 0.1f, 100.0f);
-            Matrix4x4 l_vp      = l_proj * l_view;
-
-            if (cascade_uniform_buffer.valid()) {
-                auto mapped = cascade_uniform_buffer.get_mapped_range<ShadowCascadeData>();
-                if (mapped.count > 0) {
-                    mapped.at(0).light_view_proj = l_vp;
-                }
             }
 
             auto depth_attachment              = GPURenderPassDepthStencilAttachment{};
@@ -238,8 +249,8 @@ ShadowMapData ShadowMapPass::add(
             command.set_viewport(0.0f, 0.0f, static_cast<float>(resolution), static_cast<float>(resolution));
             command.set_scissor_rect(0, 0, resolution, resolution);
             command.set_pipeline(pipeline);
-            if (bind_group.valid()) {
-                command.set_bind_group(0, bind_group);
+            if (bind_groups[current_slot].valid()) {
+                command.set_bind_group(0, bind_groups[current_slot]);
             }
 
             uint64_t last_bound_vbuf = ~0ull;

@@ -84,18 +84,21 @@ namespace lyra::passes
         [[nodiscard]] bool valid() const { return initialized && pipeline.valid(); }
 
     private:
-        void update_camera_uniform(const RenderView& view);
+        void update_camera_uniform(uint slot, const RenderView& view);
 
     private:
-        GPUDevice                        device;
-        GPURenderPipeline                pipeline;
-        GPUPipelineLayout                playout;
-        GPUShaderModule                  vshader;
-        GPUShaderModule                  fshader;
-        GPUBuffer                        camera_buffer;
-        GPUBindGroupHeap                 heap;
-        GPUBindGroup                     bind_group;
-        Vector<GPUBindGroupLayoutHandle> blayouts;
+        static constexpr uint FRAMES_IN_FLIGHT = 3;
+
+        GPUDevice                             device;
+        GPURenderPipeline                     pipeline;
+        GPUPipelineLayout                     playout;
+        GPUShaderModule                       vshader;
+        GPUShaderModule                       fshader;
+        Array<GPUBuffer, FRAMES_IN_FLIGHT>    camera_buffers{};
+        Array<GPUBindGroup, FRAMES_IN_FLIGHT> bind_groups{};
+        uint                                  frame_slot = 0;
+        GPUBindGroupHeap                      heap;
+        Vector<GPUBindGroupLayoutHandle>      blayouts;
 
         GPUTextureFormat cached_color_format = GPUTextureFormat::RGBA8UNORM;
         GPUTextureFormat cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;
