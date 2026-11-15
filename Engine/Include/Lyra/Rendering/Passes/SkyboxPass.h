@@ -47,7 +47,7 @@ namespace lyra::passes
         bool init(
             GPUDevice        device,
             Compiler         compiler,
-            GPUTextureFormat color_format,
+            GPUTextureFormat color_format = GPUTextureFormat::RGBA8UNORM,
             GPUTextureFormat depth_format = GPUTextureFormat::DEPTH32FLOAT);
 
         /**

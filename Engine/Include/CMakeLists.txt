@@ -85,6 +85,7 @@ target_sources(lyra-headers INTERFACE
     Lyra/Rendering/Passes/LightCullingPass.h
     Lyra/Rendering/Passes/HiZPyramidPass.h
     Lyra/Rendering/Passes/ShadowMapPass.h
+    Lyra/Rendering/Passes/ForwardPass.h
 
     # compiler
     Lyra/Compiler/SLCAPI.h

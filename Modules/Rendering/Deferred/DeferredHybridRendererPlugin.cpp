@@ -132,6 +132,14 @@ static FrameGraph::TextureHandle render(
         return ctx.color_target;
     }
 
+    GPUExtent2D extent = (ctx.render_extent.width > 0 && ctx.render_extent.height > 0)
+        ? ctx.render_extent
+        : ctx.display_extent;
+
+    if (!ctx.color_target.valid() || extent.width == 0 || extent.height == 0) {
+        return ctx.color_target;
+    }
+
     // TODO: 1. G-Buffer Rasterization Pass:
     //          - Transition G-Buffer textures to color attachment state
     //          - Rasterize primary scene mesh geometry writing albedo, normals, roughness, metallic, and material ID
@@ -145,8 +153,18 @@ static FrameGraph::TextureHandle render(
     // TODO: 4. Post-processing & Tonemapping Pass:
     //          - Apply exposure, bloom, and tonemap resolve to backbuffer target
 
+    uint triangles = 0;
+    for (const auto& mesh : ctx.scene.meshes) {
+        triangles += mesh.index_count / 3;
+    }
+
     renderer->stats.draw_calls         = static_cast<uint>(ctx.scene.meshes.size());
-    renderer->stats.triangles_rendered = static_cast<uint>(ctx.scene.meshes.size() * 12);
+    renderer->stats.triangles_rendered = triangles;
+
+    if (ctx.outputs && ctx.depth_target.valid()) {
+        ctx.outputs->depth = ctx.depth_target;
+    }
+
     return ctx.color_target;
 }
 

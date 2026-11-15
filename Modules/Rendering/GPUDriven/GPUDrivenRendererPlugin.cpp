@@ -119,6 +119,14 @@ static FrameGraph::TextureHandle render(
         return ctx.color_target;
     }
 
+    GPUExtent2D extent = (ctx.render_extent.width > 0 && ctx.render_extent.height > 0)
+        ? ctx.render_extent
+        : ctx.display_extent;
+
+    if (!ctx.color_target.valid() || extent.width == 0 || extent.height == 0) {
+        return ctx.color_target;
+    }
+
     // TODO: 1. Upload camera view & projection uniforms to camera_uniform_buffer
     // TODO: 2. Upload per-instance transform, bounding sphere, and material IDs to instance_buffer
     // TODO: 3. Dispatch compute culling pass (frustum culling + Hi-Z two-phase occlusion culling)
@@ -127,8 +135,18 @@ static FrameGraph::TextureHandle render(
     // TODO: 6. Support user custom material shading by indexing bindless material property arrays
     // TODO: 7. Post-processing and tonemapping pass resolve to target backbuffer
 
+    uint triangles = 0;
+    for (const auto& mesh : ctx.scene.meshes) {
+        triangles += mesh.index_count / 3;
+    }
+
     renderer->stats.meshlets_rendered  = static_cast<uint>(ctx.scene.meshlets.size());
-    renderer->stats.triangles_rendered = static_cast<uint>(ctx.scene.meshes.size() * 12);
+    renderer->stats.triangles_rendered = triangles;
+
+    if (ctx.outputs && ctx.depth_target.valid()) {
+        ctx.outputs->depth = ctx.depth_target;
+    }
+
     return ctx.color_target;
 }
 

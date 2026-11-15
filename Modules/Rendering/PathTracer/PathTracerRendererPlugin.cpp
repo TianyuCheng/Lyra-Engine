@@ -124,6 +124,14 @@ static FrameGraph::TextureHandle render(
         return ctx.color_target;
     }
 
+    GPUExtent2D extent = (ctx.render_extent.width > 0 && ctx.render_extent.height > 0)
+        ? ctx.render_extent
+        : ctx.display_extent;
+
+    if (!ctx.color_target.valid() || extent.width == 0 || extent.height == 0) {
+        return ctx.color_target;
+    }
+
     // TODO: 1. Build or refit scene Top-Level Acceleration Structure (TLAS) from primitives
     // TODO: 2. Upload camera view/projection uniforms, sub-pixel jitter, and accumulation counter
     // TODO: 3. Dispatch ray tracing workgroups via raygen shader
@@ -134,9 +142,19 @@ static FrameGraph::TextureHandle render(
     // TODO: 5. Execute denoiser compute pass (spatial/temporal filter)
     // TODO: 6. Tonemap, gamma correct, and blit resolved radiance to target backbuffer
 
+    uint triangles = 0;
+    for (const auto& mesh : ctx.scene.meshes) {
+        triangles += mesh.index_count / 3;
+    }
+
     renderer->accumulated_frames++;
-    renderer->stats.rays_traced        = ctx.render_extent.width * ctx.render_extent.height * renderer->settings.samples_per_pixel;
-    renderer->stats.triangles_rendered = static_cast<uint>(ctx.scene.meshes.size() * 12);
+    renderer->stats.rays_traced        = extent.width * extent.height * renderer->settings.samples_per_pixel;
+    renderer->stats.triangles_rendered = triangles;
+
+    if (ctx.outputs && ctx.depth_target.valid()) {
+        ctx.outputs->depth = ctx.depth_target;
+    }
+
     return ctx.color_target;
 }
 

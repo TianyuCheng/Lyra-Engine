@@ -12,5 +12,6 @@
 #include <Lyra/Rendering/Passes/LightCullingPass.h>
 #include <Lyra/Rendering/Passes/HiZPyramidPass.h>
 #include <Lyra/Rendering/Passes/ShadowMapPass.h>
+#include <Lyra/Rendering/Passes/ForwardPass.h>
 
 #endif // LYRA_ENGINE_RENDERING_PASSES_PASS_H

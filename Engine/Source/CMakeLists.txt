@@ -120,6 +120,7 @@ target_sources(lyra-engine PRIVATE
   Rendering/Passes/LightCullingPass.cpp
   Rendering/Passes/HiZPyramidPass.cpp
   Rendering/Passes/ShadowMapPass.cpp
+  Rendering/Passes/ForwardPass.cpp
 
   # windowing
   Windowing/WSIState.cpp

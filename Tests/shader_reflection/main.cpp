@@ -694,8 +694,8 @@ TEST_CASE("shader_library::modules_compilation")
     import Common.ScreenSpace;
     import Common.Camera;
     import Sky.Atmosphere;
-    import Procedural.Ocean;
-    import Procedural.Terrain;
+    import Water.Ocean;
+    import Terrain.Terrain;
 
     struct TestOutput
     {
