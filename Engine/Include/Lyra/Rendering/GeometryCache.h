@@ -133,6 +133,7 @@ namespace lyra
         void upload_forms(MeshGeometryEntry& entry, const MeshAsset& asset, GeometryForms requested);
         void upload_indexed_lod(GeometryLOD& gpu_lod, const MeshLOD& lod, Vector<GeometryCopy>& copy_ops, Vector<uint8_t>& cpu_staging);
         void upload_meshlet_lod(GeometryLOD& gpu_lod, const MeshLOD& lod, Vector<GeometryCopy>& copy_ops, Vector<uint8_t>& cpu_staging);
+        void upload_ray_tracing_lod(GeometryLOD& gpu_lod, const MeshLOD& lod);
         void free_entry_geometry(MeshGeometryEntry& entry);
 
     private:

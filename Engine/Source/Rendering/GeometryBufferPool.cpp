@@ -132,7 +132,10 @@ GeometryBufferPool::Slab& GeometryBufferPool::create_slab(GPUSize64 capacity, bo
 
     if (RHI::api()) {
         auto& device = RHI::get_current_device();
-        slab.buffer  = device.create_buffer(desc);
+        if (device.features.raytracing) {
+            desc.usage |= GPUBufferUsage::BLAS_INPUT;
+        }
+        slab.buffer = device.create_buffer(desc);
     }
 
     total_capacity += capacity;

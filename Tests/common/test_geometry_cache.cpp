@@ -176,11 +176,31 @@ TEST_CASE("rendering::geometry_cache" * doctest::description("GeometryCache resi
         CHECK(entry->lods[0].indexed.has_value());
         CHECK(!entry->lods[0].meshlet.has_value());
 
+        // verify structured attribute stream offsets (unrepresented attributes omitted without dummy data)
+        const auto& geom = *entry->lods[0].indexed;
+        CHECK(geom.stream_offsets.has_position());
+        CHECK(geom.stream_offsets.position == 0);
+        CHECK(!geom.stream_offsets.has_normal());
+        CHECK(geom.stream_offsets.normal == VertexStreamOffsets::OMITTED);
+        CHECK(!geom.stream_offsets.has_texcoord0());
+        CHECK(geom.stream_offsets.texcoord0 == VertexStreamOffsets::OMITTED);
+        CHECK(geom.stream_offsets.bone_influences() == 0);
+        CHECK(!geom.stream_offsets.has_skinning());
+        CHECK(!geom.stream_offsets.has_extended_skinning());
+        CHECK(geom.position_slice.valid());
+        CHECK(geom.position_slice.size == 24 * 3 * sizeof(float));
+        CHECK(geom.vertex_slice.size == 24 * 3 * sizeof(float)); // only 288 bytes allocated, not 768 bytes!
+
         // acquire meshlet presentation on demand
         bool meshlet_ok = cache.acquire_meshlet(handle1, mock_asset);
         CHECK(meshlet_ok);
         CHECK(entry->lods[0].meshlet.has_value());
         CHECK(entry->lods[0].meshlet->meshlet_count == 4);
+
+        // acquire ray tracing presentation on demand
+        bool rt_ok = cache.acquire_ray_tracing(handle1, mock_asset);
+        CHECK(rt_ok);
+        CHECK(entry->loaded_forms.contains(GeometryForm::RAY_TRACING));
 
         cache.release(handle1);
     }

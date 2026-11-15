@@ -1,5 +1,5 @@
-#include <algorithm>
 #include <cstring>
+#include <algorithm>
 #include <Lyra/Graphics/RHIDescs.h>
 #include <Lyra/Graphics/RHIInits.h>
 #include <Lyra/Graphics/RHIUtils.h>
@@ -232,6 +232,14 @@ void GeometryCache::upload_forms(
         if (requested.contains(GeometryForm::MESHLET) && !gpu_lod.meshlet.has_value()) {
             upload_meshlet_lod(gpu_lod, lod, copy_ops, cpu_staging);
         }
+
+        // 3. Ray Tracing (BLAS) Presentation
+        if (requested.contains(GeometryForm::RAY_TRACING) && !gpu_lod.ray_tracing.has_value()) {
+            if (!gpu_lod.indexed.has_value()) {
+                upload_indexed_lod(gpu_lod, lod, copy_ops, cpu_staging);
+            }
+            upload_ray_tracing_lod(gpu_lod, lod);
+        }
     }
 
     // execute staging upload to device-local VRAM
@@ -281,53 +289,163 @@ void GeometryCache::upload_indexed_lod(
     IndexedGeometry geom;
     geom.index_format = lod.index_format;
 
-    // 1. Pack / Interleave vertex attributes
-    uint vertex_count = 0;
+    // 1. Identify present attribute streams
+    const MeshAttribute* pos_attr       = nullptr;
+    const MeshAttribute* norm_attr      = nullptr;
+    const MeshAttribute* tangent_attr   = nullptr;
+    const MeshAttribute* bitangent_attr = nullptr;
+    const MeshAttribute* uv0_attr       = nullptr;
+    const MeshAttribute* uv1_attr       = nullptr;
+    const MeshAttribute* color0_attr    = nullptr;
+    const MeshAttribute* joints0_attr   = nullptr;
+    const MeshAttribute* weights0_attr  = nullptr;
+    const MeshAttribute* joints1_attr   = nullptr;
+    const MeshAttribute* weights1_attr  = nullptr;
+
     for (const auto& attr : lod.attributes) {
-        if (attr.element_count > 0) {
-            vertex_count = std::max(vertex_count, attr.element_count);
+        if (attr.element_count == 0 || attr.data.empty()) {
+            continue;
+        }
+        // clang-format off
+        switch (attr.semantics) {
+            case MeshSemantics::POSITION:   pos_attr       = &attr; break;
+            case MeshSemantics::NORMAL:     norm_attr      = &attr; break;
+            case MeshSemantics::TANGENT:    tangent_attr   = &attr; break;
+            case MeshSemantics::BITANGENT:  bitangent_attr = &attr; break;
+            case MeshSemantics::TEXCOORD0:  uv0_attr       = &attr; break;
+            case MeshSemantics::TEXCOORD1:  uv1_attr       = &attr; break;
+            case MeshSemantics::COLOR0:     color0_attr    = &attr; break;
+            case MeshSemantics::JOINTS0:    joints0_attr   = &attr; break;
+            case MeshSemantics::JOINTS1:    joints1_attr   = &attr; break;
+            case MeshSemantics::WEIGHTS0:   weights0_attr  = &attr; break;
+            case MeshSemantics::WEIGHTS1:   weights1_attr  = &attr; break;
+            default:
+                break;
+        }
+        // clang-format on
+    }
+
+    uint vertex_count = pos_attr ? pos_attr->element_count : 0;
+    if (vertex_count == 0) {
+        for (const auto& attr : lod.attributes) {
+            if (attr.element_count > 0) {
+                vertex_count = std::max(vertex_count, attr.element_count);
+            }
         }
     }
     geom.vertex_count = vertex_count;
 
-    if (vertex_count > 0 && !lod.attributes.empty()) {
-        uint stride = 0;
-        for (const auto& attr : lod.attributes) {
-            stride += get_vertex_format_size(attr.format);
+    auto align_up = [](GPUSize64 val, GPUSize64 align) -> GPUSize64 {
+        return (val + align - 1) & ~(align - 1);
+    };
+
+    // 2. Compute stream offsets and total allocation size for represented attributes
+    VertexStreamOffsets stream_offsets;
+    GPUSize64           current_offset = 0;
+
+    if (pos_attr && !pos_attr->data.empty()) {
+        stream_offsets.position = static_cast<uint>(current_offset);
+        current_offset += align_up(pos_attr->data.size(), 16);
+    }
+    if (norm_attr && !norm_attr->data.empty()) {
+        stream_offsets.normal = static_cast<uint>(current_offset);
+        current_offset += align_up(norm_attr->data.size(), 16);
+    }
+    if (tangent_attr && !tangent_attr->data.empty()) {
+        stream_offsets.tangent = static_cast<uint>(current_offset);
+        current_offset += align_up(tangent_attr->data.size(), 16);
+    }
+    if (bitangent_attr && !bitangent_attr->data.empty()) {
+        stream_offsets.bitangent = static_cast<uint>(current_offset);
+        current_offset += align_up(bitangent_attr->data.size(), 16);
+    }
+    if (uv0_attr && !uv0_attr->data.empty()) {
+        stream_offsets.texcoord0 = static_cast<uint>(current_offset);
+        current_offset += align_up(uv0_attr->data.size(), 16);
+    }
+    if (uv1_attr && !uv1_attr->data.empty()) {
+        stream_offsets.texcoord1 = static_cast<uint>(current_offset);
+        current_offset += align_up(uv1_attr->data.size(), 16);
+    }
+    if (color0_attr && !color0_attr->data.empty()) {
+        stream_offsets.color0 = static_cast<uint>(current_offset);
+        current_offset += align_up(color0_attr->data.size(), 16);
+    }
+    if (joints0_attr && !joints0_attr->data.empty()) {
+        stream_offsets.joints0 = static_cast<uint>(current_offset);
+        current_offset += align_up(joints0_attr->data.size(), 16);
+    }
+    if (weights0_attr && !weights0_attr->data.empty()) {
+        stream_offsets.weights0 = static_cast<uint>(current_offset);
+        current_offset += align_up(weights0_attr->data.size(), 16);
+    }
+    if (joints1_attr && !joints1_attr->data.empty()) {
+        stream_offsets.joints1 = static_cast<uint>(current_offset);
+        current_offset += align_up(joints1_attr->data.size(), 16);
+    }
+    if (weights1_attr && !weights1_attr->data.empty()) {
+        stream_offsets.weights1 = static_cast<uint>(current_offset);
+        current_offset += align_up(weights1_attr->data.size(), 16);
+    }
+
+    geom.stream_offsets = stream_offsets;
+
+    if (vertex_count > 0 && current_offset > 0) {
+        GPUSize64 total_vb_size = current_offset;
+        geom.vertex_slice       = buffer_pool.allocate(total_vb_size, 16);
+
+        GPUSize64 vb_staging_offset = cpu_staging.size();
+        cpu_staging.resize(vb_staging_offset + total_vb_size, 0);
+        uint8_t* dst = cpu_staging.data() + vb_staging_offset;
+
+        if (pos_attr && !pos_attr->data.empty()) {
+            std::memcpy(dst + stream_offsets.position, pos_attr->data.data(), pos_attr->data.size());
+        }
+        if (norm_attr && !norm_attr->data.empty()) {
+            std::memcpy(dst + stream_offsets.normal, norm_attr->data.data(), norm_attr->data.size());
+        }
+        if (tangent_attr && !tangent_attr->data.empty()) {
+            std::memcpy(dst + stream_offsets.tangent, tangent_attr->data.data(), tangent_attr->data.size());
+        }
+        if (bitangent_attr && !bitangent_attr->data.empty()) {
+            std::memcpy(dst + stream_offsets.bitangent, bitangent_attr->data.data(), bitangent_attr->data.size());
+        }
+        if (uv0_attr && !uv0_attr->data.empty()) {
+            std::memcpy(dst + stream_offsets.texcoord0, uv0_attr->data.data(), uv0_attr->data.size());
+        }
+        if (uv1_attr && !uv1_attr->data.empty()) {
+            std::memcpy(dst + stream_offsets.texcoord1, uv1_attr->data.data(), uv1_attr->data.size());
+        }
+        if (color0_attr && !color0_attr->data.empty()) {
+            std::memcpy(dst + stream_offsets.color0, color0_attr->data.data(), color0_attr->data.size());
+        }
+        if (joints0_attr && !joints0_attr->data.empty()) {
+            std::memcpy(dst + stream_offsets.joints0, joints0_attr->data.data(), joints0_attr->data.size());
+        }
+        if (weights0_attr && !weights0_attr->data.empty()) {
+            std::memcpy(dst + stream_offsets.weights0, weights0_attr->data.data(), weights0_attr->data.size());
+        }
+        if (joints1_attr && !joints1_attr->data.empty()) {
+            std::memcpy(dst + stream_offsets.joints1, joints1_attr->data.data(), joints1_attr->data.size());
+        }
+        if (weights1_attr && !weights1_attr->data.empty()) {
+            std::memcpy(dst + stream_offsets.weights1, weights1_attr->data.data(), weights1_attr->data.size());
         }
 
-        if (stride > 0) {
-            GPUSize64 total_vb_size = static_cast<GPUSize64>(vertex_count) * stride;
-            geom.vertex_slice       = buffer_pool.allocate(total_vb_size, 16);
-
-            GPUSize64 vb_staging_offset = cpu_staging.size();
-            cpu_staging.resize(vb_staging_offset + total_vb_size);
-            uint8_t* dst = cpu_staging.data() + vb_staging_offset;
-
-            // Sequential linear write for CPU write-combining optimization
-            uint current_offset = 0;
-            for (const auto& attr : lod.attributes) {
-                uint           attr_elem_size = get_vertex_format_size(attr.format);
-                const uint8_t* src            = attr.data.data();
-
-                for (uint v = 0; v < vertex_count; ++v) {
-                    uint8_t* dst_elem = dst + (v * stride) + current_offset;
-                    if (v < attr.element_count && src) {
-                        std::memcpy(dst_elem, src + (v * attr_elem_size), attr_elem_size);
-                    } else {
-                        std::memset(dst_elem, 0, attr_elem_size);
-                    }
-                }
-                current_offset += attr_elem_size;
-            }
-
-            GeometryCopy op;
-            op.src_offset = vb_staging_offset;
-            op.dst_buffer = geom.vertex_slice.buffer;
-            op.dst_offset = geom.vertex_slice.offset;
-            op.size       = total_vb_size;
-            copy_ops.push_back(op);
+        // position_slice aliases the continuous position chunk
+        if (stream_offsets.has_position() && pos_attr) {
+            geom.position_slice.buffer  = geom.vertex_slice.buffer;
+            geom.position_slice.offset  = geom.vertex_slice.offset + stream_offsets.position;
+            geom.position_slice.size    = pos_attr->data.size();
+            geom.position_slice.slab_id = geom.vertex_slice.slab_id;
         }
+
+        GeometryCopy op;
+        op.src_offset = vb_staging_offset;
+        op.dst_buffer = geom.vertex_slice.buffer;
+        op.dst_offset = geom.vertex_slice.offset;
+        op.size       = total_vb_size;
+        copy_ops.push_back(op);
     }
 
     // 2. Upload index buffer
@@ -348,6 +466,52 @@ void GeometryCache::upload_indexed_lod(
     }
 
     gpu_lod.indexed = std::move(geom);
+}
+
+void GeometryCache::upload_ray_tracing_lod(GeometryLOD& gpu_lod, const MeshLOD& lod)
+{
+    if (!RHI::api()) {
+        return;
+    }
+
+    auto& device = RHI::get_current_device();
+    if (!device.features.raytracing) {
+        return;
+    }
+
+    uint vertex_count = 0;
+    for (const auto& attr : lod.attributes) {
+        if (attr.element_count > 0) {
+            vertex_count = std::max(vertex_count, attr.element_count);
+        }
+    }
+
+    uint index_stride = get_index_format_size(lod.index_format);
+    uint index_count  = (index_stride > 0) ? static_cast<uint>(lod.index_data.size() / index_stride) : 0;
+
+    if (vertex_count == 0 || index_count == 0) {
+        return;
+    }
+
+    auto desc  = GPUBlasDescriptor{};
+    desc.label = "mesh_geometry_blas";
+    desc.flags = GPUBVHFlag::PREFER_FAST_TRACE;
+
+    auto size                    = GPUBlasGeometrySizeDescriptor{};
+    size.type                    = GPUBlasType::TRIANGLE;
+    size.triangles.flags         = GPUBVHGeometryFlag::BVH_OPAQUE;
+    size.triangles.vertex_format = GPUVertexFormat::FLOAT32x3;
+    size.triangles.vertex_count  = vertex_count;
+    size.triangles.index_count   = index_count;
+    size.triangles.index_format  = lod.index_format;
+
+    Vector<GPUBlasGeometrySizeDescriptor> sizes = {size};
+
+    RayTracingGeometry rt_geom;
+    rt_geom.blas     = device.create_blas(desc, sizes);
+    rt_geom.is_built = false;
+
+    gpu_lod.ray_tracing = std::move(rt_geom);
 }
 
 void GeometryCache::upload_meshlet_lod(
@@ -378,7 +542,9 @@ void GeometryCache::free_entry_geometry(MeshGeometryEntry& entry)
     for (auto& lod : entry.lods) {
         if (lod.indexed.has_value()) {
             buffer_pool.free(lod.indexed->vertex_slice);
-            buffer_pool.free(lod.indexed->position_slice);
+            if (lod.indexed->position_slice.valid() && lod.indexed->position_slice.buffer != lod.indexed->vertex_slice.buffer) {
+                buffer_pool.free(lod.indexed->position_slice);
+            }
             buffer_pool.free(lod.indexed->index_slice);
             lod.indexed.reset();
         }
