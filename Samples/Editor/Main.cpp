@@ -1,11 +1,9 @@
 #include <cctype>
 #include <algorithm>
 #include <cxxopts.hpp>
-#include <imgui.h>
 
 // uber header for lyra engine
 #include <Lyra/Lyra.hpp>
-#include <Lyra/UISystem/Widgets/UICommand.h>
 
 // local editor ui headers
 #include "Panels/AssetBrowserView.h"
@@ -25,9 +23,8 @@ using namespace lyra;
 
 static void render_scene(AppContext& context, GPUCommandBuffer command)
 {
-    // apply a toy demo renderer
     if (auto* view = context.services.try_get<SceneView>()) {
-        auto* renderer = context.services.get<SampleCubeRenderer*>();
+        auto* renderer = context.services.get<EditorRenderer*>();
         renderer->render(view->get_backbuffer(), context, command);
     }
 }
@@ -347,9 +344,9 @@ int main(int argc, const char* argv[])
     auto sceneview = std::make_unique<SceneView>();
     app->bind<SceneView>(*sceneview);
 
-    // renderer (temporary solution)
-    auto renderer = std::make_unique<SampleCubeRenderer>();
-    app->bind<SampleCubeRenderer>(*renderer);
+    // editor viewport renderer
+    auto renderer = std::make_unique<EditorRenderer>();
+    app->bind<EditorRenderer>(*renderer);
 
     // bind additional systems
     app->bind<AppEvent::UPDATE, &imgui_update>();

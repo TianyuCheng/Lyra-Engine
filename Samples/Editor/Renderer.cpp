@@ -1,22 +1,140 @@
+#include "Renderer.h"
 #include <Lyra/Utilities/Math.h>
 #include <Lyra/Components/Camera.h>
 #include <Lyra/Components/Transform.h>
+#include <Lyra/Rendering/RendererManager.h>
+#include <Lyra/Rendering/RenderWorld.h>
 
-#include "Renderer.h"
 #include "Panels/SceneView.h"
 
 using namespace lyra;
 
-void SampleCubeRenderer::bind(Application& app)
+void EditorRenderer::bind(Application& app)
 {
-    app.get_services().add<SampleCubeRenderer*>(this);
+    app.get_services().add<EditorRenderer*>(this);
 
-    app.bind<AppEvent::INIT, &SampleCubeRenderer::init>(*this);
-    app.bind<AppEvent::UPDATE, &SampleCubeRenderer::update>(*this);
-    app.bind<AppEvent::DESTROY, &SampleCubeRenderer::destroy>(*this);
+    app.bind<AppEvent::INIT, &EditorRenderer::init>(*this);
+    app.bind<AppEvent::UPDATE, &EditorRenderer::update>(*this);
+    app.bind<AppEvent::DESTROY, &EditorRenderer::destroy>(*this);
 }
 
-void SampleCubeRenderer::render(const Backbuffer& backbuffer, AppContext& context, GPUCommandBuffer command)
+void EditorRenderer::init(AppContext& context)
+{
+    auto device   = context.services.get<GPUDevice*>();
+    auto compiler = context.services.get<Compiler*>();
+
+    // initialize composable editor grid pass
+    grid_pass.init(*device, *compiler, GPUTextureFormat::RGBA8UNORM, GPUTextureFormat::DEPTH32FLOAT);
+
+    // automatically load the forward renderer plugin if no active renderer
+    if (auto rm = context.services.try_get<RendererManager*>()) {
+        if (!rm->has_active_renderer()) {
+            rm->load_renderer("lyra-renderer-forward", context);
+        }
+    }
+
+    // initialize scene camera node if none exists
+    if (auto world = context.services.try_get<World>()) {
+        auto view = world->registry.view<Camera>();
+        if (!view.empty()) {
+            camera_node = SceneNode(*view.begin());
+        } else {
+            camera_node = world->create("Main Camera");
+            world->translate(camera_node, {0.0f, 1.0f, 8.0f});
+            world->rotate(camera_node, {1.0f, 0.0f, 0.0f}, -20.0f);
+            world->add_component<Camera>(camera_node);
+        }
+    }
+}
+
+void EditorRenderer::destroy(AppContext& context)
+{
+    auto device = context.services.get<GPUDevice*>();
+    device->wait();
+
+    grid_pass.destroy();
+
+    if (depth_texture.handle.valid()) {
+        depth_texture.destroy();
+    }
+    if (depth_view.handle.valid()) {
+        depth_view.destroy();
+    }
+
+    fg_allocator.clear();
+}
+
+void EditorRenderer::update(AppContext& context)
+{
+    auto world     = context.services.try_get<World>();
+    auto hierarchy = context.services.try_get<SceneTree>();
+    auto scene     = context.services.try_get<SceneView>();
+    if (!world || !hierarchy || !scene) return;
+
+    // update all transforms in the hierarchy
+    hierarchy->update();
+
+    // ensure camera_node is valid across scene loads and clears
+    if (camera_node.entity == entt::null || !world->registry.valid(camera_node.entity) || !world->registry.any_of<Camera>(camera_node.entity)) {
+        auto view = world->registry.view<Camera, TransformWorld>();
+        if (view.begin() != view.end()) {
+            camera_node = SceneNode(*view.begin());
+        } else {
+            camera_node = world->create("Main Camera");
+            world->translate(camera_node, {0.0f, 1.0f, 8.0f});
+            world->rotate(camera_node, {1.0f, 0.0f, 0.0f}, -20.0f);
+            world->add_component<Camera>(camera_node);
+        }
+    }
+
+    // update camera uniform buffer
+    auto backbuffer = scene->get_backbuffer();
+    if (backbuffer.extent.width == 0 || backbuffer.extent.height == 0) {
+        return;
+    }
+
+    // ensure depth buffer matches backbuffer size
+    if (!depth_texture.handle.valid() ||
+        depth_texture.width != backbuffer.extent.width ||
+        depth_texture.height != backbuffer.extent.height) {
+        auto device = context.services.get<GPUDevice*>();
+
+        if (depth_texture.handle.valid()) {
+            device->wait();
+            depth_texture.destroy();
+            depth_view.destroy();
+        }
+
+        depth_texture = execute([&]() {
+            auto desc            = GPUTextureDescriptor{};
+            desc.label           = "depth_buffer";
+            desc.size.width      = backbuffer.extent.width;
+            desc.size.height     = backbuffer.extent.height;
+            desc.size.depth      = 1;
+            desc.dimension       = GPUTextureDimension::x2D;
+            desc.format          = GPUTextureFormat::DEPTH32FLOAT;
+            desc.usage           = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
+            desc.mip_level_count = 1;
+            desc.sample_count    = 1;
+            return device->create_texture(desc);
+        });
+        depth_view    = depth_texture.create_view();
+    }
+
+    auto aspect = (float)backbuffer.extent.width / (float)backbuffer.extent.height;
+
+    // update camera projection parameters
+    auto& cam  = world->get_component<Camera>(camera_node);
+    cam.aspect = aspect;
+    if (cam.type == ProjectionType::PERSPECTIVE) {
+        cam.projection = glm::perspective(glm::radians(cam.fov), cam.aspect, cam.near_plane, cam.far_plane);
+    } else {
+        float half_size = cam.size * 0.5f;
+        cam.projection  = glm::ortho(-half_size * cam.aspect, half_size * cam.aspect, -half_size, half_size, cam.near_plane, cam.far_plane);
+    }
+}
+
+void EditorRenderer::render(const Backbuffer& backbuffer, AppContext& context, GPUCommandBuffer command)
 {
     if (!backbuffer.texture.valid() || !depth_texture.handle.valid() || backbuffer.extent.width == 0 || backbuffer.extent.height == 0) {
         return;
@@ -32,16 +150,21 @@ void SampleCubeRenderer::render(const Backbuffer& backbuffer, AppContext& contex
     auto& cam_world = world->get_component<TransformWorld>(camera_node);
 
     RenderView view{};
-    view.projection        = cam_comp.projection;
-    view.view              = glm::inverse(cam_world.xform);
-    view.inv_projection    = glm::inverse(cam_comp.projection);
-    view.inv_view          = cam_world.xform;
-    view.view_projection   = view.projection * view.view;
-    view.camera_position   = Vector3(cam_world.xform[3]);
-    view.render_extent     = backbuffer.extent;
-    view.near_plane        = cam_comp.near_plane;
-    view.far_plane         = cam_comp.far_plane;
-    view.fov               = cam_comp.fov;
+    view.projection      = cam_comp.projection;
+    view.view            = glm::inverse(cam_world.xform);
+    view.inv_projection  = glm::inverse(cam_comp.projection);
+    view.inv_view        = cam_world.xform;
+    view.view_projection = view.projection * view.view;
+    view.camera_position = Vector3(cam_world.xform[3]);
+    view.render_extent   = backbuffer.extent;
+    view.near_plane      = cam_comp.near_plane;
+    view.far_plane       = cam_comp.far_plane;
+    view.fov             = cam_comp.fov;
+
+    // extract scene representation from RenderWorld
+    auto               render_world = context.services.try_get<RenderWorld*>();
+    const RenderScene  dummy_scene{};
+    const RenderScene& scene = render_world ? render_world->get_scene() : dummy_scene;
 
     // construct frame graph
     FrameGraphBuilder builder;
@@ -50,7 +173,7 @@ void SampleCubeRenderer::render(const Backbuffer& backbuffer, AppContext& contex
     FrameGraphTexture imported_color{};
     imported_color.texture = backbuffer.texture;
     imported_color.view    = backbuffer.texview;
-    imported_color.format  = GPUTextureFormat::RGBA8UNORM;
+    imported_color.format  = backbuffer.format;
     imported_color.state   = undefined_texture_state();
     auto color_target      = builder.import(imported_color);
 
@@ -104,10 +227,39 @@ void SampleCubeRenderer::render(const Backbuffer& backbuffer, AppContext& contex
             ctx->cmdlist.end_render_pass();
         });
 
-    // pass 2: composable editor grid pass (depth-tests ground plane against scene depth buffer)
-    auto grid_data = grid_pass.add(builder, clear_data.color, clear_data.depth, view);
+    auto current_color = clear_data.color;
+    auto current_depth = clear_data.depth;
 
-    // pass 3: transition color target to shader resource so ImGui canvas can sample it
+    // pass 2: Forward Scene Rendering (evaluates skybox, meshes, lights, shadows)
+    auto rm = context.services.try_get<RendererManager*>();
+    if (rm && rm->has_active_renderer()) {
+        rm->resize(backbuffer.extent.width, backbuffer.extent.height);
+
+        RenderFrameOutputs outputs{};
+        RenderFrameContext ctx{
+            .builder        = builder,
+            .view           = view,
+            .scene          = scene,
+            .color_target   = clear_data.color,
+            .depth_target   = clear_data.depth,
+            .color_format   = backbuffer.format,
+            .depth_format   = GPUTextureFormat::DEPTH32FLOAT,
+            .render_extent  = backbuffer.extent,
+            .display_extent = backbuffer.extent,
+            .outputs        = &outputs,
+            .services       = &context.services,
+        };
+
+        current_color = rm->render(ctx);
+        if (outputs.depth.valid()) {
+            current_depth = outputs.depth;
+        }
+    }
+
+    // pass 3: composable editor grid pass (depth-tests ground plane against rendered scene depth)
+    auto grid_data = grid_pass.add(builder, current_color, current_depth, view);
+
+    // pass 4: transition color target to shader resource so ImGui canvas can sample it
     builder.add_pass(
         "EditorViewportResolvePass",
         [&](FrameGraphPassBuilder& pass_builder) {
@@ -126,111 +278,4 @@ void SampleCubeRenderer::render(const Backbuffer& backbuffer, AppContext& contex
         graph->execute(&fg_context, &fg_allocator);
     }
     fg_allocator.tick();
-}
-
-void SampleCubeRenderer::init(AppContext& context)
-{
-    auto device   = context.services.get<GPUDevice*>();
-    auto compiler = context.services.get<Compiler*>();
-
-    // initialize composable editor grid pass
-    grid_pass.init(*device, *compiler, GPUTextureFormat::RGBA8UNORM, GPUTextureFormat::DEPTH32FLOAT);
-
-    // initialize scene nodes
-    if (auto world = context.services.try_get<World>()) {
-        auto view = world->registry.view<Camera>();
-        if (!view.empty()) {
-            camera_node = SceneNode(*view.begin());
-        } else {
-            camera_node = world->create("Main Camera");
-            world->translate(camera_node, {0.0f, 1.0f, 8.0f});
-            world->rotate(camera_node, {1.0f, 0.0f, 0.0f}, -20.0f);
-            world->add_component<Camera>(camera_node);
-        }
-    }
-}
-
-void SampleCubeRenderer::destroy(AppContext& context)
-{
-    auto device = context.services.get<GPUDevice*>();
-    device->wait();
-
-    grid_pass.destroy();
-
-    if (depth_texture.handle.valid()) {
-        depth_texture.destroy();
-    }
-    if (depth_view.handle.valid()) {
-        depth_view.destroy();
-    }
-
-    fg_allocator.clear();
-}
-
-void SampleCubeRenderer::update(AppContext& context)
-{
-    auto world     = context.services.try_get<World>();
-    auto hierarchy = context.services.try_get<SceneTree>();
-    auto scene     = context.services.try_get<SceneView>();
-    if (!world || !hierarchy || !scene) return;
-
-    // update all transforms in the hierarchy
-    hierarchy->update();
-
-    // ensure camera_node is valid across scene loads and clears
-    if (camera_node.entity == entt::null || !world->registry.valid(camera_node.entity) || !world->registry.any_of<Camera>(camera_node.entity)) {
-        auto view = world->registry.view<Camera, TransformWorld>();
-        if (view.begin() != view.end()) {
-            camera_node = SceneNode(*view.begin());
-        } else {
-            camera_node = world->create("Main Camera");
-            world->translate(camera_node, {0.0f, 1.0f, 8.0f});
-            world->rotate(camera_node, {1.0f, 0.0f, 0.0f}, -20.0f);
-            world->add_component<Camera>(camera_node);
-        }
-    }
-
-    // update camera uniform buffer
-    auto backbuffer = scene->get_backbuffer();
-
-    // ensure depth buffer matches backbuffer size
-    if (!depth_texture.handle.valid() ||
-        depth_texture.width != backbuffer.extent.width ||
-        depth_texture.height != backbuffer.extent.height) {
-        auto device = context.services.get<GPUDevice*>();
-
-        if (depth_texture.handle.valid()) {
-            device->wait();
-            depth_texture.destroy();
-            depth_view.destroy();
-        }
-
-        depth_texture = execute([&]() {
-            auto desc            = GPUTextureDescriptor{};
-            desc.label           = "depth_buffer";
-            desc.size.width      = backbuffer.extent.width;
-            desc.size.height     = backbuffer.extent.height;
-            desc.size.depth      = 1;
-            desc.dimension       = GPUTextureDimension::x2D;
-            desc.format          = GPUTextureFormat::DEPTH32FLOAT;
-            desc.usage           = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
-            desc.mip_level_count = 1;
-            desc.sample_count    = 1;
-            return device->create_texture(desc);
-        });
-        depth_view    = depth_texture.create_view();
-    }
-
-    auto  aspect    = (float)backbuffer.extent.width / (float)backbuffer.extent.height;
-    auto& cam_world = world->get_component<TransformWorld>(camera_node);
-
-    // update camera projection parameters
-    auto& cam  = world->get_component<Camera>(camera_node);
-    cam.aspect = aspect;
-    if (cam.type == ProjectionType::PERSPECTIVE) {
-        cam.projection = glm::perspective(glm::radians(cam.fov), cam.aspect, cam.near_plane, cam.far_plane);
-    } else {
-        float half_size = cam.size * 0.5f;
-        cam.projection  = glm::ortho(-half_size * cam.aspect, half_size * cam.aspect, -half_size, half_size, cam.near_plane, cam.far_plane);
-    }
 }

@@ -122,7 +122,7 @@ void cmd::signal_fence(GPUCommandEncoderHandle cmdbuffer, GPUFenceHandle fence, 
 
 void cmd::begin_render_pass(GPUCommandEncoderHandle cmdbuffer, const GPURenderPassDescriptor& descriptor)
 {
-    assert(!descriptor.color_attachments.empty());
+    assert(!descriptor.color_attachments.empty() || descriptor.depth_stencil_attachment.view.valid());
 
     auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);

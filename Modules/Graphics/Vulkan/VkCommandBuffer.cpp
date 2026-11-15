@@ -148,7 +148,7 @@ void cmd::signal_fence(GPUCommandEncoderHandle cmdbuffer, GPUFenceHandle fence, 
 
 void cmd::begin_render_pass(GPUCommandEncoderHandle cmdbuffer, const GPURenderPassDescriptor& descriptor)
 {
-    assert(!descriptor.color_attachments.empty());
+    assert(!descriptor.color_attachments.empty() || descriptor.depth_stencil_attachment.view.valid());
 
     auto  rhi = get_rhi();
     auto& cmd = rhi->current_frame().command(cmdbuffer);
@@ -215,20 +215,26 @@ void cmd::begin_render_pass(GPUCommandEncoderHandle cmdbuffer, const GPURenderPa
         stencil_attachment.imageView                       = view.view;
     }
 
-    auto& view                = fetch_resource(rhi->views, descriptor.color_attachments.at(0).view);
-    auto  render_area         = VkRect2D{};
-    render_area.offset.x      = 0;
-    render_area.offset.y      = 0;
-    render_area.extent.width  = view.area.width;
-    render_area.extent.height = view.area.height;
+    auto render_area     = VkRect2D{};
+    render_area.offset.x = 0;
+    render_area.offset.y = 0;
+    if (!descriptor.color_attachments.empty()) {
+        auto& view                = fetch_resource(rhi->views, descriptor.color_attachments.at(0).view);
+        render_area.extent.width  = view.area.width;
+        render_area.extent.height = view.area.height;
+    } else if (has_depth_stencil) {
+        auto& view                = fetch_resource(rhi->views, descriptor.depth_stencil_attachment.view);
+        render_area.extent.width  = view.area.width;
+        render_area.extent.height = view.area.height;
+    }
 
     auto rendering                 = VkRenderingInfo{};
     rendering.sType                = VK_STRUCTURE_TYPE_RENDERING_INFO;
     rendering.pNext                = nullptr;
     rendering.renderArea           = render_area;
     rendering.layerCount           = 1;
-    rendering.colorAttachmentCount = static_cast<uint32_t>(descriptor.color_attachments.size());
-    rendering.pColorAttachments    = color_attachments.data();
+    rendering.colorAttachmentCount = static_cast<uint32_t>(color_attachments.size());
+    rendering.pColorAttachments    = color_attachments.empty() ? nullptr : color_attachments.data();
     rendering.pDepthAttachment     = has_depth_attachment ? &depth_attachment : nullptr;
     rendering.pStencilAttachment   = has_stencil_attachment ? &stencil_attachment : nullptr;
 

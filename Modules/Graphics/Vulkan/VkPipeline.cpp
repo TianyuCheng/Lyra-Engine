@@ -109,7 +109,7 @@ VulkanPipeline::VulkanPipeline(const GPURenderPipelineDescriptor& desc)
     input_assembly_state.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
     input_assembly_state.pNext                  = nullptr;
     input_assembly_state.topology               = vkenum(desc.primitive.topology);
-    input_assembly_state.primitiveRestartEnable = false;
+    input_assembly_state.primitiveRestartEnable = VK_FALSE;
 
     auto tessellation_state  = VkPipelineTessellationStateCreateInfo{};
     tessellation_state.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
@@ -123,16 +123,22 @@ VulkanPipeline::VulkanPipeline(const GPURenderPipelineDescriptor& desc)
     viewport_state.pScissors     = &scissor;
     viewport_state.scissorCount  = 1;
 
+    const bool has_depth_bias = (desc.depth_stencil.depth_bias != 0) ||
+                                (desc.depth_stencil.depth_bias_constant != 0.0f) ||
+                                (desc.depth_stencil.depth_bias_slope_scale != 0.0f);
+
     auto rasterization_state                    = VkPipelineRasterizationStateCreateInfo{};
     rasterization_state.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     rasterization_state.pNext                   = nullptr;
     rasterization_state.cullMode                = vkenum(desc.primitive.cull_mode);
     rasterization_state.polygonMode             = VK_POLYGON_MODE_FILL;
     rasterization_state.frontFace               = vkenum(desc.primitive.front_face);
-    rasterization_state.lineWidth               = 1;
+    rasterization_state.lineWidth               = 1.0f;
     rasterization_state.rasterizerDiscardEnable = VK_FALSE;
-    rasterization_state.depthBiasEnable         = desc.depth_stencil.depth_bias;
-    rasterization_state.depthBiasConstantFactor = desc.depth_stencil.depth_bias_constant;
+    rasterization_state.depthBiasEnable         = has_depth_bias;
+    rasterization_state.depthBiasConstantFactor = desc.depth_stencil.depth_bias_constant != 0.0f
+                                                      ? desc.depth_stencil.depth_bias_constant
+                                                      : static_cast<float>(desc.depth_stencil.depth_bias);
     rasterization_state.depthBiasSlopeFactor    = desc.depth_stencil.depth_bias_slope_scale;
     rasterization_state.depthBiasClamp          = desc.depth_stencil.depth_bias_clamp;
 
@@ -149,19 +155,19 @@ VulkanPipeline::VulkanPipeline(const GPURenderPipelineDescriptor& desc)
     auto depth_stencil_state                  = VkPipelineDepthStencilStateCreateInfo{};
     depth_stencil_state.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     depth_stencil_state.pNext                 = nullptr;
-    depth_stencil_state.depthTestEnable       = desc.depth_stencil.depth_compare != GPUCompareFunction::ALWAYS || desc.depth_stencil.depth_write_enabled;
+    depth_stencil_state.depthTestEnable       = (desc.depth_stencil.depth_compare != GPUCompareFunction::ALWAYS || desc.depth_stencil.depth_write_enabled);
     depth_stencil_state.depthWriteEnable      = desc.depth_stencil.depth_write_enabled;
     depth_stencil_state.depthBoundsTestEnable = VK_FALSE;
     depth_stencil_state.depthCompareOp        = vkenum(desc.depth_stencil.depth_compare);
     depth_stencil_state.maxDepthBounds        = 1.0f;
     depth_stencil_state.minDepthBounds        = 0.0f;
     depth_stencil_state.stencilTestEnable =
-        desc.depth_stencil.stencil_front.compare != GPUCompareFunction::ALWAYS ||
-        desc.depth_stencil.stencil_front.pass_op != GPUStencilOperation::KEEP ||
-        desc.depth_stencil.stencil_front.fail_op != GPUStencilOperation::KEEP ||
-        desc.depth_stencil.stencil_back.compare != GPUCompareFunction::ALWAYS ||
-        desc.depth_stencil.stencil_back.pass_op != GPUStencilOperation::KEEP ||
-        desc.depth_stencil.stencil_back.fail_op != GPUStencilOperation::KEEP;
+        (desc.depth_stencil.stencil_front.compare != GPUCompareFunction::ALWAYS ||
+            desc.depth_stencil.stencil_front.pass_op != GPUStencilOperation::KEEP ||
+            desc.depth_stencil.stencil_front.fail_op != GPUStencilOperation::KEEP ||
+            desc.depth_stencil.stencil_back.compare != GPUCompareFunction::ALWAYS ||
+            desc.depth_stencil.stencil_back.pass_op != GPUStencilOperation::KEEP ||
+            desc.depth_stencil.stencil_back.fail_op != GPUStencilOperation::KEEP);
     depth_stencil_state.front.compareOp   = vkenum(desc.depth_stencil.stencil_front.compare);
     depth_stencil_state.front.depthFailOp = vkenum(desc.depth_stencil.stencil_front.depth_fail_op);
     depth_stencil_state.front.failOp      = vkenum(desc.depth_stencil.stencil_front.fail_op);

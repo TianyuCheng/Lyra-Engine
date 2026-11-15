@@ -133,8 +133,8 @@ static FrameGraph::TextureHandle render(
     }
 
     GPUExtent2D extent = (ctx.render_extent.width > 0 && ctx.render_extent.height > 0)
-        ? ctx.render_extent
-        : ctx.display_extent;
+                             ? ctx.render_extent
+                             : ctx.display_extent;
 
     if (!ctx.color_target.valid() || extent.width == 0 || extent.height == 0) {
         return ctx.color_target;

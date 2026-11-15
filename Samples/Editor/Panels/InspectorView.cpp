@@ -1,10 +1,11 @@
 #include <Lyra/Utilities/Logger.h>
 #include <Lyra/Scene/World.h>
-#include <Lyra/Components/Light.h>
 #include <Lyra/Scene/SceneNode.h>
+#include <Lyra/Components/Light.h>
 #include <Lyra/Components/Transform.h>
-#include <Lyra/Scripting/ScriptQuery.h>
 #include <Lyra/Runtime/ScriptLayer.h>
+#include <Lyra/Scripting/ScriptQuery.h>
+#include <Lyra/Rendering/RendererManager.h>
 #include <Lyra/UISystem/Widgets/UI.h>
 #include <Lyra/UISystem/Widgets/UILayout.h>
 #include <Lyra/UISystem/Widgets/UIControls.h>
@@ -113,6 +114,10 @@ void InspectorView::draw_inspector(AppContext& context, World& world, SceneNode 
 {
     if (node.entity == entt::null || !world.registry.valid(node.entity)) {
         ui::label("No node selected", ui::StatusRole::Muted);
+        ui::separator();
+        if (auto* rm = context.services.try_get<RendererManager*>()) {
+            rm->draw_debug_panel();
+        }
         return;
     }
 

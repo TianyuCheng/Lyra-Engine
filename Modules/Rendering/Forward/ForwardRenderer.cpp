@@ -151,19 +151,19 @@ void ForwardRenderer::draw_debug_panel()
 
                 ui::label("Forward Pass");
                 ui::label(forward_pass.valid() ? "Ready" : "Offline",
-                          forward_pass.valid() ? ui::StatusRole::Success : ui::StatusRole::Error);
+                    forward_pass.valid() ? ui::StatusRole::Success : ui::StatusRole::Error);
 
                 ui::label("Depth Prepass");
                 ui::label(depth_prepass.valid() ? "Active" : "Offline",
-                          depth_prepass.valid() ? ui::StatusRole::Success : ui::StatusRole::Muted);
+                    depth_prepass.valid() ? ui::StatusRole::Success : ui::StatusRole::Muted);
 
                 ui::label("Shadow Cascades");
                 ui::label(shadow_pass.valid() ? "Active" : "Offline",
-                          shadow_pass.valid() ? ui::StatusRole::Success : ui::StatusRole::Muted);
+                    shadow_pass.valid() ? ui::StatusRole::Success : ui::StatusRole::Muted);
 
                 ui::label("Light Culling");
                 ui::label(light_culling_pass.valid() ? "Active" : "Offline",
-                          light_culling_pass.valid() ? ui::StatusRole::Success : ui::StatusRole::Muted);
+                    light_culling_pass.valid() ? ui::StatusRole::Success : ui::StatusRole::Muted);
             });
         });
 
@@ -184,8 +184,7 @@ void ForwardRenderer::draw_debug_panel()
                     "Normals",
                     "Albedo",
                     "Wireframe",
-                    "Light Heatmap"
-                };
+                    "Light Heatmap"};
                 usize current_idx = settings.debug_mode < 5 ? settings.debug_mode : 0;
                 ui::dropdown("Debug Mode", debug_items[current_idx], debug_items, 5, [&](usize selected) {
                     settings.debug_mode = static_cast<uint>(selected);

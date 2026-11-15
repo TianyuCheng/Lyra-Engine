@@ -82,7 +82,10 @@ bool ForwardPass::init(
 
     // 3. create render pipeline
     pipeline = execute([&]() {
-        Vector<GPUVertexAttribute> attributes;
+        Vector<GPUVertexAttribute>    attributes;
+        Vector<GPUVertexBufferLayout> vlayouts;
+        Vector<GPUColorTargetState>   targets;
+
         auto pos_attr            = GPUVertexAttribute{};
         pos_attr.format          = GPUVertexFormat::FLOAT32x3;
         pos_attr.offset          = 0;
@@ -101,35 +104,33 @@ bool ForwardPass::init(
         uv_attr.shader_location = 2;
         attributes.push_back(uv_attr);
 
-        Vector<GPUVertexBufferLayout> vlayouts;
         auto vlayout         = GPUVertexBufferLayout{};
         vlayout.array_stride = sizeof(Vector3) * 2 + sizeof(Vector2); // 32 bytes interleaved
         vlayout.step_mode    = GPUVertexStepMode::VERTEX;
         vlayout.attributes   = attributes;
         vlayouts.push_back(vlayout);
 
-        Vector<GPUColorTargetState> targets;
         auto color_target         = GPUColorTargetState{};
         color_target.format       = cached_color_format;
         color_target.blend_enable = false;
         targets.push_back(color_target);
 
-        auto desc                                 = GPURenderPipelineDescriptor{};
-        desc.layout                               = playout;
-        desc.primitive.cull_mode                  = GPUCullMode::BACK;
-        desc.primitive.topology                   = GPUPrimitiveTopology::TRIANGLE_LIST;
-        desc.primitive.front_face                 = GPUFrontFace::CCW;
-        desc.primitive.strip_index_format         = GPUIndexFormat::UINT32;
-        desc.depth_stencil.depth_compare          = GPUCompareFunction::LESS_EQUAL;
-        desc.depth_stencil.depth_write_enabled    = true;
-        desc.depth_stencil.format                 = cached_depth_format;
-        desc.multisample.count                    = 1;
-        desc.vertex.module                        = vshader;
-        desc.vertex.buffers                       = vlayouts;
-        desc.vertex.entry_point                   = "vsmain";
-        desc.fragment.module                      = fshader;
-        desc.fragment.entry_point                 = "fsmain";
-        desc.fragment.targets                     = targets;
+        auto desc                              = GPURenderPipelineDescriptor{};
+        desc.layout                            = playout;
+        desc.primitive.cull_mode               = GPUCullMode::BACK;
+        desc.primitive.topology                = GPUPrimitiveTopology::TRIANGLE_LIST;
+        desc.primitive.front_face              = GPUFrontFace::CCW;
+        desc.primitive.strip_index_format      = GPUIndexFormat::UINT32;
+        desc.depth_stencil.depth_compare       = GPUCompareFunction::LESS_EQUAL;
+        desc.depth_stencil.depth_write_enabled = true;
+        desc.depth_stencil.format              = cached_depth_format;
+        desc.multisample.count                 = 1;
+        desc.vertex.module                     = vshader;
+        desc.vertex.buffers                    = vlayouts;
+        desc.vertex.entry_point                = "vsmain";
+        desc.fragment.module                   = fshader;
+        desc.fragment.entry_point              = "fsmain";
+        desc.fragment.targets                  = targets;
 
         return device.create_render_pipeline(desc);
     });
@@ -294,9 +295,6 @@ ForwardPassData ForwardPass::add(
                 command.set_bind_group(0, camera_bind_group);
             }
 
-            uint draw_calls = 0;
-            uint triangles  = 0;
-
             for (const auto& mesh : params.scene.meshes) {
                 if (!mesh.geometry.valid() || mesh.index_count == 0) {
                     continue;
@@ -312,6 +310,7 @@ ForwardPassData ForwardPass::add(
 
                 GPUBuffer vbuf{};
                 vbuf.handle = mesh.geometry.vertex_slice.buffer;
+
                 GPUBuffer ibuf{};
                 ibuf.handle = mesh.geometry.index_slice.buffer;
 
