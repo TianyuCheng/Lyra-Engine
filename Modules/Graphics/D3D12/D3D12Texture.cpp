@@ -22,7 +22,9 @@ D3D12Texture::D3D12Texture(const GPUTextureDescriptor& desc)
     resource_desc.Height           = desc.size.height;
     resource_desc.DepthOrArraySize = 1;
     resource_desc.MipLevels        = 1;
-    resource_desc.Format           = infer_texture_format(desc.format);
+    resource_desc.Format           = is_depth_stencil_format(desc.format) && desc.usage.contains(GPUTextureUsage::TEXTURE_BINDING)
+                                         ? infer_typeless_depth_format(desc.format)
+                                         : infer_texture_format(desc.format);
     resource_desc.SampleDesc.Count = 1;
     resource_desc.Layout           = D3D12_TEXTURE_LAYOUT_UNKNOWN;
     resource_desc.Flags            = infer_texture_flags(desc.usage, desc.format);
@@ -214,7 +216,9 @@ void D3D12TextureView::init_srv(const D3D12Texture& texture, const GPUTextureVie
 {
     D3D12_SHADER_RESOURCE_VIEW_DESC view_desc = {};
 
-    view_desc.Format = infer_texture_format(desc.format);
+    view_desc.Format = is_depth_stencil_format(desc.format)
+                           ? infer_srv_depth_format(desc.format)
+                           : infer_texture_format(desc.format);
 
     view_desc.Shader4ComponentMapping = D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(
         D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_0,

@@ -10,10 +10,10 @@ struct Camera
     float    padding;
 };
 
-[[lyra::group(0)]] [[lyra::binding(0)]]
+[[lyra::binding(0, 0)]]
 ConstantBuffer<Camera> camera;
 
-[[lyra::group(1)]] [[lyra::binding(0)]]
+[[lyra::binding(0, 1)]]
 ByteAddressBuffer vertex_buffer;
 
 struct InstanceData

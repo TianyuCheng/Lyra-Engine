@@ -70,11 +70,7 @@ bool ForwardPass::init(
     // 2. bind group layouts and pipeline layout
     blayouts.clear();
     auto refl_layouts = reflection->get_bind_group_layouts();
-    spdlog::info("[ForwardPass] reflected {} bind group layouts", refl_layouts.size());
     for (usize g = 0; g < refl_layouts.size(); ++g) {
-        for (const auto& entry : refl_layouts[g].entries) {
-            spdlog::info("[ForwardPass] group {} entry binding={}, type={}", g, entry.binding.index, static_cast<uint>(entry.type));
-        }
         auto blayout = device.create_bind_group_layout(refl_layouts[g]);
         blayouts.push_back(blayout);
     }
@@ -244,7 +240,7 @@ ForwardPassData ForwardPass::add(
         return out;
     }
 
-    frame_slot = (frame_slot + 1) % FRAMES_IN_FLIGHT;
+    frame_slot        = (frame_slot + 1) % FRAMES_IN_FLIGHT;
     uint current_slot = frame_slot;
 
     update_camera_buffer(current_slot, params.view, params.scene);
@@ -346,9 +342,9 @@ ForwardPassData ForwardPass::add(
                 GPUSize64   base_offset = mesh.geometry.vertex_slice.offset;
 
                 InstanceData inst{};
-                inst.model       = mesh.transform;
-                inst.color       = mesh.material_params.base_color;
-                inst.params      = Vector4(
+                inst.model  = mesh.transform;
+                inst.color  = mesh.material_params.base_color;
+                inst.params = Vector4(
                     mesh.material_params.roughness,
                     mesh.material_params.metallic,
                     0.0f,

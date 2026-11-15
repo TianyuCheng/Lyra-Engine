@@ -107,10 +107,10 @@ bool GBufferPass::init(
         pos_attr.shader_semantic = "POSITION";
 
         Vector<GPUVertexAttribute> pos_attribs{pos_attr};
-        auto pos_layout         = GPUVertexBufferLayout{};
-        pos_layout.array_stride = sizeof(Vector3);
-        pos_layout.step_mode    = GPUVertexStepMode::VERTEX;
-        pos_layout.attributes   = pos_attribs;
+        auto                       pos_layout = GPUVertexBufferLayout{};
+        pos_layout.array_stride               = sizeof(Vector3);
+        pos_layout.step_mode                  = GPUVertexStepMode::VERTEX;
+        pos_layout.attributes                 = pos_attribs;
         vlayouts.push_back(pos_layout);
 
         // slot 1: normal stream (float3, stride 12)
@@ -121,10 +121,10 @@ bool GBufferPass::init(
         norm_attr.shader_semantic = "NORMAL";
 
         Vector<GPUVertexAttribute> norm_attribs{norm_attr};
-        auto norm_layout         = GPUVertexBufferLayout{};
-        norm_layout.array_stride = sizeof(Vector3);
-        norm_layout.step_mode    = GPUVertexStepMode::VERTEX;
-        norm_layout.attributes   = norm_attribs;
+        auto                       norm_layout = GPUVertexBufferLayout{};
+        norm_layout.array_stride               = sizeof(Vector3);
+        norm_layout.step_mode                  = GPUVertexStepMode::VERTEX;
+        norm_layout.attributes                 = norm_attribs;
         vlayouts.push_back(norm_layout);
 
         // slot 2: texcoord0 stream (float2, stride 8)
@@ -135,10 +135,10 @@ bool GBufferPass::init(
         uv_attr.shader_semantic = "TEXCOORD";
 
         Vector<GPUVertexAttribute> uv_attribs{uv_attr};
-        auto uv_layout         = GPUVertexBufferLayout{};
-        uv_layout.array_stride = sizeof(Vector2);
-        uv_layout.step_mode    = GPUVertexStepMode::VERTEX;
-        uv_layout.attributes   = uv_attribs;
+        auto                       uv_layout = GPUVertexBufferLayout{};
+        uv_layout.array_stride               = sizeof(Vector2);
+        uv_layout.step_mode                  = GPUVertexStepMode::VERTEX;
+        uv_layout.attributes                 = uv_attribs;
         vlayouts.push_back(uv_layout);
 
         // MRT color target states

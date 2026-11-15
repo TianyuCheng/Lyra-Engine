@@ -236,7 +236,7 @@ SkyboxData SkyboxPass::add(
     const RenderScene&                  scene,
     GPULoadOp                           depth_load_op)
 {
-    frame_slot = (frame_slot + 1) % FRAMES_IN_FLIGHT;
+    frame_slot        = (frame_slot + 1) % FRAMES_IN_FLIGHT;
     uint current_slot = frame_slot;
 
     update_camera_uniform(current_slot, view, scene);
@@ -263,11 +263,11 @@ SkyboxData SkyboxPass::add(
             color_attachment.load_op  = GPULoadOp::LOAD;
             color_attachment.store_op = GPUStoreOp::STORE;
 
-            auto depth_attachment           = GPURenderPassDepthStencilAttachment{};
-            depth_attachment.view           = depth_tex->view;
+            auto depth_attachment              = GPURenderPassDepthStencilAttachment{};
+            depth_attachment.view              = depth_tex->view;
             depth_attachment.depth_clear_value = 1.0f;
-            depth_attachment.depth_load_op  = depth_load_op;
-            depth_attachment.depth_store_op = GPUStoreOp::STORE;
+            depth_attachment.depth_load_op     = depth_load_op;
+            depth_attachment.depth_store_op    = GPUStoreOp::STORE;
 
             auto desc                     = GPURenderPassDescriptor{};
             desc.color_attachments        = color_attachment;

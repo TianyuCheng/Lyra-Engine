@@ -232,6 +232,9 @@ void D3D12DescriptorPool::init(D3D12BindGroupHeapAllocator* allocator, uint capa
     this->allocation = allocator->allocator.allocate(capacity);
     this->capacity   = capacity;
 
+    if (!allocation.valid()) {
+        get_logger()->error("Failed to allocate descriptor pool capacity {} from allocator!", capacity);
+    }
     assert(allocation.valid() && "Failed to allocate bind group!");
 }
 

@@ -319,6 +319,12 @@ void cmd::set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GP
             } else {
                 cmd.command_buffer->SetGraphicsRootConstantBufferView(info.dynamic_root_parameter + i, address);
             }
+        } else if (dynamic.type == D3D12_ROOT_PARAMETER_TYPE_SRV) {
+            if (cmd.pso.compute) {
+                cmd.command_buffer->SetComputeRootShaderResourceView(info.dynamic_root_parameter + i, address);
+            } else {
+                cmd.command_buffer->SetGraphicsRootShaderResourceView(info.dynamic_root_parameter + i, address);
+            }
         } else {
             if (cmd.pso.compute) {
                 cmd.command_buffer->SetComputeRootUnorderedAccessView(info.dynamic_root_parameter + i, address);

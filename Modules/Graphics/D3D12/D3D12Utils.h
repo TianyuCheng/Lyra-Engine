@@ -416,6 +416,7 @@ struct D3D12BindGroupLayout
     void copy_texture_descriptor(D3D12BindGroupHeap& heap, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
     void create_buffer_descriptor(D3D12BindGroupHeap& heap, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
     void create_buffer_cbv_descriptor(D3D12BindGroupHeap& heap, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
+    void create_buffer_srv_descriptor(D3D12BindGroupHeap& heap, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
     void create_buffer_uav_descriptor(D3D12BindGroupHeap& heap, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
     void create_bvh_descriptor(D3D12BindGroupHeap& heap, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group);
 };
@@ -918,6 +919,8 @@ auto infer_heap_type(GPUBufferUsageFlags usages) -> D3D12_HEAP_TYPE;
 auto infer_buffer_flags(GPUBufferUsageFlags usages) -> D3D12_RESOURCE_FLAGS;
 auto infer_texture_flags(GPUTextureUsageFlags usages, GPUTextureFormat format) -> D3D12_RESOURCE_FLAGS;
 auto infer_texture_format(GPUTextureFormat format) -> DXGI_FORMAT;
+auto infer_typeless_depth_format(GPUTextureFormat format) -> DXGI_FORMAT;
+auto infer_srv_depth_format(GPUTextureFormat format) -> DXGI_FORMAT;
 auto infer_topology_type(GPUPrimitiveTopology topology) -> D3D12_PRIMITIVE_TOPOLOGY_TYPE;
 auto infer_topology(GPUPrimitiveTopology topology) -> D3D12_PRIMITIVE_TOPOLOGY;
 auto infer_row_pitch(DXGI_FORMAT format, uint width, uint bytes_per_row) -> uint;
@@ -972,14 +975,36 @@ inline std::string get_hresult_message(HRESULT hr)
     return ec.message();
 }
 
+#include <source_location>
+
 // helper method for error checking
-inline void ThrowIfFailed(HRESULT hr)
+inline void ThrowIfFailed(HRESULT hr, const std::source_location loc = std::source_location::current())
 {
     if (FAILED(hr)) {
         // set a breakpoint on this line to catch DirectX API errors
         auto err = get_hresult_message(hr);
-        if (err.c_str())
-            get_logger()->error("error: {}\n", err.c_str());
+        get_logger()->error("D3D12 error at {}:{}: {}\n", loc.file_name(), loc.line(), err.c_str());
+
+        if (hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET) {
+            auto rhi = get_rhi();
+            if (rhi && rhi->device) {
+                HRESULT reason = rhi->device->GetDeviceRemovedReason();
+                get_logger()->error("[D3D12] Device Removed Reason: 0x{:08X} ({})", (uint)reason, get_hresult_message(reason));
+                ComPtr<ID3D12InfoQueue> info_queue;
+                if (SUCCEEDED(rhi->device->QueryInterface(IID_PPV_ARGS(&info_queue)))) {
+                    UINT64 num_msgs = info_queue->GetNumStoredMessages();
+                    for (UINT64 i = 0; i < num_msgs; ++i) {
+                        SIZE_T msg_len = 0;
+                        info_queue->GetMessage(i, nullptr, &msg_len);
+                        Vector<uint8_t> bytes(msg_len);
+                        D3D12_MESSAGE*  msg = reinterpret_cast<D3D12_MESSAGE*>(bytes.data());
+                        if (SUCCEEDED(info_queue->GetMessage(i, msg, &msg_len))) {
+                            get_logger()->error("[D3D12 InfoQueue] {}", msg->pDescription);
+                        }
+                    }
+                }
+            }
+        }
 
         switch (hr) {
             case E_OUTOFMEMORY:

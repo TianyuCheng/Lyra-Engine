@@ -23,6 +23,7 @@ struct SkyboxUniform
     float4   ground_albedo;
 };
 
+[[lyra::binding(0, 0)]]
 ConstantBuffer<SkyboxUniform> skybox;
 
 [shader("vertex")]

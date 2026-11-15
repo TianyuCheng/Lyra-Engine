@@ -18,8 +18,9 @@ D3D12_DESCRIPTOR_RANGE_TYPE infer_buffer_descriptor_type(const GPUBufferBindingL
 {
     switch (entry.type) {
         case GPUBufferBindingType::STORAGE:
-        case GPUBufferBindingType::READ_ONLY_STORAGE:
             return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+        case GPUBufferBindingType::READ_ONLY_STORAGE:
+            return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
         case GPUBufferBindingType::UNIFORM:
             return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
         default:
@@ -126,7 +127,11 @@ D3D12PipelineLayout::D3D12PipelineLayout(const GPUPipelineLayoutDescriptor& desc
             for (auto& range : layout.dynamic_ranges) {
                 root_parameters.push_back({});
                 auto& root_param                     = root_parameters.back();
-                root_param.ParameterType             = range.RangeType == D3D12_DESCRIPTOR_RANGE_TYPE_CBV ? D3D12_ROOT_PARAMETER_TYPE_CBV : D3D12_ROOT_PARAMETER_TYPE_UAV;
+                root_param.ParameterType             = range.RangeType == D3D12_DESCRIPTOR_RANGE_TYPE_CBV
+                                                           ? D3D12_ROOT_PARAMETER_TYPE_CBV
+                                                           : (range.RangeType == D3D12_DESCRIPTOR_RANGE_TYPE_SRV
+                                                                     ? D3D12_ROOT_PARAMETER_TYPE_SRV
+                                                                     : D3D12_ROOT_PARAMETER_TYPE_UAV);
                 root_param.ShaderVisibility          = layout.visibility;
                 root_param.Descriptor.ShaderRegister = range.BaseShaderRegister;
                 root_param.Descriptor.RegisterSpace  = range.RegisterSpace;
@@ -447,11 +452,42 @@ void D3D12BindGroupLayout::create_buffer_descriptor(D3D12BindGroupHeap& heap, co
         case D3D12_DESCRIPTOR_RANGE_TYPE_CBV:
             create_buffer_cbv_descriptor(heap, entry, bind_info, bind_group);
             break;
+        case D3D12_DESCRIPTOR_RANGE_TYPE_SRV:
+            create_buffer_srv_descriptor(heap, entry, bind_info, bind_group);
+            break;
         case D3D12_DESCRIPTOR_RANGE_TYPE_UAV:
             create_buffer_uav_descriptor(heap, entry, bind_info, bind_group);
             break;
         default:
-            assert(!!!"Buffer descriptor only supports CBV and UAV!");
+            assert(!!!"Buffer descriptor only supports CBV, SRV, and UAV!");
+    }
+}
+
+void D3D12BindGroupLayout::create_buffer_srv_descriptor(D3D12BindGroupHeap& heap, const GPUBindGroupEntry& entry, const D3D12BindInfo& bind_info, D3D12BindGroup& bind_group)
+{
+    auto  rhi = get_rhi();
+    auto& buf = fetch_resource(rhi->buffers, entry.buffer.buffer);
+
+    if (bind_info.dynamic) {
+        uint  index    = heap.dynamic_heap.allocate();
+        auto& object   = heap.dynamic_heap.at(index);
+        object.type    = D3D12_ROOT_PARAMETER_TYPE_SRV;
+        object.address = buf.buffer->GetGPUVirtualAddress() + entry.buffer.offset;
+        if (bind_group.dynamic_index == std::numeric_limits<uint16_t>::max())
+            bind_group.dynamic_index = index;
+    } else {
+        D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc{};
+        srv_desc.Format                     = DXGI_FORMAT_R32_TYPELESS;
+        srv_desc.ViewDimension              = D3D12_SRV_DIMENSION_BUFFER;
+        srv_desc.Shader4ComponentMapping    = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        srv_desc.Buffer.FirstElement        = entry.buffer.offset / 4;
+        auto total_size                     = static_cast<uint>(entry.buffer.size == 0 ? buf.size() : entry.buffer.size);
+        srv_desc.Buffer.NumElements         = total_size / 4;
+        srv_desc.Buffer.StructureByteStride = 0;
+        srv_desc.Buffer.Flags               = D3D12_BUFFER_SRV_FLAG_RAW;
+
+        D3D12_CPU_DESCRIPTOR_HANDLE descriptor = rhi->gpu_default_heap.cpu(bind_group.default_index + bind_info.start);
+        rhi->device->CreateShaderResourceView(buf.buffer, &srv_desc, descriptor);
     }
 }
 

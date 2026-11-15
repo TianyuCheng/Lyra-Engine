@@ -190,7 +190,7 @@ ShadowMapData ShadowMapPass::add(
     uint               cascade_count,
     uint               resolution)
 {
-    frame_slot = (frame_slot + 1) % FRAMES_IN_FLIGHT;
+    frame_slot        = (frame_slot + 1) % FRAMES_IN_FLIGHT;
     uint current_slot = frame_slot;
 
     // calculate directional light view-proj and update uniform buffer for current frame slot
@@ -280,7 +280,7 @@ ShadowMapData ShadowMapPass::add(
                         bg_desc.heap    = heap;
                         bg_desc.layout  = blayouts[1];
                         bg_desc.entries = entries;
-                        it = geometry_bind_groups.emplace(vb_handle.value, device.create_bind_group(bg_desc)).first;
+                        it              = geometry_bind_groups.emplace(vb_handle.value, device.create_bind_group(bg_desc)).first;
                     }
 
                     if (it != geometry_bind_groups.end() && last_bound_vbuf != vb_handle.value) {

@@ -215,7 +215,7 @@ EditorGridData EditorGridPass::add(
 {
     MAYBE_UNUSED(settings);
 
-    frame_slot = (frame_slot + 1) % FRAMES_IN_FLIGHT;
+    frame_slot        = (frame_slot + 1) % FRAMES_IN_FLIGHT;
     uint current_slot = frame_slot;
 
     // update camera uniforms for view in current slot

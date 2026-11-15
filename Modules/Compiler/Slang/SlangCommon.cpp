@@ -211,6 +211,46 @@ String preprocess_lyra_shader_source(const String& input, CompileTarget target)
         return m[0].str();
     });
 
+    // 2.1 Combined group and binding: [[lyra::group(set)]] [[lyra::binding(binding)]]
+    static const std::regex group_binding_regex(R"((\[\[?\s*(?:lyra::)?(?:group|set)\s*\(\s*(\d+)\s*\)\s*\]?\])\s*(\[\[?\s*(?:lyra::)?binding\s*\(\s*(\d+)\s*\)\s*\]?\])\s*([^;]+);)");
+    result = regex_replace_callback(result, group_binding_regex, [&](const std::smatch& m) -> String {
+        String s    = m[2].str();
+        String b    = m[4].str();
+        String decl = m[5].str();
+
+        char reg = get_reg_type(decl);
+        if (target == CompileTarget::SPIRV) {
+            if (decl.find("vk::binding") == String::npos) {
+                return "[[vk::binding(" + b + ", " + s + ")]] [[lyra::group(" + s + ")]] [[lyra::binding(" + b + ")]] " + decl + ";";
+            }
+        } else if (target == CompileTarget::DXIL || target == CompileTarget::MSL) {
+            if (decl.find("register") == String::npos) {
+                return "[[lyra::group(" + s + ")]] [[lyra::binding(" + b + ")]] " + decl + " : register(" + reg + b + ", space" + s + ");";
+            }
+        }
+        return m[0].str();
+    });
+
+    // 2.2 Combined binding and group: [[lyra::binding(binding)]] [[lyra::group(set)]]
+    static const std::regex binding_group_regex(R"((\[\[?\s*(?:lyra::)?binding\s*\(\s*(\d+)\s*\)\s*\]?\])\s*(\[\[?\s*(?:lyra::)?(?:group|set)\s*\(\s*(\d+)\s*\)\s*\]?\])\s*([^;]+);)");
+    result = regex_replace_callback(result, binding_group_regex, [&](const std::smatch& m) -> String {
+        String b    = m[2].str();
+        String s    = m[4].str();
+        String decl = m[5].str();
+
+        char reg = get_reg_type(decl);
+        if (target == CompileTarget::SPIRV) {
+            if (decl.find("vk::binding") == String::npos) {
+                return "[[vk::binding(" + b + ", " + s + ")]] [[lyra::group(" + s + ")]] [[lyra::binding(" + b + ")]] " + decl + ";";
+            }
+        } else if (target == CompileTarget::DXIL || target == CompileTarget::MSL) {
+            if (decl.find("register") == String::npos) {
+                return "[[lyra::group(" + s + ")]] [[lyra::binding(" + b + ")]] " + decl + " : register(" + reg + b + ", space" + s + ");";
+            }
+        }
+        return m[0].str();
+    });
+
     // 3. Group / Set: [[lyra::group(N)]] or [[lyra::set(N)]]
     static const std::regex group_regex(R"((\[\[?\s*(?:lyra::)?(?:group|set)\s*\(\s*(\d+)\s*\)\s*\]?\])\s*([^;]+);)");
     result = regex_replace_callback(result, group_regex, [&](const std::smatch& m) -> String {
@@ -218,17 +258,26 @@ String preprocess_lyra_shader_source(const String& input, CompileTarget target)
         String num  = m[2].str();
         String decl = m[3].str();
 
+        char reg            = get_reg_type(decl);
+        bool is_param_block = (decl.find("ParameterBlock") != String::npos);
+
         if (target == CompileTarget::SPIRV) {
             if (decl.find("vk::binding") == String::npos) {
                 return "[[vk::binding(0, " + num + ")]] " + attr + " " + decl + ";";
             }
         } else if (target == CompileTarget::DXIL) {
             if (decl.find("register") == String::npos) {
-                return attr + " " + decl + " : register(space" + num + ");";
+                if (is_param_block) {
+                    return attr + " " + decl + " : register(space" + num + ");";
+                }
+                return attr + " " + decl + " : register(" + reg + "0, space" + num + ");";
             }
         } else if (target == CompileTarget::MSL) {
             if (decl.find("register") == String::npos) {
-                return attr + " " + decl + " : register(b" + num + ", space" + num + ");";
+                if (is_param_block) {
+                    return attr + " " + decl + " : register(b" + num + ", space" + num + ");";
+                }
+                return attr + " " + decl + " : register(" + reg + "0, space" + num + ");";
             }
         }
         return m[0].str();

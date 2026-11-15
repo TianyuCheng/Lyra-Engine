@@ -5,10 +5,10 @@ struct ShadowCascadeData
     float4x4 light_view_proj;
 };
 
-[[lyra::group(0)]] [[lyra::binding(0)]]
+[[lyra::binding(0, 0)]]
 ConstantBuffer<ShadowCascadeData> cascade_data;
 
-[[lyra::group(1)]] [[lyra::binding(0)]]
+[[lyra::binding(0, 1)]]
 ByteAddressBuffer vertex_buffer;
 
 struct InstanceData

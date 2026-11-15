@@ -149,7 +149,24 @@ D3D12Pipeline::D3D12Pipeline(const GPURenderPipelineDescriptor& desc)
 
     this->layout   = desc.layout;
     this->topology = infer_topology(desc.primitive.topology);
-    ThrowIfFailed(rhi->device->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(&pipeline)));
+
+    HRESULT hr = rhi->device->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(&pipeline));
+    if (FAILED(hr)) {
+        ComPtr<ID3D12InfoQueue> info_queue;
+        if (SUCCEEDED(rhi->device->QueryInterface(IID_PPV_ARGS(&info_queue)))) {
+            UINT64 num_msgs = info_queue->GetNumStoredMessages();
+            for (UINT64 i = 0; i < num_msgs; ++i) {
+                SIZE_T msg_len = 0;
+                info_queue->GetMessage(i, nullptr, &msg_len);
+                Vector<uint8_t> bytes(msg_len);
+                D3D12_MESSAGE*  msg = reinterpret_cast<D3D12_MESSAGE*>(bytes.data());
+                if (SUCCEEDED(info_queue->GetMessage(i, msg, &msg_len))) {
+                    get_logger()->error("[D3D12 InfoQueue] {}", msg->pDescription);
+                }
+            }
+        }
+        ThrowIfFailed(hr);
+    }
 
     if (desc.label)
         pipeline->SetName(to_wstring(desc.label).c_str());

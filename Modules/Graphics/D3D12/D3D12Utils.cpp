@@ -52,7 +52,9 @@ D3D12_RESOURCE_FLAGS infer_buffer_flags(GPUBufferUsageFlags usages)
 {
     D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
 
-    if (usages.contains(GPUBufferUsage::STORAGE)) {
+    if (usages.contains(GPUBufferUsage::STORAGE) &&
+        !usages.contains(GPUBufferUsage::MAP_WRITE) &&
+        !usages.contains(GPUBufferUsage::MAP_READ)) {
         flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
     }
 
@@ -264,6 +266,40 @@ DXGI_FORMAT infer_texture_format(GPUTextureFormat format)
             return DXGI_FORMAT_UNKNOWN;
     }
     throw std::invalid_argument("invalid argument for GPUTextureFormat");
+}
+
+DXGI_FORMAT infer_typeless_depth_format(GPUTextureFormat format)
+{
+    switch (format) {
+        case GPUTextureFormat::DEPTH16UNORM:
+            return DXGI_FORMAT_R16_TYPELESS;
+        case GPUTextureFormat::DEPTH24PLUS:
+        case GPUTextureFormat::DEPTH24PLUS_STENCIL8:
+            return DXGI_FORMAT_R24G8_TYPELESS;
+        case GPUTextureFormat::DEPTH32FLOAT:
+            return DXGI_FORMAT_R32_TYPELESS;
+        case GPUTextureFormat::DEPTH32FLOAT_STENCIL8:
+            return DXGI_FORMAT_R32G8X24_TYPELESS;
+        default:
+            return infer_texture_format(format);
+    }
+}
+
+DXGI_FORMAT infer_srv_depth_format(GPUTextureFormat format)
+{
+    switch (format) {
+        case GPUTextureFormat::DEPTH16UNORM:
+            return DXGI_FORMAT_R16_UNORM;
+        case GPUTextureFormat::DEPTH24PLUS:
+        case GPUTextureFormat::DEPTH24PLUS_STENCIL8:
+            return DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+        case GPUTextureFormat::DEPTH32FLOAT:
+            return DXGI_FORMAT_R32_FLOAT;
+        case GPUTextureFormat::DEPTH32FLOAT_STENCIL8:
+            return DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
+        default:
+            return infer_texture_format(format);
+    }
 }
 
 D3D12_PRIMITIVE_TOPOLOGY_TYPE infer_topology_type(GPUPrimitiveTopology topology)
