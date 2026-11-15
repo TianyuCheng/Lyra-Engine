@@ -68,7 +68,7 @@ namespace lyra::passes
         [[nodiscard]] bool valid() const { return initialized && pipeline.valid(); }
 
     private:
-        void update_camera_uniform(const RenderView& view);
+        void update_camera_uniform(const RenderView& view, const RenderScene& scene);
 
     private:
         GPUDevice                        device;

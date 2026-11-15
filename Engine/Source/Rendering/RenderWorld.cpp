@@ -85,11 +85,21 @@ void RenderWorld::extract_lights(const World& ecs_world)
         Matrix4x4 world_xform(1.0f);
         if (auto tw = ecs_world.registry.try_get<TransformWorld>(entity)) {
             world_xform = tw->xform;
+        } else if (auto tl = ecs_world.registry.try_get<TransformLocal>(entity)) {
+            Matrix4x4 t = glm::translate(Matrix4x4(1.0f), tl->position);
+            Matrix4x4 r = glm::mat4_cast(tl->rotation);
+            Matrix4x4 s = glm::scale(Matrix4x4(1.0f), tl->scale);
+            world_xform = t * r * s;
         }
 
         auto l      = RenderLight{};
         l.type      = RenderLightType::DIRECTIONAL;
-        l.direction = glm::normalize(Matrix3x3(world_xform) * light.direction);
+        Vector3 dir = Matrix3x3(world_xform) * light.direction;
+        if (glm::length2(dir) > 1e-6f) {
+            l.direction = glm::normalize(dir);
+        } else {
+            l.direction = Vector3(0.0f, -1.0f, 0.0f);
+        }
         l.color     = light.color;
         l.intensity = light.intensity;
         scene.directional_lights.push_back(l);

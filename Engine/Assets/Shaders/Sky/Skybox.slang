@@ -1,5 +1,6 @@
 import lyra;
 import Sky.Atmosphere;
+import Common.Tonemapping;
 
 struct VertexOutput
 {
@@ -7,17 +8,22 @@ struct VertexOutput
     float3 ray_dir  : TEXCOORD0;
 };
 
-struct Camera
+struct SkyboxUniform
 {
     float4x4 proj;
     float4x4 view;
     float4x4 inv_proj;
     float4x4 inv_view;
-    float3   pos;
-    float    padding;
+    float3   camera_pos;
+    float    sun_intensity;
+    float3   sun_dir;
+    float    sun_angular_radius;
+    float3   sun_color;
+    float    ground_roughness;
+    float4   ground_albedo;
 };
 
-ConstantBuffer<Camera> camera;
+ConstantBuffer<SkyboxUniform> skybox;
 
 [shader("vertex")]
 VertexOutput vsmain(uint vertex_id : SV_VertexID)
@@ -38,11 +44,11 @@ VertexOutput vsmain(uint vertex_id : SV_VertexID)
     output.position = float4(p, 1.0, 1.0);
 
     // unproject far clip point to world space to compute ray direction
-    float4 p_far_view  = mul(float4(p, 1.0, 1.0), camera.inv_proj);
+    float4 p_far_view  = mul(float4(p, 1.0, 1.0), skybox.inv_proj);
     p_far_view        /= p_far_view.w;
-    float3 p_far_world = mul(float4(p_far_view.xyz, 1.0), camera.inv_view).xyz;
+    float3 p_far_world = mul(float4(p_far_view.xyz, 1.0), skybox.inv_view).xyz;
 
-    output.ray_dir = normalize(p_far_world - camera.pos);
+    output.ray_dir = normalize(p_far_world - skybox.camera_pos);
     return output;
 }
 
@@ -52,13 +58,47 @@ float4 fsmain(VertexOutput input) : SV_Target
     float3 dir = normalize(input.ray_dir);
     AtmosphereParameters atmo = default_earth_atmosphere();
 
-    // normalized sun direction vector (e.g. standard sunlight direction)
-    float3 sun_dir    = normalize(float3(0.3, 0.6, 0.4));
-    float3 camera_pos = float3(0.0, atmo.planet_radius + 0.001, 0.0);
+    atmo.sun_intensity      = skybox.sun_intensity;
+    atmo.sun_angular_radius = skybox.sun_angular_radius;
+    float3 sun_dir          = normalize(skybox.sun_dir);
 
-    // evaluate physical Rayleigh + Mie atmospheric scattering along view ray
-    float3 sky = evaluate_sky_radiance(atmo, camera_pos, dir, sun_dir, 16);
-    sky += render_sun_disc(atmo, dir, sun_dir);
+    // camera altitude in kilometers (scene coordinates in meters)
+    float cam_alt_km  = max(skybox.camera_pos.y * 0.001, 0.0);
+    float3 camera_pos = float3(0.0, atmo.planet_radius + 0.001 + cam_alt_km, 0.0);
 
-    return float4(sky, 1.0);
+    // reference horizon sky radiance to guarantee seamless continuity at the horizon
+    float3 horizon_dir = normalize(float3(dir.x, 0.002, dir.z));
+    float3 horizon_sky = evaluate_sky_radiance(atmo, camera_pos, horizon_dir, sun_dir, 16);
+
+    float3 color;
+    if (dir.y >= 0.0)
+    {
+        // 1. Upper hemisphere: atmospheric Rayleigh & Mie scattering + direct sun disc
+        color = evaluate_sky_radiance(atmo, camera_pos, dir, sun_dir, 16);
+        color += render_sun_disc(atmo, dir, sun_dir) * skybox.sun_color;
+    }
+    else
+    {
+        // 2. Lower hemisphere (ground / earth surface):
+        // direct sun illumination on horizontal ground plane
+        float sun_elev = max(sun_dir.y, 0.0);
+        float3 sun_irradiance = skybox.sun_color * (sun_elev * skybox.sun_intensity * 0.15);
+
+        // ambient skylight arriving at the ground
+        float3 sky_ambient = horizon_sky * 0.25;
+
+        // diffuse ground reflectance (dark neutral tone matching editor ground)
+        float3 ground_radiance = skybox.ground_albedo.rgb * (sun_irradiance + sky_ambient);
+
+        // atmospheric aerial perspective (distance haze)
+        // near the horizon, thick air column matches horizon haze seamlessly;
+        // looking down towards nadir, ground albedo dominates.
+        float haze = exp(-6.0 * max(-dir.y, 0.0));
+        color = lerp(ground_radiance, horizon_sky, haze);
+    }
+
+    // ACES filmic tonemapping for rich HDR response
+    color = tonemap_aces_film(color);
+
+    return float4(color, 1.0);
 }

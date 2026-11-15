@@ -9,7 +9,11 @@ struct Camera
     float4x4 inv_proj;
     float4x4 inv_view;
     float3   pos;
+    float    sun_intensity;
+    float3   sun_dir;
     float    padding;
+    float3   sun_color;
+    float    padding2;
 };
 
 ConstantBuffer<Camera> camera;
@@ -76,16 +80,16 @@ float4 fsmain(VertexOutput input) : SV_Target
 
     // 3. Toon / Cel shading model
     if (instance_data.shading_model == 2) {
-        float3 L = normalize(float3(0.5, 1.0, 0.3));
+        float3 L = normalize(camera.sun_dir);
         float NdotL = dot(N, L);
         float toon_diff = smoothstep(0.0, 0.05, NdotL) * 0.5 + smoothstep(0.5, 0.55, NdotL) * 0.5;
-        float3 lit = instance_data.color.rgb * max(toon_diff, 0.15);
+        float3 lit = instance_data.color.rgb * max(toon_diff, 0.15) * camera.sun_color;
         return float4(tonemap_aces_film(lit), instance_data.color.a);
     }
 
     // 4. Default PBR shading model (evaluating IBSDF)
-    float3 L = normalize(float3(0.5, 1.0, 0.3));
-    float3 light_radiance = float3(2.5, 2.4, 2.2);
+    float3 L = normalize(camera.sun_dir);
+    float3 light_radiance = camera.sun_color * camera.sun_intensity;
 
     PBRMaterial mat;
     mat.base_color   = instance_data.color.rgb;

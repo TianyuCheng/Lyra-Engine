@@ -7,14 +7,19 @@ using namespace lyra::passes;
 
 namespace
 {
-    struct CameraUniform
+    struct SkyboxUniform
     {
         Matrix4x4 proj;
         Matrix4x4 view;
         Matrix4x4 inv_proj;
         Matrix4x4 inv_view;
-        Vector3   pos;
-        float     padding = 0.0f;
+        Vector3   camera_pos;
+        float     sun_intensity      = 20.0f;
+        Vector3   sun_dir            = Vector3(0.3f, 0.6f, 0.4f);
+        float     sun_angular_radius = 0.004675f;
+        Vector3   sun_color          = Vector3(1.0f);
+        float     ground_roughness   = 0.8f;
+        Vector4   ground_albedo      = Vector4(0.12f, 0.12f, 0.14f, 1.0f);
     };
 } // namespace
 
@@ -118,7 +123,7 @@ bool SkyboxPass::init(
     camera_buffer = execute([&]() {
         auto desc               = GPUBufferDescriptor{};
         desc.label              = "skybox_camera_buffer";
-        desc.size               = sizeof(CameraUniform);
+        desc.size               = sizeof(SkyboxUniform);
         desc.usage              = GPUBufferUsage::UNIFORM | GPUBufferUsage::MAP_WRITE;
         desc.mapped_at_creation = true;
         return device.create_buffer(desc);
@@ -171,19 +176,44 @@ void SkyboxPass::destroy()
     initialized = false;
 }
 
-void SkyboxPass::update_camera_uniform(const RenderView& view)
+void SkyboxPass::update_camera_uniform(const RenderView& view, const RenderScene& scene)
 {
     if (!camera_buffer.valid()) {
         return;
     }
 
-    auto camera_gpu           = camera_buffer.get_mapped_range<CameraUniform>();
-    camera_gpu.at(0).proj     = view.projection;
-    camera_gpu.at(0).view     = view.view;
-    camera_gpu.at(0).inv_proj = view.inv_projection;
-    camera_gpu.at(0).inv_view = view.inv_view;
-    camera_gpu.at(0).pos      = view.camera_position;
-    camera_gpu.at(0).padding  = 0.0f;
+    auto u = camera_buffer.get_mapped_range<SkyboxUniform>();
+    if (u.count == 0) {
+        return;
+    }
+
+    u.at(0).proj       = view.projection;
+    u.at(0).view       = view.view;
+    u.at(0).inv_proj   = view.inv_projection;
+    u.at(0).inv_view   = view.inv_view;
+    u.at(0).camera_pos = view.camera_position;
+
+    Vector3 sun_dir       = glm::normalize(Vector3(0.3f, 0.6f, 0.4f));
+    Vector3 sun_color     = Vector3(1.0f);
+    float   sun_intensity = 20.0f;
+
+    if (!scene.directional_lights.empty()) {
+        const auto& light = scene.directional_lights[0];
+        // light.direction is propagation direction (pointing down towards ground).
+        // sun direction in the sky is the opposite vector pointing towards the sun.
+        if (glm::length2(light.direction) > 1e-4f) {
+            sun_dir = -glm::normalize(light.direction);
+        }
+        sun_color     = light.color;
+        sun_intensity = std::clamp(light.intensity * 0.02f, 1.0f, 100.0f);
+    }
+
+    u.at(0).sun_intensity      = sun_intensity;
+    u.at(0).sun_dir            = sun_dir;
+    u.at(0).sun_angular_radius = 0.004675f;
+    u.at(0).sun_color          = sun_color;
+    u.at(0).ground_roughness   = 0.8f;
+    u.at(0).ground_albedo      = Vector4(0.12f, 0.12f, 0.14f, 1.0f);
 }
 
 SkyboxData SkyboxPass::add(
@@ -193,9 +223,7 @@ SkyboxData SkyboxPass::add(
     const RenderView&                   view,
     const RenderScene&                  scene)
 {
-    MAYBE_UNUSED(scene);
-
-    update_camera_uniform(view);
+    update_camera_uniform(view, scene);
 
     return builder.add_pass<SkyboxData>(
         "SkyboxPass",

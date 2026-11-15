@@ -207,7 +207,7 @@ void ForwardPass::destroy()
     initialized       = false;
 }
 
-void ForwardPass::update_camera_buffer(const RenderView& view)
+void ForwardPass::update_camera_buffer(const RenderView& view, const RenderScene& scene)
 {
     if (!camera_buffer.valid()) {
         return;
@@ -220,7 +220,26 @@ void ForwardPass::update_camera_buffer(const RenderView& view)
         mapped.at(0).inv_proj = view.inv_projection;
         mapped.at(0).inv_view = view.inv_view;
         mapped.at(0).pos      = view.camera_position;
-        mapped.at(0).padding  = 0.0f;
+
+        Vector3 sun_dir       = glm::normalize(Vector3(0.5f, 1.0f, 0.3f));
+        Vector3 sun_color     = Vector3(1.0f);
+        float   sun_intensity = 2.5f;
+
+        if (!scene.directional_lights.empty()) {
+            const auto& light = scene.directional_lights[0];
+            if (glm::length2(light.direction) > 1e-4f) {
+                // Vector pointing to sun is opposite of propagation direction
+                sun_dir = -glm::normalize(light.direction);
+            }
+            sun_color     = light.color;
+            sun_intensity = std::max(light.intensity * 0.0025f, 0.1f);
+        }
+
+        mapped.at(0).sun_intensity = sun_intensity;
+        mapped.at(0).sun_dir       = sun_dir;
+        mapped.at(0).padding       = 0.0f;
+        mapped.at(0).sun_color     = sun_color;
+        mapped.at(0).padding2      = 0.0f;
     }
 }
 
@@ -235,6 +254,8 @@ ForwardPassData ForwardPass::add(
     if (!params.color_target.valid() || params.extent.width == 0 || params.extent.height == 0) {
         return out;
     }
+
+    update_camera_buffer(params.view, params.scene);
 
     return builder.add_pass<ForwardPassData>(
         "ForwardPass",
@@ -268,7 +289,7 @@ ForwardPassData ForwardPass::add(
                 return;
             }
 
-            update_camera_buffer(params.view);
+            update_camera_buffer(params.view, params.scene);
 
             auto color_attachment        = GPURenderPassColorAttachment{};
             color_attachment.view        = color_tex->view;

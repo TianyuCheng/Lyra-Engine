@@ -88,7 +88,11 @@ namespace lyra::passes
             Matrix4x4 inv_proj;
             Matrix4x4 inv_view;
             Vector3   pos;
-            float     padding;
+            float     sun_intensity = 2.5f;
+            Vector3   sun_dir       = Vector3(0.5f, 1.0f, 0.3f);
+            float     padding       = 0.0f;
+            Vector3   sun_color     = Vector3(1.0f);
+            float     padding2      = 0.0f;
         };
 
         struct InstanceData
@@ -99,7 +103,7 @@ namespace lyra::passes
             Vector3   extra_params;
         };
 
-        void update_camera_buffer(const RenderView& view);
+        void update_camera_buffer(const RenderView& view, const RenderScene& scene);
 
     private:
         GPUDevice                        device;
