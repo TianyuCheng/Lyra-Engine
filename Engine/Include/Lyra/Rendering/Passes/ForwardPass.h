@@ -95,13 +95,20 @@ namespace lyra::passes
             float     padding2      = 0.0f;
         };
 
-        struct InstanceData
+        struct alignas(16) InstanceData
         {
             Matrix4x4 model;
             Vector4   color;
-            uint      shading_model;
-            Vector3   extra_params;
+            Vector4   params; // x = roughness, y = metallic, z = clear_coat, w = asfloat(shading_model)
+            uint      pos_offset  = 0;
+            uint      norm_offset = 0;
+            uint      uv_offset   = 0;
+            uint      padding     = 0;
         };
+        static_assert(sizeof(InstanceData) == 112);
+        static_assert(offsetof(InstanceData, pos_offset) == 96);
+        static_assert(offsetof(InstanceData, norm_offset) == 100);
+        static_assert(offsetof(InstanceData, uv_offset) == 104);
 
         void update_camera_buffer(const RenderView& view, const RenderScene& scene);
 
@@ -115,10 +122,12 @@ namespace lyra::passes
         GPUBindGroupHeap                 heap;
         GPUBuffer                        camera_buffer;
         GPUBindGroup                     camera_bind_group;
+        HashMap<uint64_t, GPUBindGroup>  geometry_bind_groups;
 
         GPUTextureFormat cached_color_format = GPUTextureFormat::RGBA8UNORM;
         GPUTextureFormat cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;
-        bool             initialized         = false;
+
+        bool initialized = false;
     };
 
 } // namespace lyra::passes

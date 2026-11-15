@@ -92,21 +92,6 @@ bool DepthPrepass::init(
     });
 
     pipeline = execute([&]() {
-        Vector<GPUVertexAttribute> attributes;
-        auto                       pos_attr = GPUVertexAttribute{};
-        pos_attr.format                     = GPUVertexFormat::FLOAT32x3;
-        pos_attr.offset                     = 0;
-        pos_attr.shader_location            = 0;
-        pos_attr.shader_semantic            = "POSITION";
-        attributes.push_back(pos_attr);
-
-        Vector<GPUVertexBufferLayout> vlayouts;
-        auto                          vlayout = GPUVertexBufferLayout{};
-        vlayout.array_stride                  = sizeof(Vector3); // position stream stride: 12 bytes
-        vlayout.step_mode                     = GPUVertexStepMode::VERTEX;
-        vlayout.attributes                    = attributes;
-        vlayouts.push_back(vlayout);
-
         auto desc                              = GPURenderPipelineDescriptor{};
         desc.layout                            = playout;
         desc.primitive.cull_mode               = GPUCullMode::BACK;
@@ -118,7 +103,7 @@ bool DepthPrepass::init(
         desc.depth_stencil.format              = cached_depth_format;
         desc.multisample.count                 = 1;
         desc.vertex.module                     = vshader;
-        desc.vertex.buffers                    = vlayouts;
+        desc.vertex.buffers                    = {}; // vertex pulling: no input assembler buffers
         desc.vertex.entry_point                = "vsmain";
         desc.fragment.module                   = fshader;
         desc.fragment.targets                  = {}; // no color targets for depth-only pass
@@ -177,6 +162,7 @@ void DepthPrepass::destroy()
     if (fshader.valid()) fshader.destroy();
     if (vshader.valid()) vshader.destroy();
     blayouts.clear();
+    geometry_bind_groups.clear();
     bind_group = {};
 
     initialized = false;
@@ -246,23 +232,54 @@ DepthPrepassData DepthPrepass::add(
             command.set_pipeline(pipeline);
             command.set_bind_group(0, bind_group);
 
+            uint64_t last_bound_vbuf = ~0ull;
+
             // rasterize all opaque scene meshes
             for (const auto& mesh : scene.meshes) {
                 if (!mesh.geometry.valid() || mesh.index_count == 0) {
                     continue;
                 }
 
-                InstanceData inst{mesh.transform};
+                GPUBufferHandle vb_handle = mesh.geometry.vertex_slice.buffer;
+                if (!vb_handle.valid()) {
+                    continue;
+                }
+
+                if (blayouts.size() > 1) {
+                    auto it = geometry_bind_groups.find(vb_handle.value);
+                    if (it == geometry_bind_groups.end()) {
+                        Array<GPUBindGroupEntry, 1> entries{};
+                        entries[0].type          = GPUResourceType::BUFFER;
+                        entries[0].binding       = 0;
+                        entries[0].buffer.buffer = vb_handle;
+                        entries[0].buffer.offset = 0;
+                        entries[0].buffer.size   = 0;
+
+                        auto bg_desc    = GPUBindGroupDescriptor{};
+                        bg_desc.heap    = heap;
+                        bg_desc.layout  = blayouts[1];
+                        bg_desc.entries = entries;
+                        it = geometry_bind_groups.emplace(vb_handle.value, device.create_bind_group(bg_desc)).first;
+                    }
+
+                    if (it != geometry_bind_groups.end() && last_bound_vbuf != vb_handle.value) {
+                        command.set_bind_group(1, it->second);
+                        last_bound_vbuf = vb_handle.value;
+                    }
+                }
+
+                const auto& offsets     = mesh.geometry.stream_offsets;
+                GPUSize64   base_offset = mesh.geometry.vertex_slice.offset;
+
+                InstanceData inst{};
+                inst.model      = mesh.transform;
+                inst.pos_offset = static_cast<uint>(base_offset + (offsets.has_position() ? offsets.position : 0));
+
                 command.set_immediates(0, inst);
-                GPUBuffer vbuf{};
-                vbuf.handle = mesh.geometry.vertex_slice.buffer;
+
                 GPUBuffer ibuf{};
                 ibuf.handle = mesh.geometry.index_slice.buffer;
 
-                const auto& offsets    = mesh.geometry.stream_offsets;
-                GPUSize64   pos_offset = mesh.geometry.vertex_slice.offset + (offsets.has_position() ? offsets.position : 0);
-
-                command.set_vertex_buffer(0, vbuf, pos_offset);
                 command.set_index_buffer(ibuf, mesh.geometry.index_format, mesh.geometry.index_slice.offset);
                 command.draw_indexed(mesh.index_count, 1, mesh.first_index, 0, 0);
             }

@@ -59,10 +59,16 @@ namespace lyra::passes
             Matrix4x4 light_view_proj;
         };
 
-        struct InstanceData
+        struct alignas(16) InstanceData
         {
             Matrix4x4 model;
+            uint      pos_offset = 0;
+            uint      padding0   = 0;
+            uint      padding1   = 0;
+            uint      padding2   = 0;
         };
+        static_assert(sizeof(InstanceData) == 80);
+        static_assert(offsetof(InstanceData, pos_offset) == 64);
 
         GPUDevice                        device;
         GPURenderPipeline                pipeline;
@@ -73,6 +79,7 @@ namespace lyra::passes
         GPUBindGroupHeap                 heap;
         GPUBuffer                        cascade_uniform_buffer;
         GPUBindGroup                     bind_group;
+        HashMap<uint64_t, GPUBindGroup>  geometry_bind_groups;
         GPUTextureFormat                 cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;
         bool                             initialized         = false;
     };

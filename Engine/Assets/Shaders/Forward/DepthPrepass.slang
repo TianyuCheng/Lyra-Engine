@@ -10,20 +10,23 @@ struct Camera
     float    padding;
 };
 
+[[lyra::group(0)]] [[lyra::binding(0)]]
 ConstantBuffer<Camera> camera;
+
+[[lyra::group(1)]] [[lyra::binding(0)]]
+ByteAddressBuffer vertex_buffer;
 
 struct InstanceData
 {
     float4x4 model;
+    uint     pos_offset;
+    uint     padding0;
+    uint     padding1;
+    uint     padding2;
 };
 
 [[lyra::immediates]]
 ConstantBuffer<InstanceData> instance_data;
-
-struct VertexInput
-{
-    float3 position : POSITION;
-};
 
 struct VertexOutput
 {
@@ -31,10 +34,11 @@ struct VertexOutput
 };
 
 [shader("vertex")]
-VertexOutput vsmain(VertexInput input)
+VertexOutput vsmain(uint vertex_id : SV_VertexID)
 {
     VertexOutput output;
-    float4 world_pos = mul(float4(input.position, 1.0), instance_data.model);
+    float3 position = vertex_buffer.Load<float3>(instance_data.pos_offset + vertex_id * 12);
+    float4 world_pos = mul(float4(position, 1.0), instance_data.model);
     output.position  = mul(mul(world_pos, camera.view), camera.proj);
     return output;
 }

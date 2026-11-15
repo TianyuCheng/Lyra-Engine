@@ -16,25 +16,25 @@ struct Camera
     float    padding2;
 };
 
+[[lyra::group(0)]] [[lyra::binding(0)]]
 ConstantBuffer<Camera> camera;
+
+[[lyra::group(1)]] [[lyra::binding(0)]]
+ByteAddressBuffer vertex_buffer;
 
 struct InstanceData
 {
     float4x4 model;
     float4   color;
-    uint     shading_model; // 0 = PBR, 1 = Unlit, 2 = Toon, 3 = Subsurface, 4 = Custom
-    float3   extra_params;  // x = roughness, y = metallic, z = clear_coat
+    float4   params; // x = roughness, y = metallic, z = clear_coat, w = asfloat(shading_model)
+    uint     pos_offset;
+    uint     norm_offset;
+    uint     uv_offset;
+    uint     padding;
 };
 
 [[lyra::immediates]]
 ConstantBuffer<InstanceData> instance_data;
-
-struct VertexInput
-{
-    float3 position : POSITION;
-    float3 normal   : NORMAL;
-    float2 uv       : TEXCOORD0;
-};
 
 struct VertexOutput
 {
@@ -51,22 +51,30 @@ float4 evaluate_custom_shading(VertexOutput input, float3 N, float3 V)
 }
 
 [shader("vertex")]
-VertexOutput vsmain(VertexInput input)
+VertexOutput vsmain(uint vertex_id : SV_VertexID)
 {
     VertexOutput output;
-    float4 world_pos = mul(float4(input.position, 1.0), instance_data.model);
+
+    // pull vertex attributes directly from byte-address storage buffer
+    float3 position = vertex_buffer.Load<float3>(instance_data.pos_offset + vertex_id * 12);
+    float3 normal   = vertex_buffer.Load<float3>(instance_data.norm_offset + vertex_id * 12);
+    float2 uv       = vertex_buffer.Load<float2>(instance_data.uv_offset + vertex_id * 8);
+
+    float4 world_pos = mul(float4(position, 1.0), instance_data.model);
     output.world_pos = world_pos.xyz;
     output.position  = mul(mul(world_pos, camera.view), camera.proj);
-    output.normal    = mul(input.normal, (float3x3)instance_data.model);
-    output.uv        = input.uv;
+    output.normal    = mul(normal, (float3x3)instance_data.model);
+    output.uv        = uv;
     return output;
 }
 
 [shader("fragment")]
 float4 fsmain(VertexOutput input) : SV_Target
 {
+    uint shading_model = asuint(instance_data.params.w);
+
     // 1. Unlit shading model
-    if (instance_data.shading_model == 1) {
+    if (shading_model == 1) {
         return instance_data.color;
     }
 
@@ -74,12 +82,12 @@ float4 fsmain(VertexOutput input) : SV_Target
     float3 V = normalize(camera.pos - input.world_pos);
 
     // 2. Custom user material shading model
-    if (instance_data.shading_model >= 4) {
+    if (shading_model >= 4) {
         return evaluate_custom_shading(input, N, V);
     }
 
     // 3. Toon / Cel shading model
-    if (instance_data.shading_model == 2) {
+    if (shading_model == 2) {
         float3 L = normalize(camera.sun_dir);
         float NdotL = dot(N, L);
         float toon_diff = smoothstep(0.0, 0.05, NdotL) * 0.5 + smoothstep(0.5, 0.55, NdotL) * 0.5;
@@ -93,10 +101,10 @@ float4 fsmain(VertexOutput input) : SV_Target
 
     PBRMaterial mat;
     mat.base_color   = instance_data.color.rgb;
-    mat.metallic     = instance_data.extra_params.y;
-    mat.roughness    = max(instance_data.extra_params.x, 0.05);
+    mat.metallic     = instance_data.params.y;
+    mat.roughness    = max(instance_data.params.x, 0.05);
     mat.reflectance  = 0.5;
-    mat.clear_coat.factor    = instance_data.extra_params.z;
+    mat.clear_coat.factor    = instance_data.params.z;
     mat.clear_coat.roughness = 0.04;
     mat.clear_coat.tint      = float3(0.0);
     mat.clear_coat.thickness = 0.0;

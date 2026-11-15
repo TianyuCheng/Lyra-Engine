@@ -64,6 +64,17 @@ namespace lyra::passes
         [[nodiscard]] bool valid() const { return initialized && pipeline.valid(); }
 
     private:
+        struct alignas(16) InstanceData
+        {
+            Matrix4x4 model;
+            uint      pos_offset = 0;
+            uint      padding0   = 0;
+            uint      padding1   = 0;
+            uint      padding2   = 0;
+        };
+        static_assert(sizeof(InstanceData) == 80);
+        static_assert(offsetof(InstanceData, pos_offset) == 64);
+
         void update_camera_uniform(const RenderView& view);
 
     private:
@@ -76,6 +87,7 @@ namespace lyra::passes
         GPUBindGroupHeap                 heap;
         GPUBindGroup                     bind_group;
         Vector<GPUBindGroupLayoutHandle> blayouts;
+        HashMap<uint64_t, GPUBindGroup>  geometry_bind_groups;
 
         GPUTextureFormat cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;
         bool             initialized         = false;
