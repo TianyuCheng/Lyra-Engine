@@ -14,7 +14,7 @@ using namespace lyra;
 RenderWorld::RenderWorld(GeometryCache& geometry_cache, AssetServer* ams)
     : geometry_cache(geometry_cache), ams(ams)
 {
-    // do nothing else
+    // do nothing
 }
 
 // todo: evolve full per-frame extraction to retained gpu scene:
@@ -42,9 +42,9 @@ void RenderWorld::extract_view(const World& ecs_world)
         auto& cam = cam_view.get<Camera>(entity);
 
         Matrix4x4 world_xform(1.0f);
-        if (auto* tw = ecs_world.registry.try_get<TransformWorld>(entity)) {
+        if (auto tw = ecs_world.registry.try_get<TransformWorld>(entity)) {
             world_xform = tw->xform;
-        } else if (auto* tl = ecs_world.registry.try_get<TransformLocal>(entity)) {
+        } else if (auto tl = ecs_world.registry.try_get<TransformLocal>(entity)) {
             Matrix4x4 t = glm::translate(Matrix4x4(1.0f), tl->position);
             Matrix4x4 r = glm::mat4_cast(tl->rotation);
             Matrix4x4 s = glm::scale(Matrix4x4(1.0f), tl->scale);
@@ -83,7 +83,7 @@ void RenderWorld::extract_lights(const World& ecs_world)
         auto& light = dir_view.get<DirectionalLight>(entity);
 
         Matrix4x4 world_xform(1.0f);
-        if (auto* tw = ecs_world.registry.try_get<TransformWorld>(entity)) {
+        if (auto tw = ecs_world.registry.try_get<TransformWorld>(entity)) {
             world_xform = tw->xform;
         }
 
@@ -101,7 +101,7 @@ void RenderWorld::extract_lights(const World& ecs_world)
         auto& light = point_view.get<PointLight>(entity);
 
         Matrix4x4 world_xform(1.0f);
-        if (auto* tw = ecs_world.registry.try_get<TransformWorld>(entity)) {
+        if (auto tw = ecs_world.registry.try_get<TransformWorld>(entity)) {
             world_xform = tw->xform;
         }
 
@@ -120,7 +120,7 @@ void RenderWorld::extract_lights(const World& ecs_world)
         auto& light = spot_view.get<SpotLight>(entity);
 
         Matrix4x4 world_xform(1.0f);
-        if (auto* tw = ecs_world.registry.try_get<TransformWorld>(entity)) {
+        if (auto tw = ecs_world.registry.try_get<TransformWorld>(entity)) {
             world_xform = tw->xform;
         }
 
@@ -156,9 +156,9 @@ void RenderWorld::extract_meshes(const World& ecs_world, const RendererCapabilit
         }
 
         Matrix4x4 world_xform(1.0f);
-        if (auto* tw = ecs_world.registry.try_get<TransformWorld>(entity)) {
+        if (auto tw = ecs_world.registry.try_get<TransformWorld>(entity)) {
             world_xform = tw->xform;
-        } else if (auto* tl = ecs_world.registry.try_get<TransformLocal>(entity)) {
+        } else if (auto tl = ecs_world.registry.try_get<TransformLocal>(entity)) {
             Matrix4x4 t = glm::translate(Matrix4x4(1.0f), tl->position);
             Matrix4x4 r = glm::mat4_cast(tl->rotation);
             Matrix4x4 s = glm::scale(Matrix4x4(1.0f), tl->scale);
@@ -169,7 +169,7 @@ void RenderWorld::extract_meshes(const World& ecs_world, const RendererCapabilit
         const MeshGeometryEntry* entry = geometry_cache.get(mesh_comp.mesh);
         if (!entry) {
             // 1. check standard procedural mesh primitives
-            if (const auto* proc = find_procedural_mesh(mesh_comp.mesh.guid)) {
+            if (const auto proc = find_procedural_mesh(mesh_comp.mesh.guid)) {
                 entry = geometry_cache.acquire(mesh_comp.mesh, *proc, requested | mesh_comp.preferred_forms);
             }
             // 2. check asset server for cooked/imported assets
@@ -187,7 +187,7 @@ void RenderWorld::extract_meshes(const World& ecs_world, const RendererCapabilit
             // ensure any newly requested geometry forms are loaded
             auto needed = (requested | mesh_comp.preferred_forms);
             if ((entry->loaded_forms & needed) != needed) {
-                if (const auto* proc = find_procedural_mesh(mesh_comp.mesh.guid)) {
+                if (const auto proc = find_procedural_mesh(mesh_comp.mesh.guid)) {
                     entry = geometry_cache.acquire(mesh_comp.mesh, *proc, needed);
                 } else if (ams) {
                     if (auto mesh_asset = ams->get_asset(mesh_comp.mesh)) {
@@ -203,33 +203,45 @@ void RenderWorld::extract_meshes(const World& ecs_world, const RendererCapabilit
 
         const auto& lod0 = entry->lods[0];
 
-        // resolve material shading model
-        ShadingModel shading_model = ShadingModel::PBR;
-        auto         mat_handle    = mesh_comp.material;
-        if (mat_handle.valid() && ams) {
-            auto mat_ptr = ams->get_asset(mat_handle);
-            if (!mat_ptr) {
-                ams->load_asset<MaterialAsset>(mat_handle.guid);
-                mat_ptr = ams->get_asset(mat_handle);
+        // resolve material properties
+        auto resolve_material = [&](MaterialAssetHandle handle) -> std::tuple<ShadingModel, PrimitiveMaterial, CustomPipelineID> {
+            ShadingModel      model  = ShadingModel::PBR;
+            PrimitiveMaterial params = {};
+            CustomPipelineID  pipe   = CustomPipelineID::standard();
+            if (handle.valid() && ams) {
+                auto mat_ptr = ams->get_asset(handle);
+                if (!mat_ptr) {
+                    ams->load_asset<MaterialAsset>(handle.guid);
+                    mat_ptr = ams->get_asset(handle);
+                }
+                if (mat_ptr) {
+                    model               = mat_ptr->shading_model;
+                    params.base_color   = mat_ptr->base_color_factor;
+                    params.roughness    = mat_ptr->roughness_factor;
+                    params.metallic     = mat_ptr->metallic_factor;
+                    params.alpha_cutoff = mat_ptr->alpha_cutoff;
+                }
             }
-            if (mat_ptr) {
-                shading_model = mat_ptr->shading_model;
-            }
-        }
+            return {model, params, pipe};
+        };
+
+        auto [default_model, default_params, default_pipe] = resolve_material(mesh_comp.material);
 
         // 1. indexed trimesh extraction
         if (capabilities.supported_primitives.contains(PrimitiveSupport::MESH) && lod0.indexed.has_value()) {
             const auto& geom = *lod0.indexed;
             if (lod0.surfaces.empty()) {
-                auto prim          = MeshPrimitive{};
-                prim.geometry      = geom;
-                prim.first_index   = 0;
-                prim.index_count   = geom.index_count;
-                prim.material      = mesh_comp.material;
-                prim.transform     = world_xform;
-                prim.world_bounds  = entry->local_bounds.transformed(world_xform);
-                prim.instance_id   = static_cast<uint>(entt::to_integral(entity));
-                prim.shading_model = shading_model;
+                auto prim               = MeshPrimitive{};
+                prim.geometry           = geom;
+                prim.first_index        = 0;
+                prim.index_count        = geom.index_count;
+                prim.material           = mesh_comp.material;
+                prim.transform          = world_xform;
+                prim.world_bounds       = entry->local_bounds.transformed(world_xform);
+                prim.instance_id        = static_cast<uint>(entt::to_integral(entity));
+                prim.shading_model      = default_model;
+                prim.material_params    = default_params;
+                prim.custom_pipeline_id = default_pipe;
                 scene.meshes.push_back(prim);
             } else {
                 for (uint s_idx = 0; s_idx < lod0.surfaces.size(); ++s_idx) {
@@ -243,7 +255,18 @@ void RenderWorld::extract_meshes(const World& ecs_world, const RendererCapabilit
                     prim.transform     = world_xform;
                     prim.world_bounds  = Bounds3D(surf.min_bounds, surf.max_bounds).transformed(world_xform);
                     prim.instance_id   = static_cast<uint>(entt::to_integral(entity));
-                    prim.shading_model = shading_model;
+
+                    if (surf.material.valid() && surf.material != mesh_comp.material) {
+                        auto [surf_model, surf_params, surf_pipe] = resolve_material(surf.material);
+                        prim.shading_model                        = surf_model;
+                        prim.material_params                      = surf_params;
+                        prim.custom_pipeline_id                   = surf_pipe;
+                    } else {
+                        prim.shading_model      = default_model;
+                        prim.material_params    = default_params;
+                        prim.custom_pipeline_id = default_pipe;
+                    }
+
                     scene.meshes.push_back(prim);
                 }
             }
@@ -251,15 +274,17 @@ void RenderWorld::extract_meshes(const World& ecs_world, const RendererCapabilit
 
         // 2. meshlet cluster presentation extraction
         if (capabilities.supported_primitives.contains(PrimitiveSupport::MESHLET) && lod0.meshlet.has_value()) {
-            auto prim           = MeshletPrimitive{};
-            prim.geometry       = *lod0.meshlet;
-            prim.meshlet_offset = 0;
-            prim.meshlet_count  = lod0.meshlet->meshlet_count;
-            prim.material       = mesh_comp.material;
-            prim.transform      = world_xform;
-            prim.world_bounds   = entry->local_bounds.transformed(world_xform);
-            prim.instance_id    = static_cast<uint>(entt::to_integral(entity));
-            prim.shading_model  = shading_model;
+            auto prim               = MeshletPrimitive{};
+            prim.geometry           = *lod0.meshlet;
+            prim.meshlet_offset     = 0;
+            prim.meshlet_count      = lod0.meshlet->meshlet_count;
+            prim.material           = mesh_comp.material;
+            prim.transform          = world_xform;
+            prim.world_bounds       = entry->local_bounds.transformed(world_xform);
+            prim.instance_id        = static_cast<uint>(entt::to_integral(entity));
+            prim.shading_model      = default_model;
+            prim.material_params    = default_params;
+            prim.custom_pipeline_id = default_pipe;
             scene.meshlets.push_back(prim);
         }
 
@@ -283,27 +308,39 @@ void RenderWorld::extract_sdfs(const World& ecs_world)
         auto& sdf_comp = sdf_view.get<SDFVolume>(entity);
 
         Matrix4x4 world_xform(1.0f);
-        if (auto* tw = ecs_world.registry.try_get<TransformWorld>(entity)) {
+        if (auto tw = ecs_world.registry.try_get<TransformWorld>(entity)) {
             world_xform = tw->xform;
-        } else if (auto* tl = ecs_world.registry.try_get<TransformLocal>(entity)) {
+        } else if (auto tl = ecs_world.registry.try_get<TransformLocal>(entity)) {
             Matrix4x4 t = glm::translate(Matrix4x4(1.0f), tl->position);
             Matrix4x4 r = glm::mat4_cast(tl->rotation);
             Matrix4x4 s = glm::scale(Matrix4x4(1.0f), tl->scale);
             world_xform = t * r * s;
         }
 
-        auto prim         = SDFPrimitive{};
-        prim.shape_type   = sdf_comp.shape_type;
-        prim.blend_op     = sdf_comp.blend_op;
-        prim.parameters   = sdf_comp.parameters;
-        prim.material     = sdf_comp.material;
-        prim.transform    = world_xform;
-        prim.world_bounds = Bounds3D(Vector3(-sdf_comp.parameters.x), Vector3(sdf_comp.parameters.x)).transformed(world_xform);
-        prim.instance_id  = static_cast<uint>(entt::to_integral(entity));
+        auto prim               = SDFPrimitive{};
+        prim.shape_type         = sdf_comp.shape_type;
+        prim.blend_op           = sdf_comp.blend_op;
+        prim.parameters         = sdf_comp.parameters;
+        prim.material           = sdf_comp.material;
+        prim.transform          = world_xform;
+        prim.world_bounds       = Bounds3D(Vector3(-sdf_comp.parameters.x), Vector3(sdf_comp.parameters.x)).transformed(world_xform);
+        prim.instance_id        = static_cast<uint>(entt::to_integral(entity));
+        prim.shading_model      = ShadingModel::PBR;
+        prim.custom_pipeline_id = CustomPipelineID::standard();
+        prim.material_params    = PrimitiveMaterial{};
 
         if (sdf_comp.material.valid() && ams) {
-            if (auto mat_ptr = ams->get_asset(sdf_comp.material)) {
-                prim.shading_model = mat_ptr->shading_model;
+            auto mat_ptr = ams->get_asset(sdf_comp.material);
+            if (!mat_ptr) {
+                ams->load_asset<MaterialAsset>(sdf_comp.material.guid);
+                mat_ptr = ams->get_asset(sdf_comp.material);
+            }
+            if (mat_ptr) {
+                prim.shading_model                = mat_ptr->shading_model;
+                prim.material_params.base_color   = mat_ptr->base_color_factor;
+                prim.material_params.roughness    = mat_ptr->roughness_factor;
+                prim.material_params.metallic     = mat_ptr->metallic_factor;
+                prim.material_params.alpha_cutoff = mat_ptr->alpha_cutoff;
             }
         }
 

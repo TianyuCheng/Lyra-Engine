@@ -69,6 +69,16 @@ namespace lyra
          */
         SceneNode spawn(ModelAssetHandle model, const SpawnParams& params = {});
 
+        /**
+         * @brief spawn standard procedural mesh primitives.
+         */
+        SceneNode spawn_cube(const SpawnParams& params = {});
+        SceneNode spawn_sphere(const SpawnParams& params = {});
+        SceneNode spawn_plane(const SpawnParams& params = {});
+        SceneNode spawn_cylinder(const SpawnParams& params = {});
+        SceneNode spawn_icosphere(const SpawnParams& params = {});
+        SceneNode spawn_primitive(AssetID procedural_guid, const String& default_name, const SpawnParams& params = {});
+
         // --- scene / level lifecycle ---
 
         /**

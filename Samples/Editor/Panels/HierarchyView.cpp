@@ -66,10 +66,10 @@ static Entity duplicate_entity(World& world, Entity src, Entity new_parent, Scen
 
     SceneNode target_parent = (new_parent != entt::null) ? SceneNode(new_parent) : SceneNode{};
     if (target_parent.entity == entt::null) {
-        if (auto* p = world.registry.try_get<Parent>(src)) {
+        if (auto p = world.registry.try_get<Parent>(src)) {
             target_parent = p->node;
         } else if (scene_mgr) {
-            if (const auto* active = scene_mgr->get_active()) {
+            if (const auto active = scene_mgr->get_active()) {
                 if (active->root.entity != entt::null && active->root.entity != src) {
                     target_parent = active->root;
                 }
@@ -80,32 +80,32 @@ static Entity duplicate_entity(World& world, Entity src, Entity new_parent, Scen
 
     Entity clone = world.create(new_name);
 
-    if (auto* t = world.registry.try_get<TransformLocal>(src)) {
+    if (auto t = world.registry.try_get<TransformLocal>(src)) {
         world.registry.replace<TransformLocal>(clone, *t);
     }
-    if (auto* c = world.registry.try_get<Camera>(src)) {
+    if (auto c = world.registry.try_get<Camera>(src)) {
         world.registry.emplace_or_replace<Camera>(clone, *c);
     }
-    if (auto* pl = world.registry.try_get<PointLight>(src)) {
+    if (auto pl = world.registry.try_get<PointLight>(src)) {
         world.registry.emplace_or_replace<PointLight>(clone, *pl);
     }
-    if (auto* sl = world.registry.try_get<SpotLight>(src)) {
+    if (auto sl = world.registry.try_get<SpotLight>(src)) {
         world.registry.emplace_or_replace<SpotLight>(clone, *sl);
     }
-    if (auto* dl = world.registry.try_get<DirectionalLight>(src)) {
+    if (auto dl = world.registry.try_get<DirectionalLight>(src)) {
         world.registry.emplace_or_replace<DirectionalLight>(clone, *dl);
     }
-    if (auto* m = world.registry.try_get<Mesh>(src)) {
+    if (auto m = world.registry.try_get<Mesh>(src)) {
         world.registry.emplace_or_replace<Mesh>(clone, *m);
     }
 
     if (new_parent != entt::null) {
         world.add_child(SceneNode(new_parent), SceneNode(clone));
     } else {
-        if (auto* p = world.registry.try_get<Parent>(src)) {
+        if (auto p = world.registry.try_get<Parent>(src)) {
             world.add_child(p->node, SceneNode(clone));
         } else if (scene_mgr) {
-            if (const auto* active = scene_mgr->get_active()) {
+            if (const auto active = scene_mgr->get_active()) {
                 if (active->root.entity != entt::null && active->root.entity != src) {
                     world.add_child(active->root, SceneNode(clone));
                 }
@@ -113,7 +113,7 @@ static Entity duplicate_entity(World& world, Entity src, Entity new_parent, Scen
         }
     }
 
-    if (auto* children = world.registry.try_get<Children>(src)) {
+    if (auto children = world.registry.try_get<Children>(src)) {
         auto child_nodes = children->nodes;
         for (auto child_node : child_nodes) {
             duplicate_entity(world, child_node.entity, clone, scene_mgr);
@@ -214,6 +214,48 @@ static void render_node(
                         if (ctx.scene_mgr) ctx.scene_mgr->set_dirty(true);
                     });
                 });
+                ui::menu(LYRA_ICON_MESH " 3D Object", [&]() {
+                    ui::menu_item(LYRA_ICON_MESH " Cube", [&]() {
+                        if (ctx.scene_mgr) {
+                            SpawnParams params;
+                            params.parent   = SceneNode(entity);
+                            params.position = Vector3(0.0f, 0.5f, 0.0f);
+                            ctx.scene_mgr->spawn_cube(params);
+                        }
+                    });
+                    ui::menu_item(LYRA_ICON_MESH " Sphere", [&]() {
+                        if (ctx.scene_mgr) {
+                            SpawnParams params;
+                            params.parent   = SceneNode(entity);
+                            params.position = Vector3(0.0f, 0.5f, 0.0f);
+                            ctx.scene_mgr->spawn_sphere(params);
+                        }
+                    });
+                    ui::menu_item(LYRA_ICON_MESH " Plane", [&]() {
+                        if (ctx.scene_mgr) {
+                            SpawnParams params;
+                            params.parent   = SceneNode(entity);
+                            params.position = Vector3(0.0f, 0.0f, 0.0f);
+                            ctx.scene_mgr->spawn_plane(params);
+                        }
+                    });
+                    ui::menu_item(LYRA_ICON_MESH " Cylinder", [&]() {
+                        if (ctx.scene_mgr) {
+                            SpawnParams params;
+                            params.parent   = SceneNode(entity);
+                            params.position = Vector3(0.0f, 0.5f, 0.0f);
+                            ctx.scene_mgr->spawn_cylinder(params);
+                        }
+                    });
+                    ui::menu_item(LYRA_ICON_MESH " Icosphere", [&]() {
+                        if (ctx.scene_mgr) {
+                            SpawnParams params;
+                            params.parent   = SceneNode(entity);
+                            params.position = Vector3(0.0f, 0.5f, 0.0f);
+                            ctx.scene_mgr->spawn_icosphere(params);
+                        }
+                    });
+                });
             });
 
             ui::separator();
@@ -240,11 +282,11 @@ static void render_node(
             bool has_parent = world.any_of<Parent>(entity);
             if (has_parent) {
                 ui::menu_item(LYRA_ICON_TREE " Unparent to Root", [&]() {
-                    if (auto* old_p = world.registry.try_get<Parent>(entity)) {
+                    if (auto old_p = world.registry.try_get<Parent>(entity)) {
                         world.del_child(old_p->node, SceneNode(entity));
                     }
                     if (ctx.scene_mgr) {
-                        if (const auto* active = ctx.scene_mgr->get_active()) {
+                        if (const auto active = ctx.scene_mgr->get_active()) {
                             if (active->root.entity != entt::null && active->root.entity != entity) {
                                 world.add_child(active->root, SceneNode(entity));
                             }
@@ -272,7 +314,7 @@ static void render_node(
     auto handle_drop = [&]() {
         ui::drag_drop_target("LYRA_ASSET_MODEL", [&](const void* data, usize) {
             CString path_cstr = static_cast<CString>(data);
-            auto*   ams       = ctx.context.services.try_get<AssetServer*>();
+            auto    ams       = ctx.context.services.try_get<AssetServer*>();
             if (ams && ctx.scene_mgr) {
                 Path model_path(path_cstr);
                 auto model_handle = ams->load_asset<ModelAsset>(path_cstr);
@@ -340,7 +382,7 @@ void HierarchyView::update(AppContext& context)
 {
     ui::workspace::dock_default(LYRA_TREE_VIEW_WINDOW_NAME, ui::Area::Left);
 
-    auto* scene_mgr = context.services.try_get<SceneManager>();
+    auto scene_mgr = context.services.try_get<SceneManager>();
 
     ui::panel(LYRA_TREE_VIEW_WINDOW_NAME, [&]() {
         // scene header bar with active scene name and dirty status
@@ -359,7 +401,7 @@ void HierarchyView::update(AppContext& context)
                     auto&     world = *world_ptr;
                     SceneNode target_parent{};
                     if (scene_mgr) {
-                        if (const auto* active = scene_mgr->get_active()) {
+                        if (const auto active = scene_mgr->get_active()) {
                             target_parent = active->root;
                         }
                     }
@@ -412,8 +454,8 @@ void HierarchyView::update(AppContext& context)
                     scene_mgr,
                     current_selection};
 
-                const auto* active                  = scene_mgr ? scene_mgr->get_active() : nullptr;
-                bool        rendered_scene_children = false;
+                const auto active                  = scene_mgr ? scene_mgr->get_active() : nullptr;
+                bool       rendered_scene_children = false;
 
                 if (active && active->root.entity != entt::null && search_filter[0] == '\0') {
                     auto root_tree_idx = hierarchy.find_node(active->root.entity);
@@ -438,7 +480,7 @@ void HierarchyView::update(AppContext& context)
                     ui::invisible_button("##hierarchy_empty_space", avail);
                     ui::drag_drop_target("LYRA_ASSET_MODEL", [&](const void* data, usize) {
                         CString path_cstr = static_cast<CString>(data);
-                        auto*   ams       = context.services.try_get<AssetServer*>();
+                        auto    ams       = context.services.try_get<AssetServer*>();
                         if (ams && scene_mgr) {
                             Path model_path(path_cstr);
                             auto model_handle = ams->load_asset<ModelAsset>(path_cstr);
@@ -477,7 +519,7 @@ void HierarchyView::update(AppContext& context)
             ui::menu(LYRA_ICON_NODE " Create", [&]() {
                 auto get_active_root = [&]() -> SceneNode {
                     if (scene_mgr) {
-                        if (const auto* active = scene_mgr->get_active()) {
+                        if (const auto active = scene_mgr->get_active()) {
                             return active->root;
                         }
                     }
@@ -549,6 +591,48 @@ void HierarchyView::update(AppContext& context)
                         }
                     });
                 });
+                ui::menu(LYRA_ICON_MESH " 3D Object", [&]() {
+                    ui::menu_item(LYRA_ICON_MESH " Cube", [&]() {
+                        if (scene_mgr) {
+                            SpawnParams params;
+                            params.parent   = get_active_root();
+                            params.position = Vector3(0.0f, 0.5f, 0.0f);
+                            scene_mgr->spawn_cube(params);
+                        }
+                    });
+                    ui::menu_item(LYRA_ICON_MESH " Sphere", [&]() {
+                        if (scene_mgr) {
+                            SpawnParams params;
+                            params.parent   = get_active_root();
+                            params.position = Vector3(0.0f, 0.5f, 0.0f);
+                            scene_mgr->spawn_sphere(params);
+                        }
+                    });
+                    ui::menu_item(LYRA_ICON_MESH " Plane", [&]() {
+                        if (scene_mgr) {
+                            SpawnParams params;
+                            params.parent   = get_active_root();
+                            params.position = Vector3(0.0f, 0.0f, 0.0f);
+                            scene_mgr->spawn_plane(params);
+                        }
+                    });
+                    ui::menu_item(LYRA_ICON_MESH " Cylinder", [&]() {
+                        if (scene_mgr) {
+                            SpawnParams params;
+                            params.parent   = get_active_root();
+                            params.position = Vector3(0.0f, 0.5f, 0.0f);
+                            scene_mgr->spawn_cylinder(params);
+                        }
+                    });
+                    ui::menu_item(LYRA_ICON_MESH " Icosphere", [&]() {
+                        if (scene_mgr) {
+                            SpawnParams params;
+                            params.parent   = get_active_root();
+                            params.position = Vector3(0.0f, 0.5f, 0.0f);
+                            scene_mgr->spawn_icosphere(params);
+                        }
+                    });
+                });
             });
 
             ui::separator();
@@ -565,9 +649,9 @@ void HierarchyView::update(AppContext& context)
                     if (auto world_ptr = context.services.try_get<World*>()) {
                         auto& world = *world_ptr;
                         if (scene_mgr) {
-                            if (const auto* active = scene_mgr->get_active()) {
+                            if (const auto active = scene_mgr->get_active()) {
                                 if (active->root.entity != entt::null) {
-                                    if (auto* children = world.registry.try_get<Children>(active->root.entity)) {
+                                    if (auto children = world.registry.try_get<Children>(active->root.entity)) {
                                         auto nodes = children->nodes;
                                         for (auto child : nodes) {
                                             world.destroy_tree(child);
@@ -669,7 +753,7 @@ void HierarchyView::update(AppContext& context)
         if (entity_to_delete_children != entt::null) {
             if (auto world_ptr = context.services.try_get<World*>()) {
                 auto& world = *world_ptr;
-                if (auto* children = world.registry.try_get<Children>(entity_to_delete_children)) {
+                if (auto children = world.registry.try_get<Children>(entity_to_delete_children)) {
                     auto nodes = children->nodes;
                     for (auto child : nodes) {
                         world.destroy_tree(child);

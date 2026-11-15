@@ -32,10 +32,10 @@ namespace lyra::detail
         using const_get_return_t = Conditional<std::is_pointer_v<T>, const clean_element_t<T>*, const clean_element_t<T>&>;
 
     public:
-        Services()                      = default;
+        Services()                    = default;
         Services(const Services&)     = default;
         Services(Services&&) noexcept = default;
-        ~Services()                    = default;
+        ~Services()                   = default;
 
         Services& operator=(const Services&)     = default;
         Services& operator=(Services&&) noexcept = default;

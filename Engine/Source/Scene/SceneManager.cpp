@@ -6,6 +6,7 @@
 #include <Lyra/Scene/SceneManager.h>
 #include <Lyra/JobSystem/JobScheduler.h>
 #include <Lyra/Assets/Format/SceneAsset.h>
+#include <Lyra/Rendering/ProceduralMesh.h>
 
 using namespace lyra;
 
@@ -51,7 +52,7 @@ String SceneManager::resolve_unique_name(SceneNode parent, const String& base_na
 
     SceneNode effective_parent = parent;
     if (effective_parent.entity == entt::null) {
-        if (const auto* active = get_active()) {
+        if (const auto active = get_active()) {
             if (active->root.entity != entt::null) {
                 effective_parent = active->root;
             }
@@ -61,10 +62,10 @@ String SceneManager::resolve_unique_name(SceneNode parent, const String& base_na
     HashSet<String> existing_names;
 
     if (effective_parent.entity != entt::null && world.registry.valid(effective_parent.entity)) {
-        if (auto* children = world.registry.try_get<Children>(effective_parent.entity)) {
+        if (auto children = world.registry.try_get<Children>(effective_parent.entity)) {
             for (auto child : children->nodes) {
                 if (world.registry.valid(child.entity)) {
-                    if (auto* name_comp = world.registry.try_get<NodeName>(child.entity)) {
+                    if (auto name_comp = world.registry.try_get<NodeName>(child.entity)) {
                         existing_names.insert(name_comp->name);
                     }
                 }
@@ -133,17 +134,68 @@ SceneNode SceneManager::spawn(ModelAssetHandle model, const SpawnParams& params)
     return spawn_model_internal(*asset, effective_params);
 }
 
-SceneNode SceneManager::spawn_model_internal(
-    const ModelAsset&  model,
-    const SpawnParams& params)
+SceneNode SceneManager::spawn_cube(const SpawnParams& params)
+{
+    return spawn_primitive(PROCEDURAL_CUBE_GUID, "Cube", params);
+}
+
+SceneNode SceneManager::spawn_sphere(const SpawnParams& params)
+{
+    return spawn_primitive(PROCEDURAL_SPHERE_GUID, "Sphere", params);
+}
+
+SceneNode SceneManager::spawn_plane(const SpawnParams& params)
+{
+    return spawn_primitive(PROCEDURAL_PLANE_GUID, "Plane", params);
+}
+
+SceneNode SceneManager::spawn_cylinder(const SpawnParams& params)
+{
+    return spawn_primitive(PROCEDURAL_CYLINDER_GUID, "Cylinder", params);
+}
+
+SceneNode SceneManager::spawn_icosphere(const SpawnParams& params)
+{
+    return spawn_primitive(PROCEDURAL_ICOSPHERE_GUID, "Icosphere", params);
+}
+
+SceneNode SceneManager::spawn_primitive(AssetID procedural_guid, const String& default_name, const SpawnParams& params)
+{
+    String    name   = params.name.empty() ? default_name : params.name;
+    SceneNode parent = params.parent;
+    if (parent.entity == entt::null) {
+        if (const auto active = get_active()) {
+            parent = active->root;
+        }
+    }
+
+    String    unique_name = resolve_unique_name(parent, name);
+    Entity    entity      = world.create(unique_name);
+    SceneNode node(entity);
+
+    world.translate(node, params.position);
+    world.rotate(node, params.rotation);
+    world.scale(node, params.scale);
+
+    auto& mesh = world.add_component<Mesh>(node);
+    mesh.mesh  = MeshAssetHandle(procedural_guid);
+
+    if (parent.entity != entt::null && parent.entity != entity) {
+        world.add_child(parent, node);
+    }
+
+    dirty = true;
+    hierarchy.update();
+    return node;
+}
+
+SceneNode SceneManager::spawn_model_internal(const ModelAsset& model, const SpawnParams& params)
 {
     SceneAsset scene = SceneAsset::from_model(model);
     return spawn_scene_internal(scene, params);
 }
 
-SceneNode SceneManager::spawn_scene_internal(
-    const SceneAsset&  scene,
-    const SpawnParams& params)
+SceneNode SceneManager::spawn_scene_internal(const SceneAsset& scene, const SpawnParams& params)
 {
     if (scene.nodes.empty()) {
         return SceneNode{};
@@ -162,7 +214,7 @@ SceneNode SceneManager::spawn_scene_internal(
 
     SceneNode target_parent = params.parent;
     if (target_parent.entity == entt::null) {
-        if (const auto* active = get_active()) {
+        if (const auto active = get_active()) {
             if (active->root.entity != entt::null) {
                 target_parent = active->root;
             }

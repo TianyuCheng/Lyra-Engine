@@ -7,8 +7,9 @@ I have always been fond of creating a working rendering engine from scratch. In 
 ## Documentation
 
 - [Graphics API Design](Graphics.md)
+- [Rendering Architecture](Rendering.md)
 - [Asset Management System](Assets.md)
-- [Job System](Jobs.md)
+- [Job System](JobSystem.md)
 - [Scripting System](Scripting.md)
 - [Scene Architecture](Scene.md)
 - [Virtual File System](FileSystem.md)

@@ -48,6 +48,40 @@ namespace lyra
     };
 
     /**
+     * @brief strongly-typed identifier for registered custom shading pipelines.
+     */
+    struct CustomPipelineID
+    {
+        uint value = 0;
+
+        [[nodiscard]] constexpr bool     is_custom() const noexcept { return value != 0; }
+        [[nodiscard]] constexpr bool     is_standard() const noexcept { return value == 0; }
+        [[nodiscard]] constexpr explicit operator bool() const noexcept { return is_custom(); }
+
+        static constexpr CustomPipelineID standard() noexcept { return {0}; }
+
+        auto operator<=>(const CustomPipelineID&) const = default;
+    };
+
+    /**
+     * @brief extracted material parameters for immediate/push-constant shading and pass sorting.
+     */
+    struct PrimitiveMaterial
+    {
+        Vector4 base_color   = Vector4(1.0f);
+        float   roughness    = 0.5f;
+        float   metallic     = 0.0f;
+        float   clear_coat   = 0.0f;
+        float   alpha_cutoff = 0.5f;
+
+        // fast-path parameters for procedural / custom shading models
+        Vector4 custom_data = Vector4(0.0f);
+
+        // offset into global custom material parameter storage buffer
+        uint custom_params_offset = 0;
+    };
+
+    /**
      * @brief an extracted mesh primitive instance ready for drawing.
      */
     struct MeshPrimitive
@@ -61,7 +95,8 @@ namespace lyra
         Bounds3D            world_bounds       = {};
         uint                instance_id        = 0;
         ShadingModel        shading_model      = ShadingModel::PBR;
-        uint                custom_pipeline_id = 0; // TODO: support per-primitive custom shading pipeline overrides
+        CustomPipelineID    custom_pipeline_id = {};
+        PrimitiveMaterial   material_params    = {};
     };
 
     /**
@@ -77,7 +112,8 @@ namespace lyra
         Bounds3D            world_bounds       = {};
         uint                instance_id        = 0;
         ShadingModel        shading_model      = ShadingModel::PBR;
-        uint                custom_pipeline_id = 0; // TODO: support per-primitive custom shading pipeline overrides
+        CustomPipelineID    custom_pipeline_id = {};
+        PrimitiveMaterial   material_params    = {};
     };
 
     /**
@@ -93,7 +129,8 @@ namespace lyra
         Bounds3D            world_bounds       = {};
         uint                instance_id        = 0;
         ShadingModel        shading_model      = ShadingModel::PBR;
-        uint                custom_pipeline_id = 0; // TODO: support custom procedural SDF shaders
+        CustomPipelineID    custom_pipeline_id = {};
+        PrimitiveMaterial   material_params    = {};
     };
 
     /**
