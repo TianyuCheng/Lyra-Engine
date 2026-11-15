@@ -80,18 +80,20 @@ bool ShadowMapPass::init(
 
     // 3. create render pipeline
     pipeline = execute([&]() {
-        Vector<GPUVertexAttribute> attributes;
-        auto                       pos_attr = GPUVertexAttribute{};
-        pos_attr.format                     = GPUVertexFormat::FLOAT32x3;
-        pos_attr.offset                     = 0;
-        pos_attr.shader_location            = 0;
+        Vector<GPUVertexAttribute>    attributes;
+        Vector<GPUVertexBufferLayout> vlayouts;
+
+        auto pos_attr            = GPUVertexAttribute{};
+        pos_attr.format          = GPUVertexFormat::FLOAT32x3;
+        pos_attr.offset          = 0;
+        pos_attr.shader_location = 0;
+        pos_attr.shader_semantic = "POSITION";
         attributes.push_back(pos_attr);
 
-        Vector<GPUVertexBufferLayout> vlayouts;
-        auto                          vlayout = GPUVertexBufferLayout{};
-        vlayout.array_stride                  = sizeof(Vector3) * 2 + sizeof(Vector2); // interleaved vertex stride
-        vlayout.step_mode                     = GPUVertexStepMode::VERTEX;
-        vlayout.attributes                    = attributes;
+        auto vlayout         = GPUVertexBufferLayout{};
+        vlayout.array_stride = sizeof(Vector3); // position stream stride: 12 bytes
+        vlayout.step_mode    = GPUVertexStepMode::VERTEX;
+        vlayout.attributes   = attributes;
         vlayouts.push_back(vlayout);
 
         auto desc                                 = GPURenderPipelineDescriptor{};
@@ -269,7 +271,10 @@ ShadowMapData ShadowMapPass::add(
                 GPUBuffer ibuf{};
                 ibuf.handle = mesh.geometry.index_slice.buffer;
 
-                command.set_vertex_buffer(0, vbuf, mesh.geometry.vertex_slice.offset);
+                const auto& offsets    = mesh.geometry.stream_offsets;
+                GPUSize64   pos_offset = mesh.geometry.vertex_slice.offset + (offsets.has_position() ? offsets.position : 0);
+
+                command.set_vertex_buffer(0, vbuf, pos_offset);
                 command.set_index_buffer(ibuf, mesh.geometry.index_format, mesh.geometry.index_slice.offset);
                 command.draw_indexed(mesh.index_count, 1, mesh.first_index, 0, 0);
             }

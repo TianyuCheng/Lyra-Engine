@@ -82,33 +82,50 @@ bool ForwardPass::init(
 
     // 3. create render pipeline
     pipeline = execute([&]() {
-        Vector<GPUVertexAttribute>    attributes;
         Vector<GPUVertexBufferLayout> vlayouts;
         Vector<GPUColorTargetState>   targets;
 
+        // slot 0: position stream (float3, stride 12)
         auto pos_attr            = GPUVertexAttribute{};
         pos_attr.format          = GPUVertexFormat::FLOAT32x3;
         pos_attr.offset          = 0;
         pos_attr.shader_location = 0;
-        attributes.push_back(pos_attr);
+        pos_attr.shader_semantic = "POSITION";
 
+        Vector<GPUVertexAttribute> pos_attribs{pos_attr};
+        auto pos_layout         = GPUVertexBufferLayout{};
+        pos_layout.array_stride = sizeof(Vector3);
+        pos_layout.step_mode    = GPUVertexStepMode::VERTEX;
+        pos_layout.attributes   = pos_attribs;
+        vlayouts.push_back(pos_layout);
+
+        // slot 1: normal stream (float3, stride 12)
         auto norm_attr            = GPUVertexAttribute{};
         norm_attr.format          = GPUVertexFormat::FLOAT32x3;
-        norm_attr.offset          = 12;
+        norm_attr.offset          = 0;
         norm_attr.shader_location = 1;
-        attributes.push_back(norm_attr);
+        norm_attr.shader_semantic = "NORMAL";
 
+        Vector<GPUVertexAttribute> norm_attribs{norm_attr};
+        auto norm_layout         = GPUVertexBufferLayout{};
+        norm_layout.array_stride = sizeof(Vector3);
+        norm_layout.step_mode    = GPUVertexStepMode::VERTEX;
+        norm_layout.attributes   = norm_attribs;
+        vlayouts.push_back(norm_layout);
+
+        // slot 2: texcoord0 stream (float2, stride 8)
         auto uv_attr            = GPUVertexAttribute{};
         uv_attr.format          = GPUVertexFormat::FLOAT32x2;
-        uv_attr.offset          = 24;
+        uv_attr.offset          = 0;
         uv_attr.shader_location = 2;
-        attributes.push_back(uv_attr);
+        uv_attr.shader_semantic = "TEXCOORD";
 
-        auto vlayout         = GPUVertexBufferLayout{};
-        vlayout.array_stride = sizeof(Vector3) * 2 + sizeof(Vector2); // 32 bytes interleaved
-        vlayout.step_mode    = GPUVertexStepMode::VERTEX;
-        vlayout.attributes   = attributes;
-        vlayouts.push_back(vlayout);
+        Vector<GPUVertexAttribute> uv_attribs{uv_attr};
+        auto uv_layout         = GPUVertexBufferLayout{};
+        uv_layout.array_stride = sizeof(Vector2);
+        uv_layout.step_mode    = GPUVertexStepMode::VERTEX;
+        uv_layout.attributes   = uv_attribs;
+        vlayouts.push_back(uv_layout);
 
         auto color_target         = GPUColorTargetState{};
         color_target.format       = cached_color_format;
@@ -335,7 +352,15 @@ ForwardPassData ForwardPass::add(
                 GPUBuffer ibuf{};
                 ibuf.handle = mesh.geometry.index_slice.buffer;
 
-                command.set_vertex_buffer(0, vbuf, mesh.geometry.vertex_slice.offset);
+                const auto& offsets     = mesh.geometry.stream_offsets;
+                GPUSize64   base_offset = mesh.geometry.vertex_slice.offset;
+                GPUSize64   pos_offset  = base_offset + (offsets.has_position() ? offsets.position : 0);
+                GPUSize64   norm_offset = base_offset + (offsets.has_normal() ? offsets.normal : (offsets.has_position() ? offsets.position : 0));
+                GPUSize64   uv_offset   = base_offset + (offsets.has_texcoord0() ? offsets.texcoord0 : (offsets.has_position() ? offsets.position : 0));
+
+                command.set_vertex_buffer(0, vbuf, pos_offset);
+                command.set_vertex_buffer(1, vbuf, norm_offset);
+                command.set_vertex_buffer(2, vbuf, uv_offset);
                 command.set_index_buffer(ibuf, mesh.geometry.index_format, mesh.geometry.index_slice.offset);
                 command.draw_indexed(mesh.index_count, 1, mesh.first_index, 0, 0);
             }

@@ -44,6 +44,12 @@ struct VertexOutput
     float3 world_pos : TEXCOORD1;
 };
 
+// extensible hook for user custom material evaluator
+float4 evaluate_custom_shading(VertexOutput input, float3 N, float3 V)
+{
+    return instance_data.color;
+}
+
 [shader("vertex")]
 VertexOutput vsmain(VertexInput input)
 {
@@ -54,12 +60,6 @@ VertexOutput vsmain(VertexInput input)
     output.normal    = mul(input.normal, (float3x3)instance_data.model);
     output.uv        = input.uv;
     return output;
-}
-
-// extensible hook for user custom material evaluator
-float4 evaluate_custom_shading(VertexOutput input, float3 N, float3 V)
-{
-    return instance_data.color;
 }
 
 [shader("fragment")]
