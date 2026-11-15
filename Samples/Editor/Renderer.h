@@ -2,6 +2,7 @@
 #define LYRA_SAMPLES_EDITOR_RENDERER_H
 
 #include <Lyra/Lyra.hpp>
+#include <Lyra/Rendering/Passes/EditorGridPass.h>
 
 using namespace lyra;
 
@@ -15,22 +16,13 @@ private:
     void init(AppContext& context);
     void update(AppContext& context);
     void destroy(AppContext& context);
-    void init_pipeline(GPUDevice device, Compiler compiler);
-    void init_buffers(GPUDevice device);
-    void init_bind_group(GPUDevice device);
 
 private:
-    GPUBindGroupHeap  heap;
-    GPUBindGroup      bind_group;
-    GPURenderPipeline pipeline;
-    GPUPipelineLayout playout;
-    GPUShaderModule   vshader;
-    GPUShaderModule   fshader;
-    GPUBuffer         ubuffer;
-    GPUTexture        depth_texture;
-    GPUTextureView    depth_view;
+    passes::EditorGridPass grid_pass;
+    FrameGraphAllocator    fg_allocator;
 
-    Vector<GPUBindGroupLayoutHandle> blayouts;
+    GPUTexture     depth_texture;
+    GPUTextureView depth_view;
 
     SceneNode camera_node;
 };

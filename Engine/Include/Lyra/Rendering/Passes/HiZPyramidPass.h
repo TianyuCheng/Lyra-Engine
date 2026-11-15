@@ -4,7 +4,10 @@
 #define LYRA_ENGINE_RENDERING_PASSES_HIZ_PYRAMID_PASS_H
 
 #include <Lyra/Graphics/RHITypes.h>
+#include <Lyra/Graphics/RHIDescs.h>
 #include <Lyra/Rendering/FrameGraph.h>
+#include <Lyra/Compiler/SLCTypes.h>
+#include <Lyra/Utilities/Path.h>
 
 namespace lyra::passes
 {
@@ -23,9 +26,44 @@ namespace lyra::passes
      */
     struct HiZPyramidPass
     {
-        static auto add(
+    public:
+        explicit HiZPyramidPass() = default;
+        virtual ~HiZPyramidPass() = default;
+
+        HiZPyramidPass(const HiZPyramidPass&)            = delete;
+        HiZPyramidPass& operator=(const HiZPyramidPass&) = delete;
+
+        HiZPyramidPass(HiZPyramidPass&&) noexcept            = default;
+        HiZPyramidPass& operator=(HiZPyramidPass&&) noexcept = default;
+
+        bool init(GPUDevice device, Compiler compiler);
+        void destroy();
+
+        [[nodiscard]] bool valid() const { return initialized && pipeline.valid(); }
+
+        auto add(
             FrameGraphBuilder&                  builder,
-            FrameGraphHandle<FrameGraphTexture> depth_texture) -> HiZPyramidData;
+            FrameGraphHandle<FrameGraphTexture> depth_texture,
+            GPUExtent2D                         depth_extent) -> HiZPyramidData;
+
+    private:
+        struct HiZPushConstants
+        {
+            uint src_width;
+            uint src_height;
+            uint dst_width;
+            uint dst_height;
+            uint is_reverse_z;
+            uint padding[3];
+        };
+
+        GPUDevice                        device;
+        GPUComputePipeline               pipeline;
+        GPUPipelineLayout                playout;
+        GPUShaderModule                  cshader;
+        Vector<GPUBindGroupLayoutHandle> blayouts;
+        GPUBindGroupHeap                 heap;
+        bool                             initialized = false;
     };
 
 } // namespace lyra::passes

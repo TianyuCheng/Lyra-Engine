@@ -345,7 +345,7 @@ void SystemTextures::init_procedural_textures(GPUDevice device, Compiler compile
 
     // 2. attempt GPU compute shader execution using shader library in Engine/Assets/Shaders/LUT/
     bool brdf_ok    = dispatch_compute_lut(device, compiler, "LUT.BRDFLut", "LUT/BRDFLut.slang", brdf_lut_texture, brdf_lut_view, BRDF_SIZE, BRDF_SIZE, 16, 16);
-    bool skymap_ok  = dispatch_compute_lut(device, compiler, "LUT.Skymap", "LUT/Skymap.slang", skymap_texture, skymap_view, SKY_WIDTH, SKY_HEIGHT, 8, 8);
+    bool skymap_ok  = dispatch_compute_lut(device, compiler, "Sky.Skymap", "Sky/Skymap.slang", skymap_texture, skymap_view, SKY_WIDTH, SKY_HEIGHT, 8, 8);
     bool checker_ok = dispatch_compute_lut(device, compiler, "LUT.Checkerboard", "LUT/Checkerboard.slang", checkerboard_texture, checkerboard_view, CHECKER_SIZE, CHECKER_SIZE, 8, 8);
     bool ies_ok     = dispatch_compute_lut(device, compiler, "LUT.IESProfiles", "LUT/IESProfiles.slang", ies_atlas_texture, ies_atlas_view, IES_WIDTH, IES_HEIGHT, 16, 16);
 

@@ -693,7 +693,7 @@ TEST_CASE("shader_library::modules_compilation")
     import Common.Mapping;
     import Common.ScreenSpace;
     import Common.Camera;
-    import Procedural.Atmosphere;
+    import Sky.Atmosphere;
     import Procedural.Ocean;
     import Procedural.Terrain;
 

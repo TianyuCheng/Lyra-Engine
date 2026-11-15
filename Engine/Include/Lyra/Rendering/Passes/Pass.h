@@ -5,6 +5,7 @@
 
 // dedicated modular pass headers
 #include <Lyra/Rendering/Passes/DepthPrepass.h>
+#include <Lyra/Rendering/Passes/EditorGridPass.h>
 #include <Lyra/Rendering/Passes/GBufferPass.h>
 #include <Lyra/Rendering/Passes/TonemappingPass.h>
 #include <Lyra/Rendering/Passes/SkyboxPass.h>
