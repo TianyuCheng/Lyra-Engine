@@ -26,8 +26,8 @@ using namespace lyra;
 static void render_scene(AppContext& context, GPUCommandBuffer command)
 {
     // apply a toy demo renderer
-    if (auto* view = context.toolboard.try_get<SceneView>()) {
-        auto* renderer = context.toolboard.get<SampleCubeRenderer*>();
+    if (auto* view = context.services.try_get<SceneView>()) {
+        auto* renderer = context.services.get<SampleCubeRenderer*>();
         renderer->render(view->get_backbuffer(), context, command);
     }
 }
@@ -38,7 +38,7 @@ static void imgui_update(AppContext& context)
         setup_editor_commands(context);
     });
 
-    auto* scene_mgr = context.toolboard.try_get<SceneManager>();
+    auto* scene_mgr = context.services.try_get<SceneManager>();
 
     ui::menubar([&]() {
         ui::menu("Scene", [&]() {
@@ -65,7 +65,7 @@ static void imgui_update(AppContext& context)
             });
         });
 
-        if (auto* ams = context.toolboard.try_get<AssetServer>()) {
+        if (auto* ams = context.services.try_get<AssetServer>()) {
             ui::menu("Assets", [&]() {
                 ui::menu_item("Reimport All (Force)", [&]() {
                     ui::command::execute("assets.reimport_all");
@@ -102,9 +102,9 @@ static void imgui_update(AppContext& context)
 
 static void imgui_render(AppContext& context)
 {
-    auto device   = context.toolboard.get<GPUDevice*>();
-    auto surface  = context.toolboard.get<GPUSurface*>();
-    auto renderer = context.toolboard.get<GUIRenderer*>();
+    auto device   = context.services.get<GPUDevice*>();
+    auto surface  = context.services.get<GPUSurface*>();
+    auto renderer = context.services.get<GUIRenderer*>();
 
     // command buffer
     auto command = lyra::execute([&]() {
@@ -236,7 +236,7 @@ int main(int argc, const char* argv[])
         auto layer = std::make_unique<AssetLayer>(desc);
         app->bind(*layer);
 
-        auto ams = app->get_toolboard().get<AssetServer*>();
+        auto ams = app->get_services().get<AssetServer*>();
 
         // register assets loaders
         ams->register_asset<TextAsset>();
@@ -303,9 +303,9 @@ int main(int argc, const char* argv[])
     // ui layer
     auto uilayer = lyra::execute([&]() {
         auto desc      = GUIDescriptor{};
-        desc.window    = *app->get_toolboard().get<Window*>();
-        desc.surface   = *app->get_toolboard().get<GPUSurface*>();
-        desc.compiler  = *app->get_toolboard().get<Compiler*>();
+        desc.window    = *app->get_services().get<Window*>();
+        desc.surface   = *app->get_services().get<GPUSurface*>();
+        desc.compiler  = *app->get_services().get<Compiler*>();
         desc.docking   = true;
         desc.viewports = false;
 

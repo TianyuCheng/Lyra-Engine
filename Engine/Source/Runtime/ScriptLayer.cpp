@@ -15,7 +15,7 @@ void ScriptLayer::bind(Application& app)
     // auto-register all statically registered script apis
     register_all_static();
 
-    app.get_toolboard().add<ScriptLayer*>(this);
+    app.get_services().add<ScriptLayer*>(this);
     app.bind<AppEvent::UPDATE_PRE, &ScriptLayer::run_pre>(*this);
     app.bind<AppEvent::UPDATE, &ScriptLayer::run_main>(*this);
     app.bind<AppEvent::UPDATE_POST, &ScriptLayer::run_post>(*this);
@@ -195,7 +195,7 @@ void ScriptLayer::dispatch_stage(AppEvent stage, AppContext& context)
 {
     if (simulation_state == SimulationState::PAUSED) return;
 
-    auto world = context.try_tool<World>();
+    auto world = context.try_service<World>();
     if (!world) return;
 
     ScriptContext ctx(context, *this);

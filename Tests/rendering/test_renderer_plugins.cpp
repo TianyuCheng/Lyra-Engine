@@ -35,6 +35,25 @@ TEST_CASE("rendering::renderer_plugins" * doctest::description("Renderer plugin 
         CHECK(api->create_renderer(handle, desc));
         CHECK(handle.valid());
 
+        // test render with frame graph builder and logical context
+        REQUIRE(api->render != nullptr);
+        FrameGraphBuilder  builder;
+        RenderView         view{};
+        RenderScene        scene{};
+        RenderFrameContext ctx{
+            .builder        = builder,
+            .view           = view,
+            .scene          = scene,
+            .color_target   = {},
+            .depth_target   = {},
+            .color_format   = GPUTextureFormat::RGBA8UNORM,
+            .depth_format   = GPUTextureFormat::DEPTH32FLOAT,
+            .render_extent  = {1920, 1080},
+            .display_extent = {1920, 1080},
+        };
+        auto out_target = api->render(handle, ctx);
+        (void)out_target;
+
         api->delete_renderer(handle);
     }
 
@@ -57,6 +76,25 @@ TEST_CASE("rendering::renderer_plugins" * doctest::description("Renderer plugin 
         RendererDescriptor desc{};
         CHECK(api->create_renderer(handle, desc));
         CHECK(handle.valid());
+
+        // test render with frame graph builder and logical context
+        REQUIRE(api->render != nullptr);
+        FrameGraphBuilder  builder;
+        RenderView         view{};
+        RenderScene        scene{};
+        RenderFrameContext ctx{
+            .builder        = builder,
+            .view           = view,
+            .scene          = scene,
+            .color_target   = {},
+            .depth_target   = {},
+            .color_format   = GPUTextureFormat::RGBA8UNORM,
+            .depth_format   = GPUTextureFormat::DEPTH32FLOAT,
+            .render_extent  = {1920, 1080},
+            .display_extent = {1920, 1080},
+        };
+        auto out_target = api->render(handle, ctx);
+        (void)out_target;
 
         api->delete_renderer(handle);
     }
@@ -81,6 +119,25 @@ TEST_CASE("rendering::renderer_plugins" * doctest::description("Renderer plugin 
         CHECK(api->create_renderer(handle, desc));
         CHECK(handle.valid());
 
+        // test render with frame graph builder and logical context
+        REQUIRE(api->render != nullptr);
+        FrameGraphBuilder  builder;
+        RenderView         view{};
+        RenderScene        scene{};
+        RenderFrameContext ctx{
+            .builder        = builder,
+            .view           = view,
+            .scene          = scene,
+            .color_target   = {},
+            .depth_target   = {},
+            .color_format   = GPUTextureFormat::RGBA8UNORM,
+            .depth_format   = GPUTextureFormat::DEPTH32FLOAT,
+            .render_extent  = {1920, 1080},
+            .display_extent = {1920, 1080},
+        };
+        auto out_target = api->render(handle, ctx);
+        (void)out_target;
+
         api->delete_renderer(handle);
     }
 
@@ -103,6 +160,25 @@ TEST_CASE("rendering::renderer_plugins" * doctest::description("Renderer plugin 
         RendererDescriptor desc{};
         CHECK(api->create_renderer(handle, desc));
         CHECK(handle.valid());
+
+        // test render with frame graph builder and logical context
+        REQUIRE(api->render != nullptr);
+        FrameGraphBuilder  builder;
+        RenderView         view{};
+        RenderScene        scene{};
+        RenderFrameContext ctx{
+            .builder        = builder,
+            .view           = view,
+            .scene          = scene,
+            .color_target   = {},
+            .depth_target   = {},
+            .color_format   = GPUTextureFormat::RGBA8UNORM,
+            .depth_format   = GPUTextureFormat::DEPTH32FLOAT,
+            .render_extent  = {1920, 1080},
+            .display_extent = {1920, 1080},
+        };
+        auto out_target = api->render(handle, ctx);
+        (void)out_target;
 
         api->delete_renderer(handle);
     }

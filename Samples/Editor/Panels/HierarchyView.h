@@ -24,6 +24,8 @@ namespace lyra
             SceneNode node;
         };
 
+        Selection current_selection;
+
         explicit HierarchyView();
 
         void bind(Application& app);

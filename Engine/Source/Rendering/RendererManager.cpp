@@ -29,11 +29,11 @@ void RendererManager::shutdown(AppContext& context)
         return;
     }
 
-    if (auto dev = context.toolboard.try_get<GPUDevice*>()) {
+    if (auto dev = context.services.try_get<GPUDevice*>()) {
         dev->wait();
     }
 
-    if (auto retire = context.toolboard.try_get<ResourceRetire*>()) {
+    if (auto retire = context.services.try_get<ResourceRetire*>()) {
         retire->drain();
     }
 
@@ -44,6 +44,7 @@ void RendererManager::shutdown(AppContext& context)
         active_name.clear();
     }
 
+    allocator.clear();
     initialized = false;
 }
 
@@ -92,15 +93,16 @@ bool RendererManager::load_renderer(StringView plugin_name, AppContext& context)
 bool RendererManager::switch_renderer(StringView plugin_name, AppContext& context)
 {
     // synchronize gpu device before dismantling active pipelines
-    if (auto dev = context.toolboard.try_get<GPUDevice*>()) {
+    if (auto dev = context.services.try_get<GPUDevice*>()) {
         dev->wait();
     }
 
     // flush pending deferred retirements
-    if (auto retire = context.toolboard.try_get<ResourceRetire*>()) {
+    if (auto retire = context.services.try_get<ResourceRetire*>()) {
         retire->drain();
     }
 
+    allocator.clear();
     return load_renderer(plugin_name, context);
 }
 
@@ -113,6 +115,23 @@ void RendererManager::resize(uint width, uint height)
     }
 }
 
+FrameGraph::TextureHandle RendererManager::render(const RenderFrameContext& ctx)
+{
+    if (!has_active_renderer()) {
+        return ctx.color_target;
+    }
+
+    auto api = current_plugin.get_api();
+    if (api && api->render) {
+        auto out_target = api->render(active_handle, ctx);
+        if (api->get_statistics) {
+            api->get_statistics(active_handle, stats);
+        }
+        return out_target;
+    }
+    return ctx.color_target;
+}
+
 void RendererManager::render(
     AppContext&             context,
     const RenderView&       view,
@@ -120,18 +139,43 @@ void RendererManager::render(
     const Backbuffer&       target,
     GPUCommandEncoderHandle command_encoder)
 {
-    if (!has_active_renderer()) {
+    if (!has_active_renderer() || !command_encoder.valid() || target.extent.width == 0 || target.extent.height == 0) {
         return;
     }
 
-    auto api = current_plugin.get_api();
-    if (api && api->render) {
-        api->render(active_handle, view, scene, target, command_encoder);
+    FrameGraphBuilder builder;
 
-        if (api->get_statistics) {
-            api->get_statistics(active_handle, stats);
-        }
+    // import target render target
+    FrameGraphTexture imported_target{};
+    imported_target.texture = target.texture;
+    imported_target.view    = target.texview;
+    imported_target.format  = target.format;
+    auto target_handle      = builder.import(imported_target);
+
+    RenderFrameContext ctx{
+        .builder        = builder,
+        .view           = view,
+        .scene          = scene,
+        .color_target   = target_handle,
+        .depth_target   = {},
+        .color_format   = target.format,
+        .depth_format   = descriptor.depth_format,
+        .render_extent  = target.extent,
+        .display_extent = target.extent,
+        .services       = &context.services,
+    };
+
+    render(ctx);
+
+    auto graph = builder.build();
+    if (graph) {
+        FrameGraphContext fg_context{};
+        fg_context.device  = context.services.get<GPUDevice>();
+        fg_context.cmdlist = GPUCommandBuffer(command_encoder);
+        graph->execute(&fg_context, &allocator);
     }
+
+    allocator.tick();
 }
 
 void RendererManager::draw_debug_panel()

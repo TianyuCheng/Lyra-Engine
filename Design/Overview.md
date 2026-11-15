@@ -84,7 +84,7 @@ The engine runtime is coordinated by `Application`, which drives the main loop a
 
 State and subsystems are shared through `AppContext`, which cleanly separates hardware from frame data:
 
-- **`Toolboard`**: A non-owning registry for physical hardware, devices, and engine subsystems (such as `GPUDevice`, `WindowAPI`, `SceneManager`, and `ShaderCompiler`).
+- **`Services`**: A non-owning registry for physical hardware, devices, and engine subsystems (such as `GPUDevice`, `WindowAPI`, `SceneManager`, and `ShaderCompiler`).
 - **`Blackboard`**: An owning, heterogeneous storage container for transient frame state, scene parameters, and user data.
 
 Applications are composed of modular layers (`RenderLayer`, `AssetLayer`, `SceneLayer`, `InputLayer`, `TimingLayer`, `UILayer`, `ScriptLayer`), each hooking into application lifecycle stages via delegates.
@@ -110,7 +110,7 @@ int main()
 
     // bind per-frame update callback
     app.bind<AppEvent::UPDATE>([](AppContext& ctx) {
-        // query non-owning subsystems from the toolboard
+        // query non-owning subsystems from the services
         auto& device = ctx.tool<GPUDevice>();
 
         // access or initialize owning state on the blackboard

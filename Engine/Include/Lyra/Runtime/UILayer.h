@@ -23,7 +23,7 @@ namespace lyra
         explicit UILayer(const GUIDescriptor& descriptor);
 
         /**
-         * @brief Register the GUIRenderer to the toolboard and bind its lifecycle events.
+         * @brief Register the GUIRenderer to the services and bind its lifecycle events.
          */
         void bind(Application& app);
 

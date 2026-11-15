@@ -24,7 +24,7 @@ namespace lyra
         virtual ~ScriptLayer() = default;
 
         /**
-         * @brief Registers the layer with the Application toolboard and binds stage events.
+         * @brief Registers the layer with the Application services and binds stage events.
          */
         void bind(Application& app);
 

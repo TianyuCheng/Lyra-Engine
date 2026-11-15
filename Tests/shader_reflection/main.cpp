@@ -609,11 +609,11 @@ TEST_CASE("utilities::blackboard::const_methods" * doctest::description("blackbo
     CHECK(bb.size() == 0);
 }
 
-#include <Lyra/Utilities/Detail/Toolboard.h>
+#include <Lyra/Utilities/Detail/Services.h>
 
-TEST_CASE("utilities::toolboard::operations" * doctest::description("toolboard registration, querying, and const operations"))
+TEST_CASE("utilities::services::operations" * doctest::description("services registration, querying, and const operations"))
 {
-    lyra::detail::Toolboard tb;
+    lyra::detail::Services tb;
     CHECK(tb.empty());
     CHECK(tb.size() == 0);
 
@@ -640,7 +640,7 @@ TEST_CASE("utilities::toolboard::operations" * doctest::description("toolboard r
     CHECK(tb.has<DummyWindow>());
 
     // Query through const reference
-    const lyra::detail::Toolboard& const_tb = tb;
+    const lyra::detail::Services& const_tb = tb;
     CHECK(const_tb.size() == 2);
     CHECK(!const_tb.empty());
     CHECK(const_tb.get<DummyDevice*>()->id == 7);

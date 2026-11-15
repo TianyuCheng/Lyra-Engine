@@ -121,16 +121,13 @@ static void get_statistics(RendererHandle handle, RendererStats& out_stats)
     }
 }
 
-static void render(
-    RendererHandle          handle,
-    const RenderView&       view,
-    const RenderScene&      scene,
-    const Backbuffer&       target,
-    GPUCommandEncoderHandle command_encoder)
+static FrameGraph::TextureHandle render(
+    RendererHandle            handle,
+    const RenderFrameContext& ctx)
 {
     auto renderer = handle.as_type<ForwardRendererInstance>();
     if (!renderer) {
-        return;
+        return ctx.color_target;
     }
 
     // TODO: 1. Ensure depth texture matches target extent
@@ -146,8 +143,9 @@ static void render(
     //            based on prim.shading_model (0 = PBR, 1 = Unlit, 2 = Toon, 3 = Subsurface, 4 = Custom)
     // TODO: 6. Tonemapping and post-processing resolve to target backbuffer
 
-    renderer->stats.draw_calls         = static_cast<uint>(scene.meshes.size());
-    renderer->stats.triangles_rendered = static_cast<uint>(scene.meshes.size() * 12);
+    renderer->stats.draw_calls         = static_cast<uint>(ctx.scene.meshes.size());
+    renderer->stats.triangles_rendered = static_cast<uint>(ctx.scene.meshes.size() * 12);
+    return ctx.color_target;
 }
 
 static void draw_debug_panel(RendererHandle handle)

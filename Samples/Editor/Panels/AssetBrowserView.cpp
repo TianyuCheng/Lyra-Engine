@@ -114,7 +114,7 @@ AssetBrowserView::~AssetBrowserView()
 
 auto AssetBrowserView::get_gui_renderer() const -> GUIRenderer*
 {
-    return (context && context->toolboard.has<GUIRenderer*>()) ? context->toolboard.get<GUIRenderer*>() : nullptr;
+    return (context && context->services.has<GUIRenderer*>()) ? context->services.get<GUIRenderer*>() : nullptr;
 }
 
 auto AssetBrowserView::get_asset_server() const -> AssetServer*
@@ -128,8 +128,8 @@ void AssetBrowserView::bind(Application& app)
     if (auto gui = get_gui_renderer()) {
         ui::set_context(gui->context<void>());
     }
-    ams = context->toolboard.try_get<AssetServer*>();
-    assert(ams != nullptr && "AssetBrowserView requires AssetServer to be present in toolboard");
+    ams = context->services.try_get<AssetServer*>();
+    assert(ams != nullptr && "AssetBrowserView requires AssetServer to be present in services");
 
     last_completed_cooks = ams->get_pipeline_stats().completed_count;
     ams->set_on_filesystem_changed([this]() {
@@ -599,7 +599,7 @@ void AssetBrowserView::show_item(AppContext& context, StringView name, bool is_f
 
     Path item_path = curr / name;
     auto ext       = absl::AsciiStrToLower(item_path.extension().string());
-    auto scene_mgr = context.toolboard.try_get<SceneManager>();
+    auto scene_mgr = context.services.try_get<SceneManager>();
 
     std::error_code ec_rel;
     Path            rel_path = fs::relative(item_path, root, ec_rel);
@@ -1136,7 +1136,7 @@ void AssetBrowserView::perform_update_directory(const Path& path, bool force)
 
 void AssetBrowserView::handle_file_drop(AppContext& context)
 {
-    auto window = context.toolboard.get<Window*>();
+    auto window = context.services.get<Window*>();
 
     if (!ui::is_panel_hovered())
         return;
@@ -1242,7 +1242,7 @@ std::pair<GUITextureHandle, Vector2> AssetBrowserView::get_thumbnail(AppContext&
                     String thumb_vpath = VFSPath::has_protocol(thumb_rel)
                                              ? thumb_rel
                                              : VFSPath(get_current_scheme(), thumb_rel).to_string();
-                    auto   loader      = context.toolboard.try_get<FileLoader*>();
+                    auto   loader      = context.services.try_get<FileLoader*>();
                     if (loader && loader->exists(thumb_vpath.c_str())) {
                         queued_thumbnails.push_back({name_str, thumb_vpath});
                     }
@@ -1359,7 +1359,7 @@ void AssetBrowserView::load_thumbnails(AppContext& context)
 {
     if (queued_thumbnails.empty()) return;
 
-    auto loader = context.toolboard.try_get<FileLoader*>();
+    auto loader = context.services.try_get<FileLoader*>();
     auto gui    = get_gui_renderer();
     if (!loader || !gui) {
         queued_thumbnails.clear();

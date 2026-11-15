@@ -24,7 +24,7 @@ namespace lyra
         explicit SceneLayer();
 
         /**
-         * @brief Register the World, SceneTree, and SceneManager to the toolboard.
+         * @brief Register the World, SceneTree, and SceneManager to the services.
          */
         void bind(Application& app);
 

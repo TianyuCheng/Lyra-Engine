@@ -12,6 +12,8 @@
 
 namespace lyra
 {
+    class SystemTextures;
+
     /**
      * @brief capabilities and supported features of a renderer.
      */
@@ -97,9 +99,20 @@ namespace lyra
     {
         GPUDevice        device;
         Compiler         compiler;
-        GPUTextureFormat color_format = GPUTextureFormat::BGRA8UNORM;
-        GPUTextureFormat depth_format = GPUTextureFormat::DEPTH24PLUS_STENCIL8;
+        SystemTextures*  system_textures = nullptr;
+        GPUTextureFormat color_format    = GPUTextureFormat::BGRA8UNORM;
+        GPUTextureFormat depth_format    = GPUTextureFormat::DEPTH32FLOAT;
         GPUExtent2D      initial_extent{1280, 720};
+    };
+
+    /**
+     * @brief temporal state for procedural animations, stochastic sampling, and TAA/FSR.
+     */
+    struct RenderFrameTime
+    {
+        float delta_time  = 0.0f;
+        float total_time  = 0.0f;
+        ulong frame_index = 0;
     };
 
     struct RendererInstance;

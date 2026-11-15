@@ -18,7 +18,7 @@ DepthPrepassData DepthPrepass::add(
             desc.size.height = extent.height;
             desc.size.depth  = 1;
             desc.dimension   = GPUTextureDimension::x2D;
-            desc.format      = GPUTextureFormat::DEPTH24PLUS_STENCIL8;
+            desc.format      = GPUTextureFormat::DEPTH32FLOAT;
             desc.usage       = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
 
             data.depth_texture = pass_builder.create<FrameGraphTexture>(desc);

@@ -7,6 +7,7 @@
 #include <Lyra/Components/Transform.h>
 #include <Lyra/Compiler/SLCUtils.h>
 #include <Lyra/Assets/AMSServer.h>
+#include <Lyra/Rendering/ProceduralMesh.h>
 
 using namespace lyra;
 
@@ -24,47 +25,55 @@ static void update_camera_projection(Camera& camera)
 }
 
 RenderLayer::RenderLayer()
-    : resource_retire(), geometry_cache(resource_retire), renderer_manager(), system_textures()
+    : resource_retire(), geometry_cache(resource_retire), renderer_manager(), system_textures(), render_world(geometry_cache)
 {
 }
 
 void RenderLayer::bind(Application& app)
 {
-    // query frame count from the surface already registered on the toolboard
-    auto surface = app.get_toolboard().get<GPUSurface*>();
-    assert(surface != nullptr && "RenderLayer requires a valid GPUSurface registered on the toolboard");
+    // query frame count from the surface already registered on the services
+    auto surface = app.get_services().get<GPUSurface*>();
+    assert(surface != nullptr && "RenderLayer requires a valid GPUSurface registered on the services");
 
     // initialize deferred resource retirement system
     resource_retire.init(surface->get_image_count());
 
     // query device and compiler to initialize renderer manager and engine resources
-    auto device_ptr   = app.get_toolboard().try_get<GPUDevice*>();
-    auto compiler_ptr = app.get_toolboard().try_get<Compiler*>();
-    auto ams_ptr      = app.get_toolboard().try_get<AssetServer*>();
+    auto p_assets   = app.get_services().try_get<AssetServer*>();
+    auto p_device   = app.get_services().try_get<GPUDevice*>();
+    auto p_compiler = app.get_services().try_get<Compiler*>();
 
-    if (device_ptr) {
-        GPUDevice device   = *device_ptr;
-        Compiler  compiler = compiler_ptr ? *compiler_ptr : Compiler{};
-        system_textures.init(device, compiler, ams_ptr);
+    if (p_assets) {
+        render_world.set_asset_server(p_assets);
+    }
+
+    if (p_device) {
+        GPUDevice device   = *p_device;
+        Compiler  compiler = p_compiler ? *p_compiler : Compiler{};
+        system_textures.init(device, compiler, p_assets);
 
         auto desc   = RendererDescriptor{};
         desc.device = device;
-        if (compiler_ptr) {
-            desc.compiler = *compiler_ptr;
+        if (p_compiler) {
+            desc.compiler = *p_compiler;
         }
+        desc.system_textures = &system_textures;
 
         desc.color_format   = surface->get_current_format();
         desc.initial_extent = surface->get_current_extent();
 
         renderer_manager.init(app.get_context(), desc);
+        init_procedural_meshes(geometry_cache);
     }
 
-    // register on toolboard so passes, renderers, and systems can resolve them
-    app.get_toolboard().add<RenderLayer*>(this);
-    app.get_toolboard().add<ResourceRetire*>(&resource_retire);
-    app.get_toolboard().add<GeometryCache*>(&geometry_cache);
-    app.get_toolboard().add<RendererManager*>(&renderer_manager);
-    app.get_toolboard().add<SystemTextures*>(&system_textures);
+    // register on services so passes, renderers, and systems can resolve them
+    app.get_services().add<RenderLayer*>(this);
+    app.get_services().add<RenderWorld*>(&render_world);
+    app.get_services().add<ResourceRetire*>(&resource_retire);
+    app.get_services().add<GeometryCache*>(&geometry_cache);
+    app.get_services().add<RendererManager*>(&renderer_manager);
+    app.get_services().add<SystemTextures*>(&system_textures);
+    app.get_services().add<FrameGraphAllocator*>(&renderer_manager.get_allocator());
 
     // camera projection: runs before rendering
     app.bind<AppEvent::UPDATE_PRE, &RenderLayer::update>(*this);
@@ -78,113 +87,8 @@ void RenderLayer::bind(Application& app)
 
 void RenderLayer::update(AppContext& context)
 {
-    if (auto world = context.toolboard.try_get<World>()) {
+    if (auto world = context.services.try_get<World>()) {
         update_camera_projection(*world);
-    }
-}
-
-void RenderLayer::extract_scene_and_view(AppContext& context)
-{
-    extracted_scene.clear();
-
-    auto world = context.toolboard.try_get<World>();
-    if (!world) {
-        return;
-    }
-
-    auto ams = context.toolboard.try_get<AssetServer*>();
-
-    // 1. extract camera view parameters
-    auto cam_view = world->registry.view<Camera, TransformWorld>();
-    for (auto entity : cam_view) {
-        auto& cam   = cam_view.get<Camera>(entity);
-        auto& xform = cam_view.get<TransformWorld>(entity);
-
-        extracted_view.projection          = cam.projection;
-        extracted_view.view                = glm::inverse(xform.xform);
-        extracted_view.view_projection     = extracted_view.projection * extracted_view.view;
-        extracted_view.inv_view            = xform.xform;
-        extracted_view.inv_projection      = glm::inverse(cam.projection);
-        extracted_view.inv_view_projection = glm::inverse(extracted_view.view_projection);
-        extracted_view.camera_position     = Vector3(xform.xform[3]);
-        extracted_view.near_plane          = cam.near_plane;
-        extracted_view.far_plane           = cam.far_plane;
-        extracted_view.fov                 = cam.fov;
-        break; // primary camera
-    }
-
-    // 2. extract directional lights
-    auto dir_view = world->registry.view<DirectionalLight, TransformWorld>();
-    for (auto entity : dir_view) {
-        auto& light = dir_view.get<DirectionalLight>(entity);
-        auto& xform = dir_view.get<TransformWorld>(entity);
-
-        auto l      = RenderLight{};
-        l.type      = RenderLightType::DIRECTIONAL;
-        l.direction = glm::normalize(Matrix3x3(xform.xform) * light.direction);
-        l.color     = light.color;
-        l.intensity = light.intensity;
-        extracted_scene.directional_lights.push_back(l);
-    }
-
-    // 3. extract point lights
-    auto point_view = world->registry.view<PointLight, TransformWorld>();
-    for (auto entity : point_view) {
-        auto& light = point_view.get<PointLight>(entity);
-        auto& xform = point_view.get<TransformWorld>(entity);
-
-        auto l      = RenderLight{};
-        l.type      = RenderLightType::POINT;
-        l.position  = Vector3(xform.xform[3]) + light.position;
-        l.color     = light.color;
-        l.intensity = light.intensity;
-        l.range     = light.falloff;
-        extracted_scene.local_lights.push_back(l);
-    }
-
-    // 4. extract spot lights
-    auto spot_view = world->registry.view<SpotLight, TransformWorld>();
-    for (auto entity : spot_view) {
-        auto& light = spot_view.get<SpotLight>(entity);
-        auto& xform = spot_view.get<TransformWorld>(entity);
-
-        auto l             = RenderLight{};
-        l.type             = RenderLightType::SPOT;
-        l.position         = Vector3(xform.xform[3]) + light.position;
-        l.direction        = glm::normalize(Matrix3x3(xform.xform) * light.direction);
-        l.color            = light.color;
-        l.intensity        = light.intensity;
-        l.range            = light.falloff;
-        l.spot_inner_angle = light.angle.x;
-        l.spot_outer_angle = light.angle.y;
-        extracted_scene.local_lights.push_back(l);
-    }
-
-    // 5. extract mesh primitives
-    auto mesh_view = world->registry.view<Mesh, TransformWorld>();
-    for (auto entity : mesh_view) {
-        auto& mesh_comp = mesh_view.get<Mesh>(entity);
-        auto& xform     = mesh_view.get<TransformWorld>(entity);
-
-        auto prim        = MeshPrimitive{};
-        prim.material    = mesh_comp.material;
-        prim.transform   = xform.xform;
-        prim.instance_id = static_cast<uint>(entt::to_integral(entity));
-
-        if (mesh_comp.material.valid() && ams) {
-            if (auto mat_ptr = ams->get_asset(mesh_comp.material)) {
-                prim.shading_model = mat_ptr->shading_model;
-            }
-        }
-
-        if (auto entry = geometry_cache.get(mesh_comp.mesh)) {
-            if (!entry->lods.empty() && entry->lods[0].indexed) {
-                prim.geometry = *entry->lods[0].indexed;
-            }
-            prim.world_bounds = entry->local_bounds.transformed(xform.xform);
-        }
-
-        extracted_scene.meshes.push_back(prim);
     }
 }
 
@@ -192,7 +96,20 @@ void RenderLayer::pre_render(AppContext& context)
 {
     resource_retire.tick();
     geometry_cache.tick();
-    extract_scene_and_view(context);
+
+    if (auto world = context.services.try_get<World>()) {
+        auto ams = context.services.try_get<AssetServer*>();
+        render_world.set_asset_server(ams);
+
+        RendererCapabilities caps{};
+        if (renderer_manager.has_active_renderer()) {
+            caps = renderer_manager.get_active_api()->get_capabilities();
+        } else {
+            caps.supported_primitives = PrimitiveSupport::MESH;
+        }
+
+        render_world.extract(*world, caps);
+    }
 }
 
 void RenderLayer::drain()
@@ -206,8 +123,9 @@ void RenderLayer::destroy(AppContext& context)
     system_textures.shutdown();
     geometry_cache.clear();
 
-    auto device = context.toolboard.get<GPUDevice*>();
-    device->wait();
+    if (auto device = context.services.get<GPUDevice*>())
+        device->wait();
+
     drain();
 }
 

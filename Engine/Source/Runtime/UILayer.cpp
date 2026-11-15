@@ -20,8 +20,8 @@ UILayer::UILayer(const GUIDescriptor& descriptor) : descriptor(descriptor)
 
 void UILayer::bind(Application& app)
 {
-    // save imgui manager into toolboard
-    app.get_toolboard().add<GUIRenderer*>(gui.get());
+    // save imgui manager into services
+    app.get_services().add<GUIRenderer*>(gui.get());
 
     // bind imgui manager events
     app.bind<AppEvent::INIT, &UILayer::theme>(*this);

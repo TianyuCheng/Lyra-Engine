@@ -9,6 +9,7 @@
 #include <Lyra/Rendering/GeometryCache.h>
 #include <Lyra/Rendering/RendererManager.h>
 #include <Lyra/Rendering/SystemTextures.h>
+#include <Lyra/Rendering/RenderWorld.h>
 #include <Lyra/Rendering/RenderScene.h>
 #include <Lyra/Rendering/RenderView.h>
 
@@ -27,11 +28,11 @@ namespace lyra
      *  - Ticks ResourceRetire at RENDER_PRE (safe deferred GPU resource retirement).
      *  - Flushes all pending retirements at DESTROY after device idle.
      *  - Drives perspective and orthographic camera projection updates at UPDATE_PRE.
-     *  - Registers RenderLayer*, ResourceRetire*, and GeometryCache* on the Toolboard.
+     *  - Registers RenderLayer*, ResourceRetire*, and GeometryCache* on the Services.
      *
      * Resources can be retired via:
-     *   toolboard.get<ResourceRetire*>()->retire(my_buffer);
-     *   toolboard.get<RenderLayer*>()->retire(my_texture, my_view);
+     *   services.get<ResourceRetire*>()->retire(my_buffer);
+     *   services.get<RenderLayer*>()->retire(my_texture, my_view);
      */
     struct RenderLayer
     {
@@ -42,7 +43,7 @@ namespace lyra
         explicit RenderLayer();
 
         /**
-         * @brief Register this layer on the toolboard and bind lifecycle events.
+         * @brief Register this layer on the services and bind lifecycle events.
          *        Sizes ResourceRetire from GPUSurface::get_image_count().
          */
         void bind(Application& app);
@@ -92,15 +93,16 @@ namespace lyra
         /**
          * @brief Access extracted scene and view packets for the current frame.
          */
-        RenderScene&       get_extracted_scene() { return extracted_scene; }
-        const RenderScene& get_extracted_scene() const { return extracted_scene; }
-        RenderView&        get_extracted_view() { return extracted_view; }
-        const RenderView&  get_extracted_view() const { return extracted_view; }
+        RenderScene&       get_extracted_scene() { return render_world.get_scene(); }
+        const RenderScene& get_extracted_scene() const { return render_world.get_scene(); }
+        RenderView&        get_extracted_view() { return render_world.get_view(); }
+        const RenderView&  get_extracted_view() const { return render_world.get_view(); }
 
         /**
-         * @brief Extract active camera, lights, and primitives from World into RenderScene and RenderView.
+         * @brief Access the GPU render world bridge.
          */
-        void extract_scene_and_view(AppContext& context);
+        RenderWorld&       get_render_world() { return render_world; }
+        const RenderWorld& get_render_world() const { return render_world; }
 
         /**
          * @brief Access the GPU geometry cache.
@@ -145,9 +147,8 @@ namespace lyra
         // -- system fallback textures & procedural LUTs --
         SystemTextures system_textures;
 
-        // -- extracted per-frame scene & view packet --
-        RenderScene extracted_scene;
-        RenderView  extracted_view;
+        // -- GPU render world & extracted per-frame scene --
+        RenderWorld render_world;
     };
 
 } // namespace lyra

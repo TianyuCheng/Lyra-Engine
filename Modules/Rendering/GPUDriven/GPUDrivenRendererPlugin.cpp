@@ -110,16 +110,13 @@ static void get_statistics(RendererHandle handle, RendererStats& out_stats)
     }
 }
 
-static void render(
-    RendererHandle          handle,
-    const RenderView&       view,
-    const RenderScene&      scene,
-    const Backbuffer&       target,
-    GPUCommandEncoderHandle command_encoder)
+static FrameGraph::TextureHandle render(
+    RendererHandle            handle,
+    const RenderFrameContext& ctx)
 {
     auto renderer = handle.as_type<GPUDrivenRendererInstance>();
     if (!renderer) {
-        return;
+        return ctx.color_target;
     }
 
     // TODO: 1. Upload camera view & projection uniforms to camera_uniform_buffer
@@ -130,8 +127,9 @@ static void render(
     // TODO: 6. Support user custom material shading by indexing bindless material property arrays
     // TODO: 7. Post-processing and tonemapping pass resolve to target backbuffer
 
-    renderer->stats.meshlets_rendered  = static_cast<uint>(scene.meshlets.size());
-    renderer->stats.triangles_rendered = static_cast<uint>(scene.meshes.size() * 12);
+    renderer->stats.meshlets_rendered  = static_cast<uint>(ctx.scene.meshlets.size());
+    renderer->stats.triangles_rendered = static_cast<uint>(ctx.scene.meshes.size() * 12);
+    return ctx.color_target;
 }
 
 static void draw_debug_panel(RendererHandle handle)

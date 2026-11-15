@@ -33,26 +33,28 @@ HierarchyView::HierarchyView()
 
 void HierarchyView::bind(Application& app)
 {
+    app.get_services().add<HierarchyView::Selection*>(&current_selection);
     // bind layout manager events
     app.bind<AppEvent::UPDATE, &HierarchyView::update>(*this);
 }
 
 struct NodeRenderContext
 {
-    World&                world;
-    SceneTree&            hierarchy;
-    SceneTree::NodeIndex& selected_node;
-    AppContext&           context;
-    const char*           filter;
-    Entity&               entity_to_delete;
-    Entity&               entity_to_duplicate;
-    Entity&               entity_to_rename;
-    char*                 rename_buffer;
-    usize                 rename_buffer_size;
-    bool&                 open_rename_modal;
-    bool&                 show_rename_modal;
-    Entity&               entity_to_delete_children;
-    SceneManager*         scene_mgr;
+    World&                    world;
+    SceneTree&                hierarchy;
+    SceneTree::NodeIndex&     selected_node;
+    AppContext&               context;
+    const char*               filter;
+    Entity&                   entity_to_delete;
+    Entity&                   entity_to_duplicate;
+    Entity&                   entity_to_rename;
+    char*                     rename_buffer;
+    usize                     rename_buffer_size;
+    bool&                     open_rename_modal;
+    bool&                     show_rename_modal;
+    Entity&                   entity_to_delete_children;
+    SceneManager*             scene_mgr;
+    HierarchyView::Selection& selection;
 };
 
 static Entity duplicate_entity(World& world, Entity src, Entity new_parent, SceneManager* scene_mgr)
@@ -169,8 +171,8 @@ static void render_node(
 
     bool is_selected = (ctx.selected_node == node_idx);
     auto on_select   = [&]() {
-        ctx.selected_node                                           = node_idx;
-        ctx.context.blackboard.get<HierarchyView::Selection>().node = SceneNode(entity);
+        ctx.selected_node  = node_idx;
+        ctx.selection.node = SceneNode(entity);
     };
 
     auto on_item_context = [&]() {
@@ -270,7 +272,7 @@ static void render_node(
     auto handle_drop = [&]() {
         ui::drag_drop_target("LYRA_ASSET_MODEL", [&](const void* data, usize) {
             CString path_cstr = static_cast<CString>(data);
-            auto*   ams       = ctx.context.toolboard.try_get<AssetServer*>();
+            auto*   ams       = ctx.context.services.try_get<AssetServer*>();
             if (ams && ctx.scene_mgr) {
                 Path model_path(path_cstr);
                 auto model_handle = ams->load_asset<ModelAsset>(path_cstr);
@@ -338,11 +340,7 @@ void HierarchyView::update(AppContext& context)
 {
     ui::workspace::dock_default(LYRA_TREE_VIEW_WINDOW_NAME, ui::Area::Left);
 
-    lyra::execute_once([&]() {
-        context.blackboard.add<Selection>(Selection{});
-    });
-
-    auto* scene_mgr = context.toolboard.try_get<SceneManager>();
+    auto* scene_mgr = context.services.try_get<SceneManager>();
 
     ui::panel(LYRA_TREE_VIEW_WINDOW_NAME, [&]() {
         // scene header bar with active scene name and dirty status
@@ -357,7 +355,7 @@ void HierarchyView::update(AppContext& context)
             ui::label(title.c_str());
             ui::spacer();
             ui::icon_button(LYRA_ICON_NEW_FILE, [&]() {
-                if (auto world_ptr = context.toolboard.try_get<World*>()) {
+                if (auto world_ptr = context.services.try_get<World*>()) {
                     auto&     world = *world_ptr;
                     SceneNode target_parent{};
                     if (scene_mgr) {
@@ -384,16 +382,16 @@ void HierarchyView::update(AppContext& context)
 
         Entity entity_to_delete = entt::null;
 
-        if (auto world_ptr = context.toolboard.try_get<World*>()) {
-            if (auto hierarchy_ptr = context.toolboard.try_get<SceneTree*>()) {
+        if (auto world_ptr = context.services.try_get<World*>()) {
+            if (auto hierarchy_ptr = context.services.try_get<SceneTree*>()) {
                 auto& world     = *world_ptr;
                 auto& hierarchy = *hierarchy_ptr;
 
                 // validate selected_node
                 if (selected_node != SceneTree::INVALID_NODE) {
                     if (selected_node >= hierarchy.size() || !world.registry.valid(hierarchy.at(selected_node).entity)) {
-                        selected_node                                           = SceneTree::INVALID_NODE;
-                        context.blackboard.get<HierarchyView::Selection>().node = SceneNode{};
+                        selected_node          = SceneTree::INVALID_NODE;
+                        current_selection.node = SceneNode{};
                     }
                 }
 
@@ -411,7 +409,8 @@ void HierarchyView::update(AppContext& context)
                     open_rename_modal,
                     show_rename_modal,
                     entity_to_delete_children,
-                    scene_mgr};
+                    scene_mgr,
+                    current_selection};
 
                 const auto* active                  = scene_mgr ? scene_mgr->get_active() : nullptr;
                 bool        rendered_scene_children = false;
@@ -439,7 +438,7 @@ void HierarchyView::update(AppContext& context)
                     ui::invisible_button("##hierarchy_empty_space", avail);
                     ui::drag_drop_target("LYRA_ASSET_MODEL", [&](const void* data, usize) {
                         CString path_cstr = static_cast<CString>(data);
-                        auto*   ams       = context.toolboard.try_get<AssetServer*>();
+                        auto*   ams       = context.services.try_get<AssetServer*>();
                         if (ams && scene_mgr) {
                             Path model_path(path_cstr);
                             auto model_handle = ams->load_asset<ModelAsset>(path_cstr);
@@ -485,7 +484,7 @@ void HierarchyView::update(AppContext& context)
                     return SceneNode{};
                 };
                 ui::menu_item(LYRA_ICON_NODE " Empty Entity", [&]() {
-                    if (auto world_ptr = context.toolboard.try_get<World*>()) {
+                    if (auto world_ptr = context.services.try_get<World*>()) {
                         auto&     world  = *world_ptr;
                         SceneNode root   = get_active_root();
                         String    name   = scene_mgr ? scene_mgr->resolve_unique_name(root, "GameObject") : "GameObject";
@@ -497,7 +496,7 @@ void HierarchyView::update(AppContext& context)
                     }
                 });
                 ui::menu_item(LYRA_ICON_CAMERA " Camera", [&]() {
-                    if (auto world_ptr = context.toolboard.try_get<World*>()) {
+                    if (auto world_ptr = context.services.try_get<World*>()) {
                         auto&     world = *world_ptr;
                         SceneNode root  = get_active_root();
                         String    name  = scene_mgr ? scene_mgr->resolve_unique_name(root, "Camera") : "Camera";
@@ -511,7 +510,7 @@ void HierarchyView::update(AppContext& context)
                 });
                 ui::menu(LYRA_ICON_LIGHT " Light", [&]() {
                     ui::menu_item(LYRA_ICON_SUN " Directional Light", [&]() {
-                        if (auto world_ptr = context.toolboard.try_get<World*>()) {
+                        if (auto world_ptr = context.services.try_get<World*>()) {
                             auto&     world = *world_ptr;
                             SceneNode root  = get_active_root();
                             String    name  = scene_mgr ? scene_mgr->resolve_unique_name(root, "DirectionalLight") : "DirectionalLight";
@@ -524,7 +523,7 @@ void HierarchyView::update(AppContext& context)
                         }
                     });
                     ui::menu_item(LYRA_ICON_LIGHT " Point Light", [&]() {
-                        if (auto world_ptr = context.toolboard.try_get<World*>()) {
+                        if (auto world_ptr = context.services.try_get<World*>()) {
                             auto&     world = *world_ptr;
                             SceneNode root  = get_active_root();
                             String    name  = scene_mgr ? scene_mgr->resolve_unique_name(root, "PointLight") : "PointLight";
@@ -537,7 +536,7 @@ void HierarchyView::update(AppContext& context)
                         }
                     });
                     ui::menu_item(LYRA_ICON_LIGHT " Spot Light", [&]() {
-                        if (auto world_ptr = context.toolboard.try_get<World*>()) {
+                        if (auto world_ptr = context.services.try_get<World*>()) {
                             auto&     world = *world_ptr;
                             SceneNode root  = get_active_root();
                             String    name  = scene_mgr ? scene_mgr->resolve_unique_name(root, "SpotLight") : "SpotLight";
@@ -555,15 +554,15 @@ void HierarchyView::update(AppContext& context)
             ui::separator();
 
             ui::menu_item(LYRA_ICON_TREE " Deselect", [&]() {
-                selected_node                                           = SceneTree::INVALID_NODE;
-                context.blackboard.get<HierarchyView::Selection>().node = SceneNode{};
+                selected_node          = SceneTree::INVALID_NODE;
+                current_selection.node = SceneNode{};
             });
 
             ui::separator();
 
             ui::menu_item(LYRA_ICON_DELETE " Clear Scene", [&]() {
                 if (ui::dialog::confirm("Clear Scene", "Are you sure you want to delete all entities in the active scene?")) {
-                    if (auto world_ptr = context.toolboard.try_get<World*>()) {
+                    if (auto world_ptr = context.services.try_get<World*>()) {
                         auto& world = *world_ptr;
                         if (scene_mgr) {
                             if (const auto* active = scene_mgr->get_active()) {
@@ -579,8 +578,8 @@ void HierarchyView::update(AppContext& context)
                             }
                             scene_mgr->set_dirty(true);
                         }
-                        selected_node                                           = SceneTree::INVALID_NODE;
-                        context.blackboard.get<HierarchyView::Selection>().node = SceneNode{};
+                        selected_node          = SceneTree::INVALID_NODE;
+                        current_selection.node = SceneNode{};
                     }
                 }
             });
@@ -589,8 +588,8 @@ void HierarchyView::update(AppContext& context)
         // keyboard shortcuts for selected entity
         if (!ui::is_text_input_active() && ui::is_panel_hovered()) {
             if (selected_node != SceneTree::INVALID_NODE) {
-                if (auto world_ptr = context.toolboard.try_get<World*>()) {
-                    if (auto hierarchy_ptr = context.toolboard.try_get<SceneTree*>()) {
+                if (auto world_ptr = context.services.try_get<World*>()) {
+                    if (auto hierarchy_ptr = context.services.try_get<SceneTree*>()) {
                         Entity sel_entity = (*hierarchy_ptr)[selected_node].entity;
                         if (sel_entity != entt::null && world_ptr->registry.valid(sel_entity)) {
                             if (ui::is_key_pressed(KeyButton::F2)) {
@@ -626,7 +625,7 @@ void HierarchyView::update(AppContext& context)
                 ui::label("New name:");
                 ui::text_field("##rename_node_field", rename_buffer, sizeof(rename_buffer), [&]() {
                     if (entity_to_rename != entt::null && rename_buffer[0] != '\0') {
-                        if (auto world_ptr = context.toolboard.try_get<World*>()) {
+                        if (auto world_ptr = context.services.try_get<World*>()) {
                             world_ptr->set_name(SceneNode(entity_to_rename), rename_buffer);
                             if (scene_mgr) scene_mgr->set_dirty(true);
                         }
@@ -642,7 +641,7 @@ void HierarchyView::update(AppContext& context)
                     });
                     ui::button("Rename", [&]() {
                         if (entity_to_rename != entt::null && rename_buffer[0] != '\0') {
-                            if (auto world_ptr = context.toolboard.try_get<World*>()) {
+                            if (auto world_ptr = context.services.try_get<World*>()) {
                                 world_ptr->set_name(SceneNode(entity_to_rename), rename_buffer);
                                 if (scene_mgr) scene_mgr->set_dirty(true);
                             }
@@ -657,18 +656,18 @@ void HierarchyView::update(AppContext& context)
 
         // process deferred duplicate
         if (entity_to_duplicate != entt::null) {
-            if (auto world_ptr = context.toolboard.try_get<World*>()) {
+            if (auto world_ptr = context.services.try_get<World*>()) {
                 auto new_entity = duplicate_entity(*world_ptr, entity_to_duplicate, entt::null, scene_mgr);
                 if (scene_mgr) scene_mgr->set_dirty(true);
-                selected_node                                           = SceneTree::INVALID_NODE;
-                context.blackboard.get<HierarchyView::Selection>().node = SceneNode(new_entity);
+                selected_node          = SceneTree::INVALID_NODE;
+                current_selection.node = SceneNode(new_entity);
             }
             entity_to_duplicate = entt::null;
         }
 
         // process deferred delete children
         if (entity_to_delete_children != entt::null) {
-            if (auto world_ptr = context.toolboard.try_get<World*>()) {
+            if (auto world_ptr = context.services.try_get<World*>()) {
                 auto& world = *world_ptr;
                 if (auto* children = world.registry.try_get<Children>(entity_to_delete_children)) {
                     auto nodes = children->nodes;
@@ -684,11 +683,11 @@ void HierarchyView::update(AppContext& context)
 
         // process deferred deletion
         if (entity_to_delete != entt::null) {
-            if (auto world_ptr = context.toolboard.try_get<World*>()) {
+            if (auto world_ptr = context.services.try_get<World*>()) {
                 auto& world = *world_ptr;
                 world.destroy_tree(SceneNode(entity_to_delete));
-                selected_node                                           = SceneTree::INVALID_NODE;
-                context.blackboard.get<HierarchyView::Selection>().node = SceneNode{};
+                selected_node          = SceneTree::INVALID_NODE;
+                current_selection.node = SceneNode{};
                 if (scene_mgr) scene_mgr->set_dirty(true);
             }
             entity_to_delete = entt::null;

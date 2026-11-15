@@ -1,14 +1,8 @@
 #include "EditorCommands.h"
-
 #include <Lyra/Lyra.hpp>
-#include <Lyra/UISystem/Widgets/UI.h>
-#include <Lyra/UISystem/Widgets/UIDock.h>
-#include <Lyra/UISystem/Widgets/UIIcons.h>
-#include <Lyra/UISystem/Widgets/UIDialog.h>
-#include <Lyra/UISystem/Widgets/UICommand.h>
 
-#include "Panels/AssetBrowserView.h"
 #include "Panels/HierarchyView.h"
+#include "Panels/AssetBrowserView.h"
 
 using namespace lyra;
 
@@ -22,17 +16,17 @@ namespace
 void lyra::setup_editor_commands(AppContext& context)
 {
     auto reset_input_states = [&context]() {
-        if (auto input = context.toolboard.try_get<InputManager*>()) {
+        if (auto input = context.services.try_get<InputManager*>()) {
             input->reset();
         }
-        if (auto window = context.toolboard.try_get<Window*>()) {
+        if (auto window = context.services.try_get<Window*>()) {
             window->reset_input_state();
         }
         ui::clear_input_keys();
     };
 
     auto to_app_vpath = [&context](const Path& os_path) -> Optional<String> {
-        if (auto browser = context.toolboard.try_get<AssetBrowserView>()) {
+        if (auto browser = context.services.try_get<AssetBrowserView>()) {
             std::error_code ec;
             Path            rel = fs::relative(os_path, browser->get_app_root(), ec);
             if (!ec && !rel.empty() && *rel.begin() != "..") {
@@ -51,7 +45,7 @@ void lyra::setup_editor_commands(AppContext& context)
         .shortcut = "Ctrl+N",
         .chord    = ButtonChord::key(KeyButton::N, ModifierKey::CTRL),
         .action   = [&context, reset_input_states]() {
-            auto scene_mgr = context.toolboard.try_get<SceneManager>();
+            auto scene_mgr = context.services.try_get<SceneManager>();
             if (scene_mgr && scene_mgr->is_dirty()) {
                 if (!ui::dialog::confirm("Unsaved Changes", "The active scene has unsaved changes. Discard and create a new scene?")) {
                     return;
@@ -63,7 +57,7 @@ void lyra::setup_editor_commands(AppContext& context)
             reset_input_states();
         },
         .is_enabled = [&context]() {
-            return context.toolboard.try_get<SceneManager>() != nullptr;
+            return context.services.try_get<SceneManager>() != nullptr;
         },
     });
 
@@ -75,7 +69,7 @@ void lyra::setup_editor_commands(AppContext& context)
         .shortcut = "Ctrl+O",
         .chord    = ButtonChord::key(KeyButton::O, ModifierKey::CTRL),
         .action   = [&context, reset_input_states, to_app_vpath]() {
-            auto scene_mgr = context.toolboard.try_get<SceneManager>();
+            auto scene_mgr = context.services.try_get<SceneManager>();
             if (!scene_mgr) return;
             if (scene_mgr->is_dirty()) {
                 if (!ui::dialog::confirm("Unsaved Changes", "The active scene has unsaved changes. Discard and open scene?")) {
@@ -100,7 +94,7 @@ void lyra::setup_editor_commands(AppContext& context)
             }
         },
         .is_enabled = [&context]() {
-            return context.toolboard.try_get<SceneManager>() != nullptr;
+            return context.services.try_get<SceneManager>() != nullptr;
         },
     });
 
@@ -112,7 +106,7 @@ void lyra::setup_editor_commands(AppContext& context)
         .shortcut = "Ctrl+S",
         .chord    = ButtonChord::key(KeyButton::S, ModifierKey::CTRL),
         .action   = [&context, reset_input_states, to_app_vpath]() {
-            auto scene_mgr = context.toolboard.try_get<SceneManager>();
+            auto scene_mgr = context.services.try_get<SceneManager>();
             if (!scene_mgr) return;
             if (!scene_mgr->get_active_path().empty()) {
                 if (!scene_mgr->save_active()) {
@@ -124,7 +118,7 @@ void lyra::setup_editor_commands(AppContext& context)
             }
         },
         .is_enabled = [&context]() {
-            return context.toolboard.try_get<SceneManager>() != nullptr;
+            return context.services.try_get<SceneManager>() != nullptr;
         },
     });
 
@@ -136,7 +130,7 @@ void lyra::setup_editor_commands(AppContext& context)
         .shortcut = "Ctrl+Shift+S",
         .chord    = ButtonChord::key(KeyButton::S, ModifierKey::CTRL | ModifierKey::SHIFT),
         .action   = [&context, reset_input_states, to_app_vpath]() {
-            auto scene_mgr = context.toolboard.try_get<SceneManager>();
+            auto scene_mgr = context.services.try_get<SceneManager>();
             if (!scene_mgr) return;
             ui::dialog::Options opts;
             opts.title    = "Save Scene As";
@@ -159,7 +153,7 @@ void lyra::setup_editor_commands(AppContext& context)
             }
         },
         .is_enabled = [&context]() {
-            return context.toolboard.try_get<SceneManager>() != nullptr;
+            return context.services.try_get<SceneManager>() != nullptr;
         },
     });
 
@@ -169,7 +163,7 @@ void lyra::setup_editor_commands(AppContext& context)
         .title    = "Load Scene Additive...",
         .icon     = LYRA_ICON_IMPORT,
         .action   = [&context, reset_input_states, to_app_vpath]() {
-            auto scene_mgr = context.toolboard.try_get<SceneManager>();
+            auto scene_mgr = context.services.try_get<SceneManager>();
             if (!scene_mgr) return;
             ui::dialog::Options opts;
             opts.title    = "Load Scene Additive";
@@ -189,7 +183,7 @@ void lyra::setup_editor_commands(AppContext& context)
             }
         },
         .is_enabled = [&context]() {
-            return context.toolboard.try_get<SceneManager>() != nullptr;
+            return context.services.try_get<SceneManager>() != nullptr;
         },
     });
 
@@ -200,12 +194,12 @@ void lyra::setup_editor_commands(AppContext& context)
         .title    = "Reimport All (Force)",
         .icon     = LYRA_ICON_RELOAD,
         .action   = [&context]() {
-            if (auto ams = context.toolboard.try_get<AssetServer>()) {
+            if (auto ams = context.services.try_get<AssetServer>()) {
                 ams->reimport_all(true);
             }
         },
         .is_enabled = [&context]() {
-            return context.toolboard.try_get<AssetServer>() != nullptr;
+            return context.services.try_get<AssetServer>() != nullptr;
         },
     });
 
@@ -215,12 +209,12 @@ void lyra::setup_editor_commands(AppContext& context)
         .title    = "Purge Unused Assets",
         .icon     = LYRA_ICON_DELETE,
         .action   = [&context]() {
-            if (auto ams = context.toolboard.try_get<AssetServer>()) {
+            if (auto ams = context.services.try_get<AssetServer>()) {
                 ams->purge();
             }
         },
         .is_enabled = [&context]() {
-            return context.toolboard.try_get<AssetServer>() != nullptr;
+            return context.services.try_get<AssetServer>() != nullptr;
         },
     });
 
@@ -230,12 +224,12 @@ void lyra::setup_editor_commands(AppContext& context)
         .title    = "Flush Registry to Disk",
         .icon     = LYRA_ICON_SAVE,
         .action   = [&context]() {
-            if (auto ams = context.toolboard.try_get<AssetServer>()) {
+            if (auto ams = context.services.try_get<AssetServer>()) {
                 ams->flush();
             }
         },
         .is_enabled = [&context]() {
-            return context.toolboard.try_get<AssetServer>() != nullptr;
+            return context.services.try_get<AssetServer>() != nullptr;
         },
     });
 
@@ -245,12 +239,12 @@ void lyra::setup_editor_commands(AppContext& context)
         .title    = "Toggle Watch Source Directory",
         .icon     = LYRA_ICON_SETTINGS,
         .action   = [&context]() {
-            if (auto ams = context.toolboard.try_get<AssetServer>()) {
+            if (auto ams = context.services.try_get<AssetServer>()) {
                 ams->set_watching(!ams->is_watching());
             }
         },
         .is_enabled = [&context]() {
-            return context.toolboard.try_get<AssetServer>() != nullptr;
+            return context.services.try_get<AssetServer>() != nullptr;
         },
     });
 
@@ -295,18 +289,17 @@ void lyra::setup_editor_commands(AppContext& context)
         .title    = "Create Empty Child",
         .icon     = LYRA_ICON_NODE,
         .action   = [&context]() {
-            auto scene_mgr = context.toolboard.try_get<SceneManager>();
-            auto world     = context.toolboard.try_get<World*>();
-            if (!world) return;
-            SceneNode parent = context.blackboard.has<HierarchyView::Selection>()
-                                     ? context.blackboard.get<HierarchyView::Selection>().node
-                                     : SceneNode{};
-            String    name   = scene_mgr ? scene_mgr->resolve_unique_name(parent, "ChildNode") : "ChildNode";
-            auto      child  = world->create(name);
-            if (parent.entity != entt::null) {
-                world->add_child(parent, child);
+            auto scene_mgr = context.services.try_get<SceneManager>();
+            if (auto world = context.services.try_get<World*>()) {
+                auto sel    = context.services.try_get<HierarchyView::Selection*>();
+                auto parent = sel ? sel->node : SceneNode{};
+                auto name   = scene_mgr ? scene_mgr->resolve_unique_name(parent, "ChildNode") : "ChildNode";
+                auto child  = world->create(name);
+                if (parent.entity != entt::null) {
+                    world->add_child(parent, child);
+                }
+                if (scene_mgr) scene_mgr->set_dirty(true);
             }
-            if (scene_mgr) scene_mgr->set_dirty(true);
         },
     });
 
@@ -316,19 +309,18 @@ void lyra::setup_editor_commands(AppContext& context)
         .title    = "Create Camera",
         .icon     = LYRA_ICON_CAMERA,
         .action   = [&context]() {
-            auto scene_mgr = context.toolboard.try_get<SceneManager>();
-            auto world     = context.toolboard.try_get<World*>();
-            if (!world) return;
-            SceneNode parent = context.blackboard.has<HierarchyView::Selection>()
-                                     ? context.blackboard.get<HierarchyView::Selection>().node
-                                     : SceneNode{};
-            String    name   = scene_mgr ? scene_mgr->resolve_unique_name(parent, "Camera") : "Camera";
-            auto      cam    = world->create(name);
-            world->add_component<Camera>(cam);
-            if (parent.entity != entt::null) {
-                world->add_child(parent, cam);
+            auto scene_mgr = context.services.try_get<SceneManager>();
+            if (auto world = context.services.try_get<World*>()) {
+                auto sel    = context.services.try_get<HierarchyView::Selection*>();
+                auto parent = sel ? sel->node : SceneNode{};
+                auto name   = scene_mgr ? scene_mgr->resolve_unique_name(parent, "Camera") : "Camera";
+                auto cam    = world->create(name);
+                world->add_component<Camera>(cam);
+                if (parent.entity != entt::null) {
+                    world->add_child(parent, cam);
+                }
+                if (scene_mgr) scene_mgr->set_dirty(true);
             }
-            if (scene_mgr) scene_mgr->set_dirty(true);
         },
     });
 
@@ -338,19 +330,18 @@ void lyra::setup_editor_commands(AppContext& context)
         .title    = "Create Directional Light",
         .icon     = LYRA_ICON_SUN,
         .action   = [&context]() {
-            auto scene_mgr = context.toolboard.try_get<SceneManager>();
-            auto world     = context.toolboard.try_get<World*>();
-            if (!world) return;
-            SceneNode parent = context.blackboard.has<HierarchyView::Selection>()
-                                     ? context.blackboard.get<HierarchyView::Selection>().node
-                                     : SceneNode{};
-            String    name   = scene_mgr ? scene_mgr->resolve_unique_name(parent, "DirectionalLight") : "DirectionalLight";
-            auto      light  = world->create(name);
-            world->add_component<DirectionalLight>(light);
-            if (parent.entity != entt::null) {
-                world->add_child(parent, light);
+            auto scene_mgr = context.services.try_get<SceneManager>();
+            if (auto world = context.services.try_get<World*>()) {
+                auto sel    = context.services.try_get<HierarchyView::Selection*>();
+                auto parent = sel ? sel->node : SceneNode{};
+                auto name   = scene_mgr ? scene_mgr->resolve_unique_name(parent, "DirectionalLight") : "DirectionalLight";
+                auto light  = world->create(name);
+                world->add_component<DirectionalLight>(light);
+                if (parent.entity != entt::null) {
+                    world->add_child(parent, light);
+                }
+                if (scene_mgr) scene_mgr->set_dirty(true);
             }
-            if (scene_mgr) scene_mgr->set_dirty(true);
         },
     });
 
@@ -360,19 +351,18 @@ void lyra::setup_editor_commands(AppContext& context)
         .title    = "Create Point Light",
         .icon     = LYRA_ICON_LIGHT,
         .action   = [&context]() {
-            auto scene_mgr = context.toolboard.try_get<SceneManager>();
-            auto world     = context.toolboard.try_get<World*>();
-            if (!world) return;
-            SceneNode parent = context.blackboard.has<HierarchyView::Selection>()
-                                     ? context.blackboard.get<HierarchyView::Selection>().node
-                                     : SceneNode{};
-            String    name   = scene_mgr ? scene_mgr->resolve_unique_name(parent, "PointLight") : "PointLight";
-            auto      light  = world->create(name);
-            world->add_component<PointLight>(light);
-            if (parent.entity != entt::null) {
-                world->add_child(parent, light);
+            auto scene_mgr = context.services.try_get<SceneManager>();
+            if (auto world = context.services.try_get<World*>()) {
+                auto sel    = context.services.try_get<HierarchyView::Selection*>();
+                auto parent = sel ? sel->node : SceneNode{};
+                auto name   = scene_mgr ? scene_mgr->resolve_unique_name(parent, "PointLight") : "PointLight";
+                auto light  = world->create(name);
+                world->add_component<PointLight>(light);
+                if (parent.entity != entt::null) {
+                    world->add_child(parent, light);
+                }
+                if (scene_mgr) scene_mgr->set_dirty(true);
             }
-            if (scene_mgr) scene_mgr->set_dirty(true);
         },
     });
 }
@@ -385,7 +375,7 @@ void lyra::render_editor_modals(AppContext& context)
     }
 
     if (s_show_new_scene_modal) {
-        auto scene_mgr = context.toolboard.try_get<SceneManager>();
+        auto scene_mgr = context.services.try_get<SceneManager>();
 
         ui::modal(LYRA_ICON_SCENE " New Scene", &s_show_new_scene_modal, [&]() {
             ui::label("Enter scene name:");

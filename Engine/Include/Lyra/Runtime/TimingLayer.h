@@ -12,7 +12,7 @@ namespace lyra
 {
     /**
      * @brief The Clock struct holds the current timing information.
-     * This is intended to be stored in the Blackboard for global access.
+     * This is intended to be stored in Services for global access.
      */
     struct Clock
     {
@@ -34,7 +34,7 @@ namespace lyra
         explicit TimingLayer();
 
         /**
-         * @brief Register the Clock to the blackboard and bind its update event.
+         * @brief Register the Clock to the services and bind its update event.
          */
         void bind(Application& app);
 

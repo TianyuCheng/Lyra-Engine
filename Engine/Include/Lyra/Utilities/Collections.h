@@ -21,7 +21,7 @@
 #include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Utilities/Detail/View.h>
 #include <Lyra/Utilities/Detail/Blackboard.h>
-#include <Lyra/Utilities/Detail/Toolboard.h>
+#include <Lyra/Utilities/Detail/Services.h>
 
 namespace lyra
 {
@@ -77,7 +77,7 @@ namespace lyra
     using TypedView = lyra::detail::typed_view<T...>;
 
     using Blackboard = lyra::detail::Blackboard;
-    using Toolboard  = lyra::detail::Toolboard;
+    using Services   = lyra::detail::Services;
 
 } // end of namespace lyra
 

@@ -6,6 +6,7 @@
 #include <cassert>
 #include <utility>
 #include <type_traits>
+#include <typeindex>
 
 #include <Lyra/Utilities/Hash.h>
 #include <Lyra/Utilities/Stdint.h>
@@ -54,13 +55,12 @@ namespace lyra
     // type identification & traits
     // -------------------------------------------------------------------------
 
-    using ResourceTypeID = const void*;
+    using ResourceTypeID = std::type_index;
 
     template <typename T>
     inline ResourceTypeID get_resource_type_id()
     {
-        static const char id = 0;
-        return &id;
+        return std::type_index(typeid(T));
     }
 
     struct FrameGraphPass;
@@ -920,12 +920,16 @@ namespace lyra
 
         [[nodiscard]] auto build() -> Own<FrameGraph>;
 
+        [[nodiscard]] Blackboard&       get_blackboard() { return blackboard; }
+        [[nodiscard]] const Blackboard& get_blackboard() const { return blackboard; }
+
     private:
         bool is_pass_valid() const { return pass != 0xFFFFFFFFu; }
 
     private:
-        Own<FrameGraph> graph = nullptr;
-        uint            pass  = 0xFFFFFFFFu;
+        Own<FrameGraph> graph      = nullptr;
+        Blackboard      blackboard = {};
+        uint            pass       = 0xFFFFFFFFu;
     };
 
 } // namespace lyra

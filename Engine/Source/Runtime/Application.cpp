@@ -109,16 +109,16 @@ Application::Application(const AppDescriptor& descriptor)
     init_compiler();
     bind_events();
 
-    // adding commonly used components into toolboard
-    context.toolboard.add<Application*>(this);
+    // adding commonly used components into services
+    context.services.add<Application*>(this);
     if (auto fl = get_file_loader()) {
-        context.toolboard.add<FileLoader*>(fl);
+        context.services.add<FileLoader*>(fl);
     }
-    context.toolboard.add<Window*>(wsi.get());
-    context.toolboard.add<Compiler*>(slc.get());
-    context.toolboard.add<GPUAdapter*>(&adapter);
-    context.toolboard.add<GPUDevice*>(&device);
-    context.toolboard.add<GPUSurface*>(&surface);
+    context.services.add<Window*>(wsi.get());
+    context.services.add<Compiler*>(slc.get());
+    context.services.add<GPUAdapter*>(&adapter);
+    context.services.add<GPUDevice*>(&device);
+    context.services.add<GPUSurface*>(&surface);
 }
 
 /**

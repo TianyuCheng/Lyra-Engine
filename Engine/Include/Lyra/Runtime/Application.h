@@ -93,16 +93,10 @@ namespace lyra
         auto& get_context() const { return context; }
 
         /**
-         * @brief Get the application toolboard for physical devices and subsystems.
+         * @brief Get the application service locator for devices and subsystems.
          */
-        auto& get_toolboard() { return context.toolboard; }
-        auto& get_toolboard() const { return context.toolboard; }
-
-        /**
-         * @brief Get the application blackboard for global data sharing.
-         */
-        auto& get_blackboard() { return context.blackboard; }
-        auto& get_blackboard() const { return context.blackboard; }
+        auto& get_services() { return context.services; }
+        auto& get_services() const { return context.services; }
 
         /**
          * @brief Get window and graphics descriptors.

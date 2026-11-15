@@ -13,8 +13,8 @@ InputLayer::InputLayer()
 
 void InputLayer::bind(Application& app)
 {
-    app.get_toolboard().add<InputManager*>(&manager);
-    app.get_toolboard().add<InputLayer*>(this);
+    app.get_services().add<InputManager*>(&manager);
+    app.get_services().add<InputLayer*>(this);
     app.bind<AppEvent::INIT, &InputLayer::init>(*this);
     app.bind<AppEvent::UPDATE_PRE, &InputLayer::update>(*this);
 }
@@ -35,7 +35,7 @@ void InputLayer::init(AppContext& context)
     filter_pipeline.set_filter(InputPriority::OVERLAY, [&context](const InputFilter& current) -> InputFilter {
         InputFilter filter{};
         if (current.block_mouse) return filter; // already blocked by editor layer
-        if (auto viewport = context.try_tool<ViewportInputProvider>()) {
+        if (auto viewport = context.try_service<ViewportInputProvider>()) {
             if (viewport->is_overlay_locked() || (viewport->is_canvas_hovered() && viewport->is_overlay_interacting())) {
                 filter.block_mouse = true;
             }
@@ -46,7 +46,7 @@ void InputLayer::init(AppContext& context)
     // layer 3: viewport canvas navigation & hotkeys
     filter_pipeline.set_filter(InputPriority::VIEWPORT, [&context](const InputFilter&) -> InputFilter {
         InputFilter filter{};
-        if (auto viewport = context.try_tool<ViewportInputProvider>()) {
+        if (auto viewport = context.try_service<ViewportInputProvider>()) {
             filter.block_mouse    = !viewport->is_mouse_nav_active();
             filter.block_keyboard = !viewport->is_keyboard_nav_active();
         }
@@ -57,12 +57,12 @@ void InputLayer::init(AppContext& context)
 void InputLayer::update(AppContext& context)
 {
     const WindowInput* raw_input = nullptr;
-    if (Window* window = context.try_tool<Window>()) {
+    if (Window* window = context.try_service<Window>()) {
         raw_input = &window->get_input_state();
     }
 
     float dt = 0.0f;
-    if (Clock* clock = context.try_tool<Clock>()) {
+    if (Clock* clock = context.try_service<Clock>()) {
         dt = clock->delta_time;
     }
 

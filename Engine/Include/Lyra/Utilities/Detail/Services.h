@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_ENGINE_UTILITIES_DETAIL_TOOLBOARD_H
-#define LYRA_ENGINE_UTILITIES_DETAIL_TOOLBOARD_H
+#ifndef LYRA_ENGINE_UTILITIES_DETAIL_SERVICES_H
+#define LYRA_ENGINE_UTILITIES_DETAIL_SERVICES_H
 
 #include <cassert>
 #include <memory>
@@ -14,13 +14,12 @@
 namespace lyra::detail
 {
     /**
-     * @brief A type-indexed registry for borrowing external subsystems, devices, and tools.
+     * @brief A type-indexed service locator for borrowing external subsystems, devices, and infrastructure.
      *
-     * Unlike Blackboard (which owns dynamic value types via type erasure), Toolboard holds
-     * non-owning pointers to external hardware and engine infrastructure (e.g. Window,
-     * GPUDevice, Compiler).
+     * Holds non-owning pointers to external hardware and engine systems (e.g. Window,
+     * GPUDevice, Compiler, AssetServer).
      */
-    struct Toolboard
+    struct Services
     {
     private:
         template <typename T>
@@ -33,16 +32,16 @@ namespace lyra::detail
         using const_get_return_t = Conditional<std::is_pointer_v<T>, const clean_element_t<T>*, const clean_element_t<T>&>;
 
     public:
-        Toolboard()                     = default;
-        Toolboard(const Toolboard&)     = default;
-        Toolboard(Toolboard&&) noexcept = default;
-        ~Toolboard()                    = default;
+        Services()                      = default;
+        Services(const Services&)     = default;
+        Services(Services&&) noexcept = default;
+        ~Services()                    = default;
 
-        Toolboard& operator=(const Toolboard&)     = default;
-        Toolboard& operator=(Toolboard&&) noexcept = default;
+        Services& operator=(const Services&)     = default;
+        Services& operator=(Services&&) noexcept = default;
 
         /**
-         * @brief Register a pointer to an external tool/subsystem.
+         * @brief Register a pointer to an external service/subsystem.
          */
         template <typename T = void, typename U>
         clean_element_t<Conditional<std::is_void_v<T>, U, T>>* add(U* instance)
@@ -55,7 +54,7 @@ namespace lyra::detail
         }
 
         /**
-         * @brief Register a reference to an external tool/subsystem.
+         * @brief Register a reference to an external service/subsystem.
          */
         template <typename T = void, typename U>
         clean_element_t<Conditional<std::is_void_v<T>, U, T>>& add(U& instance)
@@ -67,7 +66,7 @@ namespace lyra::detail
         }
 
         /**
-         * @brief Retrieve a reference or pointer to a registered tool (asserts presence).
+         * @brief Retrieve a reference or pointer to a registered service (asserts presence).
          */
         template <typename T>
         [[nodiscard]] const_get_return_t<T> get() const
@@ -94,7 +93,7 @@ namespace lyra::detail
         }
 
         /**
-         * @brief Query a tool by type. Returns nullptr if not registered. Never returns a double pointer.
+         * @brief Query a service by type. Returns nullptr if not registered. Never returns a double pointer.
          */
         template <typename T>
         [[nodiscard]] const clean_element_t<T>* try_get() const
@@ -113,7 +112,7 @@ namespace lyra::detail
         }
 
         /**
-         * @brief Check whether a tool is registered.
+         * @brief Check whether a service is registered.
          */
         template <typename T>
         [[nodiscard]] bool has() const
@@ -127,7 +126,7 @@ namespace lyra::detail
         }
 
         /**
-         * @brief Remove a tool by type.
+         * @brief Remove a service by type.
          */
         template <typename T>
         bool remove()
@@ -137,7 +136,7 @@ namespace lyra::detail
         }
 
         /**
-         * @brief Clear all registered tools.
+         * @brief Clear all registered services.
          */
         void clear() noexcept
         {
@@ -145,7 +144,7 @@ namespace lyra::detail
         }
 
         /**
-         * @brief Number of registered tools.
+         * @brief Number of registered services.
          */
         [[nodiscard]] usize size() const noexcept
         {
@@ -153,7 +152,7 @@ namespace lyra::detail
         }
 
         /**
-         * @brief Whether the toolboard has any tools registered.
+         * @brief Whether services has any subsystems registered.
          */
         [[nodiscard]] bool empty() const noexcept
         {
@@ -166,4 +165,4 @@ namespace lyra::detail
 
 } // namespace lyra::detail
 
-#endif // LYRA_ENGINE_UTILITIES_DETAIL_TOOLBOARD_H
+#endif // LYRA_ENGINE_UTILITIES_DETAIL_SERVICES_H

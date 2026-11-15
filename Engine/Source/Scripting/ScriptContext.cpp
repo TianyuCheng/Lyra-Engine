@@ -10,22 +10,22 @@ using namespace lyra;
 
 ScriptContext::ScriptContext(AppContext& context, ScriptLayer& layer)
 {
-    world         = context.try_tool<World>();
+    world         = context.try_service<World>();
     cmd_queue     = &layer.get_command_queue();
     scratch_arena = &layer.get_scratch_arena();
 
-    if (Clock* clock = context.try_tool<Clock>()) {
+    if (Clock* clock = context.try_service<Clock>()) {
         delta_time = clock->delta_time;
         total_time = clock->total_time;
     }
 
-    if (Window* window = context.try_tool<Window>()) {
+    if (Window* window = context.try_service<Window>()) {
         input_state = &window->get_input_state();
     } else {
-        input_state = context.try_tool<WindowInput>();
+        input_state = context.try_service<WindowInput>();
     }
 
-    input_manager = context.try_tool<InputManager>();
+    input_manager = context.try_service<InputManager>();
 
     assert(cmd_queue != nullptr && "ScriptContext requires non-null ScriptCommandQueue");
     assert(scratch_arena != nullptr && "ScriptContext requires non-null MemoryArena");

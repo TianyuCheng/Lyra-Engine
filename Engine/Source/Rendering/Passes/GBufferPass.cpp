@@ -48,7 +48,7 @@ GBufferData GBufferPass::add(
             depth_desc.size.height = extent.height;
             depth_desc.size.depth  = 1;
             depth_desc.dimension   = GPUTextureDimension::x2D;
-            depth_desc.format      = GPUTextureFormat::DEPTH24PLUS_STENCIL8;
+            depth_desc.format      = GPUTextureFormat::DEPTH32FLOAT;
             depth_desc.usage       = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
             data.depth_stencil     = pass_builder.create<FrameGraphTexture>(depth_desc);
 

@@ -115,16 +115,13 @@ static void get_statistics(RendererHandle handle, RendererStats& out_stats)
     }
 }
 
-static void render(
-    RendererHandle          handle,
-    const RenderView&       view,
-    const RenderScene&      scene,
-    const Backbuffer&       target,
-    GPUCommandEncoderHandle command_encoder)
+static FrameGraph::TextureHandle render(
+    RendererHandle            handle,
+    const RenderFrameContext& ctx)
 {
     auto renderer = handle.as_type<PathTracerRendererInstance>();
     if (!renderer) {
-        return;
+        return ctx.color_target;
     }
 
     // TODO: 1. Build or refit scene Top-Level Acceleration Structure (TLAS) from primitives
@@ -138,8 +135,9 @@ static void render(
     // TODO: 6. Tonemap, gamma correct, and blit resolved radiance to target backbuffer
 
     renderer->accumulated_frames++;
-    renderer->stats.rays_traced        = target.extent.width * target.extent.height * renderer->settings.samples_per_pixel;
-    renderer->stats.triangles_rendered = static_cast<uint>(scene.meshes.size() * 12);
+    renderer->stats.rays_traced        = ctx.render_extent.width * ctx.render_extent.height * renderer->settings.samples_per_pixel;
+    renderer->stats.triangles_rendered = static_cast<uint>(ctx.scene.meshes.size() * 12);
+    return ctx.color_target;
 }
 
 static void draw_debug_panel(RendererHandle handle)

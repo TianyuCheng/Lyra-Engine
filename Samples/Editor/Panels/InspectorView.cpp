@@ -101,8 +101,8 @@ void InspectorView::update(AppContext& context)
     ui::workspace::dock_default(LYRA_INSPECTOR_WINDOW_NAME, ui::Area::Right);
 
     ui::panel(LYRA_INSPECTOR_WINDOW_NAME, [&]() {
-        auto world     = context.toolboard.try_get<World*>();
-        auto selection = context.blackboard.try_get<HierarchyView::Selection>();
+        auto world     = context.services.try_get<World*>();
+        auto selection = context.services.try_get<HierarchyView::Selection*>();
         if (world && selection) {
             draw_inspector(context, *world, selection->node);
         }
@@ -159,7 +159,7 @@ void InspectorView::draw_inspector(AppContext& context, World& world, SceneNode 
     });
 
     // reflected components
-    if (auto scripting = context.toolboard.try_get<ScriptLayer*>()) {
+    if (auto scripting = context.services.try_get<ScriptLayer*>()) {
         for (const auto& comp : scripting->get_components()) {
             if (StringView(comp.name) == "TransformLocal") {
                 continue; // transform is drawn directly above with dirty flag handling

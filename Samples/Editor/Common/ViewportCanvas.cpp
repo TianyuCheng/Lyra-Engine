@@ -103,8 +103,8 @@ void ViewportCanvas::create_frames(AppContext& context)
     extent.width  = std::max(64u, static_cast<uint>(frame_extent.x));
     extent.height = std::max(64u, static_cast<uint>(frame_extent.y));
 
-    auto gui = context.toolboard.get<GUIRenderer*>();
-    auto dev = context.toolboard.get<GPUDevice*>();
+    auto gui = context.services.get<GUIRenderer*>();
+    auto dev = context.services.get<GPUDevice*>();
     for (uint i = 0; i < frame_count; i++) {
         ViewportCanvasFrame frame = {};
 
@@ -133,7 +133,7 @@ void ViewportCanvas::create_frames(AppContext& context)
 
 void ViewportCanvas::delete_frames(AppContext& context)
 {
-    auto gui = context.toolboard.get<GUIRenderer*>();
+    auto gui = context.services.get<GUIRenderer*>();
     for (auto& frame : frames)
         gui->delete_texture(frame.tex_id);
 

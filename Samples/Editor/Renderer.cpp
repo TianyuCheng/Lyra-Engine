@@ -177,7 +177,7 @@ struct CameraUniform
 
 void SampleCubeRenderer::bind(Application& app)
 {
-    app.get_toolboard().add<SampleCubeRenderer*>(this);
+    app.get_services().add<SampleCubeRenderer*>(this);
 
     app.bind<AppEvent::INIT, &SampleCubeRenderer::init>(*this);
     app.bind<AppEvent::UPDATE, &SampleCubeRenderer::update>(*this);
@@ -228,15 +228,15 @@ void SampleCubeRenderer::render(const Backbuffer& backbuffer, AppContext& contex
 
 void SampleCubeRenderer::init(AppContext& context)
 {
-    auto device   = context.toolboard.get<GPUDevice*>();
-    auto compiler = context.toolboard.get<Compiler*>();
+    auto device   = context.services.get<GPUDevice*>();
+    auto compiler = context.services.get<Compiler*>();
 
     init_pipeline(*device, *compiler);
     init_buffers(*device);
     init_bind_group(*device);
 
     // initialize scene nodes
-    if (auto world = context.toolboard.try_get<World>()) {
+    if (auto world = context.services.try_get<World>()) {
         auto view = world->registry.view<Camera>();
         if (!view.empty()) {
             camera_node = SceneNode(*view.begin());
@@ -251,7 +251,7 @@ void SampleCubeRenderer::init(AppContext& context)
 
 void SampleCubeRenderer::destroy(AppContext& context)
 {
-    auto device = context.toolboard.get<GPUDevice*>();
+    auto device = context.services.get<GPUDevice*>();
     device->wait();
 
     vshader.destroy();
@@ -265,9 +265,9 @@ void SampleCubeRenderer::destroy(AppContext& context)
 
 void SampleCubeRenderer::update(AppContext& context)
 {
-    auto world     = context.toolboard.try_get<World>();
-    auto hierarchy = context.toolboard.try_get<SceneTree>();
-    auto scene     = context.toolboard.try_get<SceneView>();
+    auto world     = context.services.try_get<World>();
+    auto hierarchy = context.services.try_get<SceneTree>();
+    auto scene     = context.services.try_get<SceneView>();
     if (!world || !hierarchy || !scene) return;
 
     // update all transforms in the hierarchy
@@ -293,7 +293,7 @@ void SampleCubeRenderer::update(AppContext& context)
     if (!depth_texture.handle.valid() ||
         depth_texture.width != backbuffer.extent.width ||
         depth_texture.height != backbuffer.extent.height) {
-        auto device = context.toolboard.get<GPUDevice*>();
+        auto device = context.services.get<GPUDevice*>();
 
         if (depth_texture.handle.valid()) {
             device->wait();

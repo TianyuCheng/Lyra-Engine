@@ -20,7 +20,7 @@ ShadowMapData ShadowMapPass::add(
             desc.size.depth       = 1;
             desc.array_layers     = cascade_count;
             desc.dimension        = GPUTextureDimension::x2D;
-            desc.format           = GPUTextureFormat::DEPTH24PLUS_STENCIL8;
+            desc.format           = GPUTextureFormat::DEPTH32FLOAT;
             desc.usage            = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
             data.shadow_map_array = pass_builder.create<FrameGraphTexture>(desc);
             data.shadow_map_array = pass_builder.render(data.shadow_map_array);

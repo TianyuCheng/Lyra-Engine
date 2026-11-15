@@ -10,6 +10,7 @@ target_sources(lyra-headers INTERFACE
     # detail headers
     Lyra/Utilities/Detail/Arena.h
     Lyra/Utilities/Detail/Blackboard.h
+    Lyra/Utilities/Detail/Services.h
     Lyra/Utilities/Detail/View.h
 
     # utilities headers

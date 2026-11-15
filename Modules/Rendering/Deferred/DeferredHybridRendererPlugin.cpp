@@ -123,16 +123,13 @@ static void get_statistics(RendererHandle handle, RendererStats& out_stats)
     }
 }
 
-static void render(
-    RendererHandle          handle,
-    const RenderView&       view,
-    const RenderScene&      scene,
-    const Backbuffer&       target,
-    GPUCommandEncoderHandle command_encoder)
+static FrameGraph::TextureHandle render(
+    RendererHandle            handle,
+    const RenderFrameContext& ctx)
 {
     auto renderer = handle.as_type<DeferredHybridRendererInstance>();
     if (!renderer) {
-        return;
+        return ctx.color_target;
     }
 
     // TODO: 1. G-Buffer Rasterization Pass:
@@ -148,8 +145,9 @@ static void render(
     // TODO: 4. Post-processing & Tonemapping Pass:
     //          - Apply exposure, bloom, and tonemap resolve to backbuffer target
 
-    renderer->stats.draw_calls         = static_cast<uint>(scene.meshes.size());
-    renderer->stats.triangles_rendered = static_cast<uint>(scene.meshes.size() * 12);
+    renderer->stats.draw_calls         = static_cast<uint>(ctx.scene.meshes.size());
+    renderer->stats.triangles_rendered = static_cast<uint>(ctx.scene.meshes.size() * 12);
+    return ctx.color_target;
 }
 
 static void draw_debug_panel(RendererHandle handle)

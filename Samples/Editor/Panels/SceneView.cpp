@@ -27,9 +27,9 @@ SceneView::SceneView()
 
 void SceneView::bind(Application& app)
 {
-    // save viewport provider and scene view into toolboard
-    app.get_toolboard().add<ViewportInputProvider*>(this);
-    app.get_toolboard().add<SceneView*>(this);
+    // save viewport provider and scene view into services
+    app.get_services().add<ViewportInputProvider*>(this);
+    app.get_services().add<SceneView*>(this);
 
     // bind layout manager events
     app.bind<AppEvent::UPDATE, &SceneView::update>(*this);
@@ -42,11 +42,11 @@ void SceneView::update(AppContext& context)
 {
     ui::workspace::dock_default(LYRA_SCENE_WINDOW_NAME, ui::Area::Main);
 
-    auto clock = context.toolboard.get<Clock*>();
+    auto clock = context.services.get<Clock*>();
 
     ui::panel(LYRA_SCENE_WINDOW_NAME, [&]() {
         bool playing   = !clock->paused;
-        auto scene_mgr = context.toolboard.try_get<SceneManager*>();
+        auto scene_mgr = context.services.try_get<SceneManager*>();
 
         ui::row([&]() {
             String scene_title = (scene_mgr && !scene_mgr->get_active_name().empty())
@@ -82,7 +82,7 @@ void SceneView::update(AppContext& context)
 
         ui::drag_drop_target("LYRA_ASSET_MODEL", [&](const void* data, usize) {
             auto path_cstr = static_cast<CString>(data);
-            auto ams       = context.toolboard.try_get<AssetServer*>();
+            auto ams       = context.services.try_get<AssetServer*>();
             if (ams && scene_mgr) {
                 Path model_path(path_cstr);
                 auto model_handle = ams->load_asset<ModelAsset>(path_cstr);
@@ -115,7 +115,7 @@ void SceneView::update(AppContext& context)
 
         ui::drag_drop_target("LYRA_ASSET_SCENE", [&](const void* data, usize) {
             auto path_cstr = static_cast<CString>(data);
-            auto scene_mgr = context.toolboard.try_get<SceneManager*>();
+            auto scene_mgr = context.services.try_get<SceneManager*>();
             if (scene_mgr) {
                 if (scene_mgr->is_dirty()) {
                     if (!ui::dialog::confirm("Unsaved Changes", "The active scene has unsaved changes. Discard and open this scene?")) {
@@ -131,7 +131,7 @@ void SceneView::update(AppContext& context)
 
         bool canvas_hover = canvas.is_hovered();
         bool panel_focus  = ui::is_panel_focused();
-        auto window       = context.try_tool<Window>();
+        auto window       = context.try_service<Window>();
 
         // query mouse button state for active tool drag lock and camera look capture
         bool lmb_down = window ? window->get_input_state().is_mouse_down(MouseButton::LEFT) : false;

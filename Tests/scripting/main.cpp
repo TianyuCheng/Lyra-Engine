@@ -194,9 +194,9 @@ TEST_CASE("scr::script_layer" * doctest::description("ScriptLayer API registrati
     lyra::AppContext   ctx;
     lyra::WindowInput  raw_input{};
     lyra::InputManager input_mgr{};
-    ctx.toolboard.add(&world);
-    ctx.toolboard.add(&raw_input);
-    ctx.toolboard.add(&input_mgr);
+    ctx.services.add(&world);
+    ctx.services.add(&raw_input);
+    ctx.services.add(&input_mgr);
 
     SUBCASE("edit mode only runs systems with RUN_IN_EDITOR")
     {
@@ -258,9 +258,9 @@ TEST_CASE("scr::generated_bindings" * doctest::description("Verified bindings ge
     lyra::AppContext   ctx;
     lyra::WindowInput  raw_input{};
     lyra::InputManager input_mgr{};
-    ctx.toolboard.add(&world);
-    ctx.toolboard.add(&raw_input);
-    ctx.toolboard.add(&input_mgr);
+    ctx.services.add(&world);
+    ctx.services.add(&raw_input);
+    ctx.services.add(&input_mgr);
 
     layer.set_simulation_state(lyra::SimulationState::PLAY);
 

@@ -7,6 +7,7 @@
 #include <Lyra/Utilities/Pointer.h>
 #include <Lyra/Graphics/RHITypes.h>
 #include <Lyra/Runtime/AppTypes.h>
+#include <Lyra/Rendering/FrameGraph.h>
 #include <Lyra/Rendering/RendererTypes.h>
 #include <Lyra/Rendering/RendererAPI.h>
 
@@ -57,7 +58,12 @@ namespace lyra
         void resize(uint width, uint height);
 
         /**
-         * @brief execute the active renderer for the current frame.
+         * @brief record rendering passes into a provided FrameGraphBuilder with logical targets.
+         */
+        auto render(const RenderFrameContext& ctx) -> FrameGraph::TextureHandle;
+
+        /**
+         * @brief execute the active renderer for the current frame using its managed FrameGraph.
          */
         void render(
             AppContext&             context,
@@ -67,31 +73,38 @@ namespace lyra
             GPUCommandEncoderHandle command_encoder);
 
         /**
+         * @brief access the shared FrameGraph allocator.
+         */
+        auto get_allocator() -> FrameGraphAllocator& { return allocator; }
+        auto get_allocator() const -> const FrameGraphAllocator& { return allocator; }
+
+        /**
          * @brief render imgui debug controls if supported by active renderer.
          */
         void draw_debug_panel();
 
-        [[nodiscard]] bool       has_active_renderer() const { return active_handle.valid() && current_plugin.is_loaded(); }
-        [[nodiscard]] StringView get_active_name() const { return active_name; }
+        [[nodiscard]] bool has_active_renderer() const { return active_handle.valid() && current_plugin.is_loaded(); }
+        [[nodiscard]] auto get_active_name() const -> StringView { return active_name; }
 
-        RendererAPI*       get_active_api() { return current_plugin.get_api(); }
-        const RendererAPI* get_active_api() const { return current_plugin.get_api(); }
-        RendererHandle     get_active_handle() const { return active_handle; }
+        auto get_active_api() -> RendererAPI* { return current_plugin.get_api(); }
+        auto get_active_api() const -> const RendererAPI* { return current_plugin.get_api(); }
+        auto get_active_handle() const -> RendererHandle { return active_handle; }
 
-        RendererSettings&       get_settings() { return settings; }
-        const RendererSettings& get_settings() const { return settings; }
-        void                    set_settings(const RendererSettings& s);
+        auto get_settings() -> RendererSettings& { return settings; }
+        auto get_settings() const -> const RendererSettings& { return settings; }
+        void set_settings(const RendererSettings& s);
 
         const RendererStats& get_stats() const { return stats; }
 
     private:
-        RendererPlugin     current_plugin;
-        RendererHandle     active_handle = {};
-        String             active_name;
-        RendererDescriptor descriptor  = {};
-        RendererSettings   settings    = {};
-        RendererStats      stats       = {};
-        bool               initialized = false;
+        RendererPlugin      current_plugin;
+        RendererHandle      active_handle = {};
+        String              active_name;
+        RendererDescriptor  descriptor = {};
+        RendererSettings    settings   = {};
+        RendererStats       stats      = {};
+        FrameGraphAllocator allocator;
+        bool                initialized = false;
     };
 
 } // namespace lyra

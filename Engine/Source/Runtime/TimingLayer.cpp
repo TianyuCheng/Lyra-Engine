@@ -10,8 +10,8 @@ TimingLayer::TimingLayer()
 
 void TimingLayer::bind(Application& app)
 {
-    // add clock to toolboard
-    app.get_toolboard().add<Clock*>(&clock);
+    // add clock to services
+    app.get_services().add<Clock*>(&clock);
 
     // update timing before everything else
     app.bind<AppEvent::UPDATE_PRE, &TimingLayer::update>(*this);

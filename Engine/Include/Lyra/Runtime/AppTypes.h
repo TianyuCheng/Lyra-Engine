@@ -15,41 +15,26 @@ namespace lyra
     /**
      * @brief Unified application execution context passed to lifecycle callbacks and layers.
      *
-     * Groups:
-     * - `toolboard`: Non-owning registry for physical hardware, devices, and subsystems
-     *   (e.g., GPUDevice, Window, Compiler, World).
-     * - `blackboard`: Owning registry for dynamic state, transient frame data, and parameters.
+     * Holds:
+     * - `services`: Non-owning service locator for physical hardware, devices, and subsystems
+     *   (e.g., GPUDevice, Window, Compiler, World, AssetServer).
      */
     struct AppContext
     {
-        Toolboard  toolboard;
-        Blackboard blackboard;
+        Services services;
 
-        // Convenient accessors for tools / subsystems
+        // Convenient accessors for services / subsystems
         template <typename T>
-        FORCE_INLINE decltype(auto) tool() { return toolboard.get<T>(); }
-
-        template <typename T>
-        FORCE_INLINE decltype(auto) tool() const { return toolboard.get<T>(); }
+        FORCE_INLINE decltype(auto) service() { return services.get<T>(); }
 
         template <typename T>
-        FORCE_INLINE auto try_tool() { return toolboard.try_get<T>(); }
+        FORCE_INLINE decltype(auto) service() const { return services.get<T>(); }
 
         template <typename T>
-        FORCE_INLINE auto try_tool() const { return toolboard.try_get<T>(); }
-
-        // Convenient accessors for blackboard data
-        template <typename T>
-        FORCE_INLINE decltype(auto) data() { return blackboard.get<T>(); }
+        FORCE_INLINE auto try_service() { return services.try_get<T>(); }
 
         template <typename T>
-        FORCE_INLINE decltype(auto) data() const { return blackboard.get<T>(); }
-
-        template <typename T>
-        FORCE_INLINE auto try_data() { return blackboard.try_get<T>(); }
-
-        template <typename T>
-        FORCE_INLINE auto try_data() const { return blackboard.try_get<T>(); }
+        FORCE_INLINE auto try_service() const { return services.try_get<T>(); }
     };
 
     /**

@@ -9,8 +9,8 @@ AssetLayer::AssetLayer(const AMSDescriptor& descriptor) : ams(descriptor)
 
 void AssetLayer::bind(Application& app)
 {
-    // save asset manager into toolboard
-    app.get_toolboard().add<AssetServer*>(&ams);
+    // save asset manager into services
+    app.get_services().add<AssetServer*>(&ams);
 
     // bind asset manager events
     app.bind<AppEvent::UPDATE, &AssetLayer::update>(*this);
