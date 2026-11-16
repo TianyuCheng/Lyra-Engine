@@ -36,6 +36,7 @@ target_sources(lyra-unit-tests PRIVATE
   unit_main.cpp
   ./common/test_enums.cpp
   ./common/test_geometry_cache.cpp
+  ./common/test_gizmo.cpp
 )
 target_link_libraries(lyra-unit-tests PRIVATE doctest::doctest)
 target_include_directories(lyra-unit-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/common)

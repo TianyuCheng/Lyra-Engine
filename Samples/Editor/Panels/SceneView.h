@@ -7,6 +7,7 @@
 #include <Lyra/Runtime/Application.h>
 #include <Lyra/Utilities/Function.h>
 #include <Lyra/InputSystem/InputFilter.h>
+#include <Lyra/UISystem/Widgets/UIGizmo.h>
 
 #include "Common/ViewportCanvas.h"
 
@@ -55,6 +56,20 @@ namespace lyra
         auto&       get_canvas() { return canvas; }
         const auto& get_canvas() const { return canvas; }
 
+        auto get_gizmo_operation() const -> ui::gizmo::Operation { return gizmo_operation; }
+        void set_gizmo_operation(ui::gizmo::Operation op) { gizmo_operation = op; }
+        auto get_gizmo_mode() const -> ui::gizmo::Mode { return gizmo_mode; }
+        void set_gizmo_mode(ui::gizmo::Mode mode) { gizmo_mode = mode; }
+        auto get_snap_settings() const -> const ui::gizmo::SnapSettings& { return gizmo_snap; }
+        auto get_snap_settings() -> ui::gizmo::SnapSettings& { return gizmo_snap; }
+
+    private:
+        void render_toolbar(AppContext& context, bool playing);
+
+        void handle_shortcuts(AppContext& context);
+        void handle_gizmo(AppContext& context);
+        void handle_picking(AppContext& context);
+
     private:
         ViewportCanvas    canvas;
         GizmoCaptureQuery gizmo_hover_query   = nullptr;
@@ -66,6 +81,10 @@ namespace lyra
         bool              viewport_active     = false;
         bool              mouse_nav_active    = false;
         bool              keyboard_nav_active = false;
+
+        ui::gizmo::Operation    gizmo_operation = ui::gizmo::Operation::Translate;
+        ui::gizmo::Mode         gizmo_mode      = ui::gizmo::Mode::Local;
+        ui::gizmo::SnapSettings gizmo_snap      = {};
     };
 } // namespace lyra
 

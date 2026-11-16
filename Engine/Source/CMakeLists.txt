@@ -13,6 +13,7 @@ find_package(boxer REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(libassert REQUIRED)
 find_package(magic_enum REQUIRED)
+find_package(imguizmo REQUIRED)
 
 # create a dependency interface library
 add_library(lyra-commons INTERFACE)
@@ -44,6 +45,7 @@ target_link_libraries(lyra-commons INTERFACE
 
   # gui libraries
   $<BUILD_INTERFACE:imgui::imgui>
+  $<BUILD_INTERFACE:imguizmo::imguizmo>
 
   # debugging libraries
   $<BUILD_INTERFACE:fmt::fmt>
@@ -130,14 +132,15 @@ target_sources(lyra-engine PRIVATE
   # uisystem
   UISystem/Renderer/GUITypes.cpp
   UISystem/Widgets/UI.cpp
-  UISystem/Widgets/UILayout.cpp
-  UISystem/Widgets/UIControls.cpp
-  UISystem/Widgets/UIInternals.cpp
-  UISystem/Widgets/UIProperty.cpp
   UISystem/Widgets/UITree.cpp
   UISystem/Widgets/UIDock.cpp
+  UISystem/Widgets/UIGizmo.cpp
+  UISystem/Widgets/UILayout.cpp
   UISystem/Widgets/UIDialog.cpp
   UISystem/Widgets/UICommand.cpp
+  UISystem/Widgets/UIControls.cpp
+  UISystem/Widgets/UIProperty.cpp
+  UISystem/Widgets/UIInternals.cpp
 
   # scene
   Scene/SceneTree.cpp

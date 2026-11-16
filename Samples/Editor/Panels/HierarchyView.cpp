@@ -429,12 +429,16 @@ void HierarchyView::update(AppContext& context)
                 auto& world     = *world_ptr;
                 auto& hierarchy = *hierarchy_ptr;
 
-                // validate selected_node
-                if (selected_node != SceneTree::INVALID_NODE) {
+                // validate and sync selected_node with current_selection
+                if (current_selection.node.entity != entt::null && world.registry.valid(current_selection.node.entity)) {
+                    selected_node = hierarchy.find_node(current_selection.node.entity);
+                } else if (selected_node != SceneTree::INVALID_NODE) {
                     if (selected_node >= hierarchy.size() || !world.registry.valid(hierarchy.at(selected_node).entity)) {
                         selected_node          = SceneTree::INVALID_NODE;
                         current_selection.node = SceneNode{};
                     }
+                } else {
+                    current_selection.node = SceneNode{};
                 }
 
                 NodeRenderContext render_ctx{

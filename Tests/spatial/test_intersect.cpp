@@ -1,6 +1,6 @@
 #include "helper.h"
-#include <Lyra/Utilities/Intersect.h>
 #include <Lyra/Utilities/Math.h>
+#include <Lyra/Utilities/Intersect.h>
 
 TEST_CASE("spatial::intersect" * doctest::description("Intersection & Containment Algorithms Unit Tests"))
 {
@@ -81,6 +81,22 @@ TEST_CASE("spatial::intersect" * doctest::description("Intersection & Containmen
         // 5. Parallel to X and Y axes outside Z slab
         lyra::Ray3D r_par({10.0f, 10.0f, 0.0f}, {0.0f, 0.0f, 1.0f});
         CHECK(!lyra::intersects(r_par, box));
+
+        // 6. Transformed OBB ray picking test
+        lyra::Bounds3D  local_box({-1.0f, -1.0f, -1.0f}, {1.0f, 1.0f, 1.0f});
+        lyra::Matrix4x4 model = glm::translate(lyra::Matrix4x4(1.0f), lyra::Vector3(10.0f, 0.0f, 0.0f)) *
+                                glm::scale(lyra::Matrix4x4(1.0f), lyra::Vector3(2.0f, 2.0f, 2.0f));
+
+        lyra::Ray3D     world_ray({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f});
+        lyra::Matrix4x4 inv_model    = glm::inverse(model);
+        lyra::Vector3   local_origin = lyra::Vector3(inv_model * lyra::Vector4(world_ray.origin, 1.0f));
+        lyra::Vector3   local_dir    = lyra::Vector3(inv_model * lyra::Vector4(world_ray.direction, 0.0f));
+
+        lyra::Ray3D local_ray(local_origin, local_dir);
+        float       obb_t_min = 0.0f, obb_t_max = 0.0f;
+        CHECK(lyra::intersects(local_ray, local_box, obb_t_min, obb_t_max));
+        CHECK_EQ(obb_t_min, doctest::Approx(8.0f));
+        CHECK_EQ(obb_t_max, doctest::Approx(12.0f));
     }
 
     SUBCASE("Circle vs Bounds2D Overlaps")
