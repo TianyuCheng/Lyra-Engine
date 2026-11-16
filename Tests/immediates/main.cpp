@@ -200,12 +200,12 @@ TEST_CASE("rhi::metal::immediates" * doctest::description("Rendering multiple tr
 }
 #endif
 
-TEST_CASE("rhi::software::immediates" * doctest::description("Rendering multiple triangles with immediates."))
+TEST_CASE("rhi::softgpu::immediates" * doctest::description("Rendering multiple triangles with immediates."))
 {
     TestAppDescriptor desc{};
-    desc.name           = "software";
+    desc.name           = "softgpu";
     desc.window         = false;
-    desc.backend        = RHIBackend::SOFTWARE;
+    desc.backend        = RHIBackend::SOFTGPU;
     desc.width          = 640;
     desc.height         = 480;
     desc.rhi_flags      = RHIFlag::DEBUG;

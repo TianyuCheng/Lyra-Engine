@@ -237,12 +237,12 @@ TEST_CASE("rhi::metal::depth_test" * doctest::description("Rendering a triangle 
 }
 #endif
 
-TEST_CASE("rhi::software::depth_test" * doctest::description("Rendering a triangle with depth test enabled."))
+TEST_CASE("rhi::softgpu::depth_test" * doctest::description("Rendering a triangle with depth test enabled."))
 {
     TestAppDescriptor desc{};
-    desc.name           = "software";
+    desc.name           = "softgpu";
     desc.window         = false;
-    desc.backend        = RHIBackend::SOFTWARE;
+    desc.backend        = RHIBackend::SOFTGPU;
     desc.width          = 640;
     desc.height         = 480;
     desc.rhi_flags      = RHIFlag::DEBUG;

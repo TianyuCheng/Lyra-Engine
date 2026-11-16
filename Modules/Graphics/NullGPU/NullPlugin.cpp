@@ -32,7 +32,7 @@ namespace
 
     auto get_logger() -> Logger
     {
-        static Logger LOGGER = create_logger("Null", LogLevel::info);
+        static Logger LOGGER = create_logger("NullGPU", LogLevel::info);
         return LOGGER;
     }
 } // namespace
@@ -41,7 +41,7 @@ namespace api
 {
     auto get_api_name() -> CString
     {
-        return "Null";
+        return "NullGPU";
     }
 
     bool create_instance(const RHIDescriptor&)
@@ -696,11 +696,11 @@ namespace api
     }
 } // namespace api
 
-namespace lyra::null
+namespace lyra::nullgpu
 {
     void prepare()
     {
-        get_logger()->set_level(parse_log_level_from_env("LYRA_NULL_VERBOSITY"));
+        get_logger()->set_level(parse_log_level_from_env("LYRA_NULLGPU_VERBOSITY"));
     }
 
     void cleanup()
@@ -815,4 +815,4 @@ namespace lyra::null
         return api;
     }
 
-} // namespace lyra::null
+} // namespace lyra::nullgpu

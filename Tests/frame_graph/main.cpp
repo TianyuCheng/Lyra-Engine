@@ -402,12 +402,12 @@ TEST_CASE("rhi::metal::frame_graph" * doctest::description("Rendering triangles 
 }
 #endif
 
-TEST_CASE("rhi::software::frame_graph" * doctest::description("Rendering triangles with frame graph."))
+TEST_CASE("rhi::softgpu::frame_graph" * doctest::description("Rendering triangles with frame graph."))
 {
     TestAppDescriptor desc{};
-    desc.name           = "software";
+    desc.name           = "softgpu";
     desc.window         = false;
-    desc.backend        = RHIBackend::SOFTWARE;
+    desc.backend        = RHIBackend::SOFTGPU;
     desc.width          = 640;
     desc.height         = 480;
     desc.rhi_flags      = RHIFlag::DEBUG;

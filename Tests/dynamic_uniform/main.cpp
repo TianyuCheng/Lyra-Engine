@@ -236,12 +236,12 @@ TEST_CASE("rhi::metal::dynamic_uniform" * doctest::description("Rendering multip
 }
 #endif
 
-TEST_CASE("rhi::software::dynamic_uniform" * doctest::description("Rendering multiple triangles with the dynamic uniform buffer."))
+TEST_CASE("rhi::softgpu::dynamic_uniform" * doctest::description("Rendering multiple triangles with the dynamic uniform buffer."))
 {
     TestAppDescriptor desc{};
-    desc.name           = "software";
+    desc.name           = "softgpu";
     desc.window         = false;
-    desc.backend        = RHIBackend::SOFTWARE;
+    desc.backend        = RHIBackend::SOFTGPU;
     desc.width          = 640;
     desc.height         = 480;
     desc.rhi_flags      = RHIFlag::DEBUG;

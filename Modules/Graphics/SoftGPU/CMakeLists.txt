@@ -1,10 +1,10 @@
 # setup plugin
-lyra_module(software MODULE)
+lyra_module(softgpu MODULE)
 
 find_package(embree 4 CONFIG REQUIRED)
 
 # plugin sources
-target_sources(lyra-software PRIVATE
+target_sources(lyra-softgpu PRIVATE
   SoftPlugin.cpp
   SoftCommon.h
   SoftBuffer.h
@@ -29,11 +29,11 @@ target_sources(lyra-software PRIVATE
   SoftCommandBuffer.cpp
 )
 
-target_link_libraries(lyra-software PRIVATE
+target_link_libraries(lyra-softgpu PRIVATE
   embree
 )
 
-target_compile_options(lyra-software PRIVATE
+target_compile_options(lyra-softgpu PRIVATE
   $<$<CXX_COMPILER_ID:MSVC>:/arch:AVX2>
   $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-mavx2>
 )

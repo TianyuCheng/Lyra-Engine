@@ -5,7 +5,7 @@
 using namespace lyra;
 
 // forward declarations for inlined plugins
-FORWARD_DECLARE_API(lyra::null, RenderAPI)
+FORWARD_DECLARE_API(lyra::nullgpu, RenderAPI)
 
 using RenderPlugin        = Plugin<RenderAPI>;
 using BuiltinRenderPlugin = BuiltinPlugin<RenderAPI>;
@@ -23,11 +23,11 @@ OwnedResource<RHI> RHI::init(const RHIDescriptor& descriptor)
     }
 
     switch (descriptor.backend) {
-        case RHIBackend::NONE:
+        case RHIBackend::NULLGPU:
             BUILTIN_RENDER_PLUGIN = std::make_unique<BuiltinRenderPlugin>(
-                lyra::null::create,
-                lyra::null::prepare,
-                lyra::null::cleanup);
+                lyra::nullgpu::create,
+                lyra::nullgpu::prepare,
+                lyra::nullgpu::cleanup);
             CURRENT_API = BUILTIN_RENDER_PLUGIN->get_api();
             break;
         case RHIBackend::D3D12:
@@ -42,8 +42,8 @@ OwnedResource<RHI> RHI::init(const RHIDescriptor& descriptor)
             RENDER_PLUGIN = std::make_unique<RenderPlugin>("lyra-vulkan");
             CURRENT_API   = RENDER_PLUGIN->get_api();
             break;
-        case RHIBackend::SOFTWARE:
-            RENDER_PLUGIN = std::make_unique<RenderPlugin>("lyra-software");
+        case RHIBackend::SOFTGPU:
+            RENDER_PLUGIN = std::make_unique<RenderPlugin>("lyra-softgpu");
             CURRENT_API   = RENDER_PLUGIN->get_api();
             break;
     }

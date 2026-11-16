@@ -205,12 +205,12 @@ TEST_CASE("rhi::metal::graphics_pipeline" * doctest::description("Rendering a tr
 }
 #endif
 
-TEST_CASE("rhi::software::graphics_pipeline" * doctest::description("Rendering a triangle with the software graphics pipeline."))
+TEST_CASE("rhi::softgpu::graphics_pipeline" * doctest::description("Rendering a triangle with the software graphics pipeline."))
 {
     TestAppDescriptor desc{};
-    desc.name           = "software";
+    desc.name           = "softgpu";
     desc.window         = false;
-    desc.backend        = RHIBackend::SOFTWARE;
+    desc.backend        = RHIBackend::SOFTGPU;
     desc.width          = 640;
     desc.height         = 480;
     desc.rhi_flags      = RHIFlag::DEBUG;

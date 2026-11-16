@@ -351,12 +351,12 @@ TEST_CASE("rhi::metal::ray_tracing" * doctest::description("Basic ray tracing us
 }
 #endif
 
-TEST_CASE("rhi::software::ray_tracing" * doctest::description("Basic ray tracing using RayQuery on Software backend."))
+TEST_CASE("rhi::softgpu::ray_tracing" * doctest::description("Basic ray tracing using RayQuery on Software backend."))
 {
     TestAppDescriptor desc{};
-    desc.name              = "software";
+    desc.name              = "softgpu";
     desc.window            = false;
-    desc.backend           = RHIBackend::SOFTWARE;
+    desc.backend           = RHIBackend::SOFTGPU;
     desc.width             = 640;
     desc.height            = 480;
     desc.rhi_flags         = RHIFlag::DEBUG;

@@ -145,7 +145,7 @@ def run_unit_tests(args):
 def generate_html_report(args, results):
     import pathlib
     import datetime
-    sequence = ["reference", "software"]
+    sequence = ["reference", "softgpu"]
 
     os_name = platform.system()
     if os_name == "Windows":

@@ -1,8 +1,8 @@
-# build null backend
-add_subdirectory(Null)
+# build nullgpu backend
+add_subdirectory(NullGPU)
 
-# build software backend
-add_subdirectory(Software)
+# build softgpu backend
+add_subdirectory(SoftGPU)
 
 # build d3d12 backend on Windows
 if(WIN32)
