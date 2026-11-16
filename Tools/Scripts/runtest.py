@@ -142,11 +142,10 @@ def run_unit_tests(args):
     else:
         subprocess.check_call([args.executable, f"-tce=rhi*"], cwd=git_root)
 
-
 def generate_html_report(args, results):
     import pathlib
     import datetime
-    sequence = ["reference"]
+    sequence = ["reference", "software"]
 
     os_name = platform.system()
     if os_name == "Windows":

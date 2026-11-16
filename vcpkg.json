@@ -32,7 +32,16 @@
     "volk",
     "vulkan-headers",
     "vulkan-memory-allocator",
-    "nativefiledialog-extended"
+    "nativefiledialog-extended",
+    {
+      "name": "embree",
+      "default-features": false,
+      "features": [
+        "geometry-triangle",
+        "geometry-instance",
+        "ray-mask"
+      ]
+    }
   ],
   "overrides": [
     {

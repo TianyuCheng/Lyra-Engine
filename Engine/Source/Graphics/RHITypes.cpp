@@ -42,6 +42,10 @@ OwnedResource<RHI> RHI::init(const RHIDescriptor& descriptor)
             RENDER_PLUGIN = std::make_unique<RenderPlugin>("lyra-vulkan");
             CURRENT_API   = RENDER_PLUGIN->get_api();
             break;
+        case RHIBackend::SOFTWARE:
+            RENDER_PLUGIN = std::make_unique<RenderPlugin>("lyra-software");
+            CURRENT_API   = RENDER_PLUGIN->get_api();
+            break;
     }
 
     OwnedResource<RHI> rhi(new RHI());

@@ -204,3 +204,17 @@ TEST_CASE("rhi::metal::graphics_pipeline" * doctest::description("Rendering a tr
     GraphicsPipelineApp(desc).run();
 }
 #endif
+
+TEST_CASE("rhi::software::graphics_pipeline" * doctest::description("Rendering a triangle with the software graphics pipeline."))
+{
+    TestAppDescriptor desc{};
+    desc.name           = "software";
+    desc.window         = false;
+    desc.backend        = RHIBackend::SOFTWARE;
+    desc.width          = 640;
+    desc.height         = 480;
+    desc.rhi_flags      = RHIFlag::DEBUG;
+    desc.compile_target = CompileTarget::SPIRV;
+    desc.compile_flags  = CompileFlag::DEBUG;
+    GraphicsPipelineApp(desc).run();
+}

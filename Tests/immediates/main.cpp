@@ -199,3 +199,17 @@ TEST_CASE("rhi::metal::immediates" * doctest::description("Rendering multiple tr
     ImmediatesApp(desc).run();
 }
 #endif
+
+TEST_CASE("rhi::software::immediates" * doctest::description("Rendering multiple triangles with immediates."))
+{
+    TestAppDescriptor desc{};
+    desc.name           = "software";
+    desc.window         = false;
+    desc.backend        = RHIBackend::SOFTWARE;
+    desc.width          = 640;
+    desc.height         = 480;
+    desc.rhi_flags      = RHIFlag::DEBUG;
+    desc.compile_target = CompileTarget::SPIRV;
+    desc.compile_flags  = CompileFlag::DEBUG;
+    ImmediatesApp(desc).run();
+}

@@ -21,6 +21,7 @@ namespace lyra
         MSL,
         DXIL,
         SPIRV,
+        HOST,
     };
 
 } // namespace lyra

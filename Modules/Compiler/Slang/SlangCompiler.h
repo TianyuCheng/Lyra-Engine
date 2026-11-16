@@ -14,11 +14,13 @@ struct CompileResultInternal
 {
     ComPtr<slang::ISession> session;
     ComPtr<slang::IModule>  module;
+    CompileTarget           target = CompileTarget::SPIRV;
 
     // cached compiled binaries — keyed by entry point name.
     // blob.data pointers returned to callers are stable views into this storage;
     // they are freed automatically when this struct is destroyed (delete_module).
-    HashMap<String, Vector<uint8_t>> compiled_blobs;
+    HashMap<String, Vector<uint8_t>>             compiled_blobs;
+    HashMap<String, ComPtr<ISlangSharedLibrary>> compiled_host_libs;
 
     auto get_entry_point(CString entry) const -> ComPtr<slang::IEntryPoint>;
     auto get_linked_program(CString entry) const -> ComPtr<slang::IComponentType>;

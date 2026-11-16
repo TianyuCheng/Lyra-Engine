@@ -32,6 +32,8 @@ namespace lyra
     using ShaderAttributes       = TypedView<ShaderAttribute>;
     using CompileFlags           = BitFlags<CompileFlag>;
 
+    constexpr uint32_t HOST_MAGIC = 0x534C4843; // 'SLHC'
+
     extern "C" struct ShaderDefine
     {
         CString key;
@@ -54,6 +56,13 @@ namespace lyra
     {
         CString name   = nullptr;
         uint    offset = 0;
+    };
+
+    extern "C" struct HostCallableShader
+    {
+        uint  magic;
+        void* library;
+        void* entry_func;
     };
 
     struct ShaderBlobDeleter

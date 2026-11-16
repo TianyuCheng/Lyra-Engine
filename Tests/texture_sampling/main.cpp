@@ -268,3 +268,17 @@ TEST_CASE("rhi::metal::texture_sampling" * doctest::description("Rendering a tex
     TextureSamplingApp(desc).run();
 }
 #endif
+
+TEST_CASE("rhi::software::texture_sampling" * doctest::description("Rendering a textured triangle with the most basic graphics pipeline."))
+{
+    TestAppDescriptor desc{};
+    desc.name           = "software";
+    desc.window         = false;
+    desc.backend        = RHIBackend::SOFTWARE;
+    desc.width          = 640;
+    desc.height         = 480;
+    desc.rhi_flags      = RHIFlag::DEBUG;
+    desc.compile_target = CompileTarget::SPIRV;
+    desc.compile_flags  = CompileFlag::DEBUG;
+    TextureSamplingApp(desc).run();
+}

@@ -188,6 +188,8 @@ SlangCompileTarget CompilerWrapper::select_target(const CompilerDescriptor& desc
             return SLANG_METAL_LIB;
         case CompileTarget::DXIL:
             return SLANG_DXIL;
+        case CompileTarget::HOST:
+            return SLANG_SHADER_HOST_CALLABLE;
         case CompileTarget::SPIRV:
         default:
             return SLANG_SPIRV;
@@ -210,6 +212,7 @@ bool CompilerWrapper::compile(const CompileDescriptor& desc, CompileResultIntern
 {
     // compile result shares the session
     result.session = session;
+    result.target  = target;
 
     String source_text;
     if (desc.source && std::strlen(desc.source) > 0) {
@@ -329,9 +332,26 @@ bool CompilerWrapper::reflect(ShaderEntryPoints entries, ReflectResultInternal& 
     // associate stages with ICompileRequests*
     auto layout = linked_program->getLayout();
     for (auto& entry : entries) {
-        auto refl  = layout->findEntryPointByName(entry.entry);
+        auto refl = layout->findEntryPointByName(entry.entry);
+        if (!refl) {
+            String wrapper = String(entry.entry) + "_Callable";
+            refl           = layout->findEntryPointByName(wrapper.c_str());
+        }
+        if (!refl) {
+            get_logger()->error("Failed to find entry point for reflection: {}", entry.entry);
+            return false;
+        }
+
         uint index = get_shader_entry_point_index(layout, refl);
         auto stage = to_stage(refl->getStage());
+        if (target == CompileTarget::HOST && stage == GPUShaderStage::COMPUTE) {
+            String name = entry.entry;
+            if (name.rfind("vs", 0) == 0 || name.find("vert") != String::npos) {
+                stage = GPUShaderStage::VERTEX;
+            } else if (name.rfind("fs", 0) == 0 || name.find("frag") != String::npos) {
+                stage = GPUShaderStage::FRAGMENT;
+            }
+        }
 
         slang::IMetadata*    metadata;
         ComPtr<slang::IBlob> diagnostics;
@@ -355,6 +375,11 @@ ComPtr<slang::IEntryPoint> CompileResultInternal::get_entry_point(CString entry)
     // query entry point
     ComPtr<slang::IEntryPoint> entry_point;
     module->findEntryPointByName(entry, entry_point.writeRef());
+
+    if (!entry_point) {
+        String wrapper = String(entry) + "_Callable";
+        module->findEntryPointByName(wrapper.c_str(), entry_point.writeRef());
+    }
 
     if (!entry_point) {
         get_logger()->error("Failed to get entry point: {}", entry);
@@ -415,6 +440,34 @@ bool CompileResultInternal::get_shader_blob(CString entry, ShaderBlob& blob)
     auto linked_program = get_linked_program(entry);
     if (linked_program == nullptr)
         return false;
+
+    if (target == CompileTarget::HOST) {
+        ComPtr<ISlangSharedLibrary> shared_lib;
+        ComPtr<slang::IBlob>        diagnostics;
+
+        SlangResult result = linked_program->getEntryPointHostCallable(0, 0, shared_lib.writeRef(), diagnostics.writeRef());
+        diagnose_if_needed(diagnostics, result);
+        SLANG_RETURN_FALSE_ON_FAIL(result);
+
+        compiled_host_libs[entry] = shared_lib;
+
+        void* func_ptr = shared_lib->findSymbolAddressByName(entry);
+        if (!func_ptr) {
+            String wrapper = String(entry) + "_Callable";
+            func_ptr       = shared_lib->findSymbolAddressByName(wrapper.c_str());
+        }
+
+        auto& cached = compiled_blobs[entry];
+        cached.resize(sizeof(HostCallableShader));
+        auto header        = reinterpret_cast<HostCallableShader*>(cached.data());
+        header->magic      = HOST_MAGIC;
+        header->library    = shared_lib.get();
+        header->entry_func = func_ptr;
+
+        blob.size = static_cast<uint32_t>(cached.size());
+        blob.data = cached.data();
+        return true;
+    }
 
     // kernel binary
     ComPtr<slang::IBlob> spirv_code;

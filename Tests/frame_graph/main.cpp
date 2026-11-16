@@ -401,3 +401,17 @@ TEST_CASE("rhi::metal::frame_graph" * doctest::description("Rendering triangles 
     FrameGraphApp(desc).run();
 }
 #endif
+
+TEST_CASE("rhi::software::frame_graph" * doctest::description("Rendering triangles with frame graph."))
+{
+    TestAppDescriptor desc{};
+    desc.name           = "software";
+    desc.window         = false;
+    desc.backend        = RHIBackend::SOFTWARE;
+    desc.width          = 640;
+    desc.height         = 480;
+    desc.rhi_flags      = RHIFlag::DEBUG;
+    desc.compile_target = CompileTarget::SPIRV;
+    desc.compile_flags  = CompileFlag::DEBUG;
+    FrameGraphApp(desc).run();
+}

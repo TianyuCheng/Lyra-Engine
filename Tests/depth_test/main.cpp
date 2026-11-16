@@ -236,3 +236,17 @@ TEST_CASE("rhi::metal::depth_test" * doctest::description("Rendering a triangle 
     DepthTestApp(desc).run();
 }
 #endif
+
+TEST_CASE("rhi::software::depth_test" * doctest::description("Rendering a triangle with depth test enabled."))
+{
+    TestAppDescriptor desc{};
+    desc.name           = "software";
+    desc.window         = false;
+    desc.backend        = RHIBackend::SOFTWARE;
+    desc.width          = 640;
+    desc.height         = 480;
+    desc.rhi_flags      = RHIFlag::DEBUG;
+    desc.compile_target = CompileTarget::SPIRV;
+    desc.compile_flags  = CompileFlag::DEBUG;
+    DepthTestApp(desc).run();
+}

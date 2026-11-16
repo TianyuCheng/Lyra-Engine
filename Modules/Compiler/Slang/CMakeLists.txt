@@ -5,6 +5,8 @@ lyra_module(slang MODULE)
 target_sources(lyra-slang PRIVATE
   SlangCommon.h
   SlangCommon.cpp
+  SlangPreprocessor.h
+  SlangPreprocessor.cpp
   SlangFileSystem.h
   SlangFileSystem.cpp
   SlangReflection.h

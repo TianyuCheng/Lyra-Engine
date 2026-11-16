@@ -21,6 +21,7 @@ namespace lyra
         METAL,
         D3D12,
         VULKAN,
+        SOFTWARE,
     };
 
     enum struct GPUObjectType : uint
