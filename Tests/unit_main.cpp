@@ -41,9 +41,9 @@ REGISTER_REPORTER("pre", 1, PreRunReporter);
 
 int main(int argc, char** argv)
 {
-    // initialize shared global NullGPU RHI backend for unit tests
+    // initialize shared global MockGPU RHI backend for unit tests
     RHIDescriptor rhi_desc{};
-    rhi_desc.backend = RHIBackend::NULLGPU;
+    rhi_desc.backend = RHIBackend::MOCKGPU;
     auto rhi         = RHI::init(rhi_desc);
     auto adapter     = rhi->request_adapter();
     adapter.request_device({});

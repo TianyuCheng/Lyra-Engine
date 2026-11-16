@@ -17,11 +17,11 @@ namespace lyra
 
     enum struct RHIBackend : uint
     {
-        NULLGPU,
         METAL,
         D3D12,
         VULKAN,
         SOFTGPU,
+        MOCKGPU,
     };
 
     enum struct GPUObjectType : uint

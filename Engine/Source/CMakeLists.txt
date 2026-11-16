@@ -185,7 +185,7 @@ target_link_libraries(lyra-engine PUBLIC lyra::commons)
 target_link_libraries(lyra-engine PUBLIC lyra::headers)
 
 # link builtin plugins
-target_link_libraries(lyra-engine PRIVATE lyra::nullgpu)
+target_link_libraries(lyra-engine PRIVATE lyra::mockgpu)
 target_link_libraries(lyra-engine PRIVATE lyra::mesh)
 target_link_libraries(lyra-engine PRIVATE lyra::model)
 target_link_libraries(lyra-engine PRIVATE lyra::scene)

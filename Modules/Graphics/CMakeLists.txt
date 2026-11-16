@@ -1,5 +1,5 @@
-# build nullgpu backend
-add_subdirectory(NullGPU)
+# build mockgpu backend
+add_subdirectory(MockGPU)
 
 # build softgpu backend
 add_subdirectory(SoftGPU)
