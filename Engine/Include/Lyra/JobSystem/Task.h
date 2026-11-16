@@ -333,10 +333,6 @@ namespace lyra
     template <typename T>
     T sync_wait(Task<T>&& task)
     {
-        if (!JobScheduler::is_main_thread() && JobScheduler::is_initialized()) {
-            DEBUG_BREAK();
-        }
-
         struct SyncContext
         {
             using ResultType = Conditional<std::is_void_v<T>, bool, std::optional<T>>;

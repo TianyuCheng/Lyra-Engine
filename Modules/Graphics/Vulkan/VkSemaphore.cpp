@@ -39,7 +39,7 @@ VulkanSemaphore create_timeline_semaphore()
     VulkanSemaphore fence;
     vk_check(rhi->vtable.vkCreateSemaphore(rhi->device, &semaphore_create_info, nullptr, &fence.semaphore));
     fence.type   = VK_SEMAPHORE_TYPE_TIMELINE;
-    fence.target = 0;
+    fence.target = 1;
     return fence;
 }
 

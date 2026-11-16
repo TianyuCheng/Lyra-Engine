@@ -17,6 +17,7 @@ void D3D12Fence::init(bool signaled)
 
     auto rhi = get_rhi();
     ThrowIfFailed(rhi->device->CreateFence(signaled ? 1 : 0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence)));
+    target = signaled ? 0 : 1;
 
     // create an event to allow it to be waitable on CPU
     event = CreateEvent(nullptr, FALSE, FALSE, nullptr);

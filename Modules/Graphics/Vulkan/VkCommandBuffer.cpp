@@ -184,13 +184,7 @@ void cmd::begin_render_pass(GPUCommandEncoderHandle cmdbuffer, const GPURenderPa
         has_depth_attachment   = view.aspects & VK_IMAGE_ASPECT_DEPTH_BIT;
         has_stencil_attachment = view.aspects & VK_IMAGE_ASPECT_STENCIL_BIT;
 
-        auto layout = VK_IMAGE_LAYOUT_UNDEFINED;
-
-        // clang-format off
-        if      (has_depth_attachment && !has_stencil_attachment) layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
-        else if (!has_depth_attachment && has_stencil_attachment) layout = VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL;
-        else                                                      layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        // clang-format on
+        auto layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
         // depth attachment
         depth_attachment.sType                         = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
