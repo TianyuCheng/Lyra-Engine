@@ -130,11 +130,23 @@ def do_run(args: argparse.Namespace):
 def do_test(args: argparse.Namespace):
     config = load_config()
     preset = f"{config.generator}-{config.preset}"
+    if not args.target:
+        args.target = "all"
+    elif args.target in ("--non-interactive", "--headless"):
+        args.non_interactive = True
+        args.target = "all"
+    elif args.target == "--interactive":
+        args.interactive = True
+        args.target = "all"
     target = args.target if args.target in ("unit-tests", "rhi-tests", "testkit") else "testkit"
     command = ["cmake", "--build", "--preset", preset, "--target", target]
     env_vars = {}
     if args.target and args.target not in ("all", "unit-tests", "rhi-tests", "testkit"):
         env_vars["LYRA_TESTKIT_FILTER"] = args.target
+    if getattr(args, "non_interactive", False):
+        env_vars["LYRA_TESTKIT_NON_INTERACTIVE"] = "1"
+    elif getattr(args, "interactive", None) is True:
+        env_vars["LYRA_TESTKIT_INTERACTIVE"] = "1"
     execute(command, env_vars)
 
 def do_amalgamate(args: argparse.Namespace):
@@ -224,7 +236,9 @@ def parse_args():
 
     # just test target
     test_parser = subparsers.add_parser("test")
-    test_parser.add_argument("--target", default=None)
+    test_parser.add_argument("--target", nargs="?", default="all")
+    test_parser.add_argument("--interactive", action="store_true", default=None)
+    test_parser.add_argument("--non-interactive", "--headless", dest="non_interactive", action="store_true", default=False)
 
     # just amalgamate headers
     amalgamate_parser = subparsers.add_parser("amalgamate")

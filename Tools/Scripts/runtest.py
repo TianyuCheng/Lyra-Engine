@@ -1,6 +1,7 @@
 import os
 import sys
 import math
+import json
 import zlib
 import struct
 import shutil
@@ -20,6 +21,8 @@ def parse_args():
     parser.add_argument("--pixel-tolerance", type=int, default=2, help="per-channel threshold for imperceptible noise (default: 2)")
     parser.add_argument("--mismatch-threshold", type=float, default=1.0, help="max percentage of mismatched pixels allowed (default: 1.0%%)")
     parser.add_argument("--rmse-threshold", type=float, default=2.0, help="max allowed RMSE across RGB channels (default: 2.0)")
+    parser.add_argument("--interactive", action="store_true", default=None, help="open browser immediately and poll results live during test execution")
+    parser.add_argument("--non-interactive", "--headless", dest="non_interactive", action="store_true", default=False, help="run in non-interactive / headless mode without opening the browser")
     args = parser.parse_args()
     args.directory = os.path.join(args.directory, "runs")
     print("TestKit executable:", args.executable)
@@ -30,18 +33,13 @@ def find_git_root(start_path=None):
     if start_path is None:
         start_path = os.getcwd()
 
-    # convert to absolute path
     current_path = os.path.abspath(start_path)
     while True:
-        # check if .git directory exists in current path
         git_dir = os.path.join(current_path, '.git')
         if os.path.exists(git_dir):
             return current_path
 
-        # get parent directory
         parent_path = os.path.dirname(current_path)
-
-        # if we've reached the root of the filesystem, stop
         if parent_path == current_path:
             return None
 
@@ -144,7 +142,6 @@ def read_png_rgba(path):
     if bitdepth != 8 or interlace != 0:
         raise ValueError(f"Unsupported PNG format in {path}: bitdepth={bitdepth}, interlace={interlace}")
 
-    # Channels map: 0: Grayscale (1), 2: RGB (3), 4: GA (2), 6: RGBA (4)
     channels_map = {0: 1, 2: 3, 4: 2, 6: 4}
     if colortype not in channels_map:
         raise ValueError(f"Unsupported PNG colortype={colortype} in {path}")
@@ -197,7 +194,6 @@ def read_png_rgba(path):
     if colortype == 6:
         return width, height, recon
 
-    # Normalize to RGBA (4 channels)
     rgba = bytearray(width * height * 4)
     total_pix = width * height
     if colortype == 2:  # RGB -> RGBA
@@ -232,21 +228,12 @@ def write_png_rgba(path, width, height, rgba_data):
 
     with open(path, "wb") as f:
         f.write(b"\x89PNG\r\n\x1a\n")
-        # IHDR chunk
         ihdr_data = struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)
         f.write(struct.pack(">I4s", len(ihdr_data), b"IHDR") + ihdr_data + struct.pack(">I", zlib.crc32(b"IHDR" + ihdr_data)))
-        # IDAT chunk
         f.write(struct.pack(">I4s", len(compressed), b"IDAT") + compressed + struct.pack(">I", zlib.crc32(b"IDAT" + compressed)))
-        # IEND chunk
         f.write(struct.pack(">I4s", 0, b"IEND") + struct.pack(">I", zlib.crc32(b"IEND")))
 
 def check_perceptual_mismatch(ref_path, test_path, diff_output_path=None, pixel_tolerance=2, max_mismatch_pct=1.0, rmse_threshold=2.0):
-    """
-    Perceptual image comparison using Python standard libraries.
-    - pixel_tolerance: per-channel absolute delta threshold below which differences are deemed imperceptible noise.
-    - max_mismatch_pct: maximum allowed percentage of perceptually mismatched pixels (0-100%).
-    - rmse_threshold: maximum allowed Root Mean Square Error (RMSE) across RGB channels.
-    """
     if not os.path.exists(ref_path):
         return {
             "passed": False,
@@ -323,13 +310,11 @@ def check_perceptual_mismatch(ref_path, test_path, diff_output_path=None, pixel_
 
         if diff_rgba is not None:
             if is_mismatch:
-                # Highlight differing pixels in high-contrast vivid red/magenta
                 diff_rgba[i] = 255
                 diff_rgba[i + 1] = 0
                 diff_rgba[i + 2] = 120
                 diff_rgba[i + 3] = 255
             else:
-                # Dim matching pixels to dark grayscale for visual context
                 gray = int(0.299 * ref_rgba[i] + 0.587 * ref_rgba[i + 1] + 0.114 * ref_rgba[i + 2]) >> 2
                 diff_rgba[i] = gray
                 diff_rgba[i + 1] = gray
@@ -368,20 +353,39 @@ def check_perceptual_mismatch(ref_path, test_path, diff_output_path=None, pixel_
         "diff_image": diff_image_saved,
     }
 
-def run_rhi_tests(args, buckets):
+def write_status_js(path, status_data):
+    """Writes status_data atomically to a JS file for dynamic browser polling without CORS."""
+    content = f"window.updateLiveStatus({json.dumps(status_data, indent=2)});\n"
+    tmp_path = path + ".tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        f.write(content)
+    try:
+        os.replace(tmp_path, path)
+    except Exception:
+        # Fallback for Windows file lock edge case
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(content)
+        except Exception:
+            pass
+
+def run_rhi_tests(args, buckets, on_progress=None):
     results = {}
     all_passed = True
 
     git_root = find_git_root()
     assert git_root, "Not within a git repository!"
 
+    # Initialize results structure
+    for test_name in buckets:
+        results[test_name] = {
+            "reference": os.path.join(git_root, "Tests", test_name, "reference.png"),
+            "_metrics": {}
+        }
+
     for test_name, variants in buckets.items():
         directory = os.path.join(args.directory, test_name)
         os.makedirs(directory, exist_ok=True)
-        results[test_name] = {}
-        results[test_name]["reference"] = os.path.join(git_root, "Tests", test_name, "reference.png")
-        results[test_name]["_metrics"] = {}
-
         ref_image = results[test_name]["reference"]
 
         for variant in variants:
@@ -420,7 +424,7 @@ def run_rhi_tests(args, buckets):
                     print(f"  -> [FAIL] {backend}: {metrics['error']}")
             else:
                 all_passed = False
-                results[test_name]["_metrics"][backend] = {
+                metrics = {
                     "passed": False,
                     "error": "Process execution failed",
                     "rmse": 0.0,
@@ -430,6 +434,10 @@ def run_rhi_tests(args, buckets):
                     "max_diff": 0,
                     "diff_image": None,
                 }
+                results[test_name]["_metrics"][backend] = metrics
+
+            if on_progress:
+                on_progress(test_name, backend, metrics, test_result, results[test_name].get(f"{backend}_diff"))
 
     return results, all_passed
 
@@ -451,7 +459,7 @@ def run_unit_tests(args):
         print(f">>> Unit Tests FAILED with exit code {e.returncode}.")
         return False
 
-def generate_html_report(args, results, unit_success=True):
+def generate_html_report(args, results, unit_success=True, finished=True):
     sequence = ["reference", "softgpu"]
 
     os_name = platform.system()
@@ -465,21 +473,35 @@ def generate_html_report(args, results, unit_success=True):
     total_test_groups = len(results)
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # Compute summary stats
     total_checks = 0
     passed_checks = 0
     failed_checks = 0
+    completed_checks = 0
+
+    # Count total expected checks
+    for _, variants in results.items():
+        for key in sequence:
+            if key != "reference":
+                total_checks += 1
+
     for _, buckets in results.items():
         metrics_dict = buckets.get("_metrics", {})
         for _, metrics in metrics_dict.items():
-            total_checks += 1
+            completed_checks += 1
             if metrics.get("passed", False):
                 passed_checks += 1
             else:
                 failed_checks += 1
 
-    overall_status_text = "ALL PASSED" if (failed_checks == 0 and unit_success) else "FAILED"
-    overall_status_color = "var(--success)" if (failed_checks == 0 and unit_success) else "var(--error)"
+    if not finished:
+        overall_status_text = "RUNNING..."
+        overall_status_class = "stat-running"
+    elif failed_checks == 0 and unit_success:
+        overall_status_text = "ALL PASSED"
+        overall_status_class = "stat-passed"
+    else:
+        overall_status_text = "FAILED"
+        overall_status_class = "stat-failed"
 
     html_content = []
     html_content.append(f'''<!DOCTYPE html>
@@ -561,7 +583,18 @@ def generate_html_report(args, results, unit_success=True):
             font-weight: 700;
             font-size: 1.1rem;
             font-family: var(--font-code);
-            color: {overall_status_color};
+            transition: color 0.3s;
+        }}
+        .stat-running {{
+            color: var(--accent);
+            animation: pulse 1.2s infinite ease-in-out;
+        }}
+        .stat-passed {{ color: var(--success); }}
+        .stat-failed {{ color: var(--error); }}
+
+        @keyframes pulse {{
+            0%, 100% {{ opacity: 0.6; }}
+            50% {{ opacity: 1; }}
         }}
 
         table {{
@@ -638,6 +671,8 @@ def generate_html_report(args, results, unit_success=True):
             flex-direction: column;
             align-items: center;
             gap: 0.4rem;
+            min-height: 120px;
+            justify-content: center;
         }}
         .test-img {{
             max-width: 320px;
@@ -678,6 +713,12 @@ def generate_html_report(args, results, unit_success=True):
             background-color: rgba(224, 108, 117, 0.15);
             color: var(--error);
             border: 1px solid rgba(224, 108, 117, 0.4);
+        }}
+        .badge-pending {{
+            background-color: rgba(92, 99, 112, 0.15);
+            color: var(--text-muted);
+            border: 1px dashed var(--border);
+            animation: pulse 1.5s infinite ease-in-out;
         }}
 
         .diff-btn {{
@@ -816,11 +857,11 @@ def generate_html_report(args, results, unit_success=True):
             </div>
             <div class="stat">
                 <span class="stat-label">RHI Checks</span>
-                <span class="stat-value">{passed_checks}/{total_checks} Pass</span>
+                <span class="stat-value" id="stat-progress">{completed_checks}/{total_checks} ({passed_checks} Pass, {failed_checks} Fail)</span>
             </div>
             <div class="stat">
                 <span class="stat-label">Status</span>
-                <span class="stat-badge">{overall_status_text}</span>
+                <span class="stat-badge {overall_status_class}" id="stat-status">{overall_status_text}</span>
             </div>
             <div class="stat">
                 <span class="stat-label">Timestamp</span>
@@ -866,15 +907,21 @@ def generate_html_report(args, results, unit_success=True):
         metrics_map = buckets.get("_metrics", {})
 
         for key in sequence:
-            html_content.append('<td><div class="img-cell">')
-            if key in buckets and os.path.exists(buckets[key]):
+            cell_id = f"cell-{test_name}-{key}"
+            html_content.append(f'<td id="{cell_id}"><div class="img-cell" id="container-{test_name}-{key}">')
+            if key == "reference":
+                if "reference" in buckets and os.path.exists(buckets["reference"]):
+                    ref_uri = pathlib.Path(os.path.abspath(buckets["reference"])).as_uri()
+                    html_content.append(f'<img src="{ref_uri}" class="test-img" onclick="openLightbox(this.src, \'{test_name} [REFERENCE]\')"/>')
+                    html_content.append('<span class="badge badge-ref">REFERENCE</span>')
+                else:
+                    html_content.append('<span class="empty-state">No Reference</span>')
+            elif key in buckets and os.path.exists(buckets[key]):
                 image = buckets[key]
                 image_uri = pathlib.Path(os.path.abspath(image)).as_uri()
                 html_content.append(f'<img src="{image_uri}" class="test-img" onclick="openLightbox(this.src, \'{test_name} [{key.upper()}]\')"/>')
 
-                if key == "reference":
-                    html_content.append('<span class="badge badge-ref">REFERENCE</span>')
-                elif key in metrics_map:
+                if key in metrics_map:
                     m = metrics_map[key]
                     if m.get("passed", False):
                         html_content.append(f'<span class="badge badge-pass">PASS &bull; RMSE {m["rmse"]:.2f} &bull; {m["mismatch_pct"]:.2f}% diff</span>')
@@ -887,7 +934,10 @@ def generate_html_report(args, results, unit_success=True):
                         diff_uri = pathlib.Path(os.path.abspath(diff_img)).as_uri()
                         html_content.append(f'<button class="diff-btn" onclick="openLightbox(\'{diff_uri}\', \'{test_name} [{key.upper()} DIFF]\')">View Diff</button>')
             else:
-                html_content.append('<span class="empty-state">Not Available</span>')
+                if finished:
+                    html_content.append('<span class="empty-state">Not Available</span>')
+                else:
+                    html_content.append('<span class="badge badge-pending">PENDING</span>')
             html_content.append('</div></td>')
 
         html_content.append('</tr>')
@@ -954,6 +1004,86 @@ def generate_html_report(args, results, unit_success=True):
                 closeDocs();
             }
         });
+
+        // Live Polling Mechanism (zero-CORS dynamic script inclusion)
+        let isFinished = false;
+        function pollStatus() {
+            if (isFinished) return;
+            const old = document.getElementById('live-script');
+            if (old) old.remove();
+            const s = document.createElement('script');
+            s.id = 'live-script';
+            s.src = 'status.js?t=' + Date.now();
+            s.onerror = () => {
+                if (!isFinished) setTimeout(pollStatus, 500);
+            };
+            document.head.appendChild(s);
+        }
+
+        window.updateLiveStatus = function(data) {
+            if (!data) return;
+
+            const progressElem = document.getElementById('stat-progress');
+            if (progressElem) {
+                progressElem.textContent = `${data.completed_count}/${data.total_count} (${data.passed_count} Pass, ${data.failed_count} Fail)`;
+            }
+
+            const statusElem = document.getElementById('stat-status');
+            if (statusElem) {
+                if (data.finished) {
+                    isFinished = true;
+                    if (data.failed_count === 0 && data.unit_passed) {
+                        statusElem.textContent = "ALL PASSED";
+                        statusElem.className = "stat-badge stat-passed";
+                    } else {
+                        statusElem.textContent = "FAILED";
+                        statusElem.className = "stat-badge stat-failed";
+                    }
+                } else {
+                    statusElem.textContent = "RUNNING...";
+                    statusElem.className = "stat-badge stat-running";
+                }
+            }
+
+            if (data.results) {
+                for (const [testName, backends] of Object.entries(data.results)) {
+                    for (const [backend, info] of Object.entries(backends)) {
+                        const cellId = `cell-${testName}-${backend}`;
+                        const cell = document.getElementById(cellId);
+                        if (!cell) continue;
+
+                        const container = cell.querySelector('.img-cell') || cell;
+                        if (!container.querySelector('.test-img') && info.image_uri) {
+                            let badgeHtml = '';
+                            if (info.passed) {
+                                badgeHtml = `<span class="badge badge-pass">PASS &bull; RMSE ${info.rmse.toFixed(2)} &bull; ${info.mismatch_pct.toFixed(2)}% diff</span>`;
+                            } else {
+                                const err = info.error || `RMSE ${info.rmse.toFixed(2)}`;
+                                badgeHtml = `<span class="badge badge-fail">FAIL &bull; ${err}</span>`;
+                            }
+
+                            let diffBtnHtml = '';
+                            if (info.diff_uri) {
+                                diffBtnHtml = `<button class="diff-btn" onclick="openLightbox('${info.diff_uri}', '${testName} [${backend.toUpperCase()} DIFF]')">View Diff</button>`;
+                            }
+
+                            container.innerHTML = `
+                                <img src="${info.image_uri}" class="test-img" onclick="openLightbox('${info.image_uri}', '${testName} [${backend.toUpperCase()}]')"/>
+                                ${badgeHtml}
+                                ${diffBtnHtml}
+                            `;
+                        }
+                    }
+                }
+            }
+
+            if (!data.finished && !isFinished) {
+                setTimeout(pollStatus, 500);
+            }
+        };
+
+        // Start live polling
+        setTimeout(pollStatus, 300);
     </script>
 </body>
 </html>
@@ -967,25 +1097,108 @@ def generate_html_report(args, results, unit_success=True):
 
 def main():
     args = parse_args()
+
+    # Determine interactive mode
+    if args.non_interactive:
+        is_interactive = False
+    elif args.interactive is True:
+        is_interactive = True
+    elif os.environ.get("CI") or os.environ.get("LYRA_TESTKIT_NON_INTERACTIVE"):
+        is_interactive = False
+    else:
+        is_interactive = True
+
     prepare_run(args)
-    unit_passed = run_unit_tests(args)
     tests = list_tests(args)
     tests = filter_rhi_tests(tests)
-    rhi_passed = True
-    if tests:
-        buckets = bucketize_tests(tests)
-        results, rhi_passed = run_rhi_tests(args, buckets)
-        report = generate_html_report(args, results, unit_success=unit_passed)
+    buckets = bucketize_tests(tests) if tests else {}
+
+    # Pre-populate test results structure
+    git_root = find_git_root()
+    initial_results = {}
+    for test_name in buckets:
+        initial_results[test_name] = {
+            "reference": os.path.join(git_root, "Tests", test_name, "reference.png"),
+            "_metrics": {}
+        }
+
+    status_js_path = os.path.join(args.directory, "status.js")
+
+    sequence = ["softgpu"]
+    if platform.system() == "Windows":
+        sequence.append("d3d12")
+    if platform.system() == "Darwin":
+        sequence.append("metal")
+    if check_vulkan_info():
+        sequence.append("vulkan")
+
+    total_expected = len(buckets) * len(sequence)
+
+    live_state = {
+        "finished": False,
+        "unit_passed": True,
+        "completed_count": 0,
+        "total_count": total_expected,
+        "passed_count": 0,
+        "failed_count": 0,
+        "results": {}
+    }
+    write_status_js(status_js_path, live_state)
+
+    report_path = generate_html_report(args, initial_results, unit_success=True, finished=False)
+
+    if is_interactive:
+        print(">>> Interactive mode enabled: opening live report in browser immediately...")
         try:
-            webbrowser.open(report)
-        except Exception:
-            pass
+            webbrowser.open(pathlib.Path(report_path).as_uri())
+        except Exception as e:
+            print(f"Note: Could not automatically open browser: {e}")
+
+    # Run unit tests
+    unit_passed = run_unit_tests(args)
+    live_state["unit_passed"] = unit_passed
+    write_status_js(status_js_path, live_state)
+
+    rhi_passed = True
+    if buckets:
+        def on_progress(test_name, backend, metrics, image_path, diff_path):
+            live_state["completed_count"] += 1
+            if metrics.get("passed", False):
+                live_state["passed_count"] += 1
+            else:
+                live_state["failed_count"] += 1
+
+            if test_name not in live_state["results"]:
+                live_state["results"][test_name] = {}
+
+            img_uri = pathlib.Path(os.path.abspath(image_path)).as_uri() if image_path and os.path.exists(image_path) else None
+            diff_uri = pathlib.Path(os.path.abspath(diff_path)).as_uri() if diff_path and os.path.exists(diff_path) else None
+
+            live_state["results"][test_name][backend] = {
+                "passed": metrics.get("passed", False),
+                "rmse": metrics.get("rmse", 0.0),
+                "mismatch_pct": metrics.get("mismatch_pct", 0.0),
+                "error": metrics.get("error"),
+                "image_uri": img_uri,
+                "diff_uri": diff_uri,
+            }
+            write_status_js(status_js_path, live_state)
+
+        results, rhi_passed = run_rhi_tests(args, buckets, on_progress=on_progress)
+    else:
+        results = initial_results
+
+    # Finalize state
+    live_state["finished"] = True
+    write_status_js(status_js_path, live_state)
+    generate_html_report(args, results, unit_success=unit_passed, finished=True)
 
     overall_passed = unit_passed and rhi_passed
     print("=" * 60)
     print(f"Lyra TestKit Result: {'SUCCESS' if overall_passed else 'FAILURE'}")
     print(f"  Unit Tests: {'PASSED' if unit_passed else 'FAILED'}")
     print(f"  RHI Tests:  {'PASSED' if rhi_passed else 'FAILED'}")
+    print(f"  Report:     {report_path}")
     print("=" * 60)
 
     if not overall_passed:
