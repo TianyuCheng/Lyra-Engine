@@ -6,13 +6,41 @@
 using namespace lyra;
 using namespace lyra::ui;
 
+struct PropertySheetState
+{
+    float max_label_width = 0.0f;
+};
+
+static HashMap<ImGuiID, PropertySheetState> s_sheet_states;
+static float                                s_current_max_label_len = 0.0f;
+static bool                                 s_is_stacked_layout     = false;
+
 static void begin_property_row(CString label)
 {
-    if (GImGui->CurrentTable != nullptr) {
+    float text_width = ImGui::CalcTextSize(label).x;
+    if (text_width > s_current_max_label_len) {
+        s_current_max_label_len = text_width;
+    }
+
+    if (s_is_stacked_layout) {
+        ImGui::Spacing();
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted(label);
+        ImGui::SetNextItemWidth(-1.0f);
+    } else if (GImGui->CurrentTable != nullptr) {
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
         ImGui::AlignTextToFramePadding();
+
+        float avail_width = ImGui::GetContentRegionAvail().x;
+        bool  is_clipped  = (text_width > avail_width);
+
         ImGui::TextUnformatted(label);
+
+        // fallback tooltip if label is clipped in wide mode
+        if (is_clipped && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) {
+            ImGui::SetTooltip("%s", label);
+        }
 
         ImGui::TableNextColumn();
         ImGui::SetNextItemWidth(-1.0f);
@@ -104,14 +132,47 @@ void lyra::ui::section(CString title, CString icon, ActionRef content)
     ImGui::PopID();
 }
 
-void lyra::ui::properties(ActionRef content)
+void lyra::ui::properties(ActionRef content, float min_widget_width)
 {
-    if (ImGui::BeginTable("##LyraProperties", 2, ImGuiTableFlags_SizingFixedFit)) {
-        ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 140.0f);
-        ImGui::TableSetupColumn("Values", ImGuiTableColumnFlags_WidthStretch);
-        content();
-        ImGui::EndTable();
+    ImGuiID table_id = ImGui::GetID("##LyraProperties");
+    auto&   state    = s_sheet_states[table_id];
+
+    // calculate label column width from measured content plus cell padding
+    float label_col_width = 0.0f;
+    if (state.max_label_width > 0.0f) {
+        label_col_width = state.max_label_width + ImGui::GetStyle().CellPadding.x * 2.0f + 2.0f;
     }
+
+    float avail_width    = ImGui::GetContentRegionAvail().x;
+    float required_width = (label_col_width > 0.0f ? label_col_width : 140.0f) + min_widget_width;
+
+    bool  was_stacked        = s_is_stacked_layout;
+    float prev_max_label_len = s_current_max_label_len;
+
+    s_is_stacked_layout     = (avail_width < required_width);
+    s_current_max_label_len = 0.0f;
+
+    if (s_is_stacked_layout) {
+        ImGui::PushID("##LyraPropertiesStacked");
+        content();
+        ImGui::PopID();
+    } else {
+        ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit;
+        if (ImGui::BeginTable("##LyraProperties", 2, flags)) {
+            ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize, label_col_width);
+            ImGui::TableSetupColumn("Values", ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_NoResize);
+            content();
+            ImGui::EndTable();
+        }
+    }
+
+    // update state with the maximum width observed during this frame
+    if (s_current_max_label_len > 0.0f) {
+        state.max_label_width = s_current_max_label_len;
+    }
+
+    s_current_max_label_len = prev_max_label_len;
+    s_is_stacked_layout     = was_stacked;
 }
 
 void lyra::ui::vec3(CString label, Vector3& value, const VecConfig& config)

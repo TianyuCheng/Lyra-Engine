@@ -43,8 +43,8 @@ namespace lyra::ui
     // collapsible component section with standardized header and icon
     void section(CString title, CString icon, ActionRef content);
 
-    // standardized two-column property sheet (auto-aligned labels on left, widgets on right)
-    void properties(ActionRef content);
+    // standardized property sheet (pre-calculated label auto-fit on wide views, adaptive stacked layout on narrow views)
+    void properties(ActionRef content, float min_widget_width = 120.0f);
 
     // vector inputs
     void vec3(CString label, Vector3& value, const VectorConfig& config = {});

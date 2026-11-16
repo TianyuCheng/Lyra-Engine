@@ -183,7 +183,7 @@ void ForwardRenderer::draw_debug_panel()
         ui::section("Settings", LYRA_ICON_SETTINGS, [&]() {
             ui::properties([&]() {
                 ui::toggle("Enable Shadows", settings.enable_shadows);
-                ui::toggle("Enable Ambient Occlusion", settings.enable_ambient_occl);
+                ui::toggle("Enable AO", settings.enable_ambient_occl);
                 ui::toggle("Enable Reflections", settings.enable_reflections);
                 ui::toggle("Wireframe Mode", settings.enable_wireframe);
 
