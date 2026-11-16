@@ -38,6 +38,16 @@ namespace lyra
     };
 
     /**
+     * @brief Standard scene templates for initial scene authoring.
+     */
+    enum class SceneTemplate
+    {
+        EMPTY,      ///< Completely empty root node.
+        DEFAULT_3D, ///< Root node + Main Camera (with FlyCamera) + Directional Light (Sun).
+        DEFAULT = DEFAULT_3D
+    };
+
+    /**
      * @brief runtime representation of a loaded scene instance.
      */
     struct SceneInstance
@@ -82,9 +92,9 @@ namespace lyra
         // --- scene / level lifecycle ---
 
         /**
-         * @brief create a new blank scene.
+         * @brief create a new scene from a template.
          */
-        SceneInstanceID create(const String& name = "Untitled");
+        SceneInstanceID create(const String& name = "Untitled", SceneTemplate templ = SceneTemplate::DEFAULT);
 
         /**
          * @brief load and activate a scene (SINGLE or ADDITIVE).

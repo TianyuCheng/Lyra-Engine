@@ -2,6 +2,7 @@
 #include <Lyra/Utilities/GUID.h>
 #include <Lyra/Utilities/Logger.h>
 #include <Lyra/Components/Mesh.h>
+#include <Lyra/Components/Light.h>
 #include <Lyra/Components/Camera.h>
 #include <Lyra/Scene/SceneManager.h>
 #include <Lyra/JobSystem/JobScheduler.h>
@@ -296,20 +297,39 @@ SceneNode SceneManager::spawn_scene_internal(const SceneAsset& scene, const Spaw
     return (scene.root < scene.nodes.size()) ? created_nodes[scene.root] : SceneNode{};
 }
 
-SceneInstanceID SceneManager::create(const String& name)
+SceneInstanceID SceneManager::create(const String& name, SceneTemplate templ)
 {
     clear();
 
     Entity    root_entity = world.create(name);
     SceneNode root_node(root_entity);
 
-    // default scene contains one "Main Camera"
-    Entity    cam_entity = world.create("Main Camera");
-    SceneNode cam_node(cam_entity);
-    world.translate(cam_node, {0.0f, 1.0f, 8.0f});
-    world.rotate(cam_node, {1.0f, 0.0f, 0.0f}, -20.0f);
-    world.add_component<Camera>(cam_node);
-    world.add_child(root_node, cam_node);
+    if (templ == SceneTemplate::DEFAULT_3D) {
+        // default scene contains one "Main Camera" with FlyCamera controller (at 0, 1, 0 looking along -Z)
+        Entity    cam_entity = world.create("Main Camera");
+        SceneNode cam_node(cam_entity);
+        world.translate(cam_node, {0.0f, 1.0f, 0.0f});
+        world.add_component<Camera>(cam_node);
+        world.add_component<FlyCamera>(cam_node,
+            FlyCamera{
+                .pitch        = 0.0f,
+                .target_pitch = 0.0f,
+            });
+        world.add_child(root_node, cam_node);
+
+        // default scene contains one "Directional Light" (Sun)
+        Entity    sun_entity = world.create("Directional Light");
+        SceneNode sun_node(sun_entity);
+        world.rotate(sun_node, {1.0f, 0.0f, 0.0f}, -45.0f);
+        world.rotate(sun_node, {0.0f, 1.0f, 0.0f}, 35.0f);
+        world.add_component<DirectionalLight>(sun_node,
+            DirectionalLight{
+                .direction = glm::normalize(Vector3(0.3f, -0.7f, 0.4f)),
+                .color     = Vector3(1.0f, 0.98f, 0.95f),
+                .intensity = 1000.0f,
+            });
+        world.add_child(root_node, sun_node);
+    }
 
     SceneInstanceID id = next_instance_id++;
     SceneInstance   instance;

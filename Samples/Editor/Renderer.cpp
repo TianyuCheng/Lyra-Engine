@@ -33,35 +33,6 @@ void EditorRenderer::init(AppContext& context)
             rm->load_renderer("lyra-renderer-forward", context);
         }
     }
-
-    // initialize scene camera node if none exists
-    // NOTE: This is NOT a long-term solution.
-    if (auto world = context.services.try_get<World>()) {
-        // initialize scene camera node if none exists
-        auto cam_view = world->registry.view<Camera>();
-        if (!cam_view.empty()) {
-            camera_node = SceneNode(*cam_view.begin());
-        } else {
-            camera_node = world->create("Main Camera");
-            world->translate(camera_node, {0.0f, 1.0f, 8.0f});
-            world->rotate(camera_node, {1.0f, 0.0f, 0.0f}, -20.0f);
-            world->add_component<Camera>(camera_node);
-        }
-
-        // initialize default directional light (sun) if none exists
-        auto light_view = world->registry.view<DirectionalLight>();
-        if (light_view.empty()) {
-            auto sun_node = world->create("Directional Light");
-            world->rotate(sun_node, {1.0f, 0.0f, 0.0f}, -45.0f);
-            world->rotate(sun_node, {0.0f, 1.0f, 0.0f}, 35.0f);
-            world->add_component<DirectionalLight>(sun_node,
-                DirectionalLight{
-                    .direction = glm::normalize(Vector3(0.3f, -0.7f, 0.4f)),
-                    .color     = Vector3(1.0f, 0.98f, 0.95f),
-                    .intensity = 1000.0f,
-                });
-        }
-    }
 }
 
 void EditorRenderer::destroy(AppContext& context)
@@ -97,11 +68,12 @@ void EditorRenderer::update(AppContext& context)
         if (view.begin() != view.end()) {
             camera_node = SceneNode(*view.begin());
         } else {
-            camera_node = world->create("Main Camera");
-            world->translate(camera_node, {0.0f, 1.0f, 8.0f});
-            world->rotate(camera_node, {1.0f, 0.0f, 0.0f}, -20.0f);
-            world->add_component<Camera>(camera_node);
+            camera_node = SceneNode{};
         }
+    }
+
+    if (camera_node.entity == entt::null || !world->registry.valid(camera_node.entity) || !world->registry.any_of<Camera>(camera_node.entity)) {
+        return;
     }
 
     // update camera uniform buffer

@@ -66,22 +66,6 @@ static void imgui_render(AppContext& context)
     backbuffer.present();
 }
 
-// attach editor camera controller (FlyCamera) to scene cameras
-// NOTE: This is NOT a long-term solution.
-static void attach_editor_camera(World& world)
-{
-    auto view = world.registry.view<Camera>();
-    for (auto entity : view) {
-        if (!world.registry.any_of<FlyCamera>(entity)) {
-            world.add_component<FlyCamera>(SceneNode(entity),
-                FlyCamera{
-                    .pitch        = -20.0f,
-                    .target_pitch = -20.0f,
-                });
-        }
-    }
-};
-
 int main(int argc, const char* argv[])
 {
     // clang-format off
@@ -218,8 +202,6 @@ int main(int argc, const char* argv[])
     auto scene = lyra::execute([&]() {
         auto layer = std::make_unique<SceneLayer>();
         app->bind(*layer);
-
-        attach_editor_camera(layer->get_world());
         return std::move(layer);
     });
 
