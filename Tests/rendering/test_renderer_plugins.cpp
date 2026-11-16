@@ -5,6 +5,7 @@
 #include <Lyra/Rendering/ResourceRetire.h>
 #include <Lyra/Components/Camera.h>
 #include <Lyra/Components/Light.h>
+#include <Lyra/Components/Sun.h>
 #include <Lyra/Components/Mesh.h>
 #include <Lyra/Components/SDFVolume.h>
 
@@ -254,12 +255,21 @@ TEST_CASE("rendering::render_world" * doctest::description("Verify RenderWorld m
         auto& dir          = ecs_world.add_component<DirectionalLight>(light_entity);
         dir.color          = Vector3(1.0f, 0.95f, 0.9f);
         dir.intensity      = 5.0f;
+        auto& sun          = ecs_world.add_component<Sun>(light_entity);
+        sun.angular_radius = 0.005f;
+        sun.halo_size      = 12.0f;
+        sun.halo_falloff   = 90.0f;
+        sun.limb_darkening = 0.5f;
 
         RendererCapabilities caps{};
         render_world.extract(ecs_world, caps);
 
         CHECK_EQ(render_world.get_scene().directional_lights.size(), 1);
         CHECK_EQ(render_world.get_scene().directional_lights[0].intensity, 5.0f);
+        CHECK_EQ(render_world.get_scene().directional_lights[0].angular_radius, doctest::Approx(0.005f));
+        CHECK_EQ(render_world.get_scene().directional_lights[0].halo_size, doctest::Approx(12.0f));
+        CHECK_EQ(render_world.get_scene().directional_lights[0].halo_falloff, doctest::Approx(90.0f));
+        CHECK_EQ(render_world.get_scene().directional_lights[0].limb_darkening, doctest::Approx(0.5f));
         CHECK_EQ(render_world.get_view().fov, 60.0f);
         CHECK_EQ(render_world.get_view().near_plane, 0.1f);
     }

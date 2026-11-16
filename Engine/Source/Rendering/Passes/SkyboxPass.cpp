@@ -14,10 +14,14 @@ namespace
         Matrix4x4 inv_proj;
         Matrix4x4 inv_view;
         Vector3   camera_pos;
-        float     sun_intensity      = 20.0f;
+        float     sun_intensity      = 110000.0f;
         Vector3   sun_dir            = Vector3(0.3f, 0.6f, 0.4f);
         float     sun_angular_radius = 0.004675f;
         Vector3   sun_color          = Vector3(1.0f);
+        float     exposure_scale     = 1.0f / (1.2f * 8192.0f);
+        float     halo_size          = 10.0f;
+        float     halo_falloff       = 80.0f;
+        float     limb_darkening     = 0.6f;
         float     ground_roughness   = 0.8f;
         Vector4   ground_albedo      = Vector4(0.12f, 0.12f, 0.14f, 1.0f);
     };
@@ -199,15 +203,20 @@ void SkyboxPass::update_camera_uniform(uint slot, const RenderView& view, const 
         return;
     }
 
-    u.at(0).proj       = view.projection;
-    u.at(0).view       = view.view;
-    u.at(0).inv_proj   = view.inv_projection;
-    u.at(0).inv_view   = view.inv_view;
-    u.at(0).camera_pos = view.camera_position;
+    u.at(0).proj           = view.projection;
+    u.at(0).view           = view.view;
+    u.at(0).inv_proj       = view.inv_projection;
+    u.at(0).inv_view       = view.inv_view;
+    u.at(0).camera_pos     = view.camera_position;
+    u.at(0).exposure_scale = (view.exposure_scale > 0.0f) ? view.exposure_scale : (1.0f / (1.2f * 8192.0f));
 
-    Vector3 sun_dir       = glm::normalize(Vector3(0.3f, 0.6f, 0.4f));
-    Vector3 sun_color     = Vector3(1.0f);
-    float   sun_intensity = 20.0f;
+    Vector3 sun_dir            = glm::normalize(Vector3(0.3f, 0.6f, 0.4f));
+    Vector3 sun_color          = Vector3(1.0f);
+    float   sun_intensity      = 110000.0f;
+    float   sun_angular_radius = 0.004675f;
+    float   halo_size          = 10.0f;
+    float   halo_falloff       = 80.0f;
+    float   limb_darkening     = 0.6f;
 
     if (!scene.directional_lights.empty()) {
         const auto& light = scene.directional_lights[0];
@@ -216,14 +225,21 @@ void SkyboxPass::update_camera_uniform(uint slot, const RenderView& view, const 
         if (glm::length2(light.direction) > 1e-4f) {
             sun_dir = -glm::normalize(light.direction);
         }
-        sun_color     = light.color;
-        sun_intensity = std::clamp(light.intensity * 0.02f, 1.0f, 100.0f);
+        sun_color          = light.color;
+        sun_intensity      = light.intensity;
+        sun_angular_radius = light.angular_radius;
+        halo_size          = light.halo_size;
+        halo_falloff       = light.halo_falloff;
+        limb_darkening     = light.limb_darkening;
     }
 
     u.at(0).sun_intensity      = sun_intensity;
     u.at(0).sun_dir            = sun_dir;
-    u.at(0).sun_angular_radius = 0.004675f;
+    u.at(0).sun_angular_radius = sun_angular_radius;
     u.at(0).sun_color          = sun_color;
+    u.at(0).halo_size          = halo_size;
+    u.at(0).halo_falloff       = halo_falloff;
+    u.at(0).limb_darkening     = limb_darkening;
     u.at(0).ground_roughness   = 0.8f;
     u.at(0).ground_albedo      = Vector4(0.12f, 0.12f, 0.14f, 1.0f);
 }

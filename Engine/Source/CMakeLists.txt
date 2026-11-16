@@ -176,6 +176,7 @@ lyra_bindgen(engine
   HEADERS
     ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Components/Mesh.h
     ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Components/Light.h
+    ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Components/Sun.h
     ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Components/Camera.h
     ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Components/Transform.h
 )

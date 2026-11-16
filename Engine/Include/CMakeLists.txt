@@ -146,6 +146,7 @@ target_sources(lyra-headers INTERFACE
     Lyra/Components/Transform.h
     Lyra/Components/Camera.h
     Lyra/Components/Light.h
+    Lyra/Components/Sun.h
     Lyra/Components/Mesh.h
     Lyra/Components/SDFVolume.h
 

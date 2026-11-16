@@ -33,6 +33,10 @@ namespace lyra
         float           range            = 20.0f;
         float           spot_inner_angle = 0.0f;
         float           spot_outer_angle = 0.785398f; // pi / 4
+        float           angular_radius   = 0.004675f;
+        float           halo_size        = 10.0f;
+        float           halo_falloff     = 80.0f;
+        float           limb_darkening   = 0.6f;
         RenderLightType type             = RenderLightType::POINT;
         bool            cast_shadows     = true;
     };

@@ -5,6 +5,7 @@
 #include <Lyra/Utilities/Logger.h>
 #include <Lyra/Components/Camera.h>
 #include <Lyra/Components/Light.h>
+#include <Lyra/Components/Sun.h>
 #include <Lyra/Components/Mesh.h>
 #include <Lyra/Scene/SceneTree.h>
 #include <Lyra/Scene/SceneNode.h>
@@ -95,6 +96,9 @@ static Entity duplicate_entity(World& world, Entity src, Entity new_parent, Scen
     if (auto dl = world.registry.try_get<DirectionalLight>(src)) {
         world.registry.emplace_or_replace<DirectionalLight>(clone, *dl);
     }
+    if (auto s = world.registry.try_get<Sun>(src)) {
+        world.registry.emplace_or_replace<Sun>(clone, *s);
+    }
     if (auto m = world.registry.try_get<Mesh>(src)) {
         world.registry.emplace_or_replace<Mesh>(clone, *m);
     }
@@ -159,8 +163,10 @@ static void render_node(
     CString icon = "";
     if (world.any_of<Camera>(entity)) {
         icon = LYRA_ICON_CAMERA;
-    } else if (world.any_of<DirectionalLight>(entity)) {
+    } else if (world.any_of<Sun>(entity)) {
         icon = LYRA_ICON_SUN;
+    } else if (world.any_of<DirectionalLight>(entity)) {
+        icon = LYRA_ICON_DIRECTIONAL_LIGHT;
     } else if (world.any_of<PointLight, SpotLight>(entity)) {
         icon = LYRA_ICON_LIGHT;
     } else if (!is_leaf) {
@@ -192,7 +198,15 @@ static void render_node(
                     if (ctx.scene_mgr) ctx.scene_mgr->set_dirty(true);
                 });
                 ui::menu(LYRA_ICON_LIGHT " Light", [&]() {
-                    ui::menu_item(LYRA_ICON_SUN " Directional Light", [&]() {
+                    ui::menu_item(LYRA_ICON_SUN " Sun", [&]() {
+                        String name = ctx.scene_mgr ? ctx.scene_mgr->resolve_unique_name(SceneNode(entity), "Sun") : "Sun";
+                        auto   sun  = world.create(name);
+                        world.add_component<DirectionalLight>(sun);
+                        world.add_component<Sun>(sun);
+                        world.add_child(SceneNode(entity), sun);
+                        if (ctx.scene_mgr) ctx.scene_mgr->set_dirty(true);
+                    });
+                    ui::menu_item(LYRA_ICON_DIRECTIONAL_LIGHT " Directional Light", [&]() {
                         String name  = ctx.scene_mgr ? ctx.scene_mgr->resolve_unique_name(SceneNode(entity), "DirectionalLight") : "DirectionalLight";
                         auto   light = world.create(name);
                         world.add_component<DirectionalLight>(light);
@@ -555,7 +569,21 @@ void HierarchyView::update(AppContext& context)
                     }
                 });
                 ui::menu(LYRA_ICON_LIGHT " Light", [&]() {
-                    ui::menu_item(LYRA_ICON_SUN " Directional Light", [&]() {
+                    ui::menu_item(LYRA_ICON_SUN " Sun", [&]() {
+                        if (auto world_ptr = context.services.try_get<World*>()) {
+                            auto&     world = *world_ptr;
+                            SceneNode root  = get_active_root();
+                            String    name  = scene_mgr ? scene_mgr->resolve_unique_name(root, "Sun") : "Sun";
+                            auto      sun   = world.create(name);
+                            world.add_component<DirectionalLight>(sun);
+                            world.add_component<Sun>(sun);
+                            if (root.entity != entt::null) {
+                                world.add_child(root, SceneNode(sun));
+                            }
+                            if (scene_mgr) scene_mgr->set_dirty(true);
+                        }
+                    });
+                    ui::menu_item(LYRA_ICON_DIRECTIONAL_LIGHT " Directional Light", [&]() {
                         if (auto world_ptr = context.services.try_get<World*>()) {
                             auto&     world = *world_ptr;
                             SceneNode root  = get_active_root();

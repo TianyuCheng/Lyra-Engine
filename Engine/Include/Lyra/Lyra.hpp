@@ -108,6 +108,7 @@
 // =============================================================================
 
 // Components
+#include <Lyra/Components/Sun.h>
 #include <Lyra/Components/Mesh.h>
 #include <Lyra/Components/Light.h>
 #include <Lyra/Components/Camera.h>

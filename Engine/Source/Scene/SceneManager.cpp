@@ -1,6 +1,7 @@
 #include <fstream>
 #include <Lyra/Utilities/GUID.h>
 #include <Lyra/Utilities/Logger.h>
+#include <Lyra/Components/Sun.h>
 #include <Lyra/Components/Mesh.h>
 #include <Lyra/Components/Light.h>
 #include <Lyra/Components/Camera.h>
@@ -315,10 +316,15 @@ SceneInstanceID SceneManager::create(const String& name, SceneTemplate templ)
                 .pitch        = 0.0f,
                 .target_pitch = 0.0f,
             });
+        world.add_component<CameraExposure>(cam_node,
+            CameraExposure{
+                .exposure_mode = ExposureMode::EV_COMPENSATION,
+                .manual_ev100  = 13.0f,
+            });
         world.add_child(root_node, cam_node);
 
-        // default scene contains one "Directional Light" (Sun)
-        Entity    sun_entity = world.create("Directional Light");
+        // default scene contains one "Sun"
+        Entity    sun_entity = world.create("Sun");
         SceneNode sun_node(sun_entity);
         world.rotate(sun_node, {1.0f, 0.0f, 0.0f}, -45.0f);
         world.rotate(sun_node, {0.0f, 1.0f, 0.0f}, 35.0f);
@@ -326,7 +332,14 @@ SceneInstanceID SceneManager::create(const String& name, SceneTemplate templ)
             DirectionalLight{
                 .direction = glm::normalize(Vector3(0.3f, -0.7f, 0.4f)),
                 .color     = Vector3(1.0f, 0.98f, 0.95f),
-                .intensity = 1000.0f,
+                .intensity = 110000.0f,
+            });
+        world.add_component<Sun>(sun_node,
+            Sun{
+                .angular_radius = 0.004675f,
+                .halo_size      = 10.0f,
+                .halo_falloff   = 80.0f,
+                .limb_darkening = 0.6f,
             });
         world.add_child(root_node, sun_node);
     }

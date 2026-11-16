@@ -23,11 +23,11 @@ namespace lyra
         [[lyra::speed(0.01f), lyra::label("Direction")]]
         Vector3 direction = Vector3(0.0f, -1.0f, 0.0f); // dx, dy, dz (12 bytes)
 
-        [[lyra::range(0.0f, 1000.0f), lyra::label("Falloff")]]
-        float falloff = 1.0f; // falloff coefficient (4 bytes)
+        [[lyra::range(0.0f, 1000.0f), lyra::label("Range (m)")]]
+        float falloff = 10.0f; // attenuation radius in meters (4 bytes)
 
-        [[lyra::range(0.0f, 100000.0f), lyra::label("Intensity")]]
-        float intensity = 100.0f; // intensity in watts (4 bytes)
+        [[lyra::range(0.0f, 100000.0f), lyra::label("Intensity (cd)")]]
+        float intensity = 100.0f; // luminous intensity in candela (cd) (4 bytes)
 
         [[lyra::label("Profile")]]
         uint profile = 0; // IES profile index (4 bytes)
@@ -48,18 +48,18 @@ namespace lyra
         [[lyra::label("Angle")]]
         Vector2 angle = Vector2(0.0f); // angle scale, angle offset
 
-        [[lyra::range(0.0f, 1000.0f), lyra::label("Falloff")]]
-        float falloff = 1.0f; // falloff coefficient (4 bytes)
+        [[lyra::range(0.0f, 1000.0f), lyra::label("Range (m)")]]
+        float falloff = 10.0f; // attenuation radius in meters (4 bytes)
 
-        [[lyra::range(0.0f, 100000.0f), lyra::label("Intensity")]]
-        float intensity = 100.0f; // intensity in watts (4 bytes)
+        [[lyra::range(0.0f, 100000.0f), lyra::label("Intensity (cd)")]]
+        float intensity = 100.0f; // luminous intensity in candela (cd) (4 bytes)
 
         [[lyra::label("Profile")]]
         uint profile = 0; // IES profile index
     };
 
     // component
-    struct [[lyra::component("Directional Light", category = "Lighting", icon = "LYRA_ICON_SUN")]] DirectionalLight
+    struct [[lyra::component("Directional Light", category = "Lighting", icon = "LYRA_ICON_DIRECTIONAL_LIGHT")]] DirectionalLight
     {
         [[lyra::speed(0.01f), lyra::label("Direction")]]
         Vector3 direction = Vector3(0.0f, -1.0f, 0.0f); // dx, dy, dz
@@ -67,8 +67,8 @@ namespace lyra
         [[lyra::label("Color")]]
         Vector3 color = Vector3(1.0f); // r, g, b
 
-        [[lyra::range(0.0f, 100000.0f), lyra::label("Intensity")]]
-        float intensity = 1000.0f; // intensity in candela
+        [[lyra::range(0.0f, 150000.0f), lyra::label("Illuminance (lx)")]]
+        float intensity = 110000.0f; // direct illuminance in lux (lx, lm/m^2 or cd*sr/m^2)
 
         [[lyra::label("Profile")]]
         uint profile = 0; // IES profile index

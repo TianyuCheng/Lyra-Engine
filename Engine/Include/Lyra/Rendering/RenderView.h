@@ -28,6 +28,8 @@ namespace lyra
         float       near_plane      = 0.1f;
         float       far_plane       = 1000.0f;
         float       fov             = 60.0f;
+        float       exposure_scale  = 1.0f / (1.2f * 8192.0f); // default EV100 ~ 13.0 (daylight exterior)
+        float       ev100           = 13.0f;
 
         Array<Vector4, 6> frustum_planes = {};
     };

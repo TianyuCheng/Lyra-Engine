@@ -19,6 +19,10 @@ struct SkyboxUniform
     float3   sun_dir;
     float    sun_angular_radius;
     float3   sun_color;
+    float    exposure_scale;
+    float    halo_size;
+    float    halo_falloff;
+    float    limb_darkening;
     float    ground_roughness;
     float4   ground_albedo;
 };
@@ -67,6 +71,12 @@ float4 fsmain(VertexOutput input) : SV_Target
     float cam_alt_km  = max(skybox.camera_pos.y * 0.001, 0.0);
     float3 camera_pos = float3(0.0, atmo.planet_radius + 0.001 + cam_alt_km, 0.0);
 
+    // direct solar beam transmittance through the atmospheric column along sun path
+    float2 optical_depth_sun = integrate_optical_depth(atmo, camera_pos, sun_dir, 16);
+    float3 tau_sun           = atmo.rayleigh_scattering * optical_depth_sun.x +
+                               atmo.mie_extinction * optical_depth_sun.y;
+    float3 sun_transmittance = exp(-tau_sun);
+
     // reference horizon sky radiance to guarantee seamless continuity at the horizon
     float3 horizon_dir = normalize(float3(dir.x, 0.002, dir.z));
     float3 horizon_sky = evaluate_sky_radiance(atmo, camera_pos, horizon_dir, sun_dir, 16);
@@ -74,16 +84,17 @@ float4 fsmain(VertexOutput input) : SV_Target
     float3 color;
     if (dir.y >= 0.0)
     {
-        // 1. Upper hemisphere: atmospheric Rayleigh & Mie scattering + direct sun disc
+        // 1. Upper hemisphere: atmospheric Rayleigh & Mie scattering + physical sun disc & corona
         color = evaluate_sky_radiance(atmo, camera_pos, dir, sun_dir, 16);
-        color += render_sun_disc(atmo, dir, sun_dir) * skybox.sun_color;
+        color += render_physical_sun(atmo, dir, sun_dir, sun_transmittance,
+                                     skybox.halo_size, skybox.halo_falloff, skybox.limb_darkening) * skybox.sun_color;
     }
     else
     {
         // 2. Lower hemisphere (ground / earth surface):
-        // direct sun illumination on horizontal ground plane
+        // direct sun illumination on horizontal ground plane attenuated by transmittance
         float sun_elev = max(sun_dir.y, 0.0);
-        float3 sun_irradiance = skybox.sun_color * (sun_elev * skybox.sun_intensity * 0.15);
+        float3 sun_irradiance = skybox.sun_color * (sun_elev * skybox.sun_intensity) * sun_transmittance;
 
         // ambient skylight arriving at the ground
         float3 sky_ambient = horizon_sky * 0.25;
@@ -97,6 +108,9 @@ float4 fsmain(VertexOutput input) : SV_Target
         float haze = exp(-6.0 * max(-dir.y, 0.0));
         color = lerp(ground_radiance, horizon_sky, haze);
     }
+
+    // Apply physical camera exposure scaling before ACES filmic tonemapping
+    color *= skybox.exposure_scale;
 
     // ACES filmic tonemapping for rich HDR response
     color = tonemap_aces_film(color);

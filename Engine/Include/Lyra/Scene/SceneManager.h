@@ -43,7 +43,7 @@ namespace lyra
     enum class SceneTemplate
     {
         EMPTY,      ///< Completely empty root node.
-        DEFAULT_3D, ///< Root node + Main Camera (with FlyCamera) + Directional Light (Sun).
+        DEFAULT_3D, ///< Root node + Main Camera (with FlyCamera) + Sun.
         DEFAULT = DEFAULT_3D
     };
 

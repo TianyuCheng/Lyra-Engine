@@ -1,6 +1,9 @@
 #include <fstream>
 #include <filesystem>
 #include <Lyra/Components/Mesh.h>
+#include <Lyra/Components/Light.h>
+#include <Lyra/Components/Sun.h>
+#include <Lyra/Components/Camera.h>
 #include <Lyra/Scene/SceneManager.h>
 #include <Lyra/Assets/Format/SceneAsset.h>
 #include <Lyra/Assets/Format/ModelAsset.h>
@@ -460,5 +463,45 @@ TEST_CASE("scn::scene_manager" * doctest::description("Scene Manager Lifecycle a
         CHECK_NE(loaded_id, lyra::INVALID_SCENE_INSTANCE);
         CHECK_EQ(scene_manager.get_active()->id, loaded_id);
         CHECK(!scene_manager.is_dirty());
+    }
+
+    SUBCASE("scene template default 3d creates sun with directional light and sun component")
+    {
+        auto inst_id = scene_manager.create("TemplateScene", lyra::SceneTemplate::DEFAULT_3D);
+        CHECK_NE(inst_id, lyra::INVALID_SCENE_INSTANCE);
+
+        auto active = scene_manager.get_active();
+        REQUIRE_NE(active, nullptr);
+
+        auto* children = world.registry.try_get<lyra::Children>(active->root.entity);
+        REQUIRE_NE(children, nullptr);
+
+        bool found_sun = false;
+        bool found_cam = false;
+        for (auto child : children->nodes) {
+            auto* name_comp = world.registry.try_get<lyra::NodeName>(child.entity);
+            if (!name_comp) continue;
+
+            if (name_comp->name == "Sun") {
+                found_sun = true;
+                CHECK(world.registry.any_of<lyra::DirectionalLight>(child.entity));
+                CHECK(world.registry.any_of<lyra::Sun>(child.entity));
+                auto& sun = world.registry.get<lyra::Sun>(child.entity);
+                CHECK_EQ(sun.angular_radius, doctest::Approx(0.004675f));
+                CHECK_EQ(sun.halo_size, doctest::Approx(10.0f));
+                CHECK_EQ(sun.halo_falloff, doctest::Approx(80.0f));
+                CHECK_EQ(sun.limb_darkening, doctest::Approx(0.6f));
+                auto& dl = world.registry.get<lyra::DirectionalLight>(child.entity);
+                CHECK_EQ(dl.intensity, doctest::Approx(110000.0f));
+            } else if (name_comp->name == "Main Camera") {
+                found_cam = true;
+                CHECK(world.registry.any_of<lyra::Camera>(child.entity));
+                CHECK(world.registry.any_of<lyra::FlyCamera>(child.entity));
+                CHECK(world.registry.any_of<lyra::CameraExposure>(child.entity));
+            }
+        }
+
+        CHECK(found_sun);
+        CHECK(found_cam);
     }
 }

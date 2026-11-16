@@ -328,7 +328,7 @@ void lyra::setup_editor_commands(AppContext& context)
         .id       = "entity.create_dir_light",
         .category = "Entity",
         .title    = "Create Directional Light",
-        .icon     = LYRA_ICON_SUN,
+        .icon     = LYRA_ICON_DIRECTIONAL_LIGHT,
         .action   = [&context]() {
             auto scene_mgr = context.services.try_get<SceneManager>();
             if (auto world = context.services.try_get<World*>()) {
@@ -339,6 +339,28 @@ void lyra::setup_editor_commands(AppContext& context)
                 world->add_component<DirectionalLight>(light);
                 if (parent.entity != entt::null) {
                     world->add_child(parent, light);
+                }
+                if (scene_mgr) scene_mgr->set_dirty(true);
+            }
+        },
+    });
+
+    ui::command::register_command({
+        .id       = "entity.create_sun",
+        .category = "Entity",
+        .title    = "Create Sun",
+        .icon     = LYRA_ICON_SUN,
+        .action   = [&context]() {
+            auto scene_mgr = context.services.try_get<SceneManager>();
+            if (auto world = context.services.try_get<World*>()) {
+                auto sel    = context.services.try_get<HierarchyView::Selection*>();
+                auto parent = sel ? sel->node : SceneNode{};
+                auto name   = scene_mgr ? scene_mgr->resolve_unique_name(parent, "Sun") : "Sun";
+                auto sun    = world->create(name);
+                world->add_component<DirectionalLight>(sun);
+                world->add_component<Sun>(sun);
+                if (parent.entity != entt::null) {
+                    world->add_child(parent, sun);
                 }
                 if (scene_mgr) scene_mgr->set_dirty(true);
             }

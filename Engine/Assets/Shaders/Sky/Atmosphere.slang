@@ -201,6 +201,68 @@ public float3 evaluate_sky_radiance(
 }
 
 /**
+ * @brief Renders physically based high-intensity solar disc with Eddington limb darkening,
+ * atmospheric extinction attenuation, circumsolar Mie forward-scattering halo (corona),
+ * and anti-aliased edge.
+ *
+ * @param params Atmosphere physical parameters
+ * @param view_dir Normalized viewing direction
+ * @param sun_dir Normalized vector pointing towards the sun
+ * @param sun_transmittance Direct solar beam transmittance along sun path through atmosphere
+ * @param halo_size Halo radius multiplier relative to sun disc
+ * @param halo_falloff Halo falloff exponent
+ * @param limb_darkening Eddington limb darkening coefficient [0, 1]
+ * @return Direct solar physical radiance in cd/m^2 (nits)
+ */
+public float3 render_physical_sun(
+    AtmosphereParameters params,
+    float3 view_dir,
+    float3 sun_dir,
+    float3 sun_transmittance,
+    float  halo_size = 10.0,
+    float  halo_falloff = 80.0,
+    float  limb_darkening = 0.6)
+{
+    float cos_theta = dot(view_dir, sun_dir);
+    float theta     = acos(clamp(cos_theta, -1.0, 1.0));
+    float r_sun     = max(params.sun_angular_radius, 1e-4);
+
+    // 1. Mean top-of-atmosphere solar disc physical luminance (cd/m^2):
+    // Solid angle of the sun disc: Omega = 2*PI*(1 - cos(r_sun)) approx PI * r_sun^2
+    float solid_angle = max(2.0 * PI * (1.0 - cos(r_sun)), 1e-8);
+    float mean_luminance = params.sun_intensity / solid_angle;
+
+    // 2. Solar disc with Eddington limb darkening:
+    // Center luminance I0 = L_mean / (1 - u / 3)
+    float I0 = mean_luminance / max(1.0 - limb_darkening / 3.0, 0.01);
+
+    float3 result = float3(0.0);
+
+    if (theta <= r_sun) {
+        float r = theta / r_sun;
+        float mu = sqrt(max(0.0, 1.0 - r * r));
+        float limb = 1.0 - limb_darkening * (1.0 - mu);
+
+        // Anti-aliased disc boundary
+        float edge_aa = smoothstep(r_sun, r_sun * 0.96, theta);
+        result += float3(I0 * limb * edge_aa);
+    }
+
+    // 3. Circumsolar forward-scattering halo (corona)
+    float r_halo = r_sun * max(halo_size, 1.0);
+    if (theta < r_halo) {
+        float halo_norm = (theta - r_sun * 0.5) / (r_halo - r_sun * 0.5);
+        halo_norm = clamp(halo_norm, 0.0, 1.0);
+        float halo_weight = pow(1.0 - halo_norm, max(halo_falloff * 0.1, 1.0));
+        float halo_radiance = (mean_luminance * 0.002) * halo_weight;
+        result += float3(halo_radiance);
+    }
+
+    // 4. Attenuate by atmospheric transmittance (sunsets turn golden/red)
+    return result * sun_transmittance;
+}
+
+/**
  * @brief Renders analytical high-intensity solar disc with limb darkening.
  */
 public float3 render_sun_disc(
@@ -209,18 +271,6 @@ public float3 render_sun_disc(
     float3 sun_dir,
     float  limb_darkening_factor = 0.6)
 {
-    float cos_theta = dot(view_dir, sun_dir);
-    float sun_angular_cos = cos(params.sun_angular_radius);
-
-    if (cos_theta < sun_angular_cos) {
-        return float3(0.0);
-    }
-
-    // Normalized radial distance inside solar disc [0 at center, 1 at edge]
-    float r = sqrt(max(0.0, 1.0 - (cos_theta - sun_angular_cos) / (1.0 - sun_angular_cos)));
-    // Eddington limb darkening approximation: I(mu) = I0 * (1 - u * (1 - mu))
-    float mu = sqrt(max(0.0, 1.0 - r * r));
-    float limb = 1.0 - limb_darkening_factor * (1.0 - mu);
-
-    return float3(params.sun_intensity * 100.0 * limb);
+    float3 unit_transmittance = float3(1.0);
+    return render_physical_sun(params, view_dir, sun_dir, unit_transmittance, 10.0, 80.0, limb_darkening_factor);
 }

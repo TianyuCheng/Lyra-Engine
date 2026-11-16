@@ -1,6 +1,7 @@
 #include <Lyra/Rendering/RenderWorld.h>
 #include <Lyra/Components/Camera.h>
 #include <Lyra/Components/Light.h>
+#include <Lyra/Components/Sun.h>
 #include <Lyra/Components/Mesh.h>
 #include <Lyra/Components/SDFVolume.h>
 #include <Lyra/Components/Transform.h>
@@ -71,6 +72,15 @@ void RenderWorld::extract_view(const World& ecs_world)
         view.near_plane          = cam.near_plane;
         view.far_plane           = cam.far_plane;
         view.fov                 = cam.fov;
+
+        if (auto exp = ecs_world.registry.try_get<CameraExposure>(entity)) {
+            view.exposure_scale = get_camera_exposure_scale(*exp);
+            view.ev100          = get_camera_ev100(*exp);
+        } else {
+            view.exposure_scale = 1.0f / (1.2f * std::pow(2.0f, 13.0f));
+            view.ev100          = 13.0f;
+        }
+
         break; // primary camera
     }
 }
@@ -102,6 +112,45 @@ void RenderWorld::extract_lights(const World& ecs_world)
         }
         l.color     = light.color;
         l.intensity = light.intensity;
+
+        if (auto sun = ecs_world.registry.try_get<Sun>(entity)) {
+            l.angular_radius = sun->angular_radius;
+            l.halo_size      = sun->halo_size;
+            l.halo_falloff   = sun->halo_falloff;
+            l.limb_darkening = sun->limb_darkening;
+        }
+
+        scene.directional_lights.push_back(l);
+    }
+
+    auto sun_view = ecs_world.registry.view<Sun>(entt::exclude<DirectionalLight>);
+    for (auto entity : sun_view) {
+        auto& sun = sun_view.get<Sun>(entity);
+
+        Matrix4x4 world_xform(1.0f);
+        if (auto tw = ecs_world.registry.try_get<TransformWorld>(entity)) {
+            world_xform = tw->xform;
+        } else if (auto tl = ecs_world.registry.try_get<TransformLocal>(entity)) {
+            Matrix4x4 t = glm::translate(Matrix4x4(1.0f), tl->position);
+            Matrix4x4 r = glm::mat4_cast(tl->rotation);
+            Matrix4x4 s = glm::scale(Matrix4x4(1.0f), tl->scale);
+            world_xform = t * r * s;
+        }
+
+        auto l      = RenderLight{};
+        l.type      = RenderLightType::DIRECTIONAL;
+        Vector3 dir = Matrix3x3(world_xform) * Vector3(0.0f, -1.0f, 0.0f);
+        if (glm::length2(dir) > 1e-6f) {
+            l.direction = glm::normalize(dir);
+        } else {
+            l.direction = Vector3(0.0f, -1.0f, 0.0f);
+        }
+        l.color          = Vector3(1.0f);
+        l.intensity      = 110000.0f;
+        l.angular_radius = sun.angular_radius;
+        l.halo_size      = sun.halo_size;
+        l.halo_falloff   = sun.halo_falloff;
+        l.limb_darkening = sun.limb_darkening;
         scene.directional_lights.push_back(l);
     }
 
