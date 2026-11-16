@@ -24,8 +24,9 @@ if(${Vulkan_FOUND})
   target_compile_definitions(lyra-rhi-tests PRIVATE LYRA_VULKAN_SUPPORT)
 endif()
 
-# alias for backwards compatibility
-add_executable(lyra-testkit ALIAS lyra-rhi-tests)
+# Target to build all test executables
+add_custom_target(lyra-testkit DEPENDS lyra-rhi-tests lyra-unit-tests)
+set_target_properties(lyra-testkit PROPERTIES FOLDER "Targets")
 
 # ==============================================================================
 # Unit Tests (Fast, headless, no GPU required)

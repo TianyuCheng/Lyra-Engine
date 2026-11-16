@@ -107,7 +107,8 @@ def do_build(args: argparse.Namespace):
     preset = f"{config.generator}-{config.preset}"
     command = ["cmake", "--build", "--preset", preset]
     if args.target and args.target != "all":
-        command.extend(["--target", f"lyra-{args.target}"])
+        target = args.target if args.target.startswith("lyra-") else f"lyra-{args.target}"
+        command.extend(["--target", target])
     execute(command)
 
 def do_run(args: argparse.Namespace):
