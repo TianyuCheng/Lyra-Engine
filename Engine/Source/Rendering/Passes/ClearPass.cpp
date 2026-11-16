@@ -41,11 +41,11 @@ ClearPassData ClearPass::add(
 
             if (data.depth.valid()) {
                 if (auto depth_tex = resources.get<FrameGraphTexture>(data.depth)) {
-                    auto depth_attachment                 = GPURenderPassDepthStencilAttachment{};
-                    depth_attachment.view                 = depth_tex->view;
-                    depth_attachment.depth_clear_value    = clear_depth;
-                    depth_attachment.depth_load_op        = GPULoadOp::CLEAR;
-                    depth_attachment.depth_store_op       = GPUStoreOp::STORE;
+                    auto depth_attachment                = GPURenderPassDepthStencilAttachment{};
+                    depth_attachment.view                = depth_tex->view;
+                    depth_attachment.depth_clear_value   = clear_depth;
+                    depth_attachment.depth_load_op       = GPULoadOp::CLEAR;
+                    depth_attachment.depth_store_op      = GPUStoreOp::STORE;
                     render_pass.depth_stencil_attachment = depth_attachment;
                 }
             }

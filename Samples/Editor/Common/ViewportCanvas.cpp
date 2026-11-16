@@ -64,14 +64,19 @@ bool ViewportCanvas::display()
     canvas_hovered = false;
     canvas_active  = false;
     if (frames.empty()) return false;
+
     auto& frame = get_frame();
     if (frame_extent.x > 0.0f && frame_extent.y > 0.0f) {
         screen_pos = ui::get_cursor_screen_pos();
         ui::image(frame.tex_id.texid, frame_extent);
-        ui::set_cursor_screen_pos(screen_pos);
-        ui::invisible_button("##viewport_canvas", frame_extent);
-        canvas_hovered = ui::is_item_hovered();
-        canvas_active  = ui::is_item_active();
+
+        auto mouse_pos = ui::get_mouse_pos();
+        bool in_canvas = (mouse_pos.x >= screen_pos.x && mouse_pos.x <= screen_pos.x + frame_extent.x &&
+                          mouse_pos.y >= screen_pos.y && mouse_pos.y <= screen_pos.y + frame_extent.y);
+        canvas_hovered = ui::is_panel_hovered() && in_canvas;
+        canvas_active  = canvas_hovered && (ui::is_mouse_down(MouseButton::LEFT) ||
+                                              ui::is_mouse_down(MouseButton::RIGHT) ||
+                                              ui::is_mouse_down(MouseButton::MIDDLE));
         return canvas_hovered || canvas_active;
     }
     return false;
