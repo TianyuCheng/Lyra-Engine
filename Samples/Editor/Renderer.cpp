@@ -35,11 +35,12 @@ void EditorRenderer::init(AppContext& context)
     }
 
     // initialize scene camera node if none exists
+    // NOTE: This is NOT a long-term solution.
     if (auto world = context.services.try_get<World>()) {
         // initialize scene camera node if none exists
-        auto view = world->registry.view<Camera>();
-        if (!view.empty()) {
-            camera_node = SceneNode(*view.begin());
+        auto cam_view = world->registry.view<Camera>();
+        if (!cam_view.empty()) {
+            camera_node = SceneNode(*cam_view.begin());
         } else {
             camera_node = world->create("Main Camera");
             world->translate(camera_node, {0.0f, 1.0f, 8.0f});
@@ -150,140 +151,149 @@ void EditorRenderer::update(AppContext& context)
     }
 }
 
-void EditorRenderer::render(const Backbuffer& backbuffer, AppContext& context, GPUCommandBuffer command)
+void EditorRenderer::render(const GPUSurfaceTexture& swapchain, AppContext& context, GPUCommandBuffer command)
 {
-    if (!backbuffer.texture.valid() || !depth_texture.handle.valid() || backbuffer.extent.width == 0 || backbuffer.extent.height == 0) {
+    if (!swapchain.texture.valid() || !swapchain.view.valid()) {
         return;
     }
 
-    auto device = context.services.get<GPUDevice*>();
-    auto world  = context.services.try_get<World>();
-    if (!world || camera_node.entity == entt::null || !world->registry.valid(camera_node.entity)) {
-        return;
-    }
+    auto device         = context.services.get<GPUDevice*>();
+    auto surface        = context.services.try_get<GPUSurface*>();
+    auto gui            = context.services.try_get<GUIRenderer*>();
+    auto world          = context.services.try_get<World>();
+    auto scene_view     = context.services.try_get<SceneView>();
+    auto render_world   = context.services.try_get<RenderWorld*>();
+    auto render_manager = context.services.try_get<RendererManager*>();
 
-    auto& cam_comp  = world->get_component<Camera>(camera_node);
-    auto& cam_world = world->get_component<TransformWorld>(camera_node);
+    auto swapchain_format = surface ? surface->get_current_format() : GPUTextureFormat::BGRA8UNORM;
 
-    RenderView view{};
-    view.projection      = cam_comp.projection;
-    view.view            = glm::inverse(cam_world.xform);
-    view.inv_projection  = glm::inverse(cam_comp.projection);
-    view.inv_view        = cam_world.xform;
-    view.view_projection = view.projection * view.view;
-    view.camera_position = Vector3(cam_world.xform[3]);
-    view.render_extent   = backbuffer.extent;
-    view.near_plane      = cam_comp.near_plane;
-    view.far_plane       = cam_comp.far_plane;
-    view.fov             = cam_comp.fov;
-
-    // extract scene representation from RenderWorld
-    auto               render_world = context.services.try_get<RenderWorld*>();
-    const RenderScene  dummy_scene{};
-    const RenderScene& scene = render_world ? render_world->get_scene() : dummy_scene;
-
-    // construct frame graph
+    // construct unified frame graph
     FrameGraphBuilder builder;
 
-    // import backbuffer color target
-    FrameGraphTexture imported_color{};
-    imported_color.texture = backbuffer.texture;
-    imported_color.view    = backbuffer.texview;
-    imported_color.format  = backbuffer.format;
-    imported_color.state   = undefined_texture_state();
-    auto color_target      = builder.import(imported_color);
+    // import swapchain backbuffer target
+    FrameGraphTexture imported_swapchain{};
+    imported_swapchain.texture = swapchain.texture;
+    imported_swapchain.view    = swapchain.view;
+    imported_swapchain.format  = swapchain_format;
+    imported_swapchain.state   = undefined_texture_state();
+    auto swapchain_target      = builder.import(imported_swapchain);
 
-    // import scene depth buffer
-    FrameGraphTexture imported_depth{};
-    imported_depth.texture = depth_texture;
-    imported_depth.view    = depth_view;
-    imported_depth.format  = GPUTextureFormat::DEPTH32FLOAT;
-    imported_depth.state   = undefined_texture_state();
-    auto depth_target      = builder.import(imported_depth);
+    // check if scene viewport and active renderer are ready to render
+    auto scene_backbuffer = scene_view ? scene_view->get_backbuffer() : Backbuffer{};
+    bool can_render_scene = render_manager != nullptr &&
+                            render_manager->has_active_renderer() &&
+                            scene_view != nullptr &&
+                            render_world != nullptr &&
+                            scene_backbuffer.texture.valid() &&
+                            depth_texture.handle.valid() &&
+                            scene_backbuffer.extent.width > 0 &&
+                            scene_backbuffer.extent.height > 0 &&
+                            world != nullptr &&
+                            camera_node.entity != entt::null &&
+                            world->registry.valid(camera_node.entity) &&
+                            world->registry.any_of<Camera>(camera_node.entity) &&
+                            world->registry.any_of<TransformWorld>(camera_node.entity);
 
-    // pass 1: scene clear pass (clears color and depth buffer to initial values)
-    struct ClearPassData
-    {
-        FrameGraphHandle<FrameGraphTexture> color;
-        FrameGraphHandle<FrameGraphTexture> depth;
-    };
+    FrameGraphHandle<FrameGraphTexture> final_scene_color{};
 
-    auto clear_data = builder.add_pass<ClearPassData>(
-        "SceneClearPass",
-        [&](ClearPassData& data, FrameGraphPassBuilder& pass_builder) {
-            data.color = pass_builder.render(color_target);
-            data.depth = pass_builder.render(depth_target);
-        },
-        [extent = backbuffer.extent](const ClearPassData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
-            auto color_tex = resources.get<FrameGraphTexture>(data.color);
-            auto depth_tex = resources.get<FrameGraphTexture>(data.depth);
-            if (!color_tex || !depth_tex || !ctx || !ctx->cmdlist.handle.valid()) {
-                return;
-            }
+    if (can_render_scene) {
+        auto& cam_comp  = world->get_component<Camera>(camera_node);
+        auto& cam_world = world->get_component<TransformWorld>(camera_node);
 
-            auto color_attachment        = GPURenderPassColorAttachment{};
-            color_attachment.view        = color_tex->view;
-            color_attachment.clear_value = GPUColor{0.12f, 0.12f, 0.14f, 1.0f};
-            color_attachment.load_op     = GPULoadOp::CLEAR;
-            color_attachment.store_op    = GPUStoreOp::STORE;
+        RenderView view{};
+        view.projection      = cam_comp.projection;
+        view.view            = glm::inverse(cam_world.xform);
+        view.inv_projection  = glm::inverse(cam_comp.projection);
+        view.inv_view        = cam_world.xform;
+        view.view_projection = view.projection * view.view;
+        view.camera_position = Vector3(cam_world.xform[3]);
+        view.render_extent   = scene_backbuffer.extent;
+        view.near_plane      = cam_comp.near_plane;
+        view.far_plane       = cam_comp.far_plane;
+        view.fov             = cam_comp.fov;
 
-            auto depth_attachment              = GPURenderPassDepthStencilAttachment{};
-            depth_attachment.view              = depth_tex->view;
-            depth_attachment.depth_clear_value = 1.0f;
-            depth_attachment.depth_load_op     = GPULoadOp::CLEAR;
-            depth_attachment.depth_store_op    = GPUStoreOp::STORE;
+        // extract scene representation from RenderWorld
+        const auto& scene = render_world->get_scene();
 
-            auto render_pass                     = GPURenderPassDescriptor{};
-            render_pass.color_attachments        = color_attachment;
-            render_pass.depth_stencil_attachment = depth_attachment;
+        // import scene canvas color target
+        FrameGraphTexture imported_color{};
+        imported_color.texture = scene_backbuffer.texture;
+        imported_color.view    = scene_backbuffer.texview;
+        imported_color.format  = scene_backbuffer.format;
+        imported_color.state   = undefined_texture_state();
+        auto color_target      = builder.import(imported_color);
 
-            ctx->cmdlist.begin_render_pass(render_pass);
-            ctx->cmdlist.set_viewport(0.0f, 0.0f, static_cast<float>(extent.width), static_cast<float>(extent.height));
-            ctx->cmdlist.set_scissor_rect(0, 0, extent.width, extent.height);
-            ctx->cmdlist.end_render_pass();
-        });
+        // import scene depth buffer
+        FrameGraphTexture imported_depth{};
+        imported_depth.texture = depth_texture;
+        imported_depth.view    = depth_view;
+        imported_depth.format  = GPUTextureFormat::DEPTH32FLOAT;
+        imported_depth.state   = undefined_texture_state();
+        auto depth_target      = builder.import(imported_depth);
 
-    auto current_color = clear_data.color;
-    auto current_depth = clear_data.depth;
-
-    // pass 2: Forward Scene Rendering (evaluates skybox, meshes, lights, shadows)
-    auto rm = context.services.try_get<RendererManager*>();
-    if (rm && rm->has_active_renderer()) {
-        rm->resize(backbuffer.extent.width, backbuffer.extent.height);
+        // pass 1: Scene Rendering (evaluates shadows, skybox/clear, meshes, lights)
+        render_manager->resize(scene_backbuffer.extent.width, scene_backbuffer.extent.height);
 
         RenderFrameOutputs outputs{};
         RenderFrameContext ctx{
             .builder        = builder,
             .view           = view,
             .scene          = scene,
-            .color_target   = clear_data.color,
-            .depth_target   = clear_data.depth,
-            .color_format   = backbuffer.format,
+            .color_target   = color_target,
+            .depth_target   = depth_target,
+            .color_format   = scene_backbuffer.format,
             .depth_format   = GPUTextureFormat::DEPTH32FLOAT,
-            .render_extent  = backbuffer.extent,
-            .display_extent = backbuffer.extent,
+            .render_extent  = scene_backbuffer.extent,
+            .display_extent = scene_backbuffer.extent,
             .outputs        = &outputs,
             .services       = &context.services,
         };
 
-        current_color = rm->render(ctx);
-        if (outputs.depth.valid()) {
-            current_depth = outputs.depth;
-        }
+        auto current_color = render_manager->render(ctx);
+        auto current_depth = outputs.depth.valid() ? outputs.depth : depth_target;
+
+        // pass 2: composable editor grid pass (depth-tests ground plane against rendered scene depth)
+        auto grid_data    = grid_pass.add(builder, current_color, current_depth, view);
+        final_scene_color = grid_data.color_output;
     }
 
-    // pass 3: composable editor grid pass (depth-tests ground plane against rendered scene depth)
-    auto grid_data = grid_pass.add(builder, current_color, current_depth, view);
+    // pass 3: ImGui pass (renders UI to swapchain target and samples the scene color output if available)
+    struct ImGuiPassData
+    {
+        FrameGraphHandle<FrameGraphTexture> output;
+        FrameGraphHandle<FrameGraphTexture> scene_texture;
+    };
 
-    // pass 4: transition color target to shader resource so ImGui canvas can sample it
+    auto imgui_data = builder.add_pass<ImGuiPassData>(
+        "ImGuiPass",
+        [&](ImGuiPassData& data, FrameGraphPassBuilder& pass_builder) {
+            data.output = pass_builder.render(swapchain_target);
+            if (final_scene_color.valid()) {
+                data.scene_texture = pass_builder.sample(final_scene_color);
+            }
+        },
+        [gui](const ImGuiPassData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
+            if (!gui || !ctx || !ctx->cmdlist.handle.valid()) {
+                return;
+            }
+
+            auto out_tex = resources.get<FrameGraphTexture>(data.output);
+            if (!out_tex) {
+                return;
+            }
+
+            gui->render_main_viewport(ctx->cmdlist, out_tex->view);
+        });
+
+    // pass 4: present transition pass (transitions swapchain backbuffer to present_src state)
     builder.add_pass(
-        "EditorViewportResolvePass",
+        "PresentPass",
         [&](FrameGraphPassBuilder& pass_builder) {
-            (void)pass_builder.sample(grid_data.color_output);
+            (void)pass_builder.present(imgui_data.output);
             pass_builder.preserve();
         },
         [](FrameGraphResources&, FrameGraphContext*) {
-            // transitions handled automatically by FrameGraph pre_read barrier
+            // transition to PRESENT_SRC handled automatically by FrameGraph pre_read
         });
 
     auto graph = builder.build();

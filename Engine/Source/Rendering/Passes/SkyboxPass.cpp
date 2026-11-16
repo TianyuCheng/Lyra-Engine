@@ -234,7 +234,8 @@ SkyboxData SkyboxPass::add(
     FrameGraphHandle<FrameGraphTexture> depth_target,
     const RenderView&                   view,
     const RenderScene&                  scene,
-    GPULoadOp                           depth_load_op)
+    GPULoadOp                           depth_load_op,
+    GPULoadOp                           color_load_op)
 {
     frame_slot        = (frame_slot + 1) % FRAMES_IN_FLIGHT;
     uint current_slot = frame_slot;
@@ -247,7 +248,7 @@ SkyboxData SkyboxPass::add(
             data.color_output = pass_builder.render(color_target);
             data.depth_input  = pass_builder.read(depth_target);
         },
-        [this, current_slot, depth_load_op, extent = view.render_extent](const SkyboxData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
+        [this, current_slot, depth_load_op, color_load_op, clear_color = scene.clear_color, extent = view.render_extent](const SkyboxData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
             if (!ctx || !ctx->cmdlist.handle.valid() || !pipeline.valid()) {
                 return;
             }
@@ -258,10 +259,11 @@ SkyboxData SkyboxPass::add(
                 return;
             }
 
-            auto color_attachment     = GPURenderPassColorAttachment{};
-            color_attachment.view     = color_tex->view;
-            color_attachment.load_op  = GPULoadOp::LOAD;
-            color_attachment.store_op = GPUStoreOp::STORE;
+            auto color_attachment        = GPURenderPassColorAttachment{};
+            color_attachment.view        = color_tex->view;
+            color_attachment.clear_value = GPUColor{clear_color.r, clear_color.g, clear_color.b, clear_color.a};
+            color_attachment.load_op     = color_load_op;
+            color_attachment.store_op    = GPUStoreOp::STORE;
 
             auto depth_attachment              = GPURenderPassDepthStencilAttachment{};
             depth_attachment.view              = depth_tex->view;

@@ -77,7 +77,7 @@ FrameGraphHandle<FrameGraphTexture> ForwardRenderer::render(const RenderFrameCon
 
     // ensure depth target handle is valid
     auto depth_h           = ctx.depth_target;
-    bool needs_depth_clear = false;
+    bool needs_depth_clear = true;
     if (!depth_h.valid()) {
         auto depth_desc   = GPUTextureDescriptor{};
         depth_desc.label  = "forward_depth_buffer";
@@ -108,11 +108,15 @@ FrameGraphHandle<FrameGraphTexture> ForwardRenderer::render(const RenderFrameCon
     }
 
     // 4. Atmospheric Skybox Pass (rendered over clear color at far plane)
-    auto current_color = ctx.color_target;
+    auto current_color     = ctx.color_target;
+    bool needs_color_clear = true;
     if (skybox_pass.valid()) {
-        auto sky_data     = skybox_pass.add(builder, current_color, depth_h, ctx.view, ctx.scene, needs_depth_clear ? GPULoadOp::CLEAR : GPULoadOp::LOAD);
+        auto sky_data     = skybox_pass.add(builder, current_color, depth_h, ctx.view, ctx.scene,
+            needs_depth_clear ? GPULoadOp::CLEAR : GPULoadOp::LOAD,
+            needs_color_clear ? GPULoadOp::CLEAR : GPULoadOp::LOAD);
         current_color     = sky_data.color_output;
         needs_depth_clear = false;
+        needs_color_clear = false;
     }
 
     // 5. Forward Base Pass
@@ -125,7 +129,7 @@ FrameGraphHandle<FrameGraphTexture> ForwardRenderer::render(const RenderFrameCon
         .color_format         = ctx.color_format,
         .depth_format         = ctx.depth_format,
         .depth_prepass_active = prepass_active,
-        .color_load_op        = GPULoadOp::LOAD, // load skybox / scene clear
+        .color_load_op        = needs_color_clear ? GPULoadOp::CLEAR : GPULoadOp::LOAD,
         .depth_load_op        = needs_depth_clear ? GPULoadOp::CLEAR : GPULoadOp::LOAD,
     };
 

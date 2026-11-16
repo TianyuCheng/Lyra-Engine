@@ -4,6 +4,7 @@
 #define LYRA_ENGINE_RENDERING_PASSES_PASS_H
 
 // dedicated modular pass headers
+#include <Lyra/Rendering/Passes/ClearPass.h>
 #include <Lyra/Rendering/Passes/DepthPrepass.h>
 #include <Lyra/Rendering/Passes/EditorGridPass.h>
 #include <Lyra/Rendering/Passes/GBufferPass.h>

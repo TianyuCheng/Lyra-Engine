@@ -19,6 +19,8 @@ target_sources(lyra-editor PRIVATE
   Common/EditorCommands.cpp
   Common/EditorLayout.h
   Common/EditorLayout.cpp
+  Common/EditorMenuBar.h
+  Common/EditorMenuBar.cpp
   Common/SelectionModel.h
   Common/SelectionModel.cpp
   Common/ViewportCanvas.h

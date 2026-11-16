@@ -12,7 +12,7 @@ namespace lyra
     {
     public:
         void bind(Application& app);
-        void render(const Backbuffer& backbuffer, AppContext& context, GPUCommandBuffer command);
+        void render(const GPUSurfaceTexture& swapchain, AppContext& context, GPUCommandBuffer command);
 
     private:
         void init(AppContext& context);

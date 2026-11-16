@@ -64,7 +64,8 @@ namespace lyra::passes
             FrameGraphHandle<FrameGraphTexture> depth_target,
             const RenderView&                   view,
             const RenderScene&                  scene,
-            GPULoadOp                           depth_load_op = GPULoadOp::LOAD) -> SkyboxData;
+            GPULoadOp                           depth_load_op = GPULoadOp::LOAD,
+            GPULoadOp                           color_load_op = GPULoadOp::LOAD) -> SkyboxData;
 
         [[nodiscard]] bool valid() const { return initialized && pipeline.valid(); }
 

@@ -77,6 +77,7 @@ target_sources(lyra-headers INTERFACE
     Lyra/Rendering/RenderWorld.h
     Lyra/Rendering/ShadingBuffers.h
     Lyra/Rendering/Passes/Pass.h
+    Lyra/Rendering/Passes/ClearPass.h
     Lyra/Rendering/Passes/DepthPrepass.h
     Lyra/Rendering/Passes/EditorGridPass.h
     Lyra/Rendering/Passes/GBufferPass.h

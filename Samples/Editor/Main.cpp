@@ -14,6 +14,7 @@
 
 // other common headers
 #include "Common/EditorLayout.h"
+#include "Common/EditorMenuBar.h"
 #include "Common/EditorCommands.h"
 
 // local renderer
@@ -21,75 +22,13 @@
 
 using namespace lyra;
 
-static void render_scene(AppContext& context, GPUCommandBuffer command)
-{
-    if (auto* view = context.services.try_get<SceneView>()) {
-        auto* renderer = context.services.get<EditorRenderer*>();
-        renderer->render(view->get_backbuffer(), context, command);
-    }
-}
-
 static void imgui_update(AppContext& context)
 {
     lyra::execute_once([&context]() {
         setup_editor_commands(context);
     });
 
-    auto* scene_mgr = context.services.try_get<SceneManager>();
-
-    ui::menubar([&]() {
-        ui::menu("Scene", [&]() {
-            ui::menu_item("New Scene", "Ctrl+N", [&]() {
-                ui::command::execute("scene.new");
-            });
-
-            ui::menu_item("Open Scene...", "Ctrl+O", [&]() {
-                ui::command::execute("scene.open");
-            });
-
-            ui::menu_item("Save Scene", "Ctrl+S", [&]() {
-                ui::command::execute("scene.save");
-            });
-
-            ui::menu_item("Save Scene As...", "Ctrl+Shift+S", [&]() {
-                ui::command::execute("scene.save_as");
-            });
-
-            ui::separator();
-
-            ui::menu_item("Load Additive...", [&]() {
-                ui::command::execute("scene.load_additive");
-            });
-        });
-
-        if (auto* ams = context.services.try_get<AssetServer>()) {
-            ui::menu("Assets", [&]() {
-                ui::menu_item("Reimport All (Force)", [&]() {
-                    ui::command::execute("assets.reimport_all");
-                });
-                ui::menu_item("Purge Unused Assets", [&]() {
-                    ui::command::execute("assets.purge");
-                });
-                ui::menu_item("Flush Registry to Disk", [&]() {
-                    ui::command::execute("assets.flush");
-                });
-                ui::separator();
-                ui::menu_check_item("Watch Source Directory", ams->is_watching(), [&](const bool& watching) {
-                    ui::command::execute("assets.toggle_watching");
-                });
-            });
-        }
-
-        ui::menu("Window", [&]() {
-            ui::menu_item("Command Palette", "Ctrl+P", [&]() {
-                ui::command::toggle_palette();
-            });
-            ui::separator();
-            ui::menu_item("Reset Layout", [&]() {
-                ui::command::execute("window.reset_layout");
-            });
-        });
-    });
+    render_editor_menubar(context);
 
     // global shortcuts and command palette modal
     ui::command::dispatch_shortcuts();
@@ -101,7 +40,7 @@ static void imgui_render(AppContext& context)
 {
     auto device   = context.services.get<GPUDevice*>();
     auto surface  = context.services.get<GPUSurface*>();
-    auto renderer = context.services.get<GUIRenderer*>();
+    auto renderer = context.services.get<EditorRenderer*>();
 
     // command buffer
     auto command = lyra::execute([&]() {
@@ -117,13 +56,8 @@ static void imgui_render(AppContext& context)
     command.wait(backbuffer.available, GPUBarrierSync::PIXEL_SHADING);
     command.signal(backbuffer.complete, GPUBarrierSync::RENDER_TARGET);
 
-    // render scene command encoding
-    render_scene(context, command);
-
-    // render UI command recording
-    command.resource_barrier(state_transition(backbuffer.texture, undefined_texture_state(), color_attachment_texture_state()));
-    renderer->render_main_viewport(command, backbuffer.view);
-    command.resource_barrier(state_transition(backbuffer.texture, color_attachment_texture_state(), present_src_texture_state()));
+    // unified frame graph execution (scene + imgui)
+    renderer->render(backbuffer, context, command);
 
     // command buffer submission
     command.submit();
