@@ -99,8 +99,8 @@ float4 fsmain(VertexOutput input) : SV_Target
         // ambient skylight arriving at the ground
         float3 sky_ambient = horizon_sky * 0.25;
 
-        // diffuse ground reflectance (dark neutral tone matching editor ground)
-        float3 ground_radiance = skybox.ground_albedo.rgb * (sun_irradiance + sky_ambient);
+        // diffuse ground reflectance (dark neutral tone matching editor ground, Lambertian 1/PI)
+        float3 ground_radiance = (skybox.ground_albedo.rgb / PI) * sun_irradiance + skybox.ground_albedo.rgb * sky_ambient;
 
         // atmospheric aerial perspective (distance haze)
         // near the horizon, thick air column matches horizon haze seamlessly;

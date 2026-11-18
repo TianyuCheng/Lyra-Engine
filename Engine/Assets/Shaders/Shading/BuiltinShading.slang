@@ -23,8 +23,8 @@ public struct PBRShadingModel : IShadingModel
         // direct analytical lighting
         float3 direct = mat.evaluate(surface.view_dir, lighting.sun_dir, surface.normal) * light_radiance;
 
-        // ambient indirect illumination
-        float3 ambient = surface.base_color.rgb * 0.04;
+        // ambient indirect illumination (diffuse skylight contribution + ambient floor)
+        float3 ambient = surface.base_color.rgb * max(lighting.sun_intensity * 0.03, 0.04);
 
         float3 final_color = direct + ambient;
 

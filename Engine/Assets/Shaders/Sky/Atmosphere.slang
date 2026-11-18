@@ -4,7 +4,7 @@ module Atmosphere;
 import Common.Colorspace;
 import Common.Sampling;
 
-static const float PI = 3.14159265358979323846;
+public static const float PI = 3.14159265358979323846;
 
 public struct AtmosphereParameters
 {
@@ -125,6 +125,17 @@ public float2 integrate_optical_depth(
     float3 sun_dir,
     int    step_count = 8)
 {
+    // occluded by planet body
+    float b_ground = dot(p, sun_dir);
+    float c_ground = dot(p, p) - params.planet_radius * params.planet_radius;
+    float d_ground = b_ground * b_ground - c_ground;
+    if (d_ground >= 0.0) {
+        float t_ground = -b_ground - sqrt(d_ground);
+        if (t_ground > 0.0) {
+            return float2(1e9, 1e9);
+        }
+    }
+
     float t_min, t_max;
     if (!intersect_atmosphere(p, sun_dir, params.planet_radius, params.atmosphere_radius, t_min, t_max)) {
         return float2(0.0);
@@ -171,6 +182,11 @@ public float3 evaluate_sky_radiance(
     float p_rayleigh = rayleigh_phase(cos_theta);
     float p_mie      = mie_phase(cos_theta, params.mie_asymmetry);
 
+    // multiple scattering approximation:
+    // repeated Rayleigh scattering and surface reflection contribute ~2.5x to 3.5x
+    // isotropic diffuse skylight, lifting the daytime sky from near-black to natural daylight blue.
+    float p_multi = 2.5 / (4.0 * PI);
+
     float3 acc_rayleigh = float3(0.0);
     float3 acc_mie      = float3(0.0);
     float2 optical_depth_view = float2(0.0);
@@ -194,7 +210,7 @@ public float3 evaluate_sky_radiance(
         acc_mie      += d_m * transmittance;
     }
 
-    float3 in_scatter = (acc_rayleigh * params.rayleigh_scattering * p_rayleigh +
+    float3 in_scatter = (acc_rayleigh * params.rayleigh_scattering * (p_rayleigh + p_multi) +
                          acc_mie * params.mie_scattering * p_mie) * params.sun_intensity;
 
     return in_scatter;

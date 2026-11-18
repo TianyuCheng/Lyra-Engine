@@ -164,9 +164,10 @@ void ForwardPass::update_camera_buffer(uint slot, const RenderView& view, const 
         mapped.at(0).inv_view = view.inv_view;
         mapped.at(0).pos      = view.camera_position;
 
-        Vector3 sun_dir       = glm::normalize(Vector3(0.5f, 1.0f, 0.3f));
-        Vector3 sun_color     = Vector3(1.0f);
-        float   sun_intensity = 2.5f;
+        float   exposure_scale = (view.exposure_scale > 0.0f) ? view.exposure_scale : (1.0f / (1.2f * 8192.0f));
+        Vector3 sun_dir        = glm::normalize(Vector3(0.5f, 1.0f, 0.3f));
+        Vector3 sun_color      = Vector3(1.0f);
+        float   sun_intensity  = 110000.0f * exposure_scale;
 
         if (!scene.directional_lights.empty()) {
             const auto& light = scene.directional_lights[0];
@@ -174,7 +175,7 @@ void ForwardPass::update_camera_buffer(uint slot, const RenderView& view, const 
                 sun_dir = -glm::normalize(light.direction);
             }
             sun_color     = light.color;
-            sun_intensity = std::max(light.intensity * 0.0025f, 0.1f);
+            sun_intensity = std::max(light.intensity * exposure_scale, 0.01f);
         }
 
         mapped.at(0).sun_intensity = sun_intensity;

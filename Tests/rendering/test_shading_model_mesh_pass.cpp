@@ -36,11 +36,11 @@ TEST_CASE("rendering::shading_model_registry" * doctest::description("Verify equ
     SUBCASE("Custom user shading models register identically without distinction")
     {
         constexpr lyra::GUID CUSTOM_GUID = 0x9876543210ULL;
-        ShadingModelInfo custom_info{
-            .id                 = CUSTOM_GUID,
-            .name               = "Hologram",
-            .shader_module_path = "app://Shaders/Hologram.slang",
-            .struct_name        = "HologramShadingModel",
+        ShadingModelInfo     custom_info{
+                .id                 = CUSTOM_GUID,
+                .name               = "Hologram",
+                .shader_module_path = "app://Shaders/Hologram.slang",
+                .struct_name        = "HologramShadingModel",
         };
 
         ShadingModelRegistry::register_model(custom_info);
@@ -70,7 +70,7 @@ TEST_CASE("rendering::render_sort_key" * doctest::description("Verify bitwise so
     {
         // pipeline 1 vs pipeline 2
         auto key_p1 = RenderSortKey::make(1, 10, 0.9f, false);
-        auto key_p2 = RenderSortKey::make(2, 5,  0.1f, false);
+        auto key_p2 = RenderSortKey::make(2, 5, 0.1f, false);
         CHECK(key_p1 < key_p2);
 
         // same pipeline, buffer 1 vs buffer 2
@@ -129,7 +129,7 @@ TEST_CASE("rendering::shading_model_variant_compilation" * doctest::description(
     FileLoader loader(FSLoader::NATIVE);
     loader.mount("sys://", "Engine/Assets", 0);
 
-    static CString includes[] = {"Engine/Assets/Shaders"};
+    static CString     includes[] = {"Engine/Assets/Shaders"};
     CompilerDescriptor cdesc{};
     cdesc.target    = CompileTarget::SPIRV;
     cdesc.includes  = includes;
@@ -170,4 +170,17 @@ TEST_CASE("rendering::shading_model_variant_compilation" * doctest::description(
         {*mod, "fs_unlit"},
     });
     REQUIRE(refl_unlit != nullptr);
+
+    // 5. Compile and reflect Skybox shader
+    CompileDescriptor sky_desc{};
+    sky_desc.module = "Skybox";
+    sky_desc.path   = "sys://Shaders/Sky/Skybox.slang";
+    auto sky_mod    = compiler->compile(sky_desc);
+    REQUIRE(sky_mod != nullptr);
+
+    auto refl_sky = compiler->reflect({
+        {*sky_mod, "vsmain"},
+        {*sky_mod, "fsmain"},
+    });
+    REQUIRE(refl_sky != nullptr);
 }
