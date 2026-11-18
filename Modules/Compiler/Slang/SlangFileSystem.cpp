@@ -58,8 +58,8 @@ ComPtr<ISlangBlob> make_blob(Vector<char> data)
     return ComPtr<ISlangBlob>(new SlangBlobImpl(std::move(data)));
 }
 
-SlangVFSFileSystem::SlangVFSFileSystem(FileLoader* loader, const Vector<String>& search_dirs)
-    : loader_(loader), search_dirs_(search_dirs)
+SlangVFSFileSystem::SlangVFSFileSystem(FileLoader* loader, const Vector<String>& search_dirs, CompileTarget target)
+    : loader_(loader), search_dirs_(search_dirs), target_(target)
 {
 }
 
@@ -88,7 +88,9 @@ SlangResult SlangVFSFileSystem::loadFile(const char* path, ISlangBlob** outBlob)
     if (loader_ && VFSPath::has_protocol(path)) {
         auto data = loader_->read<char>(path);
         if (!data.empty()) {
-            *outBlob = make_blob(std::move(data)).detach();
+            String str(data.data(), data.size());
+            str      = preprocess_lyra_shader_source(str, target_);
+            *outBlob = make_blob(str.data(), str.size()).detach();
             return SLANG_OK;
         }
         return SLANG_E_NOT_FOUND;
@@ -103,6 +105,7 @@ SlangResult SlangVFSFileSystem::loadFile(const char* path, ISlangBlob** outBlob)
             std::stringstream buffer;
             buffer << file.rdbuf();
             auto str = buffer.str();
+            str      = preprocess_lyra_shader_source(str, target_);
             *outBlob = make_blob(str.data(), str.size()).detach();
             return SLANG_OK;
         }
@@ -116,6 +119,7 @@ SlangResult SlangVFSFileSystem::loadFile(const char* path, ISlangBlob** outBlob)
                 std::stringstream buffer;
                 buffer << file.rdbuf();
                 auto str = buffer.str();
+                str      = preprocess_lyra_shader_source(str, target_);
                 *outBlob = make_blob(str.data(), str.size()).detach();
                 return SLANG_OK;
             }

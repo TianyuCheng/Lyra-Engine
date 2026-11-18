@@ -148,7 +148,7 @@ CompilerWrapper::CompilerWrapper(const CompilerDescriptor& descriptor)
     search_paths.push_back(".");
     all_os_search_dirs.push_back(".");
 
-    file_system = ComPtr<ISlangFileSystemExt>(new SlangVFSFileSystem(fs_loader, all_os_search_dirs));
+    file_system = ComPtr<ISlangFileSystemExt>(new SlangVFSFileSystem(fs_loader, all_os_search_dirs, target));
 
     auto session_desc                     = slang::SessionDesc{};
     session_desc.targets                  = &target_desc;

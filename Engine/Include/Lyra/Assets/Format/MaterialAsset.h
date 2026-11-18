@@ -8,6 +8,7 @@
 #include <Lyra/Assets/AMSUtils.h>
 #include <Lyra/Graphics/RHIEnums.h>
 #include <Lyra/Assets/Format/TextureAsset.h>
+#include <Lyra/Rendering/ShadingModelRegistry.h>
 
 // macro collision with Windows GDI
 #undef OPAQUE
@@ -32,8 +33,8 @@ namespace lyra
     enum struct ShadingModel : uint
     {
         PBR        = 0,
-        UNLIT      = 1,
-        TOON       = 2,
+        NPR        = 1,
+        UNLIT      = 2,
         SUBSURFACE = 3,
         CUSTOM     = 4,
     };
@@ -55,6 +56,7 @@ namespace lyra
 
         // shading model and custom shader override
         ShadingModel shading_model      = ShadingModel::PBR;
+        GUID         shading_model_id   = BuiltinShadingModels::PBR;
         String       custom_shader_path = ""; // optional VFS path (e.g. sys:// or app://) for custom shaders
 
         // pbr parameters

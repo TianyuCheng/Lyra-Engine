@@ -1,5 +1,6 @@
 #include <Lyra/Graphics/RHIAPI.h>
 #include <Lyra/Rendering/Passes/ForwardPass.h>
+#include <Lyra/Rendering/ShadingModelRegistry.h>
 #include <spdlog/spdlog.h>
 
 using namespace lyra;
@@ -7,7 +8,7 @@ using namespace lyra::passes;
 
 bool ForwardPass::init(
     GPUDevice        dev,
-    Compiler         compiler,
+    Compiler         in_compiler,
     GPUTextureFormat color_format,
     GPUTextureFormat depth_format,
     const Path&      shaders_root)
@@ -20,13 +21,14 @@ bool ForwardPass::init(
     }
 
     device              = dev;
+    compiler            = in_compiler;
     cached_color_format = color_format;
     cached_depth_format = depth_format;
 
-    // 1. compile vertex and fragment shaders from sys://Shaders/Forward/Forward.slang
+    // reflect pass shell to get canonical bind group layouts and immediate size
     auto module = execute([&]() {
         auto desc   = CompileDescriptor{};
-        desc.module = "forward";
+        desc.module = "Forward";
         desc.path   = "sys://Shaders/Forward/Forward.slang";
         desc.source = nullptr;
         return compiler.compile(desc);
@@ -45,29 +47,7 @@ bool ForwardPass::init(
         return false;
     }
 
-    vshader = execute([&]() {
-        auto code  = module->get_shader_blob("vsmain");
-        auto desc  = GPUShaderModuleDescriptor{};
-        desc.label = "forward_vertex_shader";
-        desc.data  = code->data;
-        desc.size  = code->size;
-        return device.create_shader_module(desc);
-    });
-
-    fshader = execute([&]() {
-        auto code  = module->get_shader_blob("fsmain");
-        auto desc  = GPUShaderModuleDescriptor{};
-        desc.label = "forward_fragment_shader";
-        desc.data  = code->data;
-        desc.size  = code->size;
-        return device.create_shader_module(desc);
-    });
-
-    if (!vshader.valid() || !fshader.valid()) {
-        return false;
-    }
-
-    // 2. bind group layouts and pipeline layout
+    // bind group layouts
     blayouts.clear();
     auto refl_layouts = reflection->get_bind_group_layouts();
     for (usize g = 0; g < refl_layouts.size(); ++g) {
@@ -82,40 +62,12 @@ bool ForwardPass::init(
         return device.create_pipeline_layout(desc);
     });
 
-    // 3. create render pipeline
-    pipeline = execute([&]() {
-        Vector<GPUColorTargetState> targets;
-
-        auto color_target         = GPUColorTargetState{};
-        color_target.format       = cached_color_format;
-        color_target.blend_enable = false;
-        targets.push_back(color_target);
-
-        auto desc                              = GPURenderPipelineDescriptor{};
-        desc.layout                            = playout;
-        desc.primitive.cull_mode               = GPUCullMode::BACK;
-        desc.primitive.topology                = GPUPrimitiveTopology::TRIANGLE_LIST;
-        desc.primitive.front_face              = GPUFrontFace::CCW;
-        desc.primitive.strip_index_format      = GPUIndexFormat::UINT32;
-        desc.depth_stencil.depth_compare       = GPUCompareFunction::LESS_EQUAL;
-        desc.depth_stencil.depth_write_enabled = true;
-        desc.depth_stencil.format              = cached_depth_format;
-        desc.multisample.count                 = 1;
-        desc.vertex.module                     = vshader;
-        desc.vertex.buffers                    = {}; // vertex pulling: no input assembler vertex layouts
-        desc.vertex.entry_point                = "vsmain";
-        desc.fragment.module                   = fshader;
-        desc.fragment.entry_point              = "fsmain";
-        desc.fragment.targets                  = targets;
-
-        return device.create_render_pipeline(desc);
-    });
-
-    if (!pipeline.valid()) {
-        return false;
+    // initialize MeshPass with vertex bind group layout (Bind Group 1)
+    if (blayouts.size() > 1) {
+        mesh_pass.init(device, blayouts[1]);
     }
 
-    // 4. camera uniform buffers and bind groups (multi-buffered for frames in flight)
+    // camera uniform buffers and bind groups
     for (uint i = 0; i < FRAMES_IN_FLIGHT; ++i) {
         camera_buffers[i] = execute([&]() {
             auto desc               = GPUBufferDescriptor{};
@@ -164,6 +116,22 @@ void ForwardPass::destroy()
 
     device.wait();
 
+    mesh_pass.destroy();
+
+    for (auto& [_, pipe] : variant_pipelines) {
+        if (pipe.valid()) {
+            pipe.destroy();
+        }
+    }
+    variant_pipelines.clear();
+
+    for (auto& sm : variant_shader_modules) {
+        if (sm.valid()) {
+            sm.destroy();
+        }
+    }
+    variant_shader_modules.clear();
+
     if (heap.valid()) {
         heap.destroy();
     }
@@ -175,20 +143,10 @@ void ForwardPass::destroy()
     camera_buffers.fill({});
     camera_bind_groups.fill({});
 
-    if (pipeline.valid()) {
-        pipeline.destroy();
-    }
     if (playout.valid()) {
         playout.destroy();
     }
-    if (vshader.valid()) {
-        vshader.destroy();
-    }
-    if (fshader.valid()) {
-        fshader.destroy();
-    }
     blayouts.clear();
-    geometry_bind_groups.clear();
     initialized = false;
 }
 
@@ -213,7 +171,6 @@ void ForwardPass::update_camera_buffer(uint slot, const RenderView& view, const 
         if (!scene.directional_lights.empty()) {
             const auto& light = scene.directional_lights[0];
             if (glm::length2(light.direction) > 1e-4f) {
-                // Vector pointing to sun is opposite of propagation direction
                 sun_dir = -glm::normalize(light.direction);
             }
             sun_color     = light.color;
@@ -226,6 +183,94 @@ void ForwardPass::update_camera_buffer(uint slot, const RenderView& view, const 
         mapped.at(0).sun_color     = sun_color;
         mapped.at(0).padding2      = 0.0f;
     }
+}
+
+GPURenderPipeline ForwardPass::get_or_create_pipeline(GUID shading_model_id)
+{
+    auto it = variant_pipelines.find(shading_model_id);
+    if (it != variant_pipelines.end() && it->second.valid()) {
+        return it->second;
+    }
+
+    auto model_info = ShadingModelRegistry::get_model(shading_model_id);
+    if (!model_info) {
+        model_info = ShadingModelRegistry::get_model(BuiltinShadingModels::PBR);
+    }
+
+    Path   shader_path = model_info ? model_info->shader_module_path : Path("sys://Shaders/Forward/Forward.slang");
+    String entry_point = model_info ? model_info->entry_point_name : String("fs_pbr");
+
+    auto shader_stem     = shader_path.stem().string();
+    auto shader_path_str = shader_path.string();
+    auto desc            = CompileDescriptor{};
+    desc.module          = shader_stem.c_str();
+    desc.path            = shader_path_str.c_str();
+    desc.source          = nullptr;
+
+    auto compiled_module = execute([&]() {
+        return compiler.compile(desc);
+    });
+
+    if (!compiled_module) {
+        return {};
+    }
+
+    auto vshader = execute([&]() {
+        auto code   = compiled_module->get_shader_blob("vsmain");
+        auto sdesc  = GPUShaderModuleDescriptor{};
+        sdesc.label = "forward_vertex_shader";
+        sdesc.data  = code->data;
+        sdesc.size  = code->size;
+        return device.create_shader_module(sdesc);
+    });
+
+    auto fshader = execute([&]() {
+        auto code   = compiled_module->get_shader_blob(entry_point.c_str());
+        auto sdesc  = GPUShaderModuleDescriptor{};
+        sdesc.label = "forward_fragment_shader";
+        sdesc.data  = code->data;
+        sdesc.size  = code->size;
+        return device.create_shader_module(sdesc);
+    });
+
+    if (!vshader.valid() || !fshader.valid()) {
+        return {};
+    }
+
+    variant_shader_modules.push_back(vshader);
+    variant_shader_modules.push_back(fshader);
+
+    auto pipeline = execute([&]() {
+        Vector<GPUColorTargetState> targets;
+        auto                        color_target = GPUColorTargetState{};
+        color_target.format                      = cached_color_format;
+        color_target.blend_enable                = false;
+        targets.push_back(color_target);
+
+        auto pdesc                              = GPURenderPipelineDescriptor{};
+        pdesc.layout                            = playout;
+        pdesc.primitive.cull_mode               = GPUCullMode::BACK;
+        pdesc.primitive.topology                = GPUPrimitiveTopology::TRIANGLE_LIST;
+        pdesc.primitive.front_face              = GPUFrontFace::CCW;
+        pdesc.primitive.strip_index_format      = GPUIndexFormat::UINT32;
+        pdesc.depth_stencil.depth_compare       = GPUCompareFunction::LESS_EQUAL;
+        pdesc.depth_stencil.depth_write_enabled = true;
+        pdesc.depth_stencil.format              = cached_depth_format;
+        pdesc.multisample.count                 = 1;
+        pdesc.vertex.module                     = vshader;
+        pdesc.vertex.buffers                    = {};
+        pdesc.vertex.entry_point                = "vsmain";
+        pdesc.fragment.module                   = fshader;
+        pdesc.fragment.entry_point              = entry_point.c_str();
+        pdesc.fragment.targets                  = targets;
+        return device.create_render_pipeline(pdesc);
+    });
+
+    if (pipeline.valid()) {
+        variant_pipelines[shading_model_id] = pipeline;
+    }
+
+    return pipeline;
 }
 
 ForwardPassData ForwardPass::add(
@@ -245,6 +290,18 @@ ForwardPassData ForwardPass::add(
 
     update_camera_buffer(current_slot, params.view, params.scene);
 
+    // prepare sorted and batched mesh commands via MeshPass
+    mesh_pass.prepare(
+        device,
+        params.scene,
+        params.view,
+        [this](const MeshPrimitive& mesh) -> GPURenderPipeline {
+            GUID model_id = mesh.shading_model_id != 0
+                                ? mesh.shading_model_id
+                                : BuiltinShadingModels::from_enum(mesh.shading_model);
+            return get_or_create_pipeline(model_id);
+        });
+
     return builder.add_pass<ForwardPassData>(
         "ForwardPass",
         [&](ForwardPassData& data, FrameGraphPassBuilder& pass_builder) {
@@ -260,14 +317,11 @@ ForwardPassData ForwardPass::add(
 
             data.color_target       = pass_builder.render(params.color_target);
             data.depth_target       = pass_builder.render(depth_h);
-            data.draw_calls         = static_cast<uint>(params.scene.meshes.size());
-            data.triangles_rendered = 0;
-            for (const auto& mesh : params.scene.meshes) {
-                data.triangles_rendered += mesh.index_count / 3;
-            }
+            data.draw_calls         = mesh_pass.get_draw_call_count();
+            data.triangles_rendered = mesh_pass.get_triangle_count();
         },
         [this, current_slot, params](const ForwardPassData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
-            if (!ctx || !ctx->cmdlist.handle.valid() || !pipeline.valid()) {
+            if (!ctx || !ctx->cmdlist.handle.valid()) {
                 return;
             }
 
@@ -297,70 +351,9 @@ ForwardPassData ForwardPass::add(
             command.begin_render_pass(pass_desc);
             command.set_viewport(0.0f, 0.0f, static_cast<float>(params.extent.width), static_cast<float>(params.extent.height));
             command.set_scissor_rect(0, 0, params.extent.width, params.extent.height);
-            command.set_pipeline(pipeline);
-            if (camera_bind_groups[current_slot].valid()) {
-                command.set_bind_group(0, camera_bind_groups[current_slot]);
-            }
 
-            uint64_t last_bound_vbuf = ~0ull;
-
-            for (const auto& mesh : params.scene.meshes) {
-                if (!mesh.geometry.valid() || mesh.index_count == 0) {
-                    continue;
-                }
-
-                GPUBufferHandle vb_handle = mesh.geometry.vertex_slice.buffer;
-                if (!vb_handle.valid()) {
-                    continue;
-                }
-
-                // bind group 1: vertex buffer storage resource
-                if (blayouts.size() > 1) {
-                    auto it = geometry_bind_groups.find(vb_handle.value);
-                    if (it == geometry_bind_groups.end()) {
-                        Array<GPUBindGroupEntry, 1> entries{};
-                        entries[0].type          = GPUResourceType::BUFFER;
-                        entries[0].binding       = 0;
-                        entries[0].buffer.buffer = vb_handle;
-                        entries[0].buffer.offset = 0;
-                        entries[0].buffer.size   = 0;
-
-                        auto bg_desc    = GPUBindGroupDescriptor{};
-                        bg_desc.heap    = heap;
-                        bg_desc.layout  = blayouts[1];
-                        bg_desc.entries = entries;
-                        it              = geometry_bind_groups.emplace(vb_handle.value, device.create_bind_group(bg_desc)).first;
-                    }
-
-                    if (it != geometry_bind_groups.end() && last_bound_vbuf != vb_handle.value) {
-                        command.set_bind_group(1, it->second);
-                        last_bound_vbuf = vb_handle.value;
-                    }
-                }
-
-                const auto& offsets     = mesh.geometry.stream_offsets;
-                GPUSize64   base_offset = mesh.geometry.vertex_slice.offset;
-
-                InstanceData inst{};
-                inst.model  = mesh.transform;
-                inst.color  = mesh.material_params.base_color;
-                inst.params = Vector4(
-                    mesh.material_params.roughness,
-                    mesh.material_params.metallic,
-                    0.0f,
-                    glm::uintBitsToFloat(static_cast<uint>(mesh.shading_model)));
-                inst.pos_offset  = static_cast<uint>(base_offset + (offsets.has_position() ? offsets.position : 0));
-                inst.norm_offset = static_cast<uint>(base_offset + (offsets.has_normal() ? offsets.normal : inst.pos_offset));
-                inst.uv_offset   = static_cast<uint>(base_offset + (offsets.has_texcoord0() ? offsets.texcoord0 : inst.pos_offset));
-
-                command.set_immediates(0, inst);
-
-                GPUBuffer ibuf{};
-                ibuf.handle = mesh.geometry.index_slice.buffer;
-
-                command.set_index_buffer(ibuf, mesh.geometry.index_format, mesh.geometry.index_slice.offset);
-                command.draw_indexed(mesh.index_count, 1, mesh.first_index, 0, 0);
-            }
+            // delegate all mesh draws and state transitions to MeshPass with pass camera bind group (Set 0)
+            mesh_pass.draw(command, camera_bind_groups[current_slot]);
 
             command.end_render_pass();
         });

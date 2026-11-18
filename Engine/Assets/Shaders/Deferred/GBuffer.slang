@@ -1,4 +1,5 @@
 import lyra;
+import Common.Material;
 
 // TODO: G-Buffer rasterization shader for deferred hybrid rendering
 // Supports standard PBR and user custom material shading IDs
@@ -15,12 +16,12 @@ ConstantBuffer<Camera> camera;
 
 struct InstanceData
 {
-    float4x4 model;
-    float4   base_color;
-    float    roughness;
-    float    metallic;
-    uint     shading_model; // 0 = PBR, 1 = Unlit, 2 = Toon, 3 = Subsurface, 4 = Custom
-    uint     material_id;
+    float4x4     model;
+    float4       base_color;
+    float        roughness;
+    float        metallic;
+    ShadingModel shading_model;
+    uint         material_id;
 };
 
 [[lyra::immediates]]
@@ -70,7 +71,7 @@ GBufferOutput fsmain(VertexOutput input)
     // TODO: sample textures from bindless heap if bound
     output.albedo_metallic  = float4(instance_data.base_color.rgb, instance_data.metallic);
     output.normal_roughness = float4(N * 0.5 + 0.5, instance_data.roughness);
-    output.material_data    = uint4(instance_data.shading_model, instance_data.material_id, 0, 0);
+    output.material_data    = uint4(uint(instance_data.shading_model), instance_data.material_id, 0, 0);
 
     return output;
 }

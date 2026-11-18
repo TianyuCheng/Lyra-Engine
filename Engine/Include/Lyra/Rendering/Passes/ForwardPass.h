@@ -8,8 +8,10 @@
 #include <Lyra/Rendering/FrameGraph.h>
 #include <Lyra/Rendering/RenderView.h>
 #include <Lyra/Rendering/RenderScene.h>
+#include <Lyra/Rendering/MeshPass.h>
 #include <Lyra/Compiler/SLCTypes.h>
 #include <Lyra/Utilities/Path.h>
+#include <Lyra/Utilities/GUID.h>
 
 namespace lyra::passes
 {
@@ -42,8 +44,8 @@ namespace lyra::passes
     };
 
     /**
-     * @brief Forward PBR scene rasterization pass.
-     * Evaluates standard PBR materials and custom shading models for opaque and transparent scene meshes.
+     * @brief Forward decoupled scene rasterization pass.
+     * Evaluates specialized shading models through MeshPass and MaterialPipelineManager.
      */
     struct ForwardPass
     {
@@ -58,7 +60,7 @@ namespace lyra::passes
         ForwardPass& operator=(ForwardPass&&) noexcept = default;
 
         /**
-         * @brief initializes forward rasterization pipeline, layouts, and uniform buffers.
+         * @brief initializes forward rasterization pipeline layouts and uniform buffers.
          */
         bool init(
             GPUDevice        device,
@@ -79,7 +81,7 @@ namespace lyra::passes
             FrameGraphBuilder&       builder,
             const ForwardPassParams& params) -> ForwardPassData;
 
-        [[nodiscard]] bool valid() const { return initialized && pipeline.valid(); }
+        [[nodiscard]] bool valid() const { return initialized; }
 
     private:
         struct CameraUniforms
@@ -96,37 +98,24 @@ namespace lyra::passes
             float     padding2      = 0.0f;
         };
 
-        struct alignas(16) InstanceData
-        {
-            Matrix4x4 model;
-            Vector4   color;
-            Vector4   params; // x = roughness, y = metallic, z = clear_coat, w = asfloat(shading_model)
-            uint      pos_offset  = 0;
-            uint      norm_offset = 0;
-            uint      uv_offset   = 0;
-            uint      padding     = 0;
-        };
-        static_assert(sizeof(InstanceData) == 112);
-        static_assert(offsetof(InstanceData, pos_offset) == 96);
-        static_assert(offsetof(InstanceData, norm_offset) == 100);
-        static_assert(offsetof(InstanceData, uv_offset) == 104);
-
         void update_camera_buffer(uint slot, const RenderView& view, const RenderScene& scene);
 
     private:
         static constexpr uint FRAMES_IN_FLIGHT = 3;
 
+        GPURenderPipeline get_or_create_pipeline(GUID shading_model_id);
+
         GPUDevice                             device;
-        GPURenderPipeline                     pipeline;
+        Compiler                              compiler;
+        MeshPass                              mesh_pass;
+        HashMap<GUID, GPURenderPipeline>      variant_pipelines;
+        Vector<GPUShaderModule>               variant_shader_modules;
         GPUPipelineLayout                     playout;
-        GPUShaderModule                       vshader;
-        GPUShaderModule                       fshader;
         Vector<GPUBindGroupLayoutHandle>      blayouts;
         GPUBindGroupHeap                      heap;
         Array<GPUBuffer, FRAMES_IN_FLIGHT>    camera_buffers{};
         Array<GPUBindGroup, FRAMES_IN_FLIGHT> camera_bind_groups{};
         uint                                  frame_slot = 0;
-        HashMap<uint64_t, GPUBindGroup>       geometry_bind_groups;
 
         GPUTextureFormat cached_color_format = GPUTextureFormat::RGBA8UNORM;
         GPUTextureFormat cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;

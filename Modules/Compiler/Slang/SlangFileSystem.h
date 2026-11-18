@@ -36,7 +36,7 @@ auto make_blob(Vector<char> data) -> ComPtr<ISlangBlob>;
 class SlangVFSFileSystem : public ISlangFileSystemExt
 {
 public:
-    explicit SlangVFSFileSystem(FileLoader* loader, const Vector<String>& search_dirs);
+    explicit SlangVFSFileSystem(FileLoader* loader, const Vector<String>& search_dirs, CompileTarget target = CompileTarget::SPIRV);
 
     ISlangUnknown* getInterface(const SlangUUID& uuid);
 
@@ -78,6 +78,7 @@ private:
     std::atomic<uint32_t> m_refCount{0};
     FileLoader*           loader_ = nullptr;
     Vector<String>        search_dirs_;
+    CompileTarget         target_ = CompileTarget::SPIRV;
 };
 
 #endif // LYRA_MODULE_COMPILER_SLANG_FILESYSTEM_H

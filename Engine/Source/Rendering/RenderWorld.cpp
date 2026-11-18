@@ -1,4 +1,5 @@
-#include <Lyra/Rendering/RenderWorld.h>
+#include <Lyra/Utilities/Math.h>
+#include <Lyra/Utilities/Logger.h>
 #include <Lyra/Components/Camera.h>
 #include <Lyra/Components/Light.h>
 #include <Lyra/Components/Sun.h>
@@ -7,8 +8,8 @@
 #include <Lyra/Components/Transform.h>
 #include <Lyra/Rendering/ProceduralMesh.h>
 #include <Lyra/Assets/Format/MaterialAsset.h>
-#include <Lyra/Utilities/Logger.h>
-#include <glm/gtc/matrix_transform.hpp>
+#include <Lyra/Rendering/ShadingModelRegistry.h>
+#include <Lyra/Rendering/RenderWorld.h>
 
 using namespace lyra;
 
@@ -263,10 +264,11 @@ void RenderWorld::extract_meshes(const World& ecs_world, const RendererCapabilit
         const auto& lod0 = entry->lods[0];
 
         // resolve material properties
-        auto resolve_material = [&](MaterialAssetHandle handle) -> std::tuple<ShadingModel, PrimitiveMaterial, CustomPipelineID> {
-            ShadingModel      model  = ShadingModel::PBR;
-            PrimitiveMaterial params = {};
-            CustomPipelineID  pipe   = CustomPipelineID::standard();
+        auto resolve_material = [&](MaterialAssetHandle handle) -> std::tuple<ShadingModel, GUID, PrimitiveMaterial, CustomPipelineID> {
+            ShadingModel      model    = ShadingModel::PBR;
+            GUID              model_id = BuiltinShadingModels::PBR;
+            PrimitiveMaterial params   = {};
+            CustomPipelineID  pipe     = CustomPipelineID::standard();
             if (handle.valid() && ams) {
                 auto mat_ptr = ams->get_asset(handle);
                 if (!mat_ptr) {
@@ -275,16 +277,17 @@ void RenderWorld::extract_meshes(const World& ecs_world, const RendererCapabilit
                 }
                 if (mat_ptr) {
                     model               = mat_ptr->shading_model;
+                    model_id            = mat_ptr->shading_model_id != 0 ? mat_ptr->shading_model_id : BuiltinShadingModels::from_enum(mat_ptr->shading_model);
                     params.base_color   = mat_ptr->base_color_factor;
                     params.roughness    = mat_ptr->roughness_factor;
                     params.metallic     = mat_ptr->metallic_factor;
                     params.alpha_cutoff = mat_ptr->alpha_cutoff;
                 }
             }
-            return {model, params, pipe};
+            return {model, model_id, params, pipe};
         };
 
-        auto [default_model, default_params, default_pipe] = resolve_material(mesh_comp.material);
+        auto [default_model, default_model_id, default_params, default_pipe] = resolve_material(mesh_comp.material);
 
         // 1. indexed trimesh extraction
         if (capabilities.supported_primitives.contains(PrimitiveSupport::MESH) && lod0.indexed.has_value()) {
@@ -298,7 +301,9 @@ void RenderWorld::extract_meshes(const World& ecs_world, const RendererCapabilit
                 prim.transform          = world_xform;
                 prim.world_bounds       = entry->local_bounds.transformed(world_xform);
                 prim.instance_id        = static_cast<uint>(entt::to_integral(entity));
+                prim.material_id        = static_cast<uint>(prim.material.guid & 0xFFFFFFFF);
                 prim.shading_model      = default_model;
+                prim.shading_model_id   = default_model_id;
                 prim.material_params    = default_params;
                 prim.custom_pipeline_id = default_pipe;
                 scene.meshes.push_back(prim);
@@ -314,14 +319,17 @@ void RenderWorld::extract_meshes(const World& ecs_world, const RendererCapabilit
                     prim.transform     = world_xform;
                     prim.world_bounds  = Bounds3D(surf.min_bounds, surf.max_bounds).transformed(world_xform);
                     prim.instance_id   = static_cast<uint>(entt::to_integral(entity));
+                    prim.material_id   = static_cast<uint>(prim.material.guid & 0xFFFFFFFF);
 
                     if (surf.material.valid() && surf.material != mesh_comp.material) {
-                        auto [surf_model, surf_params, surf_pipe] = resolve_material(surf.material);
-                        prim.shading_model                        = surf_model;
-                        prim.material_params                      = surf_params;
-                        prim.custom_pipeline_id                   = surf_pipe;
+                        auto [surf_model, surf_model_id, surf_params, surf_pipe] = resolve_material(surf.material);
+                        prim.shading_model                                       = surf_model;
+                        prim.shading_model_id                                    = surf_model_id;
+                        prim.material_params                                     = surf_params;
+                        prim.custom_pipeline_id                                  = surf_pipe;
                     } else {
                         prim.shading_model      = default_model;
+                        prim.shading_model_id   = default_model_id;
                         prim.material_params    = default_params;
                         prim.custom_pipeline_id = default_pipe;
                     }
@@ -341,7 +349,9 @@ void RenderWorld::extract_meshes(const World& ecs_world, const RendererCapabilit
             prim.transform          = world_xform;
             prim.world_bounds       = entry->local_bounds.transformed(world_xform);
             prim.instance_id        = static_cast<uint>(entt::to_integral(entity));
+            prim.material_id        = static_cast<uint>(prim.material.guid & 0xFFFFFFFF);
             prim.shading_model      = default_model;
+            prim.shading_model_id   = default_model_id;
             prim.material_params    = default_params;
             prim.custom_pipeline_id = default_pipe;
             scene.meshlets.push_back(prim);
@@ -384,7 +394,9 @@ void RenderWorld::extract_sdfs(const World& ecs_world)
         prim.transform          = world_xform;
         prim.world_bounds       = Bounds3D(Vector3(-sdf_comp.parameters.x), Vector3(sdf_comp.parameters.x)).transformed(world_xform);
         prim.instance_id        = static_cast<uint>(entt::to_integral(entity));
+        prim.material_id        = static_cast<uint>(prim.material.guid & 0xFFFFFFFF);
         prim.shading_model      = ShadingModel::PBR;
+        prim.shading_model_id   = BuiltinShadingModels::PBR;
         prim.custom_pipeline_id = CustomPipelineID::standard();
         prim.material_params    = PrimitiveMaterial{};
 
@@ -396,6 +408,7 @@ void RenderWorld::extract_sdfs(const World& ecs_world)
             }
             if (mat_ptr) {
                 prim.shading_model                = mat_ptr->shading_model;
+                prim.shading_model_id             = mat_ptr->shading_model_id != 0 ? mat_ptr->shading_model_id : BuiltinShadingModels::from_enum(mat_ptr->shading_model);
                 prim.material_params.base_color   = mat_ptr->base_color_factor;
                 prim.material_params.roughness    = mat_ptr->roughness_factor;
                 prim.material_params.metallic     = mat_ptr->metallic_factor;

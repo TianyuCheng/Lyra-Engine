@@ -8,6 +8,7 @@
 #include <Lyra/Utilities/Bounds.h>
 #include <Lyra/Graphics/RHITypes.h>
 #include <Lyra/Assets/Format/MaterialAsset.h>
+#include <Lyra/Rendering/ShadingModelRegistry.h>
 #include <Lyra/Rendering/Geometry.h>
 
 namespace lyra
@@ -94,7 +95,9 @@ namespace lyra
         Matrix4x4           transform          = Matrix4x4(1.0f);
         Bounds3D            world_bounds       = {};
         uint                instance_id        = 0;
+        uint                material_id        = 0;
         ShadingModel        shading_model      = ShadingModel::PBR;
+        GUID                shading_model_id   = BuiltinShadingModels::PBR;
         CustomPipelineID    custom_pipeline_id = {};
         PrimitiveMaterial   material_params    = {};
     };
@@ -111,7 +114,9 @@ namespace lyra
         Matrix4x4           transform          = Matrix4x4(1.0f);
         Bounds3D            world_bounds       = {};
         uint                instance_id        = 0;
+        uint                material_id        = 0;
         ShadingModel        shading_model      = ShadingModel::PBR;
+        GUID                shading_model_id   = BuiltinShadingModels::PBR;
         CustomPipelineID    custom_pipeline_id = {};
         PrimitiveMaterial   material_params    = {};
     };
@@ -128,7 +133,9 @@ namespace lyra
         Matrix4x4           transform          = Matrix4x4(1.0f);
         Bounds3D            world_bounds       = {};
         uint                instance_id        = 0;
+        uint                material_id        = 0;
         ShadingModel        shading_model      = ShadingModel::PBR;
+        GUID                shading_model_id   = BuiltinShadingModels::PBR;
         CustomPipelineID    custom_pipeline_id = {};
         PrimitiveMaterial   material_params    = {};
     };

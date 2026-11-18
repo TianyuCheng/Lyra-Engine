@@ -3,8 +3,8 @@ module Material;
 public enum ShadingModel : uint
 {
     PBR        = 0,
-    UNLIT      = 1,
-    TOON       = 2,
+    NPR        = 1,
+    UNLIT      = 2,
     SUBSURFACE = 3,
     CUSTOM     = 4,
 };

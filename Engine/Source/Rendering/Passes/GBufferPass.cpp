@@ -19,12 +19,12 @@ namespace
 
     struct InstanceData
     {
-        Matrix4x4 model;
-        Vector4   base_color    = Vector4(1.0f);
-        float     roughness     = 0.5f;
-        float     metallic      = 0.0f;
-        uint      shading_model = 0; // 0 = PBR, 1 = Unlit, 2 = Toon, 3 = Subsurface, 4 = Custom
-        uint      material_id   = 0;
+        Matrix4x4    model;
+        Vector4      base_color    = Vector4(1.0f);
+        float        roughness     = 0.5f;
+        float        metallic      = 0.0f;
+        ShadingModel shading_model = ShadingModel::PBR;
+        uint         material_id   = 0;
     };
 } // namespace
 
@@ -356,7 +356,7 @@ GBufferData GBufferPass::add(
                 inst.base_color    = mesh.material_params.base_color;
                 inst.roughness     = mesh.material_params.roughness;
                 inst.metallic      = mesh.material_params.metallic;
-                inst.shading_model = static_cast<uint>(mesh.shading_model);
+                inst.shading_model = mesh.shading_model;
 
                 command.set_immediates(0, inst);
                 GPUBuffer vbuf{};
