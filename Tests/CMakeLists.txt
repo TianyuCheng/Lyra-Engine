@@ -51,6 +51,7 @@ add_subdirectory(immediates)
 add_subdirectory(dynamic_uniform)
 add_subdirectory(texture_sampling)
 add_subdirectory(graphics_pipeline)
+add_subdirectory(ui_system)
 
 # non-rhi / unit test cases
 add_subdirectory(spatial)

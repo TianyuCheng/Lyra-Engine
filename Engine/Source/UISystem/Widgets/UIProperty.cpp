@@ -12,8 +12,9 @@ struct PropertySheetState
 };
 
 static HashMap<ImGuiID, PropertySheetState> s_sheet_states;
-static float                                s_current_max_label_len = 0.0f;
-static bool                                 s_is_stacked_layout     = false;
+
+static float s_current_max_label_len = 0.0f;
+static bool  s_is_stacked_layout     = false;
 
 static void begin_property_row(CString label)
 {
@@ -138,13 +139,14 @@ void lyra::ui::properties(ActionRef content, float min_widget_width)
     auto&   state    = s_sheet_states[table_id];
 
     // calculate label column width from measured content plus cell padding
-    float label_col_width = 0.0f;
-    if (state.max_label_width > 0.0f) {
-        label_col_width = state.max_label_width + ImGui::GetStyle().CellPadding.x * 2.0f + 2.0f;
-    }
+    constexpr float default_label_width = 120.0f;
+
+    float label_col_width = (state.max_label_width > 0.0f)
+                                ? (state.max_label_width + ImGui::GetStyle().CellPadding.x * 2.0f + 2.0f)
+                                : default_label_width;
 
     float avail_width    = ImGui::GetContentRegionAvail().x;
-    float required_width = (label_col_width > 0.0f ? label_col_width : 140.0f) + min_widget_width;
+    float required_width = label_col_width + min_widget_width;
 
     bool  was_stacked        = s_is_stacked_layout;
     float prev_max_label_len = s_current_max_label_len;

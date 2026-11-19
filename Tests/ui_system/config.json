@@ -1,0 +1,4 @@
+{
+    "rmse_threshold": 3.0,
+    "mismatch_threshold": 1.0
+}

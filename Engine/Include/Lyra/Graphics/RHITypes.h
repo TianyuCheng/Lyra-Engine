@@ -434,6 +434,8 @@ namespace lyra
         FORCE_INLINE GPUSurface(GPUSurfaceHandle handle) : handle(handle) {}
         FORCE_INLINE operator GPUSurfaceHandle() const { return handle; }
 
+        FORCE_INLINE bool valid() const { return handle.valid(); }
+
         auto get_current_texture() const -> GPUSurfaceTexture;
         auto get_current_format() const -> GPUTextureFormat;
         auto get_current_extent() const -> GPUExtent2D;

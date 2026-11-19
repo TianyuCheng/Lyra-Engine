@@ -72,6 +72,54 @@ struct DepthTestApp : public TestApp
         });
 
         dview = dbuffer.create_view();
+
+        test_depth32float_readonly(device);
+    }
+
+    void test_depth32float_readonly(GPUDevice& device)
+    {
+        // verifies non-stencil depth format (DEPTH32FLOAT) with read-only DSV and render pass access
+        auto d32_texture = execute([&]() {
+            auto desc            = GPUTextureDescriptor{};
+            desc.format          = GPUTextureFormat::DEPTH32FLOAT;
+            desc.size.width      = this->desc.width;
+            desc.size.height     = this->desc.height;
+            desc.size.depth      = 1;
+            desc.array_layers    = 1;
+            desc.mip_level_count = 1;
+            desc.usage           = GPUTextureUsage::RENDER_ATTACHMENT;
+            desc.label           = "d32_readonly_test";
+            return device.create_texture(desc);
+        });
+
+        auto d32_view = d32_texture.create_view();
+
+        auto cmd = execute([&]() {
+            auto desc  = GPUCommandBufferDescriptor{};
+            desc.queue = GPUQueueType::DEFAULT;
+            return device.create_command_buffer(desc);
+        });
+
+        cmd.resource_barrier(state_transition(d32_texture, undefined_texture_state(), depth_stencil_read_texture_state()));
+
+        auto d32_attachment              = GPURenderPassDepthStencilAttachment{};
+        d32_attachment.view              = d32_view;
+        d32_attachment.depth_clear_value = 1.0f;
+        d32_attachment.depth_load_op     = GPULoadOp::LOAD;
+        d32_attachment.depth_store_op    = GPUStoreOp::STORE;
+        d32_attachment.depth_read_only   = true;
+
+        auto render_pass                     = GPURenderPassDescriptor{};
+        render_pass.depth_stencil_attachment = d32_attachment;
+
+        cmd.begin_render_pass(render_pass);
+        cmd.end_render_pass();
+        cmd.submit();
+
+        device.wait();
+
+        d32_view.destroy();
+        d32_texture.destroy();
     }
 
     void setup_buffers()
@@ -184,6 +232,27 @@ struct DepthTestApp : public TestApp
         command.set_bind_group(0, bind_group);
         command.draw_indexed(6, 1, 0, 0, 0);
         command.end_render_pass();
+
+        // pass 2: verify read-only depth render pass access and barrier layout matching on dbuffer
+        command.resource_barrier(state_transition(dbuffer, depth_stencil_attachment_texture_state(), depth_stencil_read_texture_state()));
+
+        auto ro_depth_attachment            = depth_attachment;
+        ro_depth_attachment.depth_load_op   = GPULoadOp::LOAD;
+        ro_depth_attachment.depth_store_op  = GPUStoreOp::STORE;
+        ro_depth_attachment.depth_read_only = true;
+
+        auto ro_color_attachment    = color_attachment;
+        ro_color_attachment.load_op = GPULoadOp::LOAD;
+
+        auto ro_render_pass                     = GPURenderPassDescriptor{};
+        ro_render_pass.color_attachments        = ro_color_attachment;
+        ro_render_pass.depth_stencil_attachment = ro_depth_attachment;
+
+        command.begin_render_pass(ro_render_pass);
+        command.set_viewport(0, 0, static_cast<float>(desc.width), static_cast<float>(desc.height));
+        command.set_scissor_rect(0, 0, desc.width, desc.height);
+        command.end_render_pass();
+
         postprocessing(command, backbuffer.texture);
         command.submit();
     }

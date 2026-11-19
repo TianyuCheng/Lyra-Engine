@@ -18,9 +18,12 @@ namespace lyra
         CompilerHandle   compiler;
 
         // options
-        bool  docking   = false;
-        bool  viewports = false;
-        float font_size = 16.0f;
+        bool             docking   = false;
+        bool             viewports = false;
+        float            font_size = 16.0f;
+        uint             width     = 960;
+        uint             height    = 540;
+        GPUTextureFormat format    = GPUTextureFormat::RGBA8UNORM;
     };
 
     using GUIHandle = TypedPointerHandle<GUI>;

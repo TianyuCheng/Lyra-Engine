@@ -1,17 +1,16 @@
 #include <cmath>
-#include <limits>
-#include <algorithm>
 #include <chrono>
 #include <thread>
+#include <algorithm>
 #include <filesystem>
 #include <stb_image_write.h>
 #include <stb_image_resize2.h>
 #include <cmrc/cmrc.hpp>
 
 #include <Lyra/Utilities/Logger.h>
-#include <Lyra/JobSystem/JobScheduler.h>
 #include <Lyra/Graphics/RHIAPI.h>
 #include <Lyra/Graphics/RHIInits.h>
+#include <Lyra/JobSystem/JobScheduler.h>
 #include "BatchPreviewDispatcher.h"
 
 CMRC_DECLARE(preview);
@@ -327,8 +326,8 @@ auto BatchPreviewDispatcher::init_gpu_resources() -> bool
         default_white_view         = default_white_texture.create_view();
 
         GPUBufferDescriptor sb_desc{};
-        sb_desc.size  = 256;
-        sb_desc.usage = GPUBufferUsage::COPY_SRC | GPUBufferUsage::MAP_WRITE;
+        sb_desc.size    = 256;
+        sb_desc.usage   = GPUBufferUsage::COPY_SRC | GPUBufferUsage::MAP_WRITE;
         auto staging_sb = device.create_buffer(sb_desc);
         staging_sb.map(GPUMapMode::WRITE, 0, 256);
         auto     mrange      = staging_sb.get_mapped_range<uint8_t>();
@@ -343,8 +342,8 @@ auto BatchPreviewDispatcher::init_gpu_resources() -> bool
         sb_src.bytes_per_row  = 256;
         sb_src.rows_per_image = 1;
         GPUTexelCopyTextureInfo sb_dst{};
-        sb_dst.texture   = default_white_texture;
-        sb_dst.aspect    = GPUTextureAspect::COLOR;
+        sb_dst.texture = default_white_texture;
+        sb_dst.aspect  = GPUTextureAspect::COLOR;
         init_cmd.copy_buffer_to_texture(sb_src, sb_dst, GPUExtent3D{1, 1, 1});
         init_cmd.resource_barrier(state_transition(default_white_texture, copy_dst_texture_state(), shader_resource_texture_state(GPUBarrierSync::ALL_SHADING)));
         init_cmd.submit();
@@ -663,8 +662,8 @@ void BatchPreviewDispatcher::dispatch_batch_locked()
             usize stage_size = static_cast<usize>(row_pitch) * upload_h;
 
             GPUBufferDescriptor s_desc{};
-            s_desc.size  = stage_size;
-            s_desc.usage = GPUBufferUsage::COPY_SRC | GPUBufferUsage::MAP_WRITE;
+            s_desc.size    = stage_size;
+            s_desc.usage   = GPUBufferUsage::COPY_SRC | GPUBufferUsage::MAP_WRITE;
             auto stage_buf = device.create_buffer(s_desc);
             stage_buf.map(GPUMapMode::WRITE, 0, stage_size);
             auto mapped = stage_buf.get_mapped_range<uint8_t>();
@@ -681,8 +680,8 @@ void BatchPreviewDispatcher::dispatch_batch_locked()
             cp_src.rows_per_image = upload_h;
 
             GPUTexelCopyTextureInfo cp_dst{};
-            cp_dst.texture   = tex_obj;
-            cp_dst.aspect    = GPUTextureAspect::COLOR;
+            cp_dst.texture = tex_obj;
+            cp_dst.aspect  = GPUTextureAspect::COLOR;
             cmd_buf.copy_buffer_to_texture(cp_src, cp_dst, GPUExtent3D{upload_w, upload_h, 1});
             cmd_buf.resource_barrier(state_transition(tex_obj, copy_dst_texture_state(), shader_resource_texture_state(GPUBarrierSync::ALL_SHADING)));
 
@@ -697,10 +696,10 @@ void BatchPreviewDispatcher::dispatch_batch_locked()
             bg_entries[1].sampler = default_sampler;
 
             GPUBindGroupDescriptor bg_desc{};
-            bg_desc.heap             = bind_group_heap;
-            bg_desc.layout           = bind_group_layout;
-            bg_desc.entries          = TypedView<GPUBindGroupEntry>(bg_entries);
-            auto bg                  = device.create_bind_group(bg_desc);
+            bg_desc.heap    = bind_group_heap;
+            bg_desc.layout  = bind_group_layout;
+            bg_desc.entries = TypedView<GPUBindGroupEntry>(bg_entries);
+            auto bg         = device.create_bind_group(bg_desc);
 
             texture_bind_groups[static_cast<int>(t)] = bg;
             transient_textures.push_back({tex_obj, tex_view, stage_buf});

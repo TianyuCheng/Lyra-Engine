@@ -124,4 +124,253 @@ TEST_CASE("graphics::rhi_objects" * doctest::description("GPUBuffer, GPUTexture,
         fence.wait();
         fence.destroy();
     }
+
+    SUBCASE("GPUBindGroupHeap and GPUBindGroupLayout creation")
+    {
+        GPUBindGroupHeapDescriptor heap_desc{};
+        heap_desc.page_size = 16;
+        auto heap           = device.create_bind_group_heap(heap_desc);
+        REQUIRE(heap.valid());
+
+        Array<GPUBindGroupLayoutEntry, 1> layout_entries{};
+        layout_entries[0].binding     = {0, 0};
+        layout_entries[0].type        = GPUResourceType::BUFFER;
+        layout_entries[0].visibility  = GPUShaderStage::VERTEX;
+        layout_entries[0].buffer.type = GPUBufferBindingType::UNIFORM;
+
+        GPUBindGroupLayoutDescriptor layout_desc{};
+        layout_desc.entries = layout_entries;
+        auto blayout        = device.create_bind_group_layout(layout_desc);
+        REQUIRE(blayout.valid());
+
+        blayout.destroy();
+        heap.destroy();
+    }
+
+    SUBCASE("GPUCommandBuffer multi-queue and burst allocation")
+    {
+        Vector<GPUCommandBuffer> cmds;
+        cmds.reserve(32);
+
+        for (usize i = 0; i < 32; ++i) {
+            GPUCommandBufferDescriptor cdesc{};
+            cdesc.queue = (i % 2 == 0) ? GPUQueueType::DEFAULT : GPUQueueType::TRANSFER;
+            auto cmd    = device.create_command_buffer(cdesc);
+            REQUIRE(cmd.valid());
+            cmds.push_back(cmd);
+        }
+
+        for (auto& cmd : cmds) {
+            cmd.submit();
+        }
+
+        device.wait();
+    }
+
+    SUBCASE("GPUCommandBuffer multi-frame recycling lifecycle")
+    {
+        for (int frame = 0; frame < 16; ++frame) {
+            RHI::new_frame();
+
+            GPUCommandBufferDescriptor cdesc_default{};
+            cdesc_default.queue = GPUQueueType::DEFAULT;
+            auto cmd1           = device.create_command_buffer(cdesc_default);
+            REQUIRE(cmd1.valid());
+
+            auto cmd2 = device.create_command_buffer(cdesc_default);
+            REQUIRE(cmd2.valid());
+
+            GPUCommandBufferDescriptor cdesc_xfer{};
+            cdesc_xfer.queue = GPUQueueType::TRANSFER;
+            auto cmd3        = device.create_command_buffer(cdesc_xfer);
+            REQUIRE(cmd3.valid());
+
+            cmd1.submit();
+            cmd2.submit();
+            cmd3.submit();
+
+            RHI::end_frame();
+        }
+
+        device.wait();
+    }
+
+    SUBCASE("GPUBindGroupHeap multi-pool suballocation and multi-heap isolation")
+    {
+        GPUBindGroupHeapDescriptor heap_desc1{};
+        heap_desc1.page_size = 4;
+        auto heap1           = device.create_bind_group_heap(heap_desc1);
+        REQUIRE(heap1.valid());
+
+        GPUBindGroupHeapDescriptor heap_desc2{};
+        heap_desc2.page_size = 8;
+        auto heap2           = device.create_bind_group_heap(heap_desc2);
+        REQUIRE(heap2.valid());
+
+        // create layout with buffer and sampler
+        Array<GPUBindGroupLayoutEntry, 2> layout_entries{};
+        layout_entries[0].binding     = {0, 0};
+        layout_entries[0].type        = GPUResourceType::BUFFER;
+        layout_entries[0].visibility  = GPUShaderStage::VERTEX;
+        layout_entries[0].buffer.type = GPUBufferBindingType::UNIFORM;
+
+        layout_entries[1].binding      = {1, 0};
+        layout_entries[1].type         = GPUResourceType::SAMPLER;
+        layout_entries[1].visibility   = GPUShaderStage::FRAGMENT;
+        layout_entries[1].sampler.type = GPUSamplerBindingType::FILTERING;
+
+        GPUBindGroupLayoutDescriptor layout_desc{};
+        layout_desc.entries = layout_entries;
+        auto blayout        = device.create_bind_group_layout(layout_desc);
+        REQUIRE(blayout.valid());
+
+        GPUBufferDescriptor bdesc{};
+        bdesc.label  = "bg_test_buf";
+        bdesc.size   = 256;
+        bdesc.usage  = GPUBufferUsage::UNIFORM;
+        auto ubuffer = device.create_buffer(bdesc);
+        REQUIRE(ubuffer.valid());
+
+        GPUSamplerDescriptor sdesc{};
+        sdesc.label  = "bg_test_samp";
+        auto sampler = device.create_sampler(sdesc);
+        REQUIRE(sampler.valid());
+
+        Array<GPUBindGroupEntry, 2> bg_entries{};
+        bg_entries[0].binding       = 0;
+        bg_entries[0].type          = GPUResourceType::BUFFER;
+        bg_entries[0].buffer.buffer = ubuffer;
+        bg_entries[0].buffer.offset = 0;
+        bg_entries[0].buffer.size   = 256;
+
+        bg_entries[1].binding = 1;
+        bg_entries[1].type    = GPUResourceType::SAMPLER;
+        bg_entries[1].sampler = sampler;
+
+        GPUBindGroupDescriptor bg_desc1{};
+        bg_desc1.heap    = heap1;
+        bg_desc1.layout  = blayout;
+        bg_desc1.entries = bg_entries;
+
+        GPUBindGroupDescriptor bg_desc2{};
+        bg_desc2.heap    = heap2;
+        bg_desc2.layout  = blayout;
+        bg_desc2.entries = bg_entries;
+
+        // allocate 32 bind groups on heap1 (page_size = 4 -> forces at least 8 pools)
+        Vector<GPUBindGroup> g1, g2;
+        for (usize i = 0; i < 32; ++i) {
+            auto bg1 = device.create_bind_group(bg_desc1);
+            REQUIRE(bg1.valid());
+            g1.push_back(bg1);
+        }
+
+        // allocate 16 bind groups on heap2
+        for (usize i = 0; i < 16; ++i) {
+            auto bg2 = device.create_bind_group(bg_desc2);
+            REQUIRE(bg2.valid());
+            g2.push_back(bg2);
+        }
+
+        // destroy heap1, verify heap2 continues to allocate properly
+        heap1.destroy();
+
+        for (usize i = 0; i < 8; ++i) {
+            auto bg2 = device.create_bind_group(bg_desc2);
+            REQUIRE(bg2.valid());
+            g2.push_back(bg2);
+        }
+
+        blayout.destroy();
+        ubuffer.destroy();
+        sampler.destroy();
+        heap2.destroy();
+    }
+
+    SUBCASE("GPUBindGroup with mixed resource types")
+    {
+        GPUBindGroupHeapDescriptor heap_desc{};
+        heap_desc.page_size = 4;
+        auto heap           = device.create_bind_group_heap(heap_desc);
+        REQUIRE(heap.valid());
+
+        GPUTextureDescriptor tex_desc{};
+        tex_desc.label  = "mixed_bg_texture";
+        tex_desc.size   = GPUExtent3D{16, 16, 1};
+        tex_desc.format = GPUTextureFormat::RGBA8UNORM;
+        tex_desc.usage  = GPUTextureUsage::TEXTURE_BINDING;
+        auto texture    = device.create_texture(tex_desc);
+        REQUIRE(texture.valid());
+
+        GPUTextureViewDescriptor view_desc{};
+        view_desc.label  = "mixed_bg_view";
+        view_desc.format = GPUTextureFormat::RGBA8UNORM;
+        auto texview     = texture.create_view(view_desc);
+        REQUIRE(texview.valid());
+
+        GPUSamplerDescriptor samp_desc{};
+        samp_desc.label = "mixed_bg_sampler";
+        auto sampler    = device.create_sampler(samp_desc);
+        REQUIRE(sampler.valid());
+
+        GPUBufferDescriptor buf_desc{};
+        buf_desc.label = "mixed_bg_buffer";
+        buf_desc.size  = 256;
+        buf_desc.usage = GPUBufferUsage::UNIFORM;
+        auto buffer    = device.create_buffer(buf_desc);
+        REQUIRE(buffer.valid());
+
+        Array<GPUBindGroupLayoutEntry, 3> layout_entries{};
+        layout_entries[0].binding     = {0, 0};
+        layout_entries[0].type        = GPUResourceType::BUFFER;
+        layout_entries[0].visibility  = GPUShaderStage::VERTEX;
+        layout_entries[0].buffer.type = GPUBufferBindingType::UNIFORM;
+
+        layout_entries[1].binding             = {1, 0};
+        layout_entries[1].type                = GPUResourceType::TEXTURE;
+        layout_entries[1].visibility          = GPUShaderStage::FRAGMENT;
+        layout_entries[1].texture.sample_type = GPUTextureSampleType::FLOAT;
+
+        layout_entries[2].binding      = {2, 0};
+        layout_entries[2].type         = GPUResourceType::SAMPLER;
+        layout_entries[2].visibility   = GPUShaderStage::FRAGMENT;
+        layout_entries[2].sampler.type = GPUSamplerBindingType::FILTERING;
+
+        GPUBindGroupLayoutDescriptor layout_desc{};
+        layout_desc.entries = layout_entries;
+        auto blayout        = device.create_bind_group_layout(layout_desc);
+        REQUIRE(blayout.valid());
+
+        Array<GPUBindGroupEntry, 3> bg_entries{};
+        bg_entries[0].binding       = 0;
+        bg_entries[0].type          = GPUResourceType::BUFFER;
+        bg_entries[0].buffer.buffer = buffer;
+        bg_entries[0].buffer.offset = 0;
+        bg_entries[0].buffer.size   = 256;
+
+        bg_entries[1].binding = 1;
+        bg_entries[1].type    = GPUResourceType::TEXTURE;
+        bg_entries[1].texture = texview;
+
+        bg_entries[2].binding = 2;
+        bg_entries[2].type    = GPUResourceType::SAMPLER;
+        bg_entries[2].sampler = sampler;
+
+        GPUBindGroupDescriptor bg_desc{};
+        bg_desc.heap    = heap;
+        bg_desc.layout  = blayout;
+        bg_desc.entries = bg_entries;
+
+        for (usize i = 0; i < 16; ++i) {
+            auto bg = device.create_bind_group(bg_desc);
+            REQUIRE(bg.valid());
+        }
+
+        blayout.destroy();
+        buffer.destroy();
+        sampler.destroy();
+        texview.destroy();
+        texture.destroy();
+        heap.destroy();
+    }
 }

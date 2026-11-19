@@ -85,10 +85,10 @@ namespace lyra::preview
             Vector4      base_color   = Vector4(1.0f);
             Vector4      view_dir_pad = Vector4(0.0f);
             GPUBindGroup bind_group;
-            uint         tile_x       = 0;
-            uint         tile_y       = 0;
-            uint         tile_w       = 0;
-            uint         tile_h       = 0;
+            uint         tile_x = 0;
+            uint         tile_y = 0;
+            uint         tile_w = 0;
+            uint         tile_h = 0;
         };
 
         mutable Mutex          mutex;

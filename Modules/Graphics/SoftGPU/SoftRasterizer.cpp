@@ -190,15 +190,69 @@ static uint8_t apply_stencil_op(GPUStencilOperation op, uint8_t current, uint8_t
 
 static Vector4 apply_blend(const Vector4& src, const Vector4& dst, const GPUBlendState& blend)
 {
-    if (blend.color.operation == GPUBlendOperation::ADD &&
-        blend.color.src_factor == GPUBlendFactor::SRC_ALPHA &&
-        blend.color.dst_factor == GPUBlendFactor::ONE_MINUS_SRC_ALPHA) {
-        float   a     = src.a;
-        Vector3 rgb   = Vector3(src) * a + Vector3(dst) * (1.0f - a);
-        float   alpha = src.a + dst.a * (1.0f - src.a);
-        return Vector4(rgb, alpha);
+    auto get_factor = [](GPUBlendFactor factor, const Vector4& s, const Vector4& d) -> Vector4 {
+        switch (factor) {
+            case GPUBlendFactor::ZERO:
+                return Vector4(0.0f);
+            case GPUBlendFactor::ONE:
+                return Vector4(1.0f);
+            case GPUBlendFactor::SRC:
+                return s;
+            case GPUBlendFactor::ONE_MINUS_SRC:
+                return Vector4(1.0f) - s;
+            case GPUBlendFactor::SRC_ALPHA:
+                return Vector4(s.a);
+            case GPUBlendFactor::ONE_MINUS_SRC_ALPHA:
+                return Vector4(1.0f - s.a);
+            case GPUBlendFactor::DST:
+                return d;
+            case GPUBlendFactor::ONE_MINUS_DST:
+                return Vector4(1.0f) - d;
+            case GPUBlendFactor::DST_ALPHA:
+                return Vector4(d.a);
+            case GPUBlendFactor::ONE_MINUS_DST_ALPHA:
+                return Vector4(1.0f - d.a);
+            default:
+                return Vector4(1.0f);
+        }
+    };
+
+    Vector4 src_rgb_f = get_factor(blend.color.src_factor, src, dst);
+    Vector4 dst_rgb_f = get_factor(blend.color.dst_factor, src, dst);
+    Vector4 src_a_f   = get_factor(blend.alpha.src_factor, src, dst);
+    Vector4 dst_a_f   = get_factor(blend.alpha.dst_factor, src, dst);
+
+    Vector3 rgb;
+    if (blend.color.operation == GPUBlendOperation::ADD) {
+        rgb = Vector3(src) * Vector3(src_rgb_f) + Vector3(dst) * Vector3(dst_rgb_f);
+    } else if (blend.color.operation == GPUBlendOperation::SUBTRACT) {
+        rgb = Vector3(src) * Vector3(src_rgb_f) - Vector3(dst) * Vector3(dst_rgb_f);
+    } else if (blend.color.operation == GPUBlendOperation::REVERSE_SUBTRACT) {
+        rgb = Vector3(dst) * Vector3(dst_rgb_f) - Vector3(src) * Vector3(src_rgb_f);
+    } else if (blend.color.operation == GPUBlendOperation::MIN) {
+        rgb = glm::min(Vector3(src), Vector3(dst));
+    } else if (blend.color.operation == GPUBlendOperation::MAX) {
+        rgb = glm::max(Vector3(src), Vector3(dst));
+    } else {
+        rgb = Vector3(src);
     }
-    return src;
+
+    float alpha;
+    if (blend.alpha.operation == GPUBlendOperation::ADD) {
+        alpha = src.a * src_a_f.a + dst.a * dst_a_f.a;
+    } else if (blend.alpha.operation == GPUBlendOperation::SUBTRACT) {
+        alpha = src.a * src_a_f.a - dst.a * dst_a_f.a;
+    } else if (blend.alpha.operation == GPUBlendOperation::REVERSE_SUBTRACT) {
+        alpha = dst.a * dst_a_f.a - src.a * src_a_f.a;
+    } else if (blend.alpha.operation == GPUBlendOperation::MIN) {
+        alpha = std::min(src.a, dst.a);
+    } else if (blend.alpha.operation == GPUBlendOperation::MAX) {
+        alpha = std::max(src.a, dst.a);
+    } else {
+        alpha = src.a;
+    }
+
+    return Vector4(rgb, std::clamp(alpha, 0.0f, 1.0f));
 }
 
 void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const SoftRasterizerContext& ctx)
@@ -211,11 +265,12 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
     float signed_area = (v1.screen.x - v0.screen.x) * (v2.screen.y - v0.screen.y) -
                         (v1.screen.y - v0.screen.y) * (v2.screen.x - v0.screen.x);
 
-    bool ccw = (signed_area < 0.0f); // with inverted Y viewport, signed_area < 0 is CCW
-    if (ctx.primitive.front_face == GPUFrontFace::CW) ccw = !ccw;
+    bool is_screen_ccw = (signed_area < 0.0f);
+    bool is_front      = is_screen_ccw;
+    if (ctx.primitive.front_face == GPUFrontFace::CW) is_front = !is_front;
 
-    if (ctx.primitive.cull_mode == GPUCullMode::BACK && !ccw) return;
-    if (ctx.primitive.cull_mode == GPUCullMode::FRONT && ccw) return;
+    if (ctx.primitive.cull_mode == GPUCullMode::BACK && !is_front) return;
+    if (ctx.primitive.cull_mode == GPUCullMode::FRONT && is_front) return;
 
     auto is_top_left = [](const Vector2& a, const Vector2& b, bool is_ccw) -> bool {
         float dx = b.x - a.x;
@@ -227,13 +282,9 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
         }
     };
 
-    bool tl0 = is_top_left(Vector2(v1.screen.x, v1.screen.y), Vector2(v2.screen.x, v2.screen.y), ccw);
-    bool tl1 = is_top_left(Vector2(v2.screen.x, v2.screen.y), Vector2(v0.screen.x, v0.screen.y), ccw);
-    bool tl2 = is_top_left(Vector2(v0.screen.x, v0.screen.y), Vector2(v1.screen.x, v1.screen.y), ccw);
-
-    float bias0 = tl0 ? 0.0f : 1e-5f;
-    float bias1 = tl1 ? 0.0f : 1e-5f;
-    float bias2 = tl2 ? 0.0f : 1e-5f;
+    bool tl0 = is_top_left(Vector2(v1.screen.x, v1.screen.y), Vector2(v2.screen.x, v2.screen.y), is_screen_ccw);
+    bool tl1 = is_top_left(Vector2(v2.screen.x, v2.screen.y), Vector2(v0.screen.x, v0.screen.y), is_screen_ccw);
+    bool tl2 = is_top_left(Vector2(v0.screen.x, v0.screen.y), Vector2(v1.screen.x, v1.screen.y), is_screen_ccw);
 
     float inv_area = 1.0f / signed_area;
 
@@ -267,9 +318,18 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
     float B1 = (v0.screen.x - v2.screen.x) * inv_area;
     float C1 = (v2.screen.x * v0.screen.y - v2.screen.y * v0.screen.x) * inv_area;
 
-    float A2 = -A0 - A1;
-    float B2 = -B0 - B1;
-    float C2 = 1.0f - C0 - C1;
+    float A2 = (v0.screen.y - v1.screen.y) * inv_area;
+    float B2 = (v1.screen.x - v0.screen.x) * inv_area;
+    float C2 = (v0.screen.x * v1.screen.y - v0.screen.y * v1.screen.x) * inv_area;
+
+    float len0 = std::hypot(A0, B0);
+    float len1 = std::hypot(A1, B1);
+    float len2 = std::hypot(A2, B2);
+
+    constexpr float edge_px_eps = 0.002f;
+    float           bias0       = (tl0 ? -edge_px_eps : edge_px_eps) * len0;
+    float           bias1       = (tl1 ? -edge_px_eps : edge_px_eps) * len1;
+    float           bias2       = (tl2 ? -edge_px_eps : edge_px_eps) * len2;
 
     auto process_pixel = [&](int32_t x, int32_t y, float px, float py, float w0, float w1, float w2, float z, float w) {
         // depth test

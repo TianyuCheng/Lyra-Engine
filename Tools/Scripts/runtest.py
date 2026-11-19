@@ -405,13 +405,27 @@ def run_rhi_tests(args, buckets, on_progress=None):
             results[test_name][backend] = test_result
 
             if proc_success:
+                test_cfg_path = os.path.join(git_root, "Tests", test_name, "config.json")
+                cur_mismatch_thresh = args.mismatch_threshold
+                cur_rmse_thresh = args.rmse_threshold
+                cur_pixel_tol = args.pixel_tolerance
+                if os.path.exists(test_cfg_path):
+                    try:
+                        with open(test_cfg_path, "r") as cfg_f:
+                            cfg_data = json.load(cfg_f)
+                            cur_mismatch_thresh = cfg_data.get("mismatch_threshold", cur_mismatch_thresh)
+                            cur_rmse_thresh = cfg_data.get("rmse_threshold", cur_rmse_thresh)
+                            cur_pixel_tol = cfg_data.get("pixel_tolerance", cur_pixel_tol)
+                    except Exception:
+                        pass
+
                 metrics = check_perceptual_mismatch(
                     ref_image,
                     test_result,
                     diff_output_path=diff_result,
-                    pixel_tolerance=args.pixel_tolerance,
-                    max_mismatch_pct=args.mismatch_threshold,
-                    rmse_threshold=args.rmse_threshold,
+                    pixel_tolerance=cur_pixel_tol,
+                    max_mismatch_pct=cur_mismatch_thresh,
+                    rmse_threshold=cur_rmse_thresh,
                 )
                 results[test_name]["_metrics"][backend] = metrics
                 if metrics.get("diff_image"):

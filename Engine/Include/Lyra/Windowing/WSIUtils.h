@@ -44,6 +44,8 @@ namespace lyra
     {
         void* window = nullptr;
         void* native = nullptr;
+
+        FORCE_INLINE bool valid() const { return window != nullptr; }
     };
 
 } // namespace lyra

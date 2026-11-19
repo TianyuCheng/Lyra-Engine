@@ -187,7 +187,7 @@ static void imgui_update_texture(GPUCommandBuffer cmdbuffer, GUIRendererData* re
 
     GPUTexelCopyBufferInfo source{};
     source.buffer         = staging;
-    source.bytes_per_row  = tex->GetPitch();
+    source.bytes_per_row  = row_pitch;
     source.offset         = 0;
     source.rows_per_image = tex->Height;
 
@@ -759,7 +759,9 @@ void GUIRenderer::reset()
     pipeline_data->frame_index = (pipeline_data->frame_index + 1) % pipeline_data->frame_count;
 
     // update monitor state
-    update_monitor_state();
+    if (platform_data->primary_window.valid()) {
+        update_monitor_state();
+    }
 }
 
 void GUIRenderer::prepare(GPUCommandBuffer cmdbuffer)
@@ -805,6 +807,12 @@ void GUIRenderer::update()
         delta_time = 1.0f / 60.0f;
     }
 
+    if (!platform_data->primary_window.valid()) {
+        auto& io     = ImGui::GetIO();
+        io.DeltaTime = delta_time;
+        return;
+    }
+
     // update window inputs
     for (auto& window : platform_data->window_contexts) {
         WSI::api()->query_input_events(window.window, window.events);
@@ -819,24 +827,33 @@ void GUIRenderer::update()
 
 void GUIRenderer::resize()
 {
-    uint width, height;
-    WSI::api()->get_window_size(descriptor.window, width, height);
+    auto& io = ImGui::GetIO();
+    if (descriptor.window.valid()) {
+        uint width, height;
+        WSI::api()->get_window_size(descriptor.window, width, height);
 
-    float fb_xscale, fb_yscale;
-    WSI::api()->get_framebuffer_scale(descriptor.window, fb_xscale, fb_yscale);
+        float fb_xscale, fb_yscale;
+        WSI::api()->get_framebuffer_scale(descriptor.window, fb_xscale, fb_yscale);
 
-    float dpi_xscale, dpi_yscale;
-    WSI::api()->get_content_scale(descriptor.window, dpi_xscale, dpi_yscale);
+        float dpi_xscale, dpi_yscale;
+        WSI::api()->get_content_scale(descriptor.window, dpi_xscale, dpi_yscale);
 
-    auto& io                   = ImGui::GetIO();
-    io.DisplaySize             = ImVec2(static_cast<float>(width), static_cast<float>(height));
-    io.DisplayFramebufferScale = ImVec2(fb_xscale, fb_yscale);
-    io.ConfigDpiScaleFonts     = true; // [Experimental] Automatically overwrite style.FontScaleDpi in Begin() when Monitor DPI changes. This will scale fonts but _NOT_ scale sizes/padding for now.
-    io.ConfigDpiScaleViewports = true; // [Experimental] Scale Dear ImGui and Platform Windows when Monitor DPI changes.
+        io.DisplaySize             = ImVec2(static_cast<float>(width), static_cast<float>(height));
+        io.DisplayFramebufferScale = ImVec2(fb_xscale, fb_yscale);
+        io.ConfigDpiScaleFonts     = true; // [Experimental] Automatically overwrite style.FontScaleDpi in Begin() when Monitor DPI changes. This will scale fonts but _NOT_ scale sizes/padding for now.
+        io.ConfigDpiScaleViewports = true; // [Experimental] Scale Dear ImGui and Platform Windows when Monitor DPI changes.
 
-    ImGuiStyle& style   = ImGui::GetStyle();
-    style.FontScaleDpi  = std::max(dpi_xscale, dpi_yscale);
-    style.FontScaleMain = std::max(dpi_xscale, dpi_yscale);
+        ImGuiStyle& style   = ImGui::GetStyle();
+        style.FontScaleDpi  = std::max(dpi_xscale, dpi_yscale);
+        style.FontScaleMain = std::max(dpi_xscale, dpi_yscale);
+    } else {
+        io.DisplaySize             = ImVec2(static_cast<float>(descriptor.width > 0 ? descriptor.width : 960),
+                        static_cast<float>(descriptor.height > 0 ? descriptor.height : 540));
+        io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+        ImGuiStyle& style          = ImGui::GetStyle();
+        style.FontScaleDpi         = 1.0f;
+        style.FontScaleMain        = 1.0f;
+    }
 }
 
 void GUIRenderer::destroy()
@@ -864,7 +881,9 @@ void GUIRenderer::destroy()
     io.BackendFlags            = 0;
     io.BackendPlatformUserData = nullptr;
     io.BackendRendererUserData = nullptr;
-    imgui_delete_window_context(platform_data.get(), platform_data->primary_window);
+    if (platform_data->primary_window.valid()) {
+        imgui_delete_window_context(platform_data.get(), platform_data->primary_window);
+    }
 
     // unset primary viewport data
     auto viewport = ImGui::GetMainViewport();
@@ -874,8 +893,11 @@ void GUIRenderer::destroy()
 
     // manually clean up rest of the viewports
     auto& window_contexts = platform_data->window_contexts;
-    for (auto& window_context : window_contexts)
-        WSI::api()->delete_window(window_context.window);
+    for (auto& window_context : window_contexts) {
+        if (window_context.window.valid()) {
+            WSI::api()->delete_window(window_context.window);
+        }
+    }
 
     // clean up Dear ImGui context
     ImGui::DestroyPlatformWindows();
@@ -969,7 +991,7 @@ void GUIRenderer::init_backend_flags(const GUIDescriptor& descriptor)
     io.BackendFlags |= ImGuiBackendFlags_RendererHasTextures;  // we can honor ImGuiPlatformIO::Textures[] requests during render
 
     // viewport backend flags
-    if (descriptor.viewports) {
+    if (descriptor.viewports && descriptor.window.valid()) {
         io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports;
         io.BackendFlags |= ImGuiBackendFlags_PlatformHasViewports;    // we can create multi-viewports on the Platform side (optional)
         io.BackendFlags |= ImGuiBackendFlags_HasMouseHoveredViewport; // we can call io.AddMouseViewportEvent() with correct data (optional)
@@ -985,14 +1007,15 @@ void GUIRenderer::init_platform_data(const GUIDescriptor& descriptor)
     platform_data->primary_window = descriptor.window;
     platform_data->context        = ImGui::GetCurrentContext();
     platform_data->elapsed        = 0.0f;
-    assert(platform_data->primary_window.window != nullptr && "Expect a valid handle for primary window!");
 
     // initialize platform backend data
     io.BackendPlatformUserData = platform_data.get();
-    io.BackendPlatformName     = "lyra-window";
+    io.BackendPlatformName     = descriptor.window.valid() ? "lyra-window" : "lyra-headless";
 
-    ImGuiContext* context = ImGui::GetCurrentContext();
-    imgui_create_window_context(platform_data.get(), descriptor.window, context);
+    if (descriptor.window.valid()) {
+        ImGuiContext* context = ImGui::GetCurrentContext();
+        imgui_create_window_context(platform_data.get(), descriptor.window, context);
+    }
 }
 
 void GUIRenderer::init_pipeline_data(const GUIDescriptor& descriptor)
@@ -1005,7 +1028,7 @@ void GUIRenderer::init_pipeline_data(const GUIDescriptor& descriptor)
     auto  compiler = Compiler(descriptor.compiler);
 
     pipeline_data              = std::make_unique<GUIPipelineData>();
-    pipeline_data->frame_count = surface.get_image_count();
+    pipeline_data->frame_count = surface.valid() ? surface.get_image_count() : 3;
     pipeline_data->frame_index = 0;
 
     // shader source
@@ -1082,7 +1105,7 @@ void GUIRenderer::init_pipeline_data(const GUIDescriptor& descriptor)
 
         // color target
         GPUColorTargetState color_state{};
-        color_state.format                 = surface.get_current_format();
+        color_state.format                 = surface.valid() ? surface.get_current_format() : descriptor.format;
         color_state.blend_enable           = true;
         color_state.blend.color.operation  = GPUBlendOperation::ADD;
         color_state.blend.color.src_factor = GPUBlendFactor::SRC_ALPHA;
@@ -1150,32 +1173,36 @@ void GUIRenderer::init_viewport_data(const GUIDescriptor& descriptor)
 {
     ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
 
-    // query window properties
-    uint  width, height;
-    float xscale, yscale;
-    WSI::api()->get_window_size(descriptor.window, width, height);
-    WSI::api()->get_content_scale(descriptor.window, xscale, yscale);
+    if (descriptor.window.valid()) {
+        // query window properties
+        uint  width, height;
+        float xscale, yscale;
+        WSI::api()->get_window_size(descriptor.window, width, height);
+        WSI::api()->get_content_scale(descriptor.window, xscale, yscale);
 
-    // setup platform monitors
-    update_monitor_state();
+        // setup platform monitors
+        update_monitor_state();
 
-    // multi-viewport specific methods
-    if (descriptor.viewports) {
-        platform_io.Platform_CreateWindow              = platform_create_window;
-        platform_io.Platform_DestroyWindow             = platform_delete_window;
-        platform_io.Platform_ShowWindow                = platform_show_window;
-        platform_io.Platform_SetWindowPos              = platform_set_window_pos;
-        platform_io.Platform_GetWindowPos              = platform_get_window_pos;
-        platform_io.Platform_SetWindowSize             = platform_set_window_size;
-        platform_io.Platform_GetWindowSize             = platform_get_window_size;
-        platform_io.Platform_GetWindowFramebufferScale = platform_get_framebuffer_scale;
-        platform_io.Platform_SetWindowFocus            = platform_set_window_focus;
-        platform_io.Platform_GetWindowFocus            = platform_get_window_focus;
-        platform_io.Platform_GetWindowMinimized        = platform_get_window_minimized;
-        platform_io.Platform_SetWindowTitle            = platform_set_window_title;
-        platform_io.Platform_RenderWindow              = platform_render_window;
-        platform_io.Platform_SwapBuffers               = platform_swap_buffers;
-        platform_io.Platform_SetWindowAlpha            = platform_set_window_alpha;
+        // multi-viewport specific methods
+        if (descriptor.viewports) {
+            platform_io.Platform_CreateWindow              = platform_create_window;
+            platform_io.Platform_DestroyWindow             = platform_delete_window;
+            platform_io.Platform_ShowWindow                = platform_show_window;
+            platform_io.Platform_SetWindowPos              = platform_set_window_pos;
+            platform_io.Platform_GetWindowPos              = platform_get_window_pos;
+            platform_io.Platform_SetWindowSize             = platform_set_window_size;
+            platform_io.Platform_GetWindowSize             = platform_get_window_size;
+            platform_io.Platform_GetWindowFramebufferScale = platform_get_framebuffer_scale;
+            platform_io.Platform_SetWindowFocus            = platform_set_window_focus;
+            platform_io.Platform_GetWindowFocus            = platform_get_window_focus;
+            platform_io.Platform_GetWindowMinimized        = platform_get_window_minimized;
+            platform_io.Platform_SetWindowTitle            = platform_set_window_title;
+            platform_io.Platform_RenderWindow              = platform_render_window;
+            platform_io.Platform_SwapBuffers               = platform_swap_buffers;
+            platform_io.Platform_SetWindowAlpha            = platform_set_window_alpha;
+        }
+    } else {
+        update_monitor_state();
     }
 
     // register main window handle (which is owned by the main application, not by us)
@@ -1191,7 +1218,7 @@ void GUIRenderer::init_viewport_data(const GUIDescriptor& descriptor)
     viewport->PlatformUserData      = platform_data.get();
     viewport->PlatformHandle        = vd->window.window;
     viewport->PlatformHandleRaw     = vd->window.window;
-    viewport->PlatformWindowCreated = true;
+    viewport->PlatformWindowCreated = descriptor.window.valid();
 }
 
 void GUIRenderer::init_dummy_texture()
@@ -1337,6 +1364,19 @@ void GUIRenderer::update_viewport_state(ImGuiIO& io, const GUIWindowContext& ctx
 void GUIRenderer::update_monitor_state()
 {
     auto& platform_io = ImGui::GetPlatformIO();
+
+    if (!platform_data->primary_window.valid()) {
+        platform_io.Monitors.clear();
+        ImGuiIO&             io = ImGui::GetIO();
+        ImGuiPlatformMonitor monitor;
+        monitor.MainPos  = ImVec2(0.0f, 0.0f);
+        monitor.MainSize = io.DisplaySize;
+        monitor.WorkPos  = ImVec2(0.0f, 0.0f);
+        monitor.WorkSize = io.DisplaySize;
+        monitor.DpiScale = 1.0f;
+        platform_io.Monitors.push_back(monitor);
+        return;
+    }
 
     // query monitors
     uint monitor_count = 0;
