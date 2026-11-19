@@ -184,7 +184,7 @@ def do_format(args: argparse.Namespace):
     target_files = [
         str(PROJECT_ROOT / f)
         for f in all_files
-        if not any(pattern in f for pattern in exclude_patterns)
+        if (PROJECT_ROOT / f).exists() and not any(pattern in f for pattern in exclude_patterns)
     ]
 
     if not target_files:

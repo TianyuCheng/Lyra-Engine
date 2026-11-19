@@ -148,6 +148,7 @@ struct D3D12BindGroupHeapAllocator
     BlockAllocator<std::byte> allocator;
     uint                      capacity  = 0;
     uint                      increment = 0;
+    Mutex                     mutex;
 
     void init(uint capacity, D3D12_DESCRIPTOR_HEAP_TYPE type, D3D12_DESCRIPTOR_HEAP_FLAGS flags);
     void reset();
@@ -223,6 +224,7 @@ struct D3D12Texture
     ID3D12Resource*      texture    = nullptr;
     D3D12MA::Allocation* allocation = nullptr;
     DXGI_FORMAT          format     = DXGI_FORMAT_UNKNOWN;
+    GPUTextureFormat     rhi_format = GPUTextureFormat::RGBA8UNORM;
     GPUExtent2D          area       = {};
     GPUTextureUsageFlags usages     = 0;
     uint                 samples    = 1;
@@ -244,12 +246,16 @@ struct D3D12TextureView
     // differentiate between different usages, so the same image view can
     // be bound for different usages. For D3D12 we will have to create multiple
     // descriptors if there are multiple usages.
-    D3D12CPUDescriptor rtv_view = {};
-    D3D12CPUDescriptor dsv_view = {};
-    D3D12CPUDescriptor srv_view = {};
-    D3D12CPUDescriptor uav_view = {};
+    D3D12CPUDescriptor rtv_view              = {};
+    D3D12CPUDescriptor dsv_view              = {};
+    D3D12CPUDescriptor dsv_read_only_depth   = {};
+    D3D12CPUDescriptor dsv_read_only_stencil = {};
+    D3D12CPUDescriptor dsv_read_only_all     = {};
+    D3D12CPUDescriptor srv_view              = {};
+    D3D12CPUDescriptor uav_view              = {};
 
-    GPUExtent2D area; // used only for RenderArea
+    GPUTextureFormat format = GPUTextureFormat::RGBA8UNORM;
+    GPUExtent2D      area; // used only for RenderArea
 
     // implementation in D3D12Texture.cpp
     explicit D3D12TextureView();
@@ -262,9 +268,11 @@ struct D3D12TextureView
 
     void destroy();
 
+    auto get_dsv(bool depth_read_only, bool stencil_read_only) const -> D3D12_CPU_DESCRIPTOR_HANDLE;
+
     bool valid() const
     {
-        return rtv_view.valid() || dsv_view.valid() || srv_view.valid() || uav_view.valid();
+        return rtv_view.valid() || dsv_view.valid() || dsv_read_only_depth.valid() || srv_view.valid() || uav_view.valid();
     }
 };
 

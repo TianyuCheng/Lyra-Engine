@@ -245,10 +245,11 @@ EditorGridData EditorGridPass::add(
             color_attachment.store_op = GPUStoreOp::STORE;
 
             // depth attachment: load scene depth buffer for depth-testing against ground plane
-            auto depth_attachment           = GPURenderPassDepthStencilAttachment{};
-            depth_attachment.view           = depth_tex->view;
-            depth_attachment.depth_load_op  = GPULoadOp::LOAD;
-            depth_attachment.depth_store_op = GPUStoreOp::STORE;
+            auto depth_attachment            = GPURenderPassDepthStencilAttachment{};
+            depth_attachment.view            = depth_tex->view;
+            depth_attachment.depth_load_op   = GPULoadOp::LOAD;
+            depth_attachment.depth_store_op  = GPUStoreOp::STORE;
+            depth_attachment.depth_read_only = true;
 
             auto render_pass                     = GPURenderPassDescriptor{};
             render_pass.color_attachments        = color_attachment;

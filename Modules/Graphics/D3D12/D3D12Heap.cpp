@@ -196,7 +196,6 @@ void D3D12DescriptorHeap::reset()
 void D3D12DescriptorHeap::destroy()
 {
     for (auto& pool : pools) {
-        pool.reset();
         pool.destroy();
     }
     pools.clear();
@@ -219,18 +218,25 @@ D3D12DescriptorPool& D3D12DescriptorHeap::create_new_pool(uint allocate_count)
 
 D3D12DescriptorPool& D3D12DescriptorHeap::find_available_pool(uint allocate_count)
 {
-    if (pools.empty() || pools.back().count + allocate_count > pools.back().capacity)
-        create_new_pool(allocate_count);
+    for (auto& pool : pools) {
+        if (pool.count + allocate_count <= pool.capacity) {
+            return pool;
+        }
+    }
 
-    return pools.back();
+    return create_new_pool(allocate_count);
 }
 #pragma endregion D3D12DescriptorHeap
 
 #pragma region D3D12DescriptorPool
 void D3D12DescriptorPool::init(D3D12BindGroupHeapAllocator* allocator, uint capacity)
 {
-    this->allocation = allocator->allocator.allocate(capacity);
-    this->capacity   = capacity;
+    this->allocator = allocator;
+    {
+        LockGuard lock(allocator->mutex);
+        this->allocation = allocator->allocator.allocate(capacity);
+    }
+    this->capacity = capacity;
 
     if (!allocation.valid()) {
         get_logger()->error("Failed to allocate descriptor pool capacity {} from allocator!", capacity);
@@ -254,7 +260,13 @@ void D3D12DescriptorPool::reset()
 
 void D3D12DescriptorPool::destroy()
 {
-    count = 0;
+    if (allocator && allocation.valid()) {
+        LockGuard lock(allocator->mutex);
+        allocator->allocator.deallocate(allocation);
+        allocation = {};
+    }
+    count    = 0;
+    capacity = 0;
 }
 #pragma endregion D3D12DescriptorPool
 
@@ -268,8 +280,10 @@ D3D12BindGroupHeap::D3D12BindGroupHeap(const GPUBindGroupHeapDescriptor& desc)
 {
     auto rhi = get_rhi();
 
+    uint sampler_page_size = std::clamp(desc.page_size / 32, 16u, 64u);
+
     default_heap.init(&rhi->gpu_default_heap, desc.page_size);
-    sampler_heap.init(&rhi->gpu_sampler_heap, desc.page_size);
+    sampler_heap.init(&rhi->gpu_sampler_heap, sampler_page_size);
 
     memory = std::make_shared<MemoryArena>(4096 * sizeof(D3D12BindGroup));
 }

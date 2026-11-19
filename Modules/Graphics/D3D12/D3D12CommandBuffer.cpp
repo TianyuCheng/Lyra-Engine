@@ -180,44 +180,68 @@ void cmd::begin_render_pass(GPUCommandEncoderHandle cmdbuffer, const GPURenderPa
 
     // set up depth stencil parameters
     D3D12_RENDER_PASS_DEPTH_STENCIL_DESC ds_desc = {};
+    D3D12_RENDER_PASS_FLAGS              flags   = D3D12_RENDER_PASS_FLAG_NONE;
     if (has_depth_stencil) {
-        auto view = fetch_resource(rhi->views, descriptor.depth_stencil_attachment.view).dsv_view.handle;
+        auto& view_res          = fetch_resource(rhi->views, descriptor.depth_stencil_attachment.view);
+        bool  has_stencil       = is_stencil_format(view_res.format);
+        bool  depth_read_only   = descriptor.depth_stencil_attachment.depth_read_only;
+        bool  stencil_read_only = descriptor.depth_stencil_attachment.stencil_read_only;
+
+        if (depth_read_only) {
+            flags |= D3D12_RENDER_PASS_FLAG_BIND_READ_ONLY_DEPTH;
+        }
+        if (stencil_read_only && has_stencil) {
+            flags |= D3D12_RENDER_PASS_FLAG_BIND_READ_ONLY_STENCIL;
+        }
 
         // set CPU descriptor handle for the DSV
-        ds_desc.cpuDescriptor = view;
+        ds_desc.cpuDescriptor = view_res.get_dsv(depth_read_only, stencil_read_only);
 
-        // set depth beginning access
-        if (descriptor.depth_stencil_attachment.depth_load_op == GPULoadOp::CLEAR) {
-            ds_desc.DepthBeginningAccess.Type                                = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_CLEAR;
-            ds_desc.DepthBeginningAccess.Clear.ClearValue.DepthStencil.Depth = descriptor.depth_stencil_attachment.depth_clear_value;
-        } else if (descriptor.depth_stencil_attachment.depth_load_op == GPULoadOp::LOAD) {
+        // set depth beginning and ending access
+        if (depth_read_only) {
             ds_desc.DepthBeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE;
+            ds_desc.DepthEndingAccess.Type    = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE;
         } else {
-            ds_desc.DepthBeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_DISCARD;
+            if (descriptor.depth_stencil_attachment.depth_load_op == GPULoadOp::CLEAR) {
+                ds_desc.DepthBeginningAccess.Type                                = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_CLEAR;
+                ds_desc.DepthBeginningAccess.Clear.ClearValue.DepthStencil.Depth = descriptor.depth_stencil_attachment.depth_clear_value;
+            } else if (descriptor.depth_stencil_attachment.depth_load_op == GPULoadOp::LOAD) {
+                ds_desc.DepthBeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE;
+            } else {
+                ds_desc.DepthBeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_DISCARD;
+            }
+
+            if (descriptor.depth_stencil_attachment.depth_store_op == GPUStoreOp::STORE) {
+                ds_desc.DepthEndingAccess.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE;
+            } else {
+                ds_desc.DepthEndingAccess.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_DISCARD;
+            }
         }
 
-        // set stencil beginning access
-        if (descriptor.depth_stencil_attachment.stencil_load_op == GPULoadOp::CLEAR) {
-            ds_desc.StencilBeginningAccess.Type                                  = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_CLEAR;
-            ds_desc.StencilBeginningAccess.Clear.ClearValue.DepthStencil.Stencil = descriptor.depth_stencil_attachment.stencil_clear_value;
-        } else if (descriptor.depth_stencil_attachment.stencil_load_op == GPULoadOp::LOAD) {
-            ds_desc.StencilBeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE;
-        } else {
-            ds_desc.StencilBeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_DISCARD;
-        }
+        // set stencil beginning and ending access (only if stencil aspect is supported by the format)
+        if (has_stencil) {
+            if (stencil_read_only) {
+                ds_desc.StencilBeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE;
+                ds_desc.StencilEndingAccess.Type    = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE;
+            } else {
+                if (descriptor.depth_stencil_attachment.stencil_load_op == GPULoadOp::CLEAR) {
+                    ds_desc.StencilBeginningAccess.Type                                  = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_CLEAR;
+                    ds_desc.StencilBeginningAccess.Clear.ClearValue.DepthStencil.Stencil = descriptor.depth_stencil_attachment.stencil_clear_value;
+                } else if (descriptor.depth_stencil_attachment.stencil_load_op == GPULoadOp::LOAD) {
+                    ds_desc.StencilBeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE;
+                } else {
+                    ds_desc.StencilBeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_DISCARD;
+                }
 
-        // set depth ending access
-        if (descriptor.depth_stencil_attachment.depth_store_op == GPUStoreOp::STORE) {
-            ds_desc.DepthEndingAccess.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE;
+                if (descriptor.depth_stencil_attachment.stencil_store_op == GPUStoreOp::STORE) {
+                    ds_desc.StencilEndingAccess.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE;
+                } else {
+                    ds_desc.StencilEndingAccess.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_DISCARD;
+                }
+            }
         } else {
-            ds_desc.DepthEndingAccess.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_DISCARD;
-        }
-
-        // set stencil ending access
-        if (descriptor.depth_stencil_attachment.stencil_store_op == GPUStoreOp::STORE) {
-            ds_desc.StencilEndingAccess.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE;
-        } else {
-            ds_desc.StencilEndingAccess.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_DISCARD;
+            ds_desc.StencilBeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS;
+            ds_desc.StencilEndingAccess.Type    = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_NO_ACCESS;
         }
     }
 
@@ -227,8 +251,6 @@ void cmd::begin_render_pass(GPUCommandEncoderHandle cmdbuffer, const GPURenderPa
     // D3D12_RENDER_PASS_FLAG_ALLOW_UAV_WRITES - if you need UAV writes during render pass
     // D3D12_RENDER_PASS_FLAG_SUSPENDING_PASS - for tiled rendering scenarios
     // D3D12_RENDER_PASS_FLAG_RESUMING_PASS - for resuming suspended passes
-    D3D12_RENDER_PASS_FLAGS flags = D3D12_RENDER_PASS_FLAG_NONE;
-
     if (descriptor.occlusion_query_set.valid()) {
         cmd.query_set = fetch_resource(rhi->query_sets, descriptor.occlusion_query_set);
     }

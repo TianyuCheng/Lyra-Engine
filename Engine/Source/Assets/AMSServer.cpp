@@ -414,6 +414,9 @@ void AssetServer::purge()
 
 void AssetServer::flush()
 {
+    if (preview_api().flush) {
+        preview_api().flush();
+    }
     registry.flush(descriptor.registry);
 }
 
@@ -665,6 +668,9 @@ auto AssetServer::cook_asset_task(AssetCookerAPI* cooker, const Path& source_pat
             failed_cooks++;
         }
         pending_cooks--;
+        if (pending_cooks.load() == 0 && preview_api().flush) {
+            preview_api().flush();
+        }
     };
 
     try {

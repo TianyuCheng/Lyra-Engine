@@ -53,10 +53,8 @@ int main(int argc, char** argv)
     int res = context.run();
 
     if (context.shouldExit()) {
-        rhi->destroy();
         return res;
     }
 
-    rhi->destroy();
     return res;
 }

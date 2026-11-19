@@ -59,6 +59,11 @@ auto lyra::get_console_sink() -> Ref<console_sink_mt>
 
 auto lyra::create_logger(const String& name, LogLevel level) -> Logger
 {
+    if (auto existing = spdlog::get(name)) {
+        existing->set_level(level);
+        return existing;
+    }
+
     auto logger = std::make_shared<spdlog::logger>(name.c_str(),
         spdlog::sinks_init_list{
             get_stdout_sink(),

@@ -1,40 +1,44 @@
 #include <Lyra/Utilities/Plugin.h>
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/Assets/AMSPreview.h>
-#include "SoftwareRasterizer.h"
+#include "BatchPreviewDispatcher.h"
 
 using namespace lyra;
 
 static void configure_preview(AssetServer* manager, const JSON& options)
 {
-    preview::configure(manager, options);
+    preview::BatchPreviewDispatcher::instance().configure(manager, options);
 }
 
-static auto render_scene_api(const PreviewScene& scene) -> PreviewTexture
+static PreviewTexture render_scene_api(const PreviewScene& scene)
 {
-    return preview::rasterize_scene(scene);
+    return preview::BatchPreviewDispatcher::instance().render_scene(scene);
 }
 
-static auto generate_thumbnail_api(
-    const PreviewScene& scene,
-    JSON&               metadata) -> Future<Path>
+static Future<Path> generate_thumbnail_api(const PreviewScene& scene, JSON& metadata)
 {
-    Promise<Path> p;
-    Path          path = preview::generate_scene_thumbnail(scene, metadata);
-    p.set_value(path);
-    return p.get_future();
+    return preview::BatchPreviewDispatcher::instance().generate_thumbnail(scene, metadata);
+}
+
+static void flush_preview_api()
+{
+    preview::BatchPreviewDispatcher::instance().flush();
 }
 
 namespace lyra::preview
 {
     void prepare() {}
-    void cleanup() {}
+    void cleanup()
+    {
+        BatchPreviewDispatcher::instance().shutdown();
+    }
     auto create() -> AssetPreviewAPI
     {
         AssetPreviewAPI api{};
         api.configure          = configure_preview;
         api.render_scene       = render_scene_api;
         api.generate_thumbnail = generate_thumbnail_api;
+        api.flush              = flush_preview_api;
         return api;
     }
 } // namespace lyra::preview

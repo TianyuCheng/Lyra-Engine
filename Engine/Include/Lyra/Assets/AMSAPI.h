@@ -124,6 +124,11 @@ namespace lyra
          * @return Future<Path> resolving to relative thumbnail path, or empty path on failure.
          */
         Future<Path> (*generate_thumbnail)(const PreviewScene& scene, JSON& metadata);
+
+        /**
+         * @brief Flush any pending preview batches immediately.
+         */
+        void (*flush)();
     };
 
 } // namespace lyra

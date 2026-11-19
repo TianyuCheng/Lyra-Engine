@@ -3,15 +3,15 @@ import lyra;
 struct VertexInput
 {
     float2 pos   : POSITION;
-    float2 uv    : TEXCOORD0;
-    float4 color : COLOR0;
+    float2 uv    : TEXCOORD;
+    float4 color : COLOR;
 };
 
 struct VertexOutput
 {
     float4 pos   : SV_Position;
-    float2 uv    : TEXCOORD0;
-    float4 color : COLOR0;
+    float2 uv    : TEXCOORD;
+    float4 color : COLOR;
 };
 
 struct TextureInput

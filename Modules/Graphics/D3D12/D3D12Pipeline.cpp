@@ -49,22 +49,47 @@ D3D12Pipeline::D3D12Pipeline(const GPURenderPipelineDescriptor& desc)
     pso_desc.PS.pShaderBytecode = fs_shader.binary.data();
     pso_desc.PS.BytecodeLength  = static_cast<UINT>(fs_shader.binary.size());
 
+    // count total vertex attributes
+    uint total_attributes = 0;
+    for (const auto& layout : desc.vertex.buffers) {
+        total_attributes += static_cast<uint>(layout.attributes.size());
+    }
+
     // vertex input layouts
     uint                             buffer_index = 0;
     Vector<D3D12_INPUT_ELEMENT_DESC> input_elements;
-    input_elements.reserve(desc.vertex.buffers.size());
+    Vector<String>                   sanitized_semantics;
+    input_elements.reserve(total_attributes);
+    sanitized_semantics.reserve(total_attributes);
     vertex_buffer_strides.reserve(desc.vertex.buffers.size());
     for (auto& layout : desc.vertex.buffers) {
 
         for (const auto& attribute : layout.attributes) {
             D3D12_INPUT_ELEMENT_DESC element = {};
-            element.SemanticName             = attribute.shader_semantic;
-            element.SemanticIndex            = attribute.shader_location;
-            element.Format                   = d3d12enum(attribute.format);
-            element.InputSlot                = static_cast<UINT>(buffer_index);
-            element.AlignedByteOffset        = static_cast<UINT>(attribute.offset);
-            element.InputSlotClass           = d3d12enum(layout.step_mode);
-            element.InstanceDataStepRate     = (layout.step_mode == GPUVertexStepMode::INSTANCE) ? 1 : 0;
+            if (attribute.shader_semantic && attribute.shader_semantic[0] != '\0') {
+                String sem       = attribute.shader_semantic;
+                UINT   sem_index = 0;
+
+                // D3D12 SemanticName string cannot end with digits (e.g. "TEXCOORD0" -> "TEXCOORD", SemanticIndex 0)
+                usize last_non_digit = sem.find_last_not_of("0123456789");
+                if (last_non_digit != String::npos && last_non_digit + 1 < sem.size()) {
+                    String digits = sem.substr(last_non_digit + 1);
+                    sem_index     = static_cast<UINT>(std::stoul(digits));
+                    sem           = sem.substr(0, last_non_digit + 1);
+                }
+                sanitized_semantics.push_back(std::move(sem));
+                element.SemanticName  = sanitized_semantics.back().c_str();
+                element.SemanticIndex = sem_index;
+            } else {
+                sanitized_semantics.push_back("TEXCOORD");
+                element.SemanticName  = sanitized_semantics.back().c_str();
+                element.SemanticIndex = static_cast<UINT>(attribute.shader_location);
+            }
+            element.Format               = d3d12enum(attribute.format);
+            element.InputSlot            = static_cast<UINT>(buffer_index);
+            element.AlignedByteOffset    = static_cast<UINT>(attribute.offset);
+            element.InputSlotClass       = d3d12enum(layout.step_mode);
+            element.InstanceDataStepRate = (layout.step_mode == GPUVertexStepMode::INSTANCE) ? 1 : 0;
 
             // record vertex input elements
             input_elements.push_back(element);

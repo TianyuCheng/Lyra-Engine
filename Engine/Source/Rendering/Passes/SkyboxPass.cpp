@@ -262,7 +262,11 @@ SkyboxData SkyboxPass::add(
         "SkyboxPass",
         [&](SkyboxData& data, FrameGraphPassBuilder& pass_builder) {
             data.color_output = pass_builder.render(color_target);
-            data.depth_input  = pass_builder.read(depth_target);
+            if (depth_load_op == GPULoadOp::CLEAR) {
+                data.depth_input = pass_builder.render(depth_target);
+            } else {
+                data.depth_input = pass_builder.read(depth_target);
+            }
         },
         [this, current_slot, depth_load_op, color_load_op, clear_color = scene.clear_color, extent = view.render_extent](const SkyboxData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
             if (!ctx || !ctx->cmdlist.handle.valid() || !pipeline.valid()) {
@@ -286,6 +290,7 @@ SkyboxData SkyboxPass::add(
             depth_attachment.depth_clear_value = 1.0f;
             depth_attachment.depth_load_op     = depth_load_op;
             depth_attachment.depth_store_op    = GPUStoreOp::STORE;
+            depth_attachment.depth_read_only   = (depth_load_op == GPULoadOp::LOAD);
 
             auto desc                     = GPURenderPassDescriptor{};
             desc.color_attachments        = color_attachment;

@@ -5,6 +5,7 @@
 
 #include "helper.h"
 #include <Lyra/JobSystem/JobSystem.h>
+#include <Lyra/Assets/AMSPreview.h>
 
 using namespace lyra;
 
@@ -574,6 +575,143 @@ TEST_CASE("vfs::domain_isolation")
     CHECK_FALSE(loader.exists("engine_shader.hlsl"));
     CHECK_FALSE(loader.exists("game_model.gltf"));
     CHECK_FALSE(loader.exists("/game_model.gltf"));
+
+    fs::remove_all(temp_dir);
+}
+
+TEST_CASE("ams::batched_preview_api")
+{
+    struct ScopedJobSystem
+    {
+        ScopedJobSystem() { JobScheduler::init(); }
+        ~ScopedJobSystem() { JobScheduler::shutdown(); }
+    } job_system_scope;
+
+    auto temp_dir   = fs::temp_directory_path() / "lyra_preview_batch_test";
+    auto caches_dir = temp_dir / "Caches";
+    fs::create_directories(caches_dir);
+
+    JSON config_opts;
+    config_opts["caches_root"] = caches_dir.string();
+    config_opts["width"]       = 64;
+    config_opts["height"]      = 64;
+    config_opts["enable_ssaa"] = true;
+    preview_api().configure(nullptr, config_opts);
+
+    // 1. Synchronous render_scene test
+    Vector<Vector3> positions = {
+        Vector3(-0.5f, -0.5f, 0.0f),
+        Vector3(0.5f, -0.5f, 0.0f),
+        Vector3(0.0f, 0.5f, 0.0f)};
+    Vector<Vector3> normals = {
+        Vector3(0.0f, 0.0f, 1.0f),
+        Vector3(0.0f, 0.0f, 1.0f),
+        Vector3(0.0f, 0.0f, 1.0f)};
+    Vector<uint> indices      = {0, 1, 2};
+    auto         single_scene = PreviewScene::make_mesh(positions, normals, {}, indices);
+
+    auto rendered = preview_api().render_scene(single_scene);
+    CHECK_EQ(rendered.width, 64);
+    CHECK_EQ(rendered.height, 64);
+    CHECK_EQ(rendered.pixels.size(), 64 * 64 * 4);
+
+    // 2. Batched asynchronous generate_thumbnail test
+    constexpr usize      BATCH_COUNT = 8;
+    Vector<Future<Path>> futures;
+    Vector<JSON>         metadatas(BATCH_COUNT);
+
+    for (usize i = 0; i < BATCH_COUNT; ++i) {
+        metadatas[i]["guid"] = 1000 + i;
+        auto mesh_scene      = PreviewScene::make_mesh(positions, normals, {}, indices);
+        auto fut             = preview_api().generate_thumbnail(mesh_scene, metadatas[i]);
+        CHECK(metadatas[i].contains("thumbnail"));
+        CHECK_FALSE(metadatas[i]["thumbnail"].get<String>().empty());
+        futures.push_back(std::move(fut));
+    }
+
+    // Flush batch to disk
+    if (preview_api().flush) {
+        preview_api().flush();
+    }
+
+    for (usize i = 0; i < BATCH_COUNT; ++i) {
+        Path rel_path = futures[i].get();
+        CHECK_FALSE(rel_path.empty());
+        Path abs_path = caches_dir / rel_path;
+        CHECK(fs::exists(abs_path));
+    }
+
+    // 3. Flat 2D texture preview test
+    PreviewTexture dummy_tex;
+    dummy_tex.width    = 32;
+    dummy_tex.height   = 32;
+    dummy_tex.channels = 4;
+    dummy_tex.pixels.resize(32 * 32 * 4, 180);
+    auto flat_scene = PreviewScene::make_textured_quad(std::move(dummy_tex));
+
+    JSON flat_meta;
+    flat_meta["guid"] = 9999;
+    auto flat_fut     = preview_api().generate_thumbnail(flat_scene, flat_meta);
+    Path flat_rel     = flat_fut.get();
+    CHECK_FALSE(flat_rel.empty());
+    CHECK(fs::exists(caches_dir / flat_rel));
+
+    // 4. Test real GLB model preview if ABeautifulGame.glb exists
+    Path sample_glb = "C:/Users/tcheng/Downloads/ABeautifulGame.glb";
+    if (fs::exists(sample_glb)) {
+        if (!RHI::api()) {
+            RHIDescriptor rdesc{};
+            rdesc.backend = RHIBackend::VULKAN;
+            auto real_rhi = RHI::init(rdesc);
+            if (real_rhi) {
+                auto adapter = real_rhi->request_adapter();
+                adapter.request_device({});
+            }
+        }
+
+        auto assets_dir    = temp_dir / "GLB_Assets";
+        auto registry_file = temp_dir / "GLB_Assets.toml";
+        fs::create_directories(assets_dir);
+        fs::copy_file(sample_glb, assets_dir / "ABeautifulGame.glb", fs::copy_options::overwrite_existing);
+
+        FileLoader loader(FSLoader::NATIVE);
+        loader.mount("app://", caches_dir.c_str(), 1);
+        loader.mount("app://", assets_dir.c_str(), 0);
+
+        AMSDescriptor desc;
+        desc.app.assets_path = assets_dir.c_str();
+        desc.app.caches_path = caches_dir.c_str();
+        desc.loader          = &loader;
+        desc.registry        = registry_file.c_str();
+
+        AssetServer server(desc);
+        server.register_asset<MeshAsset>();
+        server.register_asset<MaterialAsset>();
+        server.register_asset<ModelAsset>();
+        server.register_asset<ModelAsset, ModelAsset::gltf>();
+
+        auto glb_fut  = server.import_asset("app://ABeautifulGame.glb", true);
+        auto glb_guid = glb_fut.get();
+        CHECK_NE(glb_guid, 0);
+
+        server.flush();
+
+        Path expected_metadata = assets_dir / "ABeautifulGame.glb.import";
+        CHECK(fs::exists(expected_metadata));
+        if (fs::exists(expected_metadata)) {
+            std::ifstream f(expected_metadata);
+            JSON          meta = JSON::parse(f);
+            CHECK(meta.contains("thumbnail"));
+            Path thumb_rel = meta["thumbnail"].get<String>();
+            CHECK_FALSE(thumb_rel.empty());
+            Path thumb_abs = caches_dir / thumb_rel;
+            CHECK(fs::exists(thumb_abs));
+
+            // Copy out thumbnail for inspection
+            auto out_thumb = fs::temp_directory_path() / "ABeautifulGame_thumb.png";
+            fs::copy_file(thumb_abs, out_thumb, fs::copy_options::overwrite_existing);
+        }
+    }
 
     fs::remove_all(temp_dir);
 }

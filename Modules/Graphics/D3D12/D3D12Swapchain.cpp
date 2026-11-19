@@ -28,9 +28,13 @@ D3D12Swapchain::D3D12Swapchain(const GPUSurfaceDescriptor& desc) : desc(desc)
     uint existing_image_available_fences = static_cast<uint>(image_available_fences.size());
     assert(existing_image_available_fences == 0u || existing_image_available_fences == logic_frame_count);
     if (existing_image_available_fences == 0u) {
+        auto rhi = get_rhi();
         image_available_fences.resize(logic_frame_count);
-        for (uint i = 0; i < logic_frame_count; i++)
-            api::create_fence(image_available_fences.at(i));
+        for (uint i = 0; i < logic_frame_count; i++) {
+            auto obj                     = D3D12Fence(true);
+            auto ind                     = rhi->fences.add(obj);
+            image_available_fences.at(i) = GPUFenceHandle::create(ind);
+        }
     }
 
     // create render complete semaphores (each image must have its own render complete semaphore)
@@ -149,6 +153,7 @@ void D3D12Swapchain::Frame::init(D3D12Swapchain* swp, uint backbuffer_index, uin
     D3D12Texture texture;
     texture.samples     = 1;
     texture.format      = infer_texture_format(swp->format);
+    texture.rhi_format  = swp->format;
     texture.area.width  = width;
     texture.area.height = height;
     texture.usages      = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::COPY_DST;

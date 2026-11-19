@@ -43,6 +43,7 @@ D3D12Texture::D3D12Texture(const GPUTextureDescriptor& desc)
 
     // record basic information
     format      = resource_desc.Format;
+    rhi_format  = desc.format;
     samples     = desc.sample_count;
     usages      = desc.usage;
     area.width  = desc.size.width;
@@ -71,11 +72,13 @@ D3D12TextureView::D3D12TextureView()
 
 D3D12TextureView::D3D12TextureView(const D3D12Texture& texture, const GPUTextureViewDescriptor& desc)
 {
+    this->format               = desc.format;
+    this->area                 = texture.area;
     GPUTextureUsageFlags usage = desc.usage.value == 0 ? texture.usages : desc.usage;
 
     // create texture view for render target / depth stencil
     if (usage.contains(GPUTextureUsage::RENDER_ATTACHMENT)) {
-        if (is_depth_stencil_format(desc.format)) {
+        if (is_depth_stencil_format(this->format)) {
             init_dsv(texture, desc);
         } else {
             init_rtv(texture, desc);
@@ -109,6 +112,21 @@ void D3D12TextureView::destroy()
         dsv_view.reset();
     }
 
+    if (dsv_read_only_depth.valid()) {
+        rhi->dsv_heap.recycle(dsv_read_only_depth);
+        dsv_read_only_depth.reset();
+    }
+
+    if (dsv_read_only_stencil.valid()) {
+        rhi->dsv_heap.recycle(dsv_read_only_stencil);
+        dsv_read_only_stencil.reset();
+    }
+
+    if (dsv_read_only_all.valid()) {
+        rhi->dsv_heap.recycle(dsv_read_only_all);
+        dsv_read_only_all.reset();
+    }
+
     if (srv_view.valid()) {
         rhi->cbv_srv_uav_heap.recycle(srv_view);
         srv_view.reset();
@@ -120,11 +138,26 @@ void D3D12TextureView::destroy()
     }
 }
 
+D3D12_CPU_DESCRIPTOR_HANDLE D3D12TextureView::get_dsv(bool depth_read_only, bool stencil_read_only) const
+{
+    bool has_stencil = is_stencil_format(format);
+    if (depth_read_only && stencil_read_only && has_stencil) {
+        return dsv_read_only_all.handle;
+    }
+    if (depth_read_only) {
+        return dsv_read_only_depth.handle;
+    }
+    if (stencil_read_only && has_stencil) {
+        return dsv_read_only_stencil.handle;
+    }
+    return dsv_view.handle;
+}
+
 void D3D12TextureView::init_rtv(const D3D12Texture& texture, const GPUTextureViewDescriptor& desc)
 {
     D3D12_RENDER_TARGET_VIEW_DESC view_desc = {};
 
-    view_desc.Format = infer_texture_format(desc.format);
+    view_desc.Format = infer_texture_format(this->format);
     switch (desc.dimension) {
         case GPUTextureViewDimension::x1D:
             view_desc.ViewDimension      = D3D12_RTV_DIMENSION_TEXTURE1D;
@@ -172,7 +205,7 @@ void D3D12TextureView::init_dsv(const D3D12Texture& texture, const GPUTextureVie
 {
     D3D12_DEPTH_STENCIL_VIEW_DESC view_desc = {};
 
-    view_desc.Format = infer_texture_format(desc.format);
+    view_desc.Format = infer_texture_format(this->format);
     switch (desc.dimension) {
         case GPUTextureViewDimension::x1D:
             view_desc.ViewDimension      = D3D12_DSV_DIMENSION_TEXTURE1D;
@@ -207,18 +240,40 @@ void D3D12TextureView::init_dsv(const D3D12Texture& texture, const GPUTextureVie
     }
 
     // RTV and DSV share the same view (because a texture cannot be both RTV and DSV)
-    auto rhi = get_rhi();
-    dsv_view = rhi->dsv_heap.allocate();
+    auto rhi         = get_rhi();
+    bool has_stencil = is_stencil_format(this->format);
+
+    // 1. Read-write DSV (DEPTH RW, STENCIL RW)
+    dsv_view        = rhi->dsv_heap.allocate();
+    view_desc.Flags = D3D12_DSV_FLAG_NONE;
     rhi->device->CreateDepthStencilView(texture.texture, &view_desc, dsv_view.handle);
+
+    // 2. Depth Read-Only DSV (DEPTH READ-ONLY, STENCIL RW)
+    dsv_read_only_depth = rhi->dsv_heap.allocate();
+    view_desc.Flags     = D3D12_DSV_FLAG_READ_ONLY_DEPTH;
+    rhi->device->CreateDepthStencilView(texture.texture, &view_desc, dsv_read_only_depth.handle);
+
+    // If format supports stencil, create stencil read-only and all read-only views
+    if (has_stencil) {
+        // 3. Stencil Read-Only DSV (DEPTH RW, STENCIL READ-ONLY)
+        dsv_read_only_stencil = rhi->dsv_heap.allocate();
+        view_desc.Flags       = D3D12_DSV_FLAG_READ_ONLY_STENCIL;
+        rhi->device->CreateDepthStencilView(texture.texture, &view_desc, dsv_read_only_stencil.handle);
+
+        // 4. All Read-Only DSV (DEPTH READ-ONLY, STENCIL READ-ONLY)
+        dsv_read_only_all = rhi->dsv_heap.allocate();
+        view_desc.Flags   = D3D12_DSV_FLAG_READ_ONLY_DEPTH | D3D12_DSV_FLAG_READ_ONLY_STENCIL;
+        rhi->device->CreateDepthStencilView(texture.texture, &view_desc, dsv_read_only_all.handle);
+    }
 }
 
 void D3D12TextureView::init_srv(const D3D12Texture& texture, const GPUTextureViewDescriptor& desc)
 {
     D3D12_SHADER_RESOURCE_VIEW_DESC view_desc = {};
 
-    view_desc.Format = is_depth_stencil_format(desc.format)
-                           ? infer_srv_depth_format(desc.format)
-                           : infer_texture_format(desc.format);
+    view_desc.Format = is_depth_stencil_format(this->format)
+                           ? infer_srv_depth_format(this->format)
+                           : infer_texture_format(this->format);
 
     view_desc.Shader4ComponentMapping = D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(
         D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_0,
@@ -291,7 +346,7 @@ void D3D12TextureView::init_uav(const D3D12Texture& texture, const GPUTextureVie
 {
     D3D12_UNORDERED_ACCESS_VIEW_DESC view_desc = {};
 
-    view_desc.Format = infer_texture_format(desc.format);
+    view_desc.Format = infer_texture_format(this->format);
     switch (desc.dimension) {
         case GPUTextureViewDimension::x1D:
             view_desc.ViewDimension      = D3D12_UAV_DIMENSION_TEXTURE1D;
