@@ -49,6 +49,12 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
     rhi->gpu_default_heap.init(65536, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
     rhi->gpu_sampler_heap.init(2048, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
 
+    // initialize command pool managers
+    rhi->graphics_pool_mgr.init(D3D12_COMMAND_LIST_TYPE_DIRECT);
+    rhi->compute_pool_mgr.init(D3D12_COMMAND_LIST_TYPE_COMPUTE);
+    rhi->transfer_pool_mgr.init(D3D12_COMMAND_LIST_TYPE_COPY);
+    rhi->bundle_pool_mgr.init(D3D12_COMMAND_LIST_TYPE_BUNDLE);
+
     // create a default frame (for headless cases)
     rhi->frames.emplace_back();
     rhi->frames.back().init();
@@ -67,6 +73,14 @@ void api::delete_device()
     for (auto& frame : rhi->frames)
         frame.destroy();
     rhi->frames.clear();
+
+    // clean up command pool managers and command buffers
+    rhi->graphics_pool_mgr.destroy();
+    rhi->compute_pool_mgr.destroy();
+    rhi->transfer_pool_mgr.destroy();
+    rhi->bundle_pool_mgr.destroy();
+    for (auto& cmd : rhi->command_buffers)
+        cmd.destroy();
 
     // clean up remaining swapchains
     for (auto& swapchain : rhi->swapchains)

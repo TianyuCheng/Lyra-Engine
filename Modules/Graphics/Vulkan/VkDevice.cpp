@@ -367,6 +367,18 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
     if (queue_family_indices.present.has_value())
         rhi->vtable.vkGetDeviceQueue(rhi->device, queue_family_indices.present.value(), 0, &rhi->present_queue);
 
+    // command pool managers
+    if (queue_family_indices.graphics.has_value())
+        rhi->graphics_pool_mgr.init(queue_family_indices.graphics.value());
+    if (queue_family_indices.compute.has_value())
+        rhi->compute_pool_mgr.init(queue_family_indices.compute.value());
+    else if (queue_family_indices.graphics.has_value())
+        rhi->compute_pool_mgr.init(queue_family_indices.graphics.value());
+    if (queue_family_indices.transfer.has_value())
+        rhi->transfer_pool_mgr.init(queue_family_indices.transfer.value());
+    else if (queue_family_indices.graphics.has_value())
+        rhi->transfer_pool_mgr.init(queue_family_indices.graphics.value());
+
     // create a default frame (for headless cases)
     rhi->frames.emplace_back();
     rhi->frames.back().init();
@@ -401,6 +413,13 @@ void api::delete_device()
     for (auto& frame : rhi->frames)
         frame.destroy();
     rhi->frames.clear();
+
+    // clean up command pool managers and command buffers
+    rhi->graphics_pool_mgr.destroy();
+    rhi->compute_pool_mgr.destroy();
+    rhi->transfer_pool_mgr.destroy();
+    for (auto& cmd : rhi->command_buffers)
+        cmd.destroy();
 
     // clean up remaining fences
     for (auto& fence : rhi->fences)

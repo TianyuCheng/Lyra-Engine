@@ -2,7 +2,8 @@
 
 static bool is_device_suitable(VkPhysicalDevice device, const Vector<const char*>& requiredExtensions)
 {
-    auto               rhi     = get_rhi();
+    auto rhi = get_rhi();
+
     QueueFamilyIndices indices = find_queue_family_indices(device, rhi->surface);
 
     if (!indices.graphics.has_value() || (rhi->surface && !indices.present.has_value())) {

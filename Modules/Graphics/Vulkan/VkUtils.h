@@ -29,9 +29,11 @@
 #include <vk_mem_alloc.h>
 #include <sstream>
 
-#include <Lyra/Utilities/BitFlags.h>
+#include <Lyra/Utilities/Sync.h>
+#include <Lyra/Utilities/Pointer.h>
 #include <Lyra/Utilities/Logger.h>
 #include <Lyra/Utilities/Msgbox.h>
+#include <Lyra/Utilities/BitFlags.h>
 #include <Lyra/Utilities/Function.h>
 #include <Lyra/Utilities/Conversion.h>
 #include <Lyra/Utilities/Collections.h>
@@ -373,6 +375,30 @@ struct VulkanDescriptorPool
     uint find_pool_index(uint index);
 };
 
+struct VulkanCommandPool
+{
+    VkCommandPool command_pool = VK_NULL_HANDLE;
+    VkFence       fence        = VK_NULL_HANDLE;
+
+    // implementation in VkCommandPool.cpp
+    void init(uint queue_family_index);
+    void reset(bool free = false);
+    void destroy();
+    auto allocate(bool primary = true) -> VkCommandBuffer;
+
+    struct AllocatedCommandBuffers
+    {
+        Vector<VkCommandBuffer> allocated;
+        uint32_t                index = 0;
+
+        auto allocate(VkCommandPool pool, VkCommandBufferLevel level) -> VkCommandBuffer;
+        void reset(VkCommandPool pool, bool free);
+    };
+
+    AllocatedCommandBuffers primary;
+    AllocatedCommandBuffers secondary;
+};
+
 struct VulkanCommandBuffer
 {
     // used to check vulkan buffer usage,
@@ -399,8 +425,8 @@ struct VulkanCommandBuffer
     Vector<VkSemaphoreSubmitInfo> wait_semaphores   = {};
     Vector<VkSemaphoreSubmitInfo> signal_semaphores = {};
 
-    // additional resources to be clean-up after command buffer is reset
-    Vector<VulkanBuffer> temporary_buffers;
+    VulkanCommandPool* pool       = nullptr;
+    GPUQueueType       queue_type = GPUQueueType::DEFAULT;
 
     // implementation in VkCommandBuffer.cpp
     void wait(const VulkanSemaphore& fence, GPUBarrierSyncFlags sync);
@@ -409,29 +435,31 @@ struct VulkanCommandBuffer
     void submit();
     void begin();
     void end();
+    void destroy();
 };
 
-struct VulkanCommandPool
+struct VulkanCommandPoolManager
 {
-    VkCommandPool command_pool = VK_NULL_HANDLE;
+    uint queue_family_index = 0;
 
-    // implementation in VkCommandPool.cpp
-    void init(uint queue_family_index);
-    void reset(bool free = false);
-    void destroy();
-    auto allocate(bool primary = true) -> VkCommandBuffer;
-
-    struct AllocatedCommandBuffers
+    struct InflightEntry
     {
-        Vector<VkCommandBuffer> allocated;
-        uint32_t                index;
-
-        auto allocate(VkCommandPool pool, VkCommandBufferLevel level) -> VkCommandBuffer;
-        void reset(VkCommandPool pool, bool free);
+        VulkanCommandPool*      pool = nullptr;
+        GPUCommandEncoderHandle cmd_handle;
+        VkFence                 fence_to_wait = VK_NULL_HANDLE;
     };
 
-    AllocatedCommandBuffers primary;
-    AllocatedCommandBuffers secondary;
+    Vector<Own<VulkanCommandPool>> all_pools;
+    Vector<VulkanCommandPool*>     unused_pools;
+    Vector<InflightEntry>          inflight_pools;
+    Mutex                          mutex;
+
+    void init(uint family_index);
+    void destroy();
+    auto acquire_pool() -> VulkanCommandPool*;
+    void release_pool(VulkanCommandPool* pool, GPUCommandEncoderHandle cmd_handle, VkFence fence_to_wait);
+    void process_completed_pools();
+    void wait_idle();
 };
 
 struct VulkanFrame
@@ -447,26 +475,13 @@ struct VulkanFrame
     GPUFenceHandle  image_available_semaphore;
     GPUFenceHandle  render_complete_semaphore;
     Vector<VkFence> existing_fences;
-
-    VulkanCommandPool compute_command_pool;
-    VulkanCommandPool graphics_command_pool;
-    VulkanCommandPool transfer_command_pool;
-
-    // allocate command buffers
-    Vector<VulkanCommandBuffer> allocated_command_buffers;
-
-    // shortcut for cmd buffer
-    auto& command(GPUCommandEncoderHandle handle)
-    {
-        return allocated_command_buffers.at(handle.value);
-    }
+    bool            frame_has_work = false;
 
     // implementation in VkFrame.cpp
     void init();
     void wait();
     void reset();
     void free();
-    auto allocate(GPUQueueType type, bool primary) -> GPUCommandEncoderHandle;
     void destroy();
 };
 
@@ -528,6 +543,7 @@ using VulkanPipelineManager        = VulkanResourceManager<VulkanPipeline>;
 using VulkanPipelineLayoutManager  = VulkanResourceManager<VulkanPipelineLayout>;
 using VulkanDescriptorPoolManager  = VulkanResourceManager<VulkanDescriptorPool>;
 using VulkanBindGroupLayoutManager = VulkanResourceManager<VulkanBindGroupLayout>;
+using VulkanCommandBufferManager   = VulkanResourceManager<VulkanCommandBuffer>;
 
 struct VulkanRHI
 {
@@ -562,6 +578,14 @@ struct VulkanRHI
     // swapchain tracker
     GPUSurfaceHandle surface_tracker;
 
+    // command pool managers
+    VulkanCommandPoolManager   compute_pool_mgr;
+    VulkanCommandPoolManager   transfer_pool_mgr;
+    VulkanCommandPoolManager   graphics_pool_mgr;
+    VulkanCommandBufferManager command_buffers;
+    Mutex                      command_buffers_mutex;
+    Mutex                      queue_mutex;
+
     // collection of objects
     VulkanSwapchainManager       swapchains;
     VulkanSemaphoreManager       fences;
@@ -578,7 +602,25 @@ struct VulkanRHI
     VulkanDescriptorPoolManager  descriptor_pools;
     VulkanBindGroupLayoutManager bind_group_layouts;
 
-    auto current_frame() -> VulkanFrame& { return frames.at(current_frame_index % frames.size()); }
+    VulkanCommandPoolManager& get_pool_mgr(GPUQueueType type)
+    {
+        switch (type) {
+            case GPUQueueType::DEFAULT:
+                return graphics_pool_mgr;
+            case GPUQueueType::COMPUTE:
+                return compute_pool_mgr;
+            case GPUQueueType::TRANSFER:
+                return transfer_pool_mgr;
+        }
+        return graphics_pool_mgr;
+    }
+
+    VulkanCommandBuffer& command(GPUCommandEncoderHandle handle);
+
+    VulkanFrame& current_frame()
+    {
+        return frames.at(current_frame_index % frames.size());
+    }
 
     // debug label
     void set_debug_label(VkObjectType type, uint64_t handle, CString name)
@@ -838,6 +880,11 @@ T& fetch_resource(VulkanResourceManager<T>& manager, Handle handle)
         throw std::runtime_error("Resource handle references cannot be found!");
     }
     return *resource;
+}
+
+inline VulkanCommandBuffer& VulkanRHI::command(GPUCommandEncoderHandle handle)
+{
+    return fetch_resource(command_buffers, handle);
 }
 
 inline VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(

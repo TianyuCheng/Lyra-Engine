@@ -11,9 +11,9 @@
 
 #include <D3D12MemAlloc.h>
 
+#include <limits>
 #include <d3d12.h>
 #include <dxgi1_6.h>
-#include <limits>
 #include <wrl/client.h>
 using Microsoft::WRL::ComPtr;
 
@@ -27,6 +27,8 @@ using Microsoft::WRL::ComPtr;
 #include <Lyra/Graphics/RHIDescs.h>
 #include <Lyra/Graphics/RHIAPI.h>
 #include <Lyra/Graphics/RHIError.h>
+#include <Lyra/Utilities/Pointer.h>
+#include <Lyra/Utilities/Sync.h>
 
 #include "SimpleHeap.h"
 #include "BlockAllocator.h"
@@ -539,6 +541,8 @@ struct D3D12QuerySet
     bool valid() const { return pool != nullptr || buffer.valid(); }
 };
 
+struct D3D12CommandPool;
+
 struct D3D12CommandBuffer
 {
     ID3D12GraphicsCommandList* command_buffer    = nullptr;
@@ -566,6 +570,10 @@ struct D3D12CommandBuffer
     Vector<FenceOps> wait_fences;
     Vector<FenceOps> signal_fences;
 
+    D3D12CommandPool* pool       = nullptr;
+    GPUQueueType      queue_type = GPUQueueType::DEFAULT;
+    bool              is_bundle  = false;
+
     // implementation in D3D12CommandBuffer.cpp
     void wait(const D3D12Fence& fence, GPUBarrierSyncFlags sync);
     void signal(const D3D12Fence& fence, GPUBarrierSyncFlags sync);
@@ -578,67 +586,57 @@ struct D3D12CommandBuffer
 
 struct D3D12CommandPool
 {
-    ID3D12CommandAllocator* command_allocator = nullptr;
-    D3D12_COMMAND_LIST_TYPE command_type;
+    ID3D12CommandAllocator*    command_allocator = nullptr;
+    ID3D12GraphicsCommandList* command_list      = nullptr;
+    D3D12_COMMAND_LIST_TYPE    command_type      = D3D12_COMMAND_LIST_TYPE_DIRECT;
+    D3D12Fence                 fence;
 
     void init(D3D12_COMMAND_LIST_TYPE type);
     void reset();
     void destroy();
-    auto allocate() -> ID3D12GraphicsCommandList*;
+};
+
+struct D3D12CommandPoolManager
+{
+    D3D12_COMMAND_LIST_TYPE command_type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+
+    struct InflightEntry
+    {
+        D3D12CommandPool*       pool = nullptr;
+        GPUCommandEncoderHandle cmd_handle;
+        ID3D12Fence*            fence_to_wait = nullptr;
+        ulong                   fence_value   = 0;
+    };
+
+    Mutex                         mutex;
+    Vector<Own<D3D12CommandPool>> all_pools;
+    Vector<D3D12CommandPool*>     unused_pools;
+    Vector<InflightEntry>         inflight_pools;
+
+    void init(D3D12_COMMAND_LIST_TYPE type);
+    void destroy();
+    auto acquire_pool() -> D3D12CommandPool*;
+    void release_pool(D3D12CommandPool* pool, GPUCommandEncoderHandle cmd_handle, ID3D12Fence* fence_to_wait, ulong fence_value);
+    void process_completed_pools();
+    void wait_idle();
 };
 
 struct D3D12Frame
 {
-    struct CommandBuffer
-    {
-        GPUQueueType       type    = GPUQueueType::DEFAULT;
-        bool               primary = true;
-        bool               used    = false;
-        D3D12CommandBuffer cmd;
-
-        CommandBuffer()
-        {
-            // do nothing
-        }
-
-        void reset()
-        {
-            used = false;
-            cmd.reset();
-        }
-    };
-
-    // used to check command buffer usage,
-    // command buffers are short-lived, only usable within the frame.
-    // frame id must match D3D12Frame's id
     uint frame_id = 0u;
 
-    // D3D12Frame does NOT own this!!!
+    // D3D12Frame does NOT own this!
     GPUFenceHandle         image_available_fence;
     GPUFenceHandle         render_complete_fence;
     Vector<GPUFenceHandle> existing_fences;
 
-    D3D12CommandPool bundle_command_pool;
-    D3D12CommandPool compute_command_pool;
-    D3D12CommandPool graphics_command_pool;
-    D3D12CommandPool transfer_command_pool;
+    bool frame_has_work = false;
 
-    // allocate command buffers
-    Vector<CommandBuffer> allocated_command_buffers;
-
-    // shortcut for cmd buffer
-    auto& command(GPUCommandEncoderHandle handle)
-    {
-        return allocated_command_buffers.at(handle.value).cmd;
-    }
-
-    // impementation in D3D12Frame.cpp
+    // implementation in D3D12Frame.cpp
     void init();
     void wait();
     void reset();
     void free();
-    auto allocate(GPUQueueType type, bool primary) -> GPUCommandEncoderHandle;
-    auto create(const GPUBindGroupDescriptor& desc) -> GPUBindGroupHandle;
     void destroy();
 };
 
@@ -721,6 +719,31 @@ struct D3D12RHI
     // swapchain tracker
     GPUSurfaceHandle surface_tracker;
 
+    // command pool managers
+    D3D12CommandPoolManager                  compute_pool_mgr;
+    D3D12CommandPoolManager                  graphics_pool_mgr;
+    D3D12CommandPoolManager                  transfer_pool_mgr;
+    D3D12CommandPoolManager                  bundle_pool_mgr;
+    D3D12ResourceManager<D3D12CommandBuffer> command_buffers;
+    Mutex                                    command_buffers_mutex;
+    Mutex                                    queue_mutex;
+
+    auto get_pool_mgr(GPUQueueType queue, bool primary = true) -> D3D12CommandPoolManager&
+    {
+        if (!primary) return bundle_pool_mgr;
+        switch (queue) {
+            case GPUQueueType::DEFAULT:
+                return graphics_pool_mgr;
+            case GPUQueueType::COMPUTE:
+                return compute_pool_mgr;
+            case GPUQueueType::TRANSFER:
+                return transfer_pool_mgr;
+        }
+        return graphics_pool_mgr;
+    }
+
+    auto command(GPUCommandEncoderHandle handle) -> D3D12CommandBuffer&;
+
     // collection of objects
     D3D12ResourceManager<D3D12Fence>           fences;
     D3D12ResourceManager<D3D12Buffer>          buffers;
@@ -754,6 +777,11 @@ struct D3D12RHI
         idle_fence.signal(transfer_queue, idle_fence.target);
         idle_fence.wait();
         idle_fence.reset();
+
+        compute_pool_mgr.wait_idle();
+        graphics_pool_mgr.wait_idle();
+        transfer_pool_mgr.wait_idle();
+        bundle_pool_mgr.wait_idle();
     }
 };
 

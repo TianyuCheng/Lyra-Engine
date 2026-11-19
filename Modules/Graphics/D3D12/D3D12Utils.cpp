@@ -919,3 +919,9 @@ uint size_of(DXGI_FORMAT format)
             return 0; // unknown or unsupported format
     }
 }
+
+auto D3D12RHI::command(GPUCommandEncoderHandle handle) -> D3D12CommandBuffer&
+{
+    LockGuard lock(command_buffers_mutex);
+    return fetch_resource(command_buffers, handle);
+}

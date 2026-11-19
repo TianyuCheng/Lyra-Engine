@@ -344,29 +344,97 @@ bool api::create_bind_group(GPUBindGroupHandle& bind_group, const GPUBindGroupDe
 
 bool api::create_command_buffer(GPUCommandEncoderHandle& cmdbuffer, const GPUCommandBufferDescriptor& descriptor)
 {
-    auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    cmdbuffer = frm.allocate(descriptor.queue, true);
-    frm.command(cmdbuffer).begin();
+    auto  rhi      = get_rhi();
+    auto& pool_mgr = rhi->get_pool_mgr(descriptor.queue, true);
+
+    D3D12CommandPool* pool = pool_mgr.acquire_pool();
+
+    D3D12CommandBuffer buffer;
+    buffer.command_buffer    = pool->command_list;
+    buffer.command_allocator = pool->command_allocator;
+    buffer.pool              = pool;
+    buffer.queue_type        = descriptor.queue;
+    buffer.is_bundle         = false;
+
+    switch (descriptor.queue) {
+        case GPUQueueType::TRANSFER:
+            buffer.command_queue = rhi->transfer_queue;
+            break;
+        case GPUQueueType::COMPUTE:
+            buffer.command_queue = rhi->compute_queue;
+            break;
+        case GPUQueueType::DEFAULT:
+        default:
+            buffer.command_queue = rhi->graphics_queue;
+            break;
+    }
+
+    if (descriptor.queue != GPUQueueType::TRANSFER) {
+        ID3D12DescriptorHeap* descriptor_heaps[] = {rhi->gpu_default_heap.heap, rhi->gpu_sampler_heap.heap};
+        buffer.command_buffer->SetDescriptorHeaps(2, descriptor_heaps);
+    }
+
+    {
+        LockGuard lock(rhi->command_buffers_mutex);
+        auto      ind = rhi->command_buffers.add(std::move(buffer));
+        cmdbuffer     = GPUCommandEncoderHandle::create(ind);
+    }
+
+    rhi->command(cmdbuffer).begin();
     return true;
 }
 
 bool api::create_command_bundle(GPUCommandEncoderHandle& cmdbuffer, const GPUCommandBundleDescriptor& descriptor)
 {
-    auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    cmdbuffer = frm.allocate(descriptor.queue, false);
-    frm.command(cmdbuffer).begin();
+    auto  rhi      = get_rhi();
+    auto& pool_mgr = rhi->get_pool_mgr(descriptor.queue, false);
+
+    D3D12CommandPool* pool = pool_mgr.acquire_pool();
+
+    D3D12CommandBuffer buffer;
+    buffer.command_buffer    = pool->command_list;
+    buffer.command_allocator = pool->command_allocator;
+    buffer.pool              = pool;
+    buffer.queue_type        = descriptor.queue;
+    buffer.is_bundle         = true;
+
+    switch (descriptor.queue) {
+        case GPUQueueType::TRANSFER:
+            buffer.command_queue = rhi->transfer_queue;
+            break;
+        case GPUQueueType::COMPUTE:
+            buffer.command_queue = rhi->compute_queue;
+            break;
+        case GPUQueueType::DEFAULT:
+        default:
+            buffer.command_queue = rhi->graphics_queue;
+            break;
+    }
+
+    if (descriptor.queue != GPUQueueType::TRANSFER) {
+        ID3D12DescriptorHeap* descriptor_heaps[] = {rhi->gpu_default_heap.heap, rhi->gpu_sampler_heap.heap};
+        buffer.command_buffer->SetDescriptorHeaps(2, descriptor_heaps);
+    }
+
+    {
+        LockGuard lock(rhi->command_buffers_mutex);
+        auto      ind = rhi->command_buffers.add(std::move(buffer));
+        cmdbuffer     = GPUCommandEncoderHandle::create(ind);
+    }
+
+    rhi->command(cmdbuffer).begin();
     return true;
 }
 
 bool api::submit_command_buffer(GPUCommandEncoderHandle cmdbuffer)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
     cmd.end();
     cmd.submit();
+
+    auto& pool_mgr = rhi->get_pool_mgr(cmd.queue_type, !cmd.is_bundle);
+    pool_mgr.release_pool(cmd.pool, cmdbuffer, cmd.pool ? cmd.pool->fence.fence : nullptr, cmd.pool ? cmd.pool->fence.target : 0);
     return true;
 }
 
@@ -375,7 +443,13 @@ void api::wait_idle()
     auto rhi = get_rhi();
     rhi->wait_idle();
 
-    // clean up all pools from all frames
+    // clean up all command pool managers
+    rhi->graphics_pool_mgr.wait_idle();
+    rhi->compute_pool_mgr.wait_idle();
+    rhi->transfer_pool_mgr.wait_idle();
+    rhi->bundle_pool_mgr.wait_idle();
+
+    // clean up all frames
     for (auto& frame : rhi->frames) {
         frame.wait();
         frame.free();
@@ -384,7 +458,7 @@ void api::wait_idle()
     // reset all fences
     for (auto& frame : rhi->frames) {
         for (auto& fence : frame.existing_fences)
-            fence.reset();
+            fetch_resource(rhi->fences, fence).reset();
         frame.existing_fences.clear();
     }
 }

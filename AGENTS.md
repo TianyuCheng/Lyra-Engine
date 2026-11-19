@@ -4,6 +4,16 @@ Welcome to Lyra Engine. This document provides core architectural conventions, t
 
 ---
 
+## 0. C++ coding style
+
+Function signature:
+use `auto function_name(...) -> return_type` in the header file when we need to align function signatures`.
+use `return_type function_name(...)` in the cpp file when all functions are separate (no need to align).
+The rule of switching which one to use is based on alignment.
+
+Types:
+use the lyra alias types if possible.
+
 ## 1. Lyra Common Type & Name Aliases (`Include/Lyra/Common/`)
 
 Lyra defines unified type aliases in `Include/Lyra/Common/` to standardize standard library, Abseil, Apus, GLM, and vendor dependencies across the engine and plugins. Always prefer these aliases over raw standard library or third-party types.

@@ -227,6 +227,12 @@ void api::new_frame()
 
     // clear all existing fences
     frame.existing_fences.clear();
+
+    // process completed pools
+    rhi->graphics_pool_mgr.process_completed_pools();
+    rhi->compute_pool_mgr.process_completed_pools();
+    rhi->transfer_pool_mgr.process_completed_pools();
+    rhi->bundle_pool_mgr.process_completed_pools();
 }
 
 void api::end_frame()
@@ -302,16 +308,15 @@ bool api::present_curr_frame(GPUSurfaceHandle surface)
     auto& image_available_fence = fetch_resource(rhi->fences, frame.image_available_fence);
     auto& render_complete_fence = fetch_resource(rhi->fences, frame.render_complete_fence);
 
-    // check if nothing has been down, insert dummy workloads if needed
-    if (frame.allocated_command_buffers.empty()) {
-        auto  command_buffer_handle = frame.allocate(GPUQueueType::COMPUTE, true);
-        auto& command_buffer        = frame.command(command_buffer_handle);
-        command_buffer.begin();
+    // check if nothing has been done, insert dummy workloads if needed
+    if (!frame.frame_has_work) {
+        GPUCommandEncoderHandle command_buffer_handle;
+        api::create_command_buffer(command_buffer_handle, GPUCommandBufferDescriptor{.queue = GPUQueueType::COMPUTE});
+        auto& command_buffer = rhi->command(command_buffer_handle);
         default_swapchain_image_barrier(swp, command_buffer.command_buffer);
-        command_buffer.end();
         command_buffer.wait(image_available_fence, GPUBarrierSync::NONE);
         command_buffer.signal(render_complete_fence, GPUBarrierSync::ALL);
-        command_buffer.submit();
+        api::submit_command_buffer(command_buffer_handle);
     }
 
     // signal the image available for current frame

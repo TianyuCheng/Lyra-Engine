@@ -354,29 +354,84 @@ bool api::create_bind_group(GPUBindGroupHandle& bind_group, const GPUBindGroupDe
 
 bool api::create_command_buffer(GPUCommandEncoderHandle& cmdbuffer, const GPUCommandBufferDescriptor& descriptor)
 {
-    auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    cmdbuffer = frm.allocate(descriptor.queue, true);
-    frm.command(cmdbuffer).begin();
+    auto  rhi      = get_rhi();
+    auto& pool_mgr = rhi->get_pool_mgr(descriptor.queue);
+
+    VulkanCommandPool* pool   = pool_mgr.acquire_pool();
+    VkCommandBuffer    vk_cmd = pool->allocate(true);
+
+    VulkanCommandBuffer buffer;
+    buffer.command_buffer = vk_cmd;
+    buffer.pool           = pool;
+    buffer.queue_type     = descriptor.queue;
+
+    switch (descriptor.queue) {
+        case GPUQueueType::DEFAULT:
+            buffer.command_queue = rhi->graphics_queue;
+            break;
+        case GPUQueueType::COMPUTE:
+            buffer.command_queue = rhi->compute_queue;
+            break;
+        case GPUQueueType::TRANSFER:
+            buffer.command_queue = rhi->transfer_queue;
+            break;
+    }
+
+    {
+        LockGuard lock(rhi->command_buffers_mutex);
+        auto      ind = rhi->command_buffers.add(std::move(buffer));
+        cmdbuffer     = GPUCommandEncoderHandle::create(ind);
+    }
+
+    rhi->command(cmdbuffer).begin();
     return true;
 }
 
 bool api::create_command_bundle(GPUCommandEncoderHandle& cmdbuffer, const GPUCommandBundleDescriptor& descriptor)
 {
-    auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    cmdbuffer = frm.allocate(descriptor.queue, false);
-    frm.command(cmdbuffer).begin();
+    auto  rhi      = get_rhi();
+    auto& pool_mgr = rhi->get_pool_mgr(descriptor.queue);
+
+    VulkanCommandPool* pool   = pool_mgr.acquire_pool();
+    VkCommandBuffer    vk_cmd = pool->allocate(false);
+
+    VulkanCommandBuffer buffer;
+    buffer.command_buffer = vk_cmd;
+    buffer.pool           = pool;
+    buffer.queue_type     = descriptor.queue;
+
+    switch (descriptor.queue) {
+        case GPUQueueType::DEFAULT:
+            buffer.command_queue = rhi->graphics_queue;
+            break;
+        case GPUQueueType::COMPUTE:
+            buffer.command_queue = rhi->compute_queue;
+            break;
+        case GPUQueueType::TRANSFER:
+            buffer.command_queue = rhi->transfer_queue;
+            break;
+    }
+
+    {
+        LockGuard lock(rhi->command_buffers_mutex);
+        auto      ind = rhi->command_buffers.add(std::move(buffer));
+        cmdbuffer     = GPUCommandEncoderHandle::create(ind);
+    }
+
+    rhi->command(cmdbuffer).begin();
     return true;
 }
 
 bool api::submit_command_buffer(GPUCommandEncoderHandle cmdbuffer)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
     cmd.end();
     cmd.submit();
+
+    VkFence fence_to_wait = cmd.fence.fence != VK_NULL_HANDLE ? cmd.fence.fence : (cmd.pool ? cmd.pool->fence : VK_NULL_HANDLE);
+    auto&   pool_mgr      = rhi->get_pool_mgr(cmd.queue_type);
+    pool_mgr.release_pool(cmd.pool, cmdbuffer, fence_to_wait);
     return true;
 }
 
@@ -385,14 +440,14 @@ void api::wait_idle()
     auto rhi = get_rhi();
     vk_check(rhi->vtable.vkDeviceWaitIdle(rhi->device));
 
-    // clean up all pools from all frames
-    for (auto& frame : rhi->frames)
-        frame.free();
+    // clean up all in-flight pools and recycle them
+    rhi->graphics_pool_mgr.wait_idle();
+    rhi->compute_pool_mgr.wait_idle();
+    rhi->transfer_pool_mgr.wait_idle();
 
     // reset all fences
     for (auto& frame : rhi->frames) {
         if (!frame.existing_fences.empty()) {
-            auto rhi = get_rhi();
             uint cnt = static_cast<uint>(frame.existing_fences.size());
             rhi->vtable.vkResetFences(rhi->device, cnt, frame.existing_fences.data());
             frame.existing_fences.clear();

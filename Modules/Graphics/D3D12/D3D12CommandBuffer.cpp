@@ -29,10 +29,25 @@ void D3D12CommandBuffer::signal(const D3D12Fence& fence, GPUBarrierSyncFlags)
         fence.fence,
         fence.target,
     });
+
+    auto rhi = get_rhi();
+    if (rhi && !rhi->frames.empty()) {
+        auto& frame = rhi->current_frame();
+        if (frame.render_complete_fence.valid()) {
+            auto& complete = fetch_resource(rhi->fences, frame.render_complete_fence);
+            if (fence.fence == complete.fence) {
+                frame.frame_has_work = true;
+            }
+        }
+    }
 }
 
 void D3D12CommandBuffer::submit()
 {
+    auto rhi = get_rhi();
+
+    LockGuard lock(rhi->queue_mutex);
+
     // GPU wait - make the command queue wait for the fence (current value)
     for (auto& fence : wait_fences)
         command_queue->Wait(fence.fence, fence.value);
@@ -44,27 +59,27 @@ void D3D12CommandBuffer::submit()
     // signal from GPU - command queue will signal when it reaches this point
     for (auto& fence : signal_fences)
         command_queue->Signal(fence.fence, fence.value);
+
+    // signal pool completion fence
+    if (pool && pool->fence.fence) {
+        command_queue->Signal(pool->fence.fence, pool->fence.target);
+    }
 }
 
 void D3D12CommandBuffer::reset()
 {
-    // clear fences
     wait_fences.clear();
     signal_fences.clear();
-
-    // clear bound pso
     pso.pipeline = nullptr;
-
-    // reset command buffer before it can be used again
-    command_buffer->Reset(command_allocator, nullptr);
 }
 
 void D3D12CommandBuffer::destroy()
 {
-    if (!command_buffer) return;
-
-    command_buffer->Release();
-    command_buffer = nullptr;
+    reset();
+    command_buffer    = nullptr;
+    command_allocator = nullptr;
+    command_queue     = nullptr;
+    pool              = nullptr;
 }
 
 void D3D12CommandBuffer::begin()
@@ -81,7 +96,7 @@ void cmd::insert_debug_marker(GPUCommandEncoderHandle cmdbuffer, CString marker_
 {
 #if 0 // FIXME: Use PIXSetMarker instead
     auto  rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
     cmd.command_buffer->SetMarker(0x007fffff, marker_label, sizeof(marker_label));
 #endif
 }
@@ -90,7 +105,7 @@ void cmd::push_debug_group(GPUCommandEncoderHandle cmdbuffer, CString group_labe
 {
 #if 0 // FIXME: Use PIXBeginEvent instead
     auto  rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
     cmd.command_buffer->BeginEvent(0xff7f00ff, group_label, sizeof(group_label));
 #endif
 }
@@ -99,7 +114,7 @@ void cmd::pop_debug_group(GPUCommandEncoderHandle cmdbuffer)
 {
 #if 0 // FIXME: Use PIXEndEvent instead
     auto  rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
     cmd.command_buffer->EndEvent();
 #endif
 }
@@ -108,7 +123,7 @@ void cmd::wait_fence(GPUCommandEncoderHandle cmdbuffer, GPUFenceHandle fence, GP
 {
     auto  rhi = get_rhi();
     auto& fen = fetch_resource(rhi->fences, fence);
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
     cmd.wait(fen, sync);
 }
 
@@ -116,7 +131,7 @@ void cmd::signal_fence(GPUCommandEncoderHandle cmdbuffer, GPUFenceHandle fence, 
 {
     auto  rhi = get_rhi();
     auto& fen = fetch_resource(rhi->fences, fence);
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
     cmd.signal(fen, sync);
 }
 
@@ -125,7 +140,7 @@ void cmd::begin_render_pass(GPUCommandEncoderHandle cmdbuffer, const GPURenderPa
     assert(!descriptor.color_attachments.empty() || descriptor.depth_stencil_attachment.view.valid());
 
     auto  rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
 
     UINT max_render_targets = std::min((uint)D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT, (uint)descriptor.color_attachments.size());
     UINT num_render_targets = 0;
@@ -229,7 +244,7 @@ void cmd::begin_render_pass(GPUCommandEncoderHandle cmdbuffer, const GPURenderPa
 void cmd::end_render_pass(GPUCommandEncoderHandle cmdbuffer)
 {
     auto  rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
 
     ID3D12GraphicsCommandList4* command_list = static_cast<ID3D12GraphicsCommandList4*>(cmd.command_buffer);
     command_list->EndRenderPass();
@@ -238,7 +253,7 @@ void cmd::end_render_pass(GPUCommandEncoderHandle cmdbuffer)
 void cmd::set_render_pipeline(GPUCommandEncoderHandle cmdbuffer, GPURenderPipelineHandle pipeline)
 {
     auto  rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
     auto& pip = fetch_resource(rhi->pipelines, pipeline);
 
     if (cmd.pso.pipeline != &pip) {
@@ -254,7 +269,7 @@ void cmd::set_render_pipeline(GPUCommandEncoderHandle cmdbuffer, GPURenderPipeli
 void cmd::set_compute_pipeline(GPUCommandEncoderHandle cmdbuffer, GPUComputePipelineHandle pipeline)
 {
     auto  rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
     auto& pip = fetch_resource(rhi->pipelines, pipeline);
 
     if (cmd.pso.pipeline != &pip) {
@@ -269,7 +284,7 @@ void cmd::set_compute_pipeline(GPUCommandEncoderHandle cmdbuffer, GPUComputePipe
 void cmd::set_raytracing_pipeline(GPUCommandEncoderHandle cmdbuffer, GPURayTracingPipelineHandle pipeline)
 {
     auto  rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
     auto& pip = fetch_resource(rhi->pipelines, pipeline);
 
     if (cmd.pso.pipeline != &pip) {
@@ -284,8 +299,7 @@ void cmd::set_raytracing_pipeline(GPUCommandEncoderHandle cmdbuffer, GPURayTraci
 void cmd::set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GPUBindGroupHandle bind_group, GPUBufferDynamicOffsets dynamic_offsets)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
     auto  des = as_type<D3D12BindGroup*>(bind_group);
 
     const auto& info = cmd.pso.layout->bindgroups.at(index);
@@ -338,8 +352,7 @@ void cmd::set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GP
 void cmd::set_immediates(GPUCommandEncoderHandle cmdbuffer, uint offset, uint size, const void* data)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
 
     uint root_parameter = cmd.pso.layout->immediate_root_parameter;
     assert(root_parameter != -1 && "The currently bound pipeline does not support immediates!");
@@ -356,8 +369,7 @@ void cmd::set_immediates(GPUCommandEncoderHandle cmdbuffer, uint offset, uint si
 void cmd::set_index_buffer(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle buffer, GPUIndexFormat format, GPUSize64 offset, GPUSize64 size)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
     auto& buf = fetch_resource(rhi->buffers, buffer);
 
     // create the index buffer view
@@ -373,8 +385,7 @@ void cmd::set_index_buffer(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle bu
 void cmd::set_vertex_buffer(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 slot, GPUBufferHandle buffer, GPUSize64 offset, GPUSize64 size)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
     auto& buf = fetch_resource(rhi->buffers, buffer);
     auto* pip = cmd.pso.pipeline;
 
@@ -391,8 +402,7 @@ void cmd::set_vertex_buffer(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 slot, 
 void cmd::draw(GPUCommandEncoderHandle cmdbuffer, GPUSize32 vertex_count, GPUSize32 instance_count, GPUSize32 first_vertex, GPUSize32 first_instance)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
 
     // draw instanced
     cmd.command_buffer->DrawInstanced(vertex_count, instance_count, first_vertex, first_instance);
@@ -401,8 +411,7 @@ void cmd::draw(GPUCommandEncoderHandle cmdbuffer, GPUSize32 vertex_count, GPUSiz
 void cmd::draw_indexed(GPUCommandEncoderHandle cmdbuffer, GPUSize32 index_count, GPUSize32 instance_count, GPUSize32 first_index, GPUSignedOffset32 base_vertex, GPUSize32 first_instance)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
 
     // draw indexed
     cmd.command_buffer->DrawIndexedInstanced(index_count, instance_count, first_index, base_vertex, first_instance);
@@ -411,8 +420,7 @@ void cmd::draw_indexed(GPUCommandEncoderHandle cmdbuffer, GPUSize32 index_count,
 void cmd::draw_indirect(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle indirect_buffer, GPUSize64 indirect_offset, GPUSize32 draw_count)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
     auto& buf = fetch_resource(rhi->buffers, indirect_buffer);
     auto* lay = cmd.pso.layout;
 
@@ -424,8 +432,7 @@ void cmd::draw_indirect(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle indir
 void cmd::draw_indexed_indirect(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle indirect_buffer, GPUSize64 indirect_offset, GPUSize32 draw_count)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
     auto& buf = fetch_resource(rhi->buffers, indirect_buffer);
     auto* lay = cmd.pso.layout;
 
@@ -437,8 +444,7 @@ void cmd::draw_indexed_indirect(GPUCommandEncoderHandle cmdbuffer, GPUBufferHand
 void cmd::dispatch_workgroups(GPUCommandEncoderHandle cmdbuffer, GPUSize32 x, GPUSize32 y, GPUSize32 z)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
 
     // dispatch
     cmd.command_buffer->Dispatch(x, y, z);
@@ -447,8 +453,7 @@ void cmd::dispatch_workgroups(GPUCommandEncoderHandle cmdbuffer, GPUSize32 x, GP
 void cmd::dispatch_workgroups_indirect(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle indirect_buffer, GPUSize64 indirect_offset)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
     auto& buf = fetch_resource(rhi->buffers, indirect_buffer);
     auto* lay = cmd.pso.layout;
 
@@ -460,8 +465,7 @@ void cmd::dispatch_workgroups_indirect(GPUCommandEncoderHandle cmdbuffer, GPUBuf
 void cmd::copy_buffer_to_buffer(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle source, GPUSize64 source_offset, GPUBufferHandle destination, GPUSize64 destination_offset, GPUSize64 size)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
     auto& src = fetch_resource(rhi->buffers, source);
     auto& dst = fetch_resource(rhi->buffers, destination);
 
@@ -472,8 +476,7 @@ void cmd::copy_buffer_to_buffer(GPUCommandEncoderHandle cmdbuffer, GPUBufferHand
 void cmd::copy_buffer_to_texture(GPUCommandEncoderHandle cmdbuffer, const GPUTexelCopyBufferInfo& source, const GPUTexelCopyTextureInfo& destination, GPUExtent3D copy_size)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
     auto& src = fetch_resource(rhi->buffers, source.buffer);
     auto& dst = fetch_resource(rhi->textures, destination.texture);
 
@@ -510,8 +513,7 @@ void cmd::copy_buffer_to_texture(GPUCommandEncoderHandle cmdbuffer, const GPUTex
 void cmd::copy_texture_to_buffer(GPUCommandEncoderHandle cmdbuffer, const GPUTexelCopyTextureInfo& source, const GPUTexelCopyBufferInfo& destination, const GPUExtent3D& copy_size)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
     auto& src = fetch_resource(rhi->textures, source.texture);
     auto& dst = fetch_resource(rhi->buffers, destination.buffer);
 
@@ -548,8 +550,7 @@ void cmd::copy_texture_to_buffer(GPUCommandEncoderHandle cmdbuffer, const GPUTex
 void cmd::copy_texture_to_texture(GPUCommandEncoderHandle cmdbuffer, const GPUTexelCopyTextureInfo& source, const GPUTexelCopyTextureInfo& destination, const GPUExtent3D& copy_size)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
     auto& src = fetch_resource(rhi->textures, source.texture);
     auto& dst = fetch_resource(rhi->textures, destination.texture);
 
@@ -581,8 +582,7 @@ void cmd::copy_texture_to_texture(GPUCommandEncoderHandle cmdbuffer, const GPUTe
 void cmd::clear_buffer(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle buffer, GPUSize64 offset, GPUSize64 size)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
     auto& buf = fetch_resource(rhi->buffers, buffer);
 
     // for small buffers or patterns
@@ -600,8 +600,7 @@ void cmd::clear_buffer(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle buffer
 void cmd::set_viewport(GPUCommandEncoderHandle cmdbuffer, float x, float y, float w, float h, float min_depth, float max_depth)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
 
     // setup viewport
     D3D12_VIEWPORT viewport = {};
@@ -619,8 +618,7 @@ void cmd::set_viewport(GPUCommandEncoderHandle cmdbuffer, float x, float y, floa
 void cmd::set_scissor_rect(GPUCommandEncoderHandle cmdbuffer, GPUIntegerCoordinate x, GPUIntegerCoordinate y, GPUIntegerCoordinate w, GPUIntegerCoordinate h)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
 
     // D3D12_RECT uses signed LONG integers.
     auto left   = std::clamp(static_cast<LONG>(x), 0L, static_cast<LONG>(std::numeric_limits<int32_t>::max()));
@@ -642,8 +640,7 @@ void cmd::set_scissor_rect(GPUCommandEncoderHandle cmdbuffer, GPUIntegerCoordina
 void cmd::set_blend_constant(GPUCommandEncoderHandle cmdbuffer, GPUColor color)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
 
     float blend_color[4] = {
         color.r,
@@ -659,8 +656,7 @@ void cmd::set_blend_constant(GPUCommandEncoderHandle cmdbuffer, GPUColor color)
 void cmd::set_stencil_reference(GPUCommandEncoderHandle cmdbuffer, GPUStencilValue reference)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
 
     // set the stencil reference value
     cmd.command_buffer->OMSetStencilRef(reference);
@@ -669,7 +665,7 @@ void cmd::set_stencil_reference(GPUCommandEncoderHandle cmdbuffer, GPUStencilVal
 void cmd::begin_occlusion_query(GPUCommandEncoderHandle cmdbuffer, GPUSize32 query_index)
 {
     auto  rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
 
     assert(cmd.query_set.valid());
 
@@ -680,7 +676,7 @@ void cmd::begin_occlusion_query(GPUCommandEncoderHandle cmdbuffer, GPUSize32 que
 void cmd::end_occlusion_query(GPUCommandEncoderHandle cmdbuffer)
 {
     auto  rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
 
     assert(cmd.query_set.valid());
     assert(cmd.query_index.has_value());
@@ -695,7 +691,7 @@ void cmd::end_occlusion_query(GPUCommandEncoderHandle cmdbuffer)
 void cmd::write_timestamp(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle query_set, GPUSize32 query_index)
 {
     auto  rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
     auto& qry = fetch_resource(rhi->query_sets, query_set);
 
     cmd.command_buffer->EndQuery(qry.pool, D3D12_QUERY_TYPE_TIMESTAMP, query_index);
@@ -704,7 +700,7 @@ void cmd::write_timestamp(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle q
 void cmd::write_blas_properties(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle query_set, GPUSize32 query_index, GPUBlasHandle blas)
 {
     auto  rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
     auto& qry = fetch_resource(rhi->query_sets, query_set);
     auto& b   = fetch_resource(rhi->blases, blas);
 
@@ -727,7 +723,7 @@ void cmd::write_blas_properties(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHa
 void cmd::resolve_query_set(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle query_set, GPUSize32 first_query, GPUSize32 query_count, GPUBufferHandle destination, GPUSize64 destination_offset)
 {
     auto  rhi = get_rhi();
-    auto& cmd = rhi->current_frame().command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
     auto& qry = fetch_resource(rhi->query_sets, query_set);
     auto& dst = fetch_resource(rhi->buffers, destination);
 
@@ -754,8 +750,7 @@ void cmd::resolve_query_set(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle
 void cmd::memory_barrier(GPUCommandEncoderHandle cmdbuffer, GPUMemoryBarriers barriers)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
 
     // for memory/alias barriers, use global uav barrier
     // this ensures all uav accesses complete before proceeding
@@ -776,8 +771,7 @@ void cmd::memory_barrier(GPUCommandEncoderHandle cmdbuffer, GPUMemoryBarriers ba
 void cmd::buffer_barrier(GPUCommandEncoderHandle cmdbuffer, GPUBufferBarriers barriers)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
 
     // allocate array for d3d12 resource barriers
     Vector<D3D12_BUFFER_BARRIER> d3d12_barriers;
@@ -838,8 +832,7 @@ void cmd::buffer_barrier(GPUCommandEncoderHandle cmdbuffer, GPUBufferBarriers ba
 void cmd::texture_barrier(GPUCommandEncoderHandle cmdbuffer, GPUTextureBarriers barriers)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
 
     // allocate array for d3d12 resource barriers
     Vector<D3D12_TEXTURE_BARRIER> d3d12_barriers;
@@ -879,8 +872,7 @@ void cmd::texture_barrier(GPUCommandEncoderHandle cmdbuffer, GPUTextureBarriers 
 void cmd::build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratch_buffer, GPUTlasBuildEntries entries)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
 
     ID3D12GraphicsCommandList4* cmd4 = nullptr;
     if (FAILED(cmd.command_buffer->QueryInterface(IID_PPV_ARGS(&cmd4)))) {
@@ -955,8 +947,7 @@ void cmd::build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
 void cmd::build_blases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratch_buffer, GPUBlasBuildEntries entries)
 {
     auto  rhi = get_rhi();
-    auto& frm = rhi->current_frame();
-    auto& cmd = frm.command(cmdbuffer);
+    auto& cmd = rhi->command(cmdbuffer);
 
     ID3D12GraphicsCommandList4* cmd4 = nullptr;
     if (FAILED(cmd.command_buffer->QueryInterface(IID_PPV_ARGS(&cmd4)))) {
