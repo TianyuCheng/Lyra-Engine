@@ -75,7 +75,7 @@ const MeshAsset* lyra::find_procedural_mesh(AssetID guid)
 {
     static const MeshAsset cube      = create_cube_mesh(1.0f);
     static const MeshAsset sphere    = create_sphere_mesh(0.5f);
-    static const MeshAsset plane     = create_plane_mesh(10.0f, 10.0f);
+    static const MeshAsset plane     = create_plane_mesh(40.0f, 40.0f, 20, 20);
     static const MeshAsset cylinder  = create_cylinder_mesh(0.5f, 1.0f);
     static const MeshAsset icosphere = create_icosphere_mesh(0.5f, 2);
 
@@ -90,6 +90,47 @@ const MeshAsset* lyra::find_procedural_mesh(AssetID guid)
             return &cylinder;
         case PROCEDURAL_ICOSPHERE_GUID:
             return &icosphere;
+        default:
+            return nullptr;
+    }
+}
+
+const MaterialAsset* lyra::find_procedural_material(AssetID guid)
+{
+    static const MaterialAsset cube_mat = []() {
+        MaterialAsset m{};
+        m.base_color_factor = Vector4(0.85f, 0.25f, 0.20f, 1.0f);
+        m.roughness_factor  = 0.35f;
+        m.metallic_factor   = 0.0f;
+        m.shading_model     = ShadingModel::PBR;
+        return m;
+    }();
+
+    static const MaterialAsset sphere_mat = []() {
+        MaterialAsset m{};
+        m.base_color_factor = Vector4(0.95f, 0.85f, 0.45f, 1.0f);
+        m.roughness_factor  = 0.15f;
+        m.metallic_factor   = 0.95f;
+        m.shading_model     = ShadingModel::PBR;
+        return m;
+    }();
+
+    static const MaterialAsset ground_mat = []() {
+        MaterialAsset m{};
+        m.base_color_factor = Vector4(0.45f, 0.45f, 0.48f, 1.0f);
+        m.roughness_factor  = 0.75f;
+        m.metallic_factor   = 0.0f;
+        m.shading_model     = ShadingModel::PBR;
+        return m;
+    }();
+
+    switch (guid) {
+        case PROCEDURAL_MATERIAL_CUBE_GUID:
+            return &cube_mat;
+        case PROCEDURAL_MATERIAL_SPHERE_GUID:
+            return &sphere_mat;
+        case PROCEDURAL_MATERIAL_GROUND_GUID:
+            return &ground_mat;
         default:
             return nullptr;
     }

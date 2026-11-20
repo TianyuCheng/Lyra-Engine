@@ -22,6 +22,7 @@ namespace lyra::passes
     {
         FrameGraphHandle<FrameGraphTexture> color_target;
         FrameGraphHandle<FrameGraphTexture> depth_target;
+        FrameGraphHandle<FrameGraphTexture> shadow_map;
         uint                                draw_calls         = 0;
         uint                                triangles_rendered = 0;
     };
@@ -33,6 +34,8 @@ namespace lyra::passes
     {
         FrameGraphHandle<FrameGraphTexture> color_target;
         FrameGraphHandle<FrameGraphTexture> depth_target;
+        FrameGraphHandle<FrameGraphTexture> shadow_map;
+        Matrix4x4                           light_view_proj{1.0f};
         const RenderView&                   view;
         const RenderScene&                  scene;
         GPUExtent2D                         extent               = {0, 0};
@@ -91,14 +94,15 @@ namespace lyra::passes
             Matrix4x4 inv_proj;
             Matrix4x4 inv_view;
             Vector3   pos;
-            float     sun_intensity = 2.5f;
-            Vector3   sun_dir       = Vector3(0.5f, 1.0f, 0.3f);
-            float     padding       = 0.0f;
-            Vector3   sun_color     = Vector3(1.0f);
-            float     padding2      = 0.0f;
+            float     sun_intensity   = 2.5f;
+            Vector3   sun_dir         = Vector3(0.5f, 1.0f, 0.3f);
+            float     padding         = 0.0f;
+            Vector3   sun_color       = Vector3(1.0f);
+            float     padding2        = 0.0f;
+            Matrix4x4 light_view_proj = Matrix4x4(1.0f);
         };
 
-        void update_camera_buffer(uint slot, const RenderView& view, const RenderScene& scene);
+        void update_camera_buffer(uint slot, const RenderView& view, const RenderScene& scene, const Matrix4x4& light_vp);
 
     private:
         static constexpr uint FRAMES_IN_FLIGHT = 3;
@@ -115,6 +119,9 @@ namespace lyra::passes
         GPUBindGroupHeap                      heap;
         Array<GPUBuffer, FRAMES_IN_FLIGHT>    camera_buffers{};
         Array<GPUBindGroup, FRAMES_IN_FLIGHT> camera_bind_groups{};
+        GPUSampler                            shadow_sampler;
+        GPUTexture                            default_shadow_map;
+        GPUTextureView                        default_shadow_view;
         uint                                  frame_slot = 0;
 
         GPUTextureFormat cached_color_format = GPUTextureFormat::RGBA8UNORM;

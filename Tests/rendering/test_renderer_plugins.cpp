@@ -1,5 +1,8 @@
 #include <doctest/doctest.h>
 #include <Lyra/Rendering/RendererAPI.h>
+#include <Lyra/Rendering/RendererTypes.h>
+#include <Lyra/Rendering/RendererManager.h>
+#include <Lyra/Runtime/AppTypes.h>
 #include <Lyra/Rendering/ProceduralMesh.h>
 #include <Lyra/Rendering/RenderWorld.h>
 #include <Lyra/Rendering/ResourceRetire.h>
@@ -182,6 +185,60 @@ TEST_CASE("rendering::renderer_plugins" * doctest::description("Renderer plugin 
         (void)out_target;
 
         api->delete_renderer(handle);
+    }
+
+    SUBCASE("RendererBackend enum struct conversions and RendererManager lifecycle")
+    {
+        // Enum to string
+        CHECK_EQ(StringView(to_string(RendererBackend::FORWARD)), "Forward");
+        CHECK_EQ(StringView(to_string(RendererBackend::DEFERRED)), "Deferred");
+        CHECK_EQ(StringView(to_string(RendererBackend::GPU_DRIVEN)), "GPUDriven");
+        CHECK_EQ(StringView(to_string(RendererBackend::PATH_TRACER)), "PathTracer");
+
+        // Enum to module plugin name
+        CHECK_EQ(StringView(get_renderer_plugin_name(RendererBackend::FORWARD)), "lyra-forward");
+        CHECK_EQ(StringView(get_renderer_plugin_name(RendererBackend::DEFERRED)), "lyra-deferred");
+        CHECK_EQ(StringView(get_renderer_plugin_name(RendererBackend::GPU_DRIVEN)), "lyra-gpudriven");
+        CHECK_EQ(StringView(get_renderer_plugin_name(RendererBackend::PATH_TRACER)), "lyra-pathtracer");
+
+        // String to enum
+        CHECK_EQ(to_renderer_backend("lyra-forward"), RendererBackend::FORWARD);
+        CHECK_EQ(to_renderer_backend("forward"), RendererBackend::FORWARD);
+        CHECK_EQ(to_renderer_backend("lyra-deferred"), RendererBackend::DEFERRED);
+        CHECK_EQ(to_renderer_backend("deferred"), RendererBackend::DEFERRED);
+        CHECK_EQ(to_renderer_backend("lyra-gpudriven"), RendererBackend::GPU_DRIVEN);
+        CHECK_EQ(to_renderer_backend("gpudriven"), RendererBackend::GPU_DRIVEN);
+        CHECK_EQ(to_renderer_backend("lyra-pathtracer"), RendererBackend::PATH_TRACER);
+        CHECK_EQ(to_renderer_backend("pathtracer"), RendererBackend::PATH_TRACER);
+        CHECK_FALSE(to_renderer_backend("invalid_plugin").has_value());
+
+        // RendererManager load & switch using both AppContext first and RendererBackend enum
+        AppContext      context;
+        RendererManager rm;
+        CHECK_FALSE(rm.has_active_renderer());
+        CHECK_FALSE(rm.get_active_backend().has_value());
+
+        CHECK(rm.load_renderer(context, RendererBackend::FORWARD));
+        CHECK(rm.has_active_renderer());
+        CHECK_EQ(rm.get_active_name(), "lyra-forward");
+        REQUIRE(rm.get_active_backend().has_value());
+        CHECK_EQ(*rm.get_active_backend(), RendererBackend::FORWARD);
+
+        CHECK(rm.switch_renderer(context, RendererBackend::DEFERRED));
+        CHECK(rm.has_active_renderer());
+        CHECK_EQ(rm.get_active_name(), "lyra-deferred");
+        REQUIRE(rm.get_active_backend().has_value());
+        CHECK_EQ(*rm.get_active_backend(), RendererBackend::DEFERRED);
+
+        CHECK(rm.switch_renderer(context, "lyra-forward"));
+        CHECK(rm.has_active_renderer());
+        CHECK_EQ(rm.get_active_name(), "lyra-forward");
+        REQUIRE(rm.get_active_backend().has_value());
+        CHECK_EQ(*rm.get_active_backend(), RendererBackend::FORWARD);
+
+        rm.shutdown(context);
+        CHECK_FALSE(rm.has_active_renderer());
+        CHECK_FALSE(rm.get_active_backend().has_value());
     }
 }
 

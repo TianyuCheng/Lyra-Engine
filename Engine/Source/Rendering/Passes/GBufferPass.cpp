@@ -150,7 +150,7 @@ bool GBufferPass::init(
         rstates[1].format       = GPUTextureFormat::RGBA16FLOAT;
         rstates[1].blend_enable = false;
         // 2: Material Info
-        rstates[2].format       = GPUTextureFormat::RGBA8UINT;
+        rstates[2].format       = GPUTextureFormat::RGBA32UINT;
         rstates[2].blend_enable = false;
 
         auto desc                              = GPURenderPipelineDescriptor{};
@@ -280,7 +280,7 @@ GBufferData GBufferPass::add(
             mat_desc.size.height = extent.height;
             mat_desc.size.depth  = 1;
             mat_desc.dimension   = GPUTextureDimension::x2D;
-            mat_desc.format      = GPUTextureFormat::RGBA8UINT;
+            mat_desc.format      = GPUTextureFormat::RGBA32UINT;
             mat_desc.usage       = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
             data.material_info   = pass_builder.create<FrameGraphTexture>(mat_desc);
 

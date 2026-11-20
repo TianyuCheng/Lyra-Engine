@@ -195,18 +195,19 @@ ShadowMapData ShadowMapPass::add(
 
     // calculate directional light view-proj and update uniform buffer for current frame slot
     Vector3 light_dir = scene.directional_lights.empty()
-                            ? glm::normalize(Vector3(0.5f, -1.0f, 0.5f))
+                            ? glm::normalize(Vector3(0.6f, -1.0f, -0.5f))
                             : glm::normalize(scene.directional_lights[0].direction);
 
-    Vector3   light_pos = view.camera_position - light_dir * 50.0f;
-    Matrix4x4 l_view    = glm::lookAt(light_pos, view.camera_position, Vector3(0.0f, 1.0f, 0.0f));
-    Matrix4x4 l_proj    = glm::ortho(-30.0f, 30.0f, -30.0f, 30.0f, 0.1f, 100.0f);
-    Matrix4x4 l_vp      = l_proj * l_view;
+    Vector3   scene_center = Vector3(0.0f, 0.5f, 0.0f);
+    Vector3   light_pos    = scene_center - light_dir * 30.0f;
+    Matrix4x4 l_view       = glm::lookAt(light_pos, scene_center, Vector3(0.0f, 1.0f, 0.0f));
+    Matrix4x4 l_proj       = glm::ortho(-15.0f, 15.0f, -15.0f, 15.0f, 0.1f, 60.0f);
+    light_vp               = l_proj * l_view;
 
     if (cascade_uniform_buffers[current_slot].valid()) {
         auto mapped = cascade_uniform_buffers[current_slot].get_mapped_range<ShadowCascadeData>();
         if (mapped.count > 0) {
-            mapped.at(0).light_view_proj = l_vp;
+            mapped.at(0).light_view_proj = light_vp;
         }
     }
 

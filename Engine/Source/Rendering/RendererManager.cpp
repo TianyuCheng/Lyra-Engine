@@ -25,10 +25,6 @@ bool RendererManager::init(AppContext& context, const RendererDescriptor& desc)
 
 void RendererManager::shutdown(AppContext& context)
 {
-    if (!initialized) {
-        return;
-    }
-
     if (auto dev = context.services.try_get<GPUDevice*>()) {
         dev->wait();
     }
@@ -42,19 +38,21 @@ void RendererManager::shutdown(AppContext& context)
         active_handle = {};
         current_plugin.unload();
         active_name.clear();
+        active_backend.reset();
     }
 
     allocator.clear();
     initialized = false;
 }
 
-bool RendererManager::load_renderer(StringView plugin_name, AppContext& context)
+bool RendererManager::load_renderer(AppContext& context, StringView plugin_name)
 {
     if (has_active_renderer()) {
         current_plugin.get_api()->delete_renderer(active_handle);
         active_handle = {};
         current_plugin.unload();
         active_name.clear();
+        active_backend.reset();
     }
 
     String name_str(plugin_name);
@@ -76,7 +74,8 @@ bool RendererManager::load_renderer(StringView plugin_name, AppContext& context)
         return false;
     }
 
-    active_name = name_str;
+    active_name    = name_str;
+    active_backend = to_renderer_backend(plugin_name);
 
     if (api->set_settings) {
         api->set_settings(active_handle, settings);
@@ -86,11 +85,21 @@ bool RendererManager::load_renderer(StringView plugin_name, AppContext& context)
         api->resize(active_handle, descriptor.initial_extent.width, descriptor.initial_extent.height);
     }
 
-    spdlog::info("successfully loaded renderer '{}' ({})", api->get_name ? api->get_name() : name_str.c_str(), name_str);
+    spdlog::info("successfully loaded renderer '{}' ({})", api->get_name ? api->get_name() : name_str.c_str(), name_str.c_str());
     return true;
 }
 
-bool RendererManager::switch_renderer(StringView plugin_name, AppContext& context)
+bool RendererManager::load_renderer(AppContext& context, RendererBackend backend)
+{
+    auto plugin_name = get_renderer_plugin_name(backend);
+    bool ok          = load_renderer(context, plugin_name);
+    if (ok) {
+        active_backend = backend;
+    }
+    return ok;
+}
+
+bool RendererManager::switch_renderer(AppContext& context, StringView plugin_name)
 {
     // synchronize gpu device before dismantling active pipelines
     if (auto dev = context.services.try_get<GPUDevice*>()) {
@@ -103,7 +112,13 @@ bool RendererManager::switch_renderer(StringView plugin_name, AppContext& contex
     }
 
     allocator.clear();
-    return load_renderer(plugin_name, context);
+    return load_renderer(context, plugin_name);
+}
+
+bool RendererManager::switch_renderer(AppContext& context, RendererBackend backend)
+{
+    auto plugin_name = get_renderer_plugin_name(backend);
+    return switch_renderer(context, plugin_name);
 }
 
 void RendererManager::resize(uint width, uint height)

@@ -5,6 +5,7 @@
 
 #include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Utilities/String.h>
+#include <Lyra/Utilities/Collections.h>
 #include <Lyra/Utilities/Handle.h>
 #include <Lyra/Utilities/BitFlags.h>
 #include <Lyra/Graphics/RHITypes.h>
@@ -13,6 +14,64 @@
 namespace lyra
 {
     class SystemTextures;
+
+    /**
+     * @brief available renderer backend implementations.
+     */
+    enum struct RendererBackend : uint
+    {
+        FORWARD,
+        DEFERRED,
+        GPU_DRIVEN,
+        PATH_TRACER,
+    };
+
+    constexpr auto to_string(RendererBackend backend) -> CString
+    {
+        switch (backend) {
+            case RendererBackend::FORWARD:
+                return "Forward";
+            case RendererBackend::DEFERRED:
+                return "Deferred";
+            case RendererBackend::GPU_DRIVEN:
+                return "GPUDriven";
+            case RendererBackend::PATH_TRACER:
+                return "PathTracer";
+        }
+        return "Unknown";
+    }
+
+    constexpr auto get_renderer_plugin_name(RendererBackend backend) -> CString
+    {
+        switch (backend) {
+            case RendererBackend::FORWARD:
+                return "lyra-forward";
+            case RendererBackend::DEFERRED:
+                return "lyra-deferred";
+            case RendererBackend::GPU_DRIVEN:
+                return "lyra-gpudriven";
+            case RendererBackend::PATH_TRACER:
+                return "lyra-pathtracer";
+        }
+        return "";
+    }
+
+    inline auto to_renderer_backend(StringView name) -> Optional<RendererBackend>
+    {
+        if (name == "lyra-forward" || name == "forward" || name == "Forward" || name == "FORWARD") {
+            return RendererBackend::FORWARD;
+        }
+        if (name == "lyra-deferred" || name == "deferred" || name == "Deferred" || name == "DEFERRED") {
+            return RendererBackend::DEFERRED;
+        }
+        if (name == "lyra-gpudriven" || name == "gpudriven" || name == "GPUDriven" || name == "gpu_driven" || name == "GPU_DRIVEN") {
+            return RendererBackend::GPU_DRIVEN;
+        }
+        if (name == "lyra-pathtracer" || name == "pathtracer" || name == "PathTracer" || name == "path_tracer" || name == "PATH_TRACER") {
+            return RendererBackend::PATH_TRACER;
+        }
+        return std::nullopt;
+    }
 
     /**
      * @brief capabilities and supported features of a renderer.

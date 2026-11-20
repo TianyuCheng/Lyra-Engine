@@ -1,7 +1,7 @@
-# setup deferred hybrid renderer plugin
-lyra_module(renderer-deferred SHARED)
+# setup deferred renderer plugin
+lyra_module(deferred SHARED)
 
 # plugin sources
-target_sources(lyra-renderer-deferred PRIVATE
-  DeferredHybridRendererPlugin.cpp
+target_sources(lyra-deferred PRIVATE
+  DeferredPlugin.cpp
 )

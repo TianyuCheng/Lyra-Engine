@@ -30,7 +30,7 @@ void EditorRenderer::init(AppContext& context)
     // automatically load the forward renderer plugin if no active renderer
     if (auto rm = context.services.try_get<RendererManager*>()) {
         if (!rm->has_active_renderer()) {
-            rm->load_renderer("lyra-renderer-forward", context);
+            rm->load_renderer(context, RendererBackend::FORWARD);
         }
     }
 }

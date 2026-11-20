@@ -74,7 +74,10 @@ namespace lyra::softgpu
         GPUMultisampleState            multisample;
         CString                        label = "";
 
+        GPUShaderModuleHandle vshader_module;
         GPUShaderModuleHandle fshader_module;
+        String                ventry_point;
+        String                fentry_point;
         void*                 vshader_func = nullptr;
         void*                 fshader_func = nullptr;
 

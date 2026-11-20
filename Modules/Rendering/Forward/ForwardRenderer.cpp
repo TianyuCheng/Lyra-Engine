@@ -73,30 +73,46 @@ FrameGraphHandle<FrameGraphTexture> ForwardRenderer::render(const RenderFrameCon
         return ctx.color_target;
     }
 
+    RenderView view    = ctx.view;
+    view.render_extent = extent;
+
     auto& builder = ctx.builder;
 
     // ensure depth target handle is valid
     auto depth_h           = ctx.depth_target;
     bool needs_depth_clear = true;
     if (!depth_h.valid()) {
-        auto depth_desc   = GPUTextureDescriptor{};
-        depth_desc.label  = "forward_depth_buffer";
-        depth_desc.size   = {extent.width, extent.height, 1};
-        depth_desc.format = ctx.depth_format;
-        depth_desc.usage  = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
-        depth_h           = builder.create<FrameGraphTexture>(depth_desc);
+        struct DepthAllocPassData
+        {
+            FrameGraphHandle<FrameGraphTexture> depth;
+        };
+        auto alloc_data = builder.add_pass<DepthAllocPassData>(
+            "DepthAllocPass",
+            [&](DepthAllocPassData& data, FrameGraphPassBuilder& pass_builder) {
+                auto depth_desc   = GPUTextureDescriptor{};
+                depth_desc.label  = "forward_depth_buffer";
+                depth_desc.size   = {extent.width, extent.height, 1};
+                depth_desc.format = ctx.depth_format;
+                depth_desc.usage  = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
+                data.depth        = pass_builder.create<FrameGraphTexture>(depth_desc);
+            },
+            [](const DepthAllocPassData&, FrameGraphResources&, FrameGraphContext*) {
+            });
+        depth_h           = alloc_data.depth;
         needs_depth_clear = true;
     }
 
     // 1. Cascaded shadow mapping pass (if shadows enabled and directional lights exist)
+    FrameGraphHandle<FrameGraphTexture> shadow_map_h{};
     if (settings.enable_shadows && !ctx.scene.directional_lights.empty() && shadow_pass.valid()) {
-        shadow_pass.add(builder, ctx.view, ctx.scene);
+        auto s_data  = shadow_pass.add(builder, view, ctx.scene);
+        shadow_map_h = s_data.shadow_map_array;
     }
 
     // 2. Depth Prepass (only when explicitly requested or in depth debug mode)
     bool prepass_active = false;
     if (settings.debug_mode == 5 && depth_prepass.valid()) {
-        auto dp_data      = depth_prepass.add(builder, ctx.view, ctx.scene, extent);
+        auto dp_data      = depth_prepass.add(builder, view, ctx.scene, extent);
         depth_h           = dp_data.depth_texture;
         prepass_active    = true;
         needs_depth_clear = false;
@@ -104,14 +120,14 @@ FrameGraphHandle<FrameGraphTexture> ForwardRenderer::render(const RenderFrameCon
 
     // 3. Clustered Light Culling (Forward+)
     if (light_culling_pass.valid()) {
-        light_culling_pass.add(builder, ctx.view, ctx.scene);
+        light_culling_pass.add(builder, view, ctx.scene);
     }
 
     // 4. Atmospheric Skybox Pass (rendered over clear color at far plane)
     auto current_color     = ctx.color_target;
     bool needs_color_clear = true;
     if (skybox_pass.valid()) {
-        auto sky_data     = skybox_pass.add(builder, current_color, depth_h, ctx.view, ctx.scene,
+        auto sky_data     = skybox_pass.add(builder, current_color, depth_h, view, ctx.scene,
             needs_depth_clear ? GPULoadOp::CLEAR : GPULoadOp::LOAD,
             needs_color_clear ? GPULoadOp::CLEAR : GPULoadOp::LOAD);
         current_color     = sky_data.color_output;
@@ -123,6 +139,8 @@ FrameGraphHandle<FrameGraphTexture> ForwardRenderer::render(const RenderFrameCon
     passes::ForwardPassParams params{
         .color_target         = current_color,
         .depth_target         = depth_h,
+        .shadow_map           = shadow_map_h,
+        .light_view_proj      = shadow_pass.get_light_view_proj(),
         .view                 = ctx.view,
         .scene                = ctx.scene,
         .extent               = extent,

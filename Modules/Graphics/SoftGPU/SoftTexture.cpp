@@ -1,4 +1,5 @@
 #include "SoftTexture.h"
+#include <glm/gtc/packing.hpp>
 
 using namespace lyra;
 using namespace lyra::softgpu;
@@ -28,6 +29,7 @@ static usize get_bytes_per_pixel(GPUTextureFormat format)
         case GPUTextureFormat::DEPTH32FLOAT_STENCIL8:
             return 8;
         case GPUTextureFormat::RGBA32FLOAT:
+        case GPUTextureFormat::RGBA32UINT:
             return 16;
         default:
             return 4;
@@ -134,6 +136,49 @@ Vector4 SoftTexture::read_rgba(uint32_t x, uint32_t y, uint32_t z, uint32_t mip,
             const float* f = reinterpret_cast<const float*>(ptr);
             return Vector4(f[0], f[1], 0.0f, 1.0f);
         }
+        case GPUTextureFormat::RGBA16FLOAT:
+        {
+            const uint16_t* h = reinterpret_cast<const uint16_t*>(ptr);
+            return Vector4(
+                glm::unpackHalf1x16(h[0]),
+                glm::unpackHalf1x16(h[1]),
+                glm::unpackHalf1x16(h[2]),
+                glm::unpackHalf1x16(h[3])
+            );
+        }
+        case GPUTextureFormat::RGBA32UINT:
+        {
+            const uint32_t* u = reinterpret_cast<const uint32_t*>(ptr);
+            return Vector4(
+                static_cast<float>(u[0]),
+                static_cast<float>(u[1]),
+                static_cast<float>(u[2]),
+                static_cast<float>(u[3])
+            );
+        }
+        case GPUTextureFormat::R32UINT:
+        {
+            const uint32_t* u = reinterpret_cast<const uint32_t*>(ptr);
+            return Vector4(static_cast<float>(u[0]), 0.0f, 0.0f, 1.0f);
+        }
+        case GPUTextureFormat::DEPTH32FLOAT:
+        case GPUTextureFormat::DEPTH32FLOAT_STENCIL8:
+        {
+            float d = *reinterpret_cast<const float*>(ptr);
+            return Vector4(d, d, d, 1.0f);
+        }
+        case GPUTextureFormat::DEPTH24PLUS_STENCIL8:
+        {
+            uint32_t val = *reinterpret_cast<const uint32_t*>(ptr);
+            float d = static_cast<float>(val & 0x00FFFFFF) / 16777215.0f;
+            return Vector4(d, d, d, 1.0f);
+        }
+        case GPUTextureFormat::DEPTH16UNORM:
+        {
+            uint16_t d16 = *reinterpret_cast<const uint16_t*>(ptr);
+            float d = static_cast<float>(d16) / 65535.0f;
+            return Vector4(d, d, d, 1.0f);
+        }
         default:
             return Vector4(ptr[0] / 255.0f, ptr[1] / 255.0f, ptr[2] / 255.0f, ptr[3] / 255.0f);
     }
@@ -190,6 +235,30 @@ void SoftTexture::write_rgba(uint32_t x, uint32_t y, const Vector4& color, uint3
             float* f = reinterpret_cast<float*>(ptr);
             f[0]     = color.r;
             f[1]     = color.g;
+            break;
+        }
+        case GPUTextureFormat::RGBA16FLOAT:
+        {
+            uint16_t* h = reinterpret_cast<uint16_t*>(ptr);
+            h[0]        = glm::packHalf1x16(color.r);
+            h[1]        = glm::packHalf1x16(color.g);
+            h[2]        = glm::packHalf1x16(color.b);
+            h[3]        = glm::packHalf1x16(color.a);
+            break;
+        }
+        case GPUTextureFormat::RGBA32UINT:
+        {
+            uint32_t* u = reinterpret_cast<uint32_t*>(ptr);
+            u[0]        = static_cast<uint32_t>(color.r);
+            u[1]        = static_cast<uint32_t>(color.g);
+            u[2]        = static_cast<uint32_t>(color.b);
+            u[3]        = static_cast<uint32_t>(color.a);
+            break;
+        }
+        case GPUTextureFormat::R32UINT:
+        {
+            uint32_t* u = reinterpret_cast<uint32_t*>(ptr);
+            u[0]        = static_cast<uint32_t>(color.r);
             break;
         }
         default:

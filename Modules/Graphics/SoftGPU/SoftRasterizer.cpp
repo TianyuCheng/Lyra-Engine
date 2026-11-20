@@ -391,15 +391,20 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
         }
 
         // write color with write mask
-        if (ctx.color_attachment && ctx.color_target.write_mask.value != 0) {
+        bool has_colors = !ctx.color_attachments.empty() || ctx.color_attachment != nullptr;
+        if (has_colors) {
             SoftShadedVertex interp;
             interp.position = Vector4(px, py, z, w);
+            interp.screen   = Vector3(px, py, z);
             interp.color    = (w0 * v0.color * v0.inv_w + w1 * v1.color * v1.inv_w + w2 * v2.color * v2.inv_w) * w;
             interp.texcoord = (w0 * v0.texcoord * v0.inv_w + w1 * v1.texcoord * v1.inv_w + w2 * v2.texcoord * v2.inv_w) * w;
             interp.normal   = (w0 * v0.normal * v0.inv_w + w1 * v1.normal * v1.inv_w + w2 * v2.normal * v2.inv_w) * w;
+            interp.extra    = (w0 * v0.extra * v0.inv_w + w1 * v1.extra * v1.inv_w + w2 * v2.extra * v2.inv_w) * w;
 
-            Vector4 frag_color = interp.color;
-            if (ctx.fshader_func) {
+            Vector4 out_colors[8] = {interp.color, Vector4(0.0f), Vector4(0.0f), Vector4(0.0f), Vector4(0.0f), Vector4(0.0f), Vector4(0.0f), Vector4(0.0f)};
+            if (ctx.fragment_shader_mrt) {
+                ctx.fragment_shader_mrt(interp, out_colors, 8);
+            } else if (ctx.fshader_func) {
                 struct uint3
                 {
                     uint32_t x, y, z;
@@ -426,25 +431,54 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
                 using ComputeFunc = void (*)(ComputeVaryingInput*, void*, void*);
                 auto func         = reinterpret_cast<ComputeFunc>(ctx.fshader_func);
                 func(&varying, &ep, ctx.uniform_state);
-                frag_color = f_out;
+                out_colors[0] = f_out;
             } else if (ctx.fragment_shader) {
-                frag_color = ctx.fragment_shader(interp);
-            }
-            Vector4 out_color = frag_color;
-            if (ctx.color_target.blend_enable) {
-                Vector4 dst = ctx.color_attachment->read_rgba(x, y);
-                out_color   = apply_blend(frag_color, dst, ctx.color_target.blend);
+                out_colors[0] = ctx.fragment_shader(interp);
             }
 
-            if (ctx.color_target.write_mask == GPUColorWrite::ALL) {
-                ctx.color_attachment->write_rgba(x, y, out_color);
-            } else {
-                Vector4 cur = ctx.color_attachment->read_rgba(x, y);
-                if (ctx.color_target.write_mask.contains(GPUColorWrite::RED)) cur.r = out_color.r;
-                if (ctx.color_target.write_mask.contains(GPUColorWrite::GREEN)) cur.g = out_color.g;
-                if (ctx.color_target.write_mask.contains(GPUColorWrite::BLUE)) cur.b = out_color.b;
-                if (ctx.color_target.write_mask.contains(GPUColorWrite::ALPHA)) cur.a = out_color.a;
-                ctx.color_attachment->write_rgba(x, y, cur);
+            if (!ctx.color_attachments.empty()) {
+                for (size_t i = 0; i < ctx.color_attachments.size(); ++i) {
+                    auto* tex = ctx.color_attachments[i];
+                    if (!tex) continue;
+                    const auto& ct = (i < ctx.color_targets.size()) ? ctx.color_targets[i] : ctx.color_target;
+                    if (ct.write_mask.value == 0) continue;
+
+                    Vector4 frag_color = out_colors[i];
+                    Vector4 out_color  = frag_color;
+                    if (ct.blend_enable) {
+                        Vector4 dst = tex->read_rgba(x, y);
+                        out_color   = apply_blend(frag_color, dst, ct.blend);
+                    }
+
+                    if (ct.write_mask == GPUColorWrite::ALL) {
+                        tex->write_rgba(x, y, out_color);
+                    } else {
+                        Vector4 cur = tex->read_rgba(x, y);
+                        if (ct.write_mask.contains(GPUColorWrite::RED)) cur.r = out_color.r;
+                        if (ct.write_mask.contains(GPUColorWrite::GREEN)) cur.g = out_color.g;
+                        if (ct.write_mask.contains(GPUColorWrite::BLUE)) cur.b = out_color.b;
+                        if (ct.write_mask.contains(GPUColorWrite::ALPHA)) cur.a = out_color.a;
+                        tex->write_rgba(x, y, cur);
+                    }
+                }
+            } else if (ctx.color_attachment && ctx.color_target.write_mask.value != 0) {
+                Vector4 frag_color = out_colors[0];
+                Vector4 out_color  = frag_color;
+                if (ctx.color_target.blend_enable) {
+                    Vector4 dst = ctx.color_attachment->read_rgba(x, y);
+                    out_color   = apply_blend(frag_color, dst, ctx.color_target.blend);
+                }
+
+                if (ctx.color_target.write_mask == GPUColorWrite::ALL) {
+                    ctx.color_attachment->write_rgba(x, y, out_color);
+                } else {
+                    Vector4 cur = ctx.color_attachment->read_rgba(x, y);
+                    if (ctx.color_target.write_mask.contains(GPUColorWrite::RED)) cur.r = out_color.r;
+                    if (ctx.color_target.write_mask.contains(GPUColorWrite::GREEN)) cur.g = out_color.g;
+                    if (ctx.color_target.write_mask.contains(GPUColorWrite::BLUE)) cur.b = out_color.b;
+                    if (ctx.color_target.write_mask.contains(GPUColorWrite::ALPHA)) cur.a = out_color.a;
+                    ctx.color_attachment->write_rgba(x, y, cur);
+                }
             }
         }
     };
