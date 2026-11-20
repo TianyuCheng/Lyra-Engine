@@ -44,11 +44,36 @@ TestApp::TestApp(const TestAppDescriptor& app_desc) : desc(app_desc)
         swp               = rhi->request_surface(desc);
     }
 
+    // find engine repository root
+    std::filesystem::path repo_root;
+    if (const char* env_root = std::getenv("LYRA_REPO_ROOT")) {
+        repo_root = env_root;
+    }
+    if (repo_root.empty() || !std::filesystem::exists(repo_root / "Engine" / "Assets")) {
+        repo_root = std::filesystem::current_path();
+        while (!repo_root.empty() && !std::filesystem::exists(repo_root / "Engine" / "Assets")) {
+            auto parent = repo_root.parent_path();
+            if (parent == repo_root) break;
+            repo_root = parent;
+        }
+    }
+
+    static String engine_assets_str  = (repo_root / "Engine" / "Assets").lexically_normal().string();
+    static String engine_shaders_str = (repo_root / "Engine" / "Assets" / "Shaders").lexically_normal().string();
+
+    // initialize file loader
+    loader = make_own<FileLoader>(FSLoader::NATIVE);
+    loader->mount("sys://", engine_assets_str.c_str(), 0);
+
     // initialize compiler
     compiler = execute([&]() {
-        auto desc   = CompilerDescriptor{};
-        desc.target = app_desc.compile_target;
-        desc.flags  = app_desc.compile_flags;
+        static CString includes[] = {engine_shaders_str.c_str()};
+
+        auto desc      = CompilerDescriptor{};
+        desc.target    = app_desc.compile_target;
+        desc.flags     = app_desc.compile_flags;
+        desc.includes  = includes;
+        desc.fs_loader = loader.get();
         return Compiler::init(desc);
     });
 

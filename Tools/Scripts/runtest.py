@@ -12,18 +12,22 @@ import argparse
 import platform
 import subprocess
 import webbrowser
+import threading
+import concurrent.futures
 import xml.etree.ElementTree as ET
 
 def parse_args():
     parser = argparse.ArgumentParser(prog="lyra-rhi-tests", description="helper script to run tests for Lyra-Engine")
     parser.add_argument("executable", help="path to the executable for rhi-tests / testkit")
     parser.add_argument("--directory", help="target directory for the generated test output and report")
+    parser.add_argument("-j", "--jobs", type=int, default=None, help="number of parallel test worker processes (default: min(cpu_count, 8))")
     parser.add_argument("--pixel-tolerance", type=int, default=2, help="per-channel threshold for imperceptible noise (default: 2)")
     parser.add_argument("--mismatch-threshold", type=float, default=1.0, help="max percentage of mismatched pixels allowed (default: 1.0%%)")
     parser.add_argument("--rmse-threshold", type=float, default=2.0, help="max allowed RMSE across RGB channels (default: 2.0)")
     parser.add_argument("--interactive", action="store_true", default=None, help="open browser immediately and poll results live during test execution")
     parser.add_argument("--non-interactive", "--headless", dest="non_interactive", action="store_true", default=False, help="run in non-interactive / headless mode without opening the browser")
     args = parser.parse_args()
+    args.executable = os.path.abspath(args.executable)
     args.directory = os.path.join(args.directory, "runs")
     print("TestKit executable:", args.executable)
     print("TestKit directory:", args.directory)
@@ -380,78 +384,105 @@ def run_rhi_tests(args, buckets, on_progress=None):
     for test_name in buckets:
         results[test_name] = {
             "reference": os.path.join(git_root, "Tests", test_name, "reference.png"),
-            "_metrics": {}
+            "_metrics": {},
+            "_available_backends": [v["components"][1] for v in buckets[test_name]]
         }
 
+    # Flatten all test items across buckets
+    tasks = []
     for test_name, variants in buckets.items():
         directory = os.path.join(args.directory, test_name)
         os.makedirs(directory, exist_ok=True)
         ref_image = results[test_name]["reference"]
-
         for variant in variants:
-            full_name = variant["name"]
-            backend = variant["components"][1]
-            print(f"::{full_name}")
+            tasks.append((test_name, variant, directory, ref_image))
 
-            proc_success = True
-            try:
-                subprocess.check_call([args.executable, f"-tc={full_name}"], cwd=directory)
-            except subprocess.CalledProcessError:
-                print(f"  -> [FAIL] Execution failed: {full_name}")
+    def run_single_variant(item):
+        test_name, variant, directory, ref_image = item
+        full_name = variant["name"]
+        backend = variant["components"][1]
+
+        proc_success = True
+        proc_output = ""
+        proc_env = os.environ.copy()
+        proc_env["LYRA_REPO_ROOT"] = git_root
+        try:
+            res = subprocess.run([args.executable, f"-tc={full_name}"], cwd=directory, env=proc_env, capture_output=True, text=True)
+            if res.returncode != 0:
                 proc_success = False
+                proc_output = (res.stdout or "") + "\n" + (res.stderr or "")
+        except Exception as e:
+            proc_success = False
+            proc_output = str(e)
 
-            test_result = os.path.join(directory, f"{backend}.png")
-            diff_result = os.path.join(directory, f"{backend}_diff.png")
-            results[test_name][backend] = test_result
+        test_result = os.path.join(directory, f"{backend}.png")
+        diff_result = os.path.join(directory, f"{backend}_diff.png")
 
-            if proc_success:
-                test_cfg_path = os.path.join(git_root, "Tests", test_name, "config.json")
-                cur_mismatch_thresh = args.mismatch_threshold
-                cur_rmse_thresh = args.rmse_threshold
-                cur_pixel_tol = args.pixel_tolerance
-                if os.path.exists(test_cfg_path):
-                    try:
-                        with open(test_cfg_path, "r") as cfg_f:
-                            cfg_data = json.load(cfg_f)
-                            cur_mismatch_thresh = cfg_data.get("mismatch_threshold", cur_mismatch_thresh)
-                            cur_rmse_thresh = cfg_data.get("rmse_threshold", cur_rmse_thresh)
-                            cur_pixel_tol = cfg_data.get("pixel_tolerance", cur_pixel_tol)
-                    except Exception:
-                        pass
+        if proc_success:
+            test_cfg_path = os.path.join(git_root, "Tests", test_name, "config.json")
+            cur_mismatch_thresh = args.mismatch_threshold
+            cur_rmse_thresh = args.rmse_threshold
+            cur_pixel_tol = args.pixel_tolerance
+            if os.path.exists(test_cfg_path):
+                try:
+                    with open(test_cfg_path, "r") as cfg_f:
+                        cfg_data = json.load(cfg_f)
+                        cur_mismatch_thresh = cfg_data.get("mismatch_threshold", cur_mismatch_thresh)
+                        cur_rmse_thresh = cfg_data.get("rmse_threshold", cur_rmse_thresh)
+                        cur_pixel_tol = cfg_data.get("pixel_tolerance", cur_pixel_tol)
+                except Exception:
+                    pass
 
-                metrics = check_perceptual_mismatch(
-                    ref_image,
-                    test_result,
-                    diff_output_path=diff_result,
-                    pixel_tolerance=cur_pixel_tol,
-                    max_mismatch_pct=cur_mismatch_thresh,
-                    rmse_threshold=cur_rmse_thresh,
-                )
+            metrics = check_perceptual_mismatch(
+                ref_image,
+                test_result,
+                diff_output_path=diff_result,
+                pixel_tolerance=cur_pixel_tol,
+                max_mismatch_pct=cur_mismatch_thresh,
+                rmse_threshold=cur_rmse_thresh,
+            )
+        else:
+            metrics = {
+                "passed": False,
+                "error": "Process execution failed",
+                "rmse": 0.0,
+                "mismatch_pct": 100.0,
+                "diff_pixels": 0,
+                "total_pixels": 0,
+                "max_diff": 0,
+                "diff_image": None,
+            }
+
+        return test_name, backend, full_name, proc_success, proc_output, metrics, test_result, diff_result
+
+    max_workers = args.jobs if (args.jobs is not None and args.jobs > 0) else max(1, min(os.cpu_count() or 4, 8))
+    print(f">>> Running {len(tasks)} RHI test variants with {max_workers} parallel workers...")
+
+    lock = threading.Lock()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(run_single_variant, item): item for item in tasks}
+        for future in concurrent.futures.as_completed(futures):
+            test_name, backend, full_name, proc_success, proc_output, metrics, test_result, diff_result = future.result()
+            with lock:
+                results[test_name][backend] = test_result
                 results[test_name]["_metrics"][backend] = metrics
                 if metrics.get("diff_image"):
                     results[test_name][f"{backend}_diff"] = metrics["diff_image"]
 
-                if metrics["passed"]:
+                print(f"::{full_name}")
+                if not proc_success:
+                    all_passed = False
+                    print(f"  -> [FAIL] Execution failed: {full_name}")
+                    if proc_output.strip():
+                        print(f"     Output: {proc_output.strip()[:500]}")
+                elif metrics["passed"]:
                     print(f"  -> [PASS] {backend} (RMSE: {metrics['rmse']:.2f}, Diff: {metrics['mismatch_pct']:.2f}%, MaxDiff: {metrics['max_diff']})")
                 else:
                     all_passed = False
                     print(f"  -> [FAIL] {backend}: {metrics['error']}")
-            else:
-                all_passed = False
-                metrics = {
-                    "passed": False,
-                    "error": "Process execution failed",
-                    "rmse": 0.0,
-                    "mismatch_pct": 100.0,
-                    "diff_pixels": 0,
-                    "total_pixels": 0,
-                    "max_diff": 0,
-                    "diff_image": None,
-                }
-                results[test_name]["_metrics"][backend] = metrics
 
-            if on_progress:
-                on_progress(test_name, backend, metrics, test_result, results[test_name].get(f"{backend}_diff"))
+                if on_progress:
+                    on_progress(test_name, backend, metrics, test_result, results[test_name].get(f"{backend}_diff"))
 
     return results, all_passed
 
@@ -463,10 +494,17 @@ def run_unit_tests(args):
     unit_exec = os.path.join(exec_dir, f"lyra-unit-tests{exec_ext}")
     print(">>> Running Unit Tests...")
     try:
+        unit_filter = os.environ.get("LYRA_UNIT_FILTER", None)
         if os.path.exists(unit_exec):
-            subprocess.check_call([unit_exec], cwd=git_root)
+            cmd = [unit_exec]
+            if unit_filter:
+                cmd.append(f"-tc={unit_filter}")
+            subprocess.check_call(cmd, cwd=git_root)
         else:
-            subprocess.check_call([args.executable, "-tce=rhi*"], cwd=git_root)
+            cmd = [args.executable, "-tce=rhi*"]
+            if unit_filter:
+                cmd.append(f"-tc={unit_filter}")
+            subprocess.check_call(cmd, cwd=git_root)
         print(">>> Unit Tests PASSED.")
         return True
     except subprocess.CalledProcessError as e:
@@ -919,6 +957,7 @@ def generate_html_report(args, results, unit_success=True, finished=True):
             </td>''')
 
         metrics_map = buckets.get("_metrics", {})
+        available_backends = buckets.get("_available_backends")
 
         for key in sequence:
             cell_id = f"cell-{test_name}-{key}"
@@ -948,7 +987,7 @@ def generate_html_report(args, results, unit_success=True, finished=True):
                         diff_uri = pathlib.Path(os.path.abspath(diff_img)).as_uri()
                         html_content.append(f'<button class="diff-btn" onclick="openLightbox(\'{diff_uri}\', \'{test_name} [{key.upper()} DIFF]\')">View Diff</button>')
             else:
-                if finished:
+                if finished or (available_backends is not None and key not in available_backends):
                     html_content.append('<span class="empty-state">Not Available</span>')
                 else:
                     html_content.append('<span class="badge badge-pending">PENDING</span>')
@@ -1046,6 +1085,9 @@ def generate_html_report(args, results, unit_success=True, finished=True):
             if (statusElem) {
                 if (data.finished) {
                     isFinished = true;
+                    document.querySelectorAll('.badge-pending').forEach(el => {
+                        el.outerHTML = '<span class="empty-state">Not Available</span>';
+                    });
                     if (data.failed_count === 0 && data.unit_passed) {
                         statusElem.textContent = "ALL PASSED";
                         statusElem.className = "stat-badge stat-passed";
@@ -1133,7 +1175,8 @@ def main():
     for test_name in buckets:
         initial_results[test_name] = {
             "reference": os.path.join(git_root, "Tests", test_name, "reference.png"),
-            "_metrics": {}
+            "_metrics": {},
+            "_available_backends": [v["components"][1] for v in buckets[test_name]]
         }
 
     status_js_path = os.path.join(args.directory, "status.js")
@@ -1146,7 +1189,7 @@ def main():
     if check_vulkan_info():
         sequence.append("vulkan")
 
-    total_expected = len(buckets) * len(sequence)
+    total_expected = len(tests)
 
     live_state = {
         "finished": False,
@@ -1174,29 +1217,31 @@ def main():
     write_status_js(status_js_path, live_state)
 
     rhi_passed = True
+    progress_lock = threading.Lock()
     if buckets:
         def on_progress(test_name, backend, metrics, image_path, diff_path):
-            live_state["completed_count"] += 1
-            if metrics.get("passed", False):
-                live_state["passed_count"] += 1
-            else:
-                live_state["failed_count"] += 1
+            with progress_lock:
+                live_state["completed_count"] += 1
+                if metrics.get("passed", False):
+                    live_state["passed_count"] += 1
+                else:
+                    live_state["failed_count"] += 1
 
-            if test_name not in live_state["results"]:
-                live_state["results"][test_name] = {}
+                if test_name not in live_state["results"]:
+                    live_state["results"][test_name] = {}
 
-            img_uri = pathlib.Path(os.path.abspath(image_path)).as_uri() if image_path and os.path.exists(image_path) else None
-            diff_uri = pathlib.Path(os.path.abspath(diff_path)).as_uri() if diff_path and os.path.exists(diff_path) else None
+                img_uri = pathlib.Path(os.path.abspath(image_path)).as_uri() if image_path and os.path.exists(image_path) else None
+                diff_uri = pathlib.Path(os.path.abspath(diff_path)).as_uri() if diff_path and os.path.exists(diff_path) else None
 
-            live_state["results"][test_name][backend] = {
-                "passed": metrics.get("passed", False),
-                "rmse": metrics.get("rmse", 0.0),
-                "mismatch_pct": metrics.get("mismatch_pct", 0.0),
-                "error": metrics.get("error"),
-                "image_uri": img_uri,
-                "diff_uri": diff_uri,
-            }
-            write_status_js(status_js_path, live_state)
+                live_state["results"][test_name][backend] = {
+                    "passed": metrics.get("passed", False),
+                    "rmse": metrics.get("rmse", 0.0),
+                    "mismatch_pct": metrics.get("mismatch_pct", 0.0),
+                    "error": metrics.get("error"),
+                    "image_uri": img_uri,
+                    "diff_uri": diff_uri,
+                }
+                write_status_js(status_js_path, live_state)
 
         results, rhi_passed = run_rhi_tests(args, buckets, on_progress=on_progress)
     else:

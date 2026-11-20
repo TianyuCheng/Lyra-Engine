@@ -35,6 +35,7 @@ Scratch/
 Build/
 build/
 **/Caches/
+**/__pycache__/
 imgui.ini
 .DS_Store
 .clangd

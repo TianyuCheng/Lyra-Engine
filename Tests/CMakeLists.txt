@@ -52,6 +52,9 @@ add_subdirectory(dynamic_uniform)
 add_subdirectory(texture_sampling)
 add_subdirectory(graphics_pipeline)
 add_subdirectory(ui_system)
+add_subdirectory(forward_renderer)
+add_subdirectory(deferred_renderer)
+
 
 # non-rhi / unit test cases
 add_subdirectory(spatial)
