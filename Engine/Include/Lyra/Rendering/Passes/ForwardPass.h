@@ -93,12 +93,9 @@ namespace lyra::passes
             Matrix4x4 view;
             Matrix4x4 inv_proj;
             Matrix4x4 inv_view;
-            Vector3   pos;
-            float     sun_intensity   = 2.5f;
-            Vector3   sun_dir         = Vector3(0.5f, 1.0f, 0.3f);
-            float     padding         = 0.0f;
-            Vector3   sun_color       = Vector3(1.0f);
-            float     padding2        = 0.0f;
+            Vector4   pos_and_intensity;
+            Vector4   sun_dir_and_pad;
+            Vector4   sun_color_and_pad;
             Matrix4x4 light_view_proj = Matrix4x4(1.0f);
         };
 

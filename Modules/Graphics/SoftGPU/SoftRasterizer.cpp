@@ -1,5 +1,8 @@
 #include "SoftRasterizer.h"
+#if defined(__AVX2__)
 #include <immintrin.h>
+#define LYRA_USE_AVX2 1
+#endif
 
 using namespace lyra;
 using namespace lyra::softgpu;
@@ -456,6 +459,7 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
         float w2_row = B2 * py + C2;
 
         int32_t x = min_x;
+#if LYRA_USE_AVX2
         // AVX2 8-wide SIMD rasterization
         for (; x + 7 <= max_x; x += 8) {
             float  px0     = x + 0.5f;
@@ -509,6 +513,7 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
                 }
             }
         }
+#endif
 
         // scalar fallback for remaining pixels
         for (; x <= max_x; ++x) {

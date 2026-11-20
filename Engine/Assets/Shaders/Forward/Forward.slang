@@ -12,13 +12,15 @@ public struct Camera
     public float4x4 view;
     public float4x4 inv_proj;
     public float4x4 inv_view;
-    public float3   pos;
-    public float    sun_intensity;
-    public float3   sun_dir;
-    public float    padding;
-    public float3   sun_color;
-    public float    padding2;
+    public float4   pos_and_intensity;
+    public float4   sun_dir_and_pad;
+    public float4   sun_color_and_pad;
     public float4x4 light_view_proj;
+
+    public property float3 pos           { get { return pos_and_intensity.xyz; } }
+    public property float  sun_intensity { get { return pos_and_intensity.w; } }
+    public property float3 sun_dir       { get { return sun_dir_and_pad.xyz; } }
+    public property float3 sun_color     { get { return sun_color_and_pad.xyz; } }
 };
 
 [[lyra::binding(0, 0)]]

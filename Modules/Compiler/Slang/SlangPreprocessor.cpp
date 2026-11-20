@@ -97,12 +97,8 @@ String SlangPreprocessor::process_attributes(const String& input, CompileTarget 
                 return attr + " " + decl + " : register(b0, space" + std::to_string(D3D12_ImmediateRegisterSpace) + ");";
             }
         } else if (target == CompileTarget::MSL) {
-            String prefix = "";
-            if (decl.find("vk::push_constant") == String::npos && attr.find("vk::push_constant") == String::npos) {
-                prefix = "[[vk::push_constant]] ";
-            }
             if (decl.find("register") == String::npos && decl.find("IMMEDIATES") == String::npos) {
-                return prefix + attr + " " + decl + " : register(b" + std::to_string(METAL_ImmediateBufferIndex) + ", space" + std::to_string(METAL_ImmediateBufferIndex) + ");";
+                return attr + " " + decl + " : register(b" + std::to_string(METAL_ImmediateBufferIndex) + ", space" + std::to_string(METAL_ImmediateBufferIndex) + ");";
             }
         } else if (target == CompileTarget::HOST) {
             return decl + ";";
@@ -123,10 +119,12 @@ String SlangPreprocessor::process_attributes(const String& input, CompileTarget 
             if (decl.find("vk::binding") == String::npos) {
                 return "[[vk::binding(" + b + ", " + s + ")]] [[lyra::group(" + s + ")]] [[lyra::binding(" + b + ")]] " + decl + ";";
             }
-        } else if (target == CompileTarget::DXIL || target == CompileTarget::MSL) {
+        } else if (target == CompileTarget::DXIL) {
             if (decl.find("register") == String::npos) {
                 return "[[lyra::group(" + s + ")]] [[lyra::binding(" + b + ")]] " + decl + " : register(" + reg + b + ", space" + s + ");";
             }
+        } else if (target == CompileTarget::MSL) {
+            return "[[lyra::group(" + s + ")]] [[lyra::binding(" + b + ")]] " + decl + ";";
         } else if (target == CompileTarget::HOST) {
             return decl + ";";
         }
@@ -145,10 +143,12 @@ String SlangPreprocessor::process_attributes(const String& input, CompileTarget 
             if (decl.find("vk::binding") == String::npos) {
                 return "[[vk::binding(" + b + ", " + s + ")]] [[lyra::group(" + s + ")]] [[lyra::binding(" + b + ")]] " + decl + ";";
             }
-        } else if (target == CompileTarget::DXIL || target == CompileTarget::MSL) {
+        } else if (target == CompileTarget::DXIL) {
             if (decl.find("register") == String::npos) {
                 return "[[lyra::group(" + s + ")]] [[lyra::binding(" + b + ")]] " + decl + " : register(" + reg + b + ", space" + s + ");";
             }
+        } else if (target == CompileTarget::MSL) {
+            return "[[lyra::group(" + s + ")]] [[lyra::binding(" + b + ")]] " + decl + ";";
         } else if (target == CompileTarget::HOST) {
             return decl + ";";
         }
@@ -167,10 +167,12 @@ String SlangPreprocessor::process_attributes(const String& input, CompileTarget 
             if (decl.find("vk::binding") == String::npos) {
                 return "[[vk::binding(" + b + ", " + s + ")]] [[lyra::group(" + s + ")]] [[lyra::binding(" + b + ")]] " + decl + ";";
             }
-        } else if (target == CompileTarget::DXIL || target == CompileTarget::MSL) {
+        } else if (target == CompileTarget::DXIL) {
             if (decl.find("register") == String::npos) {
                 return "[[lyra::group(" + s + ")]] [[lyra::binding(" + b + ")]] " + decl + " : register(" + reg + b + ", space" + s + ");";
             }
+        } else if (target == CompileTarget::MSL) {
+            return "[[lyra::group(" + s + ")]] [[lyra::binding(" + b + ")]] " + decl + ";";
         } else if (target == CompileTarget::HOST) {
             return decl + ";";
         }
@@ -203,7 +205,7 @@ String SlangPreprocessor::process_attributes(const String& input, CompileTarget 
                 if (is_param_block) {
                     return attr + " " + decl + " : register(b" + num + ", space" + num + ");";
                 }
-                return attr + " " + decl + " : register(" + reg + "0, space" + num + ");";
+                return attr + " " + decl + ";";
             }
         } else if (target == CompileTarget::HOST) {
             return decl + ";";
@@ -223,10 +225,12 @@ String SlangPreprocessor::process_attributes(const String& input, CompileTarget 
             if (decl.find("vk::binding") == String::npos) {
                 return "[[vk::binding(" + num + ")]] " + attr + " " + decl + ";";
             }
-        } else if (target == CompileTarget::DXIL || target == CompileTarget::MSL) {
+        } else if (target == CompileTarget::DXIL) {
             if (decl.find("register") == String::npos) {
                 return attr + " " + decl + " : register(" + reg + num + ");";
             }
+        } else if (target == CompileTarget::MSL) {
+            return attr + " " + decl + ";";
         } else if (target == CompileTarget::HOST) {
             return decl + ";";
         }

@@ -173,8 +173,6 @@ void ForwardPass::update_camera_buffer(uint slot, const RenderView& view, const 
         mapped.at(0).view     = view.view;
         mapped.at(0).inv_proj = view.inv_projection;
         mapped.at(0).inv_view = view.inv_view;
-        mapped.at(0).pos      = view.camera_position;
-
         float   exposure_scale = (view.exposure_scale > 0.0f) ? view.exposure_scale : (1.0f / (1.2f * 8192.0f));
         Vector3 sun_dir        = glm::normalize(Vector3(0.6f, 1.0f, 0.5f));
         Vector3 sun_color      = Vector3(1.0f);
@@ -189,12 +187,10 @@ void ForwardPass::update_camera_buffer(uint slot, const RenderView& view, const 
             sun_intensity = std::max(light.intensity * exposure_scale, 0.01f);
         }
 
-        mapped.at(0).sun_intensity   = sun_intensity;
-        mapped.at(0).sun_dir         = sun_dir;
-        mapped.at(0).padding         = 0.0f;
-        mapped.at(0).sun_color       = sun_color;
-        mapped.at(0).padding2        = 0.0f;
-        mapped.at(0).light_view_proj = light_vp;
+        mapped.at(0).pos_and_intensity = Vector4(view.camera_position, sun_intensity);
+        mapped.at(0).sun_dir_and_pad   = Vector4(sun_dir, 0.0f);
+        mapped.at(0).sun_color_and_pad = Vector4(sun_color, 0.0f);
+        mapped.at(0).light_view_proj   = light_vp;
     }
 }
 

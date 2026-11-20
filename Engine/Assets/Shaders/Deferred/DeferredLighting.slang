@@ -14,13 +14,15 @@ struct CameraUniforms
     float4x4 view;
     float4x4 inv_proj;
     float4x4 inv_view;
-    float3   pos;
-    float    sun_intensity;
-    float3   sun_dir;
-    float    padding;
-    float3   sun_color;
-    float    padding2;
+    float4   pos_and_intensity;
+    float4   sun_dir_and_pad;
+    float4   sun_color_and_pad;
     float4x4 light_view_proj;
+
+    property float3 pos           { get { return pos_and_intensity.xyz; } }
+    property float  sun_intensity { get { return pos_and_intensity.w; } }
+    property float3 sun_dir       { get { return sun_dir_and_pad.xyz; } }
+    property float3 sun_color     { get { return sun_color_and_pad.xyz; } }
 };
 
 [[lyra::binding(4, 0)]]

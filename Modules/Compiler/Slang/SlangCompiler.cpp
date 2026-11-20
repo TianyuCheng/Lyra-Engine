@@ -480,6 +480,9 @@ bool CompileResultInternal::get_shader_blob(CString entry, ShaderBlob& blob)
         spirv_code.writeRef(),
         diagnostics.writeRef());
     diagnose_if_needed(diagnostics, result);
+    if (SLANG_FAILED(result)) {
+        get_logger()->error("getEntryPointCode for '{}' returned result: 0x{:08x}", entry, (uint32_t)result);
+    }
     SLANG_RETURN_FALSE_ON_FAIL(result);
 
     // copy into engine-owned storage so callers get a stable non-owning view;
