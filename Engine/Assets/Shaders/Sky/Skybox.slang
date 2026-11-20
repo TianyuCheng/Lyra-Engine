@@ -14,17 +14,22 @@ struct SkyboxUniform
     float4x4 view;
     float4x4 inv_proj;
     float4x4 inv_view;
-    float3   camera_pos;
-    float    sun_intensity;
-    float3   sun_dir;
-    float    sun_angular_radius;
-    float3   sun_color;
-    float    exposure_scale;
-    float    halo_size;
-    float    halo_falloff;
-    float    limb_darkening;
-    float    ground_roughness;
+    float4   camera_pos_and_sun_intensity;
+    float4   sun_dir_and_angular_radius;
+    float4   sun_color_and_exposure_scale;
+    float4   sky_params;
     float4   ground_albedo;
+
+    property float3 camera_pos { get { return camera_pos_and_sun_intensity.xyz; } }
+    property float  sun_intensity { get { return camera_pos_and_sun_intensity.w; } }
+    property float3 sun_dir { get { return sun_dir_and_angular_radius.xyz; } }
+    property float  sun_angular_radius { get { return sun_dir_and_angular_radius.w; } }
+    property float3 sun_color { get { return sun_color_and_exposure_scale.xyz; } }
+    property float  exposure_scale { get { return sun_color_and_exposure_scale.w; } }
+    property float  halo_size { get { return sky_params.x; } }
+    property float  halo_falloff { get { return sky_params.y; } }
+    property float  limb_darkening { get { return sky_params.z; } }
+    property float  ground_roughness { get { return sky_params.w; } }
 };
 
 [[lyra::binding(0, 0)]]
