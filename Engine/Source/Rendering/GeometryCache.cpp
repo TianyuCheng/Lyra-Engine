@@ -273,7 +273,8 @@ void GeometryCache::upload_forms(
             }
 
             cmd.submit();
-            resource_retire.retire(staging);
+            device.wait();
+            staging.destroy();
         }
     }
 

@@ -37,10 +37,10 @@ TEST_CASE("rendering::shading_model_registry" * doctest::description("Verify equ
     {
         constexpr lyra::GUID CUSTOM_GUID = 0x9876543210ULL;
         ShadingModelInfo     custom_info{
-                .id                 = CUSTOM_GUID,
-                .name               = "Hologram",
-                .shader_module_path = "app://Shaders/Hologram.slang",
-                .struct_name        = "HologramShadingModel",
+            .id                 = CUSTOM_GUID,
+            .name               = "Hologram",
+            .shader_module_path = "app://Shaders/Hologram.slang",
+            .struct_name        = "HologramShadingModel",
         };
 
         ShadingModelRegistry::register_model(custom_info);
@@ -151,10 +151,10 @@ TEST_CASE("rendering::shading_model_variant_compilation" * doctest::description(
     });
     REQUIRE(refl_pbr != nullptr);
     CHECK_EQ(refl_pbr->get_immediate_size(), sizeof(MeshDrawInstance));
-    CHECK_EQ(sizeof(MeshDrawInstance), 80);
+    CHECK_EQ(sizeof(MeshDrawInstance), 112);
     auto layouts = refl_pbr->get_bind_group_layouts();
     REQUIRE_EQ(layouts.size(), 2);
-    CHECK_EQ(layouts[0].entries.size(), 1); // Camera in set 0
+    CHECK_EQ(layouts[0].entries.size(), 3); // Camera, shadow map, shadow sampler in set 0
     CHECK_EQ(layouts[1].entries.size(), 1); // Vertex buffer in set 1
 
     // 3. Reflect specialized NPR variant

@@ -39,10 +39,7 @@ VertexOutput vsmain(uint vertex_id : SV_VertexID)
 
     VertexOutput output;
     output.position = float4(p, 0.0, 1.0);
-    output.uv       = p * 0.5 + 0.5;
-#if defined(__spirv__) || defined(LYRA_VULKAN)
-    output.uv.y = 1.0 - output.uv.y;
-#endif
+    output.uv       = float2(p.x * 0.5 + 0.5, 0.5 - p.y * 0.5);
     return output;
 }
 

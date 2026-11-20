@@ -100,6 +100,9 @@ void MeshPass::prepare(
 
         MeshDrawInstance inst{};
         inst.model       = mesh.transform;
+        inst.base_color  = mesh.material_params.base_color;
+        inst.roughness   = mesh.material_params.roughness;
+        inst.metallic    = mesh.material_params.metallic;
         inst.pos_offset  = static_cast<uint>(base_offset + (offsets.has_position() ? offsets.position : 0));
         inst.norm_offset = static_cast<uint>(base_offset + (offsets.has_normal() ? offsets.normal : inst.pos_offset));
         inst.uv_offset   = static_cast<uint>(base_offset + (offsets.has_texcoord0() ? offsets.texcoord0 : inst.pos_offset));

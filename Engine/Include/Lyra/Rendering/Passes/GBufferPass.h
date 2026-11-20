@@ -22,7 +22,7 @@ namespace lyra::passes
     {
         FrameGraphHandle<FrameGraphTexture> albedo_metallic;  ///< RGBA8UNORM: RGB albedo, A metallic
         FrameGraphHandle<FrameGraphTexture> normal_roughness; ///< RGBA16FLOAT: RGB encoded world normal, A roughness
-        FrameGraphHandle<FrameGraphTexture> material_info;    ///< RGBA8UINT: R shading model, G material ID, BA custom
+        FrameGraphHandle<FrameGraphTexture> material_info;    ///< RGBA32UINT: R shading model, G material ID, BA custom
         FrameGraphHandle<FrameGraphTexture> depth_stencil;    ///< DEPTH32FLOAT or DEPTH24PLUS_STENCIL8
     };
 

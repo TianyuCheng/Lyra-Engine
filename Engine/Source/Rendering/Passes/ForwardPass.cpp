@@ -79,30 +79,31 @@ bool ForwardPass::init(
         });
     }
 
+    shadow_sampler = execute([&]() {
+        auto desc           = GPUSamplerDescriptor{};
+        desc.label          = "forward_shadow_sampler";
+        desc.min_filter     = GPUFilterMode::LINEAR;
+        desc.mag_filter     = GPUFilterMode::LINEAR;
+        desc.address_mode_u = GPUAddressMode::CLAMP_TO_EDGE;
+        desc.address_mode_v = GPUAddressMode::CLAMP_TO_EDGE;
+        return device.create_sampler(desc);
+    });
+
+    default_shadow_map  = execute([&]() {
+        auto desc   = GPUTextureDescriptor{};
+        desc.label  = "forward_default_shadow_map";
+        desc.size   = {1, 1, 1};
+        desc.format = GPUTextureFormat::DEPTH32FLOAT;
+        desc.usage  = GPUTextureUsage::TEXTURE_BINDING | GPUTextureUsage::RENDER_ATTACHMENT;
+        return device.create_texture(desc);
+    });
+    default_shadow_view = default_shadow_map.create_view();
+
     heap = execute([&]() {
         auto desc      = GPUBindGroupHeapDescriptor{};
         desc.page_size = 512;
         return device.create_bind_group_heap(desc);
     });
-
-    if (!blayouts.empty()) {
-        for (uint i = 0; i < FRAMES_IN_FLIGHT; ++i) {
-            camera_bind_groups[i] = execute([&]() {
-                Array<GPUBindGroupEntry, 1> entries{};
-                entries[0].type          = GPUResourceType::BUFFER;
-                entries[0].binding       = 0;
-                entries[0].buffer.buffer = camera_buffers[i].handle;
-                entries[0].buffer.offset = 0;
-                entries[0].buffer.size   = sizeof(CameraUniforms);
-
-                auto desc    = GPUBindGroupDescriptor{};
-                desc.heap    = heap;
-                desc.layout  = blayouts[0];
-                desc.entries = entries;
-                return device.create_bind_group(desc);
-            });
-        }
-    }
 
     initialized = true;
     return true;
@@ -143,6 +144,16 @@ void ForwardPass::destroy()
     camera_buffers.fill({});
     camera_bind_groups.fill({});
 
+    if (shadow_sampler.valid()) {
+        shadow_sampler.destroy();
+    }
+    if (default_shadow_view.valid()) {
+        default_shadow_view.destroy();
+    }
+    if (default_shadow_map.valid()) {
+        default_shadow_map.destroy();
+    }
+
     if (playout.valid()) {
         playout.destroy();
     }
@@ -150,7 +161,7 @@ void ForwardPass::destroy()
     initialized = false;
 }
 
-void ForwardPass::update_camera_buffer(uint slot, const RenderView& view, const RenderScene& scene)
+void ForwardPass::update_camera_buffer(uint slot, const RenderView& view, const RenderScene& scene, const Matrix4x4& light_vp)
 {
     if (slot >= FRAMES_IN_FLIGHT || !camera_buffers[slot].valid()) {
         return;
@@ -165,7 +176,7 @@ void ForwardPass::update_camera_buffer(uint slot, const RenderView& view, const 
         mapped.at(0).pos      = view.camera_position;
 
         float   exposure_scale = (view.exposure_scale > 0.0f) ? view.exposure_scale : (1.0f / (1.2f * 8192.0f));
-        Vector3 sun_dir        = glm::normalize(Vector3(0.5f, 1.0f, 0.3f));
+        Vector3 sun_dir        = glm::normalize(Vector3(0.6f, 1.0f, 0.5f));
         Vector3 sun_color      = Vector3(1.0f);
         float   sun_intensity  = 110000.0f * exposure_scale;
 
@@ -178,11 +189,12 @@ void ForwardPass::update_camera_buffer(uint slot, const RenderView& view, const 
             sun_intensity = std::max(light.intensity * exposure_scale, 0.01f);
         }
 
-        mapped.at(0).sun_intensity = sun_intensity;
-        mapped.at(0).sun_dir       = sun_dir;
-        mapped.at(0).padding       = 0.0f;
-        mapped.at(0).sun_color     = sun_color;
-        mapped.at(0).padding2      = 0.0f;
+        mapped.at(0).sun_intensity   = sun_intensity;
+        mapped.at(0).sun_dir         = sun_dir;
+        mapped.at(0).padding         = 0.0f;
+        mapped.at(0).sun_color       = sun_color;
+        mapped.at(0).padding2        = 0.0f;
+        mapped.at(0).light_view_proj = light_vp;
     }
 }
 
@@ -289,7 +301,7 @@ ForwardPassData ForwardPass::add(
     frame_slot        = (frame_slot + 1) % FRAMES_IN_FLIGHT;
     uint current_slot = frame_slot;
 
-    update_camera_buffer(current_slot, params.view, params.scene);
+    update_camera_buffer(current_slot, params.view, params.scene, params.light_view_proj);
 
     // prepare sorted and batched mesh commands via MeshPass
     mesh_pass.prepare(
@@ -316,8 +328,11 @@ ForwardPassData ForwardPass::add(
                 depth_h           = pass_builder.create<FrameGraphTexture>(depth_desc);
             }
 
-            data.color_target       = pass_builder.render(params.color_target);
-            data.depth_target       = pass_builder.render(depth_h);
+            data.color_target = pass_builder.render(params.color_target);
+            data.depth_target = pass_builder.render(depth_h);
+            if (params.shadow_map.valid()) {
+                data.shadow_map = pass_builder.sample(params.shadow_map);
+            }
             data.draw_calls         = mesh_pass.get_draw_call_count();
             data.triangles_rendered = mesh_pass.get_triangle_count();
         },
@@ -331,6 +346,36 @@ ForwardPassData ForwardPass::add(
             if (!color_tex || !depth_tex) {
                 return;
             }
+
+            GPUTextureViewHandle s_view = default_shadow_view.handle;
+            if (data.shadow_map.valid()) {
+                if (auto shadow_tex = resources.get<FrameGraphTexture>(data.shadow_map)) {
+                    s_view = shadow_tex->view;
+                }
+            }
+
+            Array<GPUBindGroupEntry, 3> entries{};
+            entries[0].type          = GPUResourceType::BUFFER;
+            entries[0].binding       = 0;
+            entries[0].buffer.buffer = camera_buffers[current_slot].handle;
+            entries[0].buffer.offset = 0;
+            entries[0].buffer.size   = sizeof(CameraUniforms);
+
+            entries[1].type    = GPUResourceType::TEXTURE;
+            entries[1].binding = 1;
+            entries[1].texture = s_view;
+
+            entries[2].type    = GPUResourceType::SAMPLER;
+            entries[2].binding = 2;
+            entries[2].sampler = shadow_sampler.handle;
+
+            auto bg_desc = GPUBindGroupDescriptor{};
+            bg_desc.heap = heap;
+            if (!blayouts.empty()) {
+                bg_desc.layout = blayouts[0];
+            }
+            bg_desc.entries = entries;
+            auto pass_bg    = device.create_bind_group(bg_desc);
 
             auto color_attachment        = GPURenderPassColorAttachment{};
             color_attachment.view        = color_tex->view;
@@ -354,7 +399,7 @@ ForwardPassData ForwardPass::add(
             command.set_scissor_rect(0, 0, params.extent.width, params.extent.height);
 
             // delegate all mesh draws and state transitions to MeshPass with pass camera bind group (Set 0)
-            mesh_pass.draw(command, camera_bind_groups[current_slot]);
+            mesh_pass.draw(command, pass_bg);
 
             command.end_render_pass();
         });

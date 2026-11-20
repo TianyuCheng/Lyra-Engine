@@ -41,10 +41,15 @@ namespace lyra
     struct alignas(16) MeshDrawInstance
     {
         Matrix4x4 model;
-        uint      pos_offset;
-        uint      norm_offset;
-        uint      uv_offset;
-        uint      material_id;
+        Vector4   base_color  = Vector4(1.0f);
+        float     roughness   = 0.5f;
+        float     metallic    = 0.0f;
+        uint      pos_offset  = 0;
+        uint      norm_offset = 0;
+        uint      uv_offset   = 0;
+        uint      material_id = 0;
+        uint      padding0    = 0;
+        uint      padding1    = 0;
     };
 
     /**

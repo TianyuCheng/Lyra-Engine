@@ -2,6 +2,8 @@ module Forward;
 
 import lyra;
 import Common.ShadingModel;
+import Common.BSDF;
+import Common.Tonemapping;
 import Shading.BuiltinShading;
 
 public struct Camera
@@ -16,10 +18,17 @@ public struct Camera
     public float    padding;
     public float3   sun_color;
     public float    padding2;
+    public float4x4 light_view_proj;
 };
 
 [[lyra::binding(0, 0)]]
 public ConstantBuffer<Camera> camera;
+
+[[lyra::binding(1, 0)]]
+public Texture2D<float> shadow_map;
+
+[[lyra::binding(2, 0)]]
+public SamplerState shadow_sampler;
 
 [[lyra::binding(0, 1)]]
 public ByteAddressBuffer vertex_buffer;
@@ -27,10 +36,15 @@ public ByteAddressBuffer vertex_buffer;
 public struct InstanceData
 {
     public float4x4 model;
+    public float4   base_color;
+    public float    roughness;
+    public float    metallic;
     public uint     pos_offset;
     public uint     norm_offset;
     public uint     uv_offset;
     public uint     material_id;
+    public uint     padding0;
+    public uint     padding1;
 };
 
 [[lyra::immediates]]
@@ -67,9 +81,9 @@ public SurfaceData extract_surface_data(VertexOutput input)
     surf.world_pos  = input.world_pos;
     surf.normal     = normalize(input.normal);
     surf.uv         = input.uv;
-    surf.base_color = float4(1.0, 1.0, 1.0, 1.0);
-    surf.roughness  = 0.5;
-    surf.metallic   = 0.0;
+    surf.base_color = instance_data.base_color;
+    surf.roughness  = instance_data.roughness;
+    surf.metallic   = instance_data.metallic;
     surf.clear_coat = 0.0;
     surf.view_dir   = normalize(camera.pos - input.world_pos);
     return surf;
@@ -84,12 +98,59 @@ public LightingContext extract_lighting_context()
     return light;
 }
 
+public float evaluate_shadow(float3 world_pos)
+{
+    float4 light_clip = mul(float4(world_pos, 1.0), camera.light_view_proj);
+    if (light_clip.w <= 0.0) return 1.0;
+    float3 shadow_coords = light_clip.xyz / light_clip.w;
+
+    #if defined(__spirv__) || defined(LYRA_VULKAN)
+    float2 shadow_uv = float2(shadow_coords.x * 0.5 + 0.5, shadow_coords.y * 0.5 + 0.5);
+    #else
+    float2 shadow_uv = float2(shadow_coords.x * 0.5 + 0.5, 0.5 - shadow_coords.y * 0.5);
+    #endif
+
+    if (shadow_uv.x < 0.0 || shadow_uv.x > 1.0 || shadow_uv.y < 0.0 || shadow_uv.y > 1.0) {
+        return 1.0;
+    }
+
+    float current_depth = shadow_coords.z;
+    if (current_depth > 1.0) return 1.0;
+
+    float shadow = 0.0;
+    float bias = 0.002;
+    float2 texel_size = float2(1.0 / 2048.0, 1.0 / 2048.0);
+    for (int y = -1; y <= 1; ++y) {
+        for (int x = -1; x <= 1; ++x) {
+            float depth_sample = shadow_map.SampleLevel(shadow_sampler, shadow_uv + float2(x, y) * texel_size, 0).r;
+            shadow += (current_depth - bias <= depth_sample) ? 1.0 : 0.0;
+        }
+    }
+    return shadow / 9.0;
+}
+
 public float4 evaluate_forward_shading<TModel : IShadingModel>(VertexOutput input)
 {
     SurfaceData     surf  = extract_surface_data(input);
     LightingContext light = extract_lighting_context();
-    TModel          model;
-    return model.evaluate(surf, light);
+    float shadow = evaluate_shadow(surf.world_pos);
+
+    PBRMaterial mat;
+    mat.base_color           = surf.base_color.rgb;
+    mat.metallic             = surf.metallic;
+    mat.roughness            = max(surf.roughness, 0.04);
+    mat.reflectance          = 0.5;
+    mat.clear_coat.factor    = 0.0;
+    mat.clear_coat.roughness = 0.04;
+    mat.clear_coat.tint      = float3(0.0);
+    mat.clear_coat.thickness = 0.0;
+
+    float3 light_radiance = light.sun_color * light.sun_intensity;
+    float3 direct = mat.evaluate(surf.view_dir, light.sun_dir, surf.normal) * light_radiance * shadow;
+    float3 ambient = surf.base_color.rgb * max(light.sun_intensity * 0.15, 0.04);
+    float3 final_color = tonemap_aces_film(direct + ambient);
+
+    return float4(final_color, surf.base_color.a);
 }
 
 // ---------------------------------------------------------------------------

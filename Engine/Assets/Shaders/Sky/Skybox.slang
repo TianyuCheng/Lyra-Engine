@@ -63,7 +63,8 @@ float4 fsmain(VertexOutput input) : SV_Target
     float3 dir = normalize(input.ray_dir);
     AtmosphereParameters atmo = default_earth_atmosphere();
 
-    atmo.sun_intensity      = skybox.sun_intensity;
+    float exposed_sun_intensity = max(skybox.sun_intensity * skybox.exposure_scale, 0.01f);
+    atmo.sun_intensity      = clamp(exposed_sun_intensity * 1.8f, 5.0f, 40.0f);
     atmo.sun_angular_radius = skybox.sun_angular_radius;
     float3 sun_dir          = normalize(skybox.sun_dir);
 
@@ -94,7 +95,7 @@ float4 fsmain(VertexOutput input) : SV_Target
         // 2. Lower hemisphere (ground / earth surface):
         // direct sun illumination on horizontal ground plane attenuated by transmittance
         float sun_elev = max(sun_dir.y, 0.0);
-        float3 sun_irradiance = skybox.sun_color * (sun_elev * skybox.sun_intensity) * sun_transmittance;
+        float3 sun_irradiance = skybox.sun_color * (sun_elev * exposed_sun_intensity) * sun_transmittance;
 
         // ambient skylight arriving at the ground
         float3 sky_ambient = horizon_sky * 0.25;
@@ -108,9 +109,6 @@ float4 fsmain(VertexOutput input) : SV_Target
         float haze = exp(-6.0 * max(-dir.y, 0.0));
         color = lerp(ground_radiance, horizon_sky, haze);
     }
-
-    // Apply physical camera exposure scaling before ACES filmic tonemapping
-    color *= skybox.exposure_scale;
 
     // ACES filmic tonemapping for rich HDR response
     color = tonemap_aces_film(color);
