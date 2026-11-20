@@ -1,9 +1,9 @@
 # setup forward renderer plugin
-lyra_module(renderer-forward SHARED)
+lyra_module(forward SHARED)
 
 # plugin sources
-target_sources(lyra-renderer-forward PRIVATE
+target_sources(lyra-forward PRIVATE
   ForwardRenderer.h
   ForwardRenderer.cpp
-  ForwardRendererPlugin.cpp
+  ForwardPlugin.cpp
 )

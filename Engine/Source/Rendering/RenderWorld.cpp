@@ -13,6 +13,32 @@
 
 using namespace lyra;
 
+namespace
+{
+    Matrix4x4 get_entity_world_transform(const World& ecs_world, Entity entity)
+    {
+        if (auto tw = ecs_world.registry.try_get<TransformWorld>(entity)) {
+            if (auto tl = ecs_world.registry.try_get<TransformLocal>(entity)) {
+                // fallback to TransformLocal if TransformWorld is still default identity and local has been modified
+                if (tw->xform == Matrix4x4(1.0f) && (tl->position != Vector3(0.0f) || tl->rotation != Quaternion(1.0f, 0.0f, 0.0f, 0.0f) || tl->scale != Vector3(1.0f))) {
+                    Matrix4x4 t = glm::translate(Matrix4x4(1.0f), tl->position);
+                    Matrix4x4 r = glm::mat4_cast(tl->rotation);
+                    Matrix4x4 s = glm::scale(Matrix4x4(1.0f), tl->scale);
+                    return t * r * s;
+                }
+            }
+            return tw->xform;
+        }
+        if (auto tl = ecs_world.registry.try_get<TransformLocal>(entity)) {
+            Matrix4x4 t = glm::translate(Matrix4x4(1.0f), tl->position);
+            Matrix4x4 r = glm::mat4_cast(tl->rotation);
+            Matrix4x4 s = glm::scale(Matrix4x4(1.0f), tl->scale);
+            return t * r * s;
+        }
+        return Matrix4x4(1.0f);
+    }
+} // namespace
+
 RenderWorld::RenderWorld(GeometryCache& geometry_cache, AssetServer* ams)
     : geometry_cache(geometry_cache), ams(ams)
 {
@@ -43,15 +69,7 @@ void RenderWorld::extract_view(const World& ecs_world)
     for (auto entity : cam_view) {
         auto& cam = cam_view.get<Camera>(entity);
 
-        Matrix4x4 world_xform(1.0f);
-        if (auto tw = ecs_world.registry.try_get<TransformWorld>(entity)) {
-            world_xform = tw->xform;
-        } else if (auto tl = ecs_world.registry.try_get<TransformLocal>(entity)) {
-            Matrix4x4 t = glm::translate(Matrix4x4(1.0f), tl->position);
-            Matrix4x4 r = glm::mat4_cast(tl->rotation);
-            Matrix4x4 s = glm::scale(Matrix4x4(1.0f), tl->scale);
-            world_xform = t * r * s;
-        }
+        Matrix4x4 world_xform = get_entity_world_transform(ecs_world, entity);
 
         Matrix4x4 proj = cam.projection;
         if (cam.aspect > 0.0f) {
@@ -93,15 +111,7 @@ void RenderWorld::extract_lights(const World& ecs_world)
     for (auto entity : dir_view) {
         auto& light = dir_view.get<DirectionalLight>(entity);
 
-        Matrix4x4 world_xform(1.0f);
-        if (auto tw = ecs_world.registry.try_get<TransformWorld>(entity)) {
-            world_xform = tw->xform;
-        } else if (auto tl = ecs_world.registry.try_get<TransformLocal>(entity)) {
-            Matrix4x4 t = glm::translate(Matrix4x4(1.0f), tl->position);
-            Matrix4x4 r = glm::mat4_cast(tl->rotation);
-            Matrix4x4 s = glm::scale(Matrix4x4(1.0f), tl->scale);
-            world_xform = t * r * s;
-        }
+        Matrix4x4 world_xform = get_entity_world_transform(ecs_world, entity);
 
         auto l      = RenderLight{};
         l.type      = RenderLightType::DIRECTIONAL;
@@ -128,15 +138,7 @@ void RenderWorld::extract_lights(const World& ecs_world)
     for (auto entity : sun_view) {
         auto& sun = sun_view.get<Sun>(entity);
 
-        Matrix4x4 world_xform(1.0f);
-        if (auto tw = ecs_world.registry.try_get<TransformWorld>(entity)) {
-            world_xform = tw->xform;
-        } else if (auto tl = ecs_world.registry.try_get<TransformLocal>(entity)) {
-            Matrix4x4 t = glm::translate(Matrix4x4(1.0f), tl->position);
-            Matrix4x4 r = glm::mat4_cast(tl->rotation);
-            Matrix4x4 s = glm::scale(Matrix4x4(1.0f), tl->scale);
-            world_xform = t * r * s;
-        }
+        Matrix4x4 world_xform = get_entity_world_transform(ecs_world, entity);
 
         auto l      = RenderLight{};
         l.type      = RenderLightType::DIRECTIONAL;
@@ -160,10 +162,7 @@ void RenderWorld::extract_lights(const World& ecs_world)
     for (auto entity : point_view) {
         auto& light = point_view.get<PointLight>(entity);
 
-        Matrix4x4 world_xform(1.0f);
-        if (auto tw = ecs_world.registry.try_get<TransformWorld>(entity)) {
-            world_xform = tw->xform;
-        }
+        Matrix4x4 world_xform = get_entity_world_transform(ecs_world, entity);
 
         auto l      = RenderLight{};
         l.type      = RenderLightType::POINT;
@@ -179,10 +178,7 @@ void RenderWorld::extract_lights(const World& ecs_world)
     for (auto entity : spot_view) {
         auto& light = spot_view.get<SpotLight>(entity);
 
-        Matrix4x4 world_xform(1.0f);
-        if (auto tw = ecs_world.registry.try_get<TransformWorld>(entity)) {
-            world_xform = tw->xform;
-        }
+        Matrix4x4 world_xform = get_entity_world_transform(ecs_world, entity);
 
         auto l             = RenderLight{};
         l.type             = RenderLightType::SPOT;
@@ -215,15 +211,7 @@ void RenderWorld::extract_meshes(const World& ecs_world, const RendererCapabilit
             continue;
         }
 
-        Matrix4x4 world_xform(1.0f);
-        if (auto tw = ecs_world.registry.try_get<TransformWorld>(entity)) {
-            world_xform = tw->xform;
-        } else if (auto tl = ecs_world.registry.try_get<TransformLocal>(entity)) {
-            Matrix4x4 t = glm::translate(Matrix4x4(1.0f), tl->position);
-            Matrix4x4 r = glm::mat4_cast(tl->rotation);
-            Matrix4x4 s = glm::scale(Matrix4x4(1.0f), tl->scale);
-            world_xform = t * r * s;
-        }
+        Matrix4x4 world_xform = get_entity_world_transform(ecs_world, entity);
 
         // resolve or acquire gpu geometry
         const MeshGeometryEntry* entry = geometry_cache.get(mesh_comp.mesh);
@@ -269,19 +257,28 @@ void RenderWorld::extract_meshes(const World& ecs_world, const RendererCapabilit
             GUID              model_id = BuiltinShadingModels::PBR;
             PrimitiveMaterial params   = {};
             CustomPipelineID  pipe     = CustomPipelineID::standard();
-            if (handle.valid() && ams) {
-                auto mat_ptr = ams->get_asset(handle);
-                if (!mat_ptr) {
-                    ams->load_asset<MaterialAsset>(handle.guid);
-                    mat_ptr = ams->get_asset(handle);
-                }
-                if (mat_ptr) {
-                    model               = mat_ptr->shading_model;
-                    model_id            = mat_ptr->shading_model_id != 0 ? mat_ptr->shading_model_id : BuiltinShadingModels::from_enum(mat_ptr->shading_model);
-                    params.base_color   = mat_ptr->base_color_factor;
-                    params.roughness    = mat_ptr->roughness_factor;
-                    params.metallic     = mat_ptr->metallic_factor;
-                    params.alpha_cutoff = mat_ptr->alpha_cutoff;
+            if (handle.valid()) {
+                if (auto proc_mat = find_procedural_material(handle.guid)) {
+                    model               = proc_mat->shading_model;
+                    model_id            = BuiltinShadingModels::from_enum(proc_mat->shading_model);
+                    params.base_color   = proc_mat->base_color_factor;
+                    params.roughness    = proc_mat->roughness_factor;
+                    params.metallic     = proc_mat->metallic_factor;
+                    params.alpha_cutoff = proc_mat->alpha_cutoff;
+                } else if (ams) {
+                    auto mat_ptr = ams->get_asset(handle);
+                    if (!mat_ptr) {
+                        ams->load_asset<MaterialAsset>(handle.guid);
+                        mat_ptr = ams->get_asset(handle);
+                    }
+                    if (mat_ptr) {
+                        model               = mat_ptr->shading_model;
+                        model_id            = mat_ptr->shading_model_id != 0 ? mat_ptr->shading_model_id : BuiltinShadingModels::from_enum(mat_ptr->shading_model);
+                        params.base_color   = mat_ptr->base_color_factor;
+                        params.roughness    = mat_ptr->roughness_factor;
+                        params.metallic     = mat_ptr->metallic_factor;
+                        params.alpha_cutoff = mat_ptr->alpha_cutoff;
+                    }
                 }
             }
             return {model, model_id, params, pipe};
@@ -376,15 +373,7 @@ void RenderWorld::extract_sdfs(const World& ecs_world)
     for (auto entity : sdf_view) {
         auto& sdf_comp = sdf_view.get<SDFVolume>(entity);
 
-        Matrix4x4 world_xform(1.0f);
-        if (auto tw = ecs_world.registry.try_get<TransformWorld>(entity)) {
-            world_xform = tw->xform;
-        } else if (auto tl = ecs_world.registry.try_get<TransformLocal>(entity)) {
-            Matrix4x4 t = glm::translate(Matrix4x4(1.0f), tl->position);
-            Matrix4x4 r = glm::mat4_cast(tl->rotation);
-            Matrix4x4 s = glm::scale(Matrix4x4(1.0f), tl->scale);
-            world_xform = t * r * s;
-        }
+        Matrix4x4 world_xform = get_entity_world_transform(ecs_world, entity);
 
         auto prim               = SDFPrimitive{};
         prim.shape_type         = sdf_comp.shape_type;

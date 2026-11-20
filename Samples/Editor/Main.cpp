@@ -73,6 +73,7 @@ int main(int argc, const char* argv[])
     options.add_options()
         ("p,project", "project root directory", cxxopts::value<std::filesystem::path>()->default_value("Scratch/project"))
         ("gfxapi", "graphics API backend (vulkan, d3d12, metal)", cxxopts::value<std::string>()->default_value("vulkan"))
+        ("renderer", "renderer backend (forward, deferred, gpudriven, pathtracer)", cxxopts::value<std::string>()->default_value("forward"))
         ("h,help", "print usage")
     ;
     // clang-format on

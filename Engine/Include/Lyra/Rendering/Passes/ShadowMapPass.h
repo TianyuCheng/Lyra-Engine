@@ -45,12 +45,13 @@ namespace lyra::passes
         void destroy();
 
         [[nodiscard]] bool valid() const { return initialized && pipeline.valid(); }
+        [[nodiscard]] auto get_light_view_proj() const -> const Matrix4x4& { return light_vp; }
 
         auto add(
             FrameGraphBuilder& builder,
             const RenderView&  view,
             const RenderScene& scene,
-            uint               cascade_count = 4,
+            uint               cascade_count = 1,
             uint               resolution    = 2048) -> ShadowMapData;
 
     private:
@@ -84,7 +85,8 @@ namespace lyra::passes
         uint                                  frame_slot = 0;
         HashMap<uint64_t, GPUBindGroup>       geometry_bind_groups;
         GPUTextureFormat                      cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;
-        bool                                  initialized         = false;
+        Matrix4x4                             light_vp{1.0f};
+        bool                                  initialized = false;
     };
 
 } // namespace lyra::passes

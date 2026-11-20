@@ -33,7 +33,9 @@ target_link_libraries(lyra-softgpu PRIVATE
   embree
 )
 
-target_compile_options(lyra-softgpu PRIVATE
-  $<$<CXX_COMPILER_ID:MSVC>:/arch:AVX2>
-  $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-mavx2>
-)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+  target_compile_options(lyra-softgpu PRIVATE
+    $<$<CXX_COMPILER_ID:MSVC>:/arch:AVX2>
+    $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-mavx2>
+  )
+endif()

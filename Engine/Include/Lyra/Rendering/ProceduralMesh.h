@@ -6,6 +6,7 @@
 #include <Lyra/Utilities/Math.h>
 #include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Assets/Format/MeshAsset.h>
+#include <Lyra/Assets/Format/MaterialAsset.h>
 #include <Lyra/Rendering/GeometryCache.h>
 
 namespace lyra
@@ -33,6 +34,11 @@ namespace lyra
     inline constexpr AssetID PROCEDURAL_CYLINDER_GUID  = 0xCE1D000000000004ULL;
     inline constexpr AssetID PROCEDURAL_ICOSPHERE_GUID = 0x1C05000000000005ULL;
 
+    // deterministic identifiers for standard procedural material presets
+    inline constexpr AssetID PROCEDURAL_MATERIAL_CUBE_GUID   = 0xDA7A000000000001ULL;
+    inline constexpr AssetID PROCEDURAL_MATERIAL_SPHERE_GUID = 0xDA7A000000000002ULL;
+    inline constexpr AssetID PROCEDURAL_MATERIAL_GROUND_GUID = 0xDA7A000000000003ULL;
+
     /**
      * @brief pre-allocates and uploads all standard procedural meshes into the gpu geometry cache.
      */
@@ -43,6 +49,11 @@ namespace lyra
      * @return pointer to procedural mesh asset, or nullptr if not a recognized procedural GUID.
      */
     const MeshAsset* find_procedural_mesh(AssetID guid);
+
+    /**
+     * @brief retrieves a standard procedural material asset by its deterministic GUID.
+     */
+    const MaterialAsset* find_procedural_material(AssetID guid);
 
     /**
      * @brief generates a cube mesh centered at origin with position, normal, and texcoord attributes.

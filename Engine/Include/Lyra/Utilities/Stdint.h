@@ -4,6 +4,7 @@
 #define LYRA_ENGINE_UTILITIES_STDINT_H
 
 #include <cstdint>
+#include <cstddef>
 
 namespace lyra
 {

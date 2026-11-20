@@ -41,16 +41,26 @@ namespace lyra
         void shutdown(AppContext& context);
 
         /**
-         * @brief load a renderer plugin by module name (e.g. "lyra-renderer-forward").
+         * @brief load a renderer plugin by module name (e.g. "lyra-forward").
          */
-        bool load_renderer(StringView plugin_name, AppContext& context);
+        bool load_renderer(AppContext& context, StringView plugin_name);
+
+        /**
+         * @brief load a renderer plugin by backend enum.
+         */
+        bool load_renderer(AppContext& context, RendererBackend backend);
 
         /**
          * @brief dynamically swap the active renderer at runtime.
          *        Drains in-flight GPU frames, shuts down previous renderer,
          *        and instantiates the new renderer with the current viewport size.
          */
-        bool switch_renderer(StringView plugin_name, AppContext& context);
+        bool switch_renderer(AppContext& context, StringView plugin_name);
+
+        /**
+         * @brief dynamically swap the active renderer at runtime by backend enum.
+         */
+        bool switch_renderer(AppContext& context, RendererBackend backend);
 
         /**
          * @brief notify the active renderer of viewport resize.
@@ -85,6 +95,7 @@ namespace lyra
 
         [[nodiscard]] bool has_active_renderer() const { return active_handle.valid() && current_plugin.is_loaded(); }
         [[nodiscard]] auto get_active_name() const -> StringView { return active_name; }
+        [[nodiscard]] auto get_active_backend() const -> Optional<RendererBackend> { return active_backend; }
 
         auto get_active_api() -> RendererAPI* { return current_plugin.get_api(); }
         auto get_active_api() const -> const RendererAPI* { return current_plugin.get_api(); }
@@ -97,14 +108,15 @@ namespace lyra
         const RendererStats& get_stats() const { return stats; }
 
     private:
-        RendererPlugin      current_plugin;
-        RendererHandle      active_handle = {};
-        String              active_name;
-        RendererDescriptor  descriptor = {};
-        RendererSettings    settings   = {};
-        RendererStats       stats      = {};
-        FrameGraphAllocator allocator;
-        bool                initialized = false;
+        RendererPlugin            current_plugin;
+        RendererHandle            active_handle = {};
+        String                    active_name;
+        Optional<RendererBackend> active_backend;
+        RendererDescriptor        descriptor = {};
+        RendererSettings          settings   = {};
+        RendererStats             stats      = {};
+        FrameGraphAllocator       allocator;
+        bool                      initialized = false;
     };
 
 } // namespace lyra
