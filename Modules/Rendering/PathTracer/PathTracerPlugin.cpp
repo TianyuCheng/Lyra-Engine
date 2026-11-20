@@ -36,12 +36,12 @@ static auto get_name() -> CString
 static auto get_capabilities() -> RendererCapabilities
 {
     RendererCapabilities caps{};
-    caps.features = RendererFeature::HARDWARE_RAYTRACING |
-                    RendererFeature::ACCUMULATION |
-                    RendererFeature::POST_PROCESSING |
-                    RendererFeature::DEBUG_VISUALIZATION;
-    caps.supported_primitives = PrimitiveSupport::BVH |
-                                PrimitiveSupport::MESH;
+    caps.features               = RendererFeature::HARDWARE_RAYTRACING |
+                                  RendererFeature::ACCUMULATION |
+                                  RendererFeature::POST_PROCESSING |
+                                  RendererFeature::DEBUG_VISUALIZATION;
+    caps.supported_primitives   = PrimitiveSupport::BVH |
+                                  PrimitiveSupport::MESH;
     caps.max_directional_lights = 16;
     caps.max_local_lights       = 4096;
     caps.supports_hdr           = true;

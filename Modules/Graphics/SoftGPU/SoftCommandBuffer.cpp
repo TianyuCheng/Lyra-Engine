@@ -18,20 +18,33 @@ void SoftCommandBuffer::begin_render_pass(const GPURenderPassDescriptor& desc)
 
     auto ds = desc.depth_stencil_attachment;
     commands.push_back([cas = std::move(cas), ds](SoftDevice& device, ExecutionContext& ctx) {
-        ctx.color_attachment         = nullptr;
+        ctx.color_attachment = nullptr;
+        ctx.color_attachments.clear();
         ctx.depth_stencil_attachment = nullptr;
 
         for (const auto& ca : cas) {
-            if (!ca.view.valid()) continue;
+            if (!ca.view.valid()) {
+                ctx.color_attachments.push_back(nullptr);
+                continue;
+            }
             auto view = device.texture_views.find(ca.view.to_slotmap_handle<SoftTextureView>());
-            if (!view) continue;
+            if (!view) {
+                ctx.color_attachments.push_back(nullptr);
+                continue;
+            }
             auto tex = device.textures.find(view->texture.to_slotmap_handle<SoftTexture>());
-            if (!tex) continue;
+            if (!tex) {
+                ctx.color_attachments.push_back(nullptr);
+                continue;
+            }
 
             if (ca.load_op == GPULoadOp::CLEAR) {
                 tex->clear_color(ca.clear_value, view->base_mip_level, view->base_array_layer);
             }
-            ctx.color_attachment = tex;
+            ctx.color_attachments.push_back(tex);
+            if (!ctx.color_attachment) {
+                ctx.color_attachment = tex;
+            }
         }
 
         if (ds.view.valid()) {
@@ -56,7 +69,8 @@ void SoftCommandBuffer::begin_render_pass(const GPURenderPassDescriptor& desc)
 void SoftCommandBuffer::end_render_pass()
 {
     commands.push_back([](SoftDevice&, ExecutionContext& ctx) {
-        ctx.color_attachment         = nullptr;
+        ctx.color_attachment = nullptr;
+        ctx.color_attachments.clear();
         ctx.depth_stencil_attachment = nullptr;
     });
 }
@@ -157,6 +171,7 @@ static SoftDrawParams setup_draw_params(SoftDevice& device, const ExecutionConte
 {
     SoftDrawParams p{};
     p.r_ctx.color_attachment         = ctx.color_attachment;
+    p.r_ctx.color_attachments        = ctx.color_attachments;
     p.r_ctx.depth_stencil_attachment = ctx.depth_stencil_attachment;
     p.r_ctx.viewport                 = ctx.viewport;
     p.r_ctx.scissor                  = ctx.scissor;
@@ -165,6 +180,7 @@ static SoftDrawParams setup_draw_params(SoftDevice& device, const ExecutionConte
     if (ctx.render_pipeline) {
         p.r_ctx.primitive     = ctx.render_pipeline->primitive;
         p.r_ctx.depth_stencil = ctx.render_pipeline->depth_stencil;
+        p.r_ctx.color_targets = ctx.render_pipeline->color_targets;
         if (!ctx.render_pipeline->color_targets.empty()) {
             p.r_ctx.color_target = ctx.render_pipeline->color_targets[0];
         }
@@ -297,7 +313,7 @@ static SoftDrawParams setup_draw_params(SoftDevice& device, const ExecutionConte
 void SoftCommandBuffer::draw(uint32_t vertex_count, uint32_t instance_count, uint32_t first_vertex, uint32_t first_instance)
 {
     commands.push_back([=](SoftDevice& device, ExecutionContext& ctx) {
-        if (!ctx.color_attachment && !ctx.depth_stencil_attachment) return;
+        if (!ctx.color_attachment && ctx.color_attachments.empty() && !ctx.depth_stencil_attachment) return;
 
         auto it_v = ctx.vertex_buffers.find(0);
         if (it_v == ctx.vertex_buffers.end()) return;
@@ -362,7 +378,7 @@ void SoftCommandBuffer::draw(uint32_t vertex_count, uint32_t instance_count, uin
 void SoftCommandBuffer::draw_indexed(uint32_t index_count, uint32_t instance_count, uint32_t first_index, int32_t base_vertex, uint32_t first_instance)
 {
     commands.push_back([=](SoftDevice& device, ExecutionContext& ctx) {
-        if (!ctx.color_attachment && !ctx.depth_stencil_attachment) return;
+        if (!ctx.color_attachment && ctx.color_attachments.empty() && !ctx.depth_stencil_attachment) return;
 
         auto it_v = ctx.vertex_buffers.find(0);
         if (it_v == ctx.vertex_buffers.end()) return;

@@ -73,7 +73,7 @@ namespace lyra
     inline Task<void> dispatch(
         GPUDevice&   device,
         GPUQueueType queue,
-        F&&          record_fn,
+        F            record_fn,
         JobPriority  priority = JobPriority::NORMAL)
     {
         auto fence = device.create_fence();
@@ -94,19 +94,19 @@ namespace lyra
         GPUDevice&   device,
         GPUQueueType queue,
         JobPriority  priority,
-        F&&          record_fn)
+        F            record_fn)
     {
-        return dispatch(device, queue, std::forward<F>(record_fn), priority);
+        return dispatch(device, queue, std::move(record_fn), priority);
     }
 
     template <typename F>
     requires std::invocable<F, GPUCommandEncoder&>
     inline Task<void> dispatch(
         GPUQueueType queue,
-        F&&          record_fn,
+        F            record_fn,
         JobPriority  priority = JobPriority::NORMAL)
     {
-        return dispatch(RHI::get_current_device(), queue, std::forward<F>(record_fn), priority);
+        return dispatch(RHI::get_current_device(), queue, std::move(record_fn), priority);
     }
 
     template <typename F>
@@ -114,9 +114,9 @@ namespace lyra
     inline Task<void> dispatch(
         GPUQueueType queue,
         JobPriority  priority,
-        F&&          record_fn)
+        F            record_fn)
     {
-        return dispatch(RHI::get_current_device(), queue, std::forward<F>(record_fn), priority);
+        return dispatch(RHI::get_current_device(), queue, std::move(record_fn), priority);
     }
 
 } // namespace lyra

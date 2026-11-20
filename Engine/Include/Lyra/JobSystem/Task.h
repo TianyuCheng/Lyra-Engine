@@ -402,6 +402,28 @@ namespace lyra
     }
 
     // -------------------------------------------------------------------------
+    // DetachedTask: Self-destroying fire-and-forget coroutine
+    // -------------------------------------------------------------------------
+
+    struct DetachedTask
+    {
+        struct promise_type
+        {
+            DetachedTask get_return_object() noexcept { return {}; }
+            SuspendNever initial_suspend() noexcept { return {}; }
+            struct FinalAwaiter
+            {
+                bool await_ready() const noexcept { return false; }
+                void await_suspend(CoroutineHandle<> h) const noexcept { h.destroy(); }
+                void await_resume() const noexcept {}
+            };
+            FinalAwaiter final_suspend() noexcept { return {}; }
+            void         return_void() noexcept {}
+            void         unhandled_exception() noexcept { DEBUG_BREAK(); }
+        };
+    };
+
+    // -------------------------------------------------------------------------
     // when_all: Fan-out and wait for multiple tasks concurrently
     // -------------------------------------------------------------------------
 
@@ -414,15 +436,14 @@ namespace lyra
         } else {
             auto awaiter = make_ref<BatchAwaiter>(static_cast<uint>(N));
 
-            auto launch = [](auto t, Ref<BatchAwaiter> a) -> Task<void> {
+            auto launch = [](auto t, Ref<BatchAwaiter> a) -> DetachedTask {
                 co_await std::move(t);
                 a->finish();
             };
 
             auto schedule_one = [&](auto& t) {
                 JobScheduler::schedule([t = std::move(t), awaiter, launch]() mutable {
-                    auto r = launch(std::move(t), awaiter);
-                    r.get_handle().resume();
+                    launch(std::move(t), awaiter);
                 });
             };
 

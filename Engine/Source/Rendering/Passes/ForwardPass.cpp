@@ -169,10 +169,10 @@ void ForwardPass::update_camera_buffer(uint slot, const RenderView& view, const 
 
     auto mapped = camera_buffers[slot].get_mapped_range<CameraUniforms>();
     if (mapped.count > 0) {
-        mapped.at(0).proj     = view.projection;
-        mapped.at(0).view     = view.view;
-        mapped.at(0).inv_proj = view.inv_projection;
-        mapped.at(0).inv_view = view.inv_view;
+        mapped.at(0).proj      = view.projection;
+        mapped.at(0).view      = view.view;
+        mapped.at(0).inv_proj  = view.inv_projection;
+        mapped.at(0).inv_view  = view.inv_view;
         float   exposure_scale = (view.exposure_scale > 0.0f) ? view.exposure_scale : (1.0f / (1.2f * 8192.0f));
         Vector3 sun_dir        = glm::normalize(Vector3(0.6f, 1.0f, 0.5f));
         Vector3 sun_color      = Vector3(1.0f);

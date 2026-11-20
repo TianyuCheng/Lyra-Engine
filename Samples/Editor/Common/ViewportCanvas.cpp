@@ -75,8 +75,8 @@ bool ViewportCanvas::display()
                           mouse_pos.y >= screen_pos.y && mouse_pos.y <= screen_pos.y + frame_extent.y);
         canvas_hovered = ui::is_panel_hovered() && in_canvas;
         canvas_active  = canvas_hovered && (ui::is_mouse_down(MouseButton::LEFT) ||
-                                              ui::is_mouse_down(MouseButton::RIGHT) ||
-                                              ui::is_mouse_down(MouseButton::MIDDLE));
+                                               ui::is_mouse_down(MouseButton::RIGHT) ||
+                                               ui::is_mouse_down(MouseButton::MIDDLE));
         return canvas_hovered || canvas_active;
     }
     return false;

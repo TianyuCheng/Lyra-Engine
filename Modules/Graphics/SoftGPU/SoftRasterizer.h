@@ -46,21 +46,24 @@ namespace lyra::softgpu
 
     struct SoftRasterizerContext
     {
-        SoftViewport         viewport;
-        SoftScissor          scissor;
-        GPUPrimitiveState    primitive;
-        GPUDepthStencilState depth_stencil;
-        GPUColorTargetState  color_target;
-        GPUColor             blend_constant{0, 0, 0, 1};
-        GPUStencilValue      stencil_reference = 0;
+        SoftViewport                viewport;
+        SoftScissor                 scissor;
+        GPUPrimitiveState           primitive;
+        GPUDepthStencilState        depth_stencil;
+        GPUColorTargetState         color_target;
+        Vector<GPUColorTargetState> color_targets;
+        GPUColor                    blend_constant{0, 0, 0, 1};
+        GPUStencilValue             stencil_reference = 0;
 
-        SoftTexture* color_attachment         = nullptr;
-        SoftTexture* depth_stencil_attachment = nullptr;
+        SoftTexture*         color_attachment = nullptr;
+        Vector<SoftTexture*> color_attachments;
+        SoftTexture*         depth_stencil_attachment = nullptr;
 
         // fragment shader callable
-        void*                                              fshader_func  = nullptr;
-        void*                                              uniform_state = nullptr;
-        mutable Function<Vector4(const SoftShadedVertex&)> fragment_shader;
+        void*                                                                                      fshader_func  = nullptr;
+        void*                                                                                      uniform_state = nullptr;
+        mutable Function<Vector4(const SoftShadedVertex&)>                                         fragment_shader;
+        mutable Function<void(const SoftShadedVertex&, Vector4* out_colors, uint32_t max_targets)> fragment_shader_mrt;
     };
 
     class SoftRasterizer

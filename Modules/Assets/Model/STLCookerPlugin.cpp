@@ -93,8 +93,8 @@ static void apply_stl_orientation(const JSON& metadata, STLRawGeometry& geom)
         yaw_adjust = metadata["rotation_y"].get<float>();
     }
 
-    Matrix4x4 rot = glm::rotate(Matrix4x4(1.0f), glm::radians(yaw_adjust), Vector3(0.0f, 1.0f, 0.0f)) *
-                    glm::rotate(Matrix4x4(1.0f), glm::radians(-90.0f), Vector3(1.0f, 0.0f, 0.0f));
+    Matrix4x4 rot      = glm::rotate(Matrix4x4(1.0f), glm::radians(yaw_adjust), Vector3(0.0f, 1.0f, 0.0f)) *
+                         glm::rotate(Matrix4x4(1.0f), glm::radians(-90.0f), Vector3(1.0f, 0.0f, 0.0f));
     Matrix3x3 norm_rot = Matrix3x3(rot);
 
     for (auto& v : geom.positions) {

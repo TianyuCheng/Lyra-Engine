@@ -12,7 +12,7 @@ namespace
         GREEN,
         BLUE
     };
-}
+} // namespace
 
 TEST_CASE("utilities::enums" * doctest::description("Enum utilities and magic_enum wrappers"))
 {

@@ -36,14 +36,14 @@ static auto get_name() -> CString
 static auto get_capabilities() -> RendererCapabilities
 {
     RendererCapabilities caps{};
-    caps.features = RendererFeature::RASTERIZATION |
-                    RendererFeature::COMPUTE_CULLING |
-                    RendererFeature::MESH_SHADERS |
-                    RendererFeature::POST_PROCESSING |
-                    RendererFeature::DEBUG_VISUALIZATION;
-    caps.supported_primitives = PrimitiveSupport::MESH |
-                                PrimitiveSupport::MESHLET |
-                                PrimitiveSupport::SDF;
+    caps.features               = RendererFeature::RASTERIZATION |
+                                  RendererFeature::COMPUTE_CULLING |
+                                  RendererFeature::MESH_SHADERS |
+                                  RendererFeature::POST_PROCESSING |
+                                  RendererFeature::DEBUG_VISUALIZATION;
+    caps.supported_primitives   = PrimitiveSupport::MESH |
+                                  PrimitiveSupport::MESHLET |
+                                  PrimitiveSupport::SDF;
     caps.max_directional_lights = 4;
     caps.max_local_lights       = 4096;
     return caps;

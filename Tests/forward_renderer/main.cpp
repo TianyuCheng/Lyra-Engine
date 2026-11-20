@@ -62,20 +62,20 @@ struct RendererForwardApp : public TestApp
     void setup_scene()
     {
         // 1. Camera looking at objects on the ground plane
-        auto cam_entity = ecs_world.create("MainCamera");
-        auto& cam       = ecs_world.add_component<Camera>(cam_entity);
-        cam.fov         = 45.0f;
-        cam.aspect      = float(desc.width) / float(desc.height);
-        cam.near_plane  = 0.1f;
-        cam.far_plane   = 100.0f;
-        cam.projection  = glm::perspective(glm::radians(cam.fov), cam.aspect, cam.near_plane, cam.far_plane);
+        auto  cam_entity = ecs_world.create("MainCamera");
+        auto& cam        = ecs_world.add_component<Camera>(cam_entity);
+        cam.fov          = 45.0f;
+        cam.aspect       = float(desc.width) / float(desc.height);
+        cam.near_plane   = 0.1f;
+        cam.far_plane    = 100.0f;
+        cam.projection   = glm::perspective(glm::radians(cam.fov), cam.aspect, cam.near_plane, cam.far_plane);
 
         auto& cam_xform    = ecs_world.add_component<TransformLocal>(cam_entity);
         cam_xform.position = Vector3(0.0f, 2.0f, 4.0f);
         cam_xform.rotation = glm::quatLookAt(glm::normalize(Vector3(0.0f, 0.5f, 0.0f) - cam_xform.position), Vector3(0.0f, 1.0f, 0.0f));
 
         // 2. Directional Sun Light casting shadows
-        auto sun_entity    = ecs_world.create("Sun");
+        auto  sun_entity   = ecs_world.create("Sun");
         auto& dir          = ecs_world.add_component<DirectionalLight>(sun_entity);
         dir.direction      = glm::normalize(Vector3(0.6f, -1.0f, -0.5f));
         dir.color          = Vector3(1.0f, 0.98f, 0.92f);
@@ -84,7 +84,7 @@ struct RendererForwardApp : public TestApp
         sun.angular_radius = 0.005f;
 
         // 3. Procedural Cube sitting on the ground plane
-        auto cube_entity    = ecs_world.create("Cube");
+        auto  cube_entity   = ecs_world.create("Cube");
         auto& cube_mesh     = ecs_world.add_component<Mesh>(cube_entity);
         cube_mesh.mesh      = MeshAssetHandle(PROCEDURAL_CUBE_GUID);
         cube_mesh.material  = MaterialAssetHandle(PROCEDURAL_MATERIAL_CUBE_GUID);
@@ -94,7 +94,7 @@ struct RendererForwardApp : public TestApp
         cube_xform.scale    = Vector3(1.0f);
 
         // 4. Procedural Sphere sitting on the ground plane
-        auto sphere_entity    = ecs_world.create("Sphere");
+        auto  sphere_entity   = ecs_world.create("Sphere");
         auto& sphere_mesh     = ecs_world.add_component<Mesh>(sphere_entity);
         sphere_mesh.mesh      = MeshAssetHandle(PROCEDURAL_SPHERE_GUID);
         sphere_mesh.material  = MaterialAssetHandle(PROCEDURAL_MATERIAL_SPHERE_GUID);
@@ -103,7 +103,7 @@ struct RendererForwardApp : public TestApp
         sphere_xform.scale    = Vector3(1.0f);
 
         // 5. Procedural Ground Plane
-        auto ground_entity    = ecs_world.create("Ground");
+        auto  ground_entity   = ecs_world.create("Ground");
         auto& ground_mesh     = ecs_world.add_component<Mesh>(ground_entity);
         ground_mesh.mesh      = MeshAssetHandle(PROCEDURAL_PLANE_GUID);
         ground_mesh.material  = MaterialAssetHandle(PROCEDURAL_MATERIAL_GROUND_GUID);
@@ -135,7 +135,7 @@ struct RendererForwardApp : public TestApp
                 Matrix4x4 t = glm::translate(Matrix4x4(1.0f), tl->position);
                 Matrix4x4 r = Matrix4x4(glm::mat4_cast(tl->rotation));
                 Matrix4x4 s = glm::scale(Matrix4x4(1.0f), tl->scale);
-                ecs_world.add_component<TransformWorld>(e, TransformWorld{ .xform = t * r * s });
+                ecs_world.add_component<TransformWorld>(e, TransformWorld{.xform = t * r * s});
             }
         };
         for (auto [entity] : ecs_world.registry.storage<Entity>().each()) {
@@ -154,7 +154,7 @@ struct RendererForwardApp : public TestApp
         backbuffer_tex.state   = undefined_texture_state();
         auto color_target      = builder.import(backbuffer_tex);
 
-        RenderView view = render_world->get_view();
+        RenderView view    = render_world->get_view();
         view.render_extent = {desc.width, desc.height};
 
         RenderFrameOutputs outputs{};

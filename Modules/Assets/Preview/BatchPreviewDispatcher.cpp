@@ -35,8 +35,8 @@ auto lyra::preview::get_config() -> PipelinePreviewConfig&
 
 auto BatchPreviewDispatcher::instance() -> BatchPreviewDispatcher&
 {
-    static BatchPreviewDispatcher INSTANCE;
-    return INSTANCE;
+    static auto* INSTANCE = new BatchPreviewDispatcher();
+    return *INSTANCE;
 }
 
 void BatchPreviewDispatcher::configure(AssetServer* manager, const JSON& options)

@@ -250,12 +250,12 @@ static auto get_name() -> CString
 static auto get_capabilities() -> RendererCapabilities
 {
     RendererCapabilities caps{};
-    caps.features = RendererFeature::RASTERIZATION |
-                    RendererFeature::HARDWARE_RAYTRACING |
-                    RendererFeature::POST_PROCESSING |
-                    RendererFeature::DEBUG_VISUALIZATION;
-    caps.supported_primitives = PrimitiveSupport::MESH |
-                                PrimitiveSupport::BVH;
+    caps.features               = RendererFeature::RASTERIZATION |
+                                  RendererFeature::HARDWARE_RAYTRACING |
+                                  RendererFeature::POST_PROCESSING |
+                                  RendererFeature::DEBUG_VISUALIZATION;
+    caps.supported_primitives   = PrimitiveSupport::MESH |
+                                  PrimitiveSupport::BVH;
     caps.max_directional_lights = 4;
     caps.max_local_lights       = 4096;
     return caps;
@@ -364,10 +364,10 @@ static FrameGraph::TextureHandle render(
     if (renderer->camera_buffers[current_slot].valid()) {
         auto mapped = renderer->camera_buffers[current_slot].get_mapped_range<CameraUniforms>();
         if (mapped.count > 0) {
-            mapped.at(0).proj     = view.projection;
-            mapped.at(0).view     = view.view;
-            mapped.at(0).inv_proj = view.inv_projection;
-            mapped.at(0).inv_view = view.inv_view;
+            mapped.at(0).proj      = view.projection;
+            mapped.at(0).view      = view.view;
+            mapped.at(0).inv_proj  = view.inv_projection;
+            mapped.at(0).inv_view  = view.inv_view;
             float   exposure_scale = (view.exposure_scale > 0.0f) ? view.exposure_scale : (1.0f / (1.2f * 8192.0f));
             Vector3 sun_dir        = glm::normalize(Vector3(0.5f, 1.0f, 0.3f));
             Vector3 sun_color      = Vector3(1.0f);

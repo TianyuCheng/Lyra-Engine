@@ -153,8 +153,8 @@ static void worker_thread_main(uint worker_id)
     while (g_scheduler.running.load(std::memory_order_relaxed)) {
         Job  job;
         bool is_background = false;
+        g_scheduler.active_workers.fetch_add(1, std::memory_order_relaxed);
         if (pop_job_for_worker(worker_id, job, is_background)) {
-            g_scheduler.active_workers.fetch_add(1, std::memory_order_relaxed);
             if (is_background) {
                 g_scheduler.active_background_workers.fetch_add(1, std::memory_order_relaxed);
             }
@@ -168,6 +168,7 @@ static void worker_thread_main(uint worker_id)
             g_scheduler.active_workers.fetch_sub(1, std::memory_order_relaxed);
             continue;
         }
+        g_scheduler.active_workers.fetch_sub(1, std::memory_order_relaxed);
 
         // back off and sleep if no work is found
         UniqueLock lock(g_scheduler.sleep_mutex);
@@ -190,7 +191,9 @@ bool lyra::assist_work()
     bool is_background = false;
     if (g_tl_worker_index >= 0 && g_tl_worker_index < static_cast<int>(g_scheduler.worker_count)) {
         if (pop_job_for_worker(static_cast<uint>(g_tl_worker_index), job, is_background)) {
+            g_scheduler.active_workers.fetch_add(1, std::memory_order_relaxed);
             job.execute();
+            g_scheduler.active_workers.fetch_sub(1, std::memory_order_relaxed);
             return true;
         }
     } else {
@@ -198,7 +201,9 @@ bool lyra::assist_work()
         for (const auto& w : g_scheduler.workers) {
             for (usize p = 0; p < PRIORITY_COUNT; ++p) {
                 if (w->deques[p].steal(job)) {
+                    g_scheduler.active_workers.fetch_add(1, std::memory_order_relaxed);
                     job.execute();
+                    g_scheduler.active_workers.fetch_sub(1, std::memory_order_relaxed);
                     return true;
                 }
             }

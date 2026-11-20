@@ -44,8 +44,9 @@ namespace lyra::softgpu
         Vector<uint8_t>                          immediates_data;
         uint32_t                                 stencil_reference = 0;
 
-        SoftTexture* color_attachment         = nullptr;
-        SoftTexture* depth_stencil_attachment = nullptr;
+        Vector<SoftTexture*> color_attachments;
+        SoftTexture*         color_attachment         = nullptr;
+        SoftTexture*         depth_stencil_attachment = nullptr;
     };
 
     class SoftCommandBuffer

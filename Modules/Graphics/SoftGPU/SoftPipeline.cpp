@@ -64,6 +64,8 @@ SoftRenderPipeline::SoftRenderPipeline(const GPURenderPipelineDescriptor& desc)
     }
 
     if (desc.vertex.module.valid()) {
+        vshader_module = desc.vertex.module;
+        if (desc.vertex.entry_point) ventry_point = desc.vertex.entry_point;
         auto* dev = get_device();
         auto* sm  = dev ? dev->shader_modules.find(desc.vertex.module.to_slotmap_handle<SoftShaderModule>()) : nullptr;
         if (sm) {
@@ -72,8 +74,9 @@ SoftRenderPipeline::SoftRenderPipeline(const GPURenderPipelineDescriptor& desc)
     }
     if (desc.fragment.module.valid()) {
         fshader_module = desc.fragment.module;
-        auto* dev      = get_device();
-        auto* sm       = dev ? dev->shader_modules.find(desc.fragment.module.to_slotmap_handle<SoftShaderModule>()) : nullptr;
+        if (desc.fragment.entry_point) fentry_point = desc.fragment.entry_point;
+        auto* dev = get_device();
+        auto* sm  = dev ? dev->shader_modules.find(desc.fragment.module.to_slotmap_handle<SoftShaderModule>()) : nullptr;
         if (sm) {
             fshader_func = sm->host_func;
         }

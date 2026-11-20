@@ -848,7 +848,7 @@ void GUIRenderer::resize()
         style.FontScaleMain = std::max(dpi_xscale, dpi_yscale);
     } else {
         io.DisplaySize             = ImVec2(static_cast<float>(descriptor.width > 0 ? descriptor.width : 960),
-                        static_cast<float>(descriptor.height > 0 ? descriptor.height : 540));
+            static_cast<float>(descriptor.height > 0 ? descriptor.height : 540));
         io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
         ImGuiStyle& style          = ImGui::GetStyle();
         style.FontScaleDpi         = 1.0f;

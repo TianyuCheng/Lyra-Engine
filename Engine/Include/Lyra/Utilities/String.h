@@ -154,7 +154,7 @@ namespace lyra
         constexpr const char* data_ptr() const noexcept { return data; }
         constexpr char*       data_ptr() noexcept { return data; }
         constexpr             operator const char*() const noexcept { return data; }
-        operator StringView() const noexcept { return StringView(data); }
+                              operator StringView() const noexcept { return StringView(data); }
 
         constexpr usize capacity() const noexcept { return N; }
         usize           size() const noexcept { return strnlen_s(data, N); }
