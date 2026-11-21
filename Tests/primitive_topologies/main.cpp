@@ -97,9 +97,9 @@ struct PrimitiveTopologiesApp : public TestApp
         add_quad(0.5f - hw, -0.5f - hh, 0.5f + hw, -0.5f + hh, card_color);
 
         // 2. Q0 (Top-Left): Indexed TRIANGLE_LIST Diamond (indices 24..29, vertices 16..19)
-        uint32_t q0_base = static_cast<uint32_t>(vertices.size());
-        const float rw = 0.22f;
-        const float rh = 0.22f;
+        uint32_t    q0_base = static_cast<uint32_t>(vertices.size());
+        const float rw      = 0.22f;
+        const float rh      = 0.22f;
         TopoVertex  q0_top{}, q0_left{}, q0_bottom{}, q0_right{};
         q0_top.position    = {-0.5f, 0.5f + rh, 0.0f};
         q0_top.color       = ruby;

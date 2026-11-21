@@ -60,10 +60,25 @@ Vector4 SoftSampler::sample_2d(const SoftTexture& tex, const SoftTextureView& vi
             float fx = px - x0;
             float fy = py - y0;
 
-            uint32_t cx0 = std::clamp(x0, 0, static_cast<int>(m.width - 1));
-            uint32_t cx1 = std::clamp(x1, 0, static_cast<int>(m.width - 1));
-            uint32_t cy0 = std::clamp(y0, 0, static_cast<int>(m.height - 1));
-            uint32_t cy1 = std::clamp(y1, 0, static_cast<int>(m.height - 1));
+            auto wrap_index = [](int idx, int dim, GPUAddressMode mode) -> uint32_t {
+                if (mode == GPUAddressMode::REPEAT) {
+                    idx = idx % dim;
+                    if (idx < 0) idx += dim;
+                    return static_cast<uint32_t>(idx);
+                } else if (mode == GPUAddressMode::MIRROR_REPEAT) {
+                    if (idx < 0) idx = -idx - 1;
+                    int m = idx % (2 * dim);
+                    if (m >= dim) m = 2 * dim - 1 - m;
+                    return static_cast<uint32_t>(m);
+                } else {
+                    return static_cast<uint32_t>(std::clamp(idx, 0, dim - 1));
+                }
+            };
+
+            uint32_t cx0 = wrap_index(x0, static_cast<int>(m.width), desc.address_mode_u);
+            uint32_t cx1 = wrap_index(x1, static_cast<int>(m.width), desc.address_mode_u);
+            uint32_t cy0 = wrap_index(y0, static_cast<int>(m.height), desc.address_mode_v);
+            uint32_t cy1 = wrap_index(y1, static_cast<int>(m.height), desc.address_mode_v);
 
             Vector4 c00 = tex.read_rgba(cx0, cy0, 0, effective_mip, view.base_array_layer);
             Vector4 c10 = tex.read_rgba(cx1, cy0, 0, effective_mip, view.base_array_layer);

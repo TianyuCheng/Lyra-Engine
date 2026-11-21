@@ -454,6 +454,16 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
             }
 
             Vector4 out_colors[8] = {interp.color, Vector4(0.0f), Vector4(0.0f), Vector4(0.0f), Vector4(0.0f), Vector4(0.0f), Vector4(0.0f), Vector4(0.0f)};
+            if (ctx.color_targets.size() > 1) {
+                for (size_t i = 0; i < std::min(ctx.color_targets.size(), size_t(4)); ++i) {
+                    Vector4 c = *reinterpret_cast<const Vector4*>(&interp.varyings[i * 4]);
+                    if (c.r != 0.0f || c.g != 0.0f || c.b != 0.0f || c.a != 0.0f) {
+                        out_colors[i] = c;
+                    } else {
+                        out_colors[i] = interp.color;
+                    }
+                }
+            }
             if (ctx.fragment_shader_mrt) {
                 ctx.fragment_shader_mrt(interp, out_colors, 8);
             } else if (ctx.fshader_func) {

@@ -512,8 +512,15 @@ namespace api
         get_cmd_buffer(cmdbuffer).draw_indexed(index_count, instance_count, first_index, base_vertex, first_instance);
     }
 
-    void cmd_draw_indirect(GPUCommandEncoderHandle, GPUBufferHandle, GPUSize64, GPUSize32) {}
-    void cmd_draw_indexed_indirect(GPUCommandEncoderHandle, GPUBufferHandle, GPUSize64, GPUSize32) {}
+    void cmd_draw_indirect(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle indirect_buffer, GPUSize64 indirect_offset, GPUSize32 draw_count)
+    {
+        get_cmd_buffer(cmdbuffer).draw_indirect(indirect_buffer, indirect_offset, draw_count);
+    }
+
+    void cmd_draw_indexed_indirect(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle indirect_buffer, GPUSize64 indirect_offset, GPUSize32 draw_count)
+    {
+        get_cmd_buffer(cmdbuffer).draw_indexed_indirect(indirect_buffer, indirect_offset, draw_count);
+    }
 
     void cmd_dispatch_workgroups(GPUCommandEncoderHandle cmdbuffer, GPUSize32 x, GPUSize32 y, GPUSize32 z)
     {

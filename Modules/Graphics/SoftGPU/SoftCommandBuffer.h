@@ -75,6 +75,8 @@ namespace lyra::softgpu
 
         auto draw(uint32_t vertex_count, uint32_t instance_count, uint32_t first_vertex, uint32_t first_instance) -> void;
         auto draw_indexed(uint32_t index_count, uint32_t instance_count, uint32_t first_index, int32_t base_vertex, uint32_t first_instance) -> void;
+        auto draw_indirect(GPUBufferHandle indirect_buffer, GPUSize64 indirect_offset, GPUSize32 draw_count) -> void;
+        auto draw_indexed_indirect(GPUBufferHandle indirect_buffer, GPUSize64 indirect_offset, GPUSize32 draw_count) -> void;
 
         auto dispatch_workgroups(uint32_t x, uint32_t y, uint32_t z) -> void;
 
