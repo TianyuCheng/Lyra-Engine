@@ -133,10 +133,10 @@ struct DepthCompareOpsApp : public TestApp
             indices.push_back(base + 3);
         };
 
-        const float hw = 0.36f;
-        const float hh = 0.36f;
-        const float rw = 0.13f;
-        const float rh = 0.20f;
+        const float hw       = 0.36f;
+        const float hh       = 0.36f;
+        const float rw       = 0.13f;
+        const float rh       = 0.20f;
         const float x_offset = 0.16f;
 
         const glm::vec4 card_color{0.10f, 0.12f, 0.16f, 1.0f};
@@ -255,8 +255,8 @@ struct DepthCompareOpsApp : public TestApp
         depth_attachment.depth_store_op    = GPUStoreOp::STORE;
         depth_attachment.depth_read_only   = false;
 
-        auto render_pass                      = GPURenderPassDescriptor{};
-        render_pass.color_attachments         = color_attachment;
+        auto render_pass                     = GPURenderPassDescriptor{};
+        render_pass.color_attachments        = color_attachment;
         render_pass.depth_stencil_attachment = depth_attachment;
 
         if (desc.window) {

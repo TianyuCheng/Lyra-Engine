@@ -490,53 +490,71 @@ void SoftCommandBuffer::draw(uint32_t vertex_count, uint32_t instance_count, uin
 
         const uint8_t* vdata = vbuf->data.data() + it_v->second.offset;
 
-        uint32_t num_tris = vertex_count / 3;
-        for (uint32_t t = 0; t < num_tris; ++t) {
-            auto read_vert = [&](uint32_t idx) -> SoftShadedVertex {
-                SoftShadedVertex sv{};
-                const uint8_t*   ptr = vdata + (first_vertex + idx) * p.stride;
-                Vector4          local_pos(0.0f, 0.0f, 0.0f, 1.0f);
-                if (p.pos_format == GPUVertexFormat::FLOAT32x2) {
-                    const auto pos = reinterpret_cast<const Vector2*>(ptr + p.pos_offset);
-                    local_pos.x    = pos->x;
-                    local_pos.y    = pos->y;
-                } else {
-                    const auto pos = reinterpret_cast<const Vector3*>(ptr + p.pos_offset);
-                    local_pos.x    = pos->x;
-                    local_pos.y    = pos->y;
-                    local_pos.z    = pos->z;
-                }
-                sv.position = p.has_vp ? (p.vp_matrix * local_pos) : local_pos;
+        auto read_vert = [&](uint32_t idx) -> SoftShadedVertex {
+            SoftShadedVertex sv{};
+            const uint8_t*   ptr = vdata + (first_vertex + idx) * p.stride;
+            Vector4          local_pos(0.0f, 0.0f, 0.0f, 1.0f);
+            if (p.pos_format == GPUVertexFormat::FLOAT32x2) {
+                const auto pos = reinterpret_cast<const Vector2*>(ptr + p.pos_offset);
+                local_pos.x    = pos->x;
+                local_pos.y    = pos->y;
+            } else {
+                const auto pos = reinterpret_cast<const Vector3*>(ptr + p.pos_offset);
+                local_pos.x    = pos->x;
+                local_pos.y    = pos->y;
+                local_pos.z    = pos->z;
+            }
+            sv.position = p.has_vp ? (p.vp_matrix * local_pos) : local_pos;
 
-                if (p.has_uv || p.bound_tex != nullptr) {
-                    const auto uv = reinterpret_cast<const Vector2*>(ptr + p.uv_offset);
-                    sv.texcoord   = Vector4(uv->x, uv->y, 0.0f, 0.0f);
-                }
-                if (p.has_col) {
-                    if (p.col_format == GPUVertexFormat::UNORM8x4) {
-                        const auto col = ptr + p.col_offset;
-                        sv.color       = Vector4(col[0] / 255.0f, col[1] / 255.0f, col[2] / 255.0f, col[3] / 255.0f);
-                    } else if (p.col_format == GPUVertexFormat::FLOAT32x4) {
-                        const auto col = reinterpret_cast<const Vector4*>(ptr + p.col_offset);
-                        sv.color       = *col;
-                    } else {
-                        const auto col = reinterpret_cast<const Vector3*>(ptr + p.col_offset);
-                        sv.color       = Vector4(col->x, col->y, col->z, 1.0f);
-                    }
-                } else if (p.col_offset + sizeof(Vector3) <= p.stride && p.bound_tex == nullptr) {
+            if (p.has_uv || p.bound_tex != nullptr) {
+                const auto uv = reinterpret_cast<const Vector2*>(ptr + p.uv_offset);
+                sv.texcoord   = Vector4(uv->x, uv->y, 0.0f, 0.0f);
+            }
+            if (p.has_col) {
+                if (p.col_format == GPUVertexFormat::UNORM8x4) {
+                    const auto col = ptr + p.col_offset;
+                    sv.color       = Vector4(col[0] / 255.0f, col[1] / 255.0f, col[2] / 255.0f, col[3] / 255.0f);
+                } else if (p.col_format == GPUVertexFormat::FLOAT32x4) {
+                    const auto col = reinterpret_cast<const Vector4*>(ptr + p.col_offset);
+                    sv.color       = *col;
+                } else {
                     const auto col = reinterpret_cast<const Vector3*>(ptr + p.col_offset);
                     sv.color       = Vector4(col->x, col->y, col->z, 1.0f);
-                } else {
-                    sv.color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
                 }
-                std::memcpy(&sv.varyings[0], &sv.normal, sizeof(float) * 3);
-                std::memcpy(&sv.varyings[3], &sv.texcoord, sizeof(float) * 2);
-                return sv;
-            };
+            } else if (p.col_offset + sizeof(Vector3) <= p.stride && p.bound_tex == nullptr) {
+                const auto col = reinterpret_cast<const Vector3*>(ptr + p.col_offset);
+                sv.color       = Vector4(col->x, col->y, col->z, 1.0f);
+            } else {
+                sv.color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+            }
+            std::memcpy(&sv.varyings[0], &sv.normal, sizeof(float) * 3);
+            std::memcpy(&sv.varyings[3], &sv.texcoord, sizeof(float) * 2);
+            return sv;
+        };
 
-            SoftShadedVertex v0 = read_vert(t * 3 + 0);
-            SoftShadedVertex v1 = read_vert(t * 3 + 1);
-            SoftShadedVertex v2 = read_vert(t * 3 + 2);
+        bool     is_strip = (p.r_ctx.primitive.topology == GPUPrimitiveTopology::TRIANGLE_STRIP);
+        uint32_t num_tris = is_strip ? (vertex_count >= 3 ? vertex_count - 2 : 0) : (vertex_count / 3);
+        for (uint32_t t = 0; t < num_tris; ++t) {
+            uint32_t off0, off1, off2;
+            if (is_strip) {
+                if (t % 2 == 0) {
+                    off0 = t;
+                    off1 = t + 1;
+                    off2 = t + 2;
+                } else {
+                    off0 = t + 1;
+                    off1 = t;
+                    off2 = t + 2;
+                }
+            } else {
+                off0 = t * 3 + 0;
+                off1 = t * 3 + 1;
+                off2 = t * 3 + 2;
+            }
+
+            SoftShadedVertex v0 = read_vert(off0);
+            SoftShadedVertex v1 = read_vert(off1);
+            SoftShadedVertex v2 = read_vert(off2);
 
             Vector<SoftRasterTriangle> tris;
             SoftRasterizer::clip_and_project_triangle(v0, v1, v2, ctx.viewport, tris);
@@ -732,11 +750,29 @@ void SoftCommandBuffer::draw_indexed(uint32_t index_count, uint32_t instance_cou
             return sv;
         };
 
-        uint32_t num_tris = index_count / 3;
+        bool     is_strip = (p.r_ctx.primitive.topology == GPUPrimitiveTopology::TRIANGLE_STRIP);
+        uint32_t num_tris = is_strip ? (index_count >= 3 ? index_count - 2 : 0) : (index_count / 3);
         for (uint32_t t = 0; t < num_tris; ++t) {
-            uint32_t i0 = read_index(first_index + t * 3 + 0) + base_vertex;
-            uint32_t i1 = read_index(first_index + t * 3 + 1) + base_vertex;
-            uint32_t i2 = read_index(first_index + t * 3 + 2) + base_vertex;
+            uint32_t off0, off1, off2;
+            if (is_strip) {
+                if (t % 2 == 0) {
+                    off0 = t;
+                    off1 = t + 1;
+                    off2 = t + 2;
+                } else {
+                    off0 = t + 1;
+                    off1 = t;
+                    off2 = t + 2;
+                }
+            } else {
+                off0 = t * 3 + 0;
+                off1 = t * 3 + 1;
+                off2 = t * 3 + 2;
+            }
+
+            uint32_t i0 = read_index(first_index + off0) + base_vertex;
+            uint32_t i1 = read_index(first_index + off1) + base_vertex;
+            uint32_t i2 = read_index(first_index + off2) + base_vertex;
 
             SoftShadedVertex v0 = read_vertex(i0);
             SoftShadedVertex v1 = read_vertex(i1);
