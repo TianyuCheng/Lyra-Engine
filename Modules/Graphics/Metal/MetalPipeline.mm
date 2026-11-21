@@ -113,7 +113,9 @@ MetalPipeline::MetalPipeline(const GPURenderPipelineDescriptor& desc)
         front_face     = mtlenum(desc.primitive.front_face);
 
         // store depth bias
-        depth_bias       = desc.depth_stencil.depth_bias_constant;
+        depth_bias       = desc.depth_stencil.depth_bias_constant != 0.0f
+                               ? desc.depth_stencil.depth_bias_constant
+                               : static_cast<float>(desc.depth_stencil.depth_bias);
         depth_bias_slope = desc.depth_stencil.depth_bias_slope_scale;
         depth_bias_clamp = desc.depth_stencil.depth_bias_clamp;
 

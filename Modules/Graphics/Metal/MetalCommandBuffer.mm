@@ -297,12 +297,10 @@ void cmd::set_render_pipeline(GPUCommandEncoderHandle cmdbuffer, GPURenderPipeli
     [cmd.render_encoder setCullMode:pipeline.cull_mode];
     [cmd.render_encoder setFrontFacingWinding:pipeline.front_face];
 
-    // set depth bias if needed
-    if (pipeline.depth_bias != 0.0f || pipeline.depth_bias_slope != 0.0f) {
-        [cmd.render_encoder setDepthBias:pipeline.depth_bias
-                              slopeScale:pipeline.depth_bias_slope
-                                   clamp:pipeline.depth_bias_clamp];
-    }
+    // set depth bias
+    [cmd.render_encoder setDepthBias:pipeline.depth_bias
+                          slopeScale:pipeline.depth_bias_slope
+                               clamp:pipeline.depth_bias_clamp];
 }
 
 void cmd::set_compute_pipeline(GPUCommandEncoderHandle cmdbuffer, GPUComputePipelineHandle pipeline_handle)
