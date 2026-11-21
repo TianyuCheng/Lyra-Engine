@@ -20,6 +20,7 @@ struct SimplePipeline
     Vector<ShaderAttribute>          attributes;
 
     void init_color_state(GPUTextureFormat format, bool color_write = true);
+    void init_blend_state(GPUTextureFormat format, const GPUBlendState& blend, bool color_write = true);
     void init_depth_state(GPUTextureFormat format = GPUTextureFormat::DEPTH16UNORM);
     void init_stencil_state(GPUTextureFormat format = GPUTextureFormat::DEPTH24PLUS_STENCIL8);
     void init_depth_stencil_state(GPUTextureFormat format = GPUTextureFormat::DEPTH24PLUS_STENCIL8);

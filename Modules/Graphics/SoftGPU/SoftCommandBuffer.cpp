@@ -516,6 +516,9 @@ void SoftCommandBuffer::draw(uint32_t vertex_count, uint32_t instance_count, uin
                     if (p.col_format == GPUVertexFormat::UNORM8x4) {
                         const auto col = ptr + p.col_offset;
                         sv.color       = Vector4(col[0] / 255.0f, col[1] / 255.0f, col[2] / 255.0f, col[3] / 255.0f);
+                    } else if (p.col_format == GPUVertexFormat::FLOAT32x4) {
+                        const auto col = reinterpret_cast<const Vector4*>(ptr + p.col_offset);
+                        sv.color       = *col;
                     } else {
                         const auto col = reinterpret_cast<const Vector3*>(ptr + p.col_offset);
                         sv.color       = Vector4(col->x, col->y, col->z, 1.0f);
@@ -710,6 +713,9 @@ void SoftCommandBuffer::draw_indexed(uint32_t index_count, uint32_t instance_cou
                 if (p.col_format == GPUVertexFormat::UNORM8x4) {
                     const auto col = ptr + p.col_offset;
                     sv.color       = Vector4(col[0] / 255.0f, col[1] / 255.0f, col[2] / 255.0f, col[3] / 255.0f);
+                } else if (p.col_format == GPUVertexFormat::FLOAT32x4) {
+                    const auto col = reinterpret_cast<const Vector4*>(ptr + p.col_offset);
+                    sv.color       = *col;
                 } else {
                     const auto col = reinterpret_cast<const Vector3*>(ptr + p.col_offset);
                     sv.color       = Vector4(col->x, col->y, col->z, 1.0f);

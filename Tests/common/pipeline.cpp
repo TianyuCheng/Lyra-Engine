@@ -10,6 +10,17 @@ void SimplePipeline::init_color_state(GPUTextureFormat format, bool color_write)
     rstates.push_back(color_state);
 }
 
+void SimplePipeline::init_blend_state(GPUTextureFormat format, const GPUBlendState& blend, bool color_write)
+{
+    auto color_state         = GPUColorTargetState{};
+    color_state.format       = format;
+    color_state.blend_enable = true;
+    color_state.blend        = blend;
+    if (!color_write)
+        color_state.write_mask = GPUColorWrite::NONE;
+    rstates.push_back(color_state);
+}
+
 void SimplePipeline::init_depth_state(GPUTextureFormat format)
 {
     if (!dsstate.has_value()) dsstate = GPUDepthStencilState{};
