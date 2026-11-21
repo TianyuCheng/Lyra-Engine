@@ -9,6 +9,8 @@
 #include "SoftSampler.h"
 #include "SoftRaytracing.h"
 
+#include <Lyra/Compiler/SLCUtils.h>
+
 namespace lyra::softgpu
 {
     struct SoftPipelineLayout
@@ -44,10 +46,12 @@ namespace lyra::softgpu
 
     struct SoftShaderModule
     {
-        Vector<uint8_t> bytecode;
-        void*           host_library = nullptr;
-        void*           host_func    = nullptr;
-        CString         label        = "";
+        Vector<uint8_t>  bytecode;
+        void*            host_library = nullptr;
+        void*            host_func    = nullptr;
+        CString          label        = "";
+        uint32_t         param_count  = 0;
+        HostParamBinding params[16]{};
     };
 
     struct SoftVertexAttribute

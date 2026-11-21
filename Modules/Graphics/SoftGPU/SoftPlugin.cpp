@@ -192,6 +192,8 @@ namespace api
                 if (hcs->magic == HOST_MAGIC) {
                     sm.host_library = hcs->library;
                     sm.host_func    = hcs->entry_func;
+                    sm.param_count  = hcs->param_count;
+                    std::memcpy(sm.params, hcs->params, sizeof(hcs->params));
                 }
             }
         }

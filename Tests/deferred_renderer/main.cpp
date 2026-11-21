@@ -249,7 +249,7 @@ TEST_CASE("rhi::softgpu::deferred_renderer" * doctest::description("Deferred ren
     desc.width          = 640;
     desc.height         = 480;
     desc.rhi_flags      = RHIFlag::DEBUG;
-    desc.compile_target = CompileTarget::SPIRV;
+    desc.compile_target = CompileTarget::HOST;
     desc.compile_flags  = CompileFlag::DEBUG;
     RendererDeferredApp(desc).run();
 }

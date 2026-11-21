@@ -58,11 +58,23 @@ namespace lyra
         uint    offset = 0;
     };
 
+    struct HostParamBinding
+    {
+        ushort  offset        = 0;
+        ushort  size          = 0;
+        uint8_t set           = 0;
+        uint8_t binding       = 0;
+        uint8_t is_immediates = 0;
+        uint8_t padding       = 0;
+    };
+
     extern "C" struct HostCallableShader
     {
-        uint  magic;
-        void* library;
-        void* entry_func;
+        uint             magic;
+        void*            library;
+        void*            entry_func;
+        uint             param_count;
+        HostParamBinding params[16];
     };
 
     struct ShaderBlobDeleter

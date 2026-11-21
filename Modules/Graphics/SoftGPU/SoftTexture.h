@@ -69,6 +69,38 @@ namespace lyra::softgpu
         SoftTextureView() = default;
         SoftTextureView(GPUTextureHandle texture, const GPUTextureViewDescriptor& desc, const SoftTexture& tex);
     };
+
+    struct SlangTextureDimensions
+    {
+        uint32_t shape             = 2;
+        uint32_t width             = 0;
+        uint32_t height            = 0;
+        uint32_t depth             = 1;
+        uint32_t numberOfLevels    = 1;
+        uint32_t arrayElementCount = 0;
+    };
+
+    struct ISlangHostTexture
+    {
+        virtual auto GetDimensions(int mipLevel = -1) -> SlangTextureDimensions                                     = 0;
+        virtual void Load(const int32_t* v, void* outData, size_t dataSize)                                         = 0;
+        virtual void Sample(void* samplerState, const float* loc, void* outData, size_t dataSize)                   = 0;
+        virtual void SampleLevel(void* samplerState, const float* loc, float level, void* outData, size_t dataSize) = 0;
+    };
+
+    struct SoftHostTextureWrapper : public ISlangHostTexture
+    {
+        const SoftTexture*     tex  = nullptr;
+        const SoftTextureView* view = nullptr;
+
+        SoftHostTextureWrapper() = default;
+        SoftHostTextureWrapper(const SoftTexture* t, const SoftTextureView* v) : tex(t), view(v) {}
+
+        auto GetDimensions(int mipLevel = -1) -> SlangTextureDimensions override;
+        void Load(const int32_t* v, void* outData, size_t dataSize) override;
+        void Sample(void* samplerState, const float* loc, void* outData, size_t dataSize) override;
+        void SampleLevel(void* samplerState, const float* loc, float level, void* outData, size_t dataSize) override;
+    };
 } // namespace lyra::softgpu
 
 #endif // LYRA_MODULES_GRAPHICS_SOFTWARE_SOFTTEXTURE_H

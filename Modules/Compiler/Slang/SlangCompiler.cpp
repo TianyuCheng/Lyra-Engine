@@ -173,6 +173,8 @@ SlangProfileID CompilerWrapper::select_profile(const CompilerDescriptor& descrip
         case CompileTarget::MSL:
             // metallib_2_4 is the minimal version supporting ray tracing on Metal
             return get_global_session()->findProfile("metallib_2_4");
+        case CompileTarget::HOST:
+            return SLANG_PROFILE_UNKNOWN;
         case CompileTarget::DXIL:
         case CompileTarget::SPIRV:
         default:
@@ -449,6 +451,8 @@ bool CompileResultInternal::get_shader_blob(CString entry, ShaderBlob& blob)
         diagnose_if_needed(diagnostics, result);
         SLANG_RETURN_FALSE_ON_FAIL(result);
 
+        static Vector<ComPtr<ISlangSharedLibrary>> s_kept_host_libs;
+        s_kept_host_libs.push_back(shared_lib);
         compiled_host_libs[entry] = shared_lib;
 
         void* func_ptr = shared_lib->findSymbolAddressByName(entry);
@@ -459,10 +463,59 @@ bool CompileResultInternal::get_shader_blob(CString entry, ShaderBlob& blob)
 
         auto& cached = compiled_blobs[entry];
         cached.resize(sizeof(HostCallableShader));
-        auto header        = reinterpret_cast<HostCallableShader*>(cached.data());
-        header->magic      = HOST_MAGIC;
-        header->library    = shared_lib.get();
-        header->entry_func = func_ptr;
+        auto header         = reinterpret_cast<HostCallableShader*>(cached.data());
+        header->magic       = HOST_MAGIC;
+        header->library     = shared_lib.get();
+        header->entry_func  = func_ptr;
+        header->param_count = 0;
+        std::memset(header->params, 0, sizeof(header->params));
+
+        auto layout = linked_program->getLayout();
+        if (layout) {
+            uint param_idx = 0;
+            for (uint i = 0; i < layout->getParameterCount() && param_idx < 16; ++i) {
+                auto param_var_layout = layout->getParameterByIndex(i);
+                if (!param_var_layout) continue;
+
+                auto var = param_var_layout->getVariable();
+                if (!var) continue;
+
+                auto check_int_attr = [&](const char* name) -> int {
+                    auto attr = var->findUserAttributeByName(get_global_session(), name);
+                    if (attr && attr->getArgumentCount() > 0) {
+                        int val = 0;
+                        if (attr->getArgumentValueInt(0, &val) == SLANG_OK) return val;
+                    }
+                    return -1;
+                };
+
+                auto has_attr = [&](const char* name) -> bool {
+                    return var->findUserAttributeByName(get_global_session(), name) != nullptr;
+                };
+
+                bool is_imm = has_attr("immediates") || has_attr("lyra_immediates");
+                int  set    = check_int_attr("group");
+                if (set < 0) set = check_int_attr("lyra_group");
+                if (set < 0) set = check_int_attr("set");
+                if (set < 0) set = check_int_attr("lyra_set");
+                if (set < 0) set = 0;
+
+                int binding = check_int_attr("binding");
+                if (binding < 0) binding = check_int_attr("lyra_binding");
+                if (binding < 0) binding = 0;
+
+                size_t offset = param_var_layout->getOffset(SLANG_PARAMETER_CATEGORY_UNIFORM);
+                size_t size   = param_var_layout->getTypeLayout()->getSize(SLANG_PARAMETER_CATEGORY_UNIFORM);
+
+                auto& p         = header->params[param_idx++];
+                p.offset        = static_cast<ushort>(offset);
+                p.size          = static_cast<ushort>(size);
+                p.set           = static_cast<uint8_t>(set);
+                p.binding       = static_cast<uint8_t>(binding);
+                p.is_immediates = is_imm ? 1 : 0;
+            }
+            header->param_count = param_idx;
+        }
 
         blob.size = static_cast<uint32_t>(cached.size());
         blob.data = cached.data();

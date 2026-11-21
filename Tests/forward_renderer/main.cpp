@@ -249,7 +249,7 @@ TEST_CASE("rhi::softgpu::forward_renderer" * doctest::description("Forward rende
     desc.width          = 640;
     desc.height         = 480;
     desc.rhi_flags      = RHIFlag::DEBUG;
-    desc.compile_target = CompileTarget::SPIRV;
+    desc.compile_target = CompileTarget::HOST;
     desc.compile_flags  = CompileFlag::DEBUG;
     RendererForwardApp(desc).run();
 }

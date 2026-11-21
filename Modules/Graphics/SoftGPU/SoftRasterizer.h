@@ -15,6 +15,7 @@ namespace lyra::softgpu
         Vector4 texcoord{0.0f};
         Vector4 normal{0.0f};
         Vector4 extra{0.0f};
+        float   varyings[16]{};
         float   inv_w = 1.0f;
         Vector3 screen{0.0f}; // screen space (x, y, z)
     };

@@ -55,10 +55,22 @@ String SlangPreprocessor::process_host_target(const String& input, String& wrapp
             in_type = pm[1].str();
         }
 
-        if (in_type.empty() || in_type == "void") {
-            wrappers += "\n[shader(\"compute\")]\n[numthreads(1,1,1)]\nvoid " + func_name + "_Callable(uniform " + ret_type + "* out_v) {\n    *out_v = " + func_name + "();\n}\n";
+        bool is_void_ret = (ret_type == "void");
+        bool is_void_in  = (in_type.empty() || in_type == "void");
+
+        wrappers += "\n[shader(\"compute\")]\n[numthreads(1,1,1)]\nvoid " + func_name + "_Callable(";
+        if (!is_void_in) {
+            wrappers += "uniform " + in_type + "* in_v";
+        }
+        if (!is_void_ret) {
+            if (!is_void_in) wrappers += ", ";
+            wrappers += "uniform " + ret_type + "* out_v";
+        }
+        wrappers += ") {\n";
+        if (!is_void_ret) {
+            wrappers += "    *out_v = " + func_name + "(" + (is_void_in ? "" : "*in_v") + ");\n}\n";
         } else {
-            wrappers += "\n[shader(\"compute\")]\n[numthreads(1,1,1)]\nvoid " + func_name + "_Callable(uniform " + in_type + "* in_v, uniform " + ret_type + "* out_v) {\n    *out_v = " + func_name + "(*in_v);\n}\n";
+            wrappers += "    " + func_name + "(" + (is_void_in ? "" : "*in_v") + ");\n}\n";
         }
     }
 
@@ -68,6 +80,12 @@ String SlangPreprocessor::process_host_target(const String& input, String& wrapp
 
     // strip : SV_Target or : SV_TARGET
     result = std::regex_replace(result, std::regex(R"(:\s*SV_[Tt][Aa][Rr][Gg][Ee][Tt]\d?)"), "");
+
+    // strip : SV_VertexID
+    result = std::regex_replace(result, std::regex(R"(:\s*SV_[Vv][Ee][Rr][Tt][Ee][Xx][Ii][Dd])"), "");
+
+    // replace discard with return {} for compute-wrapper host callable compatibility
+    result = std::regex_replace(result, std::regex(R"(\bdiscard\s*;)"), "return {};");
 
     return result;
 }
@@ -101,7 +119,7 @@ String SlangPreprocessor::process_attributes(const String& input, CompileTarget 
                 return attr + " " + decl + " : register(b" + std::to_string(METAL_ImmediateBufferIndex) + ", space" + std::to_string(METAL_ImmediateBufferIndex) + ");";
             }
         } else if (target == CompileTarget::HOST) {
-            return decl + ";";
+            return "[[lyra::immediates]] " + decl + ";";
         }
         return m[0].str();
     });
@@ -126,7 +144,7 @@ String SlangPreprocessor::process_attributes(const String& input, CompileTarget 
         } else if (target == CompileTarget::MSL) {
             return "[[lyra::group(" + s + ")]] [[lyra::binding(" + b + ")]] " + decl + ";";
         } else if (target == CompileTarget::HOST) {
-            return decl + ";";
+            return "[[lyra::group(" + s + ")]] [[lyra::binding(" + b + ")]] " + decl + ";";
         }
         return m[0].str();
     });
@@ -150,7 +168,7 @@ String SlangPreprocessor::process_attributes(const String& input, CompileTarget 
         } else if (target == CompileTarget::MSL) {
             return "[[lyra::group(" + s + ")]] [[lyra::binding(" + b + ")]] " + decl + ";";
         } else if (target == CompileTarget::HOST) {
-            return decl + ";";
+            return "[[lyra::group(" + s + ")]] [[lyra::binding(" + b + ")]] " + decl + ";";
         }
         return m[0].str();
     });
@@ -174,7 +192,7 @@ String SlangPreprocessor::process_attributes(const String& input, CompileTarget 
         } else if (target == CompileTarget::MSL) {
             return "[[lyra::group(" + s + ")]] [[lyra::binding(" + b + ")]] " + decl + ";";
         } else if (target == CompileTarget::HOST) {
-            return decl + ";";
+            return "[[lyra::group(" + s + ")]] [[lyra::binding(" + b + ")]] " + decl + ";";
         }
         return m[0].str();
     });
@@ -208,7 +226,7 @@ String SlangPreprocessor::process_attributes(const String& input, CompileTarget 
                 return attr + " " + decl + ";";
             }
         } else if (target == CompileTarget::HOST) {
-            return decl + ";";
+            return attr + " " + decl + ";";
         }
         return m[0].str();
     });
@@ -232,7 +250,7 @@ String SlangPreprocessor::process_attributes(const String& input, CompileTarget 
         } else if (target == CompileTarget::MSL) {
             return attr + " " + decl + ";";
         } else if (target == CompileTarget::HOST) {
-            return decl + ";";
+            return attr + " " + decl + ";";
         }
         return m[0].str();
     });

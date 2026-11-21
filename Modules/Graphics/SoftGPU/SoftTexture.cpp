@@ -1,4 +1,5 @@
 #include "SoftTexture.h"
+#include "SoftSampler.h"
 #include <glm/gtc/packing.hpp>
 
 using namespace lyra;
@@ -373,4 +374,100 @@ SoftTextureView::SoftTextureView(GPUTextureHandle tex, const GPUTextureViewDescr
       array_layer_count(std::max(1u, desc.array_layer_count)),
       label(desc.label)
 {
+}
+
+SlangTextureDimensions SoftHostTextureWrapper::GetDimensions(int mipLevel)
+{
+    if (!tex) return {2, 0, 0, 0, 0, 0};
+    uint32_t    m   = (mipLevel >= 0) ? std::min(static_cast<uint32_t>(mipLevel), tex->mip_level_count - 1) : 0;
+    const auto& mip = (m < tex->mips.size()) ? tex->mips[m] : SoftMipLevel{tex->extent.width, tex->extent.height, tex->extent.depth};
+    return {2, mip.width, mip.height, mip.depth, tex->mip_level_count, 0};
+}
+
+void SoftHostTextureWrapper::Load(const int32_t* v, void* outData, size_t dataSize)
+{
+    if (!tex || !outData || !v) return;
+    int32_t x   = v[0];
+    int32_t y   = v[1];
+    int32_t mip = (v[2] >= 0) ? v[2] : 0;
+    if (x < 0 || y < 0) return;
+
+    if (tex->format == GPUTextureFormat::DEPTH32FLOAT ||
+        tex->format == GPUTextureFormat::DEPTH24PLUS_STENCIL8 ||
+        tex->format == GPUTextureFormat::DEPTH16UNORM) {
+        float d = tex->read_depth(static_cast<uint32_t>(x), static_cast<uint32_t>(y), mip);
+        if (dataSize == sizeof(float)) {
+            *reinterpret_cast<float*>(outData) = d;
+        } else if (dataSize >= sizeof(Vector4)) {
+            *reinterpret_cast<Vector4*>(outData) = Vector4(d, d, d, 1.0f);
+        }
+    } else if (tex->format == GPUTextureFormat::RGBA32UINT) {
+        const uint8_t* ptr = tex->get_texel_ptr(static_cast<uint32_t>(x), static_cast<uint32_t>(y), 0, mip);
+        if (ptr) {
+            std::memcpy(outData, ptr, std::min(dataSize, sizeof(uint32_t) * 4));
+        } else {
+            std::memset(outData, 0, dataSize);
+        }
+    } else {
+        Vector4 c = tex->read_rgba(static_cast<uint32_t>(x), static_cast<uint32_t>(y), 0, mip);
+        if (dataSize == sizeof(float)) {
+            *reinterpret_cast<float*>(outData) = c.r;
+        } else if (dataSize >= sizeof(Vector4)) {
+            *reinterpret_cast<Vector4*>(outData) = c;
+        } else {
+            std::memcpy(outData, &c, dataSize);
+        }
+    }
+}
+
+void SoftHostTextureWrapper::Sample(void* samplerState, const float* loc, void* outData, size_t dataSize)
+{
+    if (!tex || !outData || !loc) return;
+    float                  u = loc[0];
+    float                  v = loc[1];
+    const SoftSampler*     s = reinterpret_cast<const SoftSampler*>(samplerState);
+    SoftTextureView        default_view;
+    const SoftTextureView* vptr = view ? view : &default_view;
+    Vector4                c;
+    if (s) {
+        c = s->sample_2d(*tex, *vptr, u, v, 0.0f);
+    } else {
+        uint32_t px = static_cast<uint32_t>(std::clamp(u * tex->extent.width, 0.0f, float(tex->extent.width > 0 ? tex->extent.width - 1 : 0)));
+        uint32_t py = static_cast<uint32_t>(std::clamp(v * tex->extent.height, 0.0f, float(tex->extent.height > 0 ? tex->extent.height - 1 : 0)));
+        c           = tex->read_rgba(px, py);
+    }
+
+    if (dataSize == sizeof(float)) {
+        *reinterpret_cast<float*>(outData) = c.r;
+    } else if (dataSize >= sizeof(Vector4)) {
+        *reinterpret_cast<Vector4*>(outData) = c;
+    } else {
+        std::memcpy(outData, &c, dataSize);
+    }
+}
+
+void SoftHostTextureWrapper::SampleLevel(void* samplerState, const float* loc, float level, void* outData, size_t dataSize)
+{
+    if (!tex || !outData || !loc) return;
+    float                  u = loc[0];
+    float                  v = loc[1];
+    const SoftSampler*     s = reinterpret_cast<const SoftSampler*>(samplerState);
+    SoftTextureView        default_view;
+    const SoftTextureView* vptr = view ? view : &default_view;
+    Vector4                c;
+    if (s) {
+        c = s->sample_2d(*tex, *vptr, u, v, level);
+    } else {
+        uint32_t px = static_cast<uint32_t>(std::clamp(u * tex->extent.width, 0.0f, float(tex->extent.width > 0 ? tex->extent.width - 1 : 0)));
+        uint32_t py = static_cast<uint32_t>(std::clamp(v * tex->extent.height, 0.0f, float(tex->extent.height > 0 ? tex->extent.height - 1 : 0)));
+        c           = tex->read_rgba(px, py, 0, static_cast<uint32_t>(std::max(0.0f, level)));
+    }
+
+    if (dataSize == sizeof(float)) {
+        *reinterpret_cast<float*>(outData) = c.r;
+    } else if (dataSize >= sizeof(Vector4)) {
+        *reinterpret_cast<Vector4*>(outData) = c;
+    } else {
+        std::memcpy(outData, &c, dataSize);
+    }
 }

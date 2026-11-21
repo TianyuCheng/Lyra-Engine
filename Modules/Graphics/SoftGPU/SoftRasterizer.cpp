@@ -15,6 +15,9 @@ static SoftShadedVertex interpolate_vertex(const SoftShadedVertex& a, const Soft
     v.texcoord = glm::mix(a.texcoord, b.texcoord, t);
     v.normal   = glm::mix(a.normal, b.normal, t);
     v.extra    = glm::mix(a.extra, b.extra, t);
+    for (int k = 0; k < 16; ++k) {
+        v.varyings[k] = a.varyings[k] + t * (b.varyings[k] - a.varyings[k]);
+    }
     return v;
 }
 
@@ -403,6 +406,9 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
             interp.texcoord = (w0 * v0.texcoord * v0.inv_w + w1 * v1.texcoord * v1.inv_w + w2 * v2.texcoord * v2.inv_w) * w;
             interp.normal   = (w0 * v0.normal * v0.inv_w + w1 * v1.normal * v1.inv_w + w2 * v2.normal * v2.inv_w) * w;
             interp.extra    = (w0 * v0.extra * v0.inv_w + w1 * v1.extra * v1.inv_w + w2 * v2.extra * v2.inv_w) * w;
+            for (int k = 0; k < 16; ++k) {
+                interp.varyings[k] = (w0 * v0.varyings[k] * v0.inv_w + w1 * v1.varyings[k] * v1.inv_w + w2 * v2.varyings[k] * v2.inv_w) * w;
+            }
 
             Vector4 out_colors[8] = {interp.color, Vector4(0.0f), Vector4(0.0f), Vector4(0.0f), Vector4(0.0f), Vector4(0.0f), Vector4(0.0f), Vector4(0.0f)};
             if (ctx.fragment_shader_mrt) {
@@ -421,20 +427,24 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
                 struct FragInput
                 {
                     Vector4 pos;
-                    Vector4 col_or_uv;
-                } fin = {interp.position, (interp.texcoord != Vector4(0.0f)) ? interp.texcoord : interp.color};
+                    float   varyings[16];
+                } fin;
+                fin.pos = interp.position;
+                std::memcpy(fin.varyings, interp.varyings, sizeof(interp.varyings));
 
-                Vector4 f_out{1.0f};
+                Vector4 f_out[8] = {};
                 struct EpParams
                 {
                     const void* in_v;
                     void*       out_c;
-                } ep = {&fin, &f_out};
+                } ep = {&fin, f_out};
 
                 using ComputeFunc = void (*)(ComputeVaryingInput*, void*, void*);
                 auto func         = reinterpret_cast<ComputeFunc>(ctx.fshader_func);
                 func(&varying, &ep, ctx.uniform_state);
-                out_colors[0] = f_out;
+                for (int i = 0; i < 8; ++i) {
+                    out_colors[i] = f_out[i];
+                }
             } else if (ctx.fragment_shader) {
                 out_colors[0] = ctx.fragment_shader(interp);
             }
@@ -454,7 +464,14 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
                     }
 
                     if (ct.write_mask == GPUColorWrite::ALL) {
-                        tex->write_rgba(x, y, out_color);
+                        if (tex->format == GPUTextureFormat::RGBA32UINT ||
+                            tex->format == GPUTextureFormat::RGBA32SINT ||
+                            tex->format == GPUTextureFormat::RGBA32FLOAT) {
+                            uint8_t* ptr = tex->get_texel_ptr(x, y);
+                            if (ptr) std::memcpy(ptr, &out_colors[i], 16);
+                        } else {
+                            tex->write_rgba(x, y, out_color);
+                        }
                     } else {
                         Vector4 cur = tex->read_rgba(x, y);
                         if (ct.write_mask.contains(GPUColorWrite::RED)) cur.r = out_color.r;

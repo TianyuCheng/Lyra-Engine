@@ -165,11 +165,16 @@ struct SoftDrawParams
     bool                  has_col    = false;
     bool                  has_uv     = false;
     const SoftTexture*    bound_tex  = nullptr;
+    alignas(16) Array<uint8_t, 512> uniform_bytes{};
+    Array<SoftHostTextureWrapper, 16> host_textures{};
+    uint32_t                          host_tex_count = 0;
 };
 
 static SoftDrawParams setup_draw_params(SoftDevice& device, const ExecutionContext& ctx)
 {
     SoftDrawParams p{};
+    p.uniform_bytes.fill(0);
+
     p.r_ctx.color_attachment         = ctx.color_attachment;
     p.r_ctx.color_attachments        = ctx.color_attachments;
     p.r_ctx.depth_stencil_attachment = ctx.depth_stencil_attachment;
@@ -202,20 +207,22 @@ static SoftDrawParams setup_draw_params(SoftDevice& device, const ExecutionConte
         if (!bg) continue;
 
         for (const auto& entry : bg->entries) {
-            if (entry.type == GPUResourceType::BUFFER && entry.buffer.buffer.valid() && !p.has_vp) {
+            if (entry.type == GPUResourceType::BUFFER && entry.buffer.buffer.valid()) {
                 auto ubuf = device.buffers.find(entry.buffer.buffer.to_slotmap_handle<SoftBuffer>());
                 if (ubuf) {
                     size_t dyn_off = bound_bg.dynamic_offsets.empty() ? 0 : bound_bg.dynamic_offsets[0];
                     size_t eff_off = entry.buffer.offset + dyn_off;
-                    if (ubuf->data.size() >= eff_off + sizeof(Matrix4x4) * 2 &&
-                        bound_bg.dynamic_offsets.empty() &&
-                        reinterpret_cast<const Matrix4x4*>(ubuf->data.data() + eff_off + sizeof(Matrix4x4))->operator[](3)[3] != 0.0f) {
-                        const auto mats = reinterpret_cast<const Matrix4x4*>(ubuf->data.data() + eff_off);
-                        p.vp_matrix     = mats[0] * mats[1];
-                        p.has_vp        = true;
-                    } else if (ubuf->data.size() >= eff_off + sizeof(Matrix4x4)) {
-                        p.vp_matrix = *reinterpret_cast<const Matrix4x4*>(ubuf->data.data() + eff_off);
-                        p.has_vp    = true;
+                    if (!p.has_vp) {
+                        if (ubuf->data.size() >= eff_off + sizeof(Matrix4x4) * 2 &&
+                            bound_bg.dynamic_offsets.empty() &&
+                            reinterpret_cast<const Matrix4x4*>(ubuf->data.data() + eff_off + sizeof(Matrix4x4))->operator[](3)[3] != 0.0f) {
+                            const auto mats = reinterpret_cast<const Matrix4x4*>(ubuf->data.data() + eff_off);
+                            p.vp_matrix     = mats[0] * mats[1];
+                            p.has_vp        = true;
+                        } else if (ubuf->data.size() >= eff_off + sizeof(Matrix4x4)) {
+                            p.vp_matrix = *reinterpret_cast<const Matrix4x4*>(ubuf->data.data() + eff_off);
+                            p.has_vp    = true;
+                        }
                     }
                 }
             } else if (entry.type == GPUResourceType::TEXTURE && entry.texture.valid()) {
@@ -228,6 +235,70 @@ static SoftDrawParams setup_draw_params(SoftDevice& device, const ExecutionConte
                 bound_samp = device.samplers.find(entry.sampler.to_slotmap_handle<SoftSampler>());
             }
         }
+    }
+
+    auto populate_params = [&](GPUShaderModuleHandle sm_handle) {
+        if (!sm_handle.valid()) return;
+        auto* sm = device.shader_modules.find(sm_handle.to_slotmap_handle<SoftShaderModule>());
+        if (!sm || sm->param_count == 0) return;
+
+        for (uint32_t i = 0; i < sm->param_count; ++i) {
+            const auto& param = sm->params[i];
+            if (param.offset + sizeof(void*) > p.uniform_bytes.size()) continue;
+
+            if (param.is_immediates) {
+                if (!ctx.immediates_data.empty()) {
+                    const void* ptr = ctx.immediates_data.data();
+                    std::memcpy(p.uniform_bytes.data() + param.offset, &ptr, sizeof(void*));
+                }
+            } else {
+                auto it_bg = ctx.bind_groups.find(param.set);
+                if (it_bg == ctx.bind_groups.end() || !it_bg->second.handle.valid()) continue;
+                auto bg = device.bind_groups.find(it_bg->second.handle.to_slotmap_handle<SoftBindGroup>());
+                if (!bg) continue;
+
+                for (const auto& entry : bg->entries) {
+                    if (entry.binding != param.binding) continue;
+
+                    if (entry.type == GPUResourceType::BUFFER && entry.buffer.buffer.valid()) {
+                        auto ubuf = device.buffers.find(entry.buffer.buffer.to_slotmap_handle<SoftBuffer>());
+                        if (ubuf) {
+                            size_t      dyn_off = it_bg->second.dynamic_offsets.empty() ? 0 : it_bg->second.dynamic_offsets[0];
+                            size_t      eff_off = entry.buffer.offset + dyn_off;
+                            const void* ptr     = ubuf->data.data() + eff_off;
+                            std::memcpy(p.uniform_bytes.data() + param.offset, &ptr, sizeof(void*));
+                            if (param.size >= 16) {
+                                size_t buf_size = (ubuf->data.size() > eff_off) ? (ubuf->data.size() - eff_off) : 0;
+                                std::memcpy(p.uniform_bytes.data() + param.offset + 8, &buf_size, sizeof(size_t));
+                            }
+                        }
+                    } else if (entry.type == GPUResourceType::TEXTURE && entry.texture.valid()) {
+                        auto v = device.texture_views.find(entry.texture.to_slotmap_handle<SoftTextureView>());
+                        if (v) {
+                            auto t = device.textures.find(v->texture.to_slotmap_handle<SoftTexture>());
+                            if (t && p.host_tex_count < p.host_textures.size()) {
+                                uint32_t tex_idx         = p.host_tex_count++;
+                                p.host_textures[tex_idx] = SoftHostTextureWrapper(t, v);
+                                const void* ptr          = &p.host_textures[tex_idx];
+                                std::memcpy(p.uniform_bytes.data() + param.offset, &ptr, sizeof(void*));
+                            }
+                        }
+                    } else if (entry.type == GPUResourceType::SAMPLER && entry.sampler.valid()) {
+                        auto s = device.samplers.find(entry.sampler.to_slotmap_handle<SoftSampler>());
+                        if (s) {
+                            const void* ptr = s;
+                            std::memcpy(p.uniform_bytes.data() + param.offset, &ptr, sizeof(void*));
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    };
+
+    if (ctx.render_pipeline) {
+        populate_params(ctx.render_pipeline->vshader_module);
+        populate_params(ctx.render_pipeline->fshader_module);
     }
 
     bool dual_sample = false;
@@ -254,7 +325,10 @@ static SoftDrawParams setup_draw_params(SoftDevice& device, const ExecutionConte
         }
     }
 
-    if (p.bound_tex && bound_view && bound_samp) {
+    p.r_ctx.fshader_func  = ctx.render_pipeline ? ctx.render_pipeline->fshader_func : nullptr;
+    p.r_ctx.uniform_state = p.uniform_bytes.data();
+
+    if (!p.r_ctx.fshader_func && p.bound_tex && bound_view && bound_samp) {
         if (dual_sample) {
             p.r_ctx.fragment_shader = [t = p.bound_tex, v = bound_view, s = bound_samp](const SoftShadedVertex& vert) -> Vector4 {
                 Vector4 c0  = s->sample_2d(*t, *v, vert.texcoord.x, vert.texcoord.y);
@@ -269,8 +343,6 @@ static SoftDrawParams setup_draw_params(SoftDevice& device, const ExecutionConte
             };
         }
     }
-
-    p.r_ctx.fshader_func = ctx.render_pipeline ? ctx.render_pipeline->fshader_func : nullptr;
 
     // vertex layout
     p.stride     = 24;
@@ -315,12 +387,107 @@ void SoftCommandBuffer::draw(uint32_t vertex_count, uint32_t instance_count, uin
     commands.push_back([=](SoftDevice& device, ExecutionContext& ctx) {
         if (!ctx.color_attachment && ctx.color_attachments.empty() && !ctx.depth_stencil_attachment) return;
 
+        SoftDrawParams p = setup_draw_params(device, ctx);
+
         auto it_v = ctx.vertex_buffers.find(0);
-        if (it_v == ctx.vertex_buffers.end()) return;
+        if (it_v == ctx.vertex_buffers.end()) {
+            auto run_vs = [&](uint32_t vid, SoftShadedVertex& sv) {
+                if (ctx.render_pipeline && ctx.render_pipeline->vshader_func) {
+                    struct EpParams
+                    {
+                        uint32_t* in_v;
+                        void*     out_v;
+                    };
+                    struct VSOut
+                    {
+                        Vector4 pos;
+                        float   varyings[16];
+                    } vs_out{};
+                    uint32_t v_idx = vid;
+                    EpParams ep    = {&v_idx, &vs_out};
+
+                    using ComputeFunc = void (*)(void*, void*, void*);
+                    auto func         = reinterpret_cast<ComputeFunc>(ctx.render_pipeline->vshader_func);
+                    struct uint3
+                    {
+                        uint32_t x, y, z;
+                    };
+                    struct ComputeVaryingInput
+                    {
+                        uint3 startGroupID;
+                        uint3 endGroupID;
+                    } varying = {{0, 0, 0}, {1, 1, 1}};
+                    func(&varying, &ep, p.r_ctx.uniform_state);
+
+                    sv.position = vs_out.pos;
+                    std::memcpy(sv.varyings, vs_out.varyings, sizeof(sv.varyings));
+                    std::memcpy(&sv.texcoord, &vs_out.varyings[0], sizeof(Vector4));
+                    std::memcpy(&sv.normal, &vs_out.varyings[0], sizeof(Vector4));
+                }
+            };
+
+            if (ctx.render_pipeline && ctx.render_pipeline->vshader_func) {
+                uint32_t num_tris = vertex_count / 3;
+                for (uint32_t t = 0; t < num_tris; ++t) {
+                    SoftShadedVertex v0{}, v1{}, v2{};
+                    v0.color = v1.color = v2.color = Vector4(1.0f);
+                    run_vs(first_vertex + t * 3 + 0, v0);
+                    run_vs(first_vertex + t * 3 + 1, v1);
+                    run_vs(first_vertex + t * 3 + 2, v2);
+
+                    Vector<SoftRasterTriangle> tris;
+                    SoftRasterizer::clip_and_project_triangle(v0, v1, v2, ctx.viewport, tris);
+                    for (const auto& tri : tris) {
+                        SoftRasterizer::rasterize_triangle(tri, p.r_ctx);
+                    }
+                }
+            } else if (vertex_count == 3) {
+                SoftShadedVertex v0{}, v1{}, v2{};
+                v0.position = Vector4(-1.0f, -1.0f, 0.0f, 1.0f);
+                v0.texcoord = Vector4(0.0f, 0.0f, 0.0f, 0.0f);
+                v0.color    = Vector4(1.0f);
+
+                v1.position = Vector4(3.0f, -1.0f, 0.0f, 1.0f);
+                v1.texcoord = Vector4(2.0f, 0.0f, 0.0f, 0.0f);
+                v1.color    = Vector4(1.0f);
+
+                v2.position = Vector4(-1.0f, 3.0f, 0.0f, 1.0f);
+                v2.texcoord = Vector4(0.0f, 2.0f, 0.0f, 0.0f);
+                v2.color    = Vector4(1.0f);
+
+                Vector<SoftRasterTriangle> tris;
+                SoftRasterizer::clip_and_project_triangle(v0, v1, v2, ctx.viewport, tris);
+                for (const auto& tri : tris) {
+                    SoftRasterizer::rasterize_triangle(tri, p.r_ctx);
+                }
+            } else if (vertex_count >= 4) {
+                SoftShadedVertex v[4];
+                v[0].position = Vector4(-1.0f, -1.0f, 0.0f, 1.0f);
+                v[0].texcoord = Vector4(0.0f, 0.0f, 0.0f, 0.0f);
+                v[1].position = Vector4(1.0f, -1.0f, 0.0f, 1.0f);
+                v[1].texcoord = Vector4(1.0f, 0.0f, 0.0f, 0.0f);
+                v[2].position = Vector4(1.0f, 1.0f, 0.0f, 1.0f);
+                v[2].texcoord = Vector4(1.0f, 1.0f, 0.0f, 0.0f);
+                v[3].position = Vector4(-1.0f, 1.0f, 0.0f, 1.0f);
+                v[3].texcoord = Vector4(0.0f, 1.0f, 0.0f, 0.0f);
+                for (int i = 0; i < 4; ++i)
+                    v[i].color = Vector4(1.0f);
+
+                Vector<SoftRasterTriangle> tris;
+                SoftRasterizer::clip_and_project_triangle(v[0], v[1], v[2], ctx.viewport, tris);
+                for (const auto& tri : tris)
+                    SoftRasterizer::rasterize_triangle(tri, p.r_ctx);
+                tris.clear();
+                SoftRasterizer::clip_and_project_triangle(v[0], v[2], v[3], ctx.viewport, tris);
+                for (const auto& tri : tris)
+                    SoftRasterizer::rasterize_triangle(tri, p.r_ctx);
+            }
+            return;
+        }
+
         auto vbuf = device.buffers.find(it_v->second.buffer.to_slotmap_handle<SoftBuffer>());
         if (!vbuf) return;
 
-        SoftDrawParams p     = setup_draw_params(device, ctx);
         const uint8_t* vdata = vbuf->data.data() + it_v->second.offset;
 
         uint32_t num_tris = vertex_count / 3;
@@ -359,6 +526,8 @@ void SoftCommandBuffer::draw(uint32_t vertex_count, uint32_t instance_count, uin
                 } else {
                     sv.color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
                 }
+                std::memcpy(&sv.varyings[0], &sv.normal, sizeof(float) * 3);
+                std::memcpy(&sv.varyings[3], &sv.texcoord, sizeof(float) * 2);
                 return sv;
             };
 
@@ -380,18 +549,49 @@ void SoftCommandBuffer::draw_indexed(uint32_t index_count, uint32_t instance_cou
     commands.push_back([=](SoftDevice& device, ExecutionContext& ctx) {
         if (!ctx.color_attachment && ctx.color_attachments.empty() && !ctx.depth_stencil_attachment) return;
 
-        auto it_v = ctx.vertex_buffers.find(0);
-        if (it_v == ctx.vertex_buffers.end()) return;
-        auto vbuf = device.buffers.find(it_v->second.buffer.to_slotmap_handle<SoftBuffer>());
-        if (!vbuf) return;
+        auto it_v0 = ctx.vertex_buffers.find(0);
+        auto it_v1 = ctx.vertex_buffers.find(1);
+        auto it_v2 = ctx.vertex_buffers.find(2);
+
+        // check storage buffer vertex pulling (ForwardPass: buffer bound in Bind Group 1, binding 0)
+        const SoftBuffer* storage_vbuf = nullptr;
+        if (it_v0 == ctx.vertex_buffers.end()) {
+            auto it_bg1 = ctx.bind_groups.find(1);
+            if (it_bg1 != ctx.bind_groups.end() && it_bg1->second.handle.valid()) {
+                auto bg1 = device.bind_groups.find(it_bg1->second.handle.to_slotmap_handle<SoftBindGroup>());
+                if (bg1) {
+                    for (const auto& entry : bg1->entries) {
+                        if (entry.type == GPUResourceType::BUFFER && entry.buffer.buffer.valid()) {
+                            storage_vbuf = device.buffers.find(entry.buffer.buffer.to_slotmap_handle<SoftBuffer>());
+                            if (storage_vbuf) break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (it_v0 == ctx.vertex_buffers.end() && !storage_vbuf) return;
+        auto vbuf = (it_v0 != ctx.vertex_buffers.end()) ? device.buffers.find(it_v0->second.buffer.to_slotmap_handle<SoftBuffer>()) : nullptr;
+        if (it_v0 != ctx.vertex_buffers.end() && !vbuf) return;
 
         auto ibuf = device.buffers.find(ctx.index_buffer.buffer.to_slotmap_handle<SoftBuffer>());
         if (!ibuf) return;
 
         SoftDrawParams p = setup_draw_params(device, ctx);
 
-        const uint8_t* vdata = vbuf->data.data() + it_v->second.offset;
+        const uint8_t* vdata = vbuf ? (vbuf->data.data() + it_v0->second.offset) : nullptr;
         const uint8_t* idata = ibuf->data.data() + ctx.index_buffer.offset;
+
+        const uint8_t* vdata1 = nullptr;
+        if (it_v1 != ctx.vertex_buffers.end()) {
+            auto vbuf1 = device.buffers.find(it_v1->second.buffer.to_slotmap_handle<SoftBuffer>());
+            if (vbuf1) vdata1 = vbuf1->data.data() + it_v1->second.offset;
+        }
+        const uint8_t* vdata2 = nullptr;
+        if (it_v2 != ctx.vertex_buffers.end()) {
+            auto vbuf2 = device.buffers.find(it_v2->second.buffer.to_slotmap_handle<SoftBuffer>());
+            if (vbuf2) vdata2 = vbuf2->data.data() + it_v2->second.offset;
+        }
 
         auto read_index = [&](uint32_t idx) -> uint32_t {
             if (ctx.index_buffer.format == GPUIndexFormat::UINT16) {
@@ -403,8 +603,76 @@ void SoftCommandBuffer::draw_indexed(uint32_t index_count, uint32_t instance_cou
 
         auto read_vertex = [&](uint32_t vert_idx) -> SoftShadedVertex {
             SoftShadedVertex sv{};
-            const uint8_t*   ptr = vdata + vert_idx * p.stride;
-            Vector4          local_pos(0.0f, 0.0f, 0.0f, 1.0f);
+            if (storage_vbuf) {
+                struct MeshDrawInstLayout
+                {
+                    Matrix4x4 model;
+                    Vector4   base_color;
+                    float     roughness;
+                    float     metallic;
+                    uint32_t  pos_offset;
+                    uint32_t  norm_offset;
+                    uint32_t  uv_offset;
+                    uint32_t  material_id;
+                };
+                const auto*    inst     = (!ctx.immediates_data.empty() && ctx.immediates_data.size() >= sizeof(MeshDrawInstLayout))
+                                              ? reinterpret_cast<const MeshDrawInstLayout*>(ctx.immediates_data.data())
+                                              : nullptr;
+                const uint8_t* sdata    = storage_vbuf->data.data();
+                uint32_t       pos_off  = inst ? inst->pos_offset : 0;
+                uint32_t       norm_off = inst ? inst->norm_offset : 12;
+                uint32_t       uv_off   = inst ? inst->uv_offset : 24;
+
+                const auto pos       = reinterpret_cast<const Vector3*>(sdata + pos_off + vert_idx * 12);
+                Vector4    world_pos = inst ? (inst->model * Vector4(*pos, 1.0f)) : Vector4(*pos, 1.0f);
+                sv.position          = p.has_vp ? (p.vp_matrix * world_pos) : world_pos;
+
+                if (norm_off + (vert_idx + 1) * 12 <= storage_vbuf->data.size()) {
+                    const auto norm = reinterpret_cast<const Vector3*>(sdata + norm_off + vert_idx * 12);
+                    sv.normal       = Vector4(*norm, 0.0f);
+                }
+                if (uv_off + (vert_idx + 1) * 8 <= storage_vbuf->data.size()) {
+                    const auto uv = reinterpret_cast<const Vector2*>(sdata + uv_off + vert_idx * 8);
+                    sv.texcoord   = Vector4(uv->x, uv->y, 0.0f, 0.0f);
+                }
+                sv.color = inst ? inst->base_color : Vector4(1.0f);
+                sv.extra = world_pos;
+                std::memcpy(&sv.varyings[0], &sv.normal, sizeof(float) * 3);
+                std::memcpy(&sv.varyings[3], &sv.texcoord, sizeof(float) * 2);
+                std::memcpy(&sv.varyings[5], &sv.extra, sizeof(float) * 3);
+                return sv;
+            }
+
+            if (vdata1 != nullptr) {
+                const auto pos = reinterpret_cast<const Vector3*>(vdata + vert_idx * 12);
+                Vector4    local_pos(pos->x, pos->y, pos->z, 1.0f);
+
+                if (!ctx.immediates_data.empty() && ctx.immediates_data.size() >= sizeof(Matrix4x4)) {
+                    const auto& model     = *reinterpret_cast<const Matrix4x4*>(ctx.immediates_data.data());
+                    Vector4     world_pos = model * local_pos;
+                    sv.position           = p.has_vp ? (p.vp_matrix * world_pos) : world_pos;
+                    sv.extra              = world_pos;
+                } else {
+                    sv.position = p.has_vp ? (p.vp_matrix * local_pos) : local_pos;
+                    sv.extra    = local_pos;
+                }
+
+                const auto norm = reinterpret_cast<const Vector3*>(vdata1 + vert_idx * 12);
+                sv.normal       = Vector4(norm->x, norm->y, norm->z, 0.0f);
+
+                if (vdata2 != nullptr) {
+                    const auto uv = reinterpret_cast<const Vector2*>(vdata2 + vert_idx * 8);
+                    sv.texcoord   = Vector4(uv->x, uv->y, 0.0f, 0.0f);
+                }
+                sv.color = Vector4(1.0f);
+                std::memcpy(&sv.varyings[0], &sv.normal, sizeof(float) * 3);
+                std::memcpy(&sv.varyings[3], &sv.texcoord, sizeof(float) * 2);
+                std::memcpy(&sv.varyings[5], &sv.extra, sizeof(float) * 3);
+                return sv;
+            }
+
+            const uint8_t* ptr = vdata + vert_idx * p.stride;
+            Vector4        local_pos(0.0f, 0.0f, 0.0f, 1.0f);
             if (p.pos_format == GPUVertexFormat::FLOAT32x2) {
                 const auto pos = reinterpret_cast<const Vector2*>(ptr + p.pos_offset);
                 local_pos.x    = pos->x;
@@ -435,6 +703,9 @@ void SoftCommandBuffer::draw_indexed(uint32_t index_count, uint32_t instance_cou
             } else {
                 sv.color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
             }
+            std::memcpy(&sv.varyings[0], &sv.normal, sizeof(float) * 3);
+            std::memcpy(&sv.varyings[3], &sv.texcoord, sizeof(float) * 2);
+            std::memcpy(&sv.varyings[5], &sv.extra, sizeof(float) * 3);
             return sv;
         };
 
