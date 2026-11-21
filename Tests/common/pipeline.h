@@ -38,7 +38,8 @@ struct SimpleComputePipeline : public SimplePipeline
 
 struct SimpleRenderPipeline : public SimplePipeline
 {
-    GPURenderPipeline pipeline;
+    GPURenderPipeline           pipeline;
+    Optional<GPUPrimitiveState> primitive;
 
     void init_pipeline(GPUDevice& device, ShaderReflection* reflection);
 };

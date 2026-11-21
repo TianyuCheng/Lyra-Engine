@@ -75,17 +75,18 @@ struct DepthBiasApp : public TestApp
         Vector<Vertex>   vertices;
         Vector<uint32_t> indices;
 
-        auto add_quad = [&](float x0, float y0, float z0, float x1, float y1, float z1, const glm::vec3& color) {
+        // helper: add a quad with interpolated depth and colors (z_bottom at y0, z_top at y1)
+        auto add_quad_sloped = [&](float x0, float y0, float z_bottom, float x1, float y1, float z_top, const glm::vec3& c_bottom, const glm::vec3& c_top) {
             uint32_t base = static_cast<uint32_t>(vertices.size());
             Vertex   v0{}, v1{}, v2{}, v3{};
-            v0.position = {x0, y0, z0};
-            v0.color    = color;
-            v1.position = {x1, y0, z1};
-            v1.color    = color;
-            v2.position = {x1, y1, z1};
-            v2.color    = color;
-            v3.position = {x0, y1, z0};
-            v3.color    = color;
+            v0.position = {x0, y0, z_bottom};
+            v0.color    = c_bottom;
+            v1.position = {x1, y0, z_bottom};
+            v1.color    = c_bottom;
+            v2.position = {x1, y1, z_top};
+            v2.color    = c_top;
+            v3.position = {x0, y1, z_top};
+            v3.color    = c_top;
 
             vertices.push_back(v0);
             vertices.push_back(v1);
@@ -101,28 +102,78 @@ struct DepthBiasApp : public TestApp
             indices.push_back(base + 3);
         };
 
-        const glm::vec3 green(0.0f, 1.0f, 0.0f);
-        const glm::vec3 red(1.0f, 0.0f, 0.0f);
+        // helper: add a diamond with interpolated depth and colors along vertical axis
+        auto add_diamond_sloped = [&](float cx, float cy, float rw, float rh, float z_center, float dz, const glm::vec3& c_bottom, const glm::vec3& c_mid, const glm::vec3& c_top) {
+            uint32_t base = static_cast<uint32_t>(vertices.size());
+            Vertex   v0{}, v1{}, v2{}, v3{};
+            v0.position = {cx, cy + rh, z_center - dz}; // top
+            v0.color    = c_top;
+            v1.position = {cx - rw, cy, z_center}; // left
+            v1.color    = c_mid;
+            v2.position = {cx, cy - rh, z_center + dz}; // bottom
+            v2.color    = c_bottom;
+            v3.position = {cx + rw, cy, z_center}; // right
+            v3.color    = c_mid;
 
-        // Top-Left (x in [-1, 0], y in [0, 1]): Constant Positive Depth Bias
-        // Base (Green) at z = 0.5; Biased (Red) at z = 0.5 with depth_bias > 0 (pushes Red away, Green wins)
-        add_quad(-1.0f, 0.0f, 0.5f, 0.0f, 1.0f, 0.5f, green); // index offset 0
-        add_quad(-1.0f, 0.0f, 0.5f, 0.0f, 1.0f, 0.5f, red);   // index offset 6
+            vertices.push_back(v0);
+            vertices.push_back(v1);
+            vertices.push_back(v2);
+            vertices.push_back(v3);
 
-        // Top-Right (x in [0, 1], y in [0, 1]): Slope-Scale Positive Depth Bias
-        // Base (Green) tilted from z = 0.3 to 0.7; Biased (Red) same slope with slope_scale > 0 (pushes Red away, Green wins)
-        add_quad(0.0f, 0.0f, 0.3f, 1.0f, 1.0f, 0.7f, green); // index offset 12
-        add_quad(0.0f, 0.0f, 0.3f, 1.0f, 1.0f, 0.7f, red);   // index offset 18
+            // CCW triangles: (0, 1, 2) and (0, 2, 3)
+            indices.push_back(base + 0);
+            indices.push_back(base + 1);
+            indices.push_back(base + 2);
+            indices.push_back(base + 0);
+            indices.push_back(base + 2);
+            indices.push_back(base + 3);
+        };
 
-        // Bottom-Left (x in [-1, 0], y in [-1, 0]): Constant Negative Depth Bias
-        // Base (Red) at z = 0.5; Biased (Green) at z = 0.5 with depth_bias < 0 and LESS compare (pulls Green closer, Green wins)
-        add_quad(-1.0f, -1.0f, 0.5f, 0.0f, 0.0f, 0.5f, red);   // index offset 24
-        add_quad(-1.0f, -1.0f, 0.5f, 0.0f, 0.0f, 0.5f, green); // index offset 30
+        const glm::vec3 card_slate(0.13f, 0.15f, 0.20f);
+        const glm::vec3 red(0.95f, 0.10f, 0.15f);
+        const glm::vec3 emerald(0.00f, 0.90f, 0.45f);
+        const glm::vec3 cyan_top(0.15f, 0.95f, 1.00f);
+        const glm::vec3 cyan_bot(0.00f, 0.50f, 0.85f);
+        const glm::vec3 amber(1.00f, 0.75f, 0.05f);
+        const glm::vec3 magenta_top(1.00f, 0.30f, 0.85f);
+        const glm::vec3 magenta_mid(0.85f, 0.15f, 0.70f);
+        const glm::vec3 magenta_bot(0.65f, 0.05f, 0.50f);
 
-        // Bottom-Right (x in [0, 1], y in [-1, 0]): Slope-Scale Negative Depth Bias
-        // Base (Red) tilted from z = 0.3 to 0.7; Biased (Green) same slope with slope_scale < 0 and LESS compare (pulls Green closer, Green wins)
-        add_quad(0.0f, -1.0f, 0.3f, 1.0f, 0.0f, 0.7f, red);   // index offset 36
-        add_quad(0.0f, -1.0f, 0.3f, 1.0f, 0.0f, 0.7f, green); // index offset 42
+        const float hw = 0.36f;
+        const float hh = 0.36f;
+        const float rw = 0.22f;
+        const float rh = 0.22f;
+        const float dz = (rh / hh) * 0.20f; // slope dz for diamond (0.1222f) matching card slope (0.3 to 0.7)
+
+        // 1. Base passes (drawn with pipeline_base: writes depth)
+        // Top-Left (Q0) Base: Flat Emerald Green card at z = 0.5 (indices 0..5)
+        add_quad_sloped(-0.5f - hw, 0.5f - hh, 0.5f, -0.5f + hw, 0.5f + hh, 0.5f, emerald, emerald);
+
+        // Top-Right (Q1) Base: Sloped Cyan gradient card from z = 0.3 (top) to 0.7 (bottom) (indices 6..11)
+        add_quad_sloped(0.5f - hw, 0.5f - hh, 0.7f, 0.5f + hw, 0.5f + hh, 0.3f, cyan_bot, cyan_top);
+
+        // Bottom-Left (Q2) Base: Flat dark card at z = 0.5 (indices 12..17)
+        add_quad_sloped(-0.5f - hw, -0.5f - hh, 0.5f, -0.5f + hw, -0.5f + hh, 0.5f, card_slate, card_slate);
+        // Bottom-Left (Q2) Base Red diamond at z = 0.5 (indices 18..23)
+        add_diamond_sloped(-0.5f, -0.5f, rw, rh, 0.5f, 0.0f, red, red, red);
+
+        // Bottom-Right (Q3) Base: Sloped dark card from z = 0.3 to 0.7 (indices 24..29)
+        add_quad_sloped(0.5f - hw, -0.5f - hh, 0.7f, 0.5f + hw, -0.5f + hh, 0.3f, card_slate, card_slate);
+        // Bottom-Right (Q3) Base Red diamond sloped from z = 0.3 to 0.7 (indices 30..35)
+        add_diamond_sloped(0.5f, -0.5f, rw, rh, 0.5f, dz, red, red, red);
+
+        // 2. Biased overlay passes:
+        // Top-Left (Q0) Biased Red diamond at z = 0.5 (depth_bias > 0 -> pushed away -> fails depth test) (indices 36..41)
+        add_diamond_sloped(-0.5f, 0.5f, rw, rh, 0.5f, 0.0f, red, red, red);
+
+        // Top-Right (Q1) Biased Red diamond on slope (slope_scale > 0 -> pushed away -> fails depth test) (indices 42..47)
+        add_diamond_sloped(0.5f, 0.5f, rw, rh, 0.5f, dz, red, red, red);
+
+        // Bottom-Left (Q2) Biased Amber Gold diamond at z = 0.5 (depth_bias < 0 -> pulled closer -> overwrites Red) (indices 48..53)
+        add_diamond_sloped(-0.5f, -0.5f, rw, rh, 0.5f, 0.0f, amber, amber, amber);
+
+        // Bottom-Right (Q3) Biased Magenta gradient diamond on slope (slope_scale < 0 -> pulled closer -> overwrites Red) (indices 54..59)
+        add_diamond_sloped(0.5f, -0.5f, rw, rh, 0.5f, dz, magenta_bot, magenta_mid, magenta_top);
 
         vbuffer = execute([&]() {
             auto desc               = GPUBufferDescriptor{};
@@ -172,9 +223,9 @@ struct DepthBiasApp : public TestApp
             pipe.attributes.push_back({"color", offsetof(Vertex, color)});
             pipe.init_color_state(get_backbuffer_format());
             pipe.init_depth_state(GPUTextureFormat::DEPTH16UNORM);
-            pipe.dsstate->depth_compare       = depth_compare;
-            pipe.dsstate->depth_write_enabled = true;
-            pipe.dsstate->depth_bias          = depth_bias;
+            pipe.dsstate->depth_compare          = depth_compare;
+            pipe.dsstate->depth_write_enabled    = true;
+            pipe.dsstate->depth_bias             = depth_bias;
             pipe.dsstate->depth_bias_slope_scale = depth_bias_slope;
             pipe.init_vshader(device, module.get(), "vsmain");
             pipe.init_fshader(device, module.get(), "fsmain");
@@ -209,7 +260,7 @@ struct DepthBiasApp : public TestApp
         });
 
         auto color_attachment        = GPURenderPassColorAttachment{};
-        color_attachment.clear_value = GPUColor{0.0f, 0.0f, 0.0f, 1.0f};
+        color_attachment.clear_value = GPUColor{0.07f, 0.08f, 0.11f, 1.0f};
         color_attachment.load_op     = GPULoadOp::CLEAR;
         color_attachment.store_op    = GPUStoreOp::STORE;
         color_attachment.view        = backbuffer.view;
@@ -240,28 +291,25 @@ struct DepthBiasApp : public TestApp
         command.set_vertex_buffer(0, vbuffer);
         command.set_index_buffer(ibuffer, GPUIndexFormat::UINT32);
 
-        // 1. Draw base quads with pipeline_base (writes depth)
+        // 1. Draw all base cards and base diamonds with pipeline_base (writes depth, 36 indices)
         command.set_pipeline(pipeline_base.pipeline);
-        command.draw_indexed(6, 1, 0, 0, 0);   // Top-Left Base (Green)
-        command.draw_indexed(6, 1, 12, 0, 0);  // Top-Right Base (Green)
-        command.draw_indexed(6, 1, 24, 0, 0);  // Bottom-Left Base (Red)
-        command.draw_indexed(6, 1, 36, 0, 0);  // Bottom-Right Base (Red)
+        command.draw_indexed(36, 1, 0, 0, 0);
 
-        // 2. Draw Top-Left Biased (Red) with positive constant bias -> fails depth test, Green remains
+        // 2. Draw Q0 Biased (Red) with positive constant bias -> fails depth test, Emerald card remains
         command.set_pipeline(pipeline_pos_const.pipeline);
-        command.draw_indexed(6, 1, 6, 0, 0);
+        command.draw_indexed(6, 1, 36, 0, 0);
 
-        // 3. Draw Top-Right Biased (Red) with positive slope bias -> fails depth test, Green remains
+        // 3. Draw Q1 Biased (Red) with positive slope bias -> fails depth test, Cyan sloped card remains
         command.set_pipeline(pipeline_pos_slope.pipeline);
-        command.draw_indexed(6, 1, 18, 0, 0);
-
-        // 4. Draw Bottom-Left Biased (Green) with negative constant bias -> passes LESS depth test, overwrites Red
-        command.set_pipeline(pipeline_neg_const.pipeline);
-        command.draw_indexed(6, 1, 30, 0, 0);
-
-        // 5. Draw Bottom-Right Biased (Green) with negative slope bias -> passes LESS depth test, overwrites Red
-        command.set_pipeline(pipeline_neg_slope.pipeline);
         command.draw_indexed(6, 1, 42, 0, 0);
+
+        // 4. Draw Q2 Biased (Amber) with negative constant bias -> passes LESS depth test, overwrites Red diamond
+        command.set_pipeline(pipeline_neg_const.pipeline);
+        command.draw_indexed(6, 1, 48, 0, 0);
+
+        // 5. Draw Q3 Biased (Magenta) with negative slope bias -> passes LESS depth test, overwrites Red diamond
+        command.set_pipeline(pipeline_neg_slope.pipeline);
+        command.draw_indexed(6, 1, 54, 0, 0);
 
         command.end_render_pass();
 

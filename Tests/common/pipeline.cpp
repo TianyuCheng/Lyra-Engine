@@ -119,12 +119,13 @@ void SimpleRenderPipeline::init_pipeline(GPUDevice& device, ShaderReflection* re
     layout.array_stride = vstride;
     layout.step_mode    = GPUVertexStepMode::VERTEX;
 
-    auto desc                                  = GPURenderPipelineDescriptor{};
-    desc.layout                                = playout;
-    desc.primitive.cull_mode                   = GPUCullMode::NONE;
-    desc.primitive.topology                    = GPUPrimitiveTopology::TRIANGLE_LIST;
-    desc.primitive.front_face                  = GPUFrontFace::CCW;
-    desc.primitive.strip_index_format          = GPUIndexFormat::UINT32;
+    auto desc                         = GPURenderPipelineDescriptor{};
+    desc.layout                       = playout;
+    desc.primitive.cull_mode          = GPUCullMode::NONE;
+    desc.primitive.topology           = GPUPrimitiveTopology::TRIANGLE_LIST;
+    desc.primitive.front_face         = GPUFrontFace::CCW;
+    desc.primitive.strip_index_format = GPUIndexFormat::UINT32;
+    if (primitive.has_value()) desc.primitive = primitive.value();
     desc.depth_stencil.depth_compare           = GPUCompareFunction::ALWAYS;
     desc.depth_stencil.depth_write_enabled     = false;
     desc.multisample.alpha_to_coverage_enabled = false;
