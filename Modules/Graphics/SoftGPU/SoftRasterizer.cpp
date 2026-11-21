@@ -122,13 +122,13 @@ static bool test_depth(float src_depth, float dst_depth, GPUCompareFunction comp
         case GPUCompareFunction::EQUAL:
             return std::abs(src_depth - dst_depth) < 1e-6f;
         case GPUCompareFunction::LESS_EQUAL:
-            return src_depth <= dst_depth;
+            return src_depth <= dst_depth + 1e-5f;
         case GPUCompareFunction::GREATER:
             return src_depth > dst_depth;
         case GPUCompareFunction::NOT_EQUAL:
             return std::abs(src_depth - dst_depth) >= 1e-6f;
         case GPUCompareFunction::GREATER_EQUAL:
-            return src_depth >= dst_depth;
+            return src_depth >= dst_depth - 1e-5f;
         case GPUCompareFunction::ALWAYS:
             return true;
         default:

@@ -342,15 +342,27 @@ void ReflectResultInternal::init_bindings(slang::ProgramLayout* program_layout)
     // reset traversal data
     traversal_data.current_walk_depth = 0;
 
-    // iterate through global parameters
     auto global_params = program_layout->getGlobalParamsVarLayout();
-    walk(global_params, AccessPath{}, callback);
+    uint global_fields = global_params && global_params->getTypeLayout() ? global_params->getTypeLayout()->getFieldCount() : 0;
 
-    // iterate through entry points
-    auto entry_point_count = program_layout->getEntryPointCount();
-    for (uint i = 0; i < entry_point_count; i++) {
-        auto entry_point_reflect = program_layout->getEntryPointByIndex(i);
-        walk(entry_point_reflect, AccessPath{}, callback);
+    if (global_fields > 0) {
+        walk(global_params, AccessPath{}, callback);
+    } else {
+        for (uint i = 0; i < program_layout->getParameterCount(); ++i) {
+            auto param_var = program_layout->getParameterByIndex(i);
+            if (param_var) {
+                walk(param_var, AccessPath{}, callback);
+            }
+        }
+    }
+
+    if (target != CompileTarget::HOST) {
+        // iterate through entry points
+        auto entry_point_count = program_layout->getEntryPointCount();
+        for (uint i = 0; i < entry_point_count; i++) {
+            auto entry_point_reflect = program_layout->getEntryPointByIndex(i);
+            walk(entry_point_reflect, AccessPath{}, callback);
+        }
     }
 }
 

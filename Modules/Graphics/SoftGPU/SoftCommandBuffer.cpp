@@ -17,10 +17,13 @@ void SoftCommandBuffer::begin_render_pass(const GPURenderPassDescriptor& desc)
     Vector<GPURenderPassColorAttachment> cas(desc.color_attachments.begin(), desc.color_attachments.end());
 
     auto ds = desc.depth_stencil_attachment;
+    printf("[DEBUG begin_render_pass] cas=%zu ds_valid=%d\n", cas.size(), ds.view.valid());
     commands.push_back([cas = std::move(cas), ds](SoftDevice& device, ExecutionContext& ctx) {
         ctx.color_attachment = nullptr;
         ctx.color_attachments.clear();
         ctx.depth_stencil_attachment = nullptr;
+        ctx.vertex_buffers.clear();
+        ctx.index_buffer = {};
 
         for (const auto& ca : cas) {
             if (!ca.view.valid()) {
@@ -170,9 +173,8 @@ struct SoftDrawParams
     uint32_t                          host_tex_count = 0;
 };
 
-static SoftDrawParams setup_draw_params(SoftDevice& device, const ExecutionContext& ctx)
+static void setup_draw_params(SoftDevice& device, const ExecutionContext& ctx, SoftDrawParams& p)
 {
-    SoftDrawParams p{};
     p.uniform_bytes.fill(0);
 
     p.r_ctx.color_attachment         = ctx.color_attachment;
@@ -191,13 +193,7 @@ static SoftDrawParams setup_draw_params(SoftDevice& device, const ExecutionConte
         }
     }
 
-    // 1. matrix from immediates
-    if (!ctx.immediates_data.empty() && ctx.immediates_data.size() >= sizeof(Matrix4x4)) {
-        p.vp_matrix = *reinterpret_cast<const Matrix4x4*>(ctx.immediates_data.data());
-        p.has_vp    = true;
-    }
-
-    // 2. check bind groups (texture, sampler, uniform buffer)
+    // 1. check bind groups (texture, sampler, uniform buffer)
     const SoftTextureView* bound_view = nullptr;
     const SoftSampler*     bound_samp = nullptr;
 
@@ -208,11 +204,11 @@ static SoftDrawParams setup_draw_params(SoftDevice& device, const ExecutionConte
 
         for (const auto& entry : bg->entries) {
             if (entry.type == GPUResourceType::BUFFER && entry.buffer.buffer.valid()) {
-                auto ubuf = device.buffers.find(entry.buffer.buffer.to_slotmap_handle<SoftBuffer>());
-                if (ubuf) {
-                    size_t dyn_off = bound_bg.dynamic_offsets.empty() ? 0 : bound_bg.dynamic_offsets[0];
-                    size_t eff_off = entry.buffer.offset + dyn_off;
-                    if (!p.has_vp) {
+                if (slot == 0 && entry.binding == 0 && !p.has_vp) {
+                    auto ubuf = device.buffers.find(entry.buffer.buffer.to_slotmap_handle<SoftBuffer>());
+                    if (ubuf) {
+                        size_t dyn_off = bound_bg.dynamic_offsets.empty() ? 0 : bound_bg.dynamic_offsets[0];
+                        size_t eff_off = entry.buffer.offset + dyn_off;
                         if (ubuf->data.size() >= eff_off + sizeof(Matrix4x4) * 2 &&
                             bound_bg.dynamic_offsets.empty() &&
                             reinterpret_cast<const Matrix4x4*>(ubuf->data.data() + eff_off + sizeof(Matrix4x4))->operator[](3)[3] != 0.0f) {
@@ -235,6 +231,12 @@ static SoftDrawParams setup_draw_params(SoftDevice& device, const ExecutionConte
                 bound_samp = device.samplers.find(entry.sampler.to_slotmap_handle<SoftSampler>());
             }
         }
+    }
+
+    // 2. matrix from immediates (fallback if no camera uniform buffer was bound)
+    if (!p.has_vp && !ctx.immediates_data.empty() && ctx.immediates_data.size() >= sizeof(Matrix4x4)) {
+        p.vp_matrix = *reinterpret_cast<const Matrix4x4*>(ctx.immediates_data.data());
+        p.has_vp    = true;
     }
 
     auto populate_params = [&](GPUShaderModuleHandle sm_handle) {
@@ -378,19 +380,17 @@ static SoftDrawParams setup_draw_params(SoftDevice& device, const ExecutionConte
         if (!p.has_col && p.bound_tex == nullptr) p.col_offset = 24;
         if (!p.has_uv) p.uv_offset = 36;
     }
-
-    return p;
 }
 
 void SoftCommandBuffer::draw(uint32_t vertex_count, uint32_t instance_count, uint32_t first_vertex, uint32_t first_instance)
 {
     commands.push_back([=](SoftDevice& device, ExecutionContext& ctx) {
-        if (!ctx.color_attachment && ctx.color_attachments.empty() && !ctx.depth_stencil_attachment) return;
+        SoftDrawParams p{};
+        setup_draw_params(device, ctx, p);
 
-        SoftDrawParams p = setup_draw_params(device, ctx);
-
-        auto it_v = ctx.vertex_buffers.find(0);
-        if (it_v == ctx.vertex_buffers.end()) {
+        auto it_v     = ctx.vertex_buffers.find(0);
+        bool has_vbuf = (it_v != ctx.vertex_buffers.end()) && ctx.render_pipeline && !ctx.render_pipeline->vertex_buffers.empty();
+        if (!has_vbuf) {
             auto run_vs = [&](uint32_t vid, SoftShadedVertex& sv) {
                 if (ctx.render_pipeline && ctx.render_pipeline->vshader_func) {
                     struct EpParams
@@ -577,7 +577,8 @@ void SoftCommandBuffer::draw_indexed(uint32_t index_count, uint32_t instance_cou
         auto ibuf = device.buffers.find(ctx.index_buffer.buffer.to_slotmap_handle<SoftBuffer>());
         if (!ibuf) return;
 
-        SoftDrawParams p = setup_draw_params(device, ctx);
+        SoftDrawParams p{};
+        setup_draw_params(device, ctx, p);
 
         const uint8_t* vdata = vbuf ? (vbuf->data.data() + it_v0->second.offset) : nullptr;
         const uint8_t* idata = ibuf->data.data() + ctx.index_buffer.offset;
@@ -619,12 +620,25 @@ void SoftCommandBuffer::draw_indexed(uint32_t index_count, uint32_t instance_cou
                                               ? reinterpret_cast<const MeshDrawInstLayout*>(ctx.immediates_data.data())
                                               : nullptr;
                 const uint8_t* sdata    = storage_vbuf->data.data();
-                uint32_t       pos_off  = inst ? inst->pos_offset : 0;
-                uint32_t       norm_off = inst ? inst->norm_offset : 12;
-                uint32_t       uv_off   = inst ? inst->uv_offset : 24;
+                Matrix4x4      model    = Matrix4x4(1.0f);
+                uint32_t       pos_off  = 0;
+                uint32_t       norm_off = 12;
+                uint32_t       uv_off   = 24;
+                Vector4        color    = Vector4(1.0f);
+
+                if (inst) {
+                    model    = inst->model;
+                    pos_off  = inst->pos_offset;
+                    norm_off = inst->norm_offset;
+                    uv_off   = inst->uv_offset;
+                    color    = inst->base_color;
+                } else if (!ctx.immediates_data.empty() && ctx.immediates_data.size() >= 68) {
+                    model   = *reinterpret_cast<const Matrix4x4*>(ctx.immediates_data.data());
+                    pos_off = *reinterpret_cast<const uint32_t*>(ctx.immediates_data.data() + 64);
+                }
 
                 const auto pos       = reinterpret_cast<const Vector3*>(sdata + pos_off + vert_idx * 12);
-                Vector4    world_pos = inst ? (inst->model * Vector4(*pos, 1.0f)) : Vector4(*pos, 1.0f);
+                Vector4    world_pos = model * Vector4(*pos, 1.0f);
                 sv.position          = p.has_vp ? (p.vp_matrix * world_pos) : world_pos;
 
                 if (norm_off + (vert_idx + 1) * 12 <= storage_vbuf->data.size()) {
@@ -635,7 +649,7 @@ void SoftCommandBuffer::draw_indexed(uint32_t index_count, uint32_t instance_cou
                     const auto uv = reinterpret_cast<const Vector2*>(sdata + uv_off + vert_idx * 8);
                     sv.texcoord   = Vector4(uv->x, uv->y, 0.0f, 0.0f);
                 }
-                sv.color = inst ? inst->base_color : Vector4(1.0f);
+                sv.color = color;
                 sv.extra = world_pos;
                 std::memcpy(&sv.varyings[0], &sv.normal, sizeof(float) * 3);
                 std::memcpy(&sv.varyings[3], &sv.texcoord, sizeof(float) * 2);
