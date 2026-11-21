@@ -45,9 +45,11 @@ target_include_directories(lyra-unit-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/c
 # rhi test cases
 add_subdirectory(depth_test)
 add_subdirectory(depth_bias)
+add_subdirectory(depth_compare_ops)
 add_subdirectory(culling_winding)
 add_subdirectory(blend_modes)
 add_subdirectory(color_write_mask)
+add_subdirectory(scissor_viewport)
 add_subdirectory(ray_tracing)
 add_subdirectory(frame_graph)
 add_subdirectory(stencil_test)

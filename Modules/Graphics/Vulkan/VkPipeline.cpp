@@ -203,13 +203,10 @@ VulkanPipeline::VulkanPipeline(const GPURenderPipelineDescriptor& desc)
     pipeline_rendering_create_info.colorAttachmentCount    = static_cast<uint>(formats.size());
     pipeline_rendering_create_info.pColorAttachmentFormats = formats.data();
     pipeline_rendering_create_info.depthAttachmentFormat   = VK_FORMAT_UNDEFINED;
-    pipeline_rendering_create_info.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
-    if (depth_stencil_state.depthWriteEnable || depth_stencil_state.depthTestEnable || depth_stencil_state.stencilTestEnable) {
-        if (is_depth_format(desc.depth_stencil.format))
-            pipeline_rendering_create_info.depthAttachmentFormat = vkenum(desc.depth_stencil.format);
-        if (is_stencil_format(desc.depth_stencil.format))
-            pipeline_rendering_create_info.stencilAttachmentFormat = vkenum(desc.depth_stencil.format);
-    }
+    if (is_depth_format(desc.depth_stencil.format))
+        pipeline_rendering_create_info.depthAttachmentFormat = vkenum(desc.depth_stencil.format);
+    if (is_stencil_format(desc.depth_stencil.format))
+        pipeline_rendering_create_info.stencilAttachmentFormat = vkenum(desc.depth_stencil.format);
 
     auto create_info                = VkGraphicsPipelineCreateInfo{};
     create_info.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;

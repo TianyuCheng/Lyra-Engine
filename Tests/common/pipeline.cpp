@@ -32,12 +32,17 @@ void SimplePipeline::init_blend_state(GPUTextureFormat format, const GPUBlendSta
 
 void SimplePipeline::init_depth_state(GPUTextureFormat format)
 {
+    init_depth_state(format, GPUCompareFunction::LESS, true);
+}
+
+void SimplePipeline::init_depth_state(GPUTextureFormat format, GPUCompareFunction compare, bool depth_write)
+{
     if (!dsstate.has_value()) dsstate = GPUDepthStencilState{};
 
     auto& state               = dsstate.value();
     state.format              = format;
-    state.depth_compare       = GPUCompareFunction::LESS;
-    state.depth_write_enabled = true;
+    state.depth_compare       = compare;
+    state.depth_write_enabled = depth_write;
 }
 
 void SimplePipeline::init_stencil_state(GPUTextureFormat format)

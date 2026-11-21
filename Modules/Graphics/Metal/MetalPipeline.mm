@@ -13,8 +13,9 @@ MetalPipeline::MetalPipeline(const GPURenderPipelineDescriptor& desc)
         auto rhi = get_rhi();
 
         // detect depth/stencil
-        bool depth_enabled = desc.depth_stencil.depth_write_enabled || desc.depth_stencil.depth_compare != GPUCompareFunction::ALWAYS;
+        bool depth_enabled = is_depth_format(desc.depth_stencil.format);
         bool stencil_test_enabled =
+            is_stencil_format(desc.depth_stencil.format) ||
             desc.depth_stencil.stencil_front.compare != GPUCompareFunction::ALWAYS ||
             desc.depth_stencil.stencil_front.pass_op != GPUStencilOperation::KEEP ||
             desc.depth_stencil.stencil_front.fail_op != GPUStencilOperation::KEEP ||
