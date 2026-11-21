@@ -642,8 +642,9 @@ void SoftCommandBuffer::draw_indexed(uint32_t index_count, uint32_t instance_cou
                 sv.position          = p.has_vp ? (p.vp_matrix * world_pos) : world_pos;
 
                 if (norm_off + (vert_idx + 1) * 12 <= storage_vbuf->data.size()) {
-                    const auto norm = reinterpret_cast<const Vector3*>(sdata + norm_off + vert_idx * 12);
-                    sv.normal       = Vector4(*norm, 0.0f);
+                    const auto norm       = reinterpret_cast<const Vector3*>(sdata + norm_off + vert_idx * 12);
+                    Vector3    world_norm = glm::mat3(model) * (*norm);
+                    sv.normal             = Vector4(glm::normalize(world_norm), 0.0f);
                 }
                 if (uv_off + (vert_idx + 1) * 8 <= storage_vbuf->data.size()) {
                     const auto uv = reinterpret_cast<const Vector2*>(sdata + uv_off + vert_idx * 8);
@@ -661,18 +662,20 @@ void SoftCommandBuffer::draw_indexed(uint32_t index_count, uint32_t instance_cou
                 const auto pos = reinterpret_cast<const Vector3*>(vdata + vert_idx * 12);
                 Vector4    local_pos(pos->x, pos->y, pos->z, 1.0f);
 
+                Matrix4x4 model = Matrix4x4(1.0f);
                 if (!ctx.immediates_data.empty() && ctx.immediates_data.size() >= sizeof(Matrix4x4)) {
-                    const auto& model     = *reinterpret_cast<const Matrix4x4*>(ctx.immediates_data.data());
-                    Vector4     world_pos = model * local_pos;
-                    sv.position           = p.has_vp ? (p.vp_matrix * world_pos) : world_pos;
-                    sv.extra              = world_pos;
+                    model             = *reinterpret_cast<const Matrix4x4*>(ctx.immediates_data.data());
+                    Vector4 world_pos = model * local_pos;
+                    sv.position       = p.has_vp ? (p.vp_matrix * world_pos) : world_pos;
+                    sv.extra          = world_pos;
                 } else {
                     sv.position = p.has_vp ? (p.vp_matrix * local_pos) : local_pos;
                     sv.extra    = local_pos;
                 }
 
-                const auto norm = reinterpret_cast<const Vector3*>(vdata1 + vert_idx * 12);
-                sv.normal       = Vector4(norm->x, norm->y, norm->z, 0.0f);
+                const auto norm       = reinterpret_cast<const Vector3*>(vdata1 + vert_idx * 12);
+                Vector3    world_norm = glm::mat3(model) * (*norm);
+                sv.normal             = Vector4(glm::normalize(world_norm), 0.0f);
 
                 if (vdata2 != nullptr) {
                     const auto uv = reinterpret_cast<const Vector2*>(vdata2 + vert_idx * 8);

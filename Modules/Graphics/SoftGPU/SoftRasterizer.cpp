@@ -337,12 +337,55 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
     float           bias1       = (tl1 ? -edge_px_eps : edge_px_eps) * len1;
     float           bias2       = (tl2 ? -edge_px_eps : edge_px_eps) * len2;
 
+    // depth bias calculation
+    float constant_factor = ctx.depth_stencil.depth_bias_constant != 0.0f
+                                ? ctx.depth_stencil.depth_bias_constant
+                                : static_cast<float>(ctx.depth_stencil.depth_bias);
+    float slope_factor    = ctx.depth_stencil.depth_bias_slope_scale;
+    float bias_clamp      = ctx.depth_stencil.depth_bias_clamp;
+
+    float depth_bias_val = 0.0f;
+    if (constant_factor != 0.0f || slope_factor != 0.0f) {
+        // r is the minimum resolvable difference in the depth buffer
+        float r = 1.1920929e-7f; // 2^-23 for 32-bit float
+        if (ctx.depth_stencil_attachment) {
+            auto fmt = ctx.depth_stencil_attachment->format;
+            if (fmt == GPUTextureFormat::DEPTH16UNORM) {
+                r = 1.0f / 65535.0f;
+            } else if (fmt == GPUTextureFormat::DEPTH24PLUS || fmt == GPUTextureFormat::DEPTH24PLUS_STENCIL8) {
+                r = 1.0f / 16777215.0f;
+            }
+        }
+
+        // slope m = max(|dz/dx|, |dz/dy|)
+        float dzdx = A0 * v0.screen.z + A1 * v1.screen.z + A2 * v2.screen.z;
+        float dzdy = B0 * v0.screen.z + B1 * v1.screen.z + B2 * v2.screen.z;
+        float m    = std::max(std::abs(dzdx), std::abs(dzdy));
+
+        depth_bias_val = constant_factor * r + slope_factor * m;
+        if (bias_clamp != 0.0f) {
+            if (bias_clamp > 0.0f) {
+                depth_bias_val = std::min(depth_bias_val, bias_clamp);
+            } else {
+                depth_bias_val = std::max(depth_bias_val, bias_clamp);
+            }
+        }
+    }
+
     auto process_pixel = [&](int32_t x, int32_t y, float px, float py, float w0, float w1, float w2, float z, float w) {
+        // apply depth bias
+        float test_write_z = z;
+        if (depth_bias_val != 0.0f) {
+            float min_d  = std::min(ctx.viewport.min_depth, ctx.viewport.max_depth);
+            float max_d  = std::max(ctx.viewport.min_depth, ctx.viewport.max_depth);
+            test_write_z = std::clamp(z + depth_bias_val, min_d, max_d);
+        }
+
         // depth test
         bool depth_passed = true;
         if (ctx.depth_stencil_attachment && ctx.depth_stencil.depth_compare != GPUCompareFunction::ALWAYS) {
             float current_depth = ctx.depth_stencil_attachment->read_depth(x, y);
-            if (!test_depth(z, current_depth, ctx.depth_stencil.depth_compare)) {
+            if (!test_depth(test_write_z, current_depth, ctx.depth_stencil.depth_compare)) {
                 depth_passed = false;
             }
         }
@@ -393,7 +436,7 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
 
         // write depth
         if (ctx.depth_stencil_attachment && ctx.depth_stencil.depth_write_enabled) {
-            ctx.depth_stencil_attachment->write_depth(x, y, z);
+            ctx.depth_stencil_attachment->write_depth(x, y, test_write_z);
         }
 
         // write color with write mask
@@ -539,12 +582,10 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
 
             __m256 v_w = _mm256_div_ps(_mm256_set1_ps(1.0f), v_inv_w);
 
-            __m256 v_z_raw = _mm256_add_ps(_mm256_add_ps(
-                                               _mm256_mul_ps(v_w0, _mm256_set1_ps(v0.screen.z * v0.inv_w)),
-                                               _mm256_mul_ps(v_w1, _mm256_set1_ps(v1.screen.z * v1.inv_w))),
-                _mm256_mul_ps(v_w2, _mm256_set1_ps(v2.screen.z * v2.inv_w)));
-
-            __m256 v_z = _mm256_mul_ps(v_z_raw, v_w);
+            __m256 v_z = _mm256_add_ps(_mm256_add_ps(
+                                           _mm256_mul_ps(v_w0, _mm256_set1_ps(v0.screen.z)),
+                                           _mm256_mul_ps(v_w1, _mm256_set1_ps(v1.screen.z))),
+                _mm256_mul_ps(v_w2, _mm256_set1_ps(v2.screen.z)));
 
             alignas(32) float ar_w0[8];
             alignas(32) float ar_w1[8];
@@ -576,7 +617,7 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
             if (w0 >= bias0 && w1 >= bias1 && w2 >= bias2) {
                 float z_inv = w0 * v0.inv_w + w1 * v1.inv_w + w2 * v2.inv_w;
                 float w     = (std::abs(z_inv) > 1e-8f) ? (1.0f / z_inv) : 1.0f;
-                float z     = (w0 * v0.screen.z * v0.inv_w + w1 * v1.screen.z * v1.inv_w + w2 * v2.screen.z * v2.inv_w) * w;
+                float z     = w0 * v0.screen.z + w1 * v1.screen.z + w2 * v2.screen.z;
                 process_pixel(x, y, px, py, w0, w1, w2, z, w);
             }
         }
