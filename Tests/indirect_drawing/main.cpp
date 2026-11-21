@@ -153,17 +153,17 @@ struct IndirectDrawingApp : public TestApp
     {
         auto& device = RHI::get_current_device();
 
-        Vector<BadgeVertex>            vertices;
-        Vector<uint16_t>               indices;
-        Vector<DrawIndirectArgs>       draw_cmds;
+        Vector<BadgeVertex>             vertices;
+        Vector<uint16_t>                indices;
+        Vector<DrawIndirectArgs>        draw_cmds;
         Vector<DrawIndexedIndirectArgs> draw_indexed_cmds;
 
         // Palette
-        const glm::vec4 emerald{0.00f, 0.90f, 0.46f, 1.0f};      // Quadrant 0
-        const glm::vec4 sapphire{0.16f, 0.47f, 1.00f, 1.0f};     // Quadrant 1
-        const glm::vec4 amber{1.00f, 0.84f, 0.00f, 1.0f};        // Quadrant 2 Upper
-        const glm::vec4 coral{1.00f, 0.34f, 0.13f, 1.0f};        // Quadrant 2 Lower
-        const glm::vec4 ruby{0.96f, 0.00f, 0.34f, 1.0f};         // Quadrant 3
+        const glm::vec4 emerald{0.00f, 0.90f, 0.46f, 1.0f};  // Quadrant 0
+        const glm::vec4 sapphire{0.16f, 0.47f, 1.00f, 1.0f}; // Quadrant 1
+        const glm::vec4 amber{1.00f, 0.84f, 0.00f, 1.0f};    // Quadrant 2 Upper
+        const glm::vec4 coral{1.00f, 0.34f, 0.13f, 1.0f};    // Quadrant 2 Lower
+        const glm::vec4 ruby{0.96f, 0.00f, 0.34f, 1.0f};     // Quadrant 3
 
         // --- Mesh 0 (Vertices 0..5, 6 vertices): Diamond in Quadrant 0 (Top-Left, center (-0.50, 0.50))
         float cx0 = -0.50f, cy0 = 0.50f, r0 = 0.20f;

@@ -94,10 +94,10 @@ struct InstancedDrawingApp : public TestApp
     GPUBuffer            card_vbuffer;
     SimpleRenderPipeline card_pipeline;
 
-    GPUBuffer            base_vbuffer;
-    GPUBuffer            instance_buffer;
-    GPUBuffer            index_buffer;
-    GPURenderPipeline    instanced_pipeline;
+    GPUBuffer         base_vbuffer;
+    GPUBuffer         instance_buffer;
+    GPUBuffer         index_buffer;
+    GPURenderPipeline instanced_pipeline;
 
     explicit InstancedDrawingApp(const TestAppDescriptor& desc) : TestApp(desc)
     {
@@ -127,16 +127,16 @@ struct InstancedDrawingApp : public TestApp
         };
 
         // 4 quadrant background cards
-        add_card(-0.90f, 0.10f, -0.10f, 0.90f); // Top-Left
-        add_card(0.10f, 0.10f, 0.90f, 0.90f);   // Top-Right
+        add_card(-0.90f, 0.10f, -0.10f, 0.90f);   // Top-Left
+        add_card(0.10f, 0.10f, 0.90f, 0.90f);     // Top-Right
         add_card(-0.90f, -0.90f, -0.10f, -0.10f); // Bottom-Left
         add_card(0.10f, -0.90f, 0.90f, -0.10f);   // Bottom-Right
 
-        auto bdesc        = GPUBufferDescriptor{};
-        bdesc.size        = sizeof(CardVertex) * card_vertices.size();
-        bdesc.usage       = GPUBufferUsage::VERTEX | GPUBufferUsage::MAP_WRITE;
+        auto bdesc               = GPUBufferDescriptor{};
+        bdesc.size               = sizeof(CardVertex) * card_vertices.size();
+        bdesc.usage              = GPUBufferUsage::VERTEX | GPUBufferUsage::MAP_WRITE;
         bdesc.mapped_at_creation = true;
-        card_vbuffer      = device.create_buffer(bdesc);
+        card_vbuffer             = device.create_buffer(bdesc);
 
         auto mapped = card_vbuffer.get_mapped_range<CardVertex>();
         std::memcpy(mapped.data, card_vertices.data(), bdesc.size);
@@ -159,9 +159,9 @@ struct InstancedDrawingApp : public TestApp
         card_pipeline.attributes.push_back({"color", offsetof(CardVertex, color)});
 
         GPUPrimitiveState prim{};
-        prim.topology            = GPUPrimitiveTopology::TRIANGLE_LIST;
-        prim.cull_mode           = GPUCullMode::NONE;
-        card_pipeline.primitive  = prim;
+        prim.topology           = GPUPrimitiveTopology::TRIANGLE_LIST;
+        prim.cull_mode          = GPUCullMode::NONE;
+        card_pipeline.primitive = prim;
 
         card_pipeline.init_color_state(get_backbuffer_format());
         card_pipeline.init_vshader(device, module.get(), "vsmain");
@@ -247,28 +247,28 @@ struct InstancedDrawingApp : public TestApp
         instances.push_back({{0.65f, -0.62f}, {0.96f, 0.00f, 0.34f, 1.0f}}); // Ruby
 
         // Create GPU Buffers
-        auto bdesc_v         = GPUBufferDescriptor{};
-        bdesc_v.size         = sizeof(BaseVertex) * base_vertices.size();
-        bdesc_v.usage        = GPUBufferUsage::VERTEX | GPUBufferUsage::MAP_WRITE;
+        auto bdesc_v               = GPUBufferDescriptor{};
+        bdesc_v.size               = sizeof(BaseVertex) * base_vertices.size();
+        bdesc_v.usage              = GPUBufferUsage::VERTEX | GPUBufferUsage::MAP_WRITE;
         bdesc_v.mapped_at_creation = true;
-        base_vbuffer         = device.create_buffer(bdesc_v);
-        auto mapped_v        = base_vbuffer.get_mapped_range<BaseVertex>();
+        base_vbuffer               = device.create_buffer(bdesc_v);
+        auto mapped_v              = base_vbuffer.get_mapped_range<BaseVertex>();
         std::memcpy(mapped_v.data, base_vertices.data(), bdesc_v.size);
 
-        auto bdesc_i         = GPUBufferDescriptor{};
-        bdesc_i.size         = sizeof(uint16_t) * indices.size();
-        bdesc_i.usage        = GPUBufferUsage::INDEX | GPUBufferUsage::MAP_WRITE;
+        auto bdesc_i               = GPUBufferDescriptor{};
+        bdesc_i.size               = sizeof(uint16_t) * indices.size();
+        bdesc_i.usage              = GPUBufferUsage::INDEX | GPUBufferUsage::MAP_WRITE;
         bdesc_i.mapped_at_creation = true;
-        index_buffer         = device.create_buffer(bdesc_i);
-        auto mapped_i        = index_buffer.get_mapped_range<uint16_t>();
+        index_buffer               = device.create_buffer(bdesc_i);
+        auto mapped_i              = index_buffer.get_mapped_range<uint16_t>();
         std::memcpy(mapped_i.data, indices.data(), bdesc_i.size);
 
-        auto bdesc_inst      = GPUBufferDescriptor{};
-        bdesc_inst.size      = sizeof(InstanceData) * instances.size();
-        bdesc_inst.usage     = GPUBufferUsage::VERTEX | GPUBufferUsage::MAP_WRITE;
+        auto bdesc_inst               = GPUBufferDescriptor{};
+        bdesc_inst.size               = sizeof(InstanceData) * instances.size();
+        bdesc_inst.usage              = GPUBufferUsage::VERTEX | GPUBufferUsage::MAP_WRITE;
         bdesc_inst.mapped_at_creation = true;
-        instance_buffer      = device.create_buffer(bdesc_inst);
-        auto mapped_inst     = instance_buffer.get_mapped_range<InstanceData>();
+        instance_buffer               = device.create_buffer(bdesc_inst);
+        auto mapped_inst              = instance_buffer.get_mapped_range<InstanceData>();
         std::memcpy(mapped_inst.data, instances.data(), bdesc_inst.size);
 
         // Compile instanced shader

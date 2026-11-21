@@ -15,7 +15,9 @@
 
 using namespace lyra;
 
-CString compute_shader_program = R"""(
+namespace
+{
+    CString compute_shader_program = R"""(
 import lyra;
 
 [[lyra::binding(0, 0)]]
@@ -94,6 +96,7 @@ void csmain(uint3 dispatch_id : SV_DispatchThreadID)
     output_image[pixel] = col;
 }
 )""";
+} // namespace
 
 struct ComputeStorageImageApp : public TestApp
 {

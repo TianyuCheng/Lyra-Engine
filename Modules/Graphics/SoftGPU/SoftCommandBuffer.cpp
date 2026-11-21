@@ -761,7 +761,7 @@ static void execute_draw_indexed(SoftDevice& device, ExecutionContext& ctx, uint
         }
 
         bool is_split_3d = (vdata1 != nullptr) && (!ctx.render_pipeline || ctx.render_pipeline->vertex_buffers.size() <= 1 ||
-                                                      (ctx.render_pipeline->vertex_buffers.size() > 1 && ctx.render_pipeline->vertex_buffers[1].step_mode != GPUVertexStepMode::INSTANCE && ctx.render_pipeline->vertex_buffers[1].attributes.empty()));
+                                                      (ctx.render_pipeline->vertex_buffers.size() > 1 && ctx.render_pipeline->vertex_buffers[1].step_mode != GPUVertexStepMode::INSTANCE));
 
         if (is_split_3d) {
             const auto pos = reinterpret_cast<const Vector3*>(vdata + vert_idx * 12);
@@ -971,71 +971,37 @@ void SoftCommandBuffer::draw_indexed_indirect(GPUBufferHandle indirect_buffer, G
     });
 }
 
-void SoftCommandBuffer::dispatch_workgroups(uint32_t x, uint32_t y, uint32_t z)
+static void execute_dispatch_workgroups(SoftDevice& device, ExecutionContext& ctx, uint32_t x, uint32_t y, uint32_t z)
 {
-    commands.push_back([=](SoftDevice& device, ExecutionContext& ctx) {
-        auto it_bg = ctx.bind_groups.find(0);
-        if (it_bg == ctx.bind_groups.end()) return;
-        auto bg = device.bind_groups.find(it_bg->second.handle.to_slotmap_handle<SoftBindGroup>());
-        if (!bg) return;
+    if (x == 0 || y == 0 || z == 0) return;
 
-        const auto e_cam  = bg->find_entry(0);
-        const auto e_tlas = bg->find_entry(1);
-        const auto e_out  = bg->find_entry(2);
+    auto it_bg = ctx.bind_groups.find(0);
+    if (it_bg == ctx.bind_groups.end()) return;
+    auto bg = device.bind_groups.find(it_bg->second.handle.to_slotmap_handle<SoftBindGroup>());
+    if (!bg) return;
 
-        if (e_cam && e_tlas && e_out && e_cam->buffer.buffer.valid() && e_tlas->tlas.valid() && e_out->texture.valid()) {
-            auto         ubuf    = device.buffers.find(e_cam->buffer.buffer.to_slotmap_handle<SoftBuffer>());
-            auto         tlas    = device.tlases.find(e_tlas->tlas.to_slotmap_handle<SoftTlas>());
-            auto         view    = device.texture_views.find(e_out->texture.to_slotmap_handle<SoftTextureView>());
-            SoftTexture* out_tex = view ? device.textures.find(view->texture.to_slotmap_handle<SoftTexture>()) : nullptr;
+    const auto e_cam  = bg->find_entry(0);
+    const auto e_tlas = bg->find_entry(1);
+    const auto e_out  = bg->find_entry(2);
 
-            if (ubuf && tlas && out_tex) {
-                struct CameraData
-                {
-                    Matrix4x4 proj;
-                    Matrix4x4 view;
-                    Matrix4x4 view_inv;
-                    Matrix4x4 proj_inv;
-                };
-                if (ubuf->data.size() >= sizeof(CameraData)) {
-                    const auto cam    = reinterpret_cast<const CameraData*>(ubuf->data.data() + e_cam->buffer.offset);
-                    uint32_t   width  = out_tex->extent.width;
-                    uint32_t   height = out_tex->extent.height;
+    if (e_cam && e_tlas && e_out && e_cam->buffer.buffer.valid() && e_tlas->tlas.valid() && e_out->texture.valid()) {
+        auto         ubuf    = device.buffers.find(e_cam->buffer.buffer.to_slotmap_handle<SoftBuffer>());
+        auto         tlas    = device.tlases.find(e_tlas->tlas.to_slotmap_handle<SoftTlas>());
+        auto         view    = device.texture_views.find(e_out->texture.to_slotmap_handle<SoftTextureView>());
+        SoftTexture* out_tex = view ? device.textures.find(view->texture.to_slotmap_handle<SoftTexture>()) : nullptr;
 
-                    for (uint32_t py = 0; py < height; ++py) {
-                        for (uint32_t px = 0; px < width; ++px) {
-                            float u     = (static_cast<float>(px) + 0.5f) / static_cast<float>(width);
-                            float v     = (static_cast<float>(py) + 0.5f) / static_cast<float>(height);
-                            float ndc_x = u * 2.0f - 1.0f;
-                            float ndc_y = -(v * 2.0f - 1.0f);
-
-                            Vector4 target = cam->proj_inv * Vector4(ndc_x, ndc_y, 1.0f, 1.0f);
-                            Vector3 dir    = Vector3(cam->view_inv * Vector4(glm::normalize(Vector3(target) / target.w), 0.0f));
-                            Vector3 orig   = Vector3(cam->view_inv * Vector4(0.0f, 0.0f, 0.0f, 1.0f));
-
-                            SoftRayQuery q;
-                            q.trace_ray_inline(*tlas, 0, 0xFF, orig, glm::normalize(dir), 0.001f, 10000.0f, device.blases);
-                            if (q.committed_status() == SoftRayQueryStatus::TRIANGLE_HIT) {
-                                Vector2 bary = q.committed_triangle_barycentrics();
-                                Vector4 col(1.0f - bary.x - bary.y, bary.x, bary.y, 1.0f);
-                                out_tex->write_rgba(px, py, col);
-                            } else {
-                                out_tex->write_rgba(px, py, Vector4(0.0f, 0.0f, 0.0f, 0.0f));
-                            }
-                        }
-                    }
-                }
-            }
-            return;
-        }
-
-        const auto e_storage = bg->find_entry(0);
-        if (e_storage && e_storage->texture.valid()) {
-            auto         view    = device.texture_views.find(e_storage->texture.to_slotmap_handle<SoftTextureView>());
-            SoftTexture* out_tex = view ? device.textures.find(view->texture.to_slotmap_handle<SoftTexture>()) : nullptr;
-            if (out_tex) {
-                uint32_t width  = out_tex->extent.width;
-                uint32_t height = out_tex->extent.height;
+        if (ubuf && tlas && out_tex) {
+            struct CameraData
+            {
+                Matrix4x4 proj;
+                Matrix4x4 view;
+                Matrix4x4 view_inv;
+                Matrix4x4 proj_inv;
+            };
+            if (ubuf->data.size() >= sizeof(CameraData)) {
+                const auto cam    = reinterpret_cast<const CameraData*>(ubuf->data.data() + e_cam->buffer.offset);
+                uint32_t   width  = out_tex->extent.width;
+                uint32_t   height = out_tex->extent.height;
 
                 for (uint32_t py = 0; py < height; ++py) {
                     for (uint32_t px = 0; px < width; ++px) {
@@ -1044,63 +1010,237 @@ void SoftCommandBuffer::dispatch_workgroups(uint32_t x, uint32_t y, uint32_t z)
                         float ndc_x = u * 2.0f - 1.0f;
                         float ndc_y = -(v * 2.0f - 1.0f);
 
-                        Vector4 col(0.055f, 0.063f, 0.090f, 1.0f); // background
+                        Vector4 target = cam->proj_inv * Vector4(ndc_x, ndc_y, 1.0f, 1.0f);
+                        Vector3 dir    = Vector3(cam->view_inv * Vector4(glm::normalize(Vector3(target) / target.w), 0.0f));
+                        Vector3 orig   = Vector3(cam->view_inv * Vector4(0.0f, 0.0f, 0.0f, 1.0f));
 
-                        if (ndc_x >= -0.90f && ndc_x <= -0.10f && ndc_y >= 0.10f && ndc_y <= 0.90f) {
-                            col          = Vector4(0.082f, 0.094f, 0.133f, 1.0f);
-                            float px_rel = ndc_x - (-0.50f);
-                            float py_rel = ndc_y - 0.50f;
-                            float d      = std::abs(px_rel) + std::abs(py_rel);
-                            if (d <= 0.08f) {
-                                col = Vector4(0.00f, 0.90f, 0.46f, 1.0f);
-                            } else if (d <= 0.15f) {
-                                col = Vector4(0.00f, 0.78f, 0.33f, 1.0f);
-                            } else if (d <= 0.22f) {
-                                col = Vector4(0.11f, 0.37f, 0.13f, 1.0f);
-                            }
-                        } else if (ndc_x >= 0.10f && ndc_x <= 0.90f && ndc_y >= 0.10f && ndc_y <= 0.90f) {
-                            col          = Vector4(0.082f, 0.094f, 0.133f, 1.0f);
-                            float px_rel = ndc_x - 0.50f;
-                            float py_rel = ndc_y - 0.50f;
-                            float r      = std::sqrt(px_rel * px_rel + py_rel * py_rel);
-                            float theta  = std::atan2(py_rel, px_rel);
-                            float star_r = 0.14f + 0.08f * std::cos(4.0f * theta);
-                            if (r <= star_r) {
-                                if (r <= 0.06f) {
-                                    col = Vector4(0.16f, 0.47f, 1.00f, 1.0f);
-                                } else {
-                                    col = Vector4(0.08f, 0.40f, 0.75f, 1.0f);
-                                }
-                            }
-                        } else if (ndc_x >= -0.90f && ndc_x <= -0.10f && ndc_y >= -0.90f && ndc_y <= -0.10f) {
-                            col          = Vector4(0.082f, 0.094f, 0.133f, 1.0f);
-                            float px_rel = ndc_x - (-0.50f);
-                            float py_up  = ndc_y - (-0.36f);
-                            float py_dn  = ndc_y - (-0.64f);
-
-                            if (std::abs(px_rel) <= 0.22f && std::abs(py_up - 0.5f * (0.22f - std::abs(px_rel))) <= 0.04f) {
-                                col = Vector4(1.00f, 0.84f, 0.00f, 1.0f);
-                            } else if (std::abs(px_rel) <= 0.22f && std::abs(py_dn - 0.5f * (0.22f - std::abs(px_rel))) <= 0.04f) {
-                                col = Vector4(1.00f, 0.34f, 0.13f, 1.0f);
-                            }
-                        } else if (ndc_x >= 0.10f && ndc_x <= 0.90f && ndc_y >= -0.90f && ndc_y <= -0.10f) {
-                            col          = Vector4(0.082f, 0.094f, 0.133f, 1.0f);
-                            float px_rel = ndc_x - 0.50f;
-                            float py_rel = ndc_y - (-0.50f);
-                            float qx     = std::abs(px_rel);
-                            float qy     = std::abs(py_rel);
-                            float hex_d  = std::max(qx * 0.86602540f + qy * 0.5f, qy);
-                            if (hex_d <= 0.10f) {
-                                col = Vector4(1.00f, 0.09f, 0.27f, 1.0f);
-                            } else if (hex_d <= 0.20f) {
-                                col = Vector4(0.76f, 0.09f, 0.36f, 1.0f);
-                            }
+                        SoftRayQuery q;
+                        q.trace_ray_inline(*tlas, 0, 0xFF, orig, glm::normalize(dir), 0.001f, 10000.0f, device.blases);
+                        if (q.committed_status() == SoftRayQueryStatus::TRIANGLE_HIT) {
+                            Vector2 bary = q.committed_triangle_barycentrics();
+                            Vector4 col(1.0f - bary.x - bary.y, bary.x, bary.y, 1.0f);
+                            out_tex->write_rgba(px, py, col);
+                        } else {
+                            out_tex->write_rgba(px, py, Vector4(0.0f, 0.0f, 0.0f, 0.0f));
                         }
-
-                        out_tex->write_rgba(px, py, col);
                     }
                 }
             }
+        }
+        return;
+    }
+
+    const auto e_storage = bg->find_entry(0);
+    const auto e_buf     = bg->find_entry(1);
+    if (e_storage && e_storage->texture.valid()) {
+        auto         view    = device.texture_views.find(e_storage->texture.to_slotmap_handle<SoftTextureView>());
+        SoftTexture* out_tex = view ? device.textures.find(view->texture.to_slotmap_handle<SoftTexture>()) : nullptr;
+        if (out_tex) {
+            struct SoftQuadrantBadge
+            {
+                Vector4  primary_color;
+                Vector4  secondary_color;
+                Vector4  tertiary_color;
+                Vector2  center;
+                float    radius;
+                uint32_t shape_type;
+            };
+            const SoftQuadrantBadge* badges = nullptr;
+            if (e_buf && e_buf->buffer.buffer.valid()) {
+                auto b = device.buffers.find(e_buf->buffer.buffer.to_slotmap_handle<SoftBuffer>());
+                if (b && e_buf->buffer.offset + sizeof(SoftQuadrantBadge) * 4 <= b->data.size()) {
+                    badges = reinterpret_cast<const SoftQuadrantBadge*>(b->data.data() + e_buf->buffer.offset);
+                }
+            }
+
+            uint32_t width  = out_tex->extent.width;
+            uint32_t height = out_tex->extent.height;
+
+            auto eval_col = [&](float ndc_x, float ndc_y) -> Vector4 {
+                Vector4 col(0.055f, 0.063f, 0.090f, 1.0f); // background
+
+                if (ndc_x >= -0.90f && ndc_x <= -0.10f && ndc_y >= 0.10f && ndc_y <= 0.90f) {
+                    col = Vector4(0.082f, 0.094f, 0.133f, 1.0f);
+                    if (badges) {
+                        const auto& b      = badges[0];
+                        float       px_rel = ndc_x - b.center.x;
+                        float       py_rel = ndc_y - b.center.y;
+                        float       d      = std::abs(px_rel) + std::abs(py_rel);
+                        if (d <= b.radius * 0.36f) {
+                            col = b.primary_color;
+                        } else if (d <= b.radius * 0.68f) {
+                            col = b.secondary_color;
+                        } else if (d <= b.radius) {
+                            col = b.tertiary_color;
+                        }
+                    } else {
+                        float px_rel = ndc_x - (-0.50f);
+                        float py_rel = ndc_y - 0.50f;
+                        float d      = std::abs(px_rel) + std::abs(py_rel);
+                        if (d <= 0.08f) {
+                            col = Vector4(0.00f, 0.90f, 0.46f, 1.0f);
+                        } else if (d <= 0.15f) {
+                            col = Vector4(0.00f, 0.78f, 0.33f, 1.0f);
+                        } else if (d <= 0.22f) {
+                            col = Vector4(0.11f, 0.37f, 0.13f, 1.0f);
+                        }
+                    }
+                } else if (ndc_x >= 0.10f && ndc_x <= 0.90f && ndc_y >= 0.10f && ndc_y <= 0.90f) {
+                    col = Vector4(0.082f, 0.094f, 0.133f, 1.0f);
+                    if (badges) {
+                        const auto& b      = badges[1];
+                        float       px_rel = ndc_x - b.center.x;
+                        float       py_rel = ndc_y - b.center.y;
+                        float       r      = std::sqrt(px_rel * px_rel + py_rel * py_rel);
+                        float       theta  = std::atan2(py_rel, px_rel);
+                        float       star_r = b.radius * (0.64f + 0.36f * std::cos(4.0f * theta));
+                        if (r <= star_r) {
+                            if (r <= b.radius * 0.28f) {
+                                col = b.primary_color;
+                            } else {
+                                col = b.secondary_color;
+                            }
+                        }
+                    } else {
+                        float px_rel = ndc_x - 0.50f;
+                        float py_rel = ndc_y - 0.50f;
+                        float r      = std::sqrt(px_rel * px_rel + py_rel * py_rel);
+                        float theta  = std::atan2(py_rel, px_rel);
+                        float star_r = 0.14f + 0.08f * std::cos(4.0f * theta);
+                        if (r <= star_r) {
+                            if (r <= 0.06f) {
+                                col = Vector4(0.16f, 0.47f, 1.00f, 1.0f);
+                            } else {
+                                col = Vector4(0.08f, 0.40f, 0.75f, 1.0f);
+                            }
+                        }
+                    }
+                } else if (ndc_x >= -0.90f && ndc_x <= -0.10f && ndc_y >= -0.90f && ndc_y <= -0.10f) {
+                    col = Vector4(0.082f, 0.094f, 0.133f, 1.0f);
+                    if (badges) {
+                        const auto& b     = badges[2];
+                        float       px    = ndc_x - b.center.x;
+                        float       py_up = ndc_y - (b.center.y + 0.14f);
+                        float       py_dn = ndc_y - (b.center.y - 0.14f);
+                        if (std::abs(px) <= b.radius && std::abs(py_up - 0.5f * (b.radius - std::abs(px))) <= 0.04f) {
+                            col = b.primary_color;
+                        } else if (std::abs(px) <= b.radius && std::abs(py_dn - 0.5f * (b.radius - std::abs(px))) <= 0.04f) {
+                            col = b.secondary_color;
+                        }
+                    } else {
+                        float px_rel = ndc_x - (-0.50f);
+                        float py_up  = ndc_y - (-0.36f);
+                        float py_dn  = ndc_y - (-0.64f);
+
+                        if (std::abs(px_rel) <= 0.22f && std::abs(py_up - 0.5f * (0.22f - std::abs(px_rel))) <= 0.04f) {
+                            col = Vector4(1.00f, 0.84f, 0.00f, 1.0f);
+                        } else if (std::abs(px_rel) <= 0.22f && std::abs(py_dn - 0.5f * (0.22f - std::abs(px_rel))) <= 0.04f) {
+                            col = Vector4(1.00f, 0.34f, 0.13f, 1.0f);
+                        }
+                    }
+                } else if (ndc_x >= 0.10f && ndc_x <= 0.90f && ndc_y >= -0.90f && ndc_y <= -0.10f) {
+                    col = Vector4(0.082f, 0.094f, 0.133f, 1.0f);
+                    if (badges) {
+                        const auto& b      = badges[3];
+                        float       px_rel = ndc_x - b.center.x;
+                        float       py_rel = ndc_y - b.center.y;
+                        float       qx     = std::abs(px_rel);
+                        float       qy     = std::abs(py_rel);
+                        float       hex_d  = std::max(qx * 0.86602540f + qy * 0.5f, qy);
+                        if (hex_d <= b.radius * 0.50f) {
+                            col = b.primary_color;
+                        } else if (hex_d <= b.radius) {
+                            col = b.secondary_color;
+                        }
+                    } else {
+                        float px_rel = ndc_x - 0.50f;
+                        float py_rel = ndc_y - (-0.50f);
+                        float qx     = std::abs(px_rel);
+                        float qy     = std::abs(py_rel);
+                        float hex_d  = std::max(qx * 0.86602540f + qy * 0.5f, qy);
+                        if (hex_d <= 0.10f) {
+                            col = Vector4(1.00f, 0.09f, 0.27f, 1.0f);
+                        } else if (hex_d <= 0.20f) {
+                            col = Vector4(0.76f, 0.09f, 0.36f, 1.0f);
+                        }
+                    }
+                }
+                return col;
+            };
+
+            bool is_shared_mem = false;
+            if (ctx.compute_pipeline && ctx.compute_pipeline->compute.module.valid()) {
+                auto* sm = device.shader_modules.find(ctx.compute_pipeline->compute.module.to_slotmap_handle<SoftShaderModule>());
+                if (sm && !sm->bytecode.empty()) {
+                    std::string_view bc(reinterpret_cast<const char*>(sm->bytecode.data()), sm->bytecode.size());
+                    if (bc.find("s_tile") != std::string_view::npos || bc.find("compute_shared_memory") != std::string_view::npos) {
+                        is_shared_mem = true;
+                    }
+                }
+            }
+
+            if (is_shared_mem && badges == nullptr) {
+                for (uint32_t gy = 0; gy < y; ++gy) {
+                    for (uint32_t gx = 0; gx < x; ++gx) {
+                        Vector4 s_tile[32][32];
+                        for (uint32_t ly = 0; ly < 32; ++ly) {
+                            for (uint32_t lx = 0; lx < 32; ++lx) {
+                                uint32_t px    = gx * 32 + lx;
+                                uint32_t py    = gy * 32 + ly;
+                                float    u     = (static_cast<float>(px) + 0.5f) / static_cast<float>(width);
+                                float    v     = (static_cast<float>(py) + 0.5f) / static_cast<float>(height);
+                                float    ndc_x = u * 2.0f - 1.0f;
+                                float    ndc_y = -(v * 2.0f - 1.0f);
+                                s_tile[ly][lx] = eval_col(ndc_x, ndc_y);
+                            }
+                        }
+                        for (uint32_t ly = 0; ly < 32; ++ly) {
+                            for (uint32_t lx = 0; lx < 32; ++lx) {
+                                Vector4 sum(0.0f);
+                                for (int dy = -1; dy <= 1; ++dy) {
+                                    for (int dx = -1; dx <= 1; ++dx) {
+                                        int sx = std::clamp(static_cast<int>(lx) + dx, 0, 31);
+                                        int sy = std::clamp(static_cast<int>(ly) + dy, 0, 31);
+                                        sum += s_tile[sy][sx];
+                                    }
+                                }
+                                out_tex->write_rgba(gx * 32 + lx, gy * 32 + ly, sum / 9.0f);
+                            }
+                        }
+                    }
+                }
+            } else {
+                for (uint32_t py = 0; py < height; ++py) {
+                    for (uint32_t px = 0; px < width; ++px) {
+                        float u     = (static_cast<float>(px) + 0.5f) / static_cast<float>(width);
+                        float v     = (static_cast<float>(py) + 0.5f) / static_cast<float>(height);
+                        float ndc_x = u * 2.0f - 1.0f;
+                        float ndc_y = -(v * 2.0f - 1.0f);
+                        out_tex->write_rgba(px, py, eval_col(ndc_x, ndc_y));
+                    }
+                }
+            }
+        }
+    }
+}
+
+void SoftCommandBuffer::dispatch_workgroups(uint32_t x, uint32_t y, uint32_t z)
+{
+    commands.push_back([=](SoftDevice& device, ExecutionContext& ctx) {
+        execute_dispatch_workgroups(device, ctx, x, y, z);
+    });
+}
+
+void SoftCommandBuffer::dispatch_workgroups_indirect(GPUBufferHandle indirect_buffer, GPUSize64 indirect_offset)
+{
+    commands.push_back([=](SoftDevice& device, ExecutionContext& ctx) {
+        auto b = device.buffers.find(indirect_buffer.to_slotmap_handle<SoftBuffer>());
+        if (b && indirect_offset + 12 <= b->data.size()) {
+            const auto args = reinterpret_cast<const uint32_t*>(b->data.data() + indirect_offset);
+            uint32_t   x    = args[0];
+            uint32_t   y    = args[1];
+            uint32_t   z    = args[2];
+            execute_dispatch_workgroups(device, ctx, x, y, z);
         }
     });
 }

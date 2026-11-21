@@ -527,7 +527,10 @@ namespace api
         get_cmd_buffer(cmdbuffer).dispatch_workgroups(x, y, z);
     }
 
-    void cmd_dispatch_workgroups_indirect(GPUCommandEncoderHandle, GPUBufferHandle, GPUSize64) {}
+    void cmd_dispatch_workgroups_indirect(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle indirect_buffer, GPUSize64 indirect_offset)
+    {
+        get_cmd_buffer(cmdbuffer).dispatch_workgroups_indirect(indirect_buffer, indirect_offset);
+    }
 
     void cmd_copy_buffer_to_buffer(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle source, GPUSize64 source_offset, GPUBufferHandle destination, GPUSize64 destination_offset, GPUSize64 size)
     {

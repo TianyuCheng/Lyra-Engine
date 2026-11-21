@@ -130,7 +130,7 @@ struct MultiRenderTargetsApp : public TestApp
         auto& device = RHI::get_current_device();
 
         for (int i = 0; i < 4; ++i) {
-            rt[i] = execute([&] {
+            rt[i]      = execute([&] {
                 auto desc            = GPUTextureDescriptor{};
                 desc.label           = "mrt_target";
                 desc.size.width      = desc_app().width;

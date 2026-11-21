@@ -79,6 +79,7 @@ namespace lyra::softgpu
         auto draw_indexed_indirect(GPUBufferHandle indirect_buffer, GPUSize64 indirect_offset, GPUSize32 draw_count) -> void;
 
         auto dispatch_workgroups(uint32_t x, uint32_t y, uint32_t z) -> void;
+        auto dispatch_workgroups_indirect(GPUBufferHandle indirect_buffer, GPUSize64 indirect_offset) -> void;
 
         auto copy_buffer_to_buffer(GPUBufferHandle src, GPUSize64 src_off, GPUBufferHandle dst, GPUSize64 dst_off, GPUSize64 size) -> void;
         auto copy_buffer_to_texture(const GPUTexelCopyBufferInfo& src, const GPUTexelCopyTextureInfo& dst, GPUExtent3D copy_size) -> void;
