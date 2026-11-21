@@ -885,6 +885,8 @@ void cmd::memory_barrier(GPUCommandEncoderHandle cmdbuffer, GPUMemoryBarriers ba
         [cmd.render_encoder memoryBarrierWithScope:scope afterStages:after beforeStages:before];
     } else if (cmd.compute_encoder) {
         [cmd.compute_encoder memoryBarrierWithScope:MTLBarrierScopeBuffers | MTLBarrierScopeTextures];
+    } else if (cmd.accel_encoder) {
+        cmd.end_current_encoder();
     }
 }
 
@@ -930,6 +932,9 @@ void cmd::build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
         MTLInstanceAccelerationStructureDescriptor* as_desc =
             (MTLInstanceAccelerationStructureDescriptor*)tlas.descriptor;
 
+        as_desc.instanceDescriptorType   = MTLAccelerationStructureInstanceDescriptorTypeUserID;
+        as_desc.instanceDescriptorStride = sizeof(MTLAccelerationStructureUserIDInstanceDescriptor);
+
         // create instance buffer from GPUTlasInstances
         if (!entry.instances.empty()) {
             NSUInteger instance_count = entry.instances.size();
@@ -941,6 +946,7 @@ void cmd::build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
 
             MTLAccelerationStructureUserIDInstanceDescriptor* descriptors =
                 (MTLAccelerationStructureUserIDInstanceDescriptor*)[instance_buffer contents];
+            std::memset(descriptors, 0, buffer_size);
 
             // collect unique referenced BLAS acceleration structures and build index map
             NSMutableArray<id<MTLAccelerationStructure>>* blas_array = [NSMutableArray new];
@@ -965,7 +971,7 @@ void cmd::build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
                 // copy transform (3x4 matrix in row-major order)
                 for (int row = 0; row < 3; ++row) {
                     for (int col = 0; col < 4; ++col) {
-                        dst_descriptor.transformationMatrix.columns[col][row] = src_instance.transform[col][row];
+                        dst_descriptor.transformationMatrix.columns[col][row] = src_instance.transform[row][col];
                     }
                 }
 
@@ -1038,6 +1044,7 @@ void cmd::build_blases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
                 geom.vertexBuffer       = vertex_buffer.buffer;
                 geom.vertexBufferOffset = triangle_geom.first_vertex * triangle_geom.vertex_stride;
                 geom.vertexStride       = triangle_geom.vertex_stride;
+                geom.vertexFormat       = static_cast<MTLAttributeFormat>(mtlenum(triangle_geom.size.vertex_format));
 
                 if (triangle_geom.index_buffer.valid()) {
                     auto& index_buffer = fetch_resource(rhi->buffers, triangle_geom.index_buffer);

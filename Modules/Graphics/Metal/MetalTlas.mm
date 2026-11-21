@@ -22,7 +22,8 @@ MetalTlas::MetalTlas(const GPUTlasDescriptor& desc)
         MTLInstanceAccelerationStructureDescriptor* as_desc =
             [MTLInstanceAccelerationStructureDescriptor new];
 
-        as_desc.instanceCount = desc.max_instances;
+        as_desc.instanceCount          = desc.max_instances;
+        as_desc.instanceDescriptorType = MTLAccelerationStructureInstanceDescriptorTypeUserID;
 
         // set acceleration structure usage flags
         if (desc.flags.contains(GPUBVHFlag::ALLOW_UPDATE)) {

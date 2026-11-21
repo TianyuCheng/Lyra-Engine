@@ -186,6 +186,7 @@ struct MetalBindGroup
         uint             binding;
         GPUResourceType  type;
         MTLResourceUsage usage;
+        GPUTlasHandle    tlas_handle;
 
         union
         {
@@ -219,27 +220,7 @@ struct MetalBindGroup
     void bind_direct(MetalCommandBuffer& cmd, const MetalPipelineLayout& pipeline_layout, GPUIndex32 index, GPUBufferDynamicOffsets dynamic_offsets);
 
     template <typename TEncoder>
-    void declare_resource_usages(TEncoder encoder)
-    {
-        for (uint i = 0; i < this->entry_count; ++i) {
-            const auto& entry = this->entries[i];
-            switch (entry.type) {
-                case GPUResourceType::BUFFER:
-                    [encoder useResource:entry.buffer.buffer usage:entry.usage];
-                    break;
-                case GPUResourceType::TEXTURE:
-                case GPUResourceType::STORAGE_TEXTURE:
-                    [encoder useResource:entry.texture usage:entry.usage];
-                    break;
-                case GPUResourceType::ACCELERATION_STRUCTURE:
-                    [encoder useResource:entry.tlas usage:entry.usage];
-                    break;
-                default:
-                    // samplers are not MTLResource and don't need useResource
-                    break;
-            }
-        }
-    }
+    void declare_resource_usages(TEncoder encoder);
 };
 
 // bind group layout
@@ -784,6 +765,40 @@ T& fetch_resource(MetalResourceManager<T>& manager, Handle handle)
         throw std::runtime_error("Resource handle references cannot be found!");
     }
     return *resource;
+}
+
+template <typename TEncoder>
+void MetalBindGroup::declare_resource_usages(TEncoder encoder)
+{
+    for (uint i = 0; i < this->entry_count; ++i) {
+        const auto& entry = this->entries[i];
+        switch (entry.type) {
+            case GPUResourceType::BUFFER:
+                [encoder useResource:entry.buffer.buffer usage:entry.usage];
+                break;
+            case GPUResourceType::TEXTURE:
+            case GPUResourceType::STORAGE_TEXTURE:
+                [encoder useResource:entry.texture usage:entry.usage];
+                break;
+            case GPUResourceType::ACCELERATION_STRUCTURE:
+                [encoder useResource:entry.tlas usage:entry.usage];
+                if (entry.tlas_handle.valid()) {
+                    auto  rhi      = get_rhi();
+                    auto& tlas_res = fetch_resource(rhi->tlases, entry.tlas_handle);
+                    if (tlas_res.descriptor) {
+                        auto* instance_desc = (MTLInstanceAccelerationStructureDescriptor*)tlas_res.descriptor;
+                        for (NSUInteger b = 0; b < instance_desc.instancedAccelerationStructures.count; ++b) {
+                            id<MTLAccelerationStructure> blas = instance_desc.instancedAccelerationStructures[b];
+                            [encoder useResource:blas usage:MTLResourceUsageRead];
+                        }
+                    }
+                }
+                break;
+            default:
+                // samplers are not MTLResource and don't need useResource
+                break;
+        }
+    }
 }
 
 #endif // LYRA_MODULE_GRAPHICS_METAL_UTILS_H

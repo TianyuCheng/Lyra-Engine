@@ -11,10 +11,13 @@ struct Camera
     float4x4 proj_inv;
 };
 
+[[lyra::binding(0, 0)]]
 ConstantBuffer<Camera> camera;
 
+[[lyra::binding(1, 0)]]
 RaytracingAccelerationStructure tlas;
 
+[[lyra::binding(2, 0)]]
 RWTexture2D<float4> output;
 
 [shader("compute")]

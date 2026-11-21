@@ -35,6 +35,9 @@ MetalBlas::MetalBlas(const GPUBlasDescriptor& desc, GPUBlasGeometrySizeDescripto
                 }
                 triangle_geom.triangleCount = triangle_count;
 
+                // set vertex format
+                triangle_geom.vertexFormat = static_cast<MTLAttributeFormat>(mtlenum(size_desc.triangles.vertex_format));
+
                 // set vertex stride based on vertex format
                 NSUInteger vertex_stride = sizeof(float) * 3; // Default float3 stride
                 switch (size_desc.triangles.vertex_format) {

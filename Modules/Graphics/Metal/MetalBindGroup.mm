@@ -104,9 +104,10 @@ void MetalBindGroup::init_argument_buffer(const GPUBindGroupDescriptor& desc, co
                 if (!src.tlas.valid()) {
                     throw GPUValidationError("Invalid TLAS handle for acceleration structure binding");
                 }
-                auto& tlas = fetch_resource(rhi->tlases, src.tlas);
+                auto& tlas      = fetch_resource(rhi->tlases, src.tlas);
                 [layout.encoder setAccelerationStructure:tlas.tlas atIndex:src.binding];
-                dst.tlas = tlas.tlas;
+                dst.tlas        = tlas.tlas;
+                dst.tlas_handle = src.tlas;
                 break;
             }
         }
@@ -154,8 +155,9 @@ void MetalBindGroup::init_direct_binding(const GPUBindGroupDescriptor& desc)
                 if (!src.tlas.valid()) {
                     throw GPUValidationError("Invalid TLAS handle for acceleration structure binding");
                 }
-                auto& tlas = fetch_resource(rhi->tlases, src.tlas);
-                dst.tlas   = tlas.tlas;
+                auto& tlas      = fetch_resource(rhi->tlases, src.tlas);
+                dst.tlas        = tlas.tlas;
+                dst.tlas_handle = src.tlas;
                 break;
             }
         }
@@ -257,6 +259,26 @@ void MetalBindGroup::bind_direct(MetalCommandBuffer& cmd, const MetalPipelineLay
                             [cmd.render_encoder setFragmentAccelerationStructure:entry.tlas atBufferIndex:slot];
                         } else if (cmd.compute_encoder) {
                             [cmd.compute_encoder setAccelerationStructure:entry.tlas atBufferIndex:slot];
+                        }
+                    }
+                    if (cmd.render_encoder) {
+                        [cmd.render_encoder useResource:entry.tlas usage:MTLResourceUsageRead];
+                    } else if (cmd.compute_encoder) {
+                        [cmd.compute_encoder useResource:entry.tlas usage:MTLResourceUsageRead];
+                    }
+                    if (entry.tlas_handle.valid()) {
+                        auto  rhi      = get_rhi();
+                        auto& tlas_res = fetch_resource(rhi->tlases, entry.tlas_handle);
+                        if (tlas_res.descriptor) {
+                            auto* instance_desc = (MTLInstanceAccelerationStructureDescriptor*)tlas_res.descriptor;
+                            for (NSUInteger b = 0; b < instance_desc.instancedAccelerationStructures.count; ++b) {
+                                id<MTLAccelerationStructure> blas = instance_desc.instancedAccelerationStructures[b];
+                                if (cmd.render_encoder) {
+                                    [cmd.render_encoder useResource:blas usage:MTLResourceUsageRead];
+                                } else if (cmd.compute_encoder) {
+                                    [cmd.compute_encoder useResource:blas usage:MTLResourceUsageRead];
+                                }
+                            }
                         }
                     }
                 }
