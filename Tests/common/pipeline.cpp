@@ -10,6 +10,15 @@ void SimplePipeline::init_color_state(GPUTextureFormat format, bool color_write)
     rstates.push_back(color_state);
 }
 
+void SimplePipeline::init_color_state(GPUTextureFormat format, GPUColorWriteFlags write_mask)
+{
+    auto color_state         = GPUColorTargetState{};
+    color_state.format       = format;
+    color_state.blend_enable = false;
+    color_state.write_mask   = write_mask;
+    rstates.push_back(color_state);
+}
+
 void SimplePipeline::init_blend_state(GPUTextureFormat format, const GPUBlendState& blend, bool color_write)
 {
     auto color_state         = GPUColorTargetState{};
