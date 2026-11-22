@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_MODULES_GRAPHICS_SOFTWARE_SOFTPIPELINE_H
-#define LYRA_MODULES_GRAPHICS_SOFTWARE_SOFTPIPELINE_H
+#ifndef LYRA_MODULES_GRAPHICS_SOFTGPU_SOFTPIPELINE_H
+#define LYRA_MODULES_GRAPHICS_SOFTGPU_SOFTPIPELINE_H
 
 #include "SoftCommon.h"
 #include "SoftBuffer.h"
@@ -16,11 +16,13 @@ namespace lyra::softgpu
     struct SoftPipelineLayout
     {
         Vector<GPUBindGroupLayoutHandle> bind_group_layouts;
-        uint32_t                         immediate_size = 0;
+        uint                             immediate_size = 0;
         CString                          label          = "";
 
         SoftPipelineLayout() = default;
         explicit SoftPipelineLayout(const GPUPipelineLayoutDescriptor& desc);
+
+        void destroy() {}
     };
 
     struct SoftBindGroupLayout
@@ -30,6 +32,8 @@ namespace lyra::softgpu
 
         SoftBindGroupLayout() = default;
         explicit SoftBindGroupLayout(const GPUBindGroupLayoutDescriptor& descriptor);
+
+        void destroy() {}
     };
 
     struct SoftBindGroup
@@ -41,17 +45,21 @@ namespace lyra::softgpu
         SoftBindGroup() = default;
         explicit SoftBindGroup(const GPUBindGroupDescriptor& descriptor);
 
-        auto find_entry(uint32_t binding) const -> const GPUBindGroupEntry*;
+        const GPUBindGroupEntry* find_entry(uint binding) const;
+
+        void destroy() {}
     };
 
     struct SoftShaderModule
     {
-        Vector<uint8_t>  bytecode;
+        Vector<ubyte>    bytecode;
         void*            host_library = nullptr;
         void*            host_func    = nullptr;
         CString          label        = "";
-        uint32_t         param_count  = 0;
+        uint             param_count  = 0;
         HostParamBinding params[16]{};
+
+        void destroy() {}
     };
 
     struct SoftVertexAttribute
@@ -87,6 +95,8 @@ namespace lyra::softgpu
 
         SoftRenderPipeline() = default;
         explicit SoftRenderPipeline(const GPURenderPipelineDescriptor& desc);
+
+        void destroy() {}
     };
 
     struct SoftComputePipeline
@@ -99,17 +109,21 @@ namespace lyra::softgpu
 
         SoftComputePipeline() = default;
         explicit SoftComputePipeline(const GPUComputePipelineDescriptor& desc);
+
+        void destroy() {}
     };
 
     struct SoftRayTracingPipeline
     {
         GPUPipelineLayoutHandle layout;
-        uint32_t                max_recursion_depth = 5;
+        uint                    max_recursion_depth = 5;
         CString                 label               = "";
 
         SoftRayTracingPipeline() = default;
         explicit SoftRayTracingPipeline(const GPURayTracingPipelineDescriptor& desc);
+
+        void destroy() {}
     };
 } // namespace lyra::softgpu
 
-#endif // LYRA_MODULES_GRAPHICS_SOFTWARE_SOFTPIPELINE_H
+#endif // LYRA_MODULES_GRAPHICS_SOFTGPU_SOFTPIPELINE_H

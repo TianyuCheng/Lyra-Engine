@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_MODULES_GRAPHICS_SOFTWARE_SOFTFENCE_H
-#define LYRA_MODULES_GRAPHICS_SOFTWARE_SOFTFENCE_H
+#ifndef LYRA_MODULES_GRAPHICS_SOFTGPU_SOFTFENCE_H
+#define LYRA_MODULES_GRAPHICS_SOFTGPU_SOFTFENCE_H
 
 #include "SoftCommon.h"
 
@@ -9,7 +9,7 @@ namespace lyra::softgpu
 {
     struct SoftFenceState
     {
-        std::atomic<bool>         signaled{true};
+        Atomic<bool>              signaled{true};
         mutable Mutex             mutex;
         mutable ConditionVariable cv;
     };
@@ -20,11 +20,12 @@ namespace lyra::softgpu
 
         SoftFence() : state(make_ref<SoftFenceState>()) {}
 
-        auto wait() const -> void;
-        auto poll() const -> bool;
-        auto signal() -> void;
-        auto reset() -> void;
+        void wait() const;
+        bool poll() const;
+        void signal();
+        void reset();
+        void destroy() { state = nullptr; }
     };
 } // namespace lyra::softgpu
 
-#endif // LYRA_MODULES_GRAPHICS_SOFTWARE_SOFTFENCE_H
+#endif // LYRA_MODULES_GRAPHICS_SOFTGPU_SOFTFENCE_H

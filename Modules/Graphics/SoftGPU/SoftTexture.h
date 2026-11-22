@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_MODULES_GRAPHICS_SOFTWARE_SOFTTEXTURE_H
-#define LYRA_MODULES_GRAPHICS_SOFTWARE_SOFTTEXTURE_H
+#ifndef LYRA_MODULES_GRAPHICS_SOFTGPU_SOFTTEXTURE_H
+#define LYRA_MODULES_GRAPHICS_SOFTGPU_SOFTTEXTURE_H
 
 #include "SoftCommon.h"
 
@@ -9,13 +9,13 @@ namespace lyra::softgpu
 {
     struct SoftMipLevel
     {
-        uint32_t width       = 0;
-        uint32_t height      = 0;
-        uint32_t depth       = 0;
-        usize    row_pitch   = 0;
-        usize    layer_pitch = 0;
-        usize    byte_offset = 0;
-        usize    byte_size   = 0;
+        uint  width       = 0;
+        uint  height      = 0;
+        uint  depth       = 0;
+        usize row_pitch   = 0;
+        usize layer_pitch = 0;
+        usize byte_offset = 0;
+        usize byte_size   = 0;
     };
 
     struct SoftTexture
@@ -28,30 +28,30 @@ namespace lyra::softgpu
         GPUTextureUsageFlags usage           = 0;
         CString              label           = "";
 
-        Vector<uint8_t>      data;
+        Vector<ubyte>        data;
         Vector<SoftMipLevel> mips;
 
         SoftTexture() = default;
         explicit SoftTexture(const GPUTextureDescriptor& desc);
 
-        auto pixel_bytes() const -> usize;
-        auto get_mip(uint32_t mip) const -> const SoftMipLevel&;
-        auto get_texel_ptr(uint32_t x, uint32_t y, uint32_t z = 0, uint32_t mip = 0, uint32_t layer = 0) -> uint8_t*;
-        auto get_texel_ptr(uint32_t x, uint32_t y, uint32_t z = 0, uint32_t mip = 0, uint32_t layer = 0) const -> const uint8_t*;
+        usize               pixel_bytes() const;
+        const SoftMipLevel& get_mip(uint mip) const;
+        ubyte*              get_texel_ptr(uint x, uint y, uint z = 0, uint mip = 0, uint layer = 0);
+        const ubyte*        get_texel_ptr(uint x, uint y, uint z = 0, uint mip = 0, uint layer = 0) const;
 
-        auto read_rgba(uint32_t x, uint32_t y, uint32_t z = 0, uint32_t mip = 0, uint32_t layer = 0) const -> Vector4;
-        auto write_rgba(uint32_t x, uint32_t y, const Vector4& color, uint32_t z = 0, uint32_t mip = 0, uint32_t layer = 0) -> void;
+        Vector4 read_rgba(uint x, uint y, uint z = 0, uint mip = 0, uint layer = 0) const;
+        void    write_rgba(uint x, uint y, const Vector4& color, uint z = 0, uint mip = 0, uint layer = 0);
 
-        auto read_depth(uint32_t x, uint32_t y, uint32_t mip = 0, uint32_t layer = 0) const -> float;
-        auto write_depth(uint32_t x, uint32_t y, float depth, uint32_t mip = 0, uint32_t layer = 0) -> void;
+        float read_depth(uint x, uint y, uint mip = 0, uint layer = 0) const;
+        void  write_depth(uint x, uint y, float depth, uint mip = 0, uint layer = 0);
 
-        auto read_stencil(uint32_t x, uint32_t y, uint32_t mip = 0, uint32_t layer = 0) const -> uint8_t;
-        auto write_stencil(uint32_t x, uint32_t y, uint8_t stencil, uint32_t mip = 0, uint32_t layer = 0) -> void;
+        ubyte read_stencil(uint x, uint y, uint mip = 0, uint layer = 0) const;
+        void  write_stencil(uint x, uint y, ubyte stencil, uint mip = 0, uint layer = 0);
 
-        auto clear_color(const GPUColor& color, uint32_t mip = 0, uint32_t layer = 0) -> void;
-        auto clear_depth_stencil(float depth, uint8_t stencil, bool clear_depth = true, bool clear_stencil = true) -> void;
+        void clear_color(const GPUColor& color, uint mip = 0, uint layer = 0);
+        void clear_depth_stencil(float depth, ubyte stencil, bool clear_depth = true, bool clear_stencil = true);
 
-        auto destroy() -> void;
+        void destroy();
     };
 
     struct SoftTextureView
@@ -68,24 +68,26 @@ namespace lyra::softgpu
 
         SoftTextureView() = default;
         SoftTextureView(GPUTextureHandle texture, const GPUTextureViewDescriptor& desc, const SoftTexture& tex);
+
+        void destroy() {}
     };
 
     struct SlangTextureDimensions
     {
-        uint32_t shape             = 2;
-        uint32_t width             = 0;
-        uint32_t height            = 0;
-        uint32_t depth             = 1;
-        uint32_t numberOfLevels    = 1;
-        uint32_t arrayElementCount = 0;
+        uint shape             = 2;
+        uint width             = 0;
+        uint height            = 0;
+        uint depth             = 1;
+        uint numberOfLevels    = 1;
+        uint arrayElementCount = 0;
     };
 
     struct ISlangHostTexture
     {
-        virtual auto GetDimensions(int mipLevel = -1) -> SlangTextureDimensions                                     = 0;
-        virtual void Load(const int32_t* v, void* outData, size_t dataSize)                                         = 0;
-        virtual void Sample(void* samplerState, const float* loc, void* outData, size_t dataSize)                   = 0;
-        virtual void SampleLevel(void* samplerState, const float* loc, float level, void* outData, size_t dataSize) = 0;
+        virtual SlangTextureDimensions GetDimensions(int mipLevel = -1)                                                              = 0;
+        virtual void                   Load(const int32_t* v, void* outData, usize dataSize)                                         = 0;
+        virtual void                   Sample(void* samplerState, const float* loc, void* outData, usize dataSize)                   = 0;
+        virtual void                   SampleLevel(void* samplerState, const float* loc, float level, void* outData, usize dataSize) = 0;
     };
 
     struct SoftHostTextureWrapper : public ISlangHostTexture
@@ -96,11 +98,11 @@ namespace lyra::softgpu
         SoftHostTextureWrapper() = default;
         SoftHostTextureWrapper(const SoftTexture* t, const SoftTextureView* v) : tex(t), view(v) {}
 
-        auto GetDimensions(int mipLevel = -1) -> SlangTextureDimensions override;
-        void Load(const int32_t* v, void* outData, size_t dataSize) override;
-        void Sample(void* samplerState, const float* loc, void* outData, size_t dataSize) override;
-        void SampleLevel(void* samplerState, const float* loc, float level, void* outData, size_t dataSize) override;
+        SlangTextureDimensions GetDimensions(int mipLevel = -1) override;
+        void                   Load(const int32_t* v, void* outData, usize dataSize) override;
+        void                   Sample(void* samplerState, const float* loc, void* outData, usize dataSize) override;
+        void                   SampleLevel(void* samplerState, const float* loc, float level, void* outData, usize dataSize) override;
     };
 } // namespace lyra::softgpu
 
-#endif // LYRA_MODULES_GRAPHICS_SOFTWARE_SOFTTEXTURE_H
+#endif // LYRA_MODULES_GRAPHICS_SOFTGPU_SOFTTEXTURE_H

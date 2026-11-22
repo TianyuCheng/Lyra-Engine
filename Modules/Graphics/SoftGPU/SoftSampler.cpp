@@ -32,20 +32,20 @@ Vector4 SoftSampler::sample_2d(const SoftTexture& tex, const SoftTextureView& vi
     float u_wrapped = wrap_coord(u, desc.address_mode_u);
     float v_wrapped = wrap_coord(v, desc.address_mode_v);
 
-    lod                = std::clamp(lod, desc.lod_min_clamp, desc.lod_max_clamp);
-    uint32_t mip0      = static_cast<uint32_t>(lod);
-    uint32_t mip1      = mip0 + 1;
-    float    mip_fract = lod - mip0;
+    lod             = std::clamp(lod, desc.lod_min_clamp, desc.lod_max_clamp);
+    uint  mip0      = static_cast<uint>(lod);
+    uint  mip1      = mip0 + 1;
+    float mip_fract = lod - mip0;
 
-    auto sample_single_mip = [&](uint32_t mip_idx) -> Vector4 {
-        uint32_t    effective_mip = std::clamp(view.base_mip_level + mip_idx, 0u, tex.mip_level_count - 1);
+    auto sample_single_mip = [&](uint mip_idx) -> Vector4 {
+        uint        effective_mip = std::clamp(view.base_mip_level + mip_idx, 0u, tex.mip_level_count - 1);
         const auto& m             = tex.get_mip(effective_mip);
 
         if (desc.mag_filter == GPUFilterMode::NEAREST) {
-            int      x  = static_cast<int>(std::floor(u_wrapped * m.width));
-            int      y  = static_cast<int>(std::floor(v_wrapped * m.height));
-            uint32_t cx = std::clamp(x, 0, static_cast<int>(m.width - 1));
-            uint32_t cy = std::clamp(y, 0, static_cast<int>(m.height - 1));
+            int  x  = static_cast<int>(std::floor(u_wrapped * m.width));
+            int  y  = static_cast<int>(std::floor(v_wrapped * m.height));
+            uint cx = std::clamp(x, 0, static_cast<int>(m.width - 1));
+            uint cy = std::clamp(y, 0, static_cast<int>(m.height - 1));
             return tex.read_rgba(cx, cy, 0, effective_mip, view.base_array_layer);
         } else {
             // bilinear
@@ -60,25 +60,25 @@ Vector4 SoftSampler::sample_2d(const SoftTexture& tex, const SoftTextureView& vi
             float fx = px - x0;
             float fy = py - y0;
 
-            auto wrap_index = [](int idx, int dim, GPUAddressMode mode) -> uint32_t {
+            auto wrap_index = [](int idx, int dim, GPUAddressMode mode) -> uint {
                 if (mode == GPUAddressMode::REPEAT) {
                     idx = idx % dim;
                     if (idx < 0) idx += dim;
-                    return static_cast<uint32_t>(idx);
+                    return static_cast<uint>(idx);
                 } else if (mode == GPUAddressMode::MIRROR_REPEAT) {
                     if (idx < 0) idx = -idx - 1;
                     int m = idx % (2 * dim);
                     if (m >= dim) m = 2 * dim - 1 - m;
-                    return static_cast<uint32_t>(m);
+                    return static_cast<uint>(m);
                 } else {
-                    return static_cast<uint32_t>(std::clamp(idx, 0, dim - 1));
+                    return static_cast<uint>(std::clamp(idx, 0, dim - 1));
                 }
             };
 
-            uint32_t cx0 = wrap_index(x0, static_cast<int>(m.width), desc.address_mode_u);
-            uint32_t cx1 = wrap_index(x1, static_cast<int>(m.width), desc.address_mode_u);
-            uint32_t cy0 = wrap_index(y0, static_cast<int>(m.height), desc.address_mode_v);
-            uint32_t cy1 = wrap_index(y1, static_cast<int>(m.height), desc.address_mode_v);
+            uint cx0 = wrap_index(x0, static_cast<int>(m.width), desc.address_mode_u);
+            uint cx1 = wrap_index(x1, static_cast<int>(m.width), desc.address_mode_u);
+            uint cy0 = wrap_index(y0, static_cast<int>(m.height), desc.address_mode_v);
+            uint cy1 = wrap_index(y1, static_cast<int>(m.height), desc.address_mode_v);
 
             Vector4 c00 = tex.read_rgba(cx0, cy0, 0, effective_mip, view.base_array_layer);
             Vector4 c10 = tex.read_rgba(cx1, cy0, 0, effective_mip, view.base_array_layer);

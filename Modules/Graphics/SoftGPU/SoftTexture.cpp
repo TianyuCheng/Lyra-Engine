@@ -51,11 +51,11 @@ SoftTexture::SoftTexture(const GPUTextureDescriptor& desc)
 
     usize current_offset = 0;
 
-    uint32_t w = std::max(1u, extent.width);
-    uint32_t h = std::max(1u, extent.height);
-    uint32_t d = std::max(1u, extent.depth);
+    uint w = std::max(1u, extent.width);
+    uint h = std::max(1u, extent.height);
+    uint d = std::max(1u, extent.depth);
 
-    for (uint32_t mip = 0; mip < mip_level_count; ++mip) {
+    for (uint mip = 0; mip < mip_level_count; ++mip) {
         auto& m       = mips[mip];
         m.width       = std::max(1u, w >> mip);
         m.height      = std::max(1u, h >> mip);
@@ -76,13 +76,13 @@ usize SoftTexture::pixel_bytes() const
     return get_bytes_per_pixel(format);
 }
 
-const SoftMipLevel& SoftTexture::get_mip(uint32_t mip) const
+const SoftMipLevel& SoftTexture::get_mip(uint mip) const
 {
-    uint32_t idx = std::min(mip, mip_level_count - 1);
+    uint idx = std::min(mip, mip_level_count - 1);
     return mips[idx];
 }
 
-uint8_t* SoftTexture::get_texel_ptr(uint32_t x, uint32_t y, uint32_t z, uint32_t mip, uint32_t layer)
+ubyte* SoftTexture::get_texel_ptr(uint x, uint y, uint z, uint mip, uint layer)
 {
     if (mip >= mip_level_count || layer >= array_layers) return nullptr;
     const auto& m = mips[mip];
@@ -94,7 +94,7 @@ uint8_t* SoftTexture::get_texel_ptr(uint32_t x, uint32_t y, uint32_t z, uint32_t
     return data.data() + offset;
 }
 
-const uint8_t* SoftTexture::get_texel_ptr(uint32_t x, uint32_t y, uint32_t z, uint32_t mip, uint32_t layer) const
+const ubyte* SoftTexture::get_texel_ptr(uint x, uint y, uint z, uint mip, uint layer) const
 {
     if (mip >= mip_level_count || layer >= array_layers) return nullptr;
     const auto& m = mips[mip];
@@ -106,9 +106,9 @@ const uint8_t* SoftTexture::get_texel_ptr(uint32_t x, uint32_t y, uint32_t z, ui
     return data.data() + offset;
 }
 
-Vector4 SoftTexture::read_rgba(uint32_t x, uint32_t y, uint32_t z, uint32_t mip, uint32_t layer) const
+Vector4 SoftTexture::read_rgba(uint x, uint y, uint z, uint mip, uint layer) const
 {
-    const uint8_t* ptr = get_texel_ptr(x, y, z, mip, layer);
+    const ubyte* ptr = get_texel_ptr(x, y, z, mip, layer);
     if (!ptr) return Vector4(0.0f);
 
     switch (format) {
@@ -139,7 +139,7 @@ Vector4 SoftTexture::read_rgba(uint32_t x, uint32_t y, uint32_t z, uint32_t mip,
         }
         case GPUTextureFormat::RGBA16FLOAT:
         {
-            const uint16_t* h = reinterpret_cast<const uint16_t*>(ptr);
+            const ushort* h = reinterpret_cast<const ushort*>(ptr);
             return Vector4(
                 glm::unpackHalf1x16(h[0]),
                 glm::unpackHalf1x16(h[1]),
@@ -148,7 +148,7 @@ Vector4 SoftTexture::read_rgba(uint32_t x, uint32_t y, uint32_t z, uint32_t mip,
         }
         case GPUTextureFormat::RGBA32UINT:
         {
-            const uint32_t* u = reinterpret_cast<const uint32_t*>(ptr);
+            const uint* u = reinterpret_cast<const uint*>(ptr);
             return Vector4(
                 static_cast<float>(u[0]),
                 static_cast<float>(u[1]),
@@ -157,7 +157,7 @@ Vector4 SoftTexture::read_rgba(uint32_t x, uint32_t y, uint32_t z, uint32_t mip,
         }
         case GPUTextureFormat::R32UINT:
         {
-            const uint32_t* u = reinterpret_cast<const uint32_t*>(ptr);
+            const uint* u = reinterpret_cast<const uint*>(ptr);
             return Vector4(static_cast<float>(u[0]), 0.0f, 0.0f, 1.0f);
         }
         case GPUTextureFormat::DEPTH32FLOAT:
@@ -168,14 +168,14 @@ Vector4 SoftTexture::read_rgba(uint32_t x, uint32_t y, uint32_t z, uint32_t mip,
         }
         case GPUTextureFormat::DEPTH24PLUS_STENCIL8:
         {
-            uint32_t val = *reinterpret_cast<const uint32_t*>(ptr);
-            float    d   = static_cast<float>(val & 0x00FFFFFF) / 16777215.0f;
+            uint  val = *reinterpret_cast<const uint*>(ptr);
+            float d   = static_cast<float>(val & 0x00FFFFFF) / 16777215.0f;
             return Vector4(d, d, d, 1.0f);
         }
         case GPUTextureFormat::DEPTH16UNORM:
         {
-            uint16_t d16 = *reinterpret_cast<const uint16_t*>(ptr);
-            float    d   = static_cast<float>(d16) / 65535.0f;
+            ushort d16 = *reinterpret_cast<const ushort*>(ptr);
+            float  d   = static_cast<float>(d16) / 65535.0f;
             return Vector4(d, d, d, 1.0f);
         }
         default:
@@ -183,9 +183,9 @@ Vector4 SoftTexture::read_rgba(uint32_t x, uint32_t y, uint32_t z, uint32_t mip,
     }
 }
 
-void SoftTexture::write_rgba(uint32_t x, uint32_t y, const Vector4& color, uint32_t z, uint32_t mip, uint32_t layer)
+void SoftTexture::write_rgba(uint x, uint y, const Vector4& color, uint z, uint mip, uint layer)
 {
-    uint8_t* ptr = get_texel_ptr(x, y, z, mip, layer);
+    ubyte* ptr = get_texel_ptr(x, y, z, mip, layer);
     if (!ptr) return;
 
     auto clamp01 = [](float v) -> float {
@@ -195,24 +195,24 @@ void SoftTexture::write_rgba(uint32_t x, uint32_t y, const Vector4& color, uint3
     switch (format) {
         case GPUTextureFormat::RGBA8UNORM:
         case GPUTextureFormat::RGBA8UNORM_SRGB:
-            ptr[0] = static_cast<uint8_t>(clamp01(color.r) * 255.0f + 0.5f);
-            ptr[1] = static_cast<uint8_t>(clamp01(color.g) * 255.0f + 0.5f);
-            ptr[2] = static_cast<uint8_t>(clamp01(color.b) * 255.0f + 0.5f);
-            ptr[3] = static_cast<uint8_t>(clamp01(color.a) * 255.0f + 0.5f);
+            ptr[0] = static_cast<ubyte>(clamp01(color.r) * 255.0f + 0.5f);
+            ptr[1] = static_cast<ubyte>(clamp01(color.g) * 255.0f + 0.5f);
+            ptr[2] = static_cast<ubyte>(clamp01(color.b) * 255.0f + 0.5f);
+            ptr[3] = static_cast<ubyte>(clamp01(color.a) * 255.0f + 0.5f);
             break;
         case GPUTextureFormat::BGRA8UNORM:
         case GPUTextureFormat::BGRA8UNORM_SRGB:
-            ptr[0] = static_cast<uint8_t>(clamp01(color.b) * 255.0f + 0.5f);
-            ptr[1] = static_cast<uint8_t>(clamp01(color.g) * 255.0f + 0.5f);
-            ptr[2] = static_cast<uint8_t>(clamp01(color.r) * 255.0f + 0.5f);
-            ptr[3] = static_cast<uint8_t>(clamp01(color.a) * 255.0f + 0.5f);
+            ptr[0] = static_cast<ubyte>(clamp01(color.b) * 255.0f + 0.5f);
+            ptr[1] = static_cast<ubyte>(clamp01(color.g) * 255.0f + 0.5f);
+            ptr[2] = static_cast<ubyte>(clamp01(color.r) * 255.0f + 0.5f);
+            ptr[3] = static_cast<ubyte>(clamp01(color.a) * 255.0f + 0.5f);
             break;
         case GPUTextureFormat::R8UNORM:
-            ptr[0] = static_cast<uint8_t>(clamp01(color.r) * 255.0f + 0.5f);
+            ptr[0] = static_cast<ubyte>(clamp01(color.r) * 255.0f + 0.5f);
             break;
         case GPUTextureFormat::RG8UNORM:
-            ptr[0] = static_cast<uint8_t>(clamp01(color.r) * 255.0f + 0.5f);
-            ptr[1] = static_cast<uint8_t>(clamp01(color.g) * 255.0f + 0.5f);
+            ptr[0] = static_cast<ubyte>(clamp01(color.r) * 255.0f + 0.5f);
+            ptr[1] = static_cast<ubyte>(clamp01(color.g) * 255.0f + 0.5f);
             break;
         case GPUTextureFormat::RGBA32FLOAT:
         {
@@ -238,74 +238,74 @@ void SoftTexture::write_rgba(uint32_t x, uint32_t y, const Vector4& color, uint3
         }
         case GPUTextureFormat::RGBA16FLOAT:
         {
-            uint16_t* h = reinterpret_cast<uint16_t*>(ptr);
-            h[0]        = glm::packHalf1x16(color.r);
-            h[1]        = glm::packHalf1x16(color.g);
-            h[2]        = glm::packHalf1x16(color.b);
-            h[3]        = glm::packHalf1x16(color.a);
+            ushort* h = reinterpret_cast<ushort*>(ptr);
+            h[0]      = glm::packHalf1x16(color.r);
+            h[1]      = glm::packHalf1x16(color.g);
+            h[2]      = glm::packHalf1x16(color.b);
+            h[3]      = glm::packHalf1x16(color.a);
             break;
         }
         case GPUTextureFormat::RGBA32UINT:
         {
-            uint32_t* u = reinterpret_cast<uint32_t*>(ptr);
-            u[0]        = static_cast<uint32_t>(color.r);
-            u[1]        = static_cast<uint32_t>(color.g);
-            u[2]        = static_cast<uint32_t>(color.b);
-            u[3]        = static_cast<uint32_t>(color.a);
+            uint* u = reinterpret_cast<uint*>(ptr);
+            u[0]    = static_cast<uint>(color.r);
+            u[1]    = static_cast<uint>(color.g);
+            u[2]    = static_cast<uint>(color.b);
+            u[3]    = static_cast<uint>(color.a);
             break;
         }
         case GPUTextureFormat::R32UINT:
         {
-            uint32_t* u = reinterpret_cast<uint32_t*>(ptr);
-            u[0]        = static_cast<uint32_t>(color.r);
+            uint* u = reinterpret_cast<uint*>(ptr);
+            u[0]    = static_cast<uint>(color.r);
             break;
         }
         default:
-            ptr[0] = static_cast<uint8_t>(clamp01(color.r) * 255.0f + 0.5f);
-            ptr[1] = static_cast<uint8_t>(clamp01(color.g) * 255.0f + 0.5f);
-            ptr[2] = static_cast<uint8_t>(clamp01(color.b) * 255.0f + 0.5f);
-            ptr[3] = static_cast<uint8_t>(clamp01(color.a) * 255.0f + 0.5f);
+            ptr[0] = static_cast<ubyte>(clamp01(color.r) * 255.0f + 0.5f);
+            ptr[1] = static_cast<ubyte>(clamp01(color.g) * 255.0f + 0.5f);
+            ptr[2] = static_cast<ubyte>(clamp01(color.b) * 255.0f + 0.5f);
+            ptr[3] = static_cast<ubyte>(clamp01(color.a) * 255.0f + 0.5f);
             break;
     }
 }
 
-float SoftTexture::read_depth(uint32_t x, uint32_t y, uint32_t mip, uint32_t layer) const
+float SoftTexture::read_depth(uint x, uint y, uint mip, uint layer) const
 {
-    const uint8_t* ptr = get_texel_ptr(x, y, 0, mip, layer);
+    const ubyte* ptr = get_texel_ptr(x, y, 0, mip, layer);
     if (!ptr) return 1.0f;
 
     if (format == GPUTextureFormat::DEPTH32FLOAT || format == GPUTextureFormat::DEPTH32FLOAT_STENCIL8) {
         return *reinterpret_cast<const float*>(ptr);
     } else if (format == GPUTextureFormat::DEPTH24PLUS_STENCIL8) {
-        uint32_t val = *reinterpret_cast<const uint32_t*>(ptr);
-        uint32_t d24 = val & 0x00FFFFFF;
+        uint val = *reinterpret_cast<const uint*>(ptr);
+        uint d24 = val & 0x00FFFFFF;
         return static_cast<float>(d24) / 16777215.0f;
     } else if (format == GPUTextureFormat::DEPTH16UNORM) {
-        uint16_t d16 = *reinterpret_cast<const uint16_t*>(ptr);
+        ushort d16 = *reinterpret_cast<const ushort*>(ptr);
         return static_cast<float>(d16) / 65535.0f;
     }
     return 1.0f;
 }
 
-void SoftTexture::write_depth(uint32_t x, uint32_t y, float depth, uint32_t mip, uint32_t layer)
+void SoftTexture::write_depth(uint x, uint y, float depth, uint mip, uint layer)
 {
-    uint8_t* ptr = get_texel_ptr(x, y, 0, mip, layer);
+    ubyte* ptr = get_texel_ptr(x, y, 0, mip, layer);
     if (!ptr) return;
 
     if (format == GPUTextureFormat::DEPTH32FLOAT || format == GPUTextureFormat::DEPTH32FLOAT_STENCIL8) {
         *reinterpret_cast<float*>(ptr) = depth;
     } else if (format == GPUTextureFormat::DEPTH24PLUS_STENCIL8) {
-        uint32_t* p   = reinterpret_cast<uint32_t*>(ptr);
-        uint32_t  d24 = static_cast<uint32_t>(std::clamp(depth, 0.0f, 1.0f) * 16777215.0f);
-        *p            = (*p & 0xFF000000) | (d24 & 0x00FFFFFF);
+        uint* p   = reinterpret_cast<uint*>(ptr);
+        uint  d24 = static_cast<uint>(std::clamp(depth, 0.0f, 1.0f) * 16777215.0f);
+        *p        = (*p & 0xFF000000) | (d24 & 0x00FFFFFF);
     } else if (format == GPUTextureFormat::DEPTH16UNORM) {
-        *reinterpret_cast<uint16_t*>(ptr) = static_cast<uint16_t>(std::clamp(depth, 0.0f, 1.0f) * 65535.0f);
+        *reinterpret_cast<ushort*>(ptr) = static_cast<ushort>(std::clamp(depth, 0.0f, 1.0f) * 65535.0f);
     }
 }
 
-uint8_t SoftTexture::read_stencil(uint32_t x, uint32_t y, uint32_t mip, uint32_t layer) const
+ubyte SoftTexture::read_stencil(uint x, uint y, uint mip, uint layer) const
 {
-    const uint8_t* ptr = get_texel_ptr(x, y, 0, mip, layer);
+    const ubyte* ptr = get_texel_ptr(x, y, 0, mip, layer);
     if (!ptr) return 0;
 
     if (format == GPUTextureFormat::DEPTH24PLUS_STENCIL8) {
@@ -316,9 +316,9 @@ uint8_t SoftTexture::read_stencil(uint32_t x, uint32_t y, uint32_t mip, uint32_t
     return 0;
 }
 
-void SoftTexture::write_stencil(uint32_t x, uint32_t y, uint8_t stencil, uint32_t mip, uint32_t layer)
+void SoftTexture::write_stencil(uint x, uint y, ubyte stencil, uint mip, uint layer)
 {
-    uint8_t* ptr = get_texel_ptr(x, y, 0, mip, layer);
+    ubyte* ptr = get_texel_ptr(x, y, 0, mip, layer);
     if (!ptr) return;
 
     if (format == GPUTextureFormat::DEPTH24PLUS_STENCIL8) {
@@ -328,26 +328,26 @@ void SoftTexture::write_stencil(uint32_t x, uint32_t y, uint8_t stencil, uint32_
     }
 }
 
-void SoftTexture::clear_color(const GPUColor& color, uint32_t mip, uint32_t layer)
+void SoftTexture::clear_color(const GPUColor& color, uint mip, uint layer)
 {
     if (mip >= mip_level_count || layer >= array_layers) return;
     const auto& m = mips[mip];
     Vector4     c(static_cast<float>(color.r), static_cast<float>(color.g), static_cast<float>(color.b), static_cast<float>(color.a));
 
-    for (uint32_t y = 0; y < m.height; ++y) {
-        for (uint32_t x = 0; x < m.width; ++x) {
+    for (uint y = 0; y < m.height; ++y) {
+        for (uint x = 0; x < m.width; ++x) {
             write_rgba(x, y, c, 0, mip, layer);
         }
     }
 }
 
-void SoftTexture::clear_depth_stencil(float depth, uint8_t stencil, bool clear_d, bool clear_s)
+void SoftTexture::clear_depth_stencil(float depth, ubyte stencil, bool clear_d, bool clear_s)
 {
-    for (uint32_t mip = 0; mip < mip_level_count; ++mip) {
+    for (uint mip = 0; mip < mip_level_count; ++mip) {
         const auto& m = mips[mip];
-        for (uint32_t layer = 0; layer < array_layers; ++layer) {
-            for (uint32_t y = 0; y < m.height; ++y) {
-                for (uint32_t x = 0; x < m.width; ++x) {
+        for (uint layer = 0; layer < array_layers; ++layer) {
+            for (uint y = 0; y < m.height; ++y) {
+                for (uint x = 0; x < m.width; ++x) {
                     if (clear_d) write_depth(x, y, depth, mip, layer);
                     if (clear_s) write_stencil(x, y, stencil, mip, layer);
                 }
@@ -379,12 +379,12 @@ SoftTextureView::SoftTextureView(GPUTextureHandle tex, const GPUTextureViewDescr
 SlangTextureDimensions SoftHostTextureWrapper::GetDimensions(int mipLevel)
 {
     if (!tex) return {2, 0, 0, 0, 0, 0};
-    uint32_t    m   = (mipLevel >= 0) ? std::min(static_cast<uint32_t>(mipLevel), tex->mip_level_count - 1) : 0;
+    uint        m   = (mipLevel >= 0) ? std::min(static_cast<uint>(mipLevel), tex->mip_level_count - 1) : 0;
     const auto& mip = (m < tex->mips.size()) ? tex->mips[m] : SoftMipLevel{tex->extent.width, tex->extent.height, tex->extent.depth};
     return {2, mip.width, mip.height, mip.depth, tex->mip_level_count, 0};
 }
 
-void SoftHostTextureWrapper::Load(const int32_t* v, void* outData, size_t dataSize)
+void SoftHostTextureWrapper::Load(const int32_t* v, void* outData, usize dataSize)
 {
     if (!tex || !outData || !v) return;
     int32_t x   = v[0];
@@ -395,21 +395,21 @@ void SoftHostTextureWrapper::Load(const int32_t* v, void* outData, size_t dataSi
     if (tex->format == GPUTextureFormat::DEPTH32FLOAT ||
         tex->format == GPUTextureFormat::DEPTH24PLUS_STENCIL8 ||
         tex->format == GPUTextureFormat::DEPTH16UNORM) {
-        float d = tex->read_depth(static_cast<uint32_t>(x), static_cast<uint32_t>(y), mip);
+        float d = tex->read_depth(static_cast<uint>(x), static_cast<uint>(y), mip);
         if (dataSize == sizeof(float)) {
             *reinterpret_cast<float*>(outData) = d;
         } else if (dataSize >= sizeof(Vector4)) {
             *reinterpret_cast<Vector4*>(outData) = Vector4(d, d, d, 1.0f);
         }
     } else if (tex->format == GPUTextureFormat::RGBA32UINT) {
-        const uint8_t* ptr = tex->get_texel_ptr(static_cast<uint32_t>(x), static_cast<uint32_t>(y), 0, mip);
+        const ubyte* ptr = tex->get_texel_ptr(static_cast<uint>(x), static_cast<uint>(y), 0, mip);
         if (ptr) {
-            std::memcpy(outData, ptr, std::min(dataSize, sizeof(uint32_t) * 4));
+            std::memcpy(outData, ptr, std::min(dataSize, sizeof(uint) * 4));
         } else {
             std::memset(outData, 0, dataSize);
         }
     } else {
-        Vector4 c = tex->read_rgba(static_cast<uint32_t>(x), static_cast<uint32_t>(y), 0, mip);
+        Vector4 c = tex->read_rgba(static_cast<uint>(x), static_cast<uint>(y), 0, mip);
         if (dataSize == sizeof(float)) {
             *reinterpret_cast<float*>(outData) = c.r;
         } else if (dataSize >= sizeof(Vector4)) {
@@ -420,7 +420,7 @@ void SoftHostTextureWrapper::Load(const int32_t* v, void* outData, size_t dataSi
     }
 }
 
-void SoftHostTextureWrapper::Sample(void* samplerState, const float* loc, void* outData, size_t dataSize)
+void SoftHostTextureWrapper::Sample(void* samplerState, const float* loc, void* outData, usize dataSize)
 {
     if (!tex || !outData || !loc) return;
     float                  u = loc[0];
@@ -432,9 +432,9 @@ void SoftHostTextureWrapper::Sample(void* samplerState, const float* loc, void* 
     if (s) {
         c = s->sample_2d(*tex, *vptr, u, v, 0.0f);
     } else {
-        uint32_t px = static_cast<uint32_t>(std::clamp(u * tex->extent.width, 0.0f, float(tex->extent.width > 0 ? tex->extent.width - 1 : 0)));
-        uint32_t py = static_cast<uint32_t>(std::clamp(v * tex->extent.height, 0.0f, float(tex->extent.height > 0 ? tex->extent.height - 1 : 0)));
-        c           = tex->read_rgba(px, py);
+        uint px = static_cast<uint>(std::clamp(u * tex->extent.width, 0.0f, float(tex->extent.width > 0 ? tex->extent.width - 1 : 0)));
+        uint py = static_cast<uint>(std::clamp(v * tex->extent.height, 0.0f, float(tex->extent.height > 0 ? tex->extent.height - 1 : 0)));
+        c       = tex->read_rgba(px, py);
     }
 
     if (dataSize == sizeof(float)) {
@@ -446,7 +446,7 @@ void SoftHostTextureWrapper::Sample(void* samplerState, const float* loc, void* 
     }
 }
 
-void SoftHostTextureWrapper::SampleLevel(void* samplerState, const float* loc, float level, void* outData, size_t dataSize)
+void SoftHostTextureWrapper::SampleLevel(void* samplerState, const float* loc, float level, void* outData, usize dataSize)
 {
     if (!tex || !outData || !loc) return;
     float                  u = loc[0];
@@ -458,9 +458,9 @@ void SoftHostTextureWrapper::SampleLevel(void* samplerState, const float* loc, f
     if (s) {
         c = s->sample_2d(*tex, *vptr, u, v, level);
     } else {
-        uint32_t px = static_cast<uint32_t>(std::clamp(u * tex->extent.width, 0.0f, float(tex->extent.width > 0 ? tex->extent.width - 1 : 0)));
-        uint32_t py = static_cast<uint32_t>(std::clamp(v * tex->extent.height, 0.0f, float(tex->extent.height > 0 ? tex->extent.height - 1 : 0)));
-        c           = tex->read_rgba(px, py, 0, static_cast<uint32_t>(std::max(0.0f, level)));
+        uint px = static_cast<uint>(std::clamp(u * tex->extent.width, 0.0f, float(tex->extent.width > 0 ? tex->extent.width - 1 : 0)));
+        uint py = static_cast<uint>(std::clamp(v * tex->extent.height, 0.0f, float(tex->extent.height > 0 ? tex->extent.height - 1 : 0)));
+        c       = tex->read_rgba(px, py, 0, static_cast<uint>(std::max(0.0f, level)));
     }
 
     if (dataSize == sizeof(float)) {

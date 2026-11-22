@@ -29,9 +29,7 @@ target_sources(lyra-softgpu PRIVATE
   SoftCommandBuffer.cpp
 )
 
-target_link_libraries(lyra-softgpu PRIVATE
-  embree
-)
+target_link_libraries(lyra-softgpu PRIVATE embree)
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
   target_compile_options(lyra-softgpu PRIVATE

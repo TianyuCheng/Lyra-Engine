@@ -136,10 +136,10 @@ static bool test_depth(float src_depth, float dst_depth, GPUCompareFunction comp
     }
 }
 
-static bool test_stencil(uint8_t ref, uint8_t val, uint8_t read_mask, GPUCompareFunction comp)
+static bool test_stencil(ubyte ref, ubyte val, ubyte read_mask, GPUCompareFunction comp)
 {
-    uint8_t r = ref & read_mask;
-    uint8_t v = val & read_mask;
+    ubyte r = ref & read_mask;
+    ubyte v = val & read_mask;
     switch (comp) {
         case GPUCompareFunction::NEVER:
             return false;
@@ -162,9 +162,9 @@ static bool test_stencil(uint8_t ref, uint8_t val, uint8_t read_mask, GPUCompare
     }
 }
 
-static uint8_t apply_stencil_op(GPUStencilOperation op, uint8_t current, uint8_t ref, uint8_t write_mask)
+static ubyte apply_stencil_op(GPUStencilOperation op, ubyte current, ubyte ref, ubyte write_mask)
 {
-    uint8_t result = current;
+    ubyte result = current;
     switch (op) {
         case GPUStencilOperation::KEEP:
             result = current;
@@ -191,7 +191,7 @@ static uint8_t apply_stencil_op(GPUStencilOperation op, uint8_t current, uint8_t
             result = current - 1;
             break;
     }
-    return static_cast<uint8_t>((current & ~write_mask) | (result & write_mask));
+    return static_cast<ubyte>((current & ~write_mask) | (result & write_mask));
 }
 
 static Vector4 apply_blend(const Vector4& src, const Vector4& dst, const GPUBlendState& blend)
@@ -391,22 +391,22 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
         }
 
         // stencil test
-        bool    stencil_passed = true;
-        uint8_t curr_stencil   = ctx.depth_stencil_attachment ? ctx.depth_stencil_attachment->read_stencil(x, y) : 0;
+        bool  stencil_passed = true;
+        ubyte curr_stencil   = ctx.depth_stencil_attachment ? ctx.depth_stencil_attachment->read_stencil(x, y) : 0;
         if (ctx.depth_stencil_attachment && ctx.depth_stencil.stencil_front.compare != GPUCompareFunction::ALWAYS) {
-            stencil_passed = test_stencil(static_cast<uint8_t>(ctx.stencil_reference),
+            stencil_passed = test_stencil(static_cast<ubyte>(ctx.stencil_reference),
                 curr_stencil,
-                static_cast<uint8_t>(ctx.depth_stencil.stencil_read_mask),
+                static_cast<ubyte>(ctx.depth_stencil.stencil_read_mask),
                 ctx.depth_stencil.stencil_front.compare);
         }
 
         if (!stencil_passed) {
             if (ctx.depth_stencil_attachment && ctx.depth_stencil.stencil_write_mask != 0 &&
                 ctx.depth_stencil.stencil_front.fail_op != GPUStencilOperation::KEEP) {
-                uint8_t new_val = apply_stencil_op(ctx.depth_stencil.stencil_front.fail_op,
+                ubyte new_val = apply_stencil_op(ctx.depth_stencil.stencil_front.fail_op,
                     curr_stencil,
-                    static_cast<uint8_t>(ctx.stencil_reference),
-                    static_cast<uint8_t>(ctx.depth_stencil.stencil_write_mask));
+                    static_cast<ubyte>(ctx.stencil_reference),
+                    static_cast<ubyte>(ctx.depth_stencil.stencil_write_mask));
                 ctx.depth_stencil_attachment->write_stencil(x, y, new_val);
             }
             return;
@@ -415,10 +415,10 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
         if (!depth_passed) {
             if (ctx.depth_stencil_attachment && ctx.depth_stencil.stencil_write_mask != 0 &&
                 ctx.depth_stencil.stencil_front.depth_fail_op != GPUStencilOperation::KEEP) {
-                uint8_t new_val = apply_stencil_op(ctx.depth_stencil.stencil_front.depth_fail_op,
+                ubyte new_val = apply_stencil_op(ctx.depth_stencil.stencil_front.depth_fail_op,
                     curr_stencil,
-                    static_cast<uint8_t>(ctx.stencil_reference),
-                    static_cast<uint8_t>(ctx.depth_stencil.stencil_write_mask));
+                    static_cast<ubyte>(ctx.stencil_reference),
+                    static_cast<ubyte>(ctx.depth_stencil.stencil_write_mask));
                 ctx.depth_stencil_attachment->write_stencil(x, y, new_val);
             }
             return;
@@ -427,10 +427,10 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
         // write stencil
         if (ctx.depth_stencil_attachment && ctx.depth_stencil.stencil_write_mask != 0 &&
             ctx.depth_stencil.stencil_front.pass_op != GPUStencilOperation::KEEP) {
-            uint8_t new_val = apply_stencil_op(ctx.depth_stencil.stencil_front.pass_op,
+            ubyte new_val = apply_stencil_op(ctx.depth_stencil.stencil_front.pass_op,
                 curr_stencil,
-                static_cast<uint8_t>(ctx.stencil_reference),
-                static_cast<uint8_t>(ctx.depth_stencil.stencil_write_mask));
+                static_cast<ubyte>(ctx.stencil_reference),
+                static_cast<ubyte>(ctx.depth_stencil.stencil_write_mask));
             ctx.depth_stencil_attachment->write_stencil(x, y, new_val);
         }
 
@@ -455,7 +455,7 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
 
             Vector4 out_colors[8] = {interp.color, Vector4(0.0f), Vector4(0.0f), Vector4(0.0f), Vector4(0.0f), Vector4(0.0f), Vector4(0.0f), Vector4(0.0f)};
             if (ctx.color_targets.size() > 1) {
-                for (size_t i = 0; i < std::min(ctx.color_targets.size(), size_t(4)); ++i) {
+                for (usize i = 0; i < std::min(ctx.color_targets.size(), usize(4)); ++i) {
                     Vector4 c = *reinterpret_cast<const Vector4*>(&interp.varyings[i * 4]);
                     if (c.r != 0.0f || c.g != 0.0f || c.b != 0.0f || c.a != 0.0f) {
                         out_colors[i] = c;
@@ -469,7 +469,7 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
             } else if (ctx.fshader_func) {
                 struct uint3
                 {
-                    uint32_t x, y, z;
+                    uint x, y, z;
                 };
                 struct ComputeVaryingInput
                 {
@@ -503,7 +503,7 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
             }
 
             if (!ctx.color_attachments.empty()) {
-                for (size_t i = 0; i < ctx.color_attachments.size(); ++i) {
+                for (usize i = 0; i < ctx.color_attachments.size(); ++i) {
                     auto* tex = ctx.color_attachments[i];
                     if (!tex) continue;
                     const auto& ct = (i < ctx.color_targets.size()) ? ctx.color_targets[i] : ctx.color_target;
@@ -520,7 +520,7 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
                         if (tex->format == GPUTextureFormat::RGBA32UINT ||
                             tex->format == GPUTextureFormat::RGBA32SINT ||
                             tex->format == GPUTextureFormat::RGBA32FLOAT) {
-                            uint8_t* ptr = tex->get_texel_ptr(x, y);
+                            ubyte* ptr = tex->get_texel_ptr(x, y);
                             if (ptr) std::memcpy(ptr, &out_colors[i], 16);
                         } else {
                             tex->write_rgba(x, y, out_color);

@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_MODULES_GRAPHICS_SOFTWARE_SOFTRAYTRACING_H
-#define LYRA_MODULES_GRAPHICS_SOFTWARE_SOFTRAYTRACING_H
+#ifndef LYRA_MODULES_GRAPHICS_SOFTGPU_SOFTRAYTRACING_H
+#define LYRA_MODULES_GRAPHICS_SOFTGPU_SOFTRAYTRACING_H
 
 #include "SoftCommon.h"
 #include "SoftBuffer.h"
@@ -9,14 +9,14 @@
 
 namespace lyra::softgpu
 {
-    auto get_or_create_embree_device() -> RTCDevice;
+    RTCDevice get_or_create_embree_device();
 
     struct SoftBlas
     {
-        RTCScene         scene = nullptr;
-        CString          label = "";
-        Vector<uint32_t> fallback_indices;
-        bool             built = false;
+        RTCScene     scene = nullptr;
+        CString      label = "";
+        Vector<uint> fallback_indices;
+        bool         built = false;
 
         SoftBlas() = default;
         explicit SoftBlas(const GPUBlasDescriptor& desc);
@@ -28,24 +28,25 @@ namespace lyra::softgpu
         SoftBlas(const SoftBlas&)            = delete;
         SoftBlas& operator=(const SoftBlas&) = delete;
 
-        auto build(const GPUBlasBuildEntry& entry, const Slotmap<SoftBuffer>& buffer_pool) -> void;
-        auto intersect(const Vector3& origin, const Vector3& dir, float t_min, float t_max,
-            float& hit_t, float& hit_u, float& hit_v, uint32_t& hit_geom, uint32_t& hit_prim) const -> bool;
+        void build(const GPUBlasBuildEntry& entry, const SoftResourceManager<SoftBuffer>& buffer_pool);
+        bool intersect(const Vector3& origin, const Vector3& dir, float t_min, float t_max,
+            float& hit_t, float& hit_u, float& hit_v, uint& hit_geom, uint& hit_prim) const;
+        void destroy();
     };
 
     struct SoftTlasInstance
     {
         Matrix4x4     transform{1.0f};
         GPUBlasHandle blas;
-        uint32_t      custom_index = 0;
-        uint8_t       mask         = 0xFF;
+        uint          custom_index = 0;
+        ubyte         mask         = 0xFF;
     };
 
     struct SoftTlas
     {
         RTCScene                 scene = nullptr;
         Vector<SoftTlasInstance> instances;
-        uint32_t                 max_instances = 0;
+        uint                     max_instances = 0;
         CString                  label         = "";
         bool                     built         = false;
 
@@ -59,9 +60,10 @@ namespace lyra::softgpu
         SoftTlas(const SoftTlas&)            = delete;
         SoftTlas& operator=(const SoftTlas&) = delete;
 
-        auto build(const GPUTlasBuildEntry& entry, const Slotmap<SoftBlas>& blas_pool) -> void;
-        auto intersect(const Vector3& origin, const Vector3& dir, float t_min, float t_max, uint8_t ray_mask, const Slotmap<SoftBlas>& blas_pool,
-            float& hit_t, float& hit_u, float& hit_v, uint32_t& hit_instance, uint32_t& hit_geom, uint32_t& hit_prim) const -> bool;
+        void build(const GPUTlasBuildEntry& entry, const SoftResourceManager<SoftBlas>& blas_pool);
+        bool intersect(const Vector3& origin, const Vector3& dir, float t_min, float t_max, ubyte ray_mask, const SoftResourceManager<SoftBlas>& blas_pool,
+            float& hit_t, float& hit_u, float& hit_v, uint& hit_instance, uint& hit_geom, uint& hit_prim) const;
+        void destroy();
     };
 
     enum struct SoftRayQueryStatus
@@ -76,22 +78,22 @@ namespace lyra::softgpu
         Vector3 direction{0.0f};
         float   t_min = 0.001f;
         float   t_max = 10000.0f;
-        uint8_t mask  = 0xFF;
+        ubyte   mask  = 0xFF;
 
         SoftRayQueryStatus status = SoftRayQueryStatus::NOTHING;
         float              hit_t  = 0.0f;
         Vector2            barycentrics{0.0f};
-        uint32_t           instance_id  = 0;
-        uint32_t           geometry_id  = 0;
-        uint32_t           primitive_id = 0;
+        uint               instance_id  = 0;
+        uint               geometry_id  = 0;
+        uint               primitive_id = 0;
 
-        auto trace_ray_inline(const SoftTlas& tlas, uint32_t flags, uint8_t ray_mask,
+        void               trace_ray_inline(const SoftTlas& tlas, uint flags, ubyte ray_mask,
             const Vector3& orig, const Vector3& dir, float min_t, float max_t,
-            const Slotmap<SoftBlas>& blas_pool) -> void;
-        auto proceed() -> bool { return false; }
-        auto committed_status() const -> SoftRayQueryStatus { return status; }
-        auto committed_triangle_barycentrics() const -> Vector2 { return barycentrics; }
+            const SoftResourceManager<SoftBlas>& blas_pool);
+        bool               proceed() { return false; }
+        SoftRayQueryStatus committed_status() const { return status; }
+        Vector2            committed_triangle_barycentrics() const { return barycentrics; }
     };
 } // namespace lyra::softgpu
 
-#endif // LYRA_MODULES_GRAPHICS_SOFTWARE_SOFTRAYTRACING_H
+#endif // LYRA_MODULES_GRAPHICS_SOFTGPU_SOFTRAYTRACING_H

@@ -1,4 +1,5 @@
 #include "SoftSwapchain.h"
+#include "SoftDevice.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -8,25 +9,25 @@
 using namespace lyra;
 using namespace lyra::softgpu;
 
-SoftSwapchain::SoftSwapchain(const GPUSurfaceDescriptor& desc, Slotmap<SoftTexture>& texture_pool,
-    Slotmap<SoftTextureView>& view_pool, Slotmap<SoftFence>& fence_pool)
+SoftSwapchain::SoftSwapchain(const GPUSurfaceDescriptor& desc, SoftResourceManager<SoftTexture>& texture_pool,
+    SoftResourceManager<SoftTextureView>& view_pool, SoftResourceManager<SoftFence>& fence_pool)
     : window(desc.window), label(desc.label)
 {
-    format               = GPUTextureFormat::BGRA8UNORM;
-    uint32_t frame_count = std::max(2u, desc.frames);
+    format           = GPUTextureFormat::BGRA8UNORM;
+    uint frame_count = std::max(2u, desc.frames);
 
 #ifdef _WIN32
     if (window.native != nullptr) {
         RECT rect;
         if (GetClientRect(reinterpret_cast<HWND>(window.native), &rect)) {
-            extent.width  = std::max(1u, static_cast<uint32_t>(rect.right - rect.left));
-            extent.height = std::max(1u, static_cast<uint32_t>(rect.bottom - rect.top));
+            extent.width  = std::max(1u, static_cast<uint>(rect.right - rect.left));
+            extent.height = std::max(1u, static_cast<uint>(rect.bottom - rect.top));
         }
     }
 #endif
 
     frames.resize(frame_count);
-    for (uint32_t i = 0; i < frame_count; ++i) {
+    for (uint i = 0; i < frame_count; ++i) {
         // create texture for backbuffer
         GPUTextureDescriptor tex_desc{};
         tex_desc.size            = GPUExtent3D{extent.width, extent.height, 1};
@@ -72,7 +73,7 @@ bool SoftSwapchain::acquire_next_frame(GPUTextureHandle& out_tex, GPUTextureView
 {
     if (frames.empty()) return false;
 
-    current_frame_index = (current_frame_index + 1) % static_cast<uint32_t>(frames.size());
+    current_frame_index = (current_frame_index + 1) % static_cast<uint>(frames.size());
     const auto& f       = frames[current_frame_index];
 
     out_tex       = f.texture;
@@ -83,7 +84,7 @@ bool SoftSwapchain::acquire_next_frame(GPUTextureHandle& out_tex, GPUTextureView
     return true;
 }
 
-bool SoftSwapchain::present(Slotmap<SoftTexture>& texture_pool)
+bool SoftSwapchain::present(SoftResourceManager<SoftTexture>& texture_pool)
 {
     if (frames.empty()) return false;
     const auto& f = frames[current_frame_index];
@@ -119,7 +120,7 @@ bool SoftSwapchain::present(Slotmap<SoftTexture>& texture_pool)
     return true;
 }
 
-void SoftSwapchain::destroy(Slotmap<SoftTexture>& texture_pool, Slotmap<SoftTextureView>& view_pool, Slotmap<SoftFence>& fence_pool)
+void SoftSwapchain::destroy(SoftResourceManager<SoftTexture>& texture_pool, SoftResourceManager<SoftTextureView>& view_pool, SoftResourceManager<SoftFence>& fence_pool)
 {
     for (auto& f : frames) {
         if (f.texture.valid()) {
@@ -140,4 +141,12 @@ void SoftSwapchain::destroy(Slotmap<SoftTexture>& texture_pool, Slotmap<SoftText
         }
     }
     frames.clear();
+}
+
+void SoftSwapchain::destroy()
+{
+    auto* dev = get_device();
+    if (dev) {
+        destroy(dev->textures, dev->texture_views, dev->fences);
+    }
 }

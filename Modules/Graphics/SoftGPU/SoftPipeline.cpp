@@ -27,7 +27,7 @@ SoftBindGroup::SoftBindGroup(const GPUBindGroupDescriptor& descriptor)
     }
 }
 
-const GPUBindGroupEntry* SoftBindGroup::find_entry(uint32_t binding) const
+const GPUBindGroupEntry* SoftBindGroup::find_entry(uint binding) const
 {
     for (const auto& entry : entries) {
         if (entry.binding == binding) {

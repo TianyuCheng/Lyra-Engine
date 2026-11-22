@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_MODULES_GRAPHICS_SOFTWARE_SOFTRASTERIZER_H
-#define LYRA_MODULES_GRAPHICS_SOFTWARE_SOFTRASTERIZER_H
+#ifndef LYRA_MODULES_GRAPHICS_SOFTGPU_SOFTRASTERIZER_H
+#define LYRA_MODULES_GRAPHICS_SOFTGPU_SOFTRASTERIZER_H
 
 #include "SoftCommon.h"
 #include "SoftTexture.h"
@@ -39,10 +39,10 @@ namespace lyra::softgpu
 
     struct SoftScissor
     {
-        int32_t x      = 0;
-        int32_t y      = 0;
-        int32_t width  = 0;
-        int32_t height = 0;
+        int x      = 0;
+        int y      = 0;
+        int width  = 0;
+        int height = 0;
     };
 
     struct SoftRasterizerContext
@@ -61,22 +61,22 @@ namespace lyra::softgpu
         SoftTexture*         depth_stencil_attachment = nullptr;
 
         // fragment shader callable
-        void*                                                                                      fshader_func  = nullptr;
-        void*                                                                                      uniform_state = nullptr;
-        mutable Function<Vector4(const SoftShadedVertex&)>                                         fragment_shader;
-        mutable Function<void(const SoftShadedVertex&, Vector4* out_colors, uint32_t max_targets)> fragment_shader_mrt;
+        void*                                                                                  fshader_func  = nullptr;
+        void*                                                                                  uniform_state = nullptr;
+        mutable Function<Vector4(const SoftShadedVertex&)>                                     fragment_shader;
+        mutable Function<void(const SoftShadedVertex&, Vector4* out_colors, uint max_targets)> fragment_shader_mrt;
     };
 
     class SoftRasterizer
     {
     public:
-        static auto clip_and_project_triangle(const SoftShadedVertex& v0, const SoftShadedVertex& v1, const SoftShadedVertex& v2,
-            const SoftViewport& vp, Vector<SoftRasterTriangle>& out_triangles) -> void;
+        static void clip_and_project_triangle(const SoftShadedVertex& v0, const SoftShadedVertex& v1, const SoftShadedVertex& v2,
+            const SoftViewport& vp, Vector<SoftRasterTriangle>& out_triangles);
 
-        static auto rasterize_triangle(const SoftRasterTriangle& tri, const SoftRasterizerContext& ctx) -> void;
+        static void rasterize_triangle(const SoftRasterTriangle& tri, const SoftRasterizerContext& ctx);
 
-        static auto rasterize_triangles(std::span<const SoftRasterTriangle> triangles, const SoftRasterizerContext& ctx) -> void;
+        static void rasterize_triangles(std::span<const SoftRasterTriangle> triangles, const SoftRasterizerContext& ctx);
     };
 } // namespace lyra::softgpu
 
-#endif // LYRA_MODULES_GRAPHICS_SOFTWARE_SOFTRASTERIZER_H
+#endif // LYRA_MODULES_GRAPHICS_SOFTGPU_SOFTRASTERIZER_H

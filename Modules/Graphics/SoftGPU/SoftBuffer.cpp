@@ -8,7 +8,7 @@ SoftBuffer::SoftBuffer(const GPUBufferDescriptor& desc)
 {
     // allocate memory with alignment
     data.resize(static_cast<usize>(desc.size), 0);
-    device_address = reinterpret_cast<uint64_t>(data.data());
+    device_address = reinterpret_cast<ulong>(data.data());
 
     if (desc.mapped_at_creation) {
         map_state     = GPUMapState::MAPPED;
@@ -18,7 +18,7 @@ SoftBuffer::SoftBuffer(const GPUBufferDescriptor& desc)
     }
 }
 
-auto SoftBuffer::get_mapped_range(GPUSize64 offset, GPUSize64 len) -> MappedBufferRange
+MappedBufferRange SoftBuffer::get_mapped_range(GPUSize64 offset, GPUSize64 len)
 {
     if (len == 0) {
         len = (size > offset) ? (size - offset) : 0;

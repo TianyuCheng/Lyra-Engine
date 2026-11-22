@@ -1,5 +1,5 @@
 #include "SoftRaytracing.h"
-#include <mutex>
+#include <Lyra/Utilities/Sync.h>
 
 using namespace lyra;
 using namespace lyra::softgpu;
@@ -7,7 +7,7 @@ using namespace lyra::softgpu;
 static RTCDevice s_embree_device = nullptr;
 static Mutex     s_embree_mutex;
 
-auto lyra::softgpu::get_or_create_embree_device() -> RTCDevice
+RTCDevice lyra::softgpu::get_or_create_embree_device()
 {
     LockGuard lock(s_embree_mutex);
     if (!s_embree_device) {
@@ -23,10 +23,17 @@ SoftBlas::SoftBlas(const GPUBlasDescriptor& desc)
 
 SoftBlas::~SoftBlas()
 {
+    destroy();
+}
+
+void SoftBlas::destroy()
+{
     if (scene) {
         rtcReleaseScene(scene);
         scene = nullptr;
     }
+    fallback_indices.clear();
+    built = false;
 }
 
 SoftBlas::SoftBlas(SoftBlas&& other) noexcept
@@ -39,9 +46,7 @@ SoftBlas::SoftBlas(SoftBlas&& other) noexcept
 SoftBlas& SoftBlas::operator=(SoftBlas&& other) noexcept
 {
     if (this != &other) {
-        if (scene) {
-            rtcReleaseScene(scene);
-        }
+        destroy();
         scene            = other.scene;
         label            = other.label;
         fallback_indices = std::move(other.fallback_indices);
@@ -52,7 +57,7 @@ SoftBlas& SoftBlas::operator=(SoftBlas&& other) noexcept
     return *this;
 }
 
-void SoftBlas::build(const GPUBlasBuildEntry& entry, const Slotmap<SoftBuffer>& buffer_pool)
+void SoftBlas::build(const GPUBlasBuildEntry& entry, const SoftResourceManager<SoftBuffer>& buffer_pool)
 {
     RTCDevice device = get_or_create_embree_device();
     if (scene) {
@@ -67,36 +72,36 @@ void SoftBlas::build(const GPUBlasBuildEntry& entry, const Slotmap<SoftBuffer>& 
     for (const auto& tri_geom : entry.geometries.triangles) {
         if (!tri_geom.vertex_buffer.valid()) continue;
 
-        const auto&    vbuf    = fetch_resource(const_cast<Slotmap<SoftBuffer>&>(buffer_pool), tri_geom.vertex_buffer);
-        const uint8_t* vdata   = vbuf.data.data();
-        usize          vstride = tri_geom.vertex_stride;
-        const uint8_t* vptr    = vdata + tri_geom.first_vertex * vstride;
+        const auto&  vbuf    = fetch_resource(buffer_pool, tri_geom.vertex_buffer);
+        const ubyte* vdata   = vbuf.data.data();
+        usize        vstride = tri_geom.vertex_stride;
+        const ubyte* vptr    = vdata + tri_geom.first_vertex * vstride;
 
         RTCGeometry geom = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_TRIANGLE);
 
         if (tri_geom.index_buffer.valid() && tri_geom.size.index_count > 0) {
-            const auto&    ibuf           = fetch_resource(const_cast<Slotmap<SoftBuffer>&>(buffer_pool), tri_geom.index_buffer);
-            const uint8_t* idata          = ibuf.data.data();
-            bool           is_16          = (tri_geom.size.index_format == GPUIndexFormat::UINT16);
-            uint32_t       triangle_count = tri_geom.size.index_count / 3;
-            size_t         idx_stride     = is_16 ? sizeof(uint16_t) * 3 : sizeof(uint32_t) * 3;
-            const uint8_t* iptr           = idata + tri_geom.first_index * (is_16 ? 2 : 4);
+            const auto&  ibuf           = fetch_resource(buffer_pool, tri_geom.index_buffer);
+            const ubyte* idata          = ibuf.data.data();
+            bool         is_16          = (tri_geom.size.index_format == GPUIndexFormat::UINT16);
+            uint         triangle_count = tri_geom.size.index_count / 3;
+            usize        idx_stride     = is_16 ? sizeof(ushort) * 3 : sizeof(uint) * 3;
+            const ubyte* iptr           = idata + tri_geom.first_index * (is_16 ? 2 : 4);
 
             rtcSetSharedGeometryBuffer(geom, RTC_BUFFER_TYPE_VERTEX, 0,
                 RTC_FORMAT_FLOAT3, vptr, 0, vstride, tri_geom.size.vertex_count);
             rtcSetSharedGeometryBuffer(geom, RTC_BUFFER_TYPE_INDEX, 0,
                 is_16 ? RTC_FORMAT_USHORT3 : RTC_FORMAT_UINT3, iptr, 0, idx_stride, triangle_count);
         } else {
-            uint32_t triangle_count = tri_geom.size.vertex_count / 3;
+            uint triangle_count = tri_geom.size.vertex_count / 3;
             fallback_indices.resize(tri_geom.size.vertex_count);
-            for (uint32_t i = 0; i < tri_geom.size.vertex_count; ++i) {
+            for (uint i = 0; i < tri_geom.size.vertex_count; ++i) {
                 fallback_indices[i] = i;
             }
 
             rtcSetSharedGeometryBuffer(geom, RTC_BUFFER_TYPE_VERTEX, 0,
                 RTC_FORMAT_FLOAT3, vptr, 0, vstride, tri_geom.size.vertex_count);
             rtcSetSharedGeometryBuffer(geom, RTC_BUFFER_TYPE_INDEX, 0,
-                RTC_FORMAT_UINT3, fallback_indices.data(), 0, sizeof(uint32_t) * 3, triangle_count);
+                RTC_FORMAT_UINT3, fallback_indices.data(), 0, sizeof(uint) * 3, triangle_count);
         }
 
         rtcCommitGeometry(geom);
@@ -109,7 +114,7 @@ void SoftBlas::build(const GPUBlasBuildEntry& entry, const Slotmap<SoftBuffer>& 
 }
 
 bool SoftBlas::intersect(const Vector3& origin, const Vector3& dir, float t_min, float t_max,
-    float& hit_t, float& hit_u, float& hit_v, uint32_t& hit_geom, uint32_t& hit_prim) const
+    float& hit_t, float& hit_u, float& hit_v, uint& hit_geom, uint& hit_prim) const
 {
     if (!scene || !built) return false;
 
@@ -154,10 +159,17 @@ SoftTlas::SoftTlas(const GPUTlasDescriptor& desc)
 
 SoftTlas::~SoftTlas()
 {
+    destroy();
+}
+
+void SoftTlas::destroy()
+{
     if (scene) {
         rtcReleaseScene(scene);
         scene = nullptr;
     }
+    instances.clear();
+    built = false;
 }
 
 SoftTlas::SoftTlas(SoftTlas&& other) noexcept
@@ -170,9 +182,7 @@ SoftTlas::SoftTlas(SoftTlas&& other) noexcept
 SoftTlas& SoftTlas::operator=(SoftTlas&& other) noexcept
 {
     if (this != &other) {
-        if (scene) {
-            rtcReleaseScene(scene);
-        }
+        destroy();
         scene         = other.scene;
         instances     = std::move(other.instances);
         max_instances = other.max_instances;
@@ -184,7 +194,7 @@ SoftTlas& SoftTlas::operator=(SoftTlas&& other) noexcept
     return *this;
 }
 
-void SoftTlas::build(const GPUTlasBuildEntry& entry, const Slotmap<SoftBlas>& blas_pool)
+void SoftTlas::build(const GPUTlasBuildEntry& entry, const SoftResourceManager<SoftBlas>& blas_pool)
 {
     RTCDevice device = get_or_create_embree_device();
     if (scene) {
@@ -228,9 +238,9 @@ void SoftTlas::build(const GPUTlasBuildEntry& entry, const Slotmap<SoftBlas>& bl
     built = true;
 }
 
-bool SoftTlas::intersect(const Vector3& origin, const Vector3& dir, float t_min, float t_max, uint8_t ray_mask,
-    const Slotmap<SoftBlas>& /*blas_pool*/,
-    float& hit_t, float& hit_u, float& hit_v, uint32_t& hit_instance, uint32_t& hit_geom, uint32_t& hit_prim) const
+bool SoftTlas::intersect(const Vector3& origin, const Vector3& dir, float t_min, float t_max, ubyte ray_mask,
+    const SoftResourceManager<SoftBlas>& /*blas_pool*/,
+    float& hit_t, float& hit_u, float& hit_v, uint& hit_instance, uint& hit_geom, uint& hit_prim) const
 {
     if (!scene || !built) return false;
 
@@ -258,21 +268,21 @@ bool SoftTlas::intersect(const Vector3& origin, const Vector3& dir, float t_min,
     rtcIntersect1(scene, &rayhit, &args);
 
     if (rayhit.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
-        hit_t             = rayhit.ray.tfar;
-        hit_u             = rayhit.hit.u;
-        hit_v             = rayhit.hit.v;
-        uint32_t inst_idx = (rayhit.hit.instID[0] != RTC_INVALID_GEOMETRY_ID) ? rayhit.hit.instID[0] : 0;
-        hit_instance      = (inst_idx < instances.size()) ? instances[inst_idx].custom_index : inst_idx;
-        hit_geom          = rayhit.hit.geomID;
-        hit_prim          = rayhit.hit.primID;
+        hit_t         = rayhit.ray.tfar;
+        hit_u         = rayhit.hit.u;
+        hit_v         = rayhit.hit.v;
+        uint inst_idx = (rayhit.hit.instID[0] != RTC_INVALID_GEOMETRY_ID) ? rayhit.hit.instID[0] : 0;
+        hit_instance  = (inst_idx < instances.size()) ? instances[inst_idx].custom_index : inst_idx;
+        hit_geom      = rayhit.hit.geomID;
+        hit_prim      = rayhit.hit.primID;
         return true;
     }
     return false;
 }
 
-void SoftRayQuery::trace_ray_inline(const SoftTlas& tlas, uint32_t /*flags*/, uint8_t ray_mask,
+void SoftRayQuery::trace_ray_inline(const SoftTlas& tlas, uint /*flags*/, ubyte ray_mask,
     const Vector3& orig, const Vector3& dir, float min_t, float max_t,
-    const Slotmap<SoftBlas>& blas_pool)
+    const SoftResourceManager<SoftBlas>& blas_pool)
 {
     origin    = orig;
     direction = dir;
@@ -280,8 +290,8 @@ void SoftRayQuery::trace_ray_inline(const SoftTlas& tlas, uint32_t /*flags*/, ui
     t_max     = max_t;
     mask      = ray_mask;
 
-    float    t, u, v;
-    uint32_t inst_id, geom_id, prim_id;
+    float t, u, v;
+    uint  inst_id, geom_id, prim_id;
     if (tlas.intersect(orig, dir, min_t, max_t, ray_mask, blas_pool, t, u, v, inst_id, geom_id, prim_id)) {
         status       = SoftRayQueryStatus::TRIANGLE_HIT;
         hit_t        = t;
