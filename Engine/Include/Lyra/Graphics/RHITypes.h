@@ -5,10 +5,9 @@
 
 // reference: https://gpuweb.github.io/gpuweb/#
 
-#include <type_traits>
-
 #include <Lyra/Utilities/Macros.h>
 #include <Lyra/Utilities/Pointer.h>
+#include <Lyra/Utilities/TypeTraits.h>
 #include <Lyra/Graphics/RHIEnums.h>
 #include <Lyra/Graphics/RHIUtils.h>
 #include <Lyra/Graphics/RHIDescs.h>
@@ -397,9 +396,10 @@ namespace lyra
     {
         GPUAdapterInfo       adapter_info = {};
         GPUSupportedFeatures features     = {};
-        bool                 is_valid     = false;
+        uint                 rhi          = uint(-1);
 
-        FORCE_INLINE bool valid() const { return is_valid; }
+        FORCE_INLINE bool valid() const { return rhi != uint(-1); }
+        FORCE_INLINE void reset() { rhi = uint(-1); }
 
         auto create_fence() const -> GPUFence;
         auto create_buffer(const GPUBufferDescriptor& descriptor) const -> GPUBuffer;
@@ -431,6 +431,7 @@ namespace lyra
     struct GPUSurface : public GPUObjectBase
     {
         GPUSurfaceHandle handle;
+        uint             rhi = uint(-1);
 
         // implicit conversion
         FORCE_INLINE GPUSurface() : handle() {}
@@ -438,6 +439,11 @@ namespace lyra
         FORCE_INLINE operator GPUSurfaceHandle() const { return handle; }
 
         FORCE_INLINE bool valid() const { return handle.valid(); }
+        FORCE_INLINE void reset()
+        {
+            handle.reset();
+            rhi = uint(-1);
+        }
 
         auto get_current_texture() const -> GPUSurfaceTexture;
         auto get_current_format() const -> GPUTextureFormat;
@@ -449,10 +455,14 @@ namespace lyra
 
     struct GPUAdapter : public GPUObjectBase
     {
+        uint                 rhi        = uint(-1);
         GPUAdapterInfo       info       = {};
         GPUSupportedFeatures features   = {};
         GPUSupportedLimits   limits     = {};
         GPUProperties        properties = {};
+
+        FORCE_INLINE bool valid() const { return rhi != uint(-1); }
+        FORCE_INLINE void reset() { rhi = uint(-1); }
 
         bool has_feature(GPUFeatureName feature) const;
 
@@ -461,13 +471,22 @@ namespace lyra
 
     struct RHI
     {
-        RHIFlags     flags = 0;
-        RHIBackend   backend;
-        WindowHandle window = {};
+        uint       id    = uint(-1);
+        RHIFlags   flags = 0;
+        RHIBackend backend;
+        StringView custom_backend = {};
 
         static auto init(const RHIDescriptor& descriptor) -> OwnedResource<RHI>;
+        static auto init(StringView custom_backend, const RHIDescriptor& descriptor = {}) -> OwnedResource<RHI>;
 
         static auto api() -> RenderAPI*;
+        static auto api(uint rhi) -> RenderAPI*;
+        static auto api(ubyte rhi) -> RenderAPI* { return api(static_cast<uint>(rhi)); }
+
+        template <typename HandleType>
+        requires(!std::is_integral_v<HandleType>)
+        static auto api(HandleType handle) -> RenderAPI*
+        { return api(handle.rhi()); }
 
         static void wait();
 

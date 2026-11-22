@@ -374,3 +374,76 @@ TEST_CASE("graphics::rhi_objects" * doctest::description("GPUBuffer, GPUTexture,
         heap.destroy();
     }
 }
+
+TEST_CASE("graphics::multi_backend" * doctest::description("Verify concurrent multiple backends and packed handle routing"))
+{
+    auto& mock_device = RHI::get_current_device();
+    REQUIRE(mock_device.valid());
+    CHECK(mock_device.rhi == 0);
+
+    GPUBufferDescriptor mock_buf_desc{};
+    mock_buf_desc.label = "mock_buf";
+    mock_buf_desc.size  = 256;
+    mock_buf_desc.usage = GPUBufferUsage::MAP_WRITE | GPUBufferUsage::COPY_SRC;
+
+    auto mock_buffer = mock_device.create_buffer(mock_buf_desc);
+    REQUIRE(mock_buffer.valid());
+    CHECK(mock_buffer.handle.rhi() == 0);
+
+    // Initialize a second backend (SoftGPU) concurrently
+    RHIDescriptor soft_desc{};
+    soft_desc.backend = RHIBackend::SOFTGPU;
+    auto rhi_soft     = RHI::init(soft_desc);
+    REQUIRE(rhi_soft != nullptr);
+    uint soft_rhi = rhi_soft->id;
+    CHECK(soft_rhi != 0);
+
+    auto soft_adapter = rhi_soft->request_adapter({});
+    auto soft_device  = soft_adapter.request_device({});
+    REQUIRE(soft_device.valid());
+    CHECK(soft_device.rhi == soft_rhi);
+
+    GPUBufferDescriptor soft_buf_desc{};
+    soft_buf_desc.label = "soft_buf";
+    soft_buf_desc.size  = 512;
+    soft_buf_desc.usage = GPUBufferUsage::COPY_DST | GPUBufferUsage::MAP_READ;
+
+    auto soft_buffer = soft_device.create_buffer(soft_buf_desc);
+    REQUIRE(soft_buffer.valid());
+    CHECK(soft_buffer.handle.rhi() == soft_rhi);
+    CHECK(soft_buffer.size == 512);
+
+    // Verify both buffers operate independently on their respective backends
+    mock_buffer.destroy();
+    CHECK_FALSE(mock_buffer.valid());
+
+    soft_buffer.destroy();
+    CHECK_FALSE(soft_buffer.valid());
+
+    // Destroy the second backend
+    rhi_soft.reset();
+
+    // Verify loading custom backend via StringView
+    auto rhi_custom = RHI::init("lyra-softgpu");
+    REQUIRE(rhi_custom != nullptr);
+    CHECK(rhi_custom->backend == RHIBackend::CUSTOM);
+    CHECK(rhi_custom->custom_backend == "lyra-softgpu");
+    auto custom_adapter = rhi_custom->request_adapter({});
+    auto custom_device  = custom_adapter.request_device({});
+    REQUIRE(custom_device.valid());
+    CHECK(custom_device.rhi == rhi_custom->id);
+
+    auto custom_buffer = custom_device.create_buffer(soft_buf_desc);
+    REQUIRE(custom_buffer.valid());
+    CHECK(custom_buffer.handle.rhi() == rhi_custom->id);
+    custom_buffer.destroy();
+    CHECK_FALSE(custom_buffer.valid());
+
+    rhi_custom.reset();
+
+    // Verify backend 0 (MockGPU) is still active and functional
+    auto mock_buffer2 = mock_device.create_buffer(mock_buf_desc);
+    REQUIRE(mock_buffer2.valid());
+    CHECK(mock_buffer2.handle.rhi() == 0);
+    mock_buffer2.destroy();
+}

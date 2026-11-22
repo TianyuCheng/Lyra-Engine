@@ -22,6 +22,7 @@ namespace lyra
         VULKAN,
         SOFTGPU,
         MOCKGPU,
+        CUSTOM,
     };
 
     enum struct GPUObjectType : uint

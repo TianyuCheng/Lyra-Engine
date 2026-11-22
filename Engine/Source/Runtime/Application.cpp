@@ -49,6 +49,15 @@ AppDescriptor& AppDescriptor::with_graphics_backend(RHIBackend backend)
     return *this;
 }
 
+AppDescriptor& AppDescriptor::with_graphics_backend(StringView custom_backend)
+{
+    rhi.backend        = RHIBackend::CUSTOM;
+    rhi.custom_backend = custom_backend;
+    slc.target         = CompileTarget::SPIRV;
+    slc.flags |= CompileFlag::REFLECT;
+    return *this;
+}
+
 AppDescriptor& AppDescriptor::with_graphics_validation(bool debug, bool validation)
 {
     slc.flags.set(CompileFlag::DEBUG, debug);
@@ -179,10 +188,11 @@ void Application::init_graphics()
 {
     // initialize RHI (rendering hardware interface)
     rhi = lyra::execute([&]() {
-        auto desc    = RHIDescriptor{};
-        desc.backend = descriptor.rhi.backend;
-        desc.flags   = descriptor.rhi.flags;
-        desc.window  = *wsi;
+        auto desc           = RHIDescriptor{};
+        desc.backend        = descriptor.rhi.backend;
+        desc.custom_backend = descriptor.rhi.custom_backend;
+        desc.flags          = descriptor.rhi.flags;
+        desc.window         = *wsi;
         return RHI::init(desc);
     });
 

@@ -60,6 +60,7 @@ namespace lyra
 
         Plugin() = default;
         explicit Plugin(const char* name) { load(name); }
+        explicit Plugin(StringView name) { load(name); }
         Plugin(const Plugin& other) = delete;
         Plugin(Plugin&& other) noexcept
         {
@@ -102,6 +103,7 @@ namespace lyra
         virtual ~Plugin() { unload(); }
 
         // load plugin and function
+        bool load(StringView name) { return load(String(name).c_str()); }
         bool load(const char* name)
         {
             auto new_plugin = load_dll(name);

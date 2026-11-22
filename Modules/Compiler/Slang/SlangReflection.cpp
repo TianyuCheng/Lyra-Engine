@@ -80,6 +80,8 @@ static uint calculate_cumulative_space(CompileTarget target, const AccessPath& p
             space += calculate_cumulative_offset(slang::ParameterCategory::DescriptorTableSlot, path).space;
             space += calculate_cumulative_offset(slang::ParameterCategory::SubElementRegisterSpace, path).space;
             break;
+        case CompileTarget::HOST:
+            break;
     }
     return space;
 }

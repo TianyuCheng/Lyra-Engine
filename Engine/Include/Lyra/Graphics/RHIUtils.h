@@ -74,7 +74,49 @@ namespace lyra
     using GPUTextureAspectFlags    = BitFlags<GPUTextureAspect>;
 
     template <GPUObjectType E>
-    using GPUHandle = TypedEnumHandle<GPUObjectType, E, GPUIndex64>;
+    struct GPUHandle : public TypedEnumHandle<GPUObjectType, E, GPUIndex64>
+    {
+        static constexpr ulong RHI_MASK = 0xF000'0000'0000'0000ULL;
+        static constexpr ulong RAW_MASK = 0x0FFF'FFFF'FFFF'FFFFULL;
+
+        using Base = TypedEnumHandle<GPUObjectType, E, GPUIndex64>;
+        using Base::Base;
+        using Base::value;
+
+        FORCE_INLINE bool valid() const
+        {
+            return value != GPUIndex64(-1) && (static_cast<ulong>(value) & RAW_MASK) != RAW_MASK;
+        }
+
+        FORCE_INLINE ubyte rhi() const
+        {
+            return static_cast<ubyte>((static_cast<ulong>(value) >> 60) & 0x0F);
+        }
+
+        FORCE_INLINE GPUHandle raw() const
+        {
+            return GPUHandle(static_cast<GPUIndex64>(static_cast<ulong>(value) & RAW_MASK));
+        }
+
+        FORCE_INLINE static GPUHandle pack(GPUHandle handle, ubyte rhi)
+        {
+            ulong packed = (static_cast<ulong>(handle.value) & RAW_MASK) | (static_cast<ulong>(rhi & 0x0F) << 60);
+            return GPUHandle(static_cast<GPUIndex64>(packed));
+        }
+
+        template <typename SlotType>
+        FORCE_INLINE static GPUHandle create(apus::slot_map_handle<SlotType> handle)
+        {
+            return GPUHandle(as_type<GPUIndex64>(handle));
+        }
+
+        template <typename SlotType>
+        FORCE_INLINE apus::slot_map_handle<SlotType> to_slotmap_handle() const
+        {
+            ulong raw_val = static_cast<ulong>(value) & RAW_MASK;
+            return as_type<apus::slot_map_handle<SlotType>>(raw_val);
+        }
+    };
 
     // typed GPU handle
     using GPUSurfaceHandle            = GPUHandle<GPUObjectType::SURFACE>;

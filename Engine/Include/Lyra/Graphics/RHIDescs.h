@@ -18,7 +18,8 @@ namespace lyra
     {
         RHIFlags     flags = 0;
         RHIBackend   backend;
-        WindowHandle window = {};
+        StringView   custom_backend = {};
+        WindowHandle window         = {};
     };
 
     struct GPUAdapterDescriptor : public GPUObjectDescriptorBase

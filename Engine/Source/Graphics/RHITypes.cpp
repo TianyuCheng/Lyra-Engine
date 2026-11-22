@@ -1,7 +1,7 @@
 #include <Lyra/Utilities/Plugin.h>
+#include <Lyra/Utilities/Logger.h>
 #include <Lyra/Graphics/RHIAPI.h>
 #include <Lyra/Graphics/RHITypes.h>
-#include <spdlog/spdlog.h>
 
 using namespace lyra;
 
@@ -11,106 +11,195 @@ FORWARD_DECLARE_API(lyra::mockgpu, RenderAPI)
 using RenderPlugin        = Plugin<RenderAPI>;
 using BuiltinRenderPlugin = BuiltinPlugin<RenderAPI>;
 
-static Own<RenderPlugin>        RENDER_PLUGIN;
-static Own<BuiltinRenderPlugin> BUILTIN_RENDER_PLUGIN;
-static RenderAPI*               CURRENT_API = nullptr;
+struct RHIBackendSlot
+{
+    Own<RenderPlugin>        plugin;
+    Own<BuiltinRenderPlugin> builtin_plugin;
+    RenderAPI*               api          = nullptr;
+    Optional<RHIBackend>     backend_type = std::nullopt;
+    GPUAdapter               adapter      = {};
+    GPUDevice                device       = {};
+    bool                     active       = false;
+};
+
+static Array<RHIBackendSlot, 16> G_BACKENDS = {};
+
+static ubyte ACTIVE_BACKEND_ID = 0;
 
 #pragma region RHI
 OwnedResource<RHI> RHI::init(const RHIDescriptor& descriptor)
 {
-    if (RENDER_PLUGIN.get() || BUILTIN_RENDER_PLUGIN.get()) {
-        show_error("RHI", "Call RHI::init() exactly once!");
+    int slot_id = -1;
+    for (int i = 0; i < 16; ++i) {
+        if (G_BACKENDS[i].active && G_BACKENDS[i].backend_type == descriptor.backend) {
+            slot_id = i;
+            break;
+        }
+    }
+
+    if (slot_id == -1) {
+        for (int i = 0; i < 16; ++i) {
+            if (!G_BACKENDS[i].active) {
+                slot_id = i;
+                break;
+            }
+        }
+    }
+
+    if (slot_id == -1) {
+        show_error("RHI", "Exceeded maximum number of active RHI backends (16)!");
         exit(1);
     }
 
+    auto& slot        = G_BACKENDS[slot_id];
+    slot.active       = true;
+    slot.backend_type = descriptor.backend;
+
     switch (descriptor.backend) {
         case RHIBackend::D3D12:
-            RENDER_PLUGIN = std::make_unique<RenderPlugin>("lyra-d3d12");
-            CURRENT_API   = RENDER_PLUGIN->get_api();
+            slot.plugin = std::make_unique<RenderPlugin>("lyra-d3d12");
+            slot.api    = slot.plugin->get_api();
             break;
         case RHIBackend::METAL:
-            RENDER_PLUGIN = std::make_unique<RenderPlugin>("lyra-metal");
-            CURRENT_API   = RENDER_PLUGIN->get_api();
+            slot.plugin = std::make_unique<RenderPlugin>("lyra-metal");
+            slot.api    = slot.plugin->get_api();
             break;
         case RHIBackend::VULKAN:
-            RENDER_PLUGIN = std::make_unique<RenderPlugin>("lyra-vulkan");
-            CURRENT_API   = RENDER_PLUGIN->get_api();
+            slot.plugin = std::make_unique<RenderPlugin>("lyra-vulkan");
+            slot.api    = slot.plugin->get_api();
             break;
         case RHIBackend::SOFTGPU:
-            RENDER_PLUGIN = std::make_unique<RenderPlugin>("lyra-softgpu");
-            CURRENT_API   = RENDER_PLUGIN->get_api();
+            slot.plugin = std::make_unique<RenderPlugin>("lyra-softgpu");
+            slot.api    = slot.plugin->get_api();
             break;
         case RHIBackend::MOCKGPU:
-            BUILTIN_RENDER_PLUGIN = std::make_unique<BuiltinRenderPlugin>(
+            slot.builtin_plugin = std::make_unique<BuiltinRenderPlugin>(
                 lyra::mockgpu::create,
                 lyra::mockgpu::prepare,
                 lyra::mockgpu::cleanup);
-            CURRENT_API = BUILTIN_RENDER_PLUGIN->get_api();
+            slot.api = slot.builtin_plugin->get_api();
+            break;
+        case RHIBackend::CUSTOM:
+            slot.plugin = std::make_unique<RenderPlugin>(descriptor.custom_backend);
+            slot.api    = slot.plugin->get_api();
             break;
     }
 
+    ACTIVE_BACKEND_ID = static_cast<ubyte>(slot_id);
+
     OwnedResource<RHI> rhi(new RHI());
-    rhi->flags   = descriptor.flags;
-    rhi->backend = descriptor.backend;
-    rhi->window  = descriptor.window;
-    RHI::api()->create_instance(descriptor);
+    rhi->id             = static_cast<ubyte>(slot_id);
+    rhi->flags          = descriptor.flags;
+    rhi->backend        = descriptor.backend;
+    rhi->custom_backend = descriptor.custom_backend;
+    slot.api->create_instance(descriptor);
     return rhi;
+}
+
+OwnedResource<RHI> RHI::init(StringView custom_backend, const RHIDescriptor& descriptor)
+{
+    RHIDescriptor desc  = descriptor;
+    desc.backend        = RHIBackend::CUSTOM;
+    desc.custom_backend = custom_backend;
+    return init(desc);
 }
 
 RenderAPI* RHI::api()
 {
-    return CURRENT_API;
+    if (G_BACKENDS[ACTIVE_BACKEND_ID].active && G_BACKENDS[ACTIVE_BACKEND_ID].api) {
+        return G_BACKENDS[ACTIVE_BACKEND_ID].api;
+    }
+    for (auto& slot : G_BACKENDS) {
+        if (slot.active && slot.api) return slot.api;
+    }
+    return nullptr;
+}
+
+RenderAPI* RHI::api(uint rhi)
+{
+    if (rhi < G_BACKENDS.size() && G_BACKENDS[rhi].active) {
+        return G_BACKENDS[rhi].api;
+    }
+    return RHI::api();
 }
 
 void RHI::destroy() const
 {
-    if (CURRENT_API) {
-        if (get_current_device().valid()) {
-            CURRENT_API->wait_idle();
-            CURRENT_API->delete_device();
-            get_current_device().is_valid = false;
+    if (id < G_BACKENDS.size()) {
+        auto& slot = G_BACKENDS[id];
+        if (slot.active && slot.api) {
+            if (slot.device.valid()) {
+                slot.api->wait_idle();
+                slot.api->delete_device();
+                slot.device.reset();
+            }
+            slot.api->delete_adapter();
+            slot.api->delete_instance();
         }
-        CURRENT_API->delete_adapter();
-        CURRENT_API->delete_instance();
+        slot.builtin_plugin.reset();
+        slot.plugin.reset();
+        slot.api          = nullptr;
+        slot.active       = false;
+        slot.backend_type = std::nullopt;
+        slot.adapter      = {};
+        slot.device       = {};
+
+        if (ACTIVE_BACKEND_ID == id) {
+            ACTIVE_BACKEND_ID = 0;
+            for (usize i = 0; i < G_BACKENDS.size(); ++i) {
+                if (G_BACKENDS[i].active && G_BACKENDS[i].api) {
+                    ACTIVE_BACKEND_ID = static_cast<ubyte>(i);
+                    break;
+                }
+            }
+        }
     }
-    BUILTIN_RENDER_PLUGIN.reset();
-    RENDER_PLUGIN.reset();
-    CURRENT_API = nullptr;
 }
 
 void RHI::wait()
 {
-    RHI::api()->wait_idle();
+    if (auto api = RHI::api()) api->wait_idle();
 }
 
 void RHI::new_frame()
 {
-    RHI::api()->new_frame();
+    if (auto api = RHI::api()) api->new_frame();
 }
 
 void RHI::end_frame()
 {
-    RHI::api()->end_frame();
+    if (auto api = RHI::api()) api->end_frame();
 }
 
 GPUAdapter& RHI::get_current_adapter()
 {
-    static GPUAdapter ADAPTER = {};
-    return ADAPTER;
+    if (G_BACKENDS[ACTIVE_BACKEND_ID].active && G_BACKENDS[ACTIVE_BACKEND_ID].adapter.valid()) {
+        return G_BACKENDS[ACTIVE_BACKEND_ID].adapter;
+    }
+    for (auto& slot : G_BACKENDS) {
+        if (slot.active && slot.adapter.valid()) return slot.adapter;
+    }
+    return G_BACKENDS[ACTIVE_BACKEND_ID].adapter;
 }
 
 GPUDevice& RHI::get_current_device()
 {
-    static GPUDevice DEVICE = {};
-    return DEVICE;
+    if (G_BACKENDS[ACTIVE_BACKEND_ID].active && G_BACKENDS[ACTIVE_BACKEND_ID].device.valid()) {
+        return G_BACKENDS[ACTIVE_BACKEND_ID].device;
+    }
+    for (auto& slot : G_BACKENDS) {
+        if (slot.active && slot.device.valid()) return slot.device;
+    }
+    return G_BACKENDS[ACTIVE_BACKEND_ID].device;
 }
 
 GPUAdapter RHI::request_adapter(const GPUAdapterDescriptor& descriptor) const
 {
     GPUAdapterProps props;
-    RHI::api()->create_adapter(props, descriptor);
+    RHI::api(id)->create_adapter(props, descriptor);
 
-    auto& adapter      = RHI::get_current_adapter();
+    auto& adapter      = G_BACKENDS[id].adapter;
+    adapter.rhi        = id;
     adapter.info       = props.info;
     adapter.features   = props.features;
     adapter.limits     = props.limits;
@@ -121,7 +210,9 @@ GPUAdapter RHI::request_adapter(const GPUAdapterDescriptor& descriptor) const
 GPUSurface RHI::request_surface(const GPUSurfaceDescriptor& descriptor) const
 {
     GPUSurface surface;
-    RHI::api()->create_surface(surface.handle, descriptor);
+    surface.rhi = id;
+    RHI::api(id)->create_surface(surface.handle, descriptor);
+    surface.handle = GPUSurfaceHandle::pack(surface.handle, id);
     return surface;
 }
 #pragma endregion RHI
@@ -188,14 +279,14 @@ GPUDevice GPUAdapter::request_device(const GPUDeviceDescriptor& descriptor)
         }
     }
 
-    auto& device        = RHI::get_current_device();
+    auto& device        = G_BACKENDS[rhi].device;
+    device.rhi          = rhi;
     device.adapter_info = info;
     device.features     = features;
-    if (!RHI::api()->create_device(descriptor)) {
-        device.is_valid = false;
+    if (!RHI::api(rhi)->create_device(descriptor)) {
+        device.reset();
         return {};
     }
-    device.is_valid = true;
     return device;
 }
 #pragma endregion GPUAdapter
@@ -205,39 +296,45 @@ GPUSurfaceTexture GPUSurface::get_current_texture() const
 {
     GPUSurfaceTexture texture;
     texture.surface = handle;
-    RHI::api()->acquire_next_frame(handle, texture.texture, texture.view, texture.available, texture.complete, texture.suboptimal);
+    RHI::api(handle)->acquire_next_frame(handle.raw(), texture.texture, texture.view, texture.available, texture.complete, texture.suboptimal);
+    texture.texture   = GPUTextureHandle::pack(texture.texture, handle.rhi());
+    texture.view      = GPUTextureViewHandle::pack(texture.view, handle.rhi());
+    texture.available = GPUFenceHandle::pack(texture.available, handle.rhi());
+    texture.complete  = GPUFenceHandle::pack(texture.complete, handle.rhi());
     return texture;
 }
 
 GPUTextureFormat GPUSurface::get_current_format() const
 {
     GPUTextureFormat format;
-    RHI::api()->get_surface_format(handle, format);
+    RHI::api(handle)->get_surface_format(handle.raw(), format);
     return format;
 }
 
 GPUExtent2D GPUSurface::get_current_extent() const
 {
     GPUExtent2D extent;
-    RHI::api()->get_surface_extent(handle, extent);
+    RHI::api(handle)->get_surface_extent(handle.raw(), extent);
     return extent;
 }
 
 uint GPUSurface::get_image_count() const
 {
-    return RHI::api()->get_surface_frames(handle);
+    return RHI::api(handle)->get_surface_frames(handle.raw());
 }
 
 void GPUSurface::destroy() const
 {
-    RHI::api()->delete_surface(handle);
+    if (valid()) {
+        RHI::api(handle)->delete_surface(handle.raw());
+    }
 }
 #pragma endregion GPUSurface
 
 #pragma region GPUSurfaceTexture
 void GPUSurfaceTexture::present() const
 {
-    RHI::api()->present_curr_frame(surface);
+    RHI::api(surface)->present_curr_frame(surface.raw());
 }
 #pragma endregion GPUSurfaceTexture
 
@@ -245,23 +342,26 @@ void GPUSurfaceTexture::present() const
 GPUFence GPUDevice::create_fence() const
 {
     GPUFence fence;
-    RHI::api()->create_fence(fence.handle);
+    RHI::api(rhi)->create_fence(fence.handle);
+    fence.handle = GPUFenceHandle::pack(fence.handle, rhi);
     return fence;
 }
 
 GPUBuffer GPUDevice::create_buffer(const GPUBufferDescriptor& desc) const
 {
     GPUBuffer buffer;
-    RHI::api()->create_buffer(buffer.handle, desc);
-    buffer.size  = desc.size;
-    buffer.usage = desc.usage;
+    RHI::api(rhi)->create_buffer(buffer.handle, desc);
+    buffer.handle = GPUBufferHandle::pack(buffer.handle, rhi);
+    buffer.size   = desc.size;
+    buffer.usage  = desc.usage;
     return buffer;
 }
 
 GPUTexture GPUDevice::create_texture(const GPUTextureDescriptor& desc) const
 {
     GPUTexture texture;
-    RHI::api()->create_texture(texture.handle, desc);
+    RHI::api(rhi)->create_texture(texture.handle, desc);
+    texture.handle          = GPUTextureHandle::pack(texture.handle, rhi);
     texture.width           = desc.size.width;
     texture.height          = desc.size.height;
     texture.depth           = desc.size.depth;
@@ -277,56 +377,64 @@ GPUTexture GPUDevice::create_texture(const GPUTextureDescriptor& desc) const
 GPUSampler GPUDevice::create_sampler(const GPUSamplerDescriptor& desc) const
 {
     GPUSampler sampler;
-    RHI::api()->create_sampler(sampler.handle, desc);
+    RHI::api(rhi)->create_sampler(sampler.handle, desc);
+    sampler.handle = GPUSamplerHandle::pack(sampler.handle, rhi);
     return sampler;
 }
 
 GPUShaderModule GPUDevice::create_shader_module(const GPUShaderModuleDescriptor& desc) const
 {
     GPUShaderModule module;
-    RHI::api()->create_shader_module(module.handle, desc);
+    RHI::api(rhi)->create_shader_module(module.handle, desc);
+    module.handle = GPUShaderModuleHandle::pack(module.handle, rhi);
     return module;
 }
 
 GPUQuerySet GPUDevice::create_query_set(const GPUQuerySetDescriptor& desc) const
 {
     GPUQuerySet query;
-    RHI::api()->create_query_set(query.handle, desc);
+    RHI::api(rhi)->create_query_set(query.handle, desc);
+    query.handle = GPUQuerySetHandle::pack(query.handle, rhi);
     return query;
 }
 
 GPUBlas GPUDevice::create_blas(const GPUBlasDescriptor& desc, const Vector<GPUBlasGeometrySizeDescriptor>& sizes) const
 {
     GPUBlas blas;
-    RHI::api()->create_blas(blas.handle, desc, sizes);
+    RHI::api(rhi)->create_blas(blas.handle, desc, sizes);
+    blas.handle = GPUBlasHandle::pack(blas.handle, rhi);
     return blas;
 }
 
 GPUTlas GPUDevice::create_tlas(const GPUTlasDescriptor& desc) const
 {
     GPUTlas tlas;
-    RHI::api()->create_tlas(tlas.handle, desc);
+    RHI::api(rhi)->create_tlas(tlas.handle, desc);
+    tlas.handle = GPUTlasHandle::pack(tlas.handle, rhi);
     return tlas;
 }
 
 GPUBindGroup GPUDevice::create_bind_group(const GPUBindGroupDescriptor& desc) const
 {
     GPUBindGroup bind_group;
-    RHI::api()->create_bind_group(bind_group.handle, desc);
+    RHI::api(rhi)->create_bind_group(bind_group.handle, desc);
+    bind_group.handle = GPUBindGroupHandle::pack(bind_group.handle, rhi);
     return bind_group;
 }
 
 GPUBindGroupHeap GPUDevice::create_bind_group_heap(const GPUBindGroupHeapDescriptor& desc) const
 {
     GPUBindGroupHeap heap;
-    RHI::api()->create_bind_group_heap(heap.handle, desc);
+    RHI::api(rhi)->create_bind_group_heap(heap.handle, desc);
+    heap.handle = GPUBindGroupHeapHandle::pack(heap.handle, rhi);
     return heap;
 }
 
 GPUBindGroupLayout GPUDevice::create_bind_group_layout(const GPUBindGroupLayoutDescriptor& desc) const
 {
     GPUBindGroupLayout layout;
-    RHI::api()->create_bind_group_layout(layout.handle, desc);
+    RHI::api(rhi)->create_bind_group_layout(layout.handle, desc);
+    layout.handle = GPUBindGroupLayoutHandle::pack(layout.handle, rhi);
     return layout;
 }
 
@@ -336,7 +444,8 @@ GPUPipelineLayout GPUDevice::create_pipeline_layout(const GPUPipelineLayoutDescr
         assert(layout.valid() && "create_pipeline_layout() requires valid bind group layout!");
 
     GPUPipelineLayout layout;
-    RHI::api()->create_pipeline_layout(layout.handle, desc);
+    RHI::api(rhi)->create_pipeline_layout(layout.handle, desc);
+    layout.handle = GPUPipelineLayoutHandle::pack(layout.handle, rhi);
     return layout;
 }
 
@@ -347,7 +456,8 @@ GPURenderPipeline GPUDevice::create_render_pipeline(const GPURenderPipelineDescr
     assert(desc.fragment.module.valid() && "create_render_pipeline() requires valid fragment shader module!");
 
     GPURenderPipeline pipeline;
-    RHI::api()->create_render_pipeline(pipeline.handle, desc);
+    RHI::api(rhi)->create_render_pipeline(pipeline.handle, desc);
+    pipeline.handle = GPURenderPipelineHandle::pack(pipeline.handle, rhi);
     return pipeline;
 }
 
@@ -357,7 +467,8 @@ GPUComputePipeline GPUDevice::create_compute_pipeline(const GPUComputePipelineDe
     assert(desc.compute.module.valid() && "create_compute_pipeline() requires valid compute shader module!");
 
     GPUComputePipeline pipeline;
-    RHI::api()->create_compute_pipeline(pipeline.handle, desc);
+    RHI::api(rhi)->create_compute_pipeline(pipeline.handle, desc);
+    pipeline.handle = GPUComputePipelineHandle::pack(pipeline.handle, rhi);
     return pipeline;
 }
 
@@ -366,51 +477,56 @@ GPURayTracingPipeline GPUDevice::create_raytracing_pipeline(const GPURayTracingP
     assert(desc.layout.valid() && "create_raytracing_pipeline() requires valid pipeline layout!");
 
     GPURayTracingPipeline pipeline;
-    RHI::api()->create_raytracing_pipeline(pipeline.handle, desc);
+    RHI::api(rhi)->create_raytracing_pipeline(pipeline.handle, desc);
+    pipeline.handle = GPURayTracingPipelineHandle::pack(pipeline.handle, rhi);
     return pipeline;
 }
 
 GPUCommandBuffer GPUDevice::create_command_buffer(const GPUCommandBufferDescriptor& desc) const
 {
     GPUCommandBuffer command_buffer;
-    RHI::api()->create_command_buffer(command_buffer.handle, desc);
+    RHI::api(rhi)->create_command_buffer(command_buffer.handle, desc);
+    command_buffer.handle = GPUCommandEncoderHandle::pack(command_buffer.handle, rhi);
     return command_buffer;
 }
 
 GPUCommandBundle GPUDevice::create_command_bundle(const GPUCommandBundleDescriptor& desc) const
 {
     GPUCommandBundle command_bundle;
-    RHI::api()->create_command_bundle(command_bundle.handle, desc);
+    RHI::api(rhi)->create_command_bundle(command_bundle.handle, desc);
+    command_bundle.handle = GPUCommandEncoderHandle::pack(command_bundle.handle, rhi);
     return command_bundle;
 }
 
 GPUBVHSizes GPUDevice::get_blas_sizes(GPUBlasHandle blas) const
 {
     GPUBVHSizes sizes;
-    RHI::api()->get_blas_sizes(blas, sizes);
+    RHI::api(rhi)->get_blas_sizes(blas.raw(), sizes);
     return sizes;
 }
 
 GPUBVHSizes GPUDevice::get_tlas_sizes(GPUTlasHandle tlas) const
 {
     GPUBVHSizes sizes;
-    RHI::api()->get_tlas_sizes(tlas, sizes);
+    RHI::api(rhi)->get_tlas_sizes(tlas.raw(), sizes);
     return sizes;
 }
 
 void GPUDevice::wait() const
 {
-    RHI::api()->wait_idle();
+    RHI::api(rhi)->wait_idle();
 }
 
 void GPUDevice::wait(GPUFence fence) const
 {
-    RHI::api()->wait_fence(fence.handle);
+    RHI::api(rhi)->wait_fence(fence.handle.raw());
 }
 
 void GPUDevice::destroy() const
 {
-    RHI::api()->delete_device();
+    if (valid()) {
+        RHI::api(rhi)->delete_device();
+    }
 }
 #pragma endregion GPUSurface
 
@@ -418,30 +534,33 @@ void GPUDevice::destroy() const
 MappedBufferRange GPUBuffer::get_mapped_range() const
 {
     MappedBufferRange range = {};
-    RHI::api()->get_mapped_range(handle, range);
+    RHI::api(handle)->get_mapped_range(handle.raw(), range);
     return range;
 }
 
 GPUMapState GPUBuffer::get_mapped_state() const
 {
     GPUMapState state;
-    RHI::api()->get_mapped_state(handle, state);
+    RHI::api(handle)->get_mapped_state(handle.raw(), state);
     return state;
 }
 
 void GPUBuffer::map(GPUMapMode mode, GPUSize64 offset, GPUSize64 size)
 {
-    RHI::api()->map_buffer(handle, mode, offset, size);
+    RHI::api(handle)->map_buffer(handle.raw(), mode, offset, size);
 }
 
 void GPUBuffer::unmap()
 {
-    RHI::api()->unmap_buffer(handle);
+    RHI::api(handle)->unmap_buffer(handle.raw());
 }
 
 void GPUBuffer::destroy()
 {
-    RHI::api()->delete_buffer(handle);
+    if (valid()) {
+        RHI::api(handle)->delete_buffer(handle.raw());
+        handle.reset();
+    }
 }
 #pragma endregion GPUBuffer
 
@@ -487,342 +606,373 @@ GPUTextureView GPUTexture::create_view()
 GPUTextureView GPUTexture::create_view(GPUTextureViewDescriptor descriptor)
 {
     GPUTextureView view;
-    RHI::api()->create_texture_view(view.handle, handle, descriptor);
+    RHI::api(handle)->create_texture_view(view.handle, handle.raw(), descriptor);
+    view.handle = GPUTextureViewHandle::pack(view.handle, handle.rhi());
     return view;
 }
 
 void GPUTexture::destroy()
 {
-    RHI::api()->delete_texture(handle);
-    handle.reset();
+    if (valid()) {
+        RHI::api(handle)->delete_texture(handle.raw());
+        handle.reset();
+    }
 }
 #pragma endregion GPUTexture
 
 #pragma region GPUTextureView
 void GPUTextureView::destroy()
 {
-    RHI::api()->delete_texture_view(handle);
+    if (valid()) {
+        RHI::api(handle)->delete_texture_view(handle.raw());
+        handle.reset();
+    }
 }
 #pragma endregion GPUTextureView
 
 #pragma region GPUSampler
 void GPUSampler::destroy()
 {
-    RHI::api()->delete_sampler(handle);
-    handle.reset();
+    if (valid()) {
+        RHI::api(handle)->delete_sampler(handle.raw());
+        handle.reset();
+    }
 }
 #pragma endregion GPUSampler
 
 #pragma region GPUFence
 bool GPUFence::poll() const
 {
-    return RHI::api()->poll_fence ? RHI::api()->poll_fence(handle) : true;
+    auto api = RHI::api(handle);
+    return api && api->poll_fence ? api->poll_fence(handle.raw()) : true;
 }
 
 void GPUFence::wait() const
 {
-    RHI::api()->wait_fence(handle);
+    if (auto api = RHI::api(handle)) api->wait_fence(handle.raw());
 }
 
 void GPUFence::destroy()
 {
-    RHI::api()->delete_fence(handle);
-    handle.reset();
+    if (valid()) {
+        if (auto api = RHI::api(handle)) api->delete_fence(handle.raw());
+        handle.reset();
+    }
 }
 #pragma endregion GPUFence
 
 #pragma region GPUShaderModule
 void GPUShaderModule::destroy()
 {
-    RHI::api()->delete_shader_module(handle);
-    handle.reset();
+    if (valid()) {
+        RHI::api(handle)->delete_shader_module(handle.raw());
+        handle.reset();
+    }
 }
 #pragma endregion GPUShaderModule
 
 #pragma region GPUQuerySet
 void GPUQuerySet::destroy()
 {
-    RHI::api()->delete_query_set(handle);
-    handle.reset();
+    if (valid()) {
+        RHI::api(handle)->delete_query_set(handle.raw());
+        handle.reset();
+    }
 }
 #pragma endregion GPUQuerySet
 
 #pragma region GPUTlas
 void GPUTlas::destroy()
 {
-    RHI::api()->delete_tlas(handle);
-    handle.reset();
+    if (valid()) {
+        RHI::api(handle)->delete_tlas(handle.raw());
+        handle.reset();
+    }
 }
 #pragma endregion GPUTlas
 
 #pragma region GPUBlas
 void GPUBlas::destroy()
 {
-    RHI::api()->delete_blas(handle);
-    handle.reset();
+    if (valid()) {
+        RHI::api(handle)->delete_blas(handle.raw());
+        handle.reset();
+    }
 }
 #pragma endregion GPUBlas
 
 #pragma region GPUBindGroupHeap
 void GPUBindGroupHeap::destroy()
 {
-    RHI::api()->delete_bind_group_heap(handle);
-    handle.reset();
+    if (valid()) {
+        RHI::api(handle)->delete_bind_group_heap(handle.raw());
+        handle.reset();
+    }
 }
 #pragma endregion GPUBindGroupHeap
 
 #pragma region GPUBindGroupLayout
 void GPUBindGroupLayout::destroy()
 {
-    RHI::api()->delete_bind_group_layout(handle);
-    handle.reset();
+    if (valid()) {
+        RHI::api(handle)->delete_bind_group_layout(handle.raw());
+        handle.reset();
+    }
 }
 #pragma endregion GPUBindGroupLayout
 
 #pragma region GPUPipelineLayout
 void GPUPipelineLayout::destroy()
 {
-    RHI::api()->delete_pipeline_layout(handle);
-    handle.reset();
+    if (valid()) {
+        RHI::api(handle)->delete_pipeline_layout(handle.raw());
+        handle.reset();
+    }
 }
 #pragma endregion GPUPipelineLayout
 
 #pragma region GPURenderPipeline
 void GPURenderPipeline::destroy()
 {
-    RHI::api()->delete_render_pipeline(handle);
-    handle.reset();
+    if (valid()) {
+        RHI::api(handle)->delete_render_pipeline(handle.raw());
+        handle.reset();
+    }
 }
 #pragma endregion GPURenderPipeline
 
 #pragma region GPUComputePipeline
 void GPUComputePipeline::destroy()
 {
-    RHI::api()->delete_compute_pipeline(handle);
-    handle.reset();
+    if (valid()) {
+        RHI::api(handle)->delete_compute_pipeline(handle.raw());
+        handle.reset();
+    }
 }
 #pragma endregion GPUComputePipeline
 
 #pragma region GPURayTracingPipeline
 void GPURayTracingPipeline::destroy()
 {
-    RHI::api()->delete_raytracing_pipeline(handle);
-    handle.reset();
+    if (valid()) {
+        RHI::api(handle)->delete_raytracing_pipeline(handle.raw());
+        handle.reset();
+    }
 }
 #pragma endregion GPURayTracingPipeline
 
 #pragma region GPUCommandEncoder
 void GPUCommandEncoder::insert_debug_marker(CString marker_label) const
 {
-    RHI::api()->cmd_insert_debug_marker(handle, marker_label);
+    RHI::api(handle)->cmd_insert_debug_marker(handle.raw(), marker_label);
 }
 
 void GPUCommandEncoder::push_debug_group(CString group_label) const
 {
-    RHI::api()->cmd_push_debug_group(handle, group_label);
+    RHI::api(handle)->cmd_push_debug_group(handle.raw(), group_label);
 }
 
 void GPUCommandEncoder::pop_debug_group() const
 {
-    RHI::api()->cmd_pop_debug_group(handle);
+    RHI::api(handle)->cmd_pop_debug_group(handle.raw());
 }
 
 void GPUCommandEncoder::wait(const GPUFence& fence, GPUBarrierSyncFlags sync) const
 {
-    RHI::api()->cmd_wait_fence(handle, fence.handle, sync);
+    RHI::api(handle)->cmd_wait_fence(handle.raw(), fence.handle.raw(), sync);
 }
 
 void GPUCommandEncoder::signal(const GPUFence& fence, GPUBarrierSyncFlags sync) const
 {
-    RHI::api()->cmd_signal_fence(handle, fence.handle, sync);
+    RHI::api(handle)->cmd_signal_fence(handle.raw(), fence.handle.raw(), sync);
 }
 
 void GPUCommandEncoder::set_pipeline(const GPURenderPipeline& pipeline) const
 {
-    RHI::api()->cmd_set_render_pipeline(handle, pipeline.handle);
+    RHI::api(handle)->cmd_set_render_pipeline(handle.raw(), pipeline.handle.raw());
 }
 
 void GPUCommandEncoder::set_pipeline(const GPUComputePipeline& pipeline) const
 {
-    RHI::api()->cmd_set_compute_pipeline(handle, pipeline.handle);
+    RHI::api(handle)->cmd_set_compute_pipeline(handle.raw(), pipeline.handle.raw());
 }
 
 void GPUCommandEncoder::set_pipeline(const GPURayTracingPipeline& pipeline) const
 {
-    RHI::api()->cmd_set_raytracing_pipeline(handle, pipeline.handle);
+    RHI::api(handle)->cmd_set_raytracing_pipeline(handle.raw(), pipeline.handle.raw());
 }
 
 void GPUCommandEncoder::set_bind_group(GPUIndex32 index, const GPUBindGroup& bind_group, const Vector<GPUBufferDynamicOffset>& dynamic_offsets) const
 {
-    RHI::api()->cmd_set_bind_group(handle, index, bind_group, dynamic_offsets);
+    RHI::api(handle)->cmd_set_bind_group(handle.raw(), index, bind_group.handle.raw(), dynamic_offsets);
 }
 
 void GPUCommandEncoder::set_immediates(uint offset, uint size, const void* data) const
 {
     assert(offset % 4 == 0 && "Immediate offset must be a multiple of 4 bytes");
     assert(size % 4 == 0 && "Immediate size must be a multiple of 4 bytes");
-    RHI::api()->cmd_set_immediates(handle, offset, size, data);
+    RHI::api(handle)->cmd_set_immediates(handle.raw(), offset, size, data);
 }
 
 void GPUCommandEncoder::dispatch_workgroups(GPUSize32 x, GPUSize32 y, GPUSize32 z) const
 {
-    RHI::api()->cmd_dispatch_workgroups(handle, x, y, z);
+    RHI::api(handle)->cmd_dispatch_workgroups(handle.raw(), x, y, z);
 }
 
 void GPUCommandEncoder::dispatch_workgroups_indirect(const GPUBuffer& indirect_buffer, GPUSize64 indirect_offset) const
 {
-    RHI::api()->cmd_dispatch_workgroups_indirect(handle, indirect_buffer, indirect_offset);
+    RHI::api(handle)->cmd_dispatch_workgroups_indirect(handle.raw(), indirect_buffer.handle.raw(), indirect_offset);
 }
 
 void GPUCommandEncoder::set_index_buffer(const GPUBuffer& buffer, GPUIndexFormat index_format, GPUSize64 offset, GPUSize64 size) const
 {
-    RHI::api()->cmd_set_index_buffer(handle, buffer.handle, index_format, offset, size);
+    RHI::api(handle)->cmd_set_index_buffer(handle.raw(), buffer.handle.raw(), index_format, offset, size);
 }
 
 void GPUCommandEncoder::set_vertex_buffer(GPUIndex32 slot, const GPUBuffer& buffer, GPUSize64 offset, GPUSize64 size) const
 {
-    RHI::api()->cmd_set_vertex_buffer(handle, slot, buffer.handle, offset, size);
+    RHI::api(handle)->cmd_set_vertex_buffer(handle.raw(), slot, buffer.handle.raw(), offset, size);
 }
 
 void GPUCommandEncoder::draw(GPUSize32 vertex_count, GPUSize32 instance_count, GPUSize32 first_vertex, GPUSize32 first_instance) const
 {
-    RHI::api()->cmd_draw(handle, vertex_count, instance_count, first_vertex, first_instance);
+    RHI::api(handle)->cmd_draw(handle.raw(), vertex_count, instance_count, first_vertex, first_instance);
 }
 
 void GPUCommandEncoder::draw_indexed(GPUSize32 index_count, GPUSize32 instance_count, GPUSize32 first_index, GPUSignedOffset32 base_vertex, GPUSize32 first_instance) const
 {
-    RHI::api()->cmd_draw_indexed(handle, index_count, instance_count, first_index, base_vertex, first_instance);
+    RHI::api(handle)->cmd_draw_indexed(handle.raw(), index_count, instance_count, first_index, base_vertex, first_instance);
 }
 
 void GPUCommandEncoder::draw_indirect(const GPUBuffer& indirect_buffer, GPUSize64 indirect_offset, GPUSize32 draw_count) const
 {
-    RHI::api()->cmd_draw_indirect(handle, indirect_buffer.handle, indirect_offset, draw_count);
+    RHI::api(handle)->cmd_draw_indirect(handle.raw(), indirect_buffer.handle.raw(), indirect_offset, draw_count);
 }
 
 void GPUCommandEncoder::draw_indexed_indirect(const GPUBuffer& indirect_buffer, GPUSize64 indirect_offset, GPUSize32 draw_count) const
 {
-    RHI::api()->cmd_draw_indexed_indirect(handle, indirect_buffer.handle, indirect_offset, draw_count);
+    RHI::api(handle)->cmd_draw_indexed_indirect(handle.raw(), indirect_buffer.handle.raw(), indirect_offset, draw_count);
 }
 
 void GPUCommandEncoder::begin_render_pass(const GPURenderPassDescriptor& descriptor) const
 {
-    RHI::api()->cmd_begin_render_pass(handle, descriptor);
+    RHI::api(handle)->cmd_begin_render_pass(handle.raw(), descriptor);
 }
 
 void GPUCommandEncoder::end_render_pass() const
 {
-    RHI::api()->cmd_end_render_pass(handle);
+    RHI::api(handle)->cmd_end_render_pass(handle.raw());
 }
 
 void GPUCommandEncoder::build_tlases(const GPUBuffer& scratch_buffer, GPUTlasBuildEntries entries) const
 {
-    RHI::api()->cmd_build_tlases(handle, scratch_buffer.handle, entries);
+    RHI::api(handle)->cmd_build_tlases(handle.raw(), scratch_buffer.handle.raw(), entries);
 }
 
 void GPUCommandEncoder::build_blases(const GPUBuffer& scratch_buffer, GPUBlasBuildEntries entries) const
 {
-    RHI::api()->cmd_build_blases(handle, scratch_buffer.handle, entries);
+    RHI::api(handle)->cmd_build_blases(handle.raw(), scratch_buffer.handle.raw(), entries);
 }
 
 void GPUCommandEncoder::copy_buffer_to_buffer(const GPUBuffer& source, const GPUBuffer& destination, GPUSize64 size) const
 {
-    RHI::api()->cmd_copy_buffer_to_buffer(handle, source, 0u, destination, 0u, size);
+    RHI::api(handle)->cmd_copy_buffer_to_buffer(handle.raw(), source.handle.raw(), 0u, destination.handle.raw(), 0u, size);
 }
 
 void GPUCommandEncoder::copy_buffer_to_buffer(const GPUBuffer& source, GPUSize64 source_offset, const GPUBuffer& destination, GPUSize64 destination_offset, GPUSize64 size) const
 {
-    RHI::api()->cmd_copy_buffer_to_buffer(handle, source, source_offset, destination, destination_offset, size);
+    RHI::api(handle)->cmd_copy_buffer_to_buffer(handle.raw(), source.handle.raw(), source_offset, destination.handle.raw(), destination_offset, size);
 }
 
 void GPUCommandEncoder::copy_buffer_to_texture(const GPUTexelCopyBufferInfo& source, const GPUTexelCopyTextureInfo& destination, const GPUExtent3D& copy_size) const
 {
-    RHI::api()->cmd_copy_buffer_to_texture(handle, source, destination, copy_size);
+    RHI::api(handle)->cmd_copy_buffer_to_texture(handle.raw(), source, destination, copy_size);
 }
 
 void GPUCommandEncoder::copy_texture_to_buffer(const GPUTexelCopyTextureInfo& source, const GPUTexelCopyBufferInfo& destination, const GPUExtent3D& copy_size) const
 {
-    RHI::api()->cmd_copy_texture_to_buffer(handle, source, destination, copy_size);
+    RHI::api(handle)->cmd_copy_texture_to_buffer(handle.raw(), source, destination, copy_size);
 }
 
 void GPUCommandEncoder::copy_texture_to_texture(const GPUTexelCopyTextureInfo& source, const GPUTexelCopyTextureInfo& destination, const GPUExtent3D& copy_size) const
 {
-    RHI::api()->cmd_copy_texture_to_texture(handle, source, destination, copy_size);
+    RHI::api(handle)->cmd_copy_texture_to_texture(handle.raw(), source, destination, copy_size);
 }
 
 void GPUCommandEncoder::clear_buffer(const GPUBuffer& buffer, GPUSize64 offset, GPUSize64 size) const
 {
-    RHI::api()->cmd_clear_buffer(handle, buffer, offset, size);
+    RHI::api(handle)->cmd_clear_buffer(handle.raw(), buffer.handle.raw(), offset, size);
 }
 
 void GPUCommandEncoder::set_viewport(float x, float y, float w, float h, float min_depth, float max_depth) const
 {
-    RHI::api()->cmd_set_viewport(handle, x, y, w, h, min_depth, max_depth);
+    RHI::api(handle)->cmd_set_viewport(handle.raw(), x, y, w, h, min_depth, max_depth);
 }
 
 void GPUCommandEncoder::set_scissor_rect(GPUIntegerCoordinate x, GPUIntegerCoordinate y, GPUIntegerCoordinate w, GPUIntegerCoordinate h) const
 {
-    RHI::api()->cmd_set_scissor_rect(handle, x, y, w, h);
+    RHI::api(handle)->cmd_set_scissor_rect(handle.raw(), x, y, w, h);
 }
 
 void GPUCommandEncoder::set_blend_constant(GPUColor color) const
 {
-    RHI::api()->cmd_set_blend_constant(handle, color);
+    RHI::api(handle)->cmd_set_blend_constant(handle.raw(), color);
 }
 
 void GPUCommandEncoder::set_stencil_reference(GPUStencilValue reference) const
 {
-    RHI::api()->cmd_set_stencil_reference(handle, reference);
+    RHI::api(handle)->cmd_set_stencil_reference(handle.raw(), reference);
 }
 
 void GPUCommandEncoder::begin_occlusion_query(GPUSize32 query_index) const
 {
-    RHI::api()->cmd_begin_occlusion_query(handle, query_index);
+    RHI::api(handle)->cmd_begin_occlusion_query(handle.raw(), query_index);
 }
 
 void GPUCommandEncoder::end_occlusion_query() const
 {
-    RHI::api()->cmd_end_occlusion_query(handle);
+    RHI::api(handle)->cmd_end_occlusion_query(handle.raw());
 }
 
 void GPUCommandEncoder::write_timestamp(const GPUQuerySet& query_set, GPUSize32 query_index) const
 {
-    RHI::api()->cmd_write_timestamp(handle, query_set, query_index);
+    RHI::api(handle)->cmd_write_timestamp(handle.raw(), query_set.handle.raw(), query_index);
 }
 
 void GPUCommandEncoder::write_blas_properties(const GPUQuerySet& query_set, GPUSize32 query_index, const GPUBlas& blas) const
 {
-    RHI::api()->cmd_write_blas_properties(handle, query_set, query_index, blas);
+    RHI::api(handle)->cmd_write_blas_properties(handle.raw(), query_set.handle.raw(), query_index, blas.handle.raw());
 }
 
 void GPUCommandEncoder::resolve_query_set(GPUQuerySet query_set, GPUSize32 first_query, GPUSize32 query_count, const GPUBuffer& destination, GPUSize64 destination_offset) const
 {
-    RHI::api()->cmd_resolve_query_set(handle, query_set, first_query, query_count, destination, destination_offset);
+    RHI::api(handle)->cmd_resolve_query_set(handle.raw(), query_set.handle.raw(), first_query, query_count, destination.handle.raw(), destination_offset);
 }
 
 void GPUCommandEncoder::resource_barrier(GPUBufferBarrier barrier) const
 {
-    RHI::api()->cmd_buffer_barrier(handle, barrier);
+    RHI::api(handle)->cmd_buffer_barrier(handle.raw(), barrier);
 }
 
 void GPUCommandEncoder::resource_barrier(GPUTextureBarrier barrier) const
 {
-    RHI::api()->cmd_texture_barrier(handle, barrier);
+    RHI::api(handle)->cmd_texture_barrier(handle.raw(), barrier);
 }
 
 void GPUCommandEncoder::resource_barrier(const Vector<GPUBufferBarrier>& barriers) const
 {
-    RHI::api()->cmd_buffer_barrier(handle, barriers);
+    RHI::api(handle)->cmd_buffer_barrier(handle.raw(), barriers);
 }
 
 void GPUCommandEncoder::resource_barrier(const Vector<GPUTextureBarrier>& barriers) const
 {
-    RHI::api()->cmd_texture_barrier(handle, barriers);
+    RHI::api(handle)->cmd_texture_barrier(handle.raw(), barriers);
 }
 #pragma endregion GPUCommandEncoder
 
 #pragma region GPUCommandBuffer
 void GPUCommandBuffer::submit() const
 {
-    RHI::api()->submit_command_buffer(handle);
+    RHI::api(handle)->submit_command_buffer(handle.raw());
 }
 #pragma endregion GPUCommandBuffer

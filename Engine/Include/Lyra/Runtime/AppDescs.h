@@ -25,9 +25,10 @@ namespace lyra
      */
     struct AppGraphicsDescriptor
     {
-        RHIBackend backend;    ///< The rendering backend (e.g., Vulkan, D3D12).
-        RHIFlags   flags;      ///< RHI initialization flags.
-        uint       frames = 3; ///< Number of frames in flight.
+        RHIBackend backend        = RHIBackend::VULKAN; ///< The rendering backend (e.g., Vulkan, D3D12).
+        StringView custom_backend = {};                 ///< The custom backend name if backend is CUSTOM.
+        RHIFlags   flags;                               ///< RHI initialization flags.
+        uint       frames = 3;                          ///< Number of frames in flight.
     };
 
     /**
@@ -88,6 +89,10 @@ namespace lyra
          * @brief Set the preferred graphics backend.
          */
         AppDescriptor& with_graphics_backend(RHIBackend backend);
+        /**
+         * @brief Set a custom graphics backend by name.
+         */
+        AppDescriptor& with_graphics_backend(StringView custom_backend);
         /**
          * @brief Enable graphics debugging and validation layers.
          */
