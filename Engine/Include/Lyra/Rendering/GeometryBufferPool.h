@@ -26,8 +26,8 @@ namespace lyra
         GeometryBufferPool(const GeometryBufferPool&)            = delete;
         GeometryBufferPool& operator=(const GeometryBufferPool&) = delete;
 
-        GeometryBufferPool(GeometryBufferPool&&) noexcept            = default;
-        GeometryBufferPool& operator=(GeometryBufferPool&&) noexcept = default;
+        GeometryBufferPool(GeometryBufferPool&&) noexcept   = default;
+        GeometryBufferPool& operator=(GeometryBufferPool&&) = delete;
 
         /**
          * @brief Sub-allocate a range from pooled slabs with specified alignment.

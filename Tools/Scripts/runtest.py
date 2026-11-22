@@ -417,8 +417,30 @@ def run_rhi_tests(args, buckets, on_progress=None):
 
         test_result = os.path.join(directory, f"{backend}.png")
         diff_result = os.path.join(directory, f"{backend}_diff.png")
+        skip_file   = os.path.join(directory, f"{backend}.skip")
 
-        if proc_success:
+        if proc_success and os.path.exists(skip_file):
+            skip_reason = "Feature not supported"
+            try:
+                with open(skip_file, "r", encoding="utf-8") as sf:
+                    line = sf.readline().strip()
+                    if line:
+                        skip_reason = line
+            except Exception:
+                pass
+            metrics = {
+                "passed": True,
+                "skipped": True,
+                "skip_reason": skip_reason,
+                "error": None,
+                "rmse": 0.0,
+                "mismatch_pct": 0.0,
+                "diff_pixels": 0,
+                "total_pixels": 0,
+                "max_diff": 0,
+                "diff_image": None,
+            }
+        elif proc_success:
             test_cfg_path = os.path.join(git_root, "Tests", test_name, "config.json")
             cur_mismatch_thresh = args.mismatch_threshold
             cur_rmse_thresh = args.rmse_threshold
@@ -475,6 +497,8 @@ def run_rhi_tests(args, buckets, on_progress=None):
                     print(f"  -> [FAIL] Execution failed: {full_name}")
                     if proc_output.strip():
                         print(f"     Output: {proc_output.strip()[:500]}")
+                elif metrics.get("skipped"):
+                    print(f"  -> [SKIP] {backend} ({metrics.get('skip_reason', 'Feature not supported')})")
                 elif metrics["passed"]:
                     print(f"  -> [PASS] {backend} (RMSE: {metrics['rmse']:.2f}, Diff: {metrics['mismatch_pct']:.2f}%, MaxDiff: {metrics['max_diff']})")
                 else:
@@ -527,6 +551,7 @@ def generate_html_report(args, results, unit_success=True, finished=True):
 
     total_checks = 0
     passed_checks = 0
+    skipped_checks = 0
     failed_checks = 0
     completed_checks = 0
 
@@ -540,7 +565,9 @@ def generate_html_report(args, results, unit_success=True, finished=True):
         metrics_dict = buckets.get("_metrics", {})
         for _, metrics in metrics_dict.items():
             completed_checks += 1
-            if metrics.get("passed", False):
+            if metrics.get("skipped", False):
+                skipped_checks += 1
+            elif metrics.get("passed", False):
                 passed_checks += 1
             else:
                 failed_checks += 1
@@ -766,6 +793,11 @@ def generate_html_report(args, results, unit_success=True, finished=True):
             color: var(--error);
             border: 1px solid rgba(224, 108, 117, 0.4);
         }}
+        .badge-skip {{
+            background-color: rgba(229, 192, 123, 0.15);
+            color: var(--warning);
+            border: 1px solid rgba(229, 192, 123, 0.4);
+        }}
         .badge-pending {{
             background-color: rgba(92, 99, 112, 0.15);
             color: var(--text-muted);
@@ -909,7 +941,7 @@ def generate_html_report(args, results, unit_success=True, finished=True):
             </div>
             <div class="stat">
                 <span class="stat-label">RHI Checks</span>
-                <span class="stat-value" id="stat-progress">{completed_checks}/{total_checks} ({passed_checks} Pass, {failed_checks} Fail)</span>
+                <span class="stat-value" id="stat-progress">{completed_checks}/{total_checks} ({passed_checks} Pass, {skipped_checks} Skip, {failed_checks} Fail)</span>
             </div>
             <div class="stat">
                 <span class="stat-label">Status</span>
@@ -986,6 +1018,10 @@ def generate_html_report(args, results, unit_success=True, finished=True):
                     if diff_img and os.path.exists(diff_img):
                         diff_uri = pathlib.Path(os.path.abspath(diff_img)).as_uri()
                         html_content.append(f'<button class="diff-btn" onclick="openLightbox(\'{diff_uri}\', \'{test_name} [{key.upper()} DIFF]\')">View Diff</button>')
+            elif key in metrics_map and metrics_map[key].get("skipped"):
+                m = metrics_map[key]
+                reason = m.get("skip_reason", "Feature not supported")
+                html_content.append(f'<span class="badge badge-skip">SKIPPED &bull; {reason}</span>')
             else:
                 if finished or (available_backends is not None and key not in available_backends):
                     html_content.append('<span class="empty-state">Not Available</span>')
@@ -1109,7 +1145,10 @@ def generate_html_report(args, results, unit_success=True, finished=True):
                         if (!cell) continue;
 
                         const container = cell.querySelector('.img-cell') || cell;
-                        if (!container.querySelector('.test-img') && info.image_uri) {
+                        if (info.skipped) {
+                            const reason = info.skip_reason || "Feature not supported";
+                            container.innerHTML = `<span class="badge badge-skip">SKIPPED &bull; ${reason}</span>`;
+                        } else if (!container.querySelector('.test-img') && info.image_uri) {
                             let badgeHtml = '';
                             if (info.passed) {
                                 badgeHtml = `<span class="badge badge-pass">PASS &bull; RMSE ${info.rmse.toFixed(2)} &bull; ${info.mismatch_pct.toFixed(2)}% diff</span>`;
@@ -1235,6 +1274,8 @@ def main():
 
                 live_state["results"][test_name][backend] = {
                     "passed": metrics.get("passed", False),
+                    "skipped": metrics.get("skipped", False),
+                    "skip_reason": metrics.get("skip_reason"),
                     "rmse": metrics.get("rmse", 0.0),
                     "mismatch_pct": metrics.get("mismatch_pct", 0.0),
                     "error": metrics.get("error"),

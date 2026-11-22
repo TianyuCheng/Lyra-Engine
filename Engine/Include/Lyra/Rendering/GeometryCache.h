@@ -40,8 +40,8 @@ namespace lyra
         GeometryCache(const GeometryCache&)            = delete;
         GeometryCache& operator=(const GeometryCache&) = delete;
 
-        GeometryCache(GeometryCache&&) noexcept            = default;
-        GeometryCache& operator=(GeometryCache&&) noexcept = default;
+        GeometryCache(GeometryCache&&) noexcept   = default;
+        GeometryCache& operator=(GeometryCache&&) = delete;
 
         /**
          * @brief Acquire or upload GPU representations for a MeshAsset.

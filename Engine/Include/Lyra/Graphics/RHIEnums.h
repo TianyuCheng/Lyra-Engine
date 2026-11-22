@@ -797,6 +797,40 @@ namespace lyra
         // clang-format on
     }
 
+    /**
+     * @brief Convert a GPUFeatureName enum value to its string representation.
+     */
+    inline constexpr CString to_string(GPUFeatureName feature)
+    {
+        // clang-format off
+        switch (feature) {
+            case GPUFeatureName::CORE_FEATURES_AND_LIMITS:            return "CORE_FEATURES_AND_LIMITS";
+            case GPUFeatureName::DEPTH_CLIP_CONTROL:                  return "DEPTH_CLIP_CONTROL";
+            case GPUFeatureName::DEPTH32FLOAT_STENCIL8:               return "DEPTH32FLOAT_STENCIL8";
+            case GPUFeatureName::TEXTURE_COMPRESSION_BC:              return "TEXTURE_COMPRESSION_BC";
+            case GPUFeatureName::TEXTURE_COMPRESSION_BC_SLICED_3D:    return "TEXTURE_COMPRESSION_BC_SLICED_3D";
+            case GPUFeatureName::TEXTURE_COMPRESSION_ETC2:            return "TEXTURE_COMPRESSION_ETC2";
+            case GPUFeatureName::TEXTURE_COMPRESSION_ASTC:            return "TEXTURE_COMPRESSION_ASTC";
+            case GPUFeatureName::TEXTURE_COMPRESSION_ASTC_SLICED_3D:  return "TEXTURE_COMPRESSION_ASTC_SLICED_3D";
+            case GPUFeatureName::TIMESTAMP_QUERY:                     return "TIMESTAMP_QUERY";
+            case GPUFeatureName::INDIRECT_FIRST_INSTANCE:             return "INDIRECT_FIRST_INSTANCE";
+            case GPUFeatureName::SHADER_F16:                          return "SHADER_F16";
+            case GPUFeatureName::RG11B10UFLOAT_PLUGINABLE:            return "RG11B10UFLOAT_PLUGINABLE";
+            case GPUFeatureName::BGRA8UNORM_STORAGE:                  return "BGRA8UNORM_STORAGE";
+            case GPUFeatureName::FLOAT32_FILTERABLE:                  return "FLOAT32_FILTERABLE";
+            case GPUFeatureName::FLOAT32_BLENDABLE:                   return "FLOAT32_BLENDABLE";
+            case GPUFeatureName::CLIP_DISTANCES:                      return "CLIP_DISTANCES";
+            case GPUFeatureName::DUAL_SOURCE_BLENDING:                return "DUAL_SOURCE_BLENDING";
+            case GPUFeatureName::SUBGROUPS:                           return "SUBGROUPS";
+            case GPUFeatureName::TEXTURE_FORMATS_TIER1:               return "TEXTURE_FORMATS_TIER1";
+            case GPUFeatureName::BINDLESS:                            return "BINDLESS";
+            case GPUFeatureName::RAYTRACING:                          return "RAYTRACING";
+            case GPUFeatureName::IMMEDIATES:                          return "IMMEDIATES";
+            default:                                                  return "UNKNOWN_FEATURE";
+        }
+        // clang-format on
+    }
+
 } // namespace lyra
 
 #endif // LYRA_ENGINE_GRAPHICS_RHIENUMS_H

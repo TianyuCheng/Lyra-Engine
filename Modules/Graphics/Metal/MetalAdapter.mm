@@ -29,6 +29,7 @@ bool api::create_adapter(GPUAdapterProps& adapter, const GPUAdapterDescriptor& d
     adapter.features.indirect_first_instance = true;
     adapter.features.shader_f16              = true;
     adapter.features.bgra8unorm_storage      = true;
+    adapter.features.bindless                = true;
     // adapter.features.pipeline_statistics_query = false;
 
     // check for raytracing support (Metal 3+)

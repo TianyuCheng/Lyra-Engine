@@ -14,7 +14,7 @@ struct TestAppDescriptor
     CompileTarget compile_target = CompileTarget::SPIRV;
     CompileFlags  compile_flags  = CompileFlag::DEBUG;
 
-    Vector<GPUFeatureName> required_features = {};
+    Vector<GPUFeatureName> features = {};
 };
 
 struct TestApp
@@ -44,6 +44,8 @@ struct TestApp
     RenderTarget            render_target;
     GPUBindGroupHeap        bheap;
     Own<FileLoader>         loader;
+    bool                    skipped     = false;
+    String                  skip_reason = "";
 };
 
 #endif // LYRA_TESTLIB_HELPER_APP_H

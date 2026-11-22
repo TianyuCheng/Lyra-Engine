@@ -1,6 +1,7 @@
 #include <Lyra/Utilities/Plugin.h>
 #include <Lyra/Graphics/RHIAPI.h>
 #include <Lyra/Graphics/RHITypes.h>
+#include <spdlog/spdlog.h>
 
 using namespace lyra;
 
@@ -64,8 +65,11 @@ RenderAPI* RHI::api()
 void RHI::destroy() const
 {
     if (CURRENT_API) {
-        CURRENT_API->wait_idle();
-        CURRENT_API->delete_device();
+        if (get_current_device().valid()) {
+            CURRENT_API->wait_idle();
+            CURRENT_API->delete_device();
+            get_current_device().is_valid = false;
+        }
         CURRENT_API->delete_adapter();
         CURRENT_API->delete_instance();
     }
@@ -123,12 +127,75 @@ GPUSurface RHI::request_surface(const GPUSurfaceDescriptor& descriptor) const
 #pragma endregion RHI
 
 #pragma region GPUAdapter
+bool GPUAdapter::has_feature(GPUFeatureName feature) const
+{
+    switch (feature) {
+        case GPUFeatureName::CORE_FEATURES_AND_LIMITS:
+            return true;
+        case GPUFeatureName::DEPTH_CLIP_CONTROL:
+            return features.depth_clip_control;
+        case GPUFeatureName::DEPTH32FLOAT_STENCIL8:
+            return features.depth32float_stencil8;
+        case GPUFeatureName::TEXTURE_COMPRESSION_BC:
+            return features.texture_compression_bc;
+        case GPUFeatureName::TEXTURE_COMPRESSION_BC_SLICED_3D:
+            return features.texture_compression_bc_sliced_3d;
+        case GPUFeatureName::TEXTURE_COMPRESSION_ETC2:
+            return features.texture_compression_etc2;
+        case GPUFeatureName::TEXTURE_COMPRESSION_ASTC:
+            return features.texture_compression_astc;
+        case GPUFeatureName::TEXTURE_COMPRESSION_ASTC_SLICED_3D:
+            return features.texture_compression_astc_sliced_3d;
+        case GPUFeatureName::TIMESTAMP_QUERY:
+            return features.timestamp_query;
+        case GPUFeatureName::INDIRECT_FIRST_INSTANCE:
+            return features.indirect_first_instance;
+        case GPUFeatureName::SHADER_F16:
+            return features.shader_f16;
+        case GPUFeatureName::RG11B10UFLOAT_PLUGINABLE:
+            return features.rg11b10ufloat_renderable;
+        case GPUFeatureName::BGRA8UNORM_STORAGE:
+            return features.bgra8unorm_storage;
+        case GPUFeatureName::FLOAT32_FILTERABLE:
+            return features.float32_filterable;
+        case GPUFeatureName::FLOAT32_BLENDABLE:
+            return features.float32_blendable;
+        case GPUFeatureName::CLIP_DISTANCES:
+            return features.clip_distances;
+        case GPUFeatureName::DUAL_SOURCE_BLENDING:
+            return features.dual_source_blending;
+        case GPUFeatureName::SUBGROUPS:
+            return features.subgroups;
+        case GPUFeatureName::TEXTURE_FORMATS_TIER1:
+            return true;
+        case GPUFeatureName::BINDLESS:
+            return features.bindless;
+        case GPUFeatureName::RAYTRACING:
+            return features.raytracing;
+        case GPUFeatureName::IMMEDIATES:
+            return true;
+        default:
+            return false;
+    }
+}
+
 GPUDevice GPUAdapter::request_device(const GPUDeviceDescriptor& descriptor)
 {
+    for (auto feature : descriptor.features) {
+        if (!has_feature(feature)) {
+            spdlog::error("Failed to create GPUDevice: Adapter lacks requested feature '{}'", to_string(feature));
+            return {};
+        }
+    }
+
     auto& device        = RHI::get_current_device();
     device.adapter_info = info;
     device.features     = features;
-    RHI::api()->create_device(descriptor);
+    if (!RHI::api()->create_device(descriptor)) {
+        device.is_valid = false;
+        return {};
+    }
+    device.is_valid = true;
     return device;
 }
 #pragma endregion GPUAdapter

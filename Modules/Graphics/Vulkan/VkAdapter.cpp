@@ -177,6 +177,36 @@ static void populate_device_properties(GPUProperties& properties)
     }
 }
 
+static void populate_device_features(GPUSupportedFeatures& features)
+{
+    auto rhi                  = get_rhi();
+    auto supported_extensions = get_supported_device_extensions(rhi->adapter);
+
+    VkPhysicalDeviceFeatures device_features{};
+    vkGetPhysicalDeviceFeatures(rhi->adapter, &device_features);
+
+    features.texture_compression_bc   = device_features.textureCompressionBC;
+    features.texture_compression_astc = device_features.textureCompressionASTC_LDR;
+    features.texture_compression_etc2 = device_features.textureCompressionETC2;
+    features.dual_source_blending     = device_features.dualSrcBlend;
+    features.clip_distances           = device_features.shaderClipDistance;
+    features.indirect_first_instance  = device_features.drawIndirectFirstInstance;
+
+    features.bindless = supported_extensions.contains(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+
+    features.raytracing =
+        supported_extensions.contains(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME) &&
+        supported_extensions.contains(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME) &&
+        supported_extensions.contains(VK_KHR_RAY_QUERY_EXTENSION_NAME) &&
+        supported_extensions.contains(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) &&
+        supported_extensions.contains(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME) &&
+        supported_extensions.contains(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+
+    features.depth_clip_control = supported_extensions.contains("VK_EXT_depth_clip_control");
+    features.timestamp_query    = true;
+    features.bgra8unorm_storage = true;
+}
+
 bool api::create_adapter(GPUAdapterProps& adapter, const GPUAdapterDescriptor& descriptor)
 {
     auto rhi = get_rhi();
@@ -221,8 +251,15 @@ bool api::create_adapter(GPUAdapterProps& adapter, const GPUAdapterDescriptor& d
     // query some basic properties
     vkGetPhysicalDeviceProperties(rhi->adapter, &rhi->props);
     vkGetPhysicalDeviceProperties2(rhi->adapter, &rhi->props2);
+
+    adapter.info.device       = rhi->props.deviceName;
+    adapter.info.description  = rhi->props.deviceName;
+    adapter.info.vendor       = "Vulkan";
+    adapter.info.architecture = "Vulkan";
+
     populate_device_properties(adapter.limits);
     populate_device_properties(adapter.properties);
+    populate_device_features(adapter.features);
 
     rhi->props2.pNext = nullptr;
 

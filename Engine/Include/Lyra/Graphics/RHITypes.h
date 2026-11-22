@@ -397,6 +397,9 @@ namespace lyra
     {
         GPUAdapterInfo       adapter_info = {};
         GPUSupportedFeatures features     = {};
+        bool                 is_valid     = false;
+
+        FORCE_INLINE bool valid() const { return is_valid; }
 
         auto create_fence() const -> GPUFence;
         auto create_buffer(const GPUBufferDescriptor& descriptor) const -> GPUBuffer;
@@ -450,6 +453,8 @@ namespace lyra
         GPUSupportedFeatures features   = {};
         GPUSupportedLimits   limits     = {};
         GPUProperties        properties = {};
+
+        bool has_feature(GPUFeatureName feature) const;
 
         auto request_device(const GPUDeviceDescriptor& descriptor) -> GPUDevice;
     };

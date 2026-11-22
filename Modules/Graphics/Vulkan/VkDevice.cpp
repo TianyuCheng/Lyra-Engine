@@ -14,7 +14,7 @@ bool is_supported(const Vector<CString>& extensions, CString name)
     return false;
 }
 
-bool is_required(GPUFeatureNames features, GPUFeatureName feature)
+bool is_requested(GPUFeatureNames features, GPUFeatureName feature)
 {
     return std::find(features.begin(), features.end(), feature) != features.end();
 }
@@ -50,8 +50,8 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
     Vector<CString> validation_layers   = {};
 
     rhi->features            = GPUSupportedFeatures{};
-    rhi->features.bindless   = is_required(desc.required_features, GPUFeatureName::BINDLESS);
-    rhi->features.raytracing = is_required(desc.required_features, GPUFeatureName::RAYTRACING);
+    rhi->features.bindless   = is_requested(desc.features, GPUFeatureName::BINDLESS);
+    rhi->features.raytracing = is_requested(desc.features, GPUFeatureName::RAYTRACING);
 
     // add validation layer
     if (rhi->rhiflags.contains(RHIFlag::VALIDATION)) {
@@ -246,7 +246,8 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
         }
     }
     if (unsatisfied_extension_count) {
-        show_error("Vulkan Render Backend", "Missing required device extensions!");
+        logger->error("Vulkan Render Backend: Missing required device extensions!");
+        return false;
     }
 
     // update queue family indices
@@ -391,10 +392,10 @@ bool api::create_device(const GPUDeviceDescriptor& desc)
 
 void api::delete_device()
 {
-    wait_idle();
-
     auto rhi = get_rhi();
-    if (!rhi) return;
+    if (!rhi || !rhi->device) return;
+
+    wait_idle();
 
     // clean up remaining swapchains
     // needs to be deleted first, because it contains other handles

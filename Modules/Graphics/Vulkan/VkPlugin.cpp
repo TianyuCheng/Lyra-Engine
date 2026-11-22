@@ -438,6 +438,7 @@ bool api::submit_command_buffer(GPUCommandEncoderHandle cmdbuffer)
 void api::wait_idle()
 {
     auto rhi = get_rhi();
+    if (!rhi || !rhi->device || !rhi->vtable.vkDeviceWaitIdle) return;
     vk_check(rhi->vtable.vkDeviceWaitIdle(rhi->device));
 
     // clean up all in-flight pools and recycle them

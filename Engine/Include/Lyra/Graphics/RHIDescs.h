@@ -23,12 +23,12 @@ namespace lyra
 
     struct GPUAdapterDescriptor : public GPUObjectDescriptorBase
     {
-        // nothing here for now
+        GPUFeatureNames features = {};
     };
 
     struct GPUDeviceDescriptor : public GPUObjectDescriptorBase
     {
-        GPUFeatureNames required_features = {};
+        GPUFeatureNames features = {};
     };
 
     // NOTE: Non-WebGPU standard API

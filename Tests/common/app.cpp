@@ -1,4 +1,6 @@
 #include "./app.h"
+#include <fstream>
+#include <spdlog/spdlog.h>
 
 TestApp::TestApp(const TestAppDescriptor& app_desc) : desc(app_desc)
 {
@@ -27,11 +29,21 @@ TestApp::TestApp(const TestAppDescriptor& app_desc) : desc(app_desc)
         return rhi->request_adapter(desc);
     });
 
+    // check if requested features are supported by the adapter
+    for (auto feature : app_desc.features) {
+        if (!adapter.has_feature(feature)) {
+            skipped     = true;
+            skip_reason = String("Missing requested feature: ") + to_string(feature);
+            spdlog::warn("Test '{}' skipped: {}", desc.name, skip_reason);
+            return;
+        }
+    }
+
     // initialize GPU device
     auto device = execute([&]() {
-        auto desc              = GPUDeviceDescriptor{};
-        desc.label             = "main_device";
-        desc.required_features = app_desc.required_features;
+        auto desc     = GPUDeviceDescriptor{};
+        desc.label    = "main_device";
+        desc.features = app_desc.features;
         return adapter.request_device(desc);
     });
 
@@ -90,6 +102,14 @@ TestApp::TestApp(const TestAppDescriptor& app_desc) : desc(app_desc)
 
 void TestApp::run()
 {
+    if (skipped) {
+        String        skip_file = String(desc.name) + ".skip";
+        std::ofstream out(skip_file);
+        out << skip_reason << "\n";
+        out.close();
+        return;
+    }
+
     if (desc.window) {
         run_with_window();
     } else {

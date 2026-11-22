@@ -21,6 +21,7 @@ bool SoftDevice::init(const RHIDescriptor& descriptor)
 
     // capabilities
     adapter_props.features.raytracing = true;
+    adapter_props.features.bindless   = true;
 
     // properties
     adapter_props.properties.subgroup_min_size            = 32;
