@@ -294,8 +294,8 @@ ShadowMapData ShadowMapPass::add(
                 GPUSize64   base_offset = mesh.geometry.vertex_slice.offset;
 
                 InstanceData inst{};
-                inst.model      = mesh.transform;
-                inst.pos_offset = static_cast<uint>(base_offset + (offsets.has_position() ? offsets.position : 0));
+                inst.model           = mesh.transform;
+                inst.position_offset = static_cast<uint>(base_offset + (offsets.has_position() ? offsets.position : 0));
 
                 command.set_immediates(0, inst);
 

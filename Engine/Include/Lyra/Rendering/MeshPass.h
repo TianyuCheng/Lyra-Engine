@@ -36,20 +36,23 @@ namespace lyra
     };
 
     /**
-     * @brief layout of per-instance immediate constants for vertex pulling and instance data.
+     * @brief Per-instance immediate push constants for vertex pulling and instance data.
+     * @note Memory layout directly mirrors the GPU shader layout of struct `InstanceData` in
+     *       `sys://Shaders/Forward/Forward.slang`. Any layout modification must be kept strictly
+     *       in sync across both C++ and Slang shader definitions.
      */
     struct alignas(16) MeshDrawInstance
     {
         Matrix4x4 model;
-        Vector4   base_color  = Vector4(1.0f);
-        float     roughness   = 0.5f;
-        float     metallic    = 0.0f;
-        uint      pos_offset  = 0;
-        uint      norm_offset = 0;
-        uint      uv_offset   = 0;
-        uint      material_id = 0;
-        uint      padding0    = 0;
-        uint      padding1    = 0;
+        Vector4   base_color      = Vector4(1.0f);
+        float     roughness       = 0.5f;
+        float     metallic        = 0.0f;
+        float     clear_coat      = 0.0f;
+        uint      material_id     = 0;
+        uint      position_offset = 0;
+        uint      normal_offset   = 0;
+        uint      uv_offset       = 0;
+        uint      padding1        = 0;
     };
 
     /**

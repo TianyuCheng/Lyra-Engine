@@ -41,11 +41,11 @@ public struct InstanceData
     public float4   base_color;
     public float    roughness;
     public float    metallic;
-    public uint     pos_offset;
-    public uint     norm_offset;
-    public uint     uv_offset;
+    public float    clear_coat;
     public uint     material_id;
-    public uint     padding0;
+    public uint     position_offset;
+    public uint     normal_offset;
+    public uint     uv_offset;
     public uint     padding1;
 };
 
@@ -65,8 +65,8 @@ public VertexOutput forward_vsmain(uint vertex_id : SV_VertexID)
     VertexOutput output;
 
     // pull vertex attributes directly from byte-address storage buffer
-    float3 position = vertex_buffer.Load<float3>(instance_data.pos_offset + vertex_id * 12);
-    float3 normal   = vertex_buffer.Load<float3>(instance_data.norm_offset + vertex_id * 12);
+    float3 position = vertex_buffer.Load<float3>(instance_data.position_offset + vertex_id * 12);
+    float3 normal   = vertex_buffer.Load<float3>(instance_data.normal_offset + vertex_id * 12);
     float2 uv       = vertex_buffer.Load<float2>(instance_data.uv_offset + vertex_id * 8);
 
     float4 world_pos = mul(float4(position, 1.0), instance_data.model);
@@ -86,7 +86,7 @@ public SurfaceData extract_surface_data(VertexOutput input)
     surf.base_color = instance_data.base_color;
     surf.roughness  = instance_data.roughness;
     surf.metallic   = instance_data.metallic;
-    surf.clear_coat = 0.0;
+    surf.clear_coat = instance_data.clear_coat;
     surf.view_dir   = normalize(camera.pos - input.world_pos);
     return surf;
 }

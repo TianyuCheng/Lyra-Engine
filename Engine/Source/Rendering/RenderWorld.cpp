@@ -1,15 +1,15 @@
 #include <Lyra/Utilities/Math.h>
 #include <Lyra/Utilities/Logger.h>
-#include <Lyra/Components/Camera.h>
-#include <Lyra/Components/Light.h>
 #include <Lyra/Components/Sun.h>
 #include <Lyra/Components/Mesh.h>
+#include <Lyra/Components/Light.h>
+#include <Lyra/Components/Camera.h>
 #include <Lyra/Components/SDFVolume.h>
 #include <Lyra/Components/Transform.h>
 #include <Lyra/Rendering/ProceduralMesh.h>
 #include <Lyra/Assets/Format/MaterialAsset.h>
-#include <Lyra/Rendering/ShadingModelRegistry.h>
 #include <Lyra/Rendering/RenderWorld.h>
+#include <Lyra/Rendering/ShadingModelRegistry.h>
 
 using namespace lyra;
 
@@ -258,27 +258,32 @@ void RenderWorld::extract_meshes(const World& ecs_world, const RendererCapabilit
             MaterialParams   params   = {};
             CustomPipelineID pipe     = CustomPipelineID::standard();
             if (handle.valid()) {
-                if (auto proc_mat = find_procedural_material(handle.guid)) {
-                    model               = proc_mat->shading_model;
-                    model_id            = BuiltinShadingModels::from_enum(proc_mat->shading_model);
-                    params.base_color   = proc_mat->base_color_factor;
-                    params.roughness    = proc_mat->roughness_factor;
-                    params.metallic     = proc_mat->metallic_factor;
-                    params.alpha_cutoff = proc_mat->alpha_cutoff;
+                const MaterialAsset* mat_ptr = nullptr;
+
+                auto it = registered_materials.find(handle.guid);
+                if (it != registered_materials.end()) {
+                    mat_ptr = &it->second;
+                } else if (auto proc_mat = find_procedural_material(handle.guid)) {
+                    mat_ptr = proc_mat;
                 } else if (ams) {
-                    auto mat_ptr = ams->get_asset(handle);
+                    mat_ptr = ams->get_asset(handle);
                     if (!mat_ptr) {
                         ams->load_asset<MaterialAsset>(handle.guid);
                         mat_ptr = ams->get_asset(handle);
                     }
-                    if (mat_ptr) {
-                        model               = mat_ptr->shading_model;
-                        model_id            = mat_ptr->shading_model_id != 0 ? mat_ptr->shading_model_id : BuiltinShadingModels::from_enum(mat_ptr->shading_model);
-                        params.base_color   = mat_ptr->base_color_factor;
-                        params.roughness    = mat_ptr->roughness_factor;
-                        params.metallic     = mat_ptr->metallic_factor;
-                        params.alpha_cutoff = mat_ptr->alpha_cutoff;
-                    }
+                }
+
+                if (mat_ptr) {
+                    model                       = mat_ptr->shading_model;
+                    model_id                    = mat_ptr->shading_model_id != 0 ? mat_ptr->shading_model_id : BuiltinShadingModels::from_enum(mat_ptr->shading_model);
+                    params.base_color           = mat_ptr->base_color_factor;
+                    params.roughness            = mat_ptr->roughness_factor;
+                    params.metallic             = mat_ptr->metallic_factor;
+                    params.clear_coat           = mat_ptr->clear_coat_factor;
+                    params.clear_coat_roughness = mat_ptr->clear_coat_roughness;
+                    params.emissive             = Vector4(mat_ptr->emissive_factor, 1.0f);
+                    params.custom_data          = mat_ptr->custom_data;
+                    params.alpha_cutoff         = mat_ptr->alpha_cutoff;
                 }
             }
             return {model, model_id, params, pipe};

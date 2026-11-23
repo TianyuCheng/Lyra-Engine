@@ -42,6 +42,20 @@ namespace lyra
 
         void set_asset_server(AssetServer* in_ams) { ams = in_ams; }
 
+        /**
+         * @brief Register an in-memory material asset directly with the RenderWorld.
+         * @param guid Unique AssetID key for the material.
+         * @param mat Material asset definition.
+         */
+        void register_material(AssetID guid, const MaterialAsset& mat) { registered_materials[guid] = mat; }
+
+        /**
+         * @brief Register an in-memory material asset by typed handle.
+         * @param handle Material asset handle.
+         * @param mat Material asset definition.
+         */
+        void register_material(MaterialAssetHandle handle, const MaterialAsset& mat) { registered_materials[handle.guid] = mat; }
+
     private:
         void extract_view(const World& ecs_world);
         void extract_lights(const World& ecs_world);
@@ -50,10 +64,11 @@ namespace lyra
         void build_acceleration_structures(const RendererCapabilities& capabilities);
 
     private:
-        GeometryCache& geometry_cache;
-        AssetServer*   ams = nullptr;
-        RenderScene    scene;
-        RenderView     view;
+        GeometryCache&                  geometry_cache;
+        AssetServer*                    ams = nullptr;
+        HashMap<AssetID, MaterialAsset> registered_materials;
+        RenderScene                     scene;
+        RenderView                      view;
     };
 } // namespace lyra
 

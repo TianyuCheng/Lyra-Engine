@@ -4,8 +4,8 @@
 #define LYRA_ENGINE_RENDERING_MATERIAL_PARAMS_H
 
 #include <cstddef>
-#include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Utilities/Math.h>
+#include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Utilities/BitFlags.h>
 
 namespace lyra
@@ -32,6 +32,9 @@ namespace lyra
 
     /**
      * @brief 16-byte aligned unified material parameters layout adhering to std140 / std430.
+     * @note Memory layout directly mirrors the GPU shader layout of struct `MaterialParams` in
+     *       `sys://Shaders/Common/Material.slang`. Any layout modification must be kept strictly
+     *       in sync across both C++ and Slang shader definitions.
      *
      * Total size: exactly 80 bytes. Aligned to 16 bytes.
      */

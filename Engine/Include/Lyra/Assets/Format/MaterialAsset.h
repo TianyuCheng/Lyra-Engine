@@ -60,13 +60,16 @@ namespace lyra
         String         custom_shader_path = ""; // optional VFS path (e.g. sys:// or app://) for custom shaders
 
         // pbr parameters
-        Vector4 base_color_factor  = Vector4(1.0f);
-        Vector3 emissive_factor    = Vector3(0.0f);
-        float   metallic_factor    = 0.0f;
-        float   roughness_factor   = 1.0f;
-        float   alpha_cutoff       = 0.5f;
-        float   occlusion_strength = 1.0f;
-        float   normal_scale       = 1.0f;
+        Vector4 base_color_factor    = Vector4(1.0f);
+        Vector3 emissive_factor      = Vector3(0.0f);
+        float   metallic_factor      = 0.0f;
+        float   roughness_factor     = 1.0f;
+        float   clear_coat_factor    = 0.0f;
+        float   clear_coat_roughness = 0.04f;
+        Vector4 custom_data          = Vector4(0.0f);
+        float   alpha_cutoff         = 0.5f;
+        float   occlusion_strength   = 1.0f;
+        float   normal_scale         = 1.0f;
 
         // texture maps
         TextureAssetHandle albedo_map;

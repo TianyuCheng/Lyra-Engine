@@ -64,16 +64,22 @@ namespace lyra::passes
         [[nodiscard]] bool valid() const { return initialized && pipeline.valid(); }
 
     private:
+        /**
+         * @brief Per-instance immediate push constants for depth prepass vertex pulling.
+         * @note Memory layout directly mirrors the GPU shader layout of struct `InstanceData` in
+         *       `sys://Shaders/Forward/DepthPrepass.slang`. Any layout modification must be kept strictly
+         *       in sync across both C++ and Slang shader definitions.
+         */
         struct alignas(16) InstanceData
         {
             Matrix4x4 model;
-            uint      pos_offset = 0;
-            uint      padding0   = 0;
-            uint      padding1   = 0;
-            uint      padding2   = 0;
+            uint      position_offset = 0;
+            uint      padding0        = 0;
+            uint      padding1        = 0;
+            uint      padding2        = 0;
         };
         static_assert(sizeof(InstanceData) == 80);
-        static_assert(offsetof(InstanceData, pos_offset) == 64);
+        static_assert(offsetof(InstanceData, position_offset) == 64);
 
         void update_camera_uniform(uint slot, const RenderView& view);
 

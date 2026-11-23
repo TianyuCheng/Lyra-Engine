@@ -60,16 +60,22 @@ namespace lyra::passes
             Matrix4x4 light_view_proj;
         };
 
+        /**
+         * @brief Per-instance immediate push constants for shadow depth vertex pulling.
+         * @note Memory layout directly mirrors the GPU shader layout of struct `InstanceData` in
+         *       `sys://Shaders/Forward/ShadowDepth.slang`. Any layout modification must be kept strictly
+         *       in sync across both C++ and Slang shader definitions.
+         */
         struct alignas(16) InstanceData
         {
             Matrix4x4 model;
-            uint      pos_offset = 0;
-            uint      padding0   = 0;
-            uint      padding1   = 0;
-            uint      padding2   = 0;
+            uint      position_offset = 0;
+            uint      padding0        = 0;
+            uint      padding1        = 0;
+            uint      padding2        = 0;
         };
         static_assert(sizeof(InstanceData) == 80);
-        static_assert(offsetof(InstanceData, pos_offset) == 64);
+        static_assert(offsetof(InstanceData, position_offset) == 64);
 
         static constexpr uint FRAMES_IN_FLIGHT = 3;
 

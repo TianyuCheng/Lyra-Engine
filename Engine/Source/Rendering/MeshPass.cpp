@@ -99,14 +99,15 @@ void MeshPass::prepare(
         GPUSize64   base_offset = mesh.geometry.vertex_slice.offset;
 
         MeshDrawInstance inst{};
-        inst.model       = mesh.transform;
-        inst.base_color  = mesh.material_params.base_color;
-        inst.roughness   = mesh.material_params.roughness;
-        inst.metallic    = mesh.material_params.metallic;
-        inst.pos_offset  = static_cast<uint>(base_offset + (offsets.has_position() ? offsets.position : 0));
-        inst.norm_offset = static_cast<uint>(base_offset + (offsets.has_normal() ? offsets.normal : inst.pos_offset));
-        inst.uv_offset   = static_cast<uint>(base_offset + (offsets.has_texcoord0() ? offsets.texcoord0 : inst.pos_offset));
-        inst.material_id = mesh.material_id;
+        inst.model           = mesh.transform;
+        inst.base_color      = mesh.material_params.base_color;
+        inst.roughness       = mesh.material_params.roughness;
+        inst.metallic        = mesh.material_params.metallic;
+        inst.clear_coat      = mesh.material_params.clear_coat;
+        inst.material_id     = mesh.material_id;
+        inst.position_offset = static_cast<uint>(base_offset + (offsets.has_position() ? offsets.position : 0));
+        inst.normal_offset   = static_cast<uint>(base_offset + (offsets.has_normal() ? offsets.normal : inst.position_offset));
+        inst.uv_offset       = static_cast<uint>(base_offset + (offsets.has_texcoord0() ? offsets.texcoord0 : inst.position_offset));
 
         MeshDrawCommand cmd{};
         cmd.instance     = inst;

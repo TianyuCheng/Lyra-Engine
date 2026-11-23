@@ -1,5 +1,3 @@
-#include <fstream>
-
 #include <Lyra/Utilities/Macros.h>
 #include <Lyra/Utilities/Plugin.h>
 #include <Lyra/FileSystem/VFSAPI.h>

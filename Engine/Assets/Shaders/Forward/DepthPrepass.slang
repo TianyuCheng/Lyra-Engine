@@ -19,7 +19,7 @@ ByteAddressBuffer vertex_buffer;
 struct InstanceData
 {
     float4x4 model;
-    uint     pos_offset;
+    uint     position_offset;
     uint     padding0;
     uint     padding1;
     uint     padding2;
@@ -37,7 +37,7 @@ struct VertexOutput
 VertexOutput vsmain(uint vertex_id : SV_VertexID)
 {
     VertexOutput output;
-    float3 position = vertex_buffer.Load<float3>(instance_data.pos_offset + vertex_id * 12);
+    float3 position = vertex_buffer.Load<float3>(instance_data.position_offset + vertex_id * 12);
     float4 world_pos = mul(float4(position, 1.0), instance_data.model);
     output.position  = mul(mul(world_pos, camera.view), camera.proj);
     return output;

@@ -312,30 +312,22 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
 
     if (min_x > max_x || min_y > max_y) return;
 
-    // linear edge equation setup:
-    // w0(px, py) = A0 * px + B0 * py + C0
-    // w1(px, py) = A1 * px + B1 * py + C1
-    // w2(px, py) = A2 * px + B2 * py + C2
+    // linear edge equation setup (numerically stable relative to v0 to avoid catastrophic cancellation):
+    // w0(px, py) = 1.0 + A0 * (px - x0) + B0 * (py - y0)
+    // w1(px, py) = 0.0 + A1 * (px - x0) + B1 * (py - y0)
+    // w2(px, py) = 0.0 + A2 * (px - x0) + B2 * (py - y0)
     float A0 = (v1.screen.y - v2.screen.y) * inv_area;
     float B0 = (v2.screen.x - v1.screen.x) * inv_area;
-    float C0 = (v1.screen.x * v2.screen.y - v1.screen.y * v2.screen.x) * inv_area;
 
     float A1 = (v2.screen.y - v0.screen.y) * inv_area;
     float B1 = (v0.screen.x - v2.screen.x) * inv_area;
-    float C1 = (v2.screen.x * v0.screen.y - v2.screen.y * v0.screen.x) * inv_area;
 
     float A2 = (v0.screen.y - v1.screen.y) * inv_area;
     float B2 = (v1.screen.x - v0.screen.x) * inv_area;
-    float C2 = (v0.screen.x * v1.screen.y - v0.screen.y * v1.screen.x) * inv_area;
 
-    float len0 = std::hypot(A0, B0);
-    float len1 = std::hypot(A1, B1);
-    float len2 = std::hypot(A2, B2);
-
-    constexpr float edge_px_eps = 0.002f;
-    float           bias0       = (tl0 ? -edge_px_eps : edge_px_eps) * len0;
-    float           bias1       = (tl1 ? -edge_px_eps : edge_px_eps) * len1;
-    float           bias2       = (tl2 ? -edge_px_eps : edge_px_eps) * len2;
+    float bias0 = tl0 ? 0.0f : 1e-7f;
+    float bias1 = tl1 ? 0.0f : 1e-7f;
+    float bias2 = tl2 ? 0.0f : 1e-7f;
 
     // depth bias calculation
     float constant_factor = ctx.depth_stencil.depth_bias_constant != 0.0f
@@ -558,21 +550,22 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
 
     for (int32_t y = min_y; y <= max_y; ++y) {
         float py     = y + 0.5f;
-        float w0_row = B0 * py + C0;
-        float w1_row = B1 * py + C1;
-        float w2_row = B2 * py + C2;
+        float dy     = py - v0.screen.y;
+        float w0_row = 1.0f + B0 * dy;
+        float w1_row = B1 * dy;
+        float w2_row = B2 * dy;
 
         int32_t x = min_x;
 #if LYRA_USE_AVX2
         // AVX2 8-wide SIMD rasterization
         for (; x + 7 <= max_x; x += 8) {
-            float  px0     = x + 0.5f;
+            float  dx0     = (x + 0.5f) - v0.screen.x;
             __m256 v_steps = _mm256_setr_ps(0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f);
-            __m256 v_px    = _mm256_add_ps(_mm256_set1_ps(px0), v_steps);
+            __m256 v_dx    = _mm256_add_ps(_mm256_set1_ps(dx0), v_steps);
 
-            __m256 v_w0 = _mm256_add_ps(_mm256_set1_ps(w0_row), _mm256_mul_ps(_mm256_set1_ps(A0), v_px));
-            __m256 v_w1 = _mm256_add_ps(_mm256_set1_ps(w1_row), _mm256_mul_ps(_mm256_set1_ps(A1), v_px));
-            __m256 v_w2 = _mm256_add_ps(_mm256_set1_ps(w2_row), _mm256_mul_ps(_mm256_set1_ps(A2), v_px));
+            __m256 v_w0 = _mm256_add_ps(_mm256_set1_ps(w0_row), _mm256_mul_ps(_mm256_set1_ps(A0), v_dx));
+            __m256 v_w1 = _mm256_add_ps(_mm256_set1_ps(w1_row), _mm256_mul_ps(_mm256_set1_ps(A1), v_dx));
+            __m256 v_w2 = _mm256_add_ps(_mm256_set1_ps(w2_row), _mm256_mul_ps(_mm256_set1_ps(A2), v_dx));
 
             __m256 v_bias0 = _mm256_set1_ps(bias0);
             __m256 v_bias1 = _mm256_set1_ps(bias1);
@@ -611,7 +604,7 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
 
             for (int k = 0; k < 8; ++k) {
                 if (mask & (1 << k)) {
-                    process_pixel(x + k, y, px0 + k, py, ar_w0[k], ar_w1[k], ar_w2[k], ar_z[k], ar_w[k]);
+                    process_pixel(x + k, y, x + k + 0.5f, py, ar_w0[k], ar_w1[k], ar_w2[k], ar_z[k], ar_w[k]);
                 }
             }
         }
@@ -619,16 +612,16 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
 
         // scalar fallback for remaining pixels
         for (; x <= max_x; ++x) {
-            float px = x + 0.5f;
-            float w0 = A0 * px + w0_row;
-            float w1 = A1 * px + w1_row;
-            float w2 = A2 * px + w2_row;
+            float dx = (x + 0.5f) - v0.screen.x;
+            float w0 = A0 * dx + w0_row;
+            float w1 = A1 * dx + w1_row;
+            float w2 = A2 * dx + w2_row;
 
             if (w0 >= bias0 && w1 >= bias1 && w2 >= bias2) {
                 float z_inv = w0 * v0.inv_w + w1 * v1.inv_w + w2 * v2.inv_w;
                 float w     = (std::abs(z_inv) > 1e-8f) ? (1.0f / z_inv) : 1.0f;
                 float z     = w0 * v0.screen.z + w1 * v1.screen.z + w2 * v2.screen.z;
-                process_pixel(x, y, px, py, w0, w1, w2, z, w);
+                process_pixel(x, y, x + 0.5f, py, w0, w1, w2, z, w);
             }
         }
     }

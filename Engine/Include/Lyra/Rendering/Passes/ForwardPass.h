@@ -88,6 +88,11 @@ namespace lyra::passes
         [[nodiscard]] bool valid() const { return initialized; }
 
     private:
+        /**
+         * @brief Uniform buffer for view and projection camera matrices.
+         * @note Memory layout directly mirrors struct `Camera` in `sys://Shaders/Forward/Forward.slang`.
+         *       Any layout modification must be kept strictly in sync across both C++ and Slang definitions.
+         */
         struct CameraUniforms
         {
             Matrix4x4 proj;

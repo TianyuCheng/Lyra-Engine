@@ -654,24 +654,7 @@ static void execute_draw_indexed(SoftDevice& device, ExecutionContext& ctx, uint
     auto it_v1 = ctx.vertex_buffers.find(1);
     auto it_v2 = ctx.vertex_buffers.find(2);
 
-    // check storage buffer vertex pulling (ForwardPass: buffer bound in Bind Group 1, binding 0)
-    const SoftBuffer* storage_vbuf = nullptr;
-    if (it_v0 == ctx.vertex_buffers.end()) {
-        auto it_bg1 = ctx.bind_groups.find(1);
-        if (it_bg1 != ctx.bind_groups.end() && it_bg1->second.handle.valid()) {
-            auto bg1 = device.bind_groups.find(it_bg1->second.handle.to_slotmap_handle<SoftBindGroup>());
-            if (bg1) {
-                for (const auto& entry : bg1->entries) {
-                    if (entry.type == GPUResourceType::BUFFER && entry.buffer.buffer.valid()) {
-                        storage_vbuf = device.buffers.find(entry.buffer.buffer.to_slotmap_handle<SoftBuffer>());
-                        if (storage_vbuf) break;
-                    }
-                }
-            }
-        }
-    }
-
-    if (it_v0 == ctx.vertex_buffers.end() && !storage_vbuf) return;
+    if (it_v0 == ctx.vertex_buffers.end() && (!ctx.render_pipeline || !ctx.render_pipeline->vshader_func)) return;
     auto vbuf = (it_v0 != ctx.vertex_buffers.end()) ? device.buffers.find(it_v0->second.buffer.to_slotmap_handle<SoftBuffer>()) : nullptr;
     if (it_v0 != ctx.vertex_buffers.end() && !vbuf) return;
 
@@ -680,6 +663,40 @@ static void execute_draw_indexed(SoftDevice& device, ExecutionContext& ctx, uint
 
     SoftDrawParams p{};
     setup_draw_params(device, ctx, p);
+
+    auto run_vs = [&](uint vid, SoftShadedVertex& sv) {
+        if (ctx.render_pipeline && ctx.render_pipeline->vshader_func) {
+            struct EpParams
+            {
+                uint* in_v;
+                void* out_v;
+            };
+            struct VSOut
+            {
+                Vector4 pos;
+                float   varyings[16];
+            } vs_out{};
+            uint     v_idx = vid;
+            EpParams ep    = {&v_idx, &vs_out};
+
+            using ComputeFunc = void (*)(void*, void*, void*);
+            auto func         = reinterpret_cast<ComputeFunc>(ctx.render_pipeline->vshader_func);
+            struct uint3
+            {
+                uint x, y, z;
+            };
+            struct ComputeVaryingInput
+            {
+                uint3 startGroupID;
+                uint3 endGroupID;
+            } varying = {{0, 0, 0}, {1, 1, 1}};
+            func(&varying, &ep, p.r_ctx.uniform_state);
+
+            sv.position = vs_out.pos;
+            std::memcpy(sv.varyings, vs_out.varyings, sizeof(sv.varyings));
+            sv.color = Vector4(1.0f);
+        }
+    };
 
     const ubyte* vdata = vbuf ? (vbuf->data.data() + it_v0->second.offset) : nullptr;
     const ubyte* idata = ibuf->data.data() + ctx.index_buffer.offset;
@@ -705,57 +722,8 @@ static void execute_draw_indexed(SoftDevice& device, ExecutionContext& ctx, uint
 
     auto read_vertex = [&](uint vert_idx, uint current_inst) -> SoftShadedVertex {
         SoftShadedVertex sv{};
-        if (storage_vbuf) {
-            struct MeshDrawInstLayout
-            {
-                Matrix4x4 model;
-                Vector4   base_color;
-                float     roughness;
-                float     metallic;
-                uint      pos_offset;
-                uint      norm_offset;
-                uint      uv_offset;
-                uint      material_id;
-            };
-            const auto*  inst     = (!ctx.immediates_data.empty() && ctx.immediates_data.size() >= sizeof(MeshDrawInstLayout))
-                                        ? reinterpret_cast<const MeshDrawInstLayout*>(ctx.immediates_data.data())
-                                        : nullptr;
-            const ubyte* sdata    = storage_vbuf->data.data();
-            Matrix4x4    model    = Matrix4x4(1.0f);
-            uint         pos_off  = 0;
-            uint         norm_off = 12;
-            uint         uv_off   = 24;
-            Vector4      color    = Vector4(1.0f);
-
-            if (inst) {
-                model    = inst->model;
-                pos_off  = inst->pos_offset;
-                norm_off = inst->norm_offset;
-                uv_off   = inst->uv_offset;
-                color    = inst->base_color;
-            } else if (!ctx.immediates_data.empty() && ctx.immediates_data.size() >= 68) {
-                model   = *reinterpret_cast<const Matrix4x4*>(ctx.immediates_data.data());
-                pos_off = *reinterpret_cast<const uint*>(ctx.immediates_data.data() + 64);
-            }
-
-            const auto pos       = reinterpret_cast<const Vector3*>(sdata + pos_off + vert_idx * 12);
-            Vector4    world_pos = model * Vector4(*pos, 1.0f);
-            sv.position          = p.has_vp ? (p.vp_matrix * world_pos) : world_pos;
-
-            if (norm_off + (vert_idx + 1) * 12 <= storage_vbuf->data.size()) {
-                const auto norm       = reinterpret_cast<const Vector3*>(sdata + norm_off + vert_idx * 12);
-                Vector3    world_norm = glm::mat3(model) * (*norm);
-                sv.normal             = Vector4(glm::normalize(world_norm), 0.0f);
-            }
-            if (uv_off + (vert_idx + 1) * 8 <= storage_vbuf->data.size()) {
-                const auto uv = reinterpret_cast<const Vector2*>(sdata + uv_off + vert_idx * 8);
-                sv.texcoord   = Vector4(uv->x, uv->y, 0.0f, 0.0f);
-            }
-            sv.color = color;
-            sv.extra = world_pos;
-            std::memcpy(&sv.varyings[0], &sv.normal, sizeof(float) * 3);
-            std::memcpy(&sv.varyings[3], &sv.texcoord, sizeof(float) * 2);
-            std::memcpy(&sv.varyings[5], &sv.extra, sizeof(float) * 3);
+        if (!vbuf) {
+            run_vs(vert_idx, sv);
             return sv;
         }
 
