@@ -397,7 +397,8 @@ static FrameGraph::TextureHandle render(
     {
         FrameGraphHandle<FrameGraphTexture> albedo;
         FrameGraphHandle<FrameGraphTexture> normal;
-        FrameGraphHandle<FrameGraphTexture> material;
+        FrameGraphHandle<FrameGraphTexture> emissive;
+        FrameGraphHandle<FrameGraphTexture> shading_model;
         FrameGraphHandle<FrameGraphTexture> depth;
         FrameGraphHandle<FrameGraphTexture> shadow_map;
         FrameGraphHandle<FrameGraphTexture> lit_output;
@@ -406,10 +407,11 @@ static FrameGraph::TextureHandle render(
     auto lighting_data = ctx.builder.add_pass<DeferredLightingPassData>(
         "DeferredLightingPass",
         [&](DeferredLightingPassData& data, FrameGraphPassBuilder& pass_builder) {
-            data.albedo   = pass_builder.sample(gbuffer.albedo_metallic);
-            data.normal   = pass_builder.sample(gbuffer.normal_roughness);
-            data.material = pass_builder.sample(gbuffer.material_info);
-            data.depth    = pass_builder.sample(gbuffer.depth_stencil);
+            data.albedo        = pass_builder.sample(gbuffer.albedo_occlusion);
+            data.normal        = pass_builder.sample(gbuffer.normal_roughness_metallic);
+            data.emissive      = pass_builder.sample(gbuffer.emissive);
+            data.shading_model = pass_builder.sample(gbuffer.shading_model_clearcoat);
+            data.depth         = pass_builder.sample(gbuffer.depth_stencil);
             if (shadow_map_h.valid()) {
                 data.shadow_map = pass_builder.sample(shadow_map_h);
             }
@@ -420,13 +422,14 @@ static FrameGraph::TextureHandle render(
                 return;
             }
 
-            auto albedo_tex = resources.get<FrameGraphTexture>(data.albedo);
-            auto normal_tex = resources.get<FrameGraphTexture>(data.normal);
-            auto mat_tex    = resources.get<FrameGraphTexture>(data.material);
-            auto depth_tex  = resources.get<FrameGraphTexture>(data.depth);
-            auto lit_tex    = resources.get<FrameGraphTexture>(data.lit_output);
+            auto albedo_tex        = resources.get<FrameGraphTexture>(data.albedo);
+            auto normal_tex        = resources.get<FrameGraphTexture>(data.normal);
+            auto emissive_tex      = resources.get<FrameGraphTexture>(data.emissive);
+            auto shading_model_tex = resources.get<FrameGraphTexture>(data.shading_model);
+            auto depth_tex         = resources.get<FrameGraphTexture>(data.depth);
+            auto lit_tex           = resources.get<FrameGraphTexture>(data.lit_output);
 
-            if (!albedo_tex || !normal_tex || !mat_tex || !depth_tex || !lit_tex) {
+            if (!albedo_tex || !normal_tex || !emissive_tex || !shading_model_tex || !depth_tex || !lit_tex) {
                 return;
             }
 
@@ -437,7 +440,7 @@ static FrameGraph::TextureHandle render(
                 }
             }
 
-            Array<GPUBindGroupEntry, 7> entries{};
+            Array<GPUBindGroupEntry, 8> entries{};
             entries[0].type    = GPUResourceType::TEXTURE;
             entries[0].binding = 0;
             entries[0].texture = albedo_tex->view;
@@ -448,25 +451,29 @@ static FrameGraph::TextureHandle render(
 
             entries[2].type    = GPUResourceType::TEXTURE;
             entries[2].binding = 2;
-            entries[2].texture = mat_tex->view;
+            entries[2].texture = emissive_tex->view;
 
             entries[3].type    = GPUResourceType::TEXTURE;
             entries[3].binding = 3;
-            entries[3].texture = depth_tex->view;
+            entries[3].texture = shading_model_tex->view;
 
-            entries[4].type          = GPUResourceType::BUFFER;
-            entries[4].binding       = 4;
-            entries[4].buffer.buffer = renderer->camera_buffers[current_slot];
-            entries[4].buffer.offset = 0;
-            entries[4].buffer.size   = sizeof(CameraUniforms);
+            entries[4].type    = GPUResourceType::TEXTURE;
+            entries[4].binding = 4;
+            entries[4].texture = depth_tex->view;
 
-            entries[5].type    = GPUResourceType::TEXTURE;
-            entries[5].binding = 5;
-            entries[5].texture = s_view;
+            entries[5].type          = GPUResourceType::BUFFER;
+            entries[5].binding       = 5;
+            entries[5].buffer.buffer = renderer->camera_buffers[current_slot];
+            entries[5].buffer.offset = 0;
+            entries[5].buffer.size   = sizeof(CameraUniforms);
 
-            entries[6].type    = GPUResourceType::SAMPLER;
+            entries[6].type    = GPUResourceType::TEXTURE;
             entries[6].binding = 6;
-            entries[6].sampler = renderer->shadow_sampler.handle;
+            entries[6].texture = s_view;
+
+            entries[7].type    = GPUResourceType::SAMPLER;
+            entries[7].binding = 7;
+            entries[7].sampler = renderer->shadow_sampler.handle;
 
             auto bg_desc    = GPUBindGroupDescriptor{};
             bg_desc.heap    = renderer->heap;

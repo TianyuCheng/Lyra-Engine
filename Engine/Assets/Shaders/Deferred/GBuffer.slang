@@ -11,20 +11,26 @@ struct Camera
     float4x4 view;
     float4x4 inv_proj;
     float4x4 inv_view;
-    float3   pos;
-    float    padding;
+    float4   pos_and_pad;
+
+    property float3 pos { get { return pos_and_pad.xyz; } }
 };
 
 ConstantBuffer<Camera> camera;
 
 struct InstanceData
 {
-    float4x4     model;
-    float4       base_color;
-    float        roughness;
-    float        metallic;
-    ShadingModel shading_model;
-    uint         material_id;
+    float4x4 model;
+    float4   base_color;
+    float4   emissive;
+    float    metallic;
+    float    roughness;
+    float    clear_coat;
+    float    occlusion;
+    uint     shading_model;
+    uint     material_id;
+    uint     pad0;
+    uint     pad1;
 };
 
 [[lyra::immediates]]
@@ -59,9 +65,10 @@ VertexOutput vsmain(VertexInput input)
 
 struct GBufferOutput
 {
-    float4 albedo_metallic  : SV_Target0; // RGB: Albedo, A: Metallic
-    float4 normal_roughness : SV_Target1; // RGB: World Normal (encoded), A: Roughness
-    uint4  material_data    : SV_Target2; // R: ShadingModel, G: MaterialID, BA: Custom params
+    float4 albedo_occlusion          : SV_Target0; // RGB: BaseColor, A: Occlusion
+    float4 normal_roughness_metallic : SV_Target1; // RG: Oct Normal, B: Roughness, A: Metallic
+    float4 emissive                 : SV_Target2; // RGB: Emissive radiance
+    uint2  shading_model_clearcoat   : SV_Target3; // R: ShadingModel ID, G: Clearcoat (0..255)
 };
 
 [shader("fragment")]
@@ -73,9 +80,11 @@ GBufferOutput fsmain(VertexOutput input)
     float2 oct_n = oct_encode(N);
 
     // TODO: sample textures from bindless heap if bound
-    output.albedo_metallic  = float4(instance_data.base_color.rgb, instance_data.metallic);
-    output.normal_roughness = float4(oct_n, instance_data.roughness, 0.0);
-    output.material_data    = uint4(uint(instance_data.shading_model), instance_data.material_id, 0, 0);
+    output.albedo_occlusion          = float4(instance_data.base_color.rgb, instance_data.occlusion);
+    output.normal_roughness_metallic = float4(oct_n, instance_data.roughness, instance_data.metallic);
+    output.emissive                 = instance_data.emissive;
+    uint clear_coat_quantized       = uint(clamp(instance_data.clear_coat, 0.0, 1.0) * 255.0 + 0.5);
+    output.shading_model_clearcoat  = uint2(instance_data.shading_model, clear_coat_quantized);
 
     return output;
 }

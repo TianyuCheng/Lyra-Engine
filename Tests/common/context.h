@@ -10,10 +10,10 @@ struct TestContext
     bool acquire(RHIBackend backend, RHIFlags flags, const Vector<GPUFeatureName>& features);
     void release();
 
-    OwnedResource<RHI>     rhi;
-    GPUAdapter             adapter;
-    GPUDevice              device;
-    Own<FileLoader>        loader;
+    OwnedResource<RHI> rhi;
+    GPUAdapter         adapter;
+    GPUDevice          device;
+    Own<FileLoader>    loader;
 
     RHIBackend             current_backend = static_cast<RHIBackend>(-1);
     RHIFlags               current_flags   = 0;

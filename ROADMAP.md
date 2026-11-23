@@ -72,22 +72,23 @@ flowchart TD
 Goal: Solidify the primary rasterization pipelines (Forward+ and Deferred Hybrid) and establish perceptual visual image tests across Vulkan, SoftGPU, and D3D12.
 
 #### 1.1 Deferred Hybrid Renderer & GBuffer
-- [ ] **1.1.1 GBuffer Multiple Render Target (MRT) Specification**
+- [x] **1.1.1 GBuffer Multiple Render Target (MRT) Specification**
   - File: [`Engine/Source/Rendering/Passes/GBufferPass.cpp`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Source/Rendering/Passes/GBufferPass.cpp)
   - Shader: [`Engine/Assets/Shaders/GBuffer.slang`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Assets/Shaders/GBuffer.slang)
   - **Exact Render Target Formats & Channel Packing**:
     - **RT0 (`GPUTextureFormat::RGBA16UNORM`)**:
       - `RGB`: BaseColor in linear space.
-      - `A`: Metallic factor in $[0, 1]$.
+      - `A`: Material Ambient Occlusion (AO / Occlusion factor) in $[0, 1]$.
     - **RT1 (`GPUTextureFormat::RGBA16SNORM`)**:
       - `RG`: Octahedral-encoded world-space normal vector $\vec{N} \in [-1, 1]$.
         $$\text{Decode: } \vec{v} = (x, y); \ z = 1.0 - |x| - |y|; \ \text{if } z < 0: \vec{v} = (1 - |y|, 1 - |x|) \odot \text{sign}(\vec{v}); \ \vec{N} = \text{normalize}(\vec{v}.x, \vec{v}.y, z)$$
       - `B`: Perceptual roughness $\alpha_{\text{roughness}} \in [0, 1]$.
-      - `A`: Clearcoat factor in $[0, 1]$.
-    - **RT2 (`GPUTextureFormat::R11G11B10FLOAT`)**:
+      - `A`: Metallic factor in $[0, 1]$.
+    - **RT2 (`GPUTextureFormat::RG11B10UFLOAT`)**:
       - Unsigned floating-point emissive radiance in $\text{W}/(\text{sr}\cdot\text{m}^2)$.
-    - **RT3 (`GPUTextureFormat::R8UINT`)**:
-      - Shading Model ID: `0 = Unlit`, `1 = DefaultLit`, `2 = Clearcoat`, `3 = Subsurface`, `4 = Cloth`.
+    - **RT3 (`GPUTextureFormat::RG8UINT`)**:
+      - `R`: Shading Model ID (`0 = Unlit`, `1 = DefaultLit`, `2 = Clearcoat`, `3 = Subsurface`, `4 = Cloth`).
+      - `G`: Quantized Clearcoat factor in $[0, 255]$ (or custom material parameters).
     - **Depth Target (`GPUTextureFormat::DEPTH32FLOAT`)**:
       - Reversed floating-point depth ($z_{\text{near}} = 1.0$, $z_{\text{far}} = 0.0$ at infinity) for maximized logarithmic precision.
 - [ ] **1.1.2 Clustered Light Culling Compute Pass**

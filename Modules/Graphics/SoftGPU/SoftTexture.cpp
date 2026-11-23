@@ -12,6 +12,7 @@ static usize get_bytes_per_pixel(GPUTextureFormat format)
         case GPUTextureFormat::R8UINT:
             return 1;
         case GPUTextureFormat::RG8UNORM:
+        case GPUTextureFormat::RG8UINT:
         case GPUTextureFormat::R16UINT:
         case GPUTextureFormat::DEPTH16UNORM:
             return 2;
@@ -22,10 +23,13 @@ static usize get_bytes_per_pixel(GPUTextureFormat format)
         case GPUTextureFormat::R32FLOAT:
         case GPUTextureFormat::R32UINT:
         case GPUTextureFormat::RG16FLOAT:
+        case GPUTextureFormat::RG11B10UFLOAT:
         case GPUTextureFormat::DEPTH32FLOAT:
         case GPUTextureFormat::DEPTH24PLUS_STENCIL8:
             return 4;
         case GPUTextureFormat::RGBA16FLOAT:
+        case GPUTextureFormat::RGBA16UNORM:
+        case GPUTextureFormat::RGBA16SNORM:
         case GPUTextureFormat::RG32FLOAT:
         case GPUTextureFormat::DEPTH32FLOAT_STENCIL8:
             return 8;
@@ -146,6 +150,38 @@ Vector4 SoftTexture::read_rgba(uint x, uint y, uint z, uint mip, uint layer) con
                 glm::unpackHalf1x16(h[2]),
                 glm::unpackHalf1x16(h[3]));
         }
+        case GPUTextureFormat::RGBA16UNORM:
+        {
+            const ushort* u = reinterpret_cast<const ushort*>(ptr);
+            return Vector4(
+                u[0] / 65535.0f,
+                u[1] / 65535.0f,
+                u[2] / 65535.0f,
+                u[3] / 65535.0f);
+        }
+        case GPUTextureFormat::RGBA16SNORM:
+        {
+            const short* s = reinterpret_cast<const short*>(ptr);
+            return Vector4(
+                std::clamp(s[0] / 32767.0f, -1.0f, 1.0f),
+                std::clamp(s[1] / 32767.0f, -1.0f, 1.0f),
+                std::clamp(s[2] / 32767.0f, -1.0f, 1.0f),
+                std::clamp(s[3] / 32767.0f, -1.0f, 1.0f));
+        }
+        case GPUTextureFormat::RG11B10UFLOAT:
+        {
+            uint      packed = *reinterpret_cast<const uint*>(ptr);
+            glm::vec3 rgb    = glm::unpackF2x11_1x10(packed);
+            return Vector4(rgb.r, rgb.g, rgb.b, 1.0f);
+        }
+        case GPUTextureFormat::R8UINT:
+        {
+            return Vector4(static_cast<float>(ptr[0]), 0.0f, 0.0f, 1.0f);
+        }
+        case GPUTextureFormat::RG8UINT:
+        {
+            return Vector4(static_cast<float>(ptr[0]), static_cast<float>(ptr[1]), 0.0f, 1.0f);
+        }
         case GPUTextureFormat::RGBA32UINT:
         {
             const uint* u = reinterpret_cast<const uint*>(ptr);
@@ -243,6 +279,44 @@ void SoftTexture::write_rgba(uint x, uint y, const Vector4& color, uint z, uint 
             h[1]      = glm::packHalf1x16(color.g);
             h[2]      = glm::packHalf1x16(color.b);
             h[3]      = glm::packHalf1x16(color.a);
+            break;
+        }
+        case GPUTextureFormat::RGBA16UNORM:
+        {
+            ushort* u = reinterpret_cast<ushort*>(ptr);
+            u[0]      = static_cast<ushort>(clamp01(color.r) * 65535.0f + 0.5f);
+            u[1]      = static_cast<ushort>(clamp01(color.g) * 65535.0f + 0.5f);
+            u[2]      = static_cast<ushort>(clamp01(color.b) * 65535.0f + 0.5f);
+            u[3]      = static_cast<ushort>(clamp01(color.a) * 65535.0f + 0.5f);
+            break;
+        }
+        case GPUTextureFormat::RGBA16SNORM:
+        {
+            short* s           = reinterpret_cast<short*>(ptr);
+            auto   clamp_snorm = [](float v) -> short {
+                return static_cast<short>(std::clamp(v, -1.0f, 1.0f) * 32767.0f + (v >= 0.0f ? 0.5f : -0.5f));
+            };
+            s[0] = clamp_snorm(color.r);
+            s[1] = clamp_snorm(color.g);
+            s[2] = clamp_snorm(color.b);
+            s[3] = clamp_snorm(color.a);
+            break;
+        }
+        case GPUTextureFormat::RG11B10UFLOAT:
+        {
+            uint* u = reinterpret_cast<uint*>(ptr);
+            *u      = glm::packF2x11_1x10(glm::vec3(std::max(0.0f, color.r), std::max(0.0f, color.g), std::max(0.0f, color.b)));
+            break;
+        }
+        case GPUTextureFormat::R8UINT:
+        {
+            ptr[0] = static_cast<ubyte>(std::clamp(color.r, 0.0f, 255.0f) + 0.5f);
+            break;
+        }
+        case GPUTextureFormat::RG8UINT:
+        {
+            ptr[0] = static_cast<ubyte>(std::clamp(color.r, 0.0f, 255.0f) + 0.5f);
+            ptr[1] = static_cast<ubyte>(std::clamp(color.g, 0.0f, 255.0f) + 0.5f);
             break;
         }
         case GPUTextureFormat::RGBA32UINT:
@@ -407,6 +481,28 @@ void SoftHostTextureWrapper::Load(const int32_t* v, void* outData, usize dataSiz
             std::memcpy(outData, ptr, std::min(dataSize, sizeof(uint) * 4));
         } else {
             std::memset(outData, 0, dataSize);
+        }
+    } else if (tex->format == GPUTextureFormat::R8UINT) {
+        const ubyte* ptr = tex->get_texel_ptr(static_cast<uint>(x), static_cast<uint>(y), 0, mip);
+        uint         val = ptr ? static_cast<uint>(*ptr) : 0u;
+        if (dataSize == sizeof(uint)) {
+            *reinterpret_cast<uint*>(outData) = val;
+        } else if (dataSize >= sizeof(Vector4)) {
+            *reinterpret_cast<Vector4*>(outData) = Vector4(static_cast<float>(val), 0.0f, 0.0f, 1.0f);
+        } else {
+            std::memcpy(outData, &val, std::min(dataSize, sizeof(uint)));
+        }
+    } else if (tex->format == GPUTextureFormat::RG8UINT) {
+        const ubyte* ptr     = tex->get_texel_ptr(static_cast<uint>(x), static_cast<uint>(y), 0, mip);
+        uint         vals[2] = {ptr ? static_cast<uint>(ptr[0]) : 0u, ptr ? static_cast<uint>(ptr[1]) : 0u};
+        if (dataSize == sizeof(uint) * 2) {
+            std::memcpy(outData, vals, sizeof(uint) * 2);
+        } else if (dataSize == sizeof(uint)) {
+            *reinterpret_cast<uint*>(outData) = vals[0];
+        } else if (dataSize >= sizeof(Vector4)) {
+            *reinterpret_cast<Vector4*>(outData) = Vector4(static_cast<float>(vals[0]), static_cast<float>(vals[1]), 0.0f, 1.0f);
+        } else {
+            std::memcpy(outData, vals, std::min(dataSize, sizeof(vals)));
         }
     } else {
         Vector4 c = tex->read_rgba(static_cast<uint>(x), static_cast<uint>(y), 0, mip);

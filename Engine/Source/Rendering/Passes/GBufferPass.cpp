@@ -7,25 +7,63 @@ using namespace lyra::passes;
 
 namespace
 {
-    struct CameraUniform
+    struct alignas(16) CameraUniform
     {
         Matrix4x4 proj;
         Matrix4x4 view;
         Matrix4x4 inv_proj;
         Matrix4x4 inv_view;
-        Vector3   pos;
-        float     padding = 0.0f;
+        Vector4   pos_and_pad = Vector4(0.0f);
     };
 
-    struct InstanceData
+    static_assert(sizeof(CameraUniform) == 272, "CameraUniform must be 272 bytes");
+
+    /**
+     * @brief Per-instance push constant layout matching Slang shader `InstanceData` in `sys://Shaders/Deferred/GBuffer.slang`.
+     */
+    struct alignas(16) InstanceData
     {
-        Matrix4x4    model;
-        Vector4      base_color    = Vector4(1.0f);
-        float        roughness     = 0.5f;
-        float        metallic      = 0.0f;
-        ShadingModel shading_model = ShadingModel::STANDARD;
-        uint         material_id   = 0;
+        Matrix4x4 model;                         // 64 bytes (offset 0)
+        Vector4   base_color    = Vector4(1.0f); // 16 bytes (offset 64)
+        Vector4   emissive      = Vector4(0.0f); // 16 bytes (offset 80)
+        float     metallic      = 0.0f;          // 4 bytes  (offset 96)
+        float     roughness     = 0.5f;          // 4 bytes  (offset 100)
+        float     clear_coat    = 0.0f;          // 4 bytes  (offset 104)
+        float     occlusion     = 1.0f;          // 4 bytes  (offset 108)
+        uint      shading_model = 1;             // 4 bytes  (offset 112)
+        uint      material_id   = 0;             // 4 bytes  (offset 116)
+        uint      pad0          = 0;             // 4 bytes  (offset 120)
+        uint      pad1          = 0;             // 4 bytes  (offset 124)
     };
+
+    static_assert(sizeof(InstanceData) == 128, "InstanceData must be 128 bytes");
+    static_assert(offsetof(InstanceData, model) == 0);
+    static_assert(offsetof(InstanceData, base_color) == 64);
+    static_assert(offsetof(InstanceData, emissive) == 80);
+    static_assert(offsetof(InstanceData, metallic) == 96);
+    static_assert(offsetof(InstanceData, roughness) == 100);
+    static_assert(offsetof(InstanceData, clear_coat) == 104);
+    static_assert(offsetof(InstanceData, occlusion) == 108);
+    static_assert(offsetof(InstanceData, shading_model) == 112);
+    static_assert(offsetof(InstanceData, material_id) == 116);
+
+    uint to_g_buffer_shading_model(ShadingModel model)
+    {
+        switch (model) {
+            case ShadingModel::UNLIT:
+                return 0;
+            case ShadingModel::STANDARD:
+                return 1;
+            case ShadingModel::CLEARCOAT:
+                return 2;
+            case ShadingModel::SUBSURFACE:
+                return 3;
+            case ShadingModel::CUSTOM:
+                return 4;
+            default:
+                return 1;
+        }
+    }
 } // namespace
 
 bool GBufferPass::init(
@@ -142,16 +180,19 @@ bool GBufferPass::init(
         vlayouts.push_back(uv_layout);
 
         // MRT color target states
-        Vector<GPUColorTargetState> rstates(3);
-        // 0: Albedo / Metallic
-        rstates[0].format       = GPUTextureFormat::RGBA8UNORM;
+        Vector<GPUColorTargetState> rstates(4);
+        // 0: BaseColor / AO
+        rstates[0].format       = GPUTextureFormat::RGBA16UNORM;
         rstates[0].blend_enable = false;
-        // 1: Normal / Roughness
-        rstates[1].format       = GPUTextureFormat::RGBA16FLOAT;
+        // 1: Normal / Roughness / Metallic
+        rstates[1].format       = GPUTextureFormat::RGBA16SNORM;
         rstates[1].blend_enable = false;
-        // 2: Material Info
-        rstates[2].format       = GPUTextureFormat::RGBA32UINT;
+        // 2: Emissive Radiance
+        rstates[2].format       = GPUTextureFormat::RG11B10UFLOAT;
         rstates[2].blend_enable = false;
+        // 3: Shading Model ID / Clearcoat
+        rstates[3].format       = GPUTextureFormat::RG8UINT;
+        rstates[3].blend_enable = false;
 
         auto desc                              = GPURenderPipelineDescriptor{};
         desc.layout                            = playout;
@@ -234,13 +275,12 @@ void GBufferPass::update_camera_uniform(const RenderView& view)
         return;
     }
 
-    auto camera_gpu           = camera_buffer.get_mapped_range<CameraUniform>();
-    camera_gpu.at(0).proj     = view.projection;
-    camera_gpu.at(0).view     = view.view;
-    camera_gpu.at(0).inv_proj = view.inv_projection;
-    camera_gpu.at(0).inv_view = view.inv_view;
-    camera_gpu.at(0).pos      = view.camera_position;
-    camera_gpu.at(0).padding  = 0.0f;
+    auto camera_gpu              = camera_buffer.get_mapped_range<CameraUniform>();
+    camera_gpu.at(0).proj        = view.projection;
+    camera_gpu.at(0).view        = view.view;
+    camera_gpu.at(0).inv_proj    = view.inv_projection;
+    camera_gpu.at(0).inv_view    = view.inv_view;
+    camera_gpu.at(0).pos_and_pad = Vector4(view.camera_position, 0.0f);
 }
 
 GBufferData GBufferPass::add(
@@ -255,34 +295,44 @@ GBufferData GBufferPass::add(
         "GBufferPass",
         [&](GBufferData& data, FrameGraphPassBuilder& pass_builder) {
             auto albedo_desc        = GPUTextureDescriptor{};
-            albedo_desc.label       = "gbuffer_albedo_metallic";
+            albedo_desc.label       = "gbuffer_albedo_occlusion";
             albedo_desc.size.width  = extent.width;
             albedo_desc.size.height = extent.height;
             albedo_desc.size.depth  = 1;
             albedo_desc.dimension   = GPUTextureDimension::x2D;
-            albedo_desc.format      = GPUTextureFormat::RGBA8UNORM;
+            albedo_desc.format      = GPUTextureFormat::RGBA16UNORM;
             albedo_desc.usage       = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
-            data.albedo_metallic    = pass_builder.create<FrameGraphTexture>(albedo_desc);
+            data.albedo_occlusion   = pass_builder.create<FrameGraphTexture>(albedo_desc);
 
-            auto normal_desc        = GPUTextureDescriptor{};
-            normal_desc.label       = "gbuffer_normal_roughness";
-            normal_desc.size.width  = extent.width;
-            normal_desc.size.height = extent.height;
-            normal_desc.size.depth  = 1;
-            normal_desc.dimension   = GPUTextureDimension::x2D;
-            normal_desc.format      = GPUTextureFormat::RGBA16FLOAT;
-            normal_desc.usage       = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
-            data.normal_roughness   = pass_builder.create<FrameGraphTexture>(normal_desc);
+            auto normal_desc               = GPUTextureDescriptor{};
+            normal_desc.label              = "gbuffer_normal_roughness_metallic";
+            normal_desc.size.width         = extent.width;
+            normal_desc.size.height        = extent.height;
+            normal_desc.size.depth         = 1;
+            normal_desc.dimension          = GPUTextureDimension::x2D;
+            normal_desc.format             = GPUTextureFormat::RGBA16SNORM;
+            normal_desc.usage              = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
+            data.normal_roughness_metallic = pass_builder.create<FrameGraphTexture>(normal_desc);
 
-            auto mat_desc        = GPUTextureDescriptor{};
-            mat_desc.label       = "gbuffer_material_info";
-            mat_desc.size.width  = extent.width;
-            mat_desc.size.height = extent.height;
-            mat_desc.size.depth  = 1;
-            mat_desc.dimension   = GPUTextureDimension::x2D;
-            mat_desc.format      = GPUTextureFormat::RGBA32UINT;
-            mat_desc.usage       = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
-            data.material_info   = pass_builder.create<FrameGraphTexture>(mat_desc);
+            auto emissive_desc        = GPUTextureDescriptor{};
+            emissive_desc.label       = "gbuffer_emissive";
+            emissive_desc.size.width  = extent.width;
+            emissive_desc.size.height = extent.height;
+            emissive_desc.size.depth  = 1;
+            emissive_desc.dimension   = GPUTextureDimension::x2D;
+            emissive_desc.format      = GPUTextureFormat::RG11B10UFLOAT;
+            emissive_desc.usage       = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
+            data.emissive             = pass_builder.create<FrameGraphTexture>(emissive_desc);
+
+            auto shading_model_desc        = GPUTextureDescriptor{};
+            shading_model_desc.label       = "gbuffer_shading_model_clearcoat";
+            shading_model_desc.size.width  = extent.width;
+            shading_model_desc.size.height = extent.height;
+            shading_model_desc.size.depth  = 1;
+            shading_model_desc.dimension   = GPUTextureDimension::x2D;
+            shading_model_desc.format      = GPUTextureFormat::RG8UINT;
+            shading_model_desc.usage       = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
+            data.shading_model_clearcoat   = pass_builder.create<FrameGraphTexture>(shading_model_desc);
 
             auto depth_desc        = GPUTextureDescriptor{};
             depth_desc.label       = "gbuffer_depth_stencil";
@@ -294,39 +344,46 @@ GBufferData GBufferPass::add(
             depth_desc.usage       = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
             data.depth_stencil     = pass_builder.create<FrameGraphTexture>(depth_desc);
 
-            data.albedo_metallic  = pass_builder.render(data.albedo_metallic);
-            data.normal_roughness = pass_builder.render(data.normal_roughness);
-            data.material_info    = pass_builder.render(data.material_info);
-            data.depth_stencil    = pass_builder.render(data.depth_stencil);
+            data.albedo_occlusion          = pass_builder.render(data.albedo_occlusion);
+            data.normal_roughness_metallic = pass_builder.render(data.normal_roughness_metallic);
+            data.emissive                  = pass_builder.render(data.emissive);
+            data.shading_model_clearcoat   = pass_builder.render(data.shading_model_clearcoat);
+            data.depth_stencil             = pass_builder.render(data.depth_stencil);
         },
         [this, extent, &scene](const GBufferData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
             if (!ctx || !ctx->cmdlist.handle.valid() || !pipeline.valid()) {
                 return;
             }
 
-            auto albedo_tex   = resources.get<FrameGraphTexture>(data.albedo_metallic);
-            auto normal_tex   = resources.get<FrameGraphTexture>(data.normal_roughness);
-            auto material_tex = resources.get<FrameGraphTexture>(data.material_info);
-            auto depth_tex    = resources.get<FrameGraphTexture>(data.depth_stencil);
-            if (!albedo_tex || !normal_tex || !material_tex || !depth_tex) {
+            auto albedo_tex        = resources.get<FrameGraphTexture>(data.albedo_occlusion);
+            auto normal_tex        = resources.get<FrameGraphTexture>(data.normal_roughness_metallic);
+            auto emissive_tex      = resources.get<FrameGraphTexture>(data.emissive);
+            auto shading_model_tex = resources.get<FrameGraphTexture>(data.shading_model_clearcoat);
+            auto depth_tex         = resources.get<FrameGraphTexture>(data.depth_stencil);
+            if (!albedo_tex || !normal_tex || !emissive_tex || !shading_model_tex || !depth_tex) {
                 return;
             }
 
-            Vector<GPURenderPassColorAttachment> color_attachments(3);
+            Vector<GPURenderPassColorAttachment> color_attachments(4);
             color_attachments[0].view        = albedo_tex->view;
-            color_attachments[0].clear_value = GPUColor{scene.clear_color.x, scene.clear_color.y, scene.clear_color.z, 0.0f};
+            color_attachments[0].clear_value = GPUColor{scene.clear_color.x, scene.clear_color.y, scene.clear_color.z, 1.0f};
             color_attachments[0].load_op     = GPULoadOp::CLEAR;
             color_attachments[0].store_op    = GPUStoreOp::STORE;
 
             color_attachments[1].view        = normal_tex->view;
-            color_attachments[1].clear_value = GPUColor{0.5f, 0.5f, 1.0f, 1.0f};
+            color_attachments[1].clear_value = GPUColor{0.0f, 0.0f, 0.5f, 0.0f};
             color_attachments[1].load_op     = GPULoadOp::CLEAR;
             color_attachments[1].store_op    = GPUStoreOp::STORE;
 
-            color_attachments[2].view        = material_tex->view;
+            color_attachments[2].view        = emissive_tex->view;
             color_attachments[2].clear_value = GPUColor{0.0f, 0.0f, 0.0f, 0.0f};
             color_attachments[2].load_op     = GPULoadOp::CLEAR;
             color_attachments[2].store_op    = GPUStoreOp::STORE;
+
+            color_attachments[3].view        = shading_model_tex->view;
+            color_attachments[3].clear_value = GPUColor{0.0f, 0.0f, 0.0f, 0.0f};
+            color_attachments[3].load_op     = GPULoadOp::CLEAR;
+            color_attachments[3].store_op    = GPUStoreOp::STORE;
 
             auto depth_attachment              = GPURenderPassDepthStencilAttachment{};
             depth_attachment.view              = depth_tex->view;
@@ -354,9 +411,13 @@ GBufferData GBufferPass::add(
                 InstanceData inst{};
                 inst.model         = mesh.transform;
                 inst.base_color    = mesh.material_params.base_color;
-                inst.roughness     = mesh.material_params.roughness;
+                inst.emissive      = mesh.material_params.emissive;
                 inst.metallic      = mesh.material_params.metallic;
-                inst.shading_model = mesh.shading_model;
+                inst.roughness     = mesh.material_params.roughness;
+                inst.clear_coat    = mesh.material_params.clear_coat;
+                inst.occlusion     = 1.0f;
+                inst.shading_model = to_g_buffer_shading_model(mesh.shading_model);
+                inst.material_id   = mesh.material_id;
 
                 command.set_immediates(0, inst);
                 GPUBuffer vbuf{};

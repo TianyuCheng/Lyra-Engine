@@ -18,9 +18,9 @@ bool TestContext::acquire(RHIBackend backend, RHIFlags flags, const Vector<GPUFe
 
     release();
 
-    current_backend  = backend;
-    current_flags    = flags;
-    current_features = features;
+    current_backend     = backend;
+    current_flags       = flags;
+    current_features    = features;
     feature_unsupported = false;
     missing_feature_name.clear();
 

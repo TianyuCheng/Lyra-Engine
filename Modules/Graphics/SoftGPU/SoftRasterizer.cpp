@@ -514,16 +514,48 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
                             tex->format == GPUTextureFormat::RGBA32FLOAT) {
                             ubyte* ptr = tex->get_texel_ptr(x, y);
                             if (ptr) std::memcpy(ptr, &out_colors[i], 16);
+                        } else if (tex->format == GPUTextureFormat::RG8UINT ||
+                                   tex->format == GPUTextureFormat::RG8SINT) {
+                            ubyte* ptr = tex->get_texel_ptr(x, y);
+                            if (ptr) {
+                                const uint* u = reinterpret_cast<const uint*>(&out_colors[i]);
+                                ptr[0]        = static_cast<ubyte>(u[0]);
+                                ptr[1]        = static_cast<ubyte>(u[1]);
+                            }
+                        } else if (tex->format == GPUTextureFormat::R8UINT ||
+                                   tex->format == GPUTextureFormat::R8SINT) {
+                            ubyte* ptr = tex->get_texel_ptr(x, y);
+                            if (ptr) *ptr = static_cast<ubyte>(reinterpret_cast<const uint*>(&out_colors[i])[0]);
                         } else {
                             tex->write_rgba(x, y, out_color);
                         }
                     } else {
-                        Vector4 cur = tex->read_rgba(x, y);
-                        if (ct.write_mask.contains(GPUColorWrite::RED)) cur.r = out_color.r;
-                        if (ct.write_mask.contains(GPUColorWrite::GREEN)) cur.g = out_color.g;
-                        if (ct.write_mask.contains(GPUColorWrite::BLUE)) cur.b = out_color.b;
-                        if (ct.write_mask.contains(GPUColorWrite::ALPHA)) cur.a = out_color.a;
-                        tex->write_rgba(x, y, cur);
+                        if (tex->format == GPUTextureFormat::RG8UINT ||
+                            tex->format == GPUTextureFormat::RG8SINT) {
+                            ubyte* ptr = tex->get_texel_ptr(x, y);
+                            if (ptr) {
+                                const uint* u = reinterpret_cast<const uint*>(&out_color);
+                                if (ct.write_mask.contains(GPUColorWrite::RED)) {
+                                    ptr[0] = static_cast<ubyte>(u[0]);
+                                }
+                                if (ct.write_mask.contains(GPUColorWrite::GREEN)) {
+                                    ptr[1] = static_cast<ubyte>(u[1]);
+                                }
+                            }
+                        } else if (tex->format == GPUTextureFormat::R8UINT ||
+                                   tex->format == GPUTextureFormat::R8SINT) {
+                            ubyte* ptr = tex->get_texel_ptr(x, y);
+                            if (ptr && ct.write_mask.contains(GPUColorWrite::RED)) {
+                                *ptr = static_cast<ubyte>(reinterpret_cast<const uint*>(&out_color)[0]);
+                            }
+                        } else {
+                            Vector4 cur = tex->read_rgba(x, y);
+                            if (ct.write_mask.contains(GPUColorWrite::RED)) cur.r = out_color.r;
+                            if (ct.write_mask.contains(GPUColorWrite::GREEN)) cur.g = out_color.g;
+                            if (ct.write_mask.contains(GPUColorWrite::BLUE)) cur.b = out_color.b;
+                            if (ct.write_mask.contains(GPUColorWrite::ALPHA)) cur.a = out_color.a;
+                            tex->write_rgba(x, y, cur);
+                        }
                     }
                 }
             } else if (ctx.color_attachment && ctx.color_target.write_mask.value != 0) {

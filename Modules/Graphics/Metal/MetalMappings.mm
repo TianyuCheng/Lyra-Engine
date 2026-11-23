@@ -366,6 +366,8 @@ auto mtlenum(GPUTextureFormat format) -> MTLPixelFormat
         case GPUTextureFormat::RG32UINT:              return MTLPixelFormatRG32Uint;
         case GPUTextureFormat::RG32SINT:              return MTLPixelFormatRG32Sint;
         case GPUTextureFormat::RG32FLOAT:             return MTLPixelFormatRG32Float;
+        case GPUTextureFormat::RGBA16UNORM:           return MTLPixelFormatRGBA16Unorm;
+        case GPUTextureFormat::RGBA16SNORM:           return MTLPixelFormatRGBA16Snorm;
         case GPUTextureFormat::RGBA16UINT:            return MTLPixelFormatRGBA16Uint;
         case GPUTextureFormat::RGBA16SINT:            return MTLPixelFormatRGBA16Sint;
         case GPUTextureFormat::RGBA16FLOAT:           return MTLPixelFormatRGBA16Float;

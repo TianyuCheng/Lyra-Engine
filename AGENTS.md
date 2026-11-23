@@ -10,6 +10,7 @@ Function signature:
 use `auto function_name(...) -> return_type` in the header file when we need to align function signatures`.
 use `return_type function_name(...)` in the cpp file when all functions are separate (no need to align).
 The rule of switching which one to use is based on alignment.
+use `auto` instead of `auto*`, because pointer is inferred.
 
 Types:
 use the lyra alias types if possible.

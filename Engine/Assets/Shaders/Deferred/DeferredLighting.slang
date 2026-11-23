@@ -6,8 +6,9 @@ import Common.Tonemapping;
 // Deferred lighting & hybrid ray tracing composition pass
 [[lyra::binding(0, 0)]] Texture2D<float4> gbuffer_albedo;
 [[lyra::binding(1, 0)]] Texture2D<float4> gbuffer_normal;
-[[lyra::binding(2, 0)]] Texture2D<uint4>  gbuffer_material;
-[[lyra::binding(3, 0)]] Texture2D<float>  gbuffer_depth;
+[[lyra::binding(2, 0)]] Texture2D<float4> gbuffer_emissive;
+[[lyra::binding(3, 0)]] Texture2D<uint2>  gbuffer_shading_model;
+[[lyra::binding(4, 0)]] Texture2D<float>  gbuffer_depth;
 
 struct CameraUniforms
 {
@@ -26,11 +27,11 @@ struct CameraUniforms
     property float3 sun_color     { get { return sun_color_and_pad.xyz; } }
 };
 
-[[lyra::binding(4, 0)]]
+[[lyra::binding(5, 0)]]
 ConstantBuffer<CameraUniforms> camera;
 
-[[lyra::binding(5, 0)]] Texture2D<float> shadow_map;
-[[lyra::binding(6, 0)]] SamplerState    shadow_sampler;
+[[lyra::binding(6, 0)]] Texture2D<float> shadow_map;
+[[lyra::binding(7, 0)]] SamplerState    shadow_sampler;
 
 struct VertexOutput
 {
@@ -105,21 +106,26 @@ FragmentOutput fsmain(VertexOutput input)
 {
     int2 pixel = int2(input.position.xy);
 
-    float4 albedo_metallic = gbuffer_albedo.Load(int3(pixel, 0));
-    float4 normal_rough    = gbuffer_normal.Load(int3(pixel, 0));
-    uint4  mat_info        = gbuffer_material.Load(int3(pixel, 0));
-    float  depth           = gbuffer_depth.Load(int3(pixel, 0));
+    float4 albedo_occlusion      = gbuffer_albedo.Load(int3(pixel, 0));
+    float4 normal_rough_metallic = gbuffer_normal.Load(int3(pixel, 0));
+    float3 emissive             = gbuffer_emissive.Load(int3(pixel, 0)).rgb;
+    uint2  shading_model_cc      = gbuffer_shading_model.Load(int3(pixel, 0));
+    float  depth                = gbuffer_depth.Load(int3(pixel, 0));
 
     if (depth >= 1.0) {
         discard;
     }
 
-    uint shading_model = mat_info.r;
+    uint  shading_model = shading_model_cc.x;
+    float clear_coat    = float(shading_model_cc.y) / 255.0;
+    float occlusion     = albedo_occlusion.a;
+    float roughness     = max(normal_rough_metallic.z, 0.04);
+    float metallic      = normal_rough_metallic.w;
 
-    // 1. Unlit shading model
-    if (shading_model == 1) {
+    // 0. Unlit shading model
+    if (shading_model == 0) {
         FragmentOutput out_unlit;
-        out_unlit.lit_color = float4(albedo_metallic.rgb, 1.0);
+        out_unlit.lit_color = float4(albedo_occlusion.rgb + emissive, 1.0);
         return out_unlit;
     }
 
@@ -131,24 +137,24 @@ FragmentOutput fsmain(VertexOutput input)
     view_pos /= max(view_pos.w, 1e-6);
     float4 world_pos = mul(view_pos, camera.inv_view);
 
-    float3 N = oct_decode(normal_rough.xy);
+    float3 N = oct_decode(normal_rough_metallic.xy);
     float3 V = normalize(camera.pos - world_pos.xyz);
     float3 L = normalize(camera.sun_dir);
 
     // 2. Custom shading model
     if (shading_model >= 4) {
         FragmentOutput out_custom;
-        out_custom.lit_color = float4(evaluate_custom_material(shading_model, mat_info.g, albedo_metallic.rgb, N, V), 1.0);
+        out_custom.lit_color = float4(evaluate_custom_material(shading_model, 0, albedo_occlusion.rgb, N, V) + emissive, 1.0);
         return out_custom;
     }
 
     // 3. PBR evaluation matching Forward PBRShadingModel
     PBRMaterial mat;
-    mat.base_color   = albedo_metallic.rgb;
-    mat.metallic     = albedo_metallic.a;
-    mat.roughness    = max(normal_rough.z, 0.04);
+    mat.base_color   = albedo_occlusion.rgb;
+    mat.metallic     = metallic;
+    mat.roughness    = roughness;
     mat.reflectance  = 0.5;
-    mat.clear_coat.factor    = normal_rough.w;
+    mat.clear_coat.factor    = clear_coat;
     mat.clear_coat.roughness = 0.04;
     mat.clear_coat.tint      = float3(0.0);
     mat.clear_coat.thickness = 0.0;
@@ -156,9 +162,9 @@ FragmentOutput fsmain(VertexOutput input)
     float shadow = evaluate_shadow(world_pos.xyz);
     float3 light_radiance = camera.sun_color * camera.sun_intensity;
     float3 direct = mat.evaluate(V, L, N) * light_radiance * shadow;
-    float3 ambient = albedo_metallic.rgb * max(camera.sun_intensity * 0.15, 0.04);
+    float3 ambient = albedo_occlusion.rgb * max(camera.sun_intensity * 0.15, 0.04) * occlusion;
 
-    float3 final_color = tonemap_aces_film(direct + ambient);
+    float3 final_color = tonemap_aces_film(direct + ambient + emissive);
 
     FragmentOutput output;
     output.lit_color = float4(final_color, 1.0);

@@ -236,17 +236,27 @@ void cmd::begin_render_pass(GPUCommandEncoderHandle cmdbuffer, const GPURenderPa
 
         // depth/stencil attachment
         if (desc.depth_stencil_attachment.view.valid()) {
-            auto& view                           = fetch_resource(rhi->views, desc.depth_stencil_attachment.view);
-            mtl_pass.depthAttachment.texture     = view.texture;
-            mtl_pass.depthAttachment.loadAction  = mtlenum(desc.depth_stencil_attachment.depth_load_op);
-            mtl_pass.depthAttachment.storeAction = mtlenum(desc.depth_stencil_attachment.depth_store_op);
-            mtl_pass.depthAttachment.clearDepth  = desc.depth_stencil_attachment.depth_clear_value;
+            auto& view       = fetch_resource(rhi->views, desc.depth_stencil_attachment.view);
+            bool  is_depth   = (view.format == MTLPixelFormatDepth16Unorm ||
+                                view.format == MTLPixelFormatDepth32Float ||
+                                view.format == MTLPixelFormatDepth32Float_Stencil8);
+            bool  is_stencil = (view.format == MTLPixelFormatStencil8 ||
+                                view.format == MTLPixelFormatDepth32Float_Stencil8);
+
+            if (is_depth) {
+                mtl_pass.depthAttachment.texture     = view.texture;
+                mtl_pass.depthAttachment.loadAction  = mtlenum(desc.depth_stencil_attachment.depth_load_op);
+                mtl_pass.depthAttachment.storeAction = mtlenum(desc.depth_stencil_attachment.depth_store_op);
+                mtl_pass.depthAttachment.clearDepth  = desc.depth_stencil_attachment.depth_clear_value;
+            }
 
             // stencil (if format supports it)
-            mtl_pass.stencilAttachment.texture      = view.texture;
-            mtl_pass.stencilAttachment.loadAction   = mtlenum(desc.depth_stencil_attachment.stencil_load_op);
-            mtl_pass.stencilAttachment.storeAction  = mtlenum(desc.depth_stencil_attachment.stencil_store_op);
-            mtl_pass.stencilAttachment.clearStencil = desc.depth_stencil_attachment.stencil_clear_value;
+            if (is_stencil) {
+                mtl_pass.stencilAttachment.texture      = view.texture;
+                mtl_pass.stencilAttachment.loadAction   = mtlenum(desc.depth_stencil_attachment.stencil_load_op);
+                mtl_pass.stencilAttachment.storeAction  = mtlenum(desc.depth_stencil_attachment.stencil_store_op);
+                mtl_pass.stencilAttachment.clearStencil = desc.depth_stencil_attachment.stencil_clear_value;
+            }
         }
 
         // occlusion query buffer
