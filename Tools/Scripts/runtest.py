@@ -26,6 +26,7 @@ def parse_args():
     parser.add_argument("--rmse-threshold", type=float, default=2.0, help="max allowed RMSE across RGB channels (default: 2.0)")
     parser.add_argument("--interactive", action="store_true", default=None, help="open browser immediately and poll results live during test execution")
     parser.add_argument("--non-interactive", "--headless", dest="non_interactive", action="store_true", default=False, help="run in non-interactive / headless mode without opening the browser")
+    parser.add_argument("--stage", choices=["all", "primitive", "usecase"], default="all", help="filter tests by stage tier: 'primitive', 'usecase', or 'all' (default: all)")
     args = parser.parse_args()
     args.executable = os.path.abspath(args.executable)
     args.directory = os.path.join(args.directory, "runs")
@@ -116,6 +117,41 @@ def bucketize_tests(tests):
             buckets[name] = []
         buckets[name].append(test)
     return buckets
+
+def get_test_metadata(test_name, git_root):
+    """
+    Returns (tier_int, complexity_float, tier_name) for a test.
+    tier 0 -> "primitive" (default)
+    tier 1 -> "usecase"
+    complexity -> float between 0.0 and 1.0 (default: 0.0)
+    """
+    cfg_path = os.path.join(git_root, "Tests", test_name, "config.json")
+    tier_int, tier_name = 0, "primitive"
+    complexity = 0.0
+    if os.path.exists(cfg_path):
+        try:
+            with open(cfg_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                tier_val = data.get("tier")
+                if tier_val is not None:
+                    if isinstance(tier_val, int):
+                        tier_int = tier_val
+                        tier_name = "usecase" if tier_int > 0 else "primitive"
+                    else:
+                        tier_str = str(tier_val).strip().lower()
+                        if tier_str in ("usecase", "use_case", "usecases"):
+                            tier_int, tier_name = 1, "usecase"
+                        elif tier_str in ("primitive", "primitives", "core"):
+                            tier_int, tier_name = 0, "primitive"
+                comp_val = data.get("complexity")
+                if comp_val is not None:
+                    try:
+                        complexity = max(0.0, min(1.0, float(comp_val)))
+                    except (ValueError, TypeError):
+                        pass
+        except Exception:
+            pass
+    return tier_int, complexity, tier_name
 
 def read_png_rgba(path):
     """Reads an 8-bit PNG file using only python standard libraries and returns (width, height, bytearray_rgba)."""
@@ -388,14 +424,17 @@ def run_rhi_tests(args, buckets, on_progress=None):
             "_available_backends": [v["components"][1] for v in buckets[test_name]]
         }
 
-    # Flatten all test items across buckets
-    tasks = []
+    # Partition tasks by stage tier
+    staged_tasks = {}
     for test_name, variants in buckets.items():
         directory = os.path.join(args.directory, test_name)
         os.makedirs(directory, exist_ok=True)
         ref_image = results[test_name]["reference"]
+        tier_int, complexity, tier_name = get_test_metadata(test_name, git_root)
+        if tier_int not in staged_tasks:
+            staged_tasks[tier_int] = (tier_name, [])
         for variant in variants:
-            tasks.append((test_name, variant, directory, ref_image))
+            staged_tasks[tier_int][1].append((test_name, variant, directory, ref_image, complexity))
 
     def run_single_variant(item):
         test_name, variant, directory, ref_image = item
@@ -478,35 +517,44 @@ def run_rhi_tests(args, buckets, on_progress=None):
         return test_name, backend, full_name, proc_success, proc_output, metrics, test_result, diff_result
 
     max_workers = args.jobs if (args.jobs is not None and args.jobs > 0) else max(1, min(os.cpu_count() or 4, 8))
-    print(f">>> Running {len(tasks)} RHI test variants with {max_workers} parallel workers...")
+    sorted_tiers = sorted(staged_tasks.keys())
+    total_stages = len(sorted_tiers)
+    total_tasks_count = sum(len(staged_tasks[k][1]) for k in sorted_tiers)
+    print(f">>> Running {total_tasks_count} RHI test variants across {total_stages} stage(s) with {max_workers} parallel workers...")
 
     lock = threading.Lock()
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {executor.submit(run_single_variant, item): item for item in tasks}
-        for future in concurrent.futures.as_completed(futures):
-            test_name, backend, full_name, proc_success, proc_output, metrics, test_result, diff_result = future.result()
-            with lock:
-                results[test_name][backend] = test_result
-                results[test_name]["_metrics"][backend] = metrics
-                if metrics.get("diff_image"):
-                    results[test_name][f"{backend}_diff"] = metrics["diff_image"]
+    for idx, tier_int in enumerate(sorted_tiers, 1):
+        tier_name, stage_tasks = staged_tasks[tier_int]
+        stage_tasks.sort(key=lambda item: (item[4], item[0], item[1]["name"]))
+        stage_title = tier_name.capitalize() if tier_name else f"Tier {tier_int}"
+        print(f"\n>>> [Stage {idx}/{total_stages}: {stage_title}] Running {len(stage_tasks)} test variants (sorted by complexity)...")
 
-                print(f"::{full_name}")
-                if not proc_success:
-                    all_passed = False
-                    print(f"  -> [FAIL] Execution failed: {full_name}")
-                    if proc_output.strip():
-                        print(f"     Output: {proc_output.strip()[:500]}")
-                elif metrics.get("skipped"):
-                    print(f"  -> [SKIP] {backend} ({metrics.get('skip_reason', 'Feature not supported')})")
-                elif metrics["passed"]:
-                    print(f"  -> [PASS] {backend} (RMSE: {metrics['rmse']:.2f}, Diff: {metrics['mismatch_pct']:.2f}%, MaxDiff: {metrics['max_diff']})")
-                else:
-                    all_passed = False
-                    print(f"  -> [FAIL] {backend}: {metrics['error']}")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(run_single_variant, item[:4]): item for item in stage_tasks}
+            for future in concurrent.futures.as_completed(futures):
+                test_name, backend, full_name, proc_success, proc_output, metrics, test_result, diff_result = future.result()
+                with lock:
+                    results[test_name][backend] = test_result
+                    results[test_name]["_metrics"][backend] = metrics
+                    if metrics.get("diff_image"):
+                        results[test_name][f"{backend}_diff"] = metrics["diff_image"]
 
-                if on_progress:
-                    on_progress(test_name, backend, metrics, test_result, results[test_name].get(f"{backend}_diff"))
+                    print(f"::{full_name}")
+                    if not proc_success:
+                        all_passed = False
+                        print(f"  -> [FAIL] Execution failed: {full_name}")
+                        if proc_output.strip():
+                            print(f"     Output: {proc_output.strip()[:500]}")
+                    elif metrics.get("skipped"):
+                        print(f"  -> [SKIP] {backend} ({metrics.get('skip_reason', 'Feature not supported')})")
+                    elif metrics["passed"]:
+                        print(f"  -> [PASS] {backend} (RMSE: {metrics['rmse']:.2f}, Diff: {metrics['mismatch_pct']:.2f}%, MaxDiff: {metrics['max_diff']})")
+                    else:
+                        all_passed = False
+                        print(f"  -> [FAIL] {backend}: {metrics['error']}")
+
+                    if on_progress:
+                        on_progress(test_name, backend, metrics, test_result, results[test_name].get(f"{backend}_diff"))
 
     return results, all_passed
 
@@ -965,6 +1013,7 @@ def generate_html_report(args, results, unit_success=True, finished=True):
 
     git_root = find_git_root()
     for test_name, buckets in results.items():
+        tier_int, complexity, tier_name = get_test_metadata(test_name, git_root)
         readme_path = os.path.join(git_root, "Tests", test_name, "README.md")
         has_readme = os.path.exists(readme_path)
         readme_content = ""
@@ -978,6 +1027,9 @@ def generate_html_report(args, results, unit_success=True, finished=True):
         html_content.append(f'''
             <td class="test-info">
                 <span class="test-name">{test_name}</span>
+                <div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-code); margin-top: 0.25rem;">
+                    {tier_name} &bull; complexity: {complexity:.2f}
+                </div>
                 <div style="margin-top: 0.75rem;">
                     <button class="docs-btn {"" if has_readme else "disabled"}"
                             onclick="openDocs('{encoded_docs}', '{test_name}')"
@@ -1206,10 +1258,23 @@ def main():
     prepare_run(args)
     tests = list_tests(args)
     tests = filter_rhi_tests(tests)
-    buckets = bucketize_tests(tests) if tests else {}
+    git_root = find_git_root()
+    if getattr(args, "stage", "all") != "all":
+        tests = [t for t in tests if get_test_metadata(t["components"][-1], git_root)[2] == args.stage]
+    raw_buckets = bucketize_tests(tests) if tests else {}
+
+    # Sort test buckets by tier, complexity, and name
+    sorted_names = sorted(
+        raw_buckets.keys(),
+        key=lambda name: (
+            get_test_metadata(name, git_root)[0],
+            get_test_metadata(name, git_root)[1],
+            name
+        )
+    )
+    buckets = {name: raw_buckets[name] for name in sorted_names}
 
     # Pre-populate test results structure
-    git_root = find_git_root()
     initial_results = {}
     for test_name in buckets:
         initial_results[test_name] = {
