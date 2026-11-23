@@ -385,7 +385,7 @@ static FrameGraph::TextureHandle render(
             float   exposure_scale = (view.exposure_scale > 0.0f) ? view.exposure_scale : (1.0f / (1.2f * 8192.0f));
             Vector3 sun_dir        = glm::normalize(Vector3(0.5f, 1.0f, 0.3f));
             Vector3 sun_color      = Vector3(1.0f);
-            float   sun_intensity  = 110000.0f * exposure_scale;
+            float   sun_intensity  = 0.0f;
 
             if (!ctx.scene.directional_lights.empty()) {
                 const auto& light = ctx.scene.directional_lights[0];
@@ -393,7 +393,7 @@ static FrameGraph::TextureHandle render(
                     sun_dir = -glm::normalize(light.direction);
                 }
                 sun_color     = light.color;
-                sun_intensity = std::max(light.intensity * exposure_scale, 0.01f);
+                sun_intensity = std::max(light.intensity * exposure_scale, 0.0f);
             }
 
             mapped.at(0).pos_and_intensity = Vector4(view.camera_position, sun_intensity);

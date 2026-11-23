@@ -9,8 +9,12 @@ struct LightCullingParams
     float2   screen_resolution;
     float    near_plane;
     float    far_plane;
-    uint3    cluster_grid_dim;
+    uint     cluster_grid_x;
+    uint     cluster_grid_y;
+    uint     cluster_grid_z;
     uint     num_lights;
+
+    property uint3 cluster_grid_dim { get { return uint3(cluster_grid_x, cluster_grid_y, cluster_grid_z); } }
 };
 
 struct ClusterRecord
@@ -34,7 +38,7 @@ RWStructuredBuffer<uint> light_index_list;
 static const uint MAX_LIGHTS_PER_CLUSTER = 64;
 
 [shader("compute")]
-[numthreads(16, 16, 1)]
+[numthreads(32, 32, 1)]
 void csmain(uint3 dispatch_thread_id : SV_DispatchThreadID)
 {
     uint3 cluster_coord = dispatch_thread_id;

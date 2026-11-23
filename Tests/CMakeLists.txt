@@ -71,6 +71,7 @@ add_subdirectory(graphics_pipeline)
 add_subdirectory(ui_system)
 add_subdirectory(forward_renderer)
 add_subdirectory(deferred_renderer)
+add_subdirectory(deferred_renderer_multilight)
 add_subdirectory(shading_models)
 add_subdirectory(atmosphere)
 

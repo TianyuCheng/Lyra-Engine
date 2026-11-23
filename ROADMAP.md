@@ -107,11 +107,11 @@ Goal: Solidify the primary rasterization pipelines (Forward+ and Deferred Hybrid
   - Fullscreen compute or quad dispatch decoding GBuffer, fetching cluster light indices, evaluating standard Cook-Torrance GGX specular and Lambertian diffuse.
   - Cascaded Shadow Map (CSM) sampling: 4 splits computed with Practical Split Scheme ($\lambda = 0.85$), $4 \times 4$ PCF sampling with normal offset bias:
     $$\vec{x}_{\text{biased}} = \vec{x}_{\text{world}} + \vec{N} \cdot (\text{bias}_{\text{normal}} \cdot \text{texel\_size})$$
-- [ ] **1.1.4 Deferred Visual Regression Test Fixture**
-  - Directory: `Tests/renderer_deferred/`
-  - Scene Setup: Test chamber featuring 1 directional sun (45° pitch, 30° yaw), 16 colored point lights with smooth distance falloff $f_{\text{att}} = \left(\text{saturate}\left(1 - (d/r)^4\right)\right)^2 / (d^2 + 1)$, and shadow-casting occluder pillars.
+- [x] **1.1.4 Deferred Visual Regression Test Fixture**
+  - Directory: `Tests/deferred_renderer_multilight/`
+  - Scene Setup: Test chamber featuring 16 colored point lights with smooth distance falloff $f_{\text{att}} = \left(\text{saturate}\left(1 - (d/r)^4\right)\right)^2 / (d^2 + 1)$ (sunlight disabled to isolate local lights), and shadow-casting occluder pillars.
   - Image Verification: Compare rendered output against golden `reference.png` via [`runtest.py`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Tools/Scripts/runtest.py) ($\text{RMSE} \le 1.5$, $\text{mismatch} \le 0.5\%$).
-  - Command: `just test renderer_deferred`.
+  - Command: `just test deferred_renderer_multilight`.
 
 #### 1.2 Forward+ Clustered Lighting Pipeline
 - [ ] **1.2.1 Forward+ Pass Execution**
