@@ -1,5 +1,6 @@
 import lyra;
 import Common.Material;
+import Common.Packing;
 
 // TODO: G-Buffer rasterization shader for deferred hybrid rendering
 // Supports standard PBR and user custom material shading IDs
@@ -68,11 +69,12 @@ GBufferOutput fsmain(VertexOutput input)
 {
     GBufferOutput output;
 
-    float3 N = normalize(input.normal);
+    float3 N     = normalize(input.normal);
+    float2 oct_n = oct_encode(N);
 
     // TODO: sample textures from bindless heap if bound
     output.albedo_metallic  = float4(instance_data.base_color.rgb, instance_data.metallic);
-    output.normal_roughness = float4(N * 0.5 + 0.5, instance_data.roughness);
+    output.normal_roughness = float4(oct_n, instance_data.roughness, 0.0);
     output.material_data    = uint4(uint(instance_data.shading_model), instance_data.material_id, 0, 0);
 
     return output;

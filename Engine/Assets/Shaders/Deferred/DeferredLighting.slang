@@ -1,5 +1,6 @@
 import lyra;
 import Common.BSDF;
+import Common.Packing;
 import Common.Tonemapping;
 
 // Deferred lighting & hybrid ray tracing composition pass
@@ -130,7 +131,7 @@ FragmentOutput fsmain(VertexOutput input)
     view_pos /= max(view_pos.w, 1e-6);
     float4 world_pos = mul(view_pos, camera.inv_view);
 
-    float3 N = normalize(normal_rough.rgb * 2.0 - 1.0);
+    float3 N = oct_decode(normal_rough.xy);
     float3 V = normalize(camera.pos - world_pos.xyz);
     float3 L = normalize(camera.sun_dir);
 
@@ -145,9 +146,9 @@ FragmentOutput fsmain(VertexOutput input)
     PBRMaterial mat;
     mat.base_color   = albedo_metallic.rgb;
     mat.metallic     = albedo_metallic.a;
-    mat.roughness    = max(normal_rough.a, 0.04);
+    mat.roughness    = max(normal_rough.z, 0.04);
     mat.reflectance  = 0.5;
-    mat.clear_coat.factor    = 0.0;
+    mat.clear_coat.factor    = normal_rough.w;
     mat.clear_coat.roughness = 0.04;
     mat.clear_coat.tint      = float3(0.0);
     mat.clear_coat.thickness = 0.0;
