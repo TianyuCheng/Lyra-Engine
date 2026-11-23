@@ -21,13 +21,16 @@ namespace lyra::passes
     {
         FrameGraphHandle<FrameGraphTexture> color_output;
         FrameGraphHandle<FrameGraphTexture> depth_input;
+        FrameGraphHandle<FrameGraphTexture> sky_view_input;
     };
 
     /**
-     * @brief Composable skybox / environment pass.
-     * Renders background atmospheric sky radiance or cubemap at depth = 1.0 (far plane).
-     * Depth compare is LESS_EQUAL or EQUAL with depth_write_enabled = false,
-     * so only untouched background pixels receive skybox radiance.
+     * @brief Composable physical atmospheric skybox pass.
+     * Implements precomputed 3-LUT atmospheric scattering architecture
+     * (Hillaire 2020 / Bruneton 2008 / ROADMAP Milestone 3, Task 3.1.1):
+     * 1. TransmittanceLUT (256x64, optical depth & solar beam transmittance)
+     * 2. MultiScatteringLUT (32x32, 2nd-order scattering transfer)
+     * 3. SkyViewLUT (192x108, non-linear horizon-packed spherical coordinates)
      */
     struct SkyboxPass
     {
@@ -42,7 +45,7 @@ namespace lyra::passes
         SkyboxPass& operator=(SkyboxPass&&) noexcept = default;
 
         /**
-         * @brief initialize skybox pipeline, layouts, and camera uniform buffer.
+         * @brief initialize skybox and atmospheric LUT pipelines, layouts, textures, and camera uniform buffers.
          */
         bool init(
             GPUDevice        device,
@@ -51,12 +54,12 @@ namespace lyra::passes
             GPUTextureFormat depth_format = GPUTextureFormat::DEPTH32FLOAT);
 
         /**
-         * @brief safely release GPU pipeline, buffers, and shader modules.
+         * @brief safely release GPU pipelines, LUT textures, buffers, and shader modules.
          */
         void destroy();
 
         /**
-         * @brief record the skybox pass into the frame graph builder.
+         * @brief record the skybox pass and Sky-View LUT compute pass into the frame graph builder.
          */
         auto add(
             FrameGraphBuilder&                  builder,
@@ -71,20 +74,50 @@ namespace lyra::passes
 
     private:
         void update_camera_uniform(uint slot, const RenderView& view, const RenderScene& scene);
+        void precompute_static_luts();
 
     private:
         static constexpr uint FRAMES_IN_FLIGHT = 3;
 
-        GPUDevice                             device;
-        GPURenderPipeline                     pipeline;
-        GPUPipelineLayout                     playout;
-        GPUShaderModule                       vshader;
-        GPUShaderModule                       fshader;
-        Array<GPUBuffer, FRAMES_IN_FLIGHT>    camera_buffers{};
-        Array<GPUBindGroup, FRAMES_IN_FLIGHT> bind_groups{};
-        uint                                  frame_slot = 0;
-        GPUBindGroupHeap                      heap;
-        Vector<GPUBindGroupLayoutHandle>      blayouts;
+        GPUDevice                          device;
+        GPURenderPipeline                  pipeline;
+        GPUPipelineLayout                  playout;
+        GPUShaderModule                    vshader;
+        GPUShaderModule                    fshader;
+        Array<GPUBuffer, FRAMES_IN_FLIGHT> camera_buffers{};
+        uint                               frame_slot = 0;
+        GPUBindGroupHeap                   heap;
+        Vector<GPUBindGroupLayoutHandle>   blayouts;
+
+        // 3-LUT Atmospheric Scattering Pipeline (Milestone 3, Task 3.1.1)
+        // 1. Transmittance LUT (256x64)
+        GPUTexture                       transmittance_lut_tex;
+        GPUTextureView                   transmittance_lut_view;
+        GPURenderPipeline                transmittance_pipeline;
+        GPUPipelineLayout                transmittance_playout;
+        GPUShaderModule                  transmittance_vshader;
+        GPUShaderModule                  transmittance_fshader;
+        Vector<GPUBindGroupLayoutHandle> transmittance_blayouts;
+
+        // 2. Multi-Scattering LUT (32x32)
+        GPUTexture                       multiscatter_lut_tex;
+        GPUTextureView                   multiscatter_lut_view;
+        GPURenderPipeline                multiscatter_pipeline;
+        GPUPipelineLayout                multiscatter_playout;
+        GPUShaderModule                  multiscatter_vshader;
+        GPUShaderModule                  multiscatter_fshader;
+        Vector<GPUBindGroupLayoutHandle> multiscatter_blayouts;
+        GPUBindGroup                     multiscatter_bind_group;
+
+        // 3. Sky-View LUT (192x108)
+        GPURenderPipeline                     sky_view_pipeline;
+        GPUPipelineLayout                     sky_view_playout;
+        GPUShaderModule                       sky_view_vshader;
+        GPUShaderModule                       sky_view_fshader;
+        Vector<GPUBindGroupLayoutHandle>      sky_view_blayouts;
+        Array<GPUBindGroup, FRAMES_IN_FLIGHT> sky_view_bind_groups{};
+
+        GPUSampler linear_sampler;
 
         GPUTextureFormat cached_color_format = GPUTextureFormat::RGBA8UNORM;
         GPUTextureFormat cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;

@@ -117,7 +117,7 @@ public bool intersect_atmosphere(
 }
 
 // =============================================================================
-// 3. Optical Depth & In-Scattering Numerical Integration
+// 3. Optical Depth Numerical Integration
 // =============================================================================
 
 /**
@@ -128,7 +128,7 @@ public float3 integrate_optical_depth(
     AtmosphereParameters params,
     float3 p,
     float3 sun_dir,
-    int    step_count = 8)
+    int    step_count = 16)
 {
     // occluded by planet body
     float b_ground = dot(p, sun_dir);
@@ -161,17 +161,162 @@ public float3 integrate_optical_depth(
     return optical_depth;
 }
 
+// =============================================================================
+// 4. Precomputed 3-LUT Coordinate Parameterizations (Hillaire 2020 / Bruneton 2008)
+// =============================================================================
+
 /**
- * @brief Evaluates physically based sky radiance along a viewing ray,
- * including single scattering, multi-scattering ambient diffuse illumination,
- * and Chappuis ozone absorption.
- *
- * @param params Atmosphere geometry and scattering coefficients
- * @param ro Camera world position (origin at center of planet)
- * @param rd Normalized camera viewing direction
- * @param sun_dir Normalized vector pointing towards the sun
- * @param num_steps Primary ray numerical march steps (e.g. 16 .. 32)
- * @return In-scattered linear HDR sky radiance
+ * @brief Maps UV in [0, 1]^2 to altitude r and zenith angle cosine mu for Transmittance LUT.
+ */
+public void uv_to_transmittance(
+    float2 uv,
+    float  bottom_radius,
+    float  top_radius,
+    out float out_r,
+    out float out_mu)
+{
+    float H = sqrt(max(0.0, top_radius * top_radius - bottom_radius * bottom_radius));
+    float rho = H * uv.y;
+    out_r = sqrt(rho * rho + bottom_radius * bottom_radius);
+    out_r = clamp(out_r, bottom_radius, top_radius);
+
+    float d_min = top_radius - out_r;
+    float d_max = rho + H;
+    float d = d_min + uv.x * (d_max - d_min);
+    out_mu = (d == 0.0) ? 1.0 : clamp((H * H - rho * rho - d * d) / (2.0 * out_r * d), -1.0, 1.0);
+}
+
+/**
+ * @brief Maps altitude r and zenith angle cosine mu to UV in [0, 1]^2 for sampling Transmittance LUT.
+ */
+public float2 transmittance_to_uv(
+    float  r,
+    float  mu,
+    float  bottom_radius,
+    float  top_radius,
+    float2 dims = float2(256.0, 64.0))
+{
+    float H = sqrt(max(0.0, top_radius * top_radius - bottom_radius * bottom_radius));
+    float rho = sqrt(max(0.0, r * r - bottom_radius * bottom_radius));
+    float discriminant = r * r * (mu * mu - 1.0) + top_radius * top_radius;
+    float d = max(0.0, -r * mu + sqrt(max(0.0, discriminant)));
+    float d_min = top_radius - r;
+    float d_max = rho + H;
+    float u = clamp((d - d_min) / max(d_max - d_min, 1e-6), 0.0, 1.0);
+    float v = clamp(rho / max(H, 1e-6), 0.0, 1.0);
+    return float2((u * (dims.x - 1.0) + 0.5) / dims.x,
+                  (v * (dims.y - 1.0) + 0.5) / dims.y);
+}
+
+/**
+ * @brief Samples precomputed optical transmittance towards space along direction with zenith cosine mu.
+ */
+public float3 sample_transmittance_lut(
+    Texture2D<float4> tex,
+    SamplerState      samp,
+    float             r,
+    float             mu,
+    float             bottom_radius,
+    float             top_radius)
+{
+    // check if ray hits planet body
+    float b = r * mu;
+    float c = r * r - bottom_radius * bottom_radius;
+    float d = b * b - c;
+    if (mu < 0.0 && d >= 0.0) {
+        return float3(0.0);
+    }
+    float2 uv = transmittance_to_uv(r, mu, bottom_radius, top_radius);
+    return tex.SampleLevel(samp, uv, 0.0).rgb;
+}
+
+/**
+ * @brief Samples precomputed multiple-scattering ambient field.
+ */
+public float3 sample_multiscatter_lut(
+    Texture2D<float4> tex,
+    SamplerState      samp,
+    float             r,
+    float             mu_s,
+    float             bottom_radius,
+    float             top_radius)
+{
+    float u = clamp((mu_s + 1.0) * 0.5, 0.0, 1.0);
+    float v = clamp((r - bottom_radius) / max(top_radius - bottom_radius, 1e-4), 0.0, 1.0);
+    float2 uv = float2((u * 31.0 + 0.5) / 32.0, (v * 31.0 + 0.5) / 32.0);
+    return tex.SampleLevel(samp, uv, 0.0).rgb;
+}
+
+/**
+ * @brief Maps UV in [0, 1]^2 to zenith angle theta and relative azimuth phi for Sky-View LUT.
+ */
+public void uv_to_sky_view(
+    float2 uv,
+    float  r,
+    float  bottom_radius,
+    out float out_theta,
+    out float out_phi)
+{
+    float cos_horiz = -sqrt(max(0.0, r * r - bottom_radius * bottom_radius)) / max(r, 1e-4);
+    float theta_horiz = acos(clamp(cos_horiz, -1.0, 1.0));
+
+    if (uv.y < 0.5) {
+        // above horizon (sky)
+        float t = (0.5 - uv.y) * 2.0;
+        out_theta = theta_horiz - t * t * theta_horiz;
+    } else {
+        // below horizon (ground)
+        float t = (uv.y - 0.5) * 2.0;
+        out_theta = theta_horiz + t * t * (PI - theta_horiz);
+    }
+    out_phi = (uv.x * 2.0 - 1.0) * PI;
+}
+
+/**
+ * @brief Maps normalized viewing ray rd to UV in [0, 1]^2 for sampling Sky-View LUT.
+ */
+public float2 sky_view_to_uv(
+    float3 rd,
+    float3 sun_dir,
+    float  r,
+    float  bottom_radius,
+    float2 dims = float2(192.0, 108.0))
+{
+    float cos_horiz = -sqrt(max(0.0, r * r - bottom_radius * bottom_radius)) / max(r, 1e-4);
+    float theta_horiz = acos(clamp(cos_horiz, -1.0, 1.0));
+    float theta = acos(clamp(rd.y, -1.0, 1.0));
+
+    float v;
+    if (theta < theta_horiz) {
+        // above horizon (sky)
+        float t = sqrt(clamp((theta_horiz - theta) / max(theta_horiz, 1e-6), 0.0, 1.0));
+        v = 0.5 - 0.5 * t;
+    } else {
+        // below horizon (ground)
+        float t = sqrt(clamp((theta - theta_horiz) / max(PI - theta_horiz, 1e-6), 0.0, 1.0));
+        v = 0.5 + 0.5 * t;
+    }
+
+    // azimuth relative to sun direction in horizontal plane
+    float3 forward = normalize(float3(sun_dir.x, 0.0, sun_dir.z));
+    if (dot(forward, forward) < 1e-6) forward = float3(0.0, 0.0, 1.0);
+    float3 right = float3(-forward.z, 0.0, forward.x);
+    float3 view_horiz = normalize(float3(rd.x, 0.0, rd.z));
+    if (dot(view_horiz, view_horiz) < 1e-6) view_horiz = forward;
+
+    float phi = atan2(dot(view_horiz, right), dot(view_horiz, forward));
+    float u = (phi / PI) * 0.5 + 0.5;
+
+    return float2((u * (dims.x - 1.0) + 0.5) / dims.x,
+                  (v * (dims.y - 1.0) + 0.5) / dims.y);
+}
+
+// =============================================================================
+// 5. Sun Rendering & Direct Sky Radiance
+// =============================================================================
+
+/**
+ * @brief Evaluates physically based sky radiance along a viewing ray.
  */
 public float3 evaluate_sky_radiance(
     AtmosphereParameters params,
@@ -189,30 +334,22 @@ public float3 evaluate_sky_radiance(
     float p_rayleigh = rayleigh_phase(cos_theta);
     float p_mie      = mie_phase(cos_theta, params.mie_asymmetry);
 
-    // compute ambient diffuse skylight and ground reflection field for multiple scattering.
-    // In Earth atmosphere, diffuse multiple scattering prevents daytime horizon black/red-out
-    // by providing an isotropic diffuse illumination bath.
     float sun_elev = max(sun_dir.y, 0.0);
     float od_zenith_r = params.rayleigh_scale_height;
     float od_zenith_m = params.mie_scale_height;
-    float od_zenith_o = 15.0; // integrated thickness of ozone tent layer
+    float od_zenith_o = 15.0;
     float3 tau_zenith = params.rayleigh_scattering * od_zenith_r +
                         params.mie_extinction * od_zenith_m +
                         params.ozone_absorption * od_zenith_o;
     float3 trans_zenith = exp(-tau_zenith);
 
-    // downward diffuse flux from molecular scattering
     float3 e_sky = params.sun_intensity * sun_elev * (float3(1.0) - trans_zenith) * 0.45;
-    // upward ground reflection
     float3 e_ground = (params.sun_intensity * sun_elev * trans_zenith + e_sky) * params.ground_albedo;
-    // isotropic multi-scattering ambient flux density
     float3 psi_multi = (e_sky + e_ground) / (4.0 * PI);
 
     float3 acc_in_scatter = float3(0.0);
     float3 optical_depth_view = float3(0.0);
 
-    // quadratic non-linear stepping distributes more sample points near the observer
-    // where atmospheric density is highest, preventing horizon discretization artifacts.
     for (int i = 0; i < num_steps; ++i) {
         float u0 = float(i) / float(num_steps);
         float u1 = float(i + 1) / float(num_steps);
@@ -232,23 +369,19 @@ public float3 evaluate_sky_radiance(
 
         float3 optical_depth_sun = integrate_optical_depth(params, sample_p, sun_dir, 6);
 
-        // solar beam transmittance from space to sample point
         float3 tau_sun = params.rayleigh_scattering * optical_depth_sun.x +
                          params.mie_extinction * optical_depth_sun.y +
                          params.ozone_absorption * optical_depth_sun.z;
         float3 trans_sun = exp(-tau_sun);
 
-        // view path transmittance from sample point to camera
         float3 tau_view = params.rayleigh_scattering * optical_depth_view.x +
                           params.mie_extinction * optical_depth_view.y +
                           params.ozone_absorption * optical_depth_view.z;
         float3 trans_view = exp(-tau_view);
 
-        // single scattering from direct solar beam
         float3 s_single = (d_r * params.rayleigh_scattering * p_rayleigh +
                            d_m * params.mie_scattering * p_mie) * (params.sun_intensity * trans_sun);
 
-        // multiple scattering from ambient diffuse illumination field
         float3 s_multi = (d_r * params.rayleigh_scattering + d_m * params.mie_scattering) * psi_multi;
 
         acc_in_scatter += (s_single + s_multi) * trans_view;
@@ -261,15 +394,6 @@ public float3 evaluate_sky_radiance(
  * @brief Renders physically based high-intensity solar disc with Eddington limb darkening,
  * atmospheric extinction attenuation, circumsolar Mie forward-scattering halo (corona),
  * and anti-aliased edge.
- *
- * @param params Atmosphere physical parameters
- * @param view_dir Normalized viewing direction
- * @param sun_dir Normalized vector pointing towards the sun
- * @param sun_transmittance Direct solar beam transmittance along sun path through atmosphere
- * @param halo_size Halo radius multiplier relative to sun disc
- * @param halo_falloff Halo falloff exponent
- * @param limb_darkening Eddington limb darkening coefficient [0, 1]
- * @return Direct solar physical radiance in cd/m^2 (nits)
  */
 public float3 render_physical_sun(
     AtmosphereParameters params,
@@ -284,13 +408,8 @@ public float3 render_physical_sun(
     float theta     = acos(clamp(cos_theta, -1.0, 1.0));
     float r_sun     = max(params.sun_angular_radius, 1e-4);
 
-    // 1. Mean top-of-atmosphere solar disc physical luminance (cd/m^2):
-    // Solid angle of the sun disc: Omega = 2*PI*(1 - cos(r_sun)) approx PI * r_sun^2
     float solid_angle = max(2.0 * PI * (1.0 - cos(r_sun)), 1e-8);
     float mean_luminance = params.sun_intensity / solid_angle;
-
-    // 2. Solar disc with Eddington limb darkening:
-    // Center luminance I0 = L_mean / (1 - u / 3)
     float I0 = mean_luminance / max(1.0 - limb_darkening / 3.0, 0.01);
 
     float3 result = float3(0.0);
@@ -300,12 +419,10 @@ public float3 render_physical_sun(
         float mu = sqrt(max(0.0, 1.0 - r * r));
         float limb = 1.0 - limb_darkening * (1.0 - mu);
 
-        // Anti-aliased disc boundary
         float edge_aa = smoothstep(r_sun, r_sun * 0.96, theta);
         result += float3(I0 * limb * edge_aa);
     }
 
-    // 3. Circumsolar forward-scattering halo (corona)
     float r_halo = r_sun * max(halo_size, 1.0);
     if (theta < r_halo) {
         float halo_norm = (theta - r_sun * 0.5) / (r_halo - r_sun * 0.5);
@@ -315,7 +432,6 @@ public float3 render_physical_sun(
         result += float3(halo_radiance);
     }
 
-    // 4. Attenuate by atmospheric transmittance (sunsets turn golden/red)
     return result * sun_transmittance;
 }
 

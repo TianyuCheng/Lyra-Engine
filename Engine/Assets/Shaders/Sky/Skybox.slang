@@ -35,6 +35,15 @@ struct SkyboxUniform
 [[lyra::binding(0, 0)]]
 ConstantBuffer<SkyboxUniform> skybox;
 
+[[lyra::binding(1, 0)]]
+Texture2D<float4> sky_view_lut;
+
+[[lyra::binding(2, 0)]]
+Texture2D<float4> transmittance_lut;
+
+[[lyra::binding(3, 0)]]
+SamplerState linear_sampler;
+
 [shader("vertex")]
 VertexOutput vsmain(uint vertex_id : SV_VertexID)
 {
@@ -50,10 +59,8 @@ VertexOutput vsmain(uint vertex_id : SV_VertexID)
     float2 p = quad_vertices[vertex_id];
 
     VertexOutput output;
-    // position at far plane (z = 1.0 in clip space)
-    output.position = float4(p, 1.0, 1.0);
+    output.position = float4(p, 0.999999, 1.0);
 
-    // unproject far clip point to world space to compute ray direction
     float4 p_far_view  = mul(float4(p, 1.0, 1.0), skybox.inv_proj);
     p_far_view        /= p_far_view.w;
     float3 p_far_world = mul(float4(p_far_view.xyz, 1.0), skybox.inv_view).xyz;
@@ -69,51 +76,35 @@ float4 fsmain(VertexOutput input) : SV_Target
     AtmosphereParameters atmo = default_earth_atmosphere();
 
     float exposed_sun_intensity = max(skybox.sun_intensity * skybox.exposure_scale, 0.01f);
-    atmo.sun_intensity      = clamp(exposed_sun_intensity * 1.8f, 5.0f, 40.0f);
-    atmo.sun_angular_radius = skybox.sun_angular_radius;
-    float3 sun_dir          = normalize(skybox.sun_dir);
+    atmo.sun_intensity          = clamp(exposed_sun_intensity * 1.8f, 5.0f, 40.0f);
+    atmo.sun_angular_radius     = skybox.sun_angular_radius;
+    float3 sun_dir              = normalize(skybox.sun_dir);
 
-    // camera altitude in kilometers (scene coordinates in meters)
-    float cam_alt_km  = max(skybox.camera_pos.y * 0.001, 0.0);
-    float3 camera_pos = float3(0.0, atmo.planet_radius + 0.001 + cam_alt_km, 0.0);
+    // camera altitude in kilometers
+    float cam_alt_km = max(skybox.camera_pos.y * 0.001, 0.0);
+    float r          = atmo.planet_radius + 0.001 + cam_alt_km;
 
-    // direct solar beam transmittance through the atmospheric column along sun path
-    float3 optical_depth_sun = integrate_optical_depth(atmo, camera_pos, sun_dir, 16);
-    float3 tau_sun           = atmo.rayleigh_scattering * optical_depth_sun.x +
-                               atmo.mie_extinction * optical_depth_sun.y +
-                               atmo.ozone_absorption * optical_depth_sun.z;
-    float3 sun_transmittance = exp(-tau_sun);
+    // 1. Sample Sky-View LUT using non-linear horizon-packed spherical coordinate mapping
+    float2 uv       = sky_view_to_uv(dir, sun_dir, r, atmo.planet_radius);
+    float3 radiance = sky_view_lut.SampleLevel(linear_sampler, uv, 0.0).rgb;
 
-    // reference horizon sky radiance to guarantee seamless continuity at the horizon
-    float3 horizon_dir = normalize(float3(dir.x, 0.002, dir.z));
-    float3 horizon_sky = evaluate_sky_radiance(atmo, camera_pos, horizon_dir, sun_dir, 16);
+    // 2. Direct solar beam transmittance from Transmittance LUT
+    float mu_s               = dot(float3(0.0, 1.0, 0.0), sun_dir);
+    float3 sun_transmittance = sample_transmittance_lut(transmittance_lut, linear_sampler, r, mu_s, atmo.planet_radius, atmo.atmosphere_radius);
 
-    float3 color;
-    if (dir.y >= 0.0)
-    {
-        // 1. Upper hemisphere: atmospheric Rayleigh & Mie scattering + physical sun disc & corona
-        color = evaluate_sky_radiance(atmo, camera_pos, dir, sun_dir, 16);
-        color += render_physical_sun(atmo, dir, sun_dir, sun_transmittance,
-                                     skybox.halo_size, skybox.halo_falloff, skybox.limb_darkening) * skybox.sun_color;
-    }
-    else
-    {
-        // 2. Lower hemisphere (ground / earth surface):
-        // direct sun illumination on horizontal ground plane attenuated by transmittance
-        float sun_elev = max(sun_dir.y, 0.0);
-        float3 sun_irradiance = skybox.sun_color * (sun_elev * exposed_sun_intensity) * sun_transmittance;
+    // 3. Render analytical physical solar disc with limb darkening and corona
+    float3 sun_radiance = render_physical_sun(
+        atmo,
+        dir,
+        sun_dir,
+        sun_transmittance,
+        skybox.halo_size,
+        skybox.halo_falloff,
+        skybox.limb_darkening);
 
-        // ambient skylight arriving at the ground
-        float3 sky_ambient = horizon_sky * 0.25;
-
-        // diffuse ground reflectance (dark neutral tone matching editor ground, Lambertian 1/PI)
-        float3 ground_radiance = (skybox.ground_albedo.rgb / PI) * sun_irradiance + skybox.ground_albedo.rgb * sky_ambient;
-
-        // atmospheric aerial perspective (distance haze)
-        // near the horizon, thick air column matches horizon haze seamlessly;
-        // looking down towards nadir, ground albedo dominates.
-        float haze = exp(-6.0 * max(-dir.y, 0.0));
-        color = lerp(ground_radiance, horizon_sky, haze);
+    float3 color = radiance;
+    if (dir.y >= 0.0) {
+        color += sun_radiance * skybox.sun_color;
     }
 
     // ACES filmic tonemapping for rich HDR response
