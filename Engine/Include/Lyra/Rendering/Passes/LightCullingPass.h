@@ -47,6 +47,7 @@ namespace lyra::passes
         [[nodiscard]] bool valid() const { return initialized && pipeline.valid(); }
 
         [[nodiscard]] auto get_lights_buffer() const -> GPUBuffer { return lights_buffer; }
+        [[nodiscard]] auto get_lights_buffer_ptr() const -> const GPUBuffer* { return &lights_buffer; }
 
         auto add(
             FrameGraphBuilder& builder,

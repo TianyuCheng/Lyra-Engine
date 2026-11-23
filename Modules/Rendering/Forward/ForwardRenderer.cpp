@@ -119,8 +119,9 @@ FrameGraphHandle<FrameGraphTexture> ForwardRenderer::render(const RenderFrameCon
     }
 
     // 3. Clustered Light Culling (Forward+)
+    passes::LightCullingData culling_data{};
     if (light_culling_pass.valid()) {
-        light_culling_pass.add(builder, view, ctx.scene);
+        culling_data = light_culling_pass.add(builder, view, ctx.scene);
     }
 
     // 4. Atmospheric Skybox Pass (rendered over clear color at far plane)
@@ -140,6 +141,13 @@ FrameGraphHandle<FrameGraphTexture> ForwardRenderer::render(const RenderFrameCon
         .color_target         = current_color,
         .depth_target         = depth_h,
         .shadow_map           = shadow_map_h,
+        .cluster_grid_buffer  = culling_data.cluster_grid_buffer,
+        .light_index_list     = culling_data.light_index_list,
+        .lights_buffer        = light_culling_pass.get_lights_buffer_ptr(),
+        .cluster_grid_x       = culling_data.cluster_grid_x,
+        .cluster_grid_y       = culling_data.cluster_grid_y,
+        .cluster_grid_z       = culling_data.cluster_grid_z,
+        .num_lights           = static_cast<uint>(ctx.scene.directional_lights.size() + ctx.scene.local_lights.size()),
         .light_view_proj      = shadow_pass.get_light_view_proj(),
         .view                 = ctx.view,
         .scene                = ctx.scene,

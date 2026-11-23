@@ -24,6 +24,8 @@ namespace lyra::passes
         FrameGraphHandle<FrameGraphTexture> color_target;
         FrameGraphHandle<FrameGraphTexture> depth_target;
         FrameGraphHandle<FrameGraphTexture> shadow_map;
+        FrameGraphHandle<FrameGraphBuffer>  cluster_grid_buffer;
+        FrameGraphHandle<FrameGraphBuffer>  light_index_list;
         uint                                draw_calls         = 0;
         uint                                triangles_rendered = 0;
     };
@@ -36,6 +38,13 @@ namespace lyra::passes
         FrameGraphHandle<FrameGraphTexture> color_target;
         FrameGraphHandle<FrameGraphTexture> depth_target;
         FrameGraphHandle<FrameGraphTexture> shadow_map;
+        FrameGraphHandle<FrameGraphBuffer>  cluster_grid_buffer;
+        FrameGraphHandle<FrameGraphBuffer>  light_index_list;
+        const GPUBuffer*                    lights_buffer  = nullptr;
+        uint                                cluster_grid_x = 0;
+        uint                                cluster_grid_y = 0;
+        uint                                cluster_grid_z = 0;
+        uint                                num_lights     = 0;
         Matrix4x4                           light_view_proj{1.0f};
         const RenderView&                   view;
         const RenderScene&                  scene;
@@ -93,7 +102,7 @@ namespace lyra::passes
          * @note Memory layout directly mirrors struct `Camera` in `sys://Shaders/Forward/Forward.slang`.
          *       Any layout modification must be kept strictly in sync across both C++ and Slang definitions.
          */
-        struct CameraUniforms
+        struct alignas(16) CameraUniforms
         {
             Matrix4x4 proj;
             Matrix4x4 view;
@@ -103,9 +112,23 @@ namespace lyra::passes
             Vector4   sun_dir_and_pad;
             Vector4   sun_color_and_pad;
             Matrix4x4 light_view_proj = Matrix4x4(1.0f);
+            Vector4   cluster_params;
+            Vector4   cluster_dims;
         };
 
-        void update_camera_buffer(uint slot, const RenderView& view, const RenderScene& scene, const Matrix4x4& light_vp);
+        static_assert(sizeof(CameraUniforms) == 400, "CameraUniforms must be 400 bytes");
+        static_assert(alignof(CameraUniforms) == 16, "CameraUniforms must be 16-byte aligned");
+
+        void update_camera_buffer(
+            uint               slot,
+            const RenderView&  view,
+            const RenderScene& scene,
+            const Matrix4x4&   light_vp,
+            const GPUExtent2D& extent,
+            uint               cluster_grid_x,
+            uint               cluster_grid_y,
+            uint               cluster_grid_z,
+            uint               num_lights);
 
     private:
         static constexpr uint FRAMES_IN_FLIGHT = 3;
@@ -122,6 +145,9 @@ namespace lyra::passes
         GPUBindGroupHeap                           heap;
         Array<GPUBuffer, FRAMES_IN_FLIGHT>         camera_buffers{};
         Array<GPUBindGroup, FRAMES_IN_FLIGHT>      camera_bind_groups{};
+        GPUBuffer                                  default_cluster_grid_buffer;
+        GPUBuffer                                  default_light_index_buffer;
+        GPUBuffer                                  default_lights_buffer;
         GPUSampler                                 shadow_sampler;
         GPUTexture                                 default_shadow_map;
         GPUTextureView                             default_shadow_view;

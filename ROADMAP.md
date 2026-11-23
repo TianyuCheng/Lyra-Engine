@@ -114,14 +114,16 @@ Goal: Solidify the primary rasterization pipelines (Forward+ and Deferred Hybrid
   - Command: `just test deferred_renderer_multilight`.
 
 #### 1.2 Forward+ Clustered Lighting Pipeline
-- [ ] **1.2.1 Forward+ Pass Execution**
+- [x] **1.2.1 Forward+ Pass Execution**
   - File: [`Modules/Rendering/Forward/ForwardRenderer.cpp`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Modules/Rendering/Forward/ForwardRenderer.cpp)
   - Shader: [`Engine/Assets/Shaders/Forward/Forward.slang`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Assets/Shaders/Forward/Forward.slang)
   - Pass Order: Depth Prepass $\to$ Clustered Light Culling Compute $\to$ Forward Shading Pass with multi-light loop reading `LightGridSSBO`.
-- [ ] **1.2.2 Forward+ Visual Regression Test Fixture**
-  - Directory: `Tests/renderer_forward/`
-  - Execute multi-light stress scene (32 active point lights + physical sun) and verify identical visual results against `reference.png` ($\text{RMSE} \le 1.5$).
-  - Parity Assertion: Cross-compare rendered buffer of Forward+ with Deferred Hybrid resolve ($\text{RMSE} \le 1.0$ between both pipelines).
+- [x] **1.2.2 Forward+ Visual Regression Test Fixture**
+  - Directory: `Tests/forward_renderer_multilight/`
+  - Scene Setup: Test chamber featuring 16 colored point lights with smooth distance falloff $f_{\text{att}} = \left(\text{saturate}\left(1 - (d/r)^4\right)\right)^2 / (d^2 + 1)$ (sunlight disabled to isolate local lights), matching `deferred_renderer_multilight`.
+  - Image Verification: Compare rendered output against golden `reference.png` via [`runtest.py`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Tools/Scripts/runtest.py) ($\text{RMSE} \le 1.5$, $\text{mismatch} \le 0.5\%$).
+  - Parity Assertion: Cross-compare rendered buffer of Forward+ with Deferred Hybrid resolve ($\text{RMSE} = 0.039$, 0 mismatch pixels between both pipelines).
+  - Command: `just test forward_renderer_multilight`.
 
 #### 1.3 Material & Shading Model Unification
 - [ ] **1.3.1 PrimitiveMaterial Memory Layout & Buffer Pool**

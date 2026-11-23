@@ -99,6 +99,30 @@ bool ForwardPass::init(
     });
     default_shadow_view = default_shadow_map.create_view();
 
+    default_cluster_grid_buffer = execute([&]() {
+        auto desc  = GPUBufferDescriptor{};
+        desc.label = "forward_default_cluster_grid_buffer";
+        desc.size  = sizeof(uint32_t) * 2;
+        desc.usage = GPUBufferUsage::STORAGE;
+        return device.create_buffer(desc);
+    });
+
+    default_light_index_buffer = execute([&]() {
+        auto desc  = GPUBufferDescriptor{};
+        desc.label = "forward_default_light_index_buffer";
+        desc.size  = sizeof(uint32_t);
+        desc.usage = GPUBufferUsage::STORAGE;
+        return device.create_buffer(desc);
+    });
+
+    default_lights_buffer = execute([&]() {
+        auto desc  = GPUBufferDescriptor{};
+        desc.label = "forward_default_lights_buffer";
+        desc.size  = 64;
+        desc.usage = GPUBufferUsage::STORAGE;
+        return device.create_buffer(desc);
+    });
+
     heap = execute([&]() {
         auto desc      = GPUBindGroupHeapDescriptor{};
         desc.page_size = 512;
@@ -147,6 +171,15 @@ void ForwardPass::destroy()
     if (shadow_sampler.valid()) {
         shadow_sampler.destroy();
     }
+    if (default_lights_buffer.valid()) {
+        default_lights_buffer.destroy();
+    }
+    if (default_light_index_buffer.valid()) {
+        default_light_index_buffer.destroy();
+    }
+    if (default_cluster_grid_buffer.valid()) {
+        default_cluster_grid_buffer.destroy();
+    }
     if (default_shadow_view.valid()) {
         default_shadow_view.destroy();
     }
@@ -161,7 +194,16 @@ void ForwardPass::destroy()
     initialized = false;
 }
 
-void ForwardPass::update_camera_buffer(uint slot, const RenderView& view, const RenderScene& scene, const Matrix4x4& light_vp)
+void ForwardPass::update_camera_buffer(
+    uint               slot,
+    const RenderView&  view,
+    const RenderScene& scene,
+    const Matrix4x4&   light_vp,
+    const GPUExtent2D& extent,
+    uint               cluster_grid_x,
+    uint               cluster_grid_y,
+    uint               cluster_grid_z,
+    uint               num_lights)
 {
     if (slot >= FRAMES_IN_FLIGHT || !camera_buffers[slot].valid()) {
         return;
@@ -176,7 +218,7 @@ void ForwardPass::update_camera_buffer(uint slot, const RenderView& view, const 
         float   exposure_scale = (view.exposure_scale > 0.0f) ? view.exposure_scale : (1.0f / (1.2f * 8192.0f));
         Vector3 sun_dir        = glm::normalize(Vector3(0.6f, 1.0f, 0.5f));
         Vector3 sun_color      = Vector3(1.0f);
-        float   sun_intensity  = 110000.0f * exposure_scale;
+        float   sun_intensity  = 0.0f;
 
         if (!scene.directional_lights.empty()) {
             const auto& light = scene.directional_lights[0];
@@ -184,13 +226,28 @@ void ForwardPass::update_camera_buffer(uint slot, const RenderView& view, const 
                 sun_dir = -glm::normalize(light.direction);
             }
             sun_color     = light.color;
-            sun_intensity = std::max(light.intensity * exposure_scale, 0.01f);
+            sun_intensity = std::max(light.intensity * exposure_scale, 0.0f);
         }
 
         mapped.at(0).pos_and_intensity = Vector4(view.camera_position, sun_intensity);
         mapped.at(0).sun_dir_and_pad   = Vector4(sun_dir, 0.0f);
         mapped.at(0).sun_color_and_pad = Vector4(sun_color, 0.0f);
         mapped.at(0).light_view_proj   = light_vp;
+
+        float near_p = view.near_plane > 0.0f ? view.near_plane : 0.1f;
+        float far_p  = view.far_plane > near_p ? view.far_plane : 100.0f;
+
+        mapped.at(0).cluster_params = Vector4(
+            static_cast<float>(extent.width),
+            static_cast<float>(extent.height),
+            near_p,
+            far_p);
+
+        mapped.at(0).cluster_dims = Vector4(
+            static_cast<float>(cluster_grid_x),
+            static_cast<float>(cluster_grid_y),
+            static_cast<float>(cluster_grid_z),
+            static_cast<float>(num_lights));
     }
 }
 
@@ -297,7 +354,16 @@ ForwardPassData ForwardPass::add(
     frame_slot        = (frame_slot + 1) % FRAMES_IN_FLIGHT;
     uint current_slot = frame_slot;
 
-    update_camera_buffer(current_slot, params.view, params.scene, params.light_view_proj);
+    update_camera_buffer(
+        current_slot,
+        params.view,
+        params.scene,
+        params.light_view_proj,
+        params.extent,
+        params.cluster_grid_x,
+        params.cluster_grid_y,
+        params.cluster_grid_z,
+        params.num_lights);
 
     // prepare sorted and batched mesh commands via MeshPass
     mesh_pass.prepare(
@@ -329,6 +395,12 @@ ForwardPassData ForwardPass::add(
             if (params.shadow_map.valid()) {
                 data.shadow_map = pass_builder.sample(params.shadow_map);
             }
+            if (params.cluster_grid_buffer.valid()) {
+                data.cluster_grid_buffer = pass_builder.read(params.cluster_grid_buffer);
+            }
+            if (params.light_index_list.valid()) {
+                data.light_index_list = pass_builder.read(params.light_index_list);
+            }
             data.draw_calls         = mesh_pass.get_draw_call_count();
             data.triangles_rendered = mesh_pass.get_triangle_count();
         },
@@ -350,7 +422,25 @@ ForwardPassData ForwardPass::add(
                 }
             }
 
-            Array<GPUBindGroupEntry, 3> entries{};
+            GPUBufferHandle grid_buf_h   = default_cluster_grid_buffer.handle;
+            GPUBufferHandle index_buf_h  = default_light_index_buffer.handle;
+            GPUBufferHandle lights_buf_h = default_lights_buffer.handle;
+
+            if (data.cluster_grid_buffer.valid()) {
+                if (auto b = resources.get<FrameGraphBuffer>(data.cluster_grid_buffer)) {
+                    grid_buf_h = b->buffer;
+                }
+            }
+            if (data.light_index_list.valid()) {
+                if (auto b = resources.get<FrameGraphBuffer>(data.light_index_list)) {
+                    index_buf_h = b->buffer;
+                }
+            }
+            if (params.lights_buffer && params.lights_buffer->valid()) {
+                lights_buf_h = params.lights_buffer->handle;
+            }
+
+            Array<GPUBindGroupEntry, 6> entries{};
             entries[0].type          = GPUResourceType::BUFFER;
             entries[0].binding       = 0;
             entries[0].buffer.buffer = camera_buffers[current_slot].handle;
@@ -364,6 +454,24 @@ ForwardPassData ForwardPass::add(
             entries[2].type    = GPUResourceType::SAMPLER;
             entries[2].binding = 2;
             entries[2].sampler = shadow_sampler.handle;
+
+            entries[3].type          = GPUResourceType::BUFFER;
+            entries[3].binding       = 3;
+            entries[3].buffer.buffer = grid_buf_h;
+            entries[3].buffer.offset = 0;
+            entries[3].buffer.size   = 0;
+
+            entries[4].type          = GPUResourceType::BUFFER;
+            entries[4].binding       = 4;
+            entries[4].buffer.buffer = index_buf_h;
+            entries[4].buffer.offset = 0;
+            entries[4].buffer.size   = 0;
+
+            entries[5].type          = GPUResourceType::BUFFER;
+            entries[5].binding       = 5;
+            entries[5].buffer.buffer = lights_buf_h;
+            entries[5].buffer.offset = 0;
+            entries[5].buffer.size   = 0;
 
             auto bg_desc = GPUBindGroupDescriptor{};
             bg_desc.heap = heap;
