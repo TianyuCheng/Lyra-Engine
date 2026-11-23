@@ -7,6 +7,8 @@ using namespace lyra;
 
 TEST_CASE("rendering::shading_model_registry" * doctest::description("Verify equal treatment of builtin and custom shading models"))
 {
+    static_assert(std::is_same_v<ShadingModelID, GUID>, "ShadingModelID must be an alias of GUID");
+
     ShadingModelRegistry::init();
 
     SUBCASE("Builtin models are queryable as first-class citizens")
@@ -35,8 +37,8 @@ TEST_CASE("rendering::shading_model_registry" * doctest::description("Verify equ
 
     SUBCASE("Custom user shading models register identically without distinction")
     {
-        constexpr lyra::GUID CUSTOM_GUID = 0x9876543210ULL;
-        ShadingModelInfo     custom_info{
+        constexpr ShadingModelID CUSTOM_GUID = 0x9876543210ULL;
+        ShadingModelInfo         custom_info{
             .id                 = CUSTOM_GUID,
             .name               = "Hologram",
             .shader_module_path = "app://Shaders/Hologram.slang",
@@ -55,7 +57,7 @@ TEST_CASE("rendering::shading_model_registry" * doctest::description("Verify equ
         CHECK(all.size() >= 4);
     }
 
-    SUBCASE("from_enum maps legacy enum to unified GUID")
+    SUBCASE("from_enum maps legacy enum to unified ShadingModelID")
     {
         CHECK_EQ(BuiltinShadingModels::from_enum(ShadingModel::PBR), BuiltinShadingModels::PBR);
         CHECK_EQ(BuiltinShadingModels::from_enum(ShadingModel::NPR), BuiltinShadingModels::NPR);

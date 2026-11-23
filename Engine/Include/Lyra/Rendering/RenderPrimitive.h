@@ -3,13 +3,14 @@
 #ifndef LYRA_ENGINE_RENDERING_RENDER_PRIMITIVE_H
 #define LYRA_ENGINE_RENDERING_RENDER_PRIMITIVE_H
 
-#include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Utilities/Math.h>
 #include <Lyra/Utilities/Bounds.h>
+#include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Graphics/RHITypes.h>
 #include <Lyra/Assets/Format/MaterialAsset.h>
 #include <Lyra/Rendering/ShadingModelRegistry.h>
 #include <Lyra/Rendering/Geometry.h>
+#include <Lyra/Rendering/MaterialParams.h>
 
 namespace lyra
 {
@@ -65,24 +66,6 @@ namespace lyra
     };
 
     /**
-     * @brief extracted material parameters for immediate/push-constant shading and pass sorting.
-     */
-    struct PrimitiveMaterial
-    {
-        Vector4 base_color   = Vector4(1.0f);
-        float   roughness    = 0.5f;
-        float   metallic     = 0.0f;
-        float   clear_coat   = 0.0f;
-        float   alpha_cutoff = 0.5f;
-
-        // fast-path parameters for procedural / custom shading models
-        Vector4 custom_data = Vector4(0.0f);
-
-        // offset into global custom material parameter storage buffer
-        uint custom_params_offset = 0;
-    };
-
-    /**
      * @brief an extracted mesh primitive instance ready for drawing.
      */
     struct MeshPrimitive
@@ -97,9 +80,9 @@ namespace lyra
         uint                instance_id        = 0;
         uint                material_id        = 0;
         ShadingModel        shading_model      = ShadingModel::PBR;
-        GUID                shading_model_id   = BuiltinShadingModels::PBR;
+        ShadingModelID      shading_model_id   = BuiltinShadingModels::PBR;
         CustomPipelineID    custom_pipeline_id = {};
-        PrimitiveMaterial   material_params    = {};
+        MaterialParams      material_params    = {};
     };
 
     /**
@@ -116,9 +99,9 @@ namespace lyra
         uint                instance_id        = 0;
         uint                material_id        = 0;
         ShadingModel        shading_model      = ShadingModel::PBR;
-        GUID                shading_model_id   = BuiltinShadingModels::PBR;
+        ShadingModelID      shading_model_id   = BuiltinShadingModels::PBR;
         CustomPipelineID    custom_pipeline_id = {};
-        PrimitiveMaterial   material_params    = {};
+        MaterialParams      material_params    = {};
     };
 
     /**
@@ -135,9 +118,9 @@ namespace lyra
         uint                instance_id        = 0;
         uint                material_id        = 0;
         ShadingModel        shading_model      = ShadingModel::PBR;
-        GUID                shading_model_id   = BuiltinShadingModels::PBR;
+        ShadingModelID      shading_model_id   = BuiltinShadingModels::PBR;
         CustomPipelineID    custom_pipeline_id = {};
-        PrimitiveMaterial   material_params    = {};
+        MaterialParams      material_params    = {};
     };
 
     /**

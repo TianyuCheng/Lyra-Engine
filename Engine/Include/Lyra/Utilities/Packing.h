@@ -116,10 +116,10 @@ namespace lyra
      */
     inline uint pack_snorm_4x8(Vector4 v)
     {
-        auto i = glm::clamp(v, -1.0f, 1.0f) * 127.0f + Vector4(v.x >= 0.0f ? 0.5f : -0.5f,
-                                                           v.y >= 0.0f ? 0.5f : -0.5f,
-                                                           v.z >= 0.0f ? 0.5f : -0.5f,
-                                                           v.w >= 0.0f ? 0.5f : -0.5f);
+        auto i  = glm::clamp(v, -1.0f, 1.0f) * 127.0f + Vector4(v.x >= 0.0f ? 0.5f : -0.5f,
+                                                            v.y >= 0.0f ? 0.5f : -0.5f,
+                                                            v.z >= 0.0f ? 0.5f : -0.5f,
+                                                            v.w >= 0.0f ? 0.5f : -0.5f);
         auto ix = static_cast<int32_t>(i.x);
         auto iy = static_cast<int32_t>(i.y);
         auto iz = static_cast<int32_t>(i.z);

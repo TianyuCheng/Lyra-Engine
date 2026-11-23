@@ -63,12 +63,12 @@ TEST_CASE("spatial::packing" * doctest::description("Octahedral Normal Encoding 
         constexpr int phi_steps   = 72;
 
         for (int i = 0; i <= theta_steps; ++i) {
-            float theta = glm::pi<float>() * float(i) / float(theta_steps);
+            float theta     = glm::pi<float>() * float(i) / float(theta_steps);
             float sin_theta = std::sin(theta);
             float cos_theta = std::cos(theta);
 
             for (int j = 0; j < phi_steps; ++j) {
-                float phi = 2.0f * glm::pi<float>() * float(j) / float(phi_steps);
+                float phi     = 2.0f * glm::pi<float>() * float(j) / float(phi_steps);
                 float sin_phi = std::sin(phi);
                 float cos_phi = std::cos(phi);
 
@@ -102,7 +102,7 @@ TEST_CASE("spatial::packing" * doctest::description("Octahedral Normal Encoding 
         };
 
         for (const auto& v : snorm_values) {
-            lyra::uint packed = lyra::pack_snorm_2x16(v);
+            lyra::uint    packed   = lyra::pack_snorm_2x16(v);
             lyra::Vector2 unpacked = lyra::unpack_snorm_2x16(packed);
             CHECK(std::abs(unpacked.x - v.x) <= (1.0f / 32767.0f));
             CHECK(std::abs(unpacked.y - v.y) <= (1.0f / 32767.0f));
@@ -116,7 +116,7 @@ TEST_CASE("spatial::packing" * doctest::description("Octahedral Normal Encoding 
         };
 
         for (const auto& v : unorm_values) {
-            lyra::uint packed = lyra::pack_unorm_2x16(v);
+            lyra::uint    packed   = lyra::pack_unorm_2x16(v);
             lyra::Vector2 unpacked = lyra::unpack_unorm_2x16(packed);
             CHECK(std::abs(unpacked.x - v.x) <= (1.0f / 65535.0f));
             CHECK(std::abs(unpacked.y - v.y) <= (1.0f / 65535.0f));
@@ -132,7 +132,7 @@ TEST_CASE("spatial::packing" * doctest::description("Octahedral Normal Encoding 
         };
 
         for (const auto& v : unorm_values) {
-            lyra::uint packed = lyra::pack_unorm_4x8(v);
+            lyra::uint    packed   = lyra::pack_unorm_4x8(v);
             lyra::Vector4 unpacked = lyra::unpack_unorm_4x8(packed);
             CHECK(std::abs(unpacked.x - v.x) <= (1.0f / 255.0f));
             CHECK(std::abs(unpacked.y - v.y) <= (1.0f / 255.0f));
@@ -146,7 +146,7 @@ TEST_CASE("spatial::packing" * doctest::description("Octahedral Normal Encoding 
         };
 
         for (const auto& v : snorm_values) {
-            lyra::uint packed = lyra::pack_snorm_4x8(v);
+            lyra::uint    packed   = lyra::pack_snorm_4x8(v);
             lyra::Vector4 unpacked = lyra::unpack_snorm_4x8(packed);
             CHECK(std::abs(unpacked.x - v.x) <= (1.0f / 127.0f));
             CHECK(std::abs(unpacked.y - v.y) <= (1.0f / 127.0f));

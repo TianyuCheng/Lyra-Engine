@@ -55,9 +55,9 @@ namespace lyra
         static auto loader() -> AssetLoaderAPI;
 
         // shading model and custom shader override
-        ShadingModel shading_model      = ShadingModel::PBR;
-        GUID         shading_model_id   = BuiltinShadingModels::PBR;
-        String       custom_shader_path = ""; // optional VFS path (e.g. sys:// or app://) for custom shaders
+        ShadingModel   shading_model      = ShadingModel::PBR;
+        ShadingModelID shading_model_id   = BuiltinShadingModels::PBR;
+        String         custom_shader_path = ""; // optional VFS path (e.g. sys:// or app://) for custom shaders
 
         // pbr parameters
         Vector4 base_color_factor  = Vector4(1.0f);

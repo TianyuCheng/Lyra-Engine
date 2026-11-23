@@ -9,23 +9,25 @@ public enum ShadingModel : uint
     CUSTOM     = 4,
 };
 
-public struct MaterialData
+// 16-byte aligned unified material parameters layout (std140/std430, 80 bytes total)
+public struct MaterialParams
 {
-    public float4       base_color_factor;
-    public float3       emissive_factor;
-    public float        roughness_factor;
-    public float        metallic_factor;
-    public ShadingModel shading_model;
-    public uint         base_color_texture_idx;
-    public uint         normal_texture_idx;
-    public uint         roughness_metallic_texture_idx;
-    public uint         custom_params_offset;
-    public float3       custom_data;
+    public float4 base_color;
+    public float  metallic;
+    public float  roughness;
+    public float  clear_coat;
+    public float  clear_coat_roughness;
+    public float4 emissive;
+    public float4 custom_data;
+    public uint   shading_model_id;
+    public float  alpha_cutoff;
+    public uint   flags;
+    public uint   custom_params_offset;
 };
 
 // interface for custom material shading evaluation
 public interface IMaterialShader
 {
     // TODO: evaluate custom material shading
-    float4 evaluate(MaterialData material, float3 world_pos, float3 normal, float3 view_dir);
+    float4 evaluate(MaterialParams material, float3 world_pos, float3 normal, float3 view_dir);
 };

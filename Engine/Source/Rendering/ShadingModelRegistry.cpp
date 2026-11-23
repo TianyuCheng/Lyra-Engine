@@ -9,7 +9,7 @@ static HashMap<ulong, ShadingModelInfo> g_models;
 static Mutex g_registry_mutex;
 static bool  g_initialized = false;
 
-lyra::GUID BuiltinShadingModels::from_enum(ShadingModel model)
+ShadingModelID BuiltinShadingModels::from_enum(ShadingModel model)
 {
     switch (model) {
         case ShadingModel::PBR:
@@ -94,7 +94,7 @@ void ShadingModelRegistry::register_model(const ShadingModelInfo& info)
     g_models[info.id] = info;
 }
 
-auto ShadingModelRegistry::get_model(GUID id) -> Optional<ShadingModelInfo>
+auto ShadingModelRegistry::get_model(ShadingModelID id) -> Optional<ShadingModelInfo>
 {
     LockGuard<Mutex> lock(g_registry_mutex);
     if (!g_initialized) {

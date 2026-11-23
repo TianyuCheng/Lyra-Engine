@@ -9,6 +9,8 @@
 #include <Lyra/Assets/Format/TextAsset.h>
 #include <Lyra/Assets/Format/TomlAsset.h>
 #include <Lyra/Assets/Format/JsonAsset.h>
+#include <Lyra/Rendering/MaterialParams.h>
+#include <Lyra/Rendering/RenderPrimitive.h>
 
 namespace fs = std::filesystem;
 
@@ -405,4 +407,62 @@ TEST_CASE("ams::model_import_and_reimport")
     CHECK(resolved_path.ends_with(".model"));
 
     fs::remove_all(temp_dir);
+}
+
+TEST_CASE("mat::material_params_layout")
+{
+    // struct size, alignment, and std140/std430 guarantees
+    CHECK_EQ(sizeof(MaterialParams), 80);
+    CHECK_EQ(alignof(MaterialParams), 16);
+
+    CHECK_EQ(offsetof(MaterialParams, base_color), 0);
+    CHECK_EQ(offsetof(MaterialParams, metallic), 16);
+    CHECK_EQ(offsetof(MaterialParams, roughness), 20);
+    CHECK_EQ(offsetof(MaterialParams, clear_coat), 24);
+    CHECK_EQ(offsetof(MaterialParams, clear_coat_roughness), 28);
+    CHECK_EQ(offsetof(MaterialParams, emissive), 32);
+    CHECK_EQ(offsetof(MaterialParams, custom_data), 48);
+    CHECK_EQ(offsetof(MaterialParams, shading_model_id), 64);
+    CHECK_EQ(offsetof(MaterialParams, alpha_cutoff), 68);
+    CHECK_EQ(offsetof(MaterialParams, flags), 72);
+    CHECK_EQ(offsetof(MaterialParams, custom_params_offset), 76);
+
+    // default field values
+    MaterialParams mat;
+    CHECK_EQ(mat.base_color, Vector4(1.0f));
+    CHECK_EQ(mat.metallic, 0.0f);
+    CHECK_EQ(mat.roughness, 0.5f);
+    CHECK_EQ(mat.clear_coat, 0.0f);
+    CHECK_EQ(mat.clear_coat_roughness, 0.04f);
+    CHECK_EQ(mat.emissive, Vector4(0.0f));
+    CHECK_EQ(mat.custom_data, Vector4(0.0f));
+    CHECK_EQ(mat.shading_model_id, 0);
+    CHECK_EQ(mat.alpha_cutoff, 0.5f);
+    CHECK_EQ(mat.flags, 0);
+    CHECK_EQ(mat.custom_params_offset, 0);
+
+    // parameter modifications
+    mat.base_color           = Vector4(0.2f, 0.4f, 0.6f, 1.0f);
+    mat.roughness            = 0.3f;
+    mat.metallic             = 0.8f;
+    mat.clear_coat           = 0.7f;
+    mat.clear_coat_roughness = 0.05f;
+    mat.emissive             = Vector4(5.0f, 0.0f, 0.0f, 1.0f);
+    mat.alpha_cutoff         = 0.25f;
+    mat.custom_data          = Vector4(1.0f, 2.0f, 3.0f, 4.0f);
+    mat.shading_model_id     = 1;
+    mat.flags                = MaterialFlags::DOUBLE_SIDED | MaterialFlags::ALPHA_TEST;
+    mat.custom_params_offset = 128;
+
+    CHECK_EQ(mat.base_color, Vector4(0.2f, 0.4f, 0.6f, 1.0f));
+    CHECK_EQ(mat.roughness, 0.3f);
+    CHECK_EQ(mat.metallic, 0.8f);
+    CHECK_EQ(mat.clear_coat, 0.7f);
+    CHECK_EQ(mat.clear_coat_roughness, 0.05f);
+    CHECK_EQ(mat.emissive, Vector4(5.0f, 0.0f, 0.0f, 1.0f));
+    CHECK_EQ(mat.alpha_cutoff, 0.25f);
+    CHECK_EQ(mat.custom_data, Vector4(1.0f, 2.0f, 3.0f, 4.0f));
+    CHECK_EQ(mat.shading_model_id, 1);
+    CHECK_EQ(mat.flags, MaterialFlags::DOUBLE_SIDED | MaterialFlags::ALPHA_TEST);
+    CHECK_EQ(mat.custom_params_offset, 128);
 }

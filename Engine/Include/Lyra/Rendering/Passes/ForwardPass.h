@@ -9,6 +9,7 @@
 #include <Lyra/Rendering/RenderView.h>
 #include <Lyra/Rendering/RenderScene.h>
 #include <Lyra/Rendering/MeshPass.h>
+#include <Lyra/Rendering/ShadingModelRegistry.h>
 #include <Lyra/Compiler/SLCTypes.h>
 #include <Lyra/Utilities/Path.h>
 #include <Lyra/Utilities/GUID.h>
@@ -104,22 +105,22 @@ namespace lyra::passes
     private:
         static constexpr uint FRAMES_IN_FLIGHT = 3;
 
-        GPURenderPipeline get_or_create_pipeline(GUID shading_model_id);
+        GPURenderPipeline get_or_create_pipeline(ShadingModelID shading_model_id);
 
-        GPUDevice                             device;
-        Compiler                              compiler;
-        MeshPass                              mesh_pass;
-        HashMap<GUID, GPURenderPipeline>      variant_pipelines;
-        Vector<GPUShaderModule>               variant_shader_modules;
-        GPUPipelineLayout                     playout;
-        Vector<GPUBindGroupLayoutHandle>      blayouts;
-        GPUBindGroupHeap                      heap;
-        Array<GPUBuffer, FRAMES_IN_FLIGHT>    camera_buffers{};
-        Array<GPUBindGroup, FRAMES_IN_FLIGHT> camera_bind_groups{};
-        GPUSampler                            shadow_sampler;
-        GPUTexture                            default_shadow_map;
-        GPUTextureView                        default_shadow_view;
-        uint                                  frame_slot = 0;
+        GPUDevice                                  device;
+        Compiler                                   compiler;
+        MeshPass                                   mesh_pass;
+        HashMap<ShadingModelID, GPURenderPipeline> variant_pipelines;
+        Vector<GPUShaderModule>                    variant_shader_modules;
+        GPUPipelineLayout                          playout;
+        Vector<GPUBindGroupLayoutHandle>           blayouts;
+        GPUBindGroupHeap                           heap;
+        Array<GPUBuffer, FRAMES_IN_FLIGHT>         camera_buffers{};
+        Array<GPUBindGroup, FRAMES_IN_FLIGHT>      camera_bind_groups{};
+        GPUSampler                                 shadow_sampler;
+        GPUTexture                                 default_shadow_map;
+        GPUTextureView                             default_shadow_view;
+        uint                                       frame_slot = 0;
 
         GPUTextureFormat cached_color_format = GPUTextureFormat::RGBA8UNORM;
         GPUTextureFormat cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;

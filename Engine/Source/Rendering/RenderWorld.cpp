@@ -252,11 +252,11 @@ void RenderWorld::extract_meshes(const World& ecs_world, const RendererCapabilit
         const auto& lod0 = entry->lods[0];
 
         // resolve material properties
-        auto resolve_material = [&](MaterialAssetHandle handle) -> std::tuple<ShadingModel, GUID, PrimitiveMaterial, CustomPipelineID> {
-            ShadingModel      model    = ShadingModel::PBR;
-            GUID              model_id = BuiltinShadingModels::PBR;
-            PrimitiveMaterial params   = {};
-            CustomPipelineID  pipe     = CustomPipelineID::standard();
+        auto resolve_material = [&](MaterialAssetHandle handle) -> std::tuple<ShadingModel, ShadingModelID, MaterialParams, CustomPipelineID> {
+            ShadingModel     model    = ShadingModel::PBR;
+            ShadingModelID   model_id = BuiltinShadingModels::PBR;
+            MaterialParams   params   = {};
+            CustomPipelineID pipe     = CustomPipelineID::standard();
             if (handle.valid()) {
                 if (auto proc_mat = find_procedural_material(handle.guid)) {
                     model               = proc_mat->shading_model;
@@ -387,7 +387,7 @@ void RenderWorld::extract_sdfs(const World& ecs_world)
         prim.shading_model      = ShadingModel::PBR;
         prim.shading_model_id   = BuiltinShadingModels::PBR;
         prim.custom_pipeline_id = CustomPipelineID::standard();
-        prim.material_params    = PrimitiveMaterial{};
+        prim.material_params    = MaterialParams{};
 
         if (sdf_comp.material.valid() && ams) {
             auto mat_ptr = ams->get_asset(sdf_comp.material);

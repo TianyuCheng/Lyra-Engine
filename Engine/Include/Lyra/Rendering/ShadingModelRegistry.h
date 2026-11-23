@@ -14,14 +14,16 @@ namespace lyra
 
     enum struct ShadingModel : uint;
 
+    using ShadingModelID = GUID;
+
     namespace BuiltinShadingModels
     {
-        inline constexpr GUID PBR        = 0x1001ull;
-        inline constexpr GUID NPR        = 0x1002ull;
-        inline constexpr GUID UNLIT      = 0x1003ull;
-        inline constexpr GUID SUBSURFACE = 0x1004ull;
+        inline constexpr ShadingModelID PBR        = 0x1001ull;
+        inline constexpr ShadingModelID NPR        = 0x1002ull;
+        inline constexpr ShadingModelID UNLIT      = 0x1003ull;
+        inline constexpr ShadingModelID SUBSURFACE = 0x1004ull;
 
-        auto from_enum(ShadingModel model) -> GUID;
+        auto from_enum(ShadingModel model) -> ShadingModelID;
     } // namespace BuiltinShadingModels
 
     /**
@@ -29,11 +31,11 @@ namespace lyra
      */
     struct ShadingModelInfo
     {
-        GUID   id;
-        String name;
-        Path   shader_module_path;
-        String entry_point_name = "fsmain";
-        String struct_name;
+        ShadingModelID id;
+        String         name;
+        Path           shader_module_path;
+        String         entry_point_name = "fsmain";
+        String         struct_name;
     };
 
     /**
@@ -43,7 +45,7 @@ namespace lyra
     {
     public:
         static void register_model(const ShadingModelInfo& info);
-        static auto get_model(GUID id) -> Optional<ShadingModelInfo>;
+        static auto get_model(ShadingModelID id) -> Optional<ShadingModelInfo>;
         static auto all_models() -> Vector<ShadingModelInfo>;
 
         static void init();

@@ -35,6 +35,15 @@ namespace lyra
         auto allocate(GPUSize64 size, GPUSize64 alignment = 16) -> BufferSlice;
 
         /**
+         * @brief Sub-allocate contiguous element storage with matching struct alignment.
+         */
+        template <typename T>
+        auto allocate_typed(usize count = 1) -> BufferSlice
+        {
+            return allocate(static_cast<GPUSize64>(sizeof(T) * count), static_cast<GPUSize64>(alignof(T)));
+        }
+
+        /**
          * @brief Release a sub-allocated slice back to the pool free list.
          */
         void free(const BufferSlice& slice);

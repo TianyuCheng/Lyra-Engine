@@ -194,7 +194,7 @@ void ForwardPass::update_camera_buffer(uint slot, const RenderView& view, const 
     }
 }
 
-GPURenderPipeline ForwardPass::get_or_create_pipeline(GUID shading_model_id)
+GPURenderPipeline ForwardPass::get_or_create_pipeline(ShadingModelID shading_model_id)
 {
     auto it = variant_pipelines.find(shading_model_id);
     if (it != variant_pipelines.end() && it->second.valid()) {
@@ -305,9 +305,9 @@ ForwardPassData ForwardPass::add(
         params.scene,
         params.view,
         [this](const MeshPrimitive& mesh) -> GPURenderPipeline {
-            GUID model_id = mesh.shading_model_id != 0
-                                ? mesh.shading_model_id
-                                : BuiltinShadingModels::from_enum(mesh.shading_model);
+            ShadingModelID model_id = mesh.shading_model_id != 0
+                                          ? mesh.shading_model_id
+                                          : BuiltinShadingModels::from_enum(mesh.shading_model);
             return get_or_create_pipeline(model_id);
         });
 
