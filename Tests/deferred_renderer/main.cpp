@@ -70,8 +70,8 @@ struct RendererDeferredApp : public TestApp
         cam.projection   = glm::perspective(glm::radians(cam.fov), cam.aspect, cam.near_plane, cam.far_plane);
 
         auto& cam_xform    = ecs_world.add_component<TransformLocal>(cam_entity);
-        cam_xform.position = Vector3(0.0f, 2.0f, 4.0f);
-        cam_xform.rotation = glm::quatLookAt(glm::normalize(Vector3(0.0f, 0.5f, 0.0f) - cam_xform.position), Vector3(0.0f, 1.0f, 0.0f));
+        cam_xform.position = Vector3(0.0f, 2.5f, 3.5f);
+        cam_xform.rotation = glm::quatLookAt(glm::normalize(Vector3(0.0f, 0.3f, 0.0f) - cam_xform.position), Vector3(0.0f, 1.0f, 0.0f));
 
         // 2. Directional Sun Light casting shadows
         auto  sun_entity   = ecs_world.create("Sun");
