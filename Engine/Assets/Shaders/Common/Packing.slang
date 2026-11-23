@@ -175,10 +175,14 @@ public float3 unpack_r11g11b10f_to_float3(uint packed)
 }
 
 // =============================================================================
-// 4. Compressed Tangent Frames (TBN)
+// 4. Compressed Tangent Frames (TBN) & Octahedral Normal Encoding
 // =============================================================================
 
-float2 oct_encode(float3 v)
+/**
+ * @brief Encodes a normalized 3D unit normal vector into 2D octahedral coordinates in [-1, 1].
+ * Reference: Meyer et al. 2010, Cigolle et al. 2014.
+ */
+public float2 oct_encode(float3 v)
 {
     float l1 = dot(abs(v), float3(1.0));
     float2 p = v.xy * (1.0 / max(l1, 1e-6));
@@ -188,7 +192,11 @@ float2 oct_encode(float3 v)
     return p;
 }
 
-float3 oct_decode(float2 e)
+/**
+ * @brief Decodes 2D octahedral coordinates in [-1, 1] back into a normalized 3D unit normal vector.
+ * Reference: Meyer et al. 2010, Cigolle et al. 2014.
+ */
+public float3 oct_decode(float2 e)
 {
     float3 v = float3(e.xy, 1.0 - abs(e.x) - abs(e.y));
     if (v.z < 0.0) {
