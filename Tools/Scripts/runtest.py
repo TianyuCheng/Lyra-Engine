@@ -273,6 +273,13 @@ def write_png_rgba(path, width, height, rgba_data):
         f.write(struct.pack(">I4s", len(compressed), b"IDAT") + compressed + struct.pack(">I", zlib.crc32(b"IDAT" + compressed)))
         f.write(struct.pack(">I4s", 0, b"IEND") + struct.pack(">I", zlib.crc32(b"IEND")))
 
+_REF_IMAGE_CACHE = {}
+
+def get_cached_ref_rgba(path):
+    if path not in _REF_IMAGE_CACHE:
+        _REF_IMAGE_CACHE[path] = read_png_rgba(path)
+    return _REF_IMAGE_CACHE[path]
+
 def check_perceptual_mismatch(ref_path, test_path, diff_output_path=None, pixel_tolerance=2, max_mismatch_pct=1.0, rmse_threshold=2.0):
     if not os.path.exists(ref_path):
         return {
@@ -299,7 +306,7 @@ def check_perceptual_mismatch(ref_path, test_path, diff_output_path=None, pixel_
         }
 
     try:
-        w_ref, h_ref, ref_rgba = read_png_rgba(ref_path)
+        w_ref, h_ref, ref_rgba = get_cached_ref_rgba(ref_path)
         w_test, h_test, test_rgba = read_png_rgba(test_path)
     except Exception as e:
         return {
@@ -330,8 +337,6 @@ def check_perceptual_mismatch(ref_path, test_path, diff_output_path=None, pixel_
     sq_err_sum = 0
     max_diff = 0
 
-    diff_rgba = bytearray(total_pixels * 4) if diff_output_path else None
-
     for i in range(0, total_pixels * 4, 4):
         dr = abs(ref_rgba[i] - test_rgba[i])
         dg = abs(ref_rgba[i + 1] - test_rgba[i + 1])
@@ -344,22 +349,8 @@ def check_perceptual_mismatch(ref_path, test_path, diff_output_path=None, pixel_
 
         sq_err_sum += dr * dr + dg * dg + db * db
 
-        is_mismatch = m > pixel_tolerance
-        if is_mismatch:
+        if m > pixel_tolerance:
             diff_pixels += 1
-
-        if diff_rgba is not None:
-            if is_mismatch:
-                diff_rgba[i] = 255
-                diff_rgba[i + 1] = 0
-                diff_rgba[i + 2] = 120
-                diff_rgba[i + 3] = 255
-            else:
-                gray = int(0.299 * ref_rgba[i] + 0.587 * ref_rgba[i + 1] + 0.114 * ref_rgba[i + 2]) >> 2
-                diff_rgba[i] = gray
-                diff_rgba[i + 1] = gray
-                diff_rgba[i + 2] = gray
-                diff_rgba[i + 3] = 255
 
     rmse = math.sqrt(sq_err_sum / (total_pixels * 3))
     mismatch_pct = (diff_pixels / total_pixels) * 100.0
@@ -375,8 +366,25 @@ def check_perceptual_mismatch(ref_path, test_path, diff_output_path=None, pixel_
         error_msg = "Perceptual mismatch: " + ", ".join(reasons)
 
     diff_image_saved = None
-    if diff_output_path and diff_rgba is not None:
+    if diff_output_path and diff_pixels > 0:
         try:
+            diff_rgba = bytearray(total_pixels * 4)
+            for i in range(0, total_pixels * 4, 4):
+                dr = abs(ref_rgba[i] - test_rgba[i])
+                dg = abs(ref_rgba[i + 1] - test_rgba[i + 1])
+                db = abs(ref_rgba[i + 2] - test_rgba[i + 2])
+                da = abs(ref_rgba[i + 3] - test_rgba[i + 3])
+                if max(dr, dg, db, da) > pixel_tolerance:
+                    diff_rgba[i] = 255
+                    diff_rgba[i + 1] = 0
+                    diff_rgba[i + 2] = 120
+                    diff_rgba[i + 3] = 255
+                else:
+                    gray = int(0.299 * ref_rgba[i] + 0.587 * ref_rgba[i + 1] + 0.114 * ref_rgba[i + 2]) >> 2
+                    diff_rgba[i] = gray
+                    diff_rgba[i + 1] = gray
+                    diff_rgba[i + 2] = gray
+                    diff_rgba[i + 3] = 255
             write_png_rgba(diff_output_path, w_ref, h_ref, diff_rgba)
             diff_image_saved = diff_output_path
         except Exception as e:
@@ -421,7 +429,7 @@ def run_rhi_tests(args, buckets, on_progress=None):
         results[test_name] = {
             "reference": os.path.join(git_root, "Tests", test_name, "reference.png"),
             "_metrics": {},
-            "_available_backends": [v["components"][1] for v in buckets[test_name]]
+            "_available_backends": [v["components"][1] for v in buckets[test_name]],
         }
 
     # Partition tasks by stage tier
@@ -436,27 +444,17 @@ def run_rhi_tests(args, buckets, on_progress=None):
         for variant in variants:
             staged_tasks[tier_int][1].append((test_name, variant, directory, ref_image, complexity))
 
-    def run_single_variant(item):
-        test_name, variant, directory, ref_image = item
+    results_lock = threading.Lock()
+
+    def handle_test_finished(item, proc_success, proc_output):
+        nonlocal all_passed
+        test_name, variant, directory, ref_image, _ = item
         full_name = variant["name"]
         backend = variant["components"][1]
 
-        proc_success = True
-        proc_output = ""
-        proc_env = os.environ.copy()
-        proc_env["LYRA_REPO_ROOT"] = git_root
-        try:
-            res = subprocess.run([args.executable, f"-tc={full_name}"], cwd=directory, env=proc_env, capture_output=True, text=True)
-            if res.returncode != 0:
-                proc_success = False
-                proc_output = (res.stdout or "") + "\n" + (res.stderr or "")
-        except Exception as e:
-            proc_success = False
-            proc_output = str(e)
-
         test_result = os.path.join(directory, f"{backend}.png")
         diff_result = os.path.join(directory, f"{backend}_diff.png")
-        skip_file   = os.path.join(directory, f"{backend}.skip")
+        skip_file = os.path.join(directory, f"{backend}.skip")
 
         if proc_success and os.path.exists(skip_file):
             skip_reason = "Feature not supported"
@@ -479,7 +477,7 @@ def run_rhi_tests(args, buckets, on_progress=None):
                 "max_diff": 0,
                 "diff_image": None,
             }
-        elif proc_success:
+        elif proc_success and os.path.exists(test_result):
             test_cfg_path = os.path.join(git_root, "Tests", test_name, "config.json")
             cur_mismatch_thresh = args.mismatch_threshold
             cur_rmse_thresh = args.rmse_threshold
@@ -503,9 +501,12 @@ def run_rhi_tests(args, buckets, on_progress=None):
                 rmse_threshold=cur_rmse_thresh,
             )
         else:
+            err_detail = "Execution failed"
+            if not os.path.exists(test_result) and proc_success:
+                err_detail = "Output image not generated"
             metrics = {
                 "passed": False,
-                "error": "Process execution failed",
+                "error": err_detail,
                 "rmse": 0.0,
                 "mismatch_pct": 100.0,
                 "diff_pixels": 0,
@@ -514,7 +515,94 @@ def run_rhi_tests(args, buckets, on_progress=None):
                 "diff_image": None,
             }
 
-        return test_name, backend, full_name, proc_success, proc_output, metrics, test_result, diff_result
+        with results_lock:
+            results[test_name][backend] = test_result
+            results[test_name]["_metrics"][backend] = metrics
+            if metrics.get("diff_image"):
+                results[test_name][f"{backend}_diff"] = metrics["diff_image"]
+
+            print(f"::{full_name}")
+            if not proc_success:
+                all_passed = False
+                print(f"  -> [FAIL] Execution failed: {full_name}")
+                if proc_output.strip():
+                    print(f"     Output: {proc_output.strip()[:500]}")
+            elif metrics.get("skipped"):
+                print(f"  -> [SKIP] {backend} ({metrics.get('skip_reason', 'Feature not supported')})")
+            elif metrics["passed"]:
+                print(f"  -> [PASS] {backend} (RMSE: {metrics['rmse']:.2f}, Diff: {metrics['mismatch_pct']:.2f}%, MaxDiff: {metrics['max_diff']})")
+            else:
+                all_passed = False
+                print(f"  -> [FAIL] {backend}: {metrics['error']}")
+
+            if on_progress:
+                on_progress(test_name, backend, metrics, test_result, results[test_name].get(f"{backend}_diff"))
+
+    def run_backend_chunk(backend, chunk):
+        remaining_tasks = list(chunk)
+        proc_env = os.environ.copy()
+        proc_env["LYRA_REPO_ROOT"] = git_root
+        proc_env["LYRA_TESTKIT_RUNS_DIR"] = args.directory
+
+        while remaining_tasks:
+            current_batch = remaining_tasks
+            remaining_tasks = []
+
+            task_map = {item[1]["name"]: item for item in current_batch}
+            filter_str = ",".join(task_map.keys())
+
+            cmd = [args.executable, f"-tc={filter_str}"]
+            try:
+                proc = subprocess.Popen(
+                    cmd,
+                    cwd=git_root,
+                    env=proc_env,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                )
+            except Exception as e:
+                for item in current_batch:
+                    handle_test_finished(item, False, str(e))
+                continue
+
+            current_test_name = None
+            current_test_output = []
+            executed_in_chunk = set()
+
+            for raw_line in iter(proc.stdout.readline, ""):
+                line = raw_line.rstrip("\r\n")
+                if line.startswith(">>> TEST_START: "):
+                    current_test_name = line[len(">>> TEST_START: "):].strip()
+                    current_test_output = []
+                elif line.startswith(">>> TEST_END: "):
+                    status_str = line[len(">>> TEST_END: "):].strip()
+                    test_success = (status_str == "PASS")
+                    if current_test_name in task_map:
+                        item = task_map[current_test_name]
+                        handle_test_finished(item, test_success, "\n".join(current_test_output))
+                        executed_in_chunk.add(current_test_name)
+                    current_test_name = None
+                    current_test_output = []
+                else:
+                    if current_test_name is not None:
+                        current_test_output.append(line)
+
+            proc.stdout.close()
+            ret_code = proc.wait()
+
+            if current_test_name and current_test_name in task_map:
+                item = task_map[current_test_name]
+                crash_output = f"Process terminated unexpectedly with code {ret_code}"
+                if current_test_output:
+                    crash_output += ":\n" + "\n".join(current_test_output[-10:])
+                handle_test_finished(item, False, crash_output)
+                executed_in_chunk.add(current_test_name)
+
+            unexecuted = [item for item in current_batch if item[1]["name"] not in executed_in_chunk]
+            if unexecuted:
+                remaining_tasks = unexecuted
 
     max_workers = args.jobs if (args.jobs is not None and args.jobs > 0) else max(1, min(os.cpu_count() or 4, 8))
     sorted_tiers = sorted(staged_tasks.keys())
@@ -522,39 +610,40 @@ def run_rhi_tests(args, buckets, on_progress=None):
     total_tasks_count = sum(len(staged_tasks[k][1]) for k in sorted_tiers)
     print(f">>> Running {total_tasks_count} RHI test variants across {total_stages} stage(s) with {max_workers} parallel workers...")
 
-    lock = threading.Lock()
     for idx, tier_int in enumerate(sorted_tiers, 1):
         tier_name, stage_tasks = staged_tasks[tier_int]
-        stage_tasks.sort(key=lambda item: (item[4], item[0], item[1]["name"]))
         stage_title = tier_name.capitalize() if tier_name else f"Tier {tier_int}"
-        print(f"\n>>> [Stage {idx}/{total_stages}: {stage_title}] Running {len(stage_tasks)} test variants (sorted by complexity)...")
+        print(f"\n>>> [Stage {idx}/{total_stages}: {stage_title}] Running {len(stage_tasks)} test variants...")
+
+        # For usecase tests (higher complexity), use smaller chunk sizes so heavy CPU/GPU tests distribute across all cores
+        chunk_size = 2 if tier_int > 0 else 4
+
+        backend_groups = {}
+        for item in stage_tasks:
+            backend = item[1]["components"][1]
+            if backend not in backend_groups:
+                backend_groups[backend] = []
+            backend_groups[backend].append(item)
+
+        backend_chunks = {backend: [] for backend in backend_groups}
+        for backend, b_tasks in backend_groups.items():
+            b_tasks.sort(key=lambda it: (it[4], it[0], it[1]["name"]))
+            for i in range(0, len(b_tasks), chunk_size):
+                backend_chunks[backend].append((backend, b_tasks[i : i + chunk_size]))
+
+        batches = []
+        max_chunks = max((len(c) for c in backend_chunks.values()), default=0)
+        for i in range(max_chunks):
+            for backend in ["softgpu", "metal", "d3d12", "vulkan"]:
+                if backend in backend_chunks and i < len(backend_chunks[backend]):
+                    batches.append(backend_chunks[backend][i])
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {executor.submit(run_single_variant, item[:4]): item for item in stage_tasks}
-            for future in concurrent.futures.as_completed(futures):
-                test_name, backend, full_name, proc_success, proc_output, metrics, test_result, diff_result = future.result()
-                with lock:
-                    results[test_name][backend] = test_result
-                    results[test_name]["_metrics"][backend] = metrics
-                    if metrics.get("diff_image"):
-                        results[test_name][f"{backend}_diff"] = metrics["diff_image"]
-
-                    print(f"::{full_name}")
-                    if not proc_success:
-                        all_passed = False
-                        print(f"  -> [FAIL] Execution failed: {full_name}")
-                        if proc_output.strip():
-                            print(f"     Output: {proc_output.strip()[:500]}")
-                    elif metrics.get("skipped"):
-                        print(f"  -> [SKIP] {backend} ({metrics.get('skip_reason', 'Feature not supported')})")
-                    elif metrics["passed"]:
-                        print(f"  -> [PASS] {backend} (RMSE: {metrics['rmse']:.2f}, Diff: {metrics['mismatch_pct']:.2f}%, MaxDiff: {metrics['max_diff']})")
-                    else:
-                        all_passed = False
-                        print(f"  -> [FAIL] {backend}: {metrics['error']}")
-
-                    if on_progress:
-                        on_progress(test_name, backend, metrics, test_result, results[test_name].get(f"{backend}_diff"))
+            futures = [
+                executor.submit(run_backend_chunk, backend, chunk)
+                for backend, chunk in batches
+            ]
+            concurrent.futures.wait(futures)
 
     return results, all_passed
 

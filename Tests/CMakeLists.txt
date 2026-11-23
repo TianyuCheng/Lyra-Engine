@@ -14,6 +14,7 @@ target_sources(lyra-rhi-tests PRIVATE
   ./common/texture.cpp
   ./common/pipeline.cpp
   ./common/app.cpp
+  ./common/context.cpp
 )
 target_link_libraries(lyra-rhi-tests INTERFACE stb::stb)
 target_link_libraries(lyra-rhi-tests PRIVATE doctest::doctest)

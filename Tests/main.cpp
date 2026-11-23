@@ -1,27 +1,25 @@
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#define DOCTEST_CONFIG_IMPLEMENT
 #define DOCTEST_CONFIG_NO_EXCEPTIONS
 #include <doctest/doctest.h>
 #include <iostream>
+#include "./common/context.h"
 
-// Custom reporter
-class PreRunReporter : public doctest::IReporter
+struct StreamListener : public doctest::IReporter
 {
-public:
-    using doctest::IReporter::IReporter; // inherit constructor
+    using doctest::IReporter::IReporter;
 
-    PreRunReporter(const doctest::ContextOptions&) {}
+    StreamListener(const doctest::ContextOptions&) {}
 
     void test_case_start(const doctest::TestCaseData& data) override
     {
-        std::cout << "[ RUN      ] " << data.m_name << std::endl;
+        std::cout << ">>> TEST_START: " << data.m_name << std::endl;
     }
 
-    void test_case_end(const doctest::CurrentTestCaseStats&) override
+    void test_case_end(const doctest::CurrentTestCaseStats& stats) override
     {
-        // nothing
+        std::cout << ">>> TEST_END: " << (stats.testCaseSuccess ? "PASS" : "FAIL") << std::endl;
     }
 
-    // Stub the remaining virtual methods with empty implementations
     void report_query(const doctest::QueryData&) override {}
     void test_run_start() override {}
     void test_run_end(const doctest::TestRunStats&) override {}
@@ -34,4 +32,12 @@ public:
     void test_case_skipped(const doctest::TestCaseData&) override {}
 };
 
-REGISTER_REPORTER("pre", 1, PreRunReporter);
+REGISTER_LISTENER("stream", 1, StreamListener);
+
+int main(int argc, char** argv)
+{
+    doctest::Context context(argc, argv);
+    int              res = context.run();
+    TestContext::get().release();
+    return res;
+}

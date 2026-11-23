@@ -37,6 +37,22 @@ void RenderTarget::save(CString filename)
     buffer.unmap();
 }
 
+void RenderTarget::destroy()
+{
+    if (view.valid()) {
+        view.destroy();
+        view.handle.reset();
+    }
+    if (texture.valid()) {
+        texture.destroy();
+        texture.handle.reset();
+    }
+    if (buffer.valid()) {
+        buffer.destroy();
+        buffer.handle.reset();
+    }
+}
+
 RenderTarget RenderTarget::create(GPUTextureFormat format, uint width, uint height, uint samples)
 {
     RenderTarget res = {};

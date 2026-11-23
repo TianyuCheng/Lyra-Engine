@@ -20,6 +20,7 @@ struct TestAppDescriptor
 struct TestApp
 {
     explicit TestApp(const TestAppDescriptor& desc);
+    virtual ~TestApp();
 
     virtual void render(const GPUSurfaceTexture& texture) = 0;
     virtual void update(const WindowInput& input) {}
@@ -40,10 +41,13 @@ struct TestApp
     GPUSurface              swp;
     OwnedResource<Window>   win;
     OwnedResource<RHI>      rhi;
+    GPUAdapter              adapter;
+    GPUDevice               device;
     OwnedResource<Compiler> compiler;
     RenderTarget            render_target;
     GPUBindGroupHeap        bheap;
-    Own<FileLoader>         loader;
+    FileLoader*             loader = nullptr;
+    Own<FileLoader>         owned_loader;
     bool                    skipped     = false;
     String                  skip_reason = "";
 };

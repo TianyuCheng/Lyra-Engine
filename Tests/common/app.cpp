@@ -1,61 +1,35 @@
 #include "./app.h"
+#include "./context.h"
 #include <fstream>
 #include <spdlog/spdlog.h>
+#include <doctest/doctest.h>
+
+using namespace lyra;
+
+static auto resolve_output_path(const String& filename) -> Path
+{
+    const char* runs_dir_env = std::getenv("LYRA_TESTKIT_RUNS_DIR");
+    if (!runs_dir_env || runs_dir_env[0] == '\0') {
+        return Path(filename);
+    }
+
+    const auto opts = doctest::getContextOptions();
+    if (opts && opts->currentTest && opts->currentTest->m_name) {
+        StringView test_name(opts->currentTest->m_name);
+        auto       last_sep = test_name.rfind("::");
+        if (last_sep != StringView::npos) {
+            StringView      subfolder = test_name.substr(last_sep + 2);
+            Path            dir       = Path(runs_dir_env) / String(subfolder);
+            std::error_code ec;
+            std::filesystem::create_directories(dir, ec);
+            return dir / filename;
+        }
+    }
+    return Path(runs_dir_env) / filename;
+}
 
 TestApp::TestApp(const TestAppDescriptor& app_desc) : desc(app_desc)
 {
-    // initialize window
-    if (desc.window) {
-        auto desc   = WindowDescriptor{};
-        desc.title  = "Lyra Engine :: Test";
-        desc.width  = app_desc.width;
-        desc.height = app_desc.height;
-        win         = Window::init(desc);
-    }
-
-    // initialize rhi
-    if (true) {
-        auto desc    = RHIDescriptor{};
-        desc.backend = app_desc.backend;
-        desc.flags   = app_desc.rhi_flags;
-        if (app_desc.window)
-            desc.window = *win;
-        rhi = RHI::init(desc);
-    }
-
-    // initialize GPU adatper
-    auto adapter = execute([&]() {
-        auto desc = GPUAdapterDescriptor{};
-        return rhi->request_adapter(desc);
-    });
-
-    // check if requested features are supported by the adapter
-    for (auto feature : app_desc.features) {
-        if (!adapter.has_feature(feature)) {
-            skipped     = true;
-            skip_reason = String("Missing requested feature: ") + to_string(feature);
-            spdlog::warn("Test '{}' skipped: {}", desc.name, skip_reason);
-            return;
-        }
-    }
-
-    // initialize GPU device
-    auto device = execute([&]() {
-        auto desc     = GPUDeviceDescriptor{};
-        desc.label    = "main_device";
-        desc.features = app_desc.features;
-        return adapter.request_device(desc);
-    });
-
-    // initialize swapchain
-    if (desc.window) {
-        auto desc         = GPUSurfaceDescriptor{};
-        desc.label        = "main_surface";
-        desc.window       = *win;
-        desc.present_mode = GPUPresentMode::Fifo;
-        swp               = rhi->request_surface(desc);
-    }
-
     // find engine repository root
     std::filesystem::path repo_root;
     if (const char* env_root = std::getenv("LYRA_REPO_ROOT")) {
@@ -73,38 +47,104 @@ TestApp::TestApp(const TestAppDescriptor& app_desc) : desc(app_desc)
     static String engine_assets_str  = (repo_root / "Engine" / "Assets").lexically_normal().string();
     static String engine_shaders_str = (repo_root / "Engine" / "Assets" / "Shaders").lexically_normal().string();
 
-    // initialize file loader
-    loader = make_own<FileLoader>(FSLoader::NATIVE);
-    loader->mount("sys://", engine_assets_str.c_str(), 0);
+    if (desc.window) {
+        auto win_desc   = WindowDescriptor{};
+        win_desc.title  = "Lyra Engine :: Test";
+        win_desc.width  = app_desc.width;
+        win_desc.height = app_desc.height;
+        win             = Window::init(win_desc);
+
+        auto rhi_desc    = RHIDescriptor{};
+        rhi_desc.backend = app_desc.backend;
+        rhi_desc.flags   = app_desc.rhi_flags;
+        rhi_desc.window  = *win;
+        rhi              = RHI::init(rhi_desc);
+
+        auto adapter_desc = GPUAdapterDescriptor{};
+        adapter           = rhi->request_adapter(adapter_desc);
+
+        for (auto feature : app_desc.features) {
+            if (!adapter.has_feature(feature)) {
+                skipped     = true;
+                skip_reason = String("Missing requested feature: ") + to_string(feature);
+                spdlog::warn("Test '{}' skipped: {}", desc.name, skip_reason);
+                return;
+            }
+        }
+
+        auto dev_desc     = GPUDeviceDescriptor{};
+        dev_desc.label    = "main_device";
+        dev_desc.features = app_desc.features;
+        device            = adapter.request_device(dev_desc);
+
+        auto srf_desc         = GPUSurfaceDescriptor{};
+        srf_desc.label        = "main_surface";
+        srf_desc.window       = *win;
+        srf_desc.present_mode = GPUPresentMode::Fifo;
+        swp                   = rhi->request_surface(srf_desc);
+
+        owned_loader = make_own<FileLoader>(FSLoader::NATIVE);
+        owned_loader->mount("sys://", engine_assets_str.c_str(), 0);
+        loader = owned_loader.get();
+    } else {
+        auto& ctx = TestContext::get();
+        if (!ctx.acquire(app_desc.backend, app_desc.rhi_flags, app_desc.features)) {
+            skipped = true;
+            if (ctx.feature_unsupported) {
+                skip_reason = String("Missing requested feature: ") + ctx.missing_feature_name;
+            } else {
+                skip_reason = "Failed to initialize RHI backend";
+            }
+            spdlog::warn("Test '{}' skipped: {}", desc.name, skip_reason);
+            return;
+        }
+
+        adapter = ctx.adapter;
+        device  = ctx.device;
+        loader  = ctx.loader.get();
+    }
 
     // initialize compiler
     compiler = execute([&]() {
         static CString includes[] = {engine_shaders_str.c_str()};
 
-        auto desc      = CompilerDescriptor{};
-        desc.target    = app_desc.compile_target;
-        desc.flags     = app_desc.compile_flags;
-        desc.includes  = includes;
-        desc.fs_loader = loader.get();
-        return Compiler::init(desc);
+        auto cdesc      = CompilerDescriptor{};
+        cdesc.target    = app_desc.compile_target;
+        cdesc.flags     = app_desc.compile_flags;
+        cdesc.includes  = includes;
+        cdesc.fs_loader = loader;
+        return Compiler::init(cdesc);
     });
 
     // initialize bind group heap
     bheap = execute([&]() {
-        auto desc      = GPUBindGroupHeapDescriptor{};
-        desc.page_size = 32;
-        return device.create_bind_group_heap(desc);
+        auto bdesc      = GPUBindGroupHeapDescriptor{};
+        bdesc.page_size = 32;
+        return device.create_bind_group_heap(bdesc);
     });
 
     // initialize render target
     render_target = RenderTarget::create(get_backbuffer_format(), desc.width, desc.height);
 }
 
+TestApp::~TestApp()
+{
+    if (render_target.texture.valid() || render_target.buffer.valid()) {
+        render_target.destroy();
+    }
+    if (bheap.valid()) {
+        bheap.destroy();
+        bheap.handle.reset();
+    }
+    compiler.reset();
+}
+
 void TestApp::run()
 {
     if (skipped) {
-        String        skip_file = String(desc.name) + ".skip";
-        std::ofstream out(skip_file);
+        String        filename = String(desc.name) + ".skip";
+        Path          out_path = resolve_output_path(filename);
+        std::ofstream out(out_path);
         out << skip_reason << "\n";
         out.close();
         return;
@@ -157,11 +197,12 @@ void TestApp::run_without_window()
     render(backbuffer);
     RHI::end_frame();
 
-    auto& device = RHI::get_current_device();
-    device.wait();
+    auto& current_device = RHI::get_current_device();
+    current_device.wait();
 
-    String name = String(desc.name) + ".png";
-    render_target.save(name.c_str());
+    String name     = String(desc.name) + ".png";
+    Path   out_path = resolve_output_path(name);
+    render_target.save(out_path.string().c_str());
 }
 
 void TestApp::postprocessing(const GPUCommandBuffer& cmd, GPUTextureHandle backbuffer)

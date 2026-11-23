@@ -16,6 +16,7 @@ struct RenderTarget
     auto copy_dst() const -> GPUTexelCopyBufferInfo;
     auto copy_ext() const -> GPUExtent3D;
     void save(CString name);
+    void destroy();
 
     static auto create(GPUTextureFormat format, uint width, uint height, uint samples = 1) -> RenderTarget;
 };
