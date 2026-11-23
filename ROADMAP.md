@@ -101,7 +101,7 @@ Goal: Solidify the primary rasterization pipelines (Forward+ and Deferred Hybrid
     - Output Buffers:
       - `LightGridSSBO`: `StructuredBuffer<uint2>` storing `(offset, count)` per 3D cluster $(x, y, z)$.
       - `LightIndexListSSBO`: `ByteAddressBuffer` storing contiguous 16-bit light indices.
-- [ ] **1.1.3 Deferred Lighting Resolve Pass**
+- [x] **1.1.3 Deferred Lighting Resolve Pass**
   - File: [`Modules/Rendering/Deferred/DeferredRendererPlugin.cpp`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Modules/Rendering/Deferred/DeferredRendererPlugin.cpp)
   - Shader: [`Engine/Assets/Shaders/Deferred/DeferredLighting.slang`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Assets/Shaders/Deferred/DeferredLighting.slang)
   - Fullscreen compute or quad dispatch decoding GBuffer, fetching cluster light indices, evaluating standard Cook-Torrance GGX specular and Lambertian diffuse.

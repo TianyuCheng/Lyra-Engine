@@ -3,6 +3,7 @@
 #include <Lyra/Rendering/Passes/GBufferPass.h>
 #include <Lyra/Rendering/Passes/ShadowMapPass.h>
 #include <Lyra/Rendering/Passes/SkyboxPass.h>
+#include <Lyra/Rendering/Passes/LightCullingPass.h>
 #include <Lyra/Graphics/RHIAPI.h>
 #include <Lyra/Compiler/SLCTypes.h>
 #include <Lyra/Utilities/Logger.h>
@@ -11,7 +12,10 @@ using namespace lyra;
 
 namespace
 {
-    struct CameraUniforms
+    /**
+     * @brief Camera and lighting environment uniforms matching `CameraUniforms` in `sys://Shaders/Deferred/DeferredLighting.slang`.
+     */
+    struct alignas(16) CameraUniforms
     {
         Matrix4x4 proj;
         Matrix4x4 view;
@@ -21,7 +25,12 @@ namespace
         Vector4   sun_dir_and_pad;
         Vector4   sun_color_and_pad;
         Matrix4x4 light_view_proj = Matrix4x4(1.0f);
+        Vector4   cluster_params;
+        Vector4   cluster_dims;
     };
+
+    static_assert(sizeof(CameraUniforms) == 400, "CameraUniforms must be 400 bytes");
+    static_assert(alignof(CameraUniforms) == 16, "CameraUniforms must be 16-byte aligned");
 } // namespace
 
 struct DeferredRendererInstance
@@ -36,9 +45,10 @@ struct DeferredRendererInstance
     Compiler  compiler;
 
     // composed passes
-    passes::GBufferPass   gbuffer_pass;
-    passes::ShadowMapPass shadow_pass;
-    passes::SkyboxPass    skybox_pass;
+    passes::GBufferPass      gbuffer_pass;
+    passes::ShadowMapPass    shadow_pass;
+    passes::SkyboxPass       skybox_pass;
+    passes::LightCullingPass light_culling_pass;
 
     Array<GPUBuffer, FRAMES_IN_FLIGHT> camera_buffers;
     uint                               frame_slot = 0;
@@ -92,6 +102,9 @@ struct DeferredRendererInstance
 
         // 3. Initialize skybox pass
         skybox_pass.init(device, compiler, cached_color_format, cached_depth_format);
+
+        // 4. Initialize clustered light culling pass
+        light_culling_pass.init(device, compiler);
 
         // 4. Create camera buffers for deferred lighting
         for (uint i = 0; i < FRAMES_IN_FLIGHT; ++i) {
@@ -219,6 +232,7 @@ struct DeferredRendererInstance
         gbuffer_pass.destroy();
         shadow_pass.destroy();
         skybox_pass.destroy();
+        light_culling_pass.destroy();
 
         for (auto& buf : camera_buffers) {
             if (buf.valid()) {
@@ -392,7 +406,28 @@ static FrameGraph::TextureHandle render(
     // 1. G-Buffer pass
     auto gbuffer = renderer->gbuffer_pass.add(ctx.builder, view, ctx.scene, extent);
 
-    // 2. Deferred lighting composition pass
+    // 2. Clustered light culling pass
+    auto culling = renderer->light_culling_pass.add(ctx.builder, view, ctx.scene);
+
+    if (renderer->camera_buffers[current_slot].valid()) {
+        auto mapped = renderer->camera_buffers[current_slot].get_mapped_range<CameraUniforms>();
+        if (mapped.count > 0) {
+            float near_p                = (view.near_plane > 0.0f) ? view.near_plane : 0.1f;
+            float far_p                 = (view.far_plane > near_p) ? view.far_plane : 100.0f;
+            mapped.at(0).cluster_params = Vector4(
+                static_cast<float>(extent.width),
+                static_cast<float>(extent.height),
+                near_p,
+                far_p);
+            mapped.at(0).cluster_dims = Vector4(
+                static_cast<float>(culling.cluster_grid_x),
+                static_cast<float>(culling.cluster_grid_y),
+                static_cast<float>(culling.cluster_grid_z),
+                static_cast<float>(ctx.scene.directional_lights.size() + ctx.scene.local_lights.size()));
+        }
+    }
+
+    // 3. Deferred lighting composition pass
     struct DeferredLightingPassData
     {
         FrameGraphHandle<FrameGraphTexture> albedo;
@@ -401,6 +436,8 @@ static FrameGraph::TextureHandle render(
         FrameGraphHandle<FrameGraphTexture> shading_model;
         FrameGraphHandle<FrameGraphTexture> depth;
         FrameGraphHandle<FrameGraphTexture> shadow_map;
+        FrameGraphHandle<FrameGraphBuffer>  cluster_grid;
+        FrameGraphHandle<FrameGraphBuffer>  light_index_list;
         FrameGraphHandle<FrameGraphTexture> lit_output;
     };
 
@@ -415,7 +452,9 @@ static FrameGraph::TextureHandle render(
             if (shadow_map_h.valid()) {
                 data.shadow_map = pass_builder.sample(shadow_map_h);
             }
-            data.lit_output = pass_builder.render(ctx.color_target);
+            data.cluster_grid     = pass_builder.read(culling.cluster_grid_buffer);
+            data.light_index_list = pass_builder.read(culling.light_index_list);
+            data.lit_output       = pass_builder.render(ctx.color_target);
         },
         [renderer, extent, current_slot](const DeferredLightingPassData& data, FrameGraphResources& resources, FrameGraphContext* fg_ctx) {
             if (!fg_ctx || !fg_ctx->cmdlist.handle.valid() || !renderer->lighting_pipeline.valid()) {
@@ -428,8 +467,10 @@ static FrameGraph::TextureHandle render(
             auto shading_model_tex = resources.get<FrameGraphTexture>(data.shading_model);
             auto depth_tex         = resources.get<FrameGraphTexture>(data.depth);
             auto lit_tex           = resources.get<FrameGraphTexture>(data.lit_output);
+            auto cluster_grid_buf  = resources.get<FrameGraphBuffer>(data.cluster_grid);
+            auto index_list_buf    = resources.get<FrameGraphBuffer>(data.light_index_list);
 
-            if (!albedo_tex || !normal_tex || !emissive_tex || !shading_model_tex || !depth_tex || !lit_tex) {
+            if (!albedo_tex || !normal_tex || !emissive_tex || !shading_model_tex || !depth_tex || !lit_tex || !cluster_grid_buf || !index_list_buf) {
                 return;
             }
 
@@ -440,7 +481,7 @@ static FrameGraph::TextureHandle render(
                 }
             }
 
-            Array<GPUBindGroupEntry, 8> entries{};
+            Array<GPUBindGroupEntry, 11> entries{};
             entries[0].type    = GPUResourceType::TEXTURE;
             entries[0].binding = 0;
             entries[0].texture = albedo_tex->view;
@@ -474,6 +515,24 @@ static FrameGraph::TextureHandle render(
             entries[7].type    = GPUResourceType::SAMPLER;
             entries[7].binding = 7;
             entries[7].sampler = renderer->shadow_sampler.handle;
+
+            entries[8].type          = GPUResourceType::BUFFER;
+            entries[8].binding       = 8;
+            entries[8].buffer.buffer = cluster_grid_buf->buffer;
+            entries[8].buffer.offset = 0;
+            entries[8].buffer.size   = 0;
+
+            entries[9].type          = GPUResourceType::BUFFER;
+            entries[9].binding       = 9;
+            entries[9].buffer.buffer = index_list_buf->buffer;
+            entries[9].buffer.offset = 0;
+            entries[9].buffer.size   = 0;
+
+            entries[10].type          = GPUResourceType::BUFFER;
+            entries[10].binding       = 10;
+            entries[10].buffer.buffer = renderer->light_culling_pass.get_lights_buffer().handle;
+            entries[10].buffer.offset = 0;
+            entries[10].buffer.size   = 0;
 
             auto bg_desc    = GPUBindGroupDescriptor{};
             bg_desc.heap    = renderer->heap;
