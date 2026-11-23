@@ -91,7 +91,7 @@ Goal: Solidify the primary rasterization pipelines (Forward+ and Deferred Hybrid
       - `G`: Quantized Clearcoat factor in $[0, 255]$ (or custom material parameters).
     - **Depth Target (`GPUTextureFormat::DEPTH32FLOAT`)**:
       - Reversed floating-point depth ($z_{\text{near}} = 1.0$, $z_{\text{far}} = 0.0$ at infinity) for maximized logarithmic precision.
-- [ ] **1.1.2 Clustered Light Culling Compute Pass**
+- [x] **1.1.2 Clustered Light Culling Compute Pass**
   - Files: [`Engine/Source/Rendering/Passes/LightCullingPass.cpp`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Source/Rendering/Passes/LightCullingPass.cpp), [`Engine/Assets/Shaders/Forward/LightCulling.slang`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Assets/Shaders/Forward/LightCulling.slang)
   - **Tile Grid Discretization**:
     - Screen tile size: $16 \times 16$ pixels.

@@ -20,6 +20,9 @@ namespace lyra::passes
     {
         FrameGraphHandle<FrameGraphBuffer> cluster_grid_buffer;
         FrameGraphHandle<FrameGraphBuffer> light_index_list;
+        uint                               cluster_grid_x = 0;
+        uint                               cluster_grid_y = 0;
+        uint                               cluster_grid_z = 24;
     };
 
     /**
@@ -49,33 +52,47 @@ namespace lyra::passes
             const RenderScene& scene) -> LightCullingData;
 
     private:
-        struct LightCullingPushConstants
+        /**
+         * @brief Clustered light culling push constants matching `LightCullingParams` in `sys://Shaders/Forward/LightCulling.slang`.
+         * Total size: exactly 224 bytes. Aligned to 16 bytes.
+         */
+        struct alignas(16) LightCullingPushConstants
         {
             Matrix4x4 view_matrix;
             Matrix4x4 proj_matrix;
             Matrix4x4 inv_proj_matrix;
             Vector2   screen_resolution;
-            float     near_plane;
-            float     far_plane;
-            uint      cluster_grid_x;
-            uint      cluster_grid_y;
-            uint      cluster_grid_z;
-            uint      num_lights;
+            float     near_plane     = 0.1f;
+            float     far_plane      = 100.0f;
+            uint      cluster_grid_x = 16;
+            uint      cluster_grid_y = 9;
+            uint      cluster_grid_z = 24;
+            uint      num_lights     = 0;
         };
 
-        struct GPULightData
+        static_assert(sizeof(LightCullingPushConstants) == 224, "LightCullingPushConstants must be 224 bytes");
+        static_assert(alignof(LightCullingPushConstants) == 16, "LightCullingPushConstants must be 16-byte aligned");
+
+        /**
+         * @brief GPU light data layout matching struct `LightData` in `sys://Shaders/Common/Lighting.slang`.
+         * Total size: exactly 64 bytes. Aligned to 16 bytes.
+         */
+        struct alignas(16) GPULightData
         {
             Vector3 position;
-            float   range;
+            float   range = 0.0f;
             Vector3 direction;
-            float   intensity;
-            Vector3 color;
-            uint    type;
-            float   spot_inner_angle;
-            float   spot_outer_angle;
-            uint    cast_shadows;
-            uint    profile;
+            float   intensity        = 1.0f;
+            Vector3 color            = Vector3(1.0f);
+            uint    type             = 0;
+            float   spot_inner_angle = 0.0f;
+            float   spot_outer_angle = 0.0f;
+            uint    cast_shadows     = 0;
+            uint    profile          = 0;
         };
+
+        static_assert(sizeof(GPULightData) == 64, "GPULightData must be 64 bytes");
+        static_assert(alignof(GPULightData) == 16, "GPULightData must be 16-byte aligned");
 
         GPUDevice                        device;
         GPUComputePipeline               pipeline;
