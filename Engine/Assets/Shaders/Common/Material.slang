@@ -2,10 +2,10 @@ module Material;
 
 public enum ShadingModel : uint
 {
-    PBR        = 0,
-    NPR        = 1,
-    UNLIT      = 2,
-    SUBSURFACE = 3,
+    STANDARD   = 0,
+    CLEARCOAT  = 1,
+    SUBSURFACE = 2,
+    UNLIT      = 3,
     CUSTOM     = 4,
 };
 

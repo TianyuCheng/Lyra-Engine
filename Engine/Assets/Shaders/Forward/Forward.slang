@@ -166,15 +166,21 @@ public VertexOutput vsmain(uint vertex_id : SV_VertexID)
 }
 
 [shader("fragment")]
-public float4 fs_pbr(VertexOutput input) : SV_Target
+public float4 fs_standard(VertexOutput input) : SV_Target
 {
-    return evaluate_forward_shading<PBRShadingModel>(input);
+    return evaluate_forward_shading<StandardShadingModel>(input);
 }
 
 [shader("fragment")]
-public float4 fs_npr(VertexOutput input) : SV_Target
+public float4 fs_clearcoat(VertexOutput input) : SV_Target
 {
-    return evaluate_forward_shading<NPRShadingModel>(input);
+    return evaluate_forward_shading<ClearcoatShadingModel>(input);
+}
+
+[shader("fragment")]
+public float4 fs_subsurface(VertexOutput input) : SV_Target
+{
+    return evaluate_forward_shading<SubsurfaceShadingModel>(input);
 }
 
 [shader("fragment")]
@@ -183,9 +189,9 @@ public float4 fs_unlit(VertexOutput input) : SV_Target
     return evaluate_forward_shading<UnlitShadingModel>(input);
 }
 
-// Default forward fragment entry point (evaluates PBR)
+// Default forward fragment entry point (evaluates Standard)
 [shader("fragment")]
 public float4 fsmain(VertexOutput input) : SV_Target
 {
-    return evaluate_forward_shading<PBRShadingModel>(input);
+    return evaluate_forward_shading<StandardShadingModel>(input);
 }

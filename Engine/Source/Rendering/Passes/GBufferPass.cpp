@@ -23,7 +23,7 @@ namespace
         Vector4      base_color    = Vector4(1.0f);
         float        roughness     = 0.5f;
         float        metallic      = 0.0f;
-        ShadingModel shading_model = ShadingModel::PBR;
+        ShadingModel shading_model = ShadingModel::STANDARD;
         uint         material_id   = 0;
     };
 } // namespace

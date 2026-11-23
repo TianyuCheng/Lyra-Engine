@@ -79,8 +79,8 @@ namespace lyra
         Bounds3D            world_bounds       = {};
         uint                instance_id        = 0;
         uint                material_id        = 0;
-        ShadingModel        shading_model      = ShadingModel::PBR;
-        ShadingModelID      shading_model_id   = BuiltinShadingModels::PBR;
+        ShadingModel        shading_model      = ShadingModel::STANDARD;
+        ShadingModelID      shading_model_id   = BuiltinShadingModels::STANDARD;
         CustomPipelineID    custom_pipeline_id = {};
         MaterialParams      material_params    = {};
     };
@@ -98,8 +98,8 @@ namespace lyra
         Bounds3D            world_bounds       = {};
         uint                instance_id        = 0;
         uint                material_id        = 0;
-        ShadingModel        shading_model      = ShadingModel::PBR;
-        ShadingModelID      shading_model_id   = BuiltinShadingModels::PBR;
+        ShadingModel        shading_model      = ShadingModel::STANDARD;
+        ShadingModelID      shading_model_id   = BuiltinShadingModels::STANDARD;
         CustomPipelineID    custom_pipeline_id = {};
         MaterialParams      material_params    = {};
     };
@@ -117,8 +117,8 @@ namespace lyra
         Bounds3D            world_bounds       = {};
         uint                instance_id        = 0;
         uint                material_id        = 0;
-        ShadingModel        shading_model      = ShadingModel::PBR;
-        ShadingModelID      shading_model_id   = BuiltinShadingModels::PBR;
+        ShadingModel        shading_model      = ShadingModel::STANDARD;
+        ShadingModelID      shading_model_id   = BuiltinShadingModels::STANDARD;
         CustomPipelineID    custom_pipeline_id = {};
         MaterialParams      material_params    = {};
     };

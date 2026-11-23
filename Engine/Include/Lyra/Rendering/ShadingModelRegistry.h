@@ -18,10 +18,10 @@ namespace lyra
 
     namespace BuiltinShadingModels
     {
-        inline constexpr ShadingModelID PBR        = 0x1001ull;
-        inline constexpr ShadingModelID NPR        = 0x1002ull;
-        inline constexpr ShadingModelID UNLIT      = 0x1003ull;
-        inline constexpr ShadingModelID SUBSURFACE = 0x1004ull;
+        inline constexpr ShadingModelID STANDARD   = 0x1001ull;
+        inline constexpr ShadingModelID CLEARCOAT  = 0x1002ull;
+        inline constexpr ShadingModelID SUBSURFACE = 0x1003ull;
+        inline constexpr ShadingModelID UNLIT      = 0x1004ull;
 
         auto from_enum(ShadingModel model) -> ShadingModelID;
     } // namespace BuiltinShadingModels

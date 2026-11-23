@@ -438,7 +438,7 @@ TEST_CASE("mat::material_params_layout")
     CHECK_EQ(mat.custom_data, Vector4(0.0f));
     CHECK_EQ(mat.shading_model_id, 0);
     CHECK_EQ(mat.alpha_cutoff, 0.5f);
-    CHECK_EQ(mat.flags, 0);
+    CHECK_EQ(mat.flags.value, 0);
     CHECK_EQ(mat.custom_params_offset, 0);
 
     // parameter modifications
@@ -451,7 +451,7 @@ TEST_CASE("mat::material_params_layout")
     mat.alpha_cutoff         = 0.25f;
     mat.custom_data          = Vector4(1.0f, 2.0f, 3.0f, 4.0f);
     mat.shading_model_id     = 1;
-    mat.flags                = MaterialFlags::DOUBLE_SIDED | MaterialFlags::ALPHA_TEST;
+    mat.flags                = MaterialFlag::DOUBLE_SIDED | MaterialFlag::ALPHA_TEST;
     mat.custom_params_offset = 128;
 
     CHECK_EQ(mat.base_color, Vector4(0.2f, 0.4f, 0.6f, 1.0f));
@@ -463,6 +463,9 @@ TEST_CASE("mat::material_params_layout")
     CHECK_EQ(mat.alpha_cutoff, 0.25f);
     CHECK_EQ(mat.custom_data, Vector4(1.0f, 2.0f, 3.0f, 4.0f));
     CHECK_EQ(mat.shading_model_id, 1);
-    CHECK_EQ(mat.flags, MaterialFlags::DOUBLE_SIDED | MaterialFlags::ALPHA_TEST);
+    CHECK_EQ(mat.flags, MaterialFlag::DOUBLE_SIDED | MaterialFlag::ALPHA_TEST);
+    CHECK(mat.flags.contains(MaterialFlag::DOUBLE_SIDED));
+    CHECK(mat.flags.contains(MaterialFlag::ALPHA_TEST));
+    CHECK_FALSE(mat.flags.contains(MaterialFlag::UNLIT));
     CHECK_EQ(mat.custom_params_offset, 128);
 }

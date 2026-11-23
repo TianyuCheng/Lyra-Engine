@@ -13,19 +13,26 @@ TEST_CASE("rendering::shading_model_registry" * doctest::description("Verify equ
 
     SUBCASE("Builtin models are queryable as first-class citizens")
     {
-        auto pbr_opt = ShadingModelRegistry::get_model(BuiltinShadingModels::PBR);
-        REQUIRE(pbr_opt.has_value());
-        CHECK_EQ(pbr_opt->name, "PBR");
-        CHECK_EQ(pbr_opt->shader_module_path, "sys://Shaders/Forward/Forward.slang");
-        CHECK_EQ(pbr_opt->entry_point_name, "fs_pbr");
-        CHECK_EQ(pbr_opt->struct_name, "PBRShadingModel");
+        auto standard_opt = ShadingModelRegistry::get_model(BuiltinShadingModels::STANDARD);
+        REQUIRE(standard_opt.has_value());
+        CHECK_EQ(standard_opt->name, "Standard");
+        CHECK_EQ(standard_opt->shader_module_path, "sys://Shaders/Forward/Forward.slang");
+        CHECK_EQ(standard_opt->entry_point_name, "fs_standard");
+        CHECK_EQ(standard_opt->struct_name, "StandardShadingModel");
 
-        auto npr_opt = ShadingModelRegistry::get_model(BuiltinShadingModels::NPR);
-        REQUIRE(npr_opt.has_value());
-        CHECK_EQ(npr_opt->name, "NPR");
-        CHECK_EQ(npr_opt->shader_module_path, "sys://Shaders/Forward/Forward.slang");
-        CHECK_EQ(npr_opt->entry_point_name, "fs_npr");
-        CHECK_EQ(npr_opt->struct_name, "NPRShadingModel");
+        auto clearcoat_opt = ShadingModelRegistry::get_model(BuiltinShadingModels::CLEARCOAT);
+        REQUIRE(clearcoat_opt.has_value());
+        CHECK_EQ(clearcoat_opt->name, "Clearcoat");
+        CHECK_EQ(clearcoat_opt->shader_module_path, "sys://Shaders/Forward/Forward.slang");
+        CHECK_EQ(clearcoat_opt->entry_point_name, "fs_clearcoat");
+        CHECK_EQ(clearcoat_opt->struct_name, "ClearcoatShadingModel");
+
+        auto subsurface_opt = ShadingModelRegistry::get_model(BuiltinShadingModels::SUBSURFACE);
+        REQUIRE(subsurface_opt.has_value());
+        CHECK_EQ(subsurface_opt->name, "Subsurface");
+        CHECK_EQ(subsurface_opt->shader_module_path, "sys://Shaders/Forward/Forward.slang");
+        CHECK_EQ(subsurface_opt->entry_point_name, "fs_subsurface");
+        CHECK_EQ(subsurface_opt->struct_name, "SubsurfaceShadingModel");
 
         auto unlit_opt = ShadingModelRegistry::get_model(BuiltinShadingModels::UNLIT);
         REQUIRE(unlit_opt.has_value());
@@ -59,10 +66,10 @@ TEST_CASE("rendering::shading_model_registry" * doctest::description("Verify equ
 
     SUBCASE("from_enum maps legacy enum to unified ShadingModelID")
     {
-        CHECK_EQ(BuiltinShadingModels::from_enum(ShadingModel::PBR), BuiltinShadingModels::PBR);
-        CHECK_EQ(BuiltinShadingModels::from_enum(ShadingModel::NPR), BuiltinShadingModels::NPR);
-        CHECK_EQ(BuiltinShadingModels::from_enum(ShadingModel::UNLIT), BuiltinShadingModels::UNLIT);
+        CHECK_EQ(BuiltinShadingModels::from_enum(ShadingModel::STANDARD), BuiltinShadingModels::STANDARD);
+        CHECK_EQ(BuiltinShadingModels::from_enum(ShadingModel::CLEARCOAT), BuiltinShadingModels::CLEARCOAT);
         CHECK_EQ(BuiltinShadingModels::from_enum(ShadingModel::SUBSURFACE), BuiltinShadingModels::SUBSURFACE);
+        CHECK_EQ(BuiltinShadingModels::from_enum(ShadingModel::UNLIT), BuiltinShadingModels::UNLIT);
     }
 }
 
@@ -106,7 +113,7 @@ TEST_CASE("rendering::mesh_pass_pipeline_resolver" * doctest::description("Verif
     prim.geometry.index_slice.buffer  = GPUBufferHandle{2};
     prim.geometry.index_slice.size    = 24;
     prim.index_count                  = 6;
-    prim.shading_model_id             = BuiltinShadingModels::PBR;
+    prim.shading_model_id             = BuiltinShadingModels::STANDARD;
     scene.meshes.push_back(prim);
 
     RenderView view{};
@@ -115,7 +122,7 @@ TEST_CASE("rendering::mesh_pass_pipeline_resolver" * doctest::description("Verif
     uint resolve_called = 0;
     pass.prepare(GPUDevice{}, scene, view, [&](const MeshPrimitive& mesh) -> GPURenderPipeline {
         resolve_called++;
-        CHECK_EQ(mesh.shading_model_id, BuiltinShadingModels::PBR);
+        CHECK_EQ(mesh.shading_model_id, BuiltinShadingModels::STANDARD);
         GPURenderPipeline pipe{};
         pipe.handle = GPURenderPipelineHandle{42};
         return pipe;
@@ -146,27 +153,34 @@ TEST_CASE("rendering::shading_model_variant_compilation" * doctest::description(
     auto mod    = compiler->compile(desc);
     REQUIRE(mod != nullptr);
 
-    // 2. Reflect specialized PBR variant
-    auto refl_pbr = compiler->reflect({
+    // 2. Reflect specialized Standard variant
+    auto refl_standard = compiler->reflect({
         {*mod, "vsmain"},
-        {*mod, "fs_pbr"},
+        {*mod, "fs_standard"},
     });
-    REQUIRE(refl_pbr != nullptr);
-    CHECK_EQ(refl_pbr->get_immediate_size(), sizeof(MeshDrawInstance));
+    REQUIRE(refl_standard != nullptr);
+    CHECK_EQ(refl_standard->get_immediate_size(), sizeof(MeshDrawInstance));
     CHECK_EQ(sizeof(MeshDrawInstance), 112);
-    auto layouts = refl_pbr->get_bind_group_layouts();
+    auto layouts = refl_standard->get_bind_group_layouts();
     REQUIRE_EQ(layouts.size(), 2);
     CHECK_EQ(layouts[0].entries.size(), 3); // Camera, shadow map, shadow sampler in set 0
     CHECK_EQ(layouts[1].entries.size(), 1); // Vertex buffer in set 1
 
-    // 3. Reflect specialized NPR variant
-    auto refl_npr = compiler->reflect({
+    // 3. Reflect specialized Clearcoat variant
+    auto refl_clearcoat = compiler->reflect({
         {*mod, "vsmain"},
-        {*mod, "fs_npr"},
+        {*mod, "fs_clearcoat"},
     });
-    REQUIRE(refl_npr != nullptr);
+    REQUIRE(refl_clearcoat != nullptr);
 
-    // 4. Reflect specialized Unlit variant
+    // 4. Reflect specialized Subsurface variant
+    auto refl_subsurface = compiler->reflect({
+        {*mod, "vsmain"},
+        {*mod, "fs_subsurface"},
+    });
+    REQUIRE(refl_subsurface != nullptr);
+
+    // 5. Reflect specialized Unlit variant
     auto refl_unlit = compiler->reflect({
         {*mod, "vsmain"},
         {*mod, "fs_unlit"},

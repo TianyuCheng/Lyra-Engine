@@ -253,8 +253,8 @@ void RenderWorld::extract_meshes(const World& ecs_world, const RendererCapabilit
 
         // resolve material properties
         auto resolve_material = [&](MaterialAssetHandle handle) -> std::tuple<ShadingModel, ShadingModelID, MaterialParams, CustomPipelineID> {
-            ShadingModel     model    = ShadingModel::PBR;
-            ShadingModelID   model_id = BuiltinShadingModels::PBR;
+            ShadingModel     model    = ShadingModel::STANDARD;
+            ShadingModelID   model_id = BuiltinShadingModels::STANDARD;
             MaterialParams   params   = {};
             CustomPipelineID pipe     = CustomPipelineID::standard();
             if (handle.valid()) {
@@ -384,8 +384,8 @@ void RenderWorld::extract_sdfs(const World& ecs_world)
         prim.world_bounds       = Bounds3D(Vector3(-sdf_comp.parameters.x), Vector3(sdf_comp.parameters.x)).transformed(world_xform);
         prim.instance_id        = static_cast<uint>(entt::to_integral(entity));
         prim.material_id        = static_cast<uint>(prim.material.guid & 0xFFFFFFFF);
-        prim.shading_model      = ShadingModel::PBR;
-        prim.shading_model_id   = BuiltinShadingModels::PBR;
+        prim.shading_model      = ShadingModel::STANDARD;
+        prim.shading_model_id   = BuiltinShadingModels::STANDARD;
         prim.custom_pipeline_id = CustomPipelineID::standard();
         prim.material_params    = MaterialParams{};
 

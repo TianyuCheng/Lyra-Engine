@@ -12,41 +12,50 @@ static bool  g_initialized = false;
 ShadingModelID BuiltinShadingModels::from_enum(ShadingModel model)
 {
     switch (model) {
-        case ShadingModel::PBR:
-            return PBR;
-        case ShadingModel::NPR:
-            return NPR;
-        case ShadingModel::UNLIT:
-            return UNLIT;
+        case ShadingModel::STANDARD:
+            return STANDARD;
+        case ShadingModel::CLEARCOAT:
+            return CLEARCOAT;
         case ShadingModel::SUBSURFACE:
             return SUBSURFACE;
+        case ShadingModel::UNLIT:
+            return UNLIT;
         case ShadingModel::CUSTOM:
             return lyra::GUID{4};
         default:
-            return PBR;
+            return STANDARD;
     }
 }
 
 static void register_builtin_models_unlocked()
 {
     // register built-in default models as first-class citizens
-    ShadingModelInfo pbr{
-        .id                 = BuiltinShadingModels::PBR,
-        .name               = "PBR",
+    ShadingModelInfo standard{
+        .id                 = BuiltinShadingModels::STANDARD,
+        .name               = "Standard",
         .shader_module_path = "sys://Shaders/Forward/Forward.slang",
-        .entry_point_name   = "fs_pbr",
-        .struct_name        = "PBRShadingModel",
+        .entry_point_name   = "fs_standard",
+        .struct_name        = "StandardShadingModel",
     };
-    g_models[pbr.id] = pbr;
+    g_models[standard.id] = standard;
 
-    ShadingModelInfo npr{
-        .id                 = BuiltinShadingModels::NPR,
-        .name               = "NPR",
+    ShadingModelInfo clearcoat{
+        .id                 = BuiltinShadingModels::CLEARCOAT,
+        .name               = "Clearcoat",
         .shader_module_path = "sys://Shaders/Forward/Forward.slang",
-        .entry_point_name   = "fs_npr",
-        .struct_name        = "NPRShadingModel",
+        .entry_point_name   = "fs_clearcoat",
+        .struct_name        = "ClearcoatShadingModel",
     };
-    g_models[npr.id] = npr;
+    g_models[clearcoat.id] = clearcoat;
+
+    ShadingModelInfo subsurface{
+        .id                 = BuiltinShadingModels::SUBSURFACE,
+        .name               = "Subsurface",
+        .shader_module_path = "sys://Shaders/Forward/Forward.slang",
+        .entry_point_name   = "fs_subsurface",
+        .struct_name        = "SubsurfaceShadingModel",
+    };
+    g_models[subsurface.id] = subsurface;
 
     ShadingModelInfo unlit{
         .id                 = BuiltinShadingModels::UNLIT,
@@ -56,15 +65,6 @@ static void register_builtin_models_unlocked()
         .struct_name        = "UnlitShadingModel",
     };
     g_models[unlit.id] = unlit;
-
-    ShadingModelInfo subsurface{
-        .id                 = BuiltinShadingModels::SUBSURFACE,
-        .name               = "Subsurface",
-        .shader_module_path = "sys://Shaders/Forward/Forward.slang",
-        .entry_point_name   = "fs_pbr",
-        .struct_name        = "PBRShadingModel",
-    };
-    g_models[subsurface.id] = subsurface;
 }
 
 void ShadingModelRegistry::init()

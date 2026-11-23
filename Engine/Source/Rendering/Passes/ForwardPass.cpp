@@ -203,11 +203,11 @@ GPURenderPipeline ForwardPass::get_or_create_pipeline(ShadingModelID shading_mod
 
     auto model_info = ShadingModelRegistry::get_model(shading_model_id);
     if (!model_info) {
-        model_info = ShadingModelRegistry::get_model(BuiltinShadingModels::PBR);
+        model_info = ShadingModelRegistry::get_model(BuiltinShadingModels::STANDARD);
     }
 
     Path   shader_path = model_info ? model_info->shader_module_path : Path("sys://Shaders/Forward/Forward.slang");
-    String entry_point = model_info ? model_info->entry_point_name : String("fs_pbr");
+    String entry_point = model_info ? model_info->entry_point_name : String("fs_standard");
 
     auto shader_stem     = shader_path.stem().string();
     auto shader_path_str = shader_path.string();

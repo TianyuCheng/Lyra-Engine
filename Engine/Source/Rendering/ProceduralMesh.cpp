@@ -102,7 +102,7 @@ const MaterialAsset* lyra::find_procedural_material(AssetID guid)
         m.base_color_factor = Vector4(0.85f, 0.25f, 0.20f, 1.0f);
         m.roughness_factor  = 0.35f;
         m.metallic_factor   = 0.0f;
-        m.shading_model     = ShadingModel::PBR;
+        m.shading_model     = ShadingModel::STANDARD;
         return m;
     }();
 
@@ -111,7 +111,7 @@ const MaterialAsset* lyra::find_procedural_material(AssetID guid)
         m.base_color_factor = Vector4(0.95f, 0.85f, 0.45f, 1.0f);
         m.roughness_factor  = 0.15f;
         m.metallic_factor   = 0.95f;
-        m.shading_model     = ShadingModel::PBR;
+        m.shading_model     = ShadingModel::STANDARD;
         return m;
     }();
 
@@ -120,7 +120,7 @@ const MaterialAsset* lyra::find_procedural_material(AssetID guid)
         m.base_color_factor = Vector4(0.45f, 0.45f, 0.48f, 1.0f);
         m.roughness_factor  = 0.75f;
         m.metallic_factor   = 0.0f;
-        m.shading_model     = ShadingModel::PBR;
+        m.shading_model     = ShadingModel::STANDARD;
         return m;
     }();
 
