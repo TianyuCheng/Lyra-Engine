@@ -57,7 +57,7 @@ namespace lyra::softgpu
         void*            host_func    = nullptr;
         CString          label        = "";
         uint             param_count  = 0;
-        HostParamBinding params[16]{};
+        HostParamBinding params[32]{};
 
         void destroy() {}
     };

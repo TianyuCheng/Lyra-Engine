@@ -60,6 +60,7 @@ namespace lyra
 
     struct HostParamBinding
     {
+        ushort  block_offset  = 0xFFFF;
         ushort  offset        = 0;
         ushort  size          = 0;
         uint8_t set           = 0;
@@ -74,7 +75,7 @@ namespace lyra
         void*            library;
         void*            entry_func;
         uint             param_count;
-        HostParamBinding params[16];
+        HostParamBinding params[32];
     };
 
     struct ShaderBlobDeleter

@@ -27,6 +27,7 @@ struct CompileResultInternal
     auto get_composed_program(CString entry) const -> ComPtr<slang::IComponentType>;
 
     bool get_shader_blob(CString entry, ShaderBlob& blob);
+    bool get_host_shader_blob(CString entry, slang::IComponentType* linked_program, ShaderBlob& blob);
 };
 
 struct CompilerWrapper

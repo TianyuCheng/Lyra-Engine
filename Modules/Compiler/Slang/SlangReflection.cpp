@@ -403,6 +403,40 @@ void ReflectResultInternal::init_vertices(slang::ProgramLayout* program_layout)
         if (entry_point_reflect->getStage() == SLANG_STAGE_VERTEX)
             walk(entry_point_reflect, AccessPath{}, callback);
     }
+
+    if (target == CompileTarget::HOST && vertex_attributes.empty()) {
+        for (uint i = 0; i < entry_point_count; ++i) {
+            auto ep = program_layout->getEntryPointByIndex(i);
+            if (!ep) continue;
+            String ep_name = ep->getName() ? ep->getName() : "";
+            if (ep_name.find("vs") != String::npos || ep_name.find("vert") != String::npos) {
+                if (ep->getParameterCount() > 0) {
+                    auto param      = ep->getParameterByIndex(0);
+                    auto param_type = param ? param->getTypeLayout() : nullptr;
+                    if (param_type) {
+                        auto struct_type = param_type->getElementTypeLayout() ? param_type->getElementTypeLayout() : param_type;
+                        uint field_count = struct_type->getFieldCount();
+                        for (uint f = 0; f < field_count; ++f) {
+                            auto field = struct_type->getFieldByIndex(f);
+                            if (!field) continue;
+                            auto field_name = field->getName() ? field->getName() : "";
+                            auto sem_name   = field->getSemanticName() ? field->getSemanticName() : "";
+                            semantic_names.push_back(sem_name);
+
+                            vertex_attributes.push_back(GPUVertexAttribute{});
+                            auto& attribute           = vertex_attributes.back();
+                            attribute.offset          = 0;
+                            attribute.format          = infer_vertex_format(field->getTypeLayout());
+                            attribute.shader_semantic = semantic_names.back().c_str();
+                            attribute.shader_location = f;
+
+                            name2attributes.emplace(field_name, static_cast<uint>(vertex_attributes.size() - 1));
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 void ReflectResultInternal::record_parameter_block_space(const AccessPath& path)

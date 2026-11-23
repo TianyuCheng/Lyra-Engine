@@ -437,6 +437,136 @@ ComPtr<slang::IComponentType> CompileResultInternal::get_composed_program(CStrin
     return composed_program;
 }
 
+static int get_user_attribute_int(slang::VariableReflection* var, const char* name)
+{
+    if (!var) return -1;
+    auto attr = var->findUserAttributeByName(get_global_session(), name);
+    if (attr && attr->getArgumentCount() > 0) {
+        int val = 0;
+        if (attr->getArgumentValueInt(0, &val) == SLANG_OK) return val;
+    }
+    return -1;
+}
+
+static bool has_user_attribute(slang::VariableReflection* var, const char* name)
+{
+    return var && var->findUserAttributeByName(get_global_session(), name) != nullptr;
+}
+
+static void extract_host_param_bindings(slang::ProgramLayout* layout, HostCallableShader* header)
+{
+    if (!layout || !header) return;
+
+    uint param_idx = 0;
+    for (uint i = 0; i < layout->getParameterCount() && param_idx < 32; ++i) {
+        auto param_var_layout = layout->getParameterByIndex(i);
+        if (!param_var_layout) continue;
+
+        auto var = param_var_layout->getVariable();
+        if (!var) continue;
+
+        auto type_layout = param_var_layout->getTypeLayout();
+        if (!type_layout) continue;
+
+        if (type_layout->getKind() == slang::TypeReflection::Kind::ParameterBlock) {
+            usize pb_offset = param_var_layout->getOffset(SLANG_PARAMETER_CATEGORY_UNIFORM);
+            int   set       = get_user_attribute_int(var, "group");
+            if (set < 0) set = get_user_attribute_int(var, "lyra_group");
+            if (set < 0) set = get_user_attribute_int(var, "set");
+            if (set < 0) set = get_user_attribute_int(var, "lyra_set");
+            if (set < 0) set = static_cast<int>(param_var_layout->getOffset(SLANG_PARAMETER_CATEGORY_SUB_ELEMENT_REGISTER_SPACE));
+            if (set < 0) set = 0;
+
+            auto elem_var  = type_layout->getElementVarLayout();
+            auto elem_type = elem_var ? elem_var->getTypeLayout() : nullptr;
+            if (elem_type) {
+                uint field_count = elem_type->getFieldCount();
+                for (uint f = 0; f < field_count && param_idx < 32; ++f) {
+                    auto field = elem_type->getFieldByIndex(f);
+                    if (!field) continue;
+                    auto fvar = field->getVariable();
+
+                    int binding = get_user_attribute_int(fvar, "binding");
+                    if (binding < 0) binding = get_user_attribute_int(fvar, "lyra_binding");
+                    if (binding < 0) {
+                        binding = static_cast<int>(f);
+                    }
+
+                    usize f_offset = field->getOffset(SLANG_PARAMETER_CATEGORY_UNIFORM);
+                    usize f_size   = field->getTypeLayout()->getSize(SLANG_PARAMETER_CATEGORY_UNIFORM);
+                    if (f_size == 0) f_size = sizeof(void*);
+
+                    auto& p         = header->params[param_idx++];
+                    p.block_offset  = static_cast<ushort>(pb_offset);
+                    p.offset        = static_cast<ushort>(f_offset);
+                    p.size          = static_cast<ushort>(f_size);
+                    p.set           = static_cast<uint8_t>(set);
+                    p.binding       = static_cast<uint8_t>(binding);
+                    p.is_immediates = 0;
+                }
+            }
+        } else {
+            bool is_imm = has_user_attribute(var, "immediates") || has_user_attribute(var, "lyra_immediates");
+            int  set    = get_user_attribute_int(var, "group");
+            if (set < 0) set = get_user_attribute_int(var, "lyra_group");
+            if (set < 0) set = get_user_attribute_int(var, "set");
+            if (set < 0) set = get_user_attribute_int(var, "lyra_set");
+            if (set < 0) set = 0;
+
+            int binding = get_user_attribute_int(var, "binding");
+            if (binding < 0) binding = get_user_attribute_int(var, "lyra_binding");
+            if (binding < 0) binding = 0;
+
+            usize offset = param_var_layout->getOffset(SLANG_PARAMETER_CATEGORY_UNIFORM);
+            usize size   = type_layout->getSize(SLANG_PARAMETER_CATEGORY_UNIFORM);
+
+            auto& p         = header->params[param_idx++];
+            p.block_offset  = 0xFFFF;
+            p.offset        = static_cast<ushort>(offset);
+            p.size          = static_cast<ushort>(size);
+            p.set           = static_cast<uint8_t>(set);
+            p.binding       = static_cast<uint8_t>(binding);
+            p.is_immediates = is_imm ? 1 : 0;
+        }
+    }
+    header->param_count = param_idx;
+}
+
+bool CompileResultInternal::get_host_shader_blob(CString entry, slang::IComponentType* linked_program, ShaderBlob& blob)
+{
+    ComPtr<slang::IBlob>        diagnostics;
+    ComPtr<ISlangSharedLibrary> shared_lib;
+
+    SlangResult result = linked_program->getEntryPointHostCallable(0, 0, shared_lib.writeRef(), diagnostics.writeRef());
+    diagnose_if_needed(diagnostics, result);
+    SLANG_RETURN_FALSE_ON_FAIL(result);
+
+    static Vector<ComPtr<ISlangSharedLibrary>> s_kept_host_libs;
+    s_kept_host_libs.push_back(shared_lib);
+    compiled_host_libs[entry] = shared_lib;
+
+    auto func_ptr = shared_lib->findSymbolAddressByName(entry);
+    if (!func_ptr) {
+        String wrapper = String(entry) + "_Callable";
+        func_ptr       = shared_lib->findSymbolAddressByName(wrapper.c_str());
+    }
+
+    auto& cached = compiled_blobs[entry];
+    cached.resize(sizeof(HostCallableShader));
+    auto header         = reinterpret_cast<HostCallableShader*>(cached.data());
+    header->magic       = HOST_MAGIC;
+    header->library     = shared_lib.get();
+    header->entry_func  = func_ptr;
+    header->param_count = 0;
+    std::memset(header->params, 0, sizeof(header->params));
+
+    extract_host_param_bindings(linked_program->getLayout(), header);
+
+    blob.size = static_cast<uint32_t>(cached.size());
+    blob.data = cached.data();
+    return true;
+}
+
 bool CompileResultInternal::get_shader_blob(CString entry, ShaderBlob& blob)
 {
     auto linked_program = get_linked_program(entry);
@@ -444,82 +574,7 @@ bool CompileResultInternal::get_shader_blob(CString entry, ShaderBlob& blob)
         return false;
 
     if (target == CompileTarget::HOST) {
-        ComPtr<ISlangSharedLibrary> shared_lib;
-        ComPtr<slang::IBlob>        diagnostics;
-
-        SlangResult result = linked_program->getEntryPointHostCallable(0, 0, shared_lib.writeRef(), diagnostics.writeRef());
-        diagnose_if_needed(diagnostics, result);
-        SLANG_RETURN_FALSE_ON_FAIL(result);
-
-        static Vector<ComPtr<ISlangSharedLibrary>> s_kept_host_libs;
-        s_kept_host_libs.push_back(shared_lib);
-        compiled_host_libs[entry] = shared_lib;
-
-        void* func_ptr = shared_lib->findSymbolAddressByName(entry);
-        if (!func_ptr) {
-            String wrapper = String(entry) + "_Callable";
-            func_ptr       = shared_lib->findSymbolAddressByName(wrapper.c_str());
-        }
-
-        auto& cached = compiled_blobs[entry];
-        cached.resize(sizeof(HostCallableShader));
-        auto header         = reinterpret_cast<HostCallableShader*>(cached.data());
-        header->magic       = HOST_MAGIC;
-        header->library     = shared_lib.get();
-        header->entry_func  = func_ptr;
-        header->param_count = 0;
-        std::memset(header->params, 0, sizeof(header->params));
-
-        auto layout = linked_program->getLayout();
-        if (layout) {
-            uint param_idx = 0;
-            for (uint i = 0; i < layout->getParameterCount() && param_idx < 16; ++i) {
-                auto param_var_layout = layout->getParameterByIndex(i);
-                if (!param_var_layout) continue;
-
-                auto var = param_var_layout->getVariable();
-                if (!var) continue;
-
-                auto check_int_attr = [&](const char* name) -> int {
-                    auto attr = var->findUserAttributeByName(get_global_session(), name);
-                    if (attr && attr->getArgumentCount() > 0) {
-                        int val = 0;
-                        if (attr->getArgumentValueInt(0, &val) == SLANG_OK) return val;
-                    }
-                    return -1;
-                };
-
-                auto has_attr = [&](const char* name) -> bool {
-                    return var->findUserAttributeByName(get_global_session(), name) != nullptr;
-                };
-
-                bool is_imm = has_attr("immediates") || has_attr("lyra_immediates");
-                int  set    = check_int_attr("group");
-                if (set < 0) set = check_int_attr("lyra_group");
-                if (set < 0) set = check_int_attr("set");
-                if (set < 0) set = check_int_attr("lyra_set");
-                if (set < 0) set = 0;
-
-                int binding = check_int_attr("binding");
-                if (binding < 0) binding = check_int_attr("lyra_binding");
-                if (binding < 0) binding = 0;
-
-                size_t offset = param_var_layout->getOffset(SLANG_PARAMETER_CATEGORY_UNIFORM);
-                size_t size   = param_var_layout->getTypeLayout()->getSize(SLANG_PARAMETER_CATEGORY_UNIFORM);
-
-                auto& p         = header->params[param_idx++];
-                p.offset        = static_cast<ushort>(offset);
-                p.size          = static_cast<ushort>(size);
-                p.set           = static_cast<uint8_t>(set);
-                p.binding       = static_cast<uint8_t>(binding);
-                p.is_immediates = is_imm ? 1 : 0;
-            }
-            header->param_count = param_idx;
-        }
-
-        blob.size = static_cast<uint32_t>(cached.size());
-        blob.data = cached.data();
-        return true;
+        return get_host_shader_blob(entry, linked_program.get(), blob);
     }
 
     // kernel binary
