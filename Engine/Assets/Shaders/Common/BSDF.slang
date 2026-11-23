@@ -1,7 +1,7 @@
 module BSDF;
 
 // references: Cook-Torrance (1982), GGX (Walter 2007), Heitz (2014), Burley (2012), Filament PBR
-import Sampling;
+import Common.Sampling;
 
 static const float PI        = 3.14159265358979323846;
 static const float TWO_PI    = 6.28318530717958647692;

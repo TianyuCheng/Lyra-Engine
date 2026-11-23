@@ -157,6 +157,8 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
             case CompileTarget::SPIRV:
                 CHECK_EQ(binding.index, vulkan_index);
                 break;
+            case CompileTarget::HOST:
+                break;
         }
     };
 
