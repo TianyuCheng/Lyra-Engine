@@ -78,9 +78,10 @@ float4 fsmain(VertexOutput input) : SV_Target
     float3 camera_pos = float3(0.0, atmo.planet_radius + 0.001 + cam_alt_km, 0.0);
 
     // direct solar beam transmittance through the atmospheric column along sun path
-    float2 optical_depth_sun = integrate_optical_depth(atmo, camera_pos, sun_dir, 16);
+    float3 optical_depth_sun = integrate_optical_depth(atmo, camera_pos, sun_dir, 16);
     float3 tau_sun           = atmo.rayleigh_scattering * optical_depth_sun.x +
-                               atmo.mie_extinction * optical_depth_sun.y;
+                               atmo.mie_extinction * optical_depth_sun.y +
+                               atmo.ozone_absorption * optical_depth_sun.z;
     float3 sun_transmittance = exp(-tau_sun);
 
     // reference horizon sky radiance to guarantee seamless continuity at the horizon

@@ -20,6 +20,8 @@ public struct AtmosphereParameters
     public float  mie_asymmetry;          // g parameter in [-1, 1], e.g. 0.8
     public float  sun_intensity;          // solar irradiance scaling factor, e.g. 20.0
     public float  sun_angular_radius;     // angular radius in radians (approx 0.00467 rad = 0.27 deg)
+    public float3 ozone_absorption;       // beta_ozone, e.g. float3(0.650, 1.881, 0.085) * 1e-3 (1/km)
+    public float  ground_albedo;          // surface diffuse albedo, e.g. 0.15
 };
 
 /**
@@ -38,6 +40,8 @@ public AtmosphereParameters default_earth_atmosphere()
     p.mie_asymmetry         = 0.8;
     p.sun_intensity         = 20.0;
     p.sun_angular_radius    = 0.004675; // ~0.268 degrees
+    p.ozone_absorption      = float3(0.650, 1.881, 0.085) * 1e-3;
+    p.ground_albedo         = 0.15;
     return p;
 }
 
@@ -118,8 +122,9 @@ public bool intersect_atmosphere(
 
 /**
  * @brief Integrates optical depth along a ray from position p towards the sun.
+ * Returns optical depth for Rayleigh (x), Mie (y), and Ozone (z).
  */
-public float2 integrate_optical_depth(
+public float3 integrate_optical_depth(
     AtmosphereParameters params,
     float3 p,
     float3 sun_dir,
@@ -132,30 +137,34 @@ public float2 integrate_optical_depth(
     if (d_ground >= 0.0) {
         float t_ground = -b_ground - sqrt(d_ground);
         if (t_ground > 0.0) {
-            return float2(1e9, 1e9);
+            return float3(1e9, 1e9, 1e9);
         }
     }
 
     float t_min, t_max;
     if (!intersect_atmosphere(p, sun_dir, params.planet_radius, params.atmosphere_radius, t_min, t_max)) {
-        return float2(0.0);
+        return float3(0.0);
     }
 
     float step_size = t_max / float(step_count);
-    float2 optical_depth = float2(0.0);
+    float3 optical_depth = float3(0.0);
 
     for (int i = 0; i < step_count; ++i) {
         float3 sample_p = p + sun_dir * ((float(i) + 0.5) * step_size);
         float h = max(length(sample_p) - params.planet_radius, 0.0);
         optical_depth.x += exp(-h / params.rayleigh_scale_height) * step_size;
         optical_depth.y += exp(-h / params.mie_scale_height) * step_size;
+        // Chappuis ozone layer tent profile centered at 25km with 15km half-width
+        optical_depth.z += max(0.0, 1.0 - abs(h - 25.0) / 15.0) * step_size;
     }
 
     return optical_depth;
 }
 
 /**
- * @brief Evaluates full physical single-scattering sky radiance along a viewing ray.
+ * @brief Evaluates physically based sky radiance along a viewing ray,
+ * including single scattering, multi-scattering ambient diffuse illumination,
+ * and Chappuis ozone absorption.
  *
  * @param params Atmosphere geometry and scattering coefficients
  * @param ro Camera world position (origin at center of planet)
@@ -176,44 +185,76 @@ public float3 evaluate_sky_radiance(
         return float3(0.0);
     }
 
-    float step_size = (t_max - t_min) / float(num_steps);
     float cos_theta = dot(rd, sun_dir);
-
     float p_rayleigh = rayleigh_phase(cos_theta);
     float p_mie      = mie_phase(cos_theta, params.mie_asymmetry);
 
-    // multiple scattering approximation:
-    // repeated Rayleigh scattering and surface reflection contribute ~2.5x to 3.5x
-    // isotropic diffuse skylight, lifting the daytime sky from near-black to natural daylight blue.
-    float p_multi = 2.5 / (4.0 * PI);
+    // compute ambient diffuse skylight and ground reflection field for multiple scattering.
+    // In Earth atmosphere, diffuse multiple scattering prevents daytime horizon black/red-out
+    // by providing an isotropic diffuse illumination bath.
+    float sun_elev = max(sun_dir.y, 0.0);
+    float od_zenith_r = params.rayleigh_scale_height;
+    float od_zenith_m = params.mie_scale_height;
+    float od_zenith_o = 15.0; // integrated thickness of ozone tent layer
+    float3 tau_zenith = params.rayleigh_scattering * od_zenith_r +
+                        params.mie_extinction * od_zenith_m +
+                        params.ozone_absorption * od_zenith_o;
+    float3 trans_zenith = exp(-tau_zenith);
 
-    float3 acc_rayleigh = float3(0.0);
-    float3 acc_mie      = float3(0.0);
-    float2 optical_depth_view = float2(0.0);
+    // downward diffuse flux from molecular scattering
+    float3 e_sky = params.sun_intensity * sun_elev * (float3(1.0) - trans_zenith) * 0.45;
+    // upward ground reflection
+    float3 e_ground = (params.sun_intensity * sun_elev * trans_zenith + e_sky) * params.ground_albedo;
+    // isotropic multi-scattering ambient flux density
+    float3 psi_multi = (e_sky + e_ground) / (4.0 * PI);
 
+    float3 acc_in_scatter = float3(0.0);
+    float3 optical_depth_view = float3(0.0);
+
+    // quadratic non-linear stepping distributes more sample points near the observer
+    // where atmospheric density is highest, preventing horizon discretization artifacts.
     for (int i = 0; i < num_steps; ++i) {
-        float3 sample_p = ro + rd * (t_min + (float(i) + 0.5) * step_size);
+        float u0 = float(i) / float(num_steps);
+        float u1 = float(i + 1) / float(num_steps);
+        float t0 = t_min + (t_max - t_min) * (u0 * u0);
+        float t1 = t_min + (t_max - t_min) * (u1 * u1);
+        float step_size = t1 - t0;
+        float t = 0.5 * (t0 + t1);
+
+        float3 sample_p = ro + rd * t;
         float h = max(length(sample_p) - params.planet_radius, 0.0);
 
         float d_r = exp(-h / params.rayleigh_scale_height) * step_size;
         float d_m = exp(-h / params.mie_scale_height) * step_size;
-        optical_depth_view += float2(d_r, d_m);
+        float d_o = max(0.0, 1.0 - abs(h - 25.0) / 15.0) * step_size;
 
-        float2 optical_depth_sun = integrate_optical_depth(params, sample_p, sun_dir, 6);
+        optical_depth_view += float3(d_r, d_m, d_o);
 
-        // total transmittance from sun to sample point, then to eye
-        float3 tau = params.rayleigh_scattering * (optical_depth_view.x + optical_depth_sun.x) +
-                     params.mie_extinction * (optical_depth_view.y + optical_depth_sun.y);
-        float3 transmittance = exp(-tau);
+        float3 optical_depth_sun = integrate_optical_depth(params, sample_p, sun_dir, 6);
 
-        acc_rayleigh += d_r * transmittance;
-        acc_mie      += d_m * transmittance;
+        // solar beam transmittance from space to sample point
+        float3 tau_sun = params.rayleigh_scattering * optical_depth_sun.x +
+                         params.mie_extinction * optical_depth_sun.y +
+                         params.ozone_absorption * optical_depth_sun.z;
+        float3 trans_sun = exp(-tau_sun);
+
+        // view path transmittance from sample point to camera
+        float3 tau_view = params.rayleigh_scattering * optical_depth_view.x +
+                          params.mie_extinction * optical_depth_view.y +
+                          params.ozone_absorption * optical_depth_view.z;
+        float3 trans_view = exp(-tau_view);
+
+        // single scattering from direct solar beam
+        float3 s_single = (d_r * params.rayleigh_scattering * p_rayleigh +
+                           d_m * params.mie_scattering * p_mie) * (params.sun_intensity * trans_sun);
+
+        // multiple scattering from ambient diffuse illumination field
+        float3 s_multi = (d_r * params.rayleigh_scattering + d_m * params.mie_scattering) * psi_multi;
+
+        acc_in_scatter += (s_single + s_multi) * trans_view;
     }
 
-    float3 in_scatter = (acc_rayleigh * params.rayleigh_scattering * (p_rayleigh + p_multi) +
-                         acc_mie * params.mie_scattering * p_mie) * params.sun_intensity;
-
-    return in_scatter;
+    return acc_in_scatter;
 }
 
 /**

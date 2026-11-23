@@ -84,11 +84,11 @@ struct ShadingModelsApp : public TestApp
         sun.angular_radius = 0.005f;
 
         // 3. Neutral backdrop plane behind the spheres
-        auto  backdrop_entity = ecs_world.create("Backdrop");
-        auto& backdrop_mesh   = ecs_world.add_component<Mesh>(backdrop_entity);
-        backdrop_mesh.mesh    = MeshAssetHandle(PROCEDURAL_PLANE_GUID);
-        backdrop_mesh.material = MaterialAssetHandle(PROCEDURAL_MATERIAL_GROUND_GUID);
-        auto& backdrop_xform   = ecs_world.add_component<TransformLocal>(backdrop_entity);
+        auto  backdrop_entity   = ecs_world.create("Backdrop");
+        auto& backdrop_mesh     = ecs_world.add_component<Mesh>(backdrop_entity);
+        backdrop_mesh.mesh      = MeshAssetHandle(PROCEDURAL_PLANE_GUID);
+        backdrop_mesh.material  = MaterialAssetHandle(PROCEDURAL_MATERIAL_GROUND_GUID);
+        auto& backdrop_xform    = ecs_world.add_component<TransformLocal>(backdrop_entity);
         backdrop_xform.position = Vector3(0.0f, 0.0f, -0.6f);
         backdrop_xform.rotation = glm::angleAxis(glm::radians(-90.0f), Vector3(1.0f, 0.0f, 0.0f));
         backdrop_xform.scale    = Vector3(10.0f);
@@ -143,7 +143,7 @@ struct ShadingModelsApp : public TestApp
 
                 render_world->register_material(mat_guid, mat);
 
-                String name = "Sphere_R" + std::to_string(row) + "_C" + std::to_string(col);
+                String name   = "Sphere_R" + std::to_string(row) + "_C" + std::to_string(col);
                 auto   entity = ecs_world.create(name);
                 auto&  mesh   = ecs_world.add_component<Mesh>(entity);
                 mesh.mesh     = MeshAssetHandle(PROCEDURAL_SPHERE_GUID);

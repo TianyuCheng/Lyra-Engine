@@ -71,6 +71,7 @@ add_subdirectory(ui_system)
 add_subdirectory(forward_renderer)
 add_subdirectory(deferred_renderer)
 add_subdirectory(shading_models)
+add_subdirectory(atmosphere)
 
 
 # non-rhi / unit test cases
