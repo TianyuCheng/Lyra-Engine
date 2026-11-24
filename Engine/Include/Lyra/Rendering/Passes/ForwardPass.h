@@ -145,7 +145,6 @@ namespace lyra::passes
         Vector<GPUShaderModule>                    variant_shader_modules;
         GPUPipelineLayout                          playout;
         Vector<GPUBindGroupLayoutHandle>           blayouts;
-        GPUBindGroupHeap                           heap;
         Array<GPUBuffer, FRAMES_IN_FLIGHT>         camera_buffers{};
         Array<GPUBindGroup, FRAMES_IN_FLIGHT>      camera_bind_groups{};
         GPUBuffer                                  default_cluster_grid_buffer;

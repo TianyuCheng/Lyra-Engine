@@ -91,8 +91,7 @@ namespace lyra::passes
         Vector<GPUBindGroupLayoutHandle> downsample_blayouts;
         Vector<GPUBindGroupLayoutHandle> upsample_blayouts;
 
-        GPUSampler       linear_sampler;
-        GPUBindGroupHeap heap;
+        GPUSampler linear_sampler;
 
         bool initialized = false;
     };

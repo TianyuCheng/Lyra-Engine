@@ -435,9 +435,12 @@ namespace lyra
 
     struct FrameGraphContext
     {
-        GPUDevice        device;
-        GPUSurface       surface;
-        GPUCommandBuffer cmdlist;
+        GPUDevice            device;
+        GPUSurface           surface;
+        GPUCommandBuffer     cmdlist;
+        FrameGraphAllocator* allocator = nullptr;
+
+        auto allocate(const GPUBindGroupDescriptor& descriptor) const -> GPUBindGroup;
     };
 
     // -------------------------------------------------------------------------
@@ -478,6 +481,7 @@ namespace lyra
     struct FrameGraphAllocator
     {
     public:
+        explicit FrameGraphAllocator(uint frames_in_flight = 3);
         virtual ~FrameGraphAllocator();
 
         auto allocate(const GPUBufferDescriptor& descriptor) -> FGBufferObject;
@@ -485,6 +489,8 @@ namespace lyra
 
         auto allocate(const GPUTextureDescriptor& descriptor) -> FGTextureObject;
         void recycle(const GPUTextureDescriptor& descriptor, FGTextureObject texture);
+
+        auto allocate(const GPUBindGroupDescriptor& descriptor, GPUDevice device = {}) -> GPUBindGroup;
 
         void reclaim_unused();
         void reclaim_unused_if(FunctionRef<bool(const GPUTextureDescriptor&)> texture_pred);
@@ -497,11 +503,24 @@ namespace lyra
 
         [[nodiscard]] uint allocated_texture_count() const;
         [[nodiscard]] uint allocated_buffer_count() const;
+        [[nodiscard]] uint allocated_bind_group_count() const;
 
     private:
         HashMap<GPUBufferDescriptor, FGBufferVector>   buffers;
         HashMap<GPUTextureDescriptor, FGTextureVector> textures;
+
+        uint                     frames_in_flight   = 3;
+        uint                     current_frame_slot = 0;
+        Vector<GPUBindGroupHeap> bind_group_heaps;
     };
+
+    FORCE_INLINE auto FrameGraphContext::allocate(const GPUBindGroupDescriptor& descriptor) const -> GPUBindGroup
+    {
+        if (allocator) {
+            return allocator->allocate(descriptor, device);
+        }
+        return device.create_bind_group(descriptor);
+    }
 
     // -------------------------------------------------------------------------
     // built-in resource types

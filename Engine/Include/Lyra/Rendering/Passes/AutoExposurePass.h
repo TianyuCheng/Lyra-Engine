@@ -97,10 +97,9 @@ namespace lyra::passes
         Vector<GPUBindGroupLayoutHandle> adapt_blayouts;
 
         // persistent state across frames
-        GPUBuffer        histogram_buffer; // 64 uints (256 bytes)
-        GPUTexture       exposure_texture; // 1x1 RGBA16FLOAT
-        GPUTextureView   exposure_view;
-        GPUBindGroupHeap heap;
+        GPUBuffer      histogram_buffer; // 64 uints (256 bytes)
+        GPUTexture     exposure_texture; // 1x1 RGBA16FLOAT
+        GPUTextureView exposure_view;
 
         bool initialized = false;
     };

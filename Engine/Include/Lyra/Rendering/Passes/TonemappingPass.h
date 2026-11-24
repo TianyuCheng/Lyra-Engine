@@ -87,7 +87,6 @@ namespace lyra::passes
         GPUShaderModule                  vshader;
         GPUShaderModule                  fshader;
         GPUSampler                       sampler;
-        GPUBindGroupHeap                 heap;
         Vector<GPUBindGroupLayoutHandle> blayouts;
 
         // fallback 1x1 textures when bloom or auto-exposure are not supplied

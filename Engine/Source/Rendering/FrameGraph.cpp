@@ -11,6 +11,10 @@ void FrameGraph::execute(FrameGraphContext* context, FrameGraphAllocator* alloca
 {
     assert(allocator && "FrameGraph::execute requires a valid FrameGraphAllocator");
 
+    if (context) {
+        context->allocator = allocator;
+    }
+
     registry.reset(resources.size());
     for (auto& resource : resources) {
         registry.put(resource.rsid, resource.entry);

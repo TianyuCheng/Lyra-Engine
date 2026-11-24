@@ -86,7 +86,6 @@ namespace lyra::passes
         GPUPipelineLayout                playout;
         Vector<GPUBindGroupLayoutHandle> blayouts;
         GPUSampler                       linear_sampler;
-        GPUBindGroupHeap                 heap;
 
         bool initialized = false;
     };

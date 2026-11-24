@@ -121,12 +121,6 @@ bool TonemappingPass::init(
         return device.create_render_pipeline(desc);
     });
 
-    heap = execute([&]() {
-        auto desc      = GPUBindGroupHeapDescriptor{};
-        desc.page_size = 2048;
-        return device.create_bind_group_heap(desc);
-    });
-
     // 2. default 1x1 black bloom fallback
     default_bloom_tex  = execute([&]() {
         auto desc            = GPUTextureDescriptor{};
@@ -180,7 +174,6 @@ void TonemappingPass::destroy()
     if (default_exposure_tex.valid()) default_exposure_tex.destroy();
     if (default_bloom_view.valid()) default_bloom_view.destroy();
     if (default_bloom_tex.valid()) default_bloom_tex.destroy();
-    if (heap.valid()) heap.destroy();
     if (sampler.valid()) sampler.destroy();
     if (pipeline.valid()) pipeline.destroy();
     if (playout.valid()) playout.destroy();
@@ -232,10 +225,6 @@ TonemappingData TonemappingPass::add(
                 return;
             }
 
-            if (heap.valid()) {
-                heap.reset();
-            }
-
             auto hdr_tex = resources.get<FrameGraphTexture>(data.hdr_input);
             auto ldr_tex = resources.get<FrameGraphTexture>(data.ldr_output);
             if (!hdr_tex || !ldr_tex) {
@@ -274,10 +263,9 @@ TonemappingData TonemappingPass::add(
             entries[3].texture = exposure_v;
 
             auto bg_desc    = GPUBindGroupDescriptor{};
-            bg_desc.heap    = heap;
             bg_desc.layout  = blayouts[0];
             bg_desc.entries = entries;
-            auto bg         = device.create_bind_group(bg_desc);
+            auto bg         = ctx->allocate(bg_desc);
 
             auto color_attachment        = GPURenderPassColorAttachment{};
             color_attachment.view        = ldr_tex->view;

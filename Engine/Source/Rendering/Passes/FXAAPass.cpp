@@ -112,13 +112,6 @@ bool FXAAPass::init(GPUDevice dev, Compiler compiler, GPUTextureFormat output_fo
         return device.create_render_pipeline(desc);
     });
 
-    // 4. create bind group heap
-    heap = execute([&]() {
-        auto desc      = GPUBindGroupHeapDescriptor{};
-        desc.page_size = 512;
-        return device.create_bind_group_heap(desc);
-    });
-
     initialized = pipeline.valid();
     return initialized;
 }
@@ -131,7 +124,6 @@ void FXAAPass::destroy()
 
     device.wait();
 
-    if (heap.valid()) heap.destroy();
     if (linear_sampler.valid()) linear_sampler.destroy();
     if (pipeline.valid()) pipeline.destroy();
     if (playout.valid()) playout.destroy();
@@ -177,10 +169,6 @@ FXAAData FXAAPass::add(
                 return;
             }
 
-            if (heap.valid()) {
-                heap.reset();
-            }
-
             auto in_tex  = resources.get<FrameGraphTexture>(data.color_input);
             auto out_tex = resources.get<FrameGraphTexture>(data.color_output);
             if (!in_tex || !out_tex) {
@@ -197,10 +185,9 @@ FXAAData FXAAPass::add(
             entries[1].sampler = linear_sampler;
 
             auto bg_desc    = GPUBindGroupDescriptor{};
-            bg_desc.heap    = heap;
             bg_desc.layout  = blayouts[0];
             bg_desc.entries = entries;
-            auto bg         = device.create_bind_group(bg_desc);
+            auto bg         = ctx->allocate(bg_desc);
 
             auto color_attachment        = GPURenderPassColorAttachment{};
             color_attachment.view        = out_tex->view;

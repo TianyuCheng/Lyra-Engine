@@ -179,12 +179,6 @@ bool ForwardPass::init(
         device.wait();
     });
 
-    heap = execute([&]() {
-        auto desc      = GPUBindGroupHeapDescriptor{};
-        desc.page_size = 512;
-        return device.create_bind_group_heap(desc);
-    });
-
     initialized = true;
     return true;
 }
@@ -213,9 +207,6 @@ void ForwardPass::destroy()
     }
     variant_shader_modules.clear();
 
-    if (heap.valid()) {
-        heap.destroy();
-    }
     for (auto& buf : camera_buffers) {
         if (buf.valid()) {
             buf.destroy();
@@ -484,10 +475,6 @@ ForwardPassData ForwardPass::add(
                 return;
             }
 
-            if (heap.valid()) {
-                heap.reset();
-            }
-
             auto color_tex = resources.get<FrameGraphTexture>(data.color_target);
             auto depth_tex = resources.get<FrameGraphTexture>(data.depth_target);
             if (!color_tex || !depth_tex) {
@@ -581,12 +568,11 @@ ForwardPassData ForwardPass::add(
             entries[5].buffer.size   = 0;
 
             auto bg_desc = GPUBindGroupDescriptor{};
-            bg_desc.heap = heap;
             if (!blayouts.empty()) {
                 bg_desc.layout = blayouts[0];
             }
             bg_desc.entries = entries;
-            auto pass_bg    = device.create_bind_group(bg_desc);
+            auto pass_bg    = ctx->allocate(bg_desc);
 
             auto color_attachment        = GPURenderPassColorAttachment{};
             color_attachment.view        = color_tex->view;

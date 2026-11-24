@@ -102,7 +102,6 @@ namespace lyra::passes
         GPUPipelineLayout                playout;
         GPUShaderModule                  cshader;
         Vector<GPUBindGroupLayoutHandle> blayouts;
-        GPUBindGroupHeap                 heap;
         GPUBuffer                        lights_buffer;
         bool                             initialized = false;
     };

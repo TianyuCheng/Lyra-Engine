@@ -83,13 +83,6 @@ bool DepthOfFieldPass::init(GPUDevice dev, Compiler compiler)
         return device.create_sampler(desc);
     });
 
-    // 4. create bind group heap
-    heap = execute([&]() {
-        auto desc      = GPUBindGroupHeapDescriptor{};
-        desc.page_size = 512;
-        return device.create_bind_group_heap(desc);
-    });
-
     initialized = pipeline.valid();
     return initialized;
 }
@@ -102,7 +95,6 @@ void DepthOfFieldPass::destroy()
 
     device.wait();
 
-    if (heap.valid()) heap.destroy();
     if (linear_sampler.valid()) linear_sampler.destroy();
     if (pipeline.valid()) pipeline.destroy();
     if (playout.valid()) playout.destroy();
@@ -145,10 +137,6 @@ DOFData DepthOfFieldPass::add(
                 return;
             }
 
-            if (heap.valid()) {
-                heap.reset();
-            }
-
             auto color_tex = resources.get<FrameGraphTexture>(data.color_input);
             auto depth_tex = resources.get<FrameGraphTexture>(data.depth_input);
             auto out_tex   = resources.get<FrameGraphTexture>(data.dof_output);
@@ -189,10 +177,9 @@ DOFData DepthOfFieldPass::add(
             entries[3].texture = out_tex->view;
 
             auto bg_desc    = GPUBindGroupDescriptor{};
-            bg_desc.heap    = heap;
             bg_desc.layout  = blayouts[0];
             bg_desc.entries = entries;
-            auto bg         = device.create_bind_group(bg_desc);
+            auto bg         = ctx->allocate(bg_desc);
 
             command.set_bind_group(0, bg);
             command.set_immediates(0, push);

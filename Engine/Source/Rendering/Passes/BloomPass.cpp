@@ -125,13 +125,6 @@ bool BloomPass::init(GPUDevice dev, Compiler compiler)
         return device.create_sampler(desc);
     });
 
-    // 5. create bind group heap
-    heap = execute([&]() {
-        auto desc      = GPUBindGroupHeapDescriptor{};
-        desc.page_size = 512;
-        return device.create_bind_group_heap(desc);
-    });
-
     initialized = downsample_pipeline.valid() && upsample_pipeline.valid();
     return initialized;
 }
@@ -144,7 +137,6 @@ void BloomPass::destroy()
 
     device.wait();
 
-    if (heap.valid()) heap.destroy();
     if (linear_sampler.valid()) linear_sampler.destroy();
     if (upsample_pipeline.valid()) upsample_pipeline.destroy();
     if (upsample_playout.valid()) upsample_playout.destroy();
@@ -212,10 +204,6 @@ BloomData BloomPass::add(
         [this, extent, settings](const BloomData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
             if (!ctx || !ctx->cmdlist.handle.valid() || !valid()) {
                 return;
-            }
-
-            if (heap.valid()) {
-                heap.reset();
             }
 
             auto input_tex = resources.get<FrameGraphTexture>(data.input_color);
@@ -291,10 +279,9 @@ BloomData BloomPass::add(
                 ds_entries[2].texture = dst_view;
 
                 auto bg_desc    = GPUBindGroupDescriptor{};
-                bg_desc.heap    = heap;
                 bg_desc.layout  = downsample_blayouts[0];
                 bg_desc.entries = ds_entries;
-                auto bg         = device.create_bind_group(bg_desc);
+                auto bg         = ctx->allocate(bg_desc);
 
                 command.set_bind_group(0, bg);
                 command.set_immediates(0, push);
@@ -343,10 +330,9 @@ BloomData BloomPass::add(
                 us_entries[3].texture = current_view;
 
                 auto bg_desc    = GPUBindGroupDescriptor{};
-                bg_desc.heap    = heap;
                 bg_desc.layout  = upsample_blayouts[0];
                 bg_desc.entries = us_entries;
-                auto bg         = device.create_bind_group(bg_desc);
+                auto bg         = ctx->allocate(bg_desc);
 
                 command.set_bind_group(0, bg);
                 command.set_immediates(0, push);

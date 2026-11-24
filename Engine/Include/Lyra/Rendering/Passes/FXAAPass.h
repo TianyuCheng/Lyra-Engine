@@ -84,7 +84,6 @@ namespace lyra::passes
         GPUPipelineLayout                playout;
         Vector<GPUBindGroupLayoutHandle> blayouts;
         GPUSampler                       linear_sampler;
-        GPUBindGroupHeap                 heap;
         GPUTextureFormat                 cached_output_format = GPUTextureFormat::RGBA8UNORM;
 
         bool initialized = false;

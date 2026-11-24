@@ -185,8 +185,9 @@ void RendererManager::render(
     auto graph = builder.build();
     if (graph) {
         FrameGraphContext fg_context{};
-        fg_context.device  = context.services.get<GPUDevice>();
-        fg_context.cmdlist = GPUCommandBuffer(command_encoder);
+        fg_context.device    = context.services.get<GPUDevice>();
+        fg_context.cmdlist   = GPUCommandBuffer(command_encoder);
+        fg_context.allocator = &allocator;
         graph->execute(&fg_context, &allocator);
     }
 

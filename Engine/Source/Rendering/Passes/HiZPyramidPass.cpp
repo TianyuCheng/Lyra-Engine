@@ -66,12 +66,6 @@ bool HiZPyramidPass::init(GPUDevice dev, Compiler compiler)
     cp_desc.compute.entry_point = "csmain";
     pipeline                    = device.create_compute_pipeline(cp_desc);
 
-    heap = execute([&]() {
-        auto desc      = GPUBindGroupHeapDescriptor{};
-        desc.page_size = 512;
-        return device.create_bind_group_heap(desc);
-    });
-
     initialized = pipeline.valid();
     return initialized;
 }
@@ -84,9 +78,6 @@ void HiZPyramidPass::destroy()
 
     device.wait();
 
-    if (heap.valid()) {
-        heap.destroy();
-    }
     if (pipeline.valid()) {
         pipeline.destroy();
     }
@@ -133,10 +124,6 @@ HiZPyramidData HiZPyramidPass::add(
                 return;
             }
 
-            if (heap.valid()) {
-                heap.reset();
-            }
-
             auto depth_tex = resources.get<FrameGraphTexture>(data.depth_input);
             auto hiz_tex   = resources.get<FrameGraphTexture>(data.hiz_texture);
             if (!depth_tex || !hiz_tex) {
@@ -156,10 +143,9 @@ HiZPyramidData HiZPyramidPass::add(
             entries[1].texture = hiz_tex->view;
 
             auto bg_desc    = GPUBindGroupDescriptor{};
-            bg_desc.heap    = heap;
             bg_desc.layout  = blayouts[0];
             bg_desc.entries = entries;
-            auto bg         = device.create_bind_group(bg_desc);
+            auto bg         = ctx->allocate(bg_desc);
 
             HiZPushConstants push{};
             push.src_width    = depth_extent.width;

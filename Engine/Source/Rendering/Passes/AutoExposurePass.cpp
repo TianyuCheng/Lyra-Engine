@@ -142,13 +142,6 @@ bool AutoExposurePass::init(GPUDevice dev, Compiler compiler)
         device.wait();
     });
 
-    // 6. create bind group heap
-    heap = execute([&]() {
-        auto desc      = GPUBindGroupHeapDescriptor{};
-        desc.page_size = 512;
-        return device.create_bind_group_heap(desc);
-    });
-
     initialized = histogram_pipeline.valid() && adapt_pipeline.valid() &&
                   histogram_buffer.valid() && exposure_texture.valid();
     return initialized;
@@ -162,7 +155,6 @@ void AutoExposurePass::destroy()
 
     device.wait();
 
-    if (heap.valid()) heap.destroy();
     if (exposure_view.valid()) exposure_view.destroy();
     if (exposure_texture.valid()) exposure_texture.destroy();
     if (histogram_buffer.valid()) histogram_buffer.destroy();
@@ -202,10 +194,6 @@ AutoExposureData AutoExposurePass::add(
                 return;
             }
 
-            if (heap.valid()) {
-                heap.reset();
-            }
-
             auto hdr_tex = resources.get<FrameGraphTexture>(data.hdr_input);
             auto exp_tex = resources.get<FrameGraphTexture>(data.exposure_data);
             if (!hdr_tex || !exp_tex) {
@@ -243,10 +231,9 @@ AutoExposureData AutoExposurePass::add(
             hist_entries[1].buffer.size   = 64 * sizeof(uint);
 
             auto hist_bg_desc    = GPUBindGroupDescriptor{};
-            hist_bg_desc.heap    = heap;
             hist_bg_desc.layout  = histogram_blayouts[0];
             hist_bg_desc.entries = hist_entries;
-            auto hist_bg         = device.create_bind_group(hist_bg_desc);
+            auto hist_bg         = ctx->allocate(hist_bg_desc);
 
             command.set_bind_group(0, hist_bg);
             command.set_immediates(0, push);
@@ -269,10 +256,9 @@ AutoExposureData AutoExposurePass::add(
             adapt_entries[1].texture = exp_tex->view;
 
             auto adapt_bg_desc    = GPUBindGroupDescriptor{};
-            adapt_bg_desc.heap    = heap;
             adapt_bg_desc.layout  = adapt_blayouts[0];
             adapt_bg_desc.entries = adapt_entries;
-            auto adapt_bg         = device.create_bind_group(adapt_bg_desc);
+            auto adapt_bg         = ctx->allocate(adapt_bg_desc);
 
             command.set_bind_group(0, adapt_bg);
             command.set_immediates(0, push);

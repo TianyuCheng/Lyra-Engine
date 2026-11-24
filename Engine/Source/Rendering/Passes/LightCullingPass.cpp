@@ -68,13 +68,6 @@ bool LightCullingPass::init(GPUDevice dev, Compiler compiler)
     cp_desc.compute.entry_point = "csmain";
     pipeline                    = device.create_compute_pipeline(cp_desc);
 
-    // 4. bind group heap
-    heap = execute([&]() {
-        auto desc      = GPUBindGroupHeapDescriptor{};
-        desc.page_size = 512;
-        return device.create_bind_group_heap(desc);
-    });
-
     // 5. lights staging buffer
     lights_buffer = execute([&]() {
         auto lb_desc               = GPUBufferDescriptor{};
@@ -97,9 +90,6 @@ void LightCullingPass::destroy()
 
     device.wait();
 
-    if (heap.valid()) {
-        heap.destroy();
-    }
     if (lights_buffer.valid()) {
         lights_buffer.destroy();
     }
@@ -151,10 +141,6 @@ LightCullingData LightCullingPass::add(
         [this, view, &scene, cluster_grid_x, cluster_grid_y, cluster_grid_z](const LightCullingData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
             if (!ctx || !ctx->cmdlist.handle.valid() || !pipeline.valid() || blayouts.empty()) {
                 return;
-            }
-
-            if (heap.valid()) {
-                heap.reset();
             }
 
             auto grid_buf  = resources.get<FrameGraphBuffer>(data.cluster_grid_buffer);
@@ -235,10 +221,9 @@ LightCullingData LightCullingPass::add(
             entries[2].buffer.size   = 0;
 
             auto bg_desc    = GPUBindGroupDescriptor{};
-            bg_desc.heap    = heap;
             bg_desc.layout  = blayouts[0];
             bg_desc.entries = entries;
-            auto bg         = device.create_bind_group(bg_desc);
+            auto bg         = ctx->allocate(bg_desc);
 
             LightCullingPushConstants push{};
             push.view_matrix       = view.view;
