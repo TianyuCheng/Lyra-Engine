@@ -1,0 +1,5 @@
+{
+    "tier": "primitive",
+    "rmse_threshold": 3.0,
+    "mismatch_threshold": 15.0
+}

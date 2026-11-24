@@ -503,7 +503,7 @@ TEST_CASE("rhi::softgpu::texture_anisotropic_filtering" * doctest::description("
     desc.width          = 640;
     desc.height         = 480;
     desc.rhi_flags      = RHIFlag::DEBUG;
-    desc.compile_target = CompileTarget::SPIRV;
+    desc.compile_target = CompileTarget::HOST;
     desc.compile_flags  = CompileFlag::DEBUG;
     AnisotropicFilteringApp(desc).run();
 }

@@ -526,7 +526,12 @@ void SoftHostTextureWrapper::Sample(void* samplerState, const float* loc, void* 
     const SoftTextureView* vptr = view ? view : &default_view;
     Vector4                c;
     if (s) {
-        c = s->sample_2d(*tex, *vptr, u, v, 0.0f);
+        if (SoftSamplerTLS::current_gradients.has_gradients) {
+            const auto& g = SoftSamplerTLS::current_gradients;
+            c             = s->sample_2d_grad(*tex, *vptr, u, v, g.dudx, g.dvdx, g.dudy, g.dvdy);
+        } else {
+            c = s->sample_2d(*tex, *vptr, u, v, 0.0f);
+        }
     } else {
         uint px = static_cast<uint>(std::clamp(u * tex->extent.width, 0.0f, float(tex->extent.width > 0 ? tex->extent.width - 1 : 0)));
         uint py = static_cast<uint>(std::clamp(v * tex->extent.height, 0.0f, float(tex->extent.height > 0 ? tex->extent.height - 1 : 0)));

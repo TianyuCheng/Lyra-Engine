@@ -1,4 +1,5 @@
 #include "SoftRasterizer.h"
+#include "SoftSampler.h"
 #if defined(__AVX2__)
 #include <immintrin.h>
 #define LYRA_USE_AVX2 1
@@ -371,6 +372,18 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
         }
     }
 
+    float v0_u = v0.varyings[0], v0_v = v0.varyings[1];
+    float v1_u = v1.varyings[0], v1_v = v1.varyings[1];
+    float v2_u = v2.varyings[0], v2_v = v2.varyings[1];
+
+    float dD_dx = A0 * v0.inv_w + A1 * v1.inv_w + A2 * v2.inv_w;
+    float dD_dy = B0 * v0.inv_w + B1 * v1.inv_w + B2 * v2.inv_w;
+
+    float dNu_dx = A0 * (v0_u * v0.inv_w) + A1 * (v1_u * v1.inv_w) + A2 * (v2_u * v2.inv_w);
+    float dNu_dy = B0 * (v0_u * v0.inv_w) + B1 * (v1_u * v1.inv_w) + B2 * (v2_u * v2.inv_w);
+    float dNv_dx = A0 * (v0_v * v0.inv_w) + A1 * (v1_v * v1.inv_w) + A2 * (v2_v * v2.inv_w);
+    float dNv_dy = B0 * (v0_v * v0.inv_w) + B1 * (v1_v * v1.inv_w) + B2 * (v2_v * v2.inv_w);
+
     auto process_pixel = [&](int32_t x, int32_t y, float px, float py, float w0, float w1, float w2, float z, float w) {
         // apply depth bias
         float test_write_z = z;
@@ -451,6 +464,57 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
                 }
             }
         }
+        float u_coord = interp.varyings[0];
+        float v_coord = interp.varyings[1];
+
+        float z_inv = (std::abs(w) > 1e-8f) ? (1.0f / w) : 1.0f;
+        float Nu    = u_coord * z_inv;
+        float Nv    = v_coord * z_inv;
+
+        int32_t shift_x = (x & 1);
+        int32_t shift_y = (y & 1);
+
+        // evaluate the 4 corners of the 2x2 quad
+        // (x0, y0) is the top-left of the quad
+        float z_inv_00 = z_inv - shift_x * dD_dx - shift_y * dD_dy;
+        float w_00     = (std::abs(z_inv_00) > 1e-8f) ? (1.0f / z_inv_00) : 1.0f;
+        float Nu_00    = Nu - shift_x * dNu_dx - shift_y * dNu_dy;
+        float Nv_00    = Nv - shift_x * dNv_dx - shift_y * dNv_dy;
+
+        float z_inv_10 = z_inv_00 + dD_dx;
+        float w_10     = (std::abs(z_inv_10) > 1e-8f) ? (1.0f / z_inv_10) : 1.0f;
+        float Nu_10    = Nu_00 + dNu_dx;
+        float Nv_10    = Nv_00 + dNv_dx;
+
+        float z_inv_01 = z_inv_00 + dD_dy;
+        float w_01     = (std::abs(z_inv_01) > 1e-8f) ? (1.0f / z_inv_01) : 1.0f;
+        float Nu_01    = Nu_00 + dNu_dy;
+        float Nv_01    = Nv_00 + dNv_dy;
+
+        float z_inv_11 = z_inv_00 + dD_dx + dD_dy;
+        float w_11     = (std::abs(z_inv_11) > 1e-8f) ? (1.0f / z_inv_11) : 1.0f;
+        float Nu_11    = Nu_00 + dNu_dx + dNu_dy;
+        float Nv_11    = Nv_00 + dNv_dx + dNv_dy;
+
+        float u_00 = Nu_00 * w_00, v_00 = Nv_00 * w_00;
+        float u_10 = Nu_10 * w_10, v_10 = Nv_10 * w_10;
+        float u_01 = Nu_01 * w_01, v_01 = Nv_01 * w_01;
+        float u_11 = Nu_11 * w_11, v_11 = Nv_11 * w_11;
+
+        // fine derivatives: row y and col x
+        float dudx = (shift_y == 0) ? (u_10 - u_00) : (u_11 - u_01);
+        float dvdx = (shift_y == 0) ? (v_10 - v_00) : (v_11 - v_01);
+        float dudy = (shift_x == 0) ? (u_01 - u_00) : (u_11 - u_10);
+        float dvdy = (shift_x == 0) ? (v_01 - v_00) : (v_11 - v_10);
+
+        SoftSamplerTLS::current_gradients.dudx          = dudx;
+        SoftSamplerTLS::current_gradients.dvdx          = dvdx;
+        SoftSamplerTLS::current_gradients.dudy          = dudy;
+        SoftSamplerTLS::current_gradients.dvdy          = dvdy;
+        SoftSamplerTLS::current_gradients.px            = x;
+        SoftSamplerTLS::current_gradients.py            = y;
+        SoftSamplerTLS::current_gradients.has_gradients = true;
+
         if (ctx.fragment_shader_mrt) {
             ctx.fragment_shader_mrt(interp, out_colors, 8);
         } else if (ctx.fshader_func) {
@@ -674,6 +738,8 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
             }
         }
     }
+
+    SoftSamplerTLS::current_gradients.has_gradients = false;
 }
 
 void SoftRasterizer::rasterize_triangles(std::span<const SoftRasterTriangle> triangles, const SoftRasterizerContext& ctx)

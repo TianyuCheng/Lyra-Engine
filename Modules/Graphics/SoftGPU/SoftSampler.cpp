@@ -99,3 +99,84 @@ Vector4 SoftSampler::sample_2d(const SoftTexture& tex, const SoftTextureView& vi
         return sample_single_mip(mip0);
     }
 }
+
+Vector4 SoftSampler::sample_2d_grad(const SoftTexture& tex, const SoftTextureView& view, float u, float v,
+    float dudx, float dvdx, float dudy, float dvdy) const
+{
+    float w_tex = static_cast<float>(tex.extent.width);
+    float h_tex = static_cast<float>(tex.extent.height);
+
+    float du_dx = dudx * w_tex;
+    float dv_dx = dvdx * h_tex;
+    float du_dy = dudy * w_tex;
+    float dv_dy = dvdy * h_tex;
+
+    float A = du_dx * du_dx + dv_dx * dv_dx;
+    float B = du_dy * du_dy + dv_dy * dv_dy;
+    float C = du_dx * du_dy + dv_dx * dv_dy;
+
+    float disc = std::sqrt(std::max(0.0f, (A - B) * (A - B) + 4.0f * C * C));
+    float l1   = 0.5f * (A + B + disc);
+    float l2   = 0.5f * std::max(0.0f, A + B - disc);
+
+    if (desc.max_anisotropy <= 1 || l1 < 1e-6f) {
+        float lod = (l1 > 1.0f) ? (0.5f * std::log2(l1)) : 0.0f;
+        return sample_2d(tex, view, u, v, lod);
+    }
+
+    bool  is_major_x   = (A >= B);
+    float len_major_sq = is_major_x ? A : B;
+    float len_major    = std::sqrt(len_major_sq);
+
+    float p_min = std::sqrt(l2);
+
+    float max_aniso = static_cast<float>(desc.max_anisotropy);
+    float aniso     = (p_min > 1e-6f) ? (len_major / p_min) : max_aniso;
+
+    float len_minor;
+    if (aniso > max_aniso) {
+        aniso     = max_aniso;
+        len_minor = len_major / aniso;
+    } else {
+        len_minor = p_min;
+    }
+
+    if (len_minor < 1.0f) {
+        aniso     = std::max(1.0f, aniso * len_minor);
+        len_minor = (aniso > 1e-6f) ? (len_major / aniso) : 1.0f;
+    }
+
+    float lod = std::max(0.0f, (len_minor > 1e-6f) ? std::log2(len_minor) : 0.0f);
+
+    if (aniso <= 1.0f) {
+        return sample_2d(tex, view, u, v, lod);
+    }
+
+    // Screen-aligned major axis direction
+    float dir_u = is_major_x ? dudx : dudy;
+    float dir_v = is_major_x ? dvdx : dvdy;
+
+    auto sample_at = [&](int n) -> Vector4 {
+        if (n <= 1) {
+            return sample_2d(tex, view, u, v, lod);
+        }
+        Vector4 accum{0.0f};
+        for (int i = 0; i < n; ++i) {
+            float t        = (static_cast<float>(i) - (static_cast<float>(n) - 1.0f) * 0.5f) / static_cast<float>(n);
+            float sample_u = u + t * dir_u;
+            float sample_v = v + t * dir_v;
+            accum += sample_2d(tex, view, sample_u, sample_v, lod);
+        }
+        return accum * (1.0f / static_cast<float>(n));
+    };
+
+    float n_exact = std::clamp(aniso, 1.0f, max_aniso);
+    int   n_floor = static_cast<int>(std::floor(n_exact));
+    int   n_ceil  = std::min(n_floor + 1, static_cast<int>(desc.max_anisotropy));
+
+    if (n_floor == n_ceil) {
+        return sample_at(n_floor);
+    }
+    float f = n_exact - static_cast<float>(n_floor);
+    return glm::mix(sample_at(n_floor), sample_at(n_ceil), f);
+}

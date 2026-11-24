@@ -8,6 +8,22 @@
 
 namespace lyra::softgpu
 {
+    struct SoftPixelGradients
+    {
+        float dudx          = 0.0f;
+        float dvdx          = 0.0f;
+        float dudy          = 0.0f;
+        float dvdy          = 0.0f;
+        int   px            = 0;
+        int   py            = 0;
+        bool  has_gradients = false;
+    };
+
+    struct SoftSamplerTLS
+    {
+        static inline thread_local SoftPixelGradients current_gradients{};
+    };
+
     struct SoftSampler
     {
         GPUSamplerDescriptor desc;
@@ -18,6 +34,8 @@ namespace lyra::softgpu
 
         float   wrap_coord(float coord, GPUAddressMode mode) const;
         Vector4 sample_2d(const SoftTexture& tex, const SoftTextureView& view, float u, float v, float lod = 0.0f) const;
+        Vector4 sample_2d_grad(const SoftTexture& tex, const SoftTextureView& view, float u, float v,
+            float dudx, float dvdx, float dudy, float dvdy) const;
 
         void destroy() {}
     };
