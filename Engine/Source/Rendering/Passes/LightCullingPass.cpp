@@ -148,7 +148,7 @@ LightCullingData LightCullingPass::add(
             data.cluster_grid_buffer = pass_builder.write(data.cluster_grid_buffer);
             data.light_index_list    = pass_builder.write(data.light_index_list);
         },
-        [this, &view, &scene, cluster_grid_x, cluster_grid_y, cluster_grid_z](const LightCullingData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
+        [this, view, &scene, cluster_grid_x, cluster_grid_y, cluster_grid_z](const LightCullingData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
             if (!ctx || !ctx->cmdlist.handle.valid() || !pipeline.valid() || blayouts.empty()) {
                 return;
             }

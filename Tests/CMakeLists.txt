@@ -100,6 +100,12 @@ add_subdirectory(forward_renderer_multilight)
 add_subdirectory(deferred_renderer)
 add_subdirectory(deferred_renderer_multilight)
 
+# 11. Post Processing
+add_subdirectory(postprocess_bloom)
+add_subdirectory(postprocess_dof)
+add_subdirectory(postprocess_tonemapping)
+add_subdirectory(postprocess_fxaa)
+
 # non-rhi / unit test cases
 add_subdirectory(spatial)
 add_subdirectory(scene_graph)

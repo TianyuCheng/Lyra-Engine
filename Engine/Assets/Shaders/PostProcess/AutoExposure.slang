@@ -1,6 +1,6 @@
 import lyra;
-import Common.Colorspace;
 import Common.Camera;
+import Common.Colorspace;
 
 static const float EPSILON = 1e-6;
 

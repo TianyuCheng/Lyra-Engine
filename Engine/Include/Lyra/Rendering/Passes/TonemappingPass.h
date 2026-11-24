@@ -72,10 +72,11 @@ namespace lyra::passes
             FrameGraphBuilder&                  builder,
             FrameGraphHandle<FrameGraphTexture> hdr_input,
             GPUExtent2D                         extent,
-            FrameGraphHandle<FrameGraphTexture> bloom_input = {},
+            FrameGraphHandle<FrameGraphTexture> bloom_input    = {},
             FrameGraphHandle<FrameGraphTexture> exposure_input = {},
-            const TonemappingSettings&          settings = {},
-            GPUTextureFormat                    output_format = GPUTextureFormat::RGBA8UNORM) -> TonemappingData;
+            const TonemappingSettings&          settings       = {},
+            GPUTextureFormat                    output_format  = GPUTextureFormat::RGBA8UNORM,
+            FrameGraphHandle<FrameGraphTexture> output_target  = {}) -> TonemappingData;
 
         [[nodiscard]] bool valid() const { return initialized && pipeline.valid(); }
 

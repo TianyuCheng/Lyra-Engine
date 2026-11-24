@@ -3,9 +3,9 @@
 #ifndef LYRA_ENGINE_RENDERING_PASSES_AUTO_EXPOSURE_PASS_H
 #define LYRA_ENGINE_RENDERING_PASSES_AUTO_EXPOSURE_PASS_H
 
+#include <Lyra/Utilities/Math.h>
 #include <Lyra/Graphics/RHITypes.h>
 #include <Lyra/Graphics/RHIDescs.h>
-#include <Lyra/Utilities/Math.h>
 #include <Lyra/Compiler/SLCTypes.h>
 #include <Lyra/Rendering/FrameGraph.h>
 #include <Lyra/Rendering/RendererTypes.h>
@@ -17,13 +17,13 @@ namespace lyra::passes
      */
     struct AutoExposureSettings
     {
-        float min_ev       = -4.0f;  // minimum EV100 clamp (darkness limit)
-        float max_ev       = 16.0f;  // maximum EV100 clamp (bright sunlight limit)
-        float speed_up     = 3.0f;   // adaptation speed from dark to bright (faster)
-        float speed_down   = 1.0f;   // adaptation speed from bright to dark (slower)
-        float low_percent  = 0.10f;  // low percentile to ignore (discard darkest 10%)
-        float high_percent = 0.90f;  // high percentile to ignore (discard brightest 10%)
-        bool  enabled      = true;   // auto exposure toggle
+        float min_ev       = -4.0f; // minimum EV100 clamp (darkness limit)
+        float max_ev       = 16.0f; // maximum EV100 clamp (bright sunlight limit)
+        float speed_up     = 3.0f;  // adaptation speed from dark to bright (faster)
+        float speed_down   = 1.0f;  // adaptation speed from bright to dark (slower)
+        float low_percent  = 0.10f; // low percentile to ignore (discard darkest 10%)
+        float high_percent = 0.90f; // high percentile to ignore (discard brightest 10%)
+        bool  enabled      = true;  // auto exposure toggle
     };
 
     /**

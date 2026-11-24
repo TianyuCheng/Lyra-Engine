@@ -24,7 +24,7 @@ static bool create_renderer(RendererHandle& out_handle, const RendererDescriptor
 {
     auto renderer = std::make_unique<ForwardRenderer>();
     if (RHI::api() && descriptor.compiler.handle.valid()) {
-        if (!renderer->init(descriptor.device, descriptor.compiler)) {
+        if (!renderer->init(descriptor.device, descriptor.compiler, descriptor.color_format, descriptor.depth_format)) {
             return false;
         }
     }

@@ -246,13 +246,12 @@ BloomData BloomPass::add(
             auto command = ctx->cmdlist;
 
             // precompute threshold curve
-            float knee = std::clamp(settings.knee, 0.0f, 1.0f) * settings.threshold;
+            float   knee = std::clamp(settings.knee, 0.0f, 1.0f) * settings.threshold;
             Vector4 threshold_curve{
                 settings.threshold,
                 settings.threshold - knee,
                 2.0f * knee,
-                0.25f / std::max(knee, 1e-4f)
-            };
+                0.25f / std::max(knee, 1e-4f)};
 
             // =========================================================================
             // Stage 1: Downsample Pyramid (5 Dispatches)
@@ -260,8 +259,8 @@ BloomData BloomPass::add(
             command.set_pipeline(downsample_pipeline);
 
             for (usize i = 0; i < 5; ++i) {
-                GPUExtent2D src_ext = (i == 0) ? extent : mips[i - 1];
-                GPUExtent2D dst_ext = mips[i];
+                GPUExtent2D    src_ext  = (i == 0) ? extent : mips[i - 1];
+                GPUExtent2D    dst_ext  = mips[i];
                 GPUTextureView src_view = (i == 0) ? input_tex->view : down_texs[i - 1]->view;
                 GPUTextureView dst_view = down_texs[i]->view;
 
@@ -304,7 +303,7 @@ BloomData BloomPass::add(
             command.set_pipeline(upsample_pipeline);
 
             for (int i = 3; i >= 0; --i) {
-                usize step = static_cast<usize>(i);
+                usize       step    = static_cast<usize>(i);
                 GPUExtent2D src_ext = mips[step + 1];
                 GPUExtent2D dst_ext = mips[step];
 

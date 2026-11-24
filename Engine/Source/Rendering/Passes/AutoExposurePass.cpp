@@ -1,5 +1,3 @@
-#include <algorithm>
-#include <cmath>
 #include <Lyra/Utilities/Math.h>
 #include <Lyra/Graphics/RHIAPI.h>
 #include <Lyra/Rendering/Passes/AutoExposurePass.h>
@@ -132,7 +130,17 @@ bool AutoExposurePass::init(GPUDevice dev, Compiler compiler)
         tdesc.mip_level_count = 1;
         return device.create_texture(tdesc);
     });
-    exposure_view = exposure_texture.create_view();
+    exposure_view    = exposure_texture.create_view();
+
+    execute([&]() {
+        auto cmd_desc  = GPUCommandBufferDescriptor{};
+        cmd_desc.label = "auto_exposure_tex_transition_cmd";
+        cmd_desc.queue = GPUQueueType::DEFAULT;
+        auto cmdbuf    = device.create_command_buffer(cmd_desc);
+        cmdbuf.resource_barrier(state_transition(exposure_texture, undefined_texture_state(), shader_resource_texture_state(GPUBarrierSync::ALL_SHADING)));
+        cmdbuf.submit();
+        device.wait();
+    });
 
     // 6. create bind group heap
     heap = execute([&]() {

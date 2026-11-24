@@ -33,7 +33,7 @@ namespace lyra::passes
     };
 
     /**
-     * @brief Fast Approximate Anti-Aliasing (FXAA) compute pass.
+     * @brief Fast Approximate Anti-Aliasing (FXAA) fullscreen raster pass.
      */
     struct FXAAPass
     {
@@ -47,7 +47,10 @@ namespace lyra::passes
         FXAAPass(FXAAPass&&) noexcept            = default;
         FXAAPass& operator=(FXAAPass&&) noexcept = default;
 
-        bool init(GPUDevice device, Compiler compiler);
+        bool init(
+            GPUDevice        device,
+            Compiler         compiler,
+            GPUTextureFormat output_format = GPUTextureFormat::RGBA8UNORM);
         void destroy();
 
         [[nodiscard]] bool valid() const { return initialized && pipeline.valid(); }
@@ -56,8 +59,9 @@ namespace lyra::passes
             FrameGraphBuilder&                  builder,
             FrameGraphHandle<FrameGraphTexture> input_color,
             GPUExtent2D                         extent,
-            GPUTextureFormat                    format = GPUTextureFormat::RGBA8UNORM,
-            const FXAASettings&                 settings = {}) -> FXAAData;
+            GPUTextureFormat                    format        = GPUTextureFormat::RGBA8UNORM,
+            const FXAASettings&                 settings      = {},
+            FrameGraphHandle<FrameGraphTexture> output_target = {}) -> FXAAData;
 
     private:
         struct alignas(16) FXAAPushConstants
@@ -74,12 +78,14 @@ namespace lyra::passes
         static_assert(sizeof(FXAAPushConstants) == 32, "FXAAPushConstants must be 32 bytes");
 
         GPUDevice                        device;
-        GPUShaderModule                  cshader;
-        GPUComputePipeline               pipeline;
+        GPUShaderModule                  vshader;
+        GPUShaderModule                  fshader;
+        GPURenderPipeline                pipeline;
         GPUPipelineLayout                playout;
         Vector<GPUBindGroupLayoutHandle> blayouts;
         GPUSampler                       linear_sampler;
         GPUBindGroupHeap                 heap;
+        GPUTextureFormat                 cached_output_format = GPUTextureFormat::RGBA8UNORM;
 
         bool initialized = false;
     };

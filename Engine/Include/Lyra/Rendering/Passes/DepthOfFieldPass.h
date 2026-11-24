@@ -17,10 +17,10 @@ namespace lyra::passes
      */
     struct DOFSettings
     {
-        float focal_distance  = 5.0f;   // distance in world units to the in-focus plane
-        float focal_length    = 0.05f;  // 50mm focal length lens (0.05m)
-        float aperture_f_stop = 2.8f;   // lens f-number N (e.g. f/1.4, f/2.8, f/5.6)
-        float max_coc_radius  = 16.0f;  // maximum blur radius in pixels
+        float focal_distance  = 5.0f;  // distance in world units to the in-focus plane
+        float focal_length    = 0.05f; // 50mm focal length lens (0.05m)
+        float aperture_f_stop = 2.8f;  // lens f-number N (e.g. f/1.4, f/2.8, f/5.6)
+        float max_coc_radius  = 16.0f; // maximum blur radius in pixels
         bool  enabled         = true;
     };
 

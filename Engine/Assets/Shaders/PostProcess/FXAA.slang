@@ -1,6 +1,12 @@
 import lyra;
 import Common.Colorspace;
 
+struct VertexOutput
+{
+    float4 position : SV_Position;
+    float2 uv       : TEXCOORD0;
+};
+
 struct FXAAParams
 {
     float2 inv_screen_size;
@@ -21,24 +27,35 @@ Texture2D<float4> input_texture;
 [[lyra::binding(1, 0)]]
 SamplerState linear_sampler;
 
-[[lyra::binding(2, 0)]]
-RWTexture2D<float4> out_texture;
-
 float rgb_to_luma(float3 rgb)
 {
     return linear_srgb_to_luminance(rgb);
 }
 
-[shader("compute")]
-[numthreads(8, 8, 1)]
-void cs_fxaa(uint3 dispatch_thread_id : SV_DispatchThreadID)
+[shader("vertex")]
+VertexOutput vsmain(uint vertex_id : SV_VertexID)
 {
-    uint2 pixel = dispatch_thread_id.xy;
-    if (pixel.x >= params.screen_width || pixel.y >= params.screen_height) {
-        return;
-    }
+    static const float2 quad_vertices[6] = {
+        float2(-1.0, -1.0),
+        float2( 1.0, -1.0),
+        float2( 1.0,  1.0),
+        float2(-1.0, -1.0),
+        float2( 1.0,  1.0),
+        float2(-1.0,  1.0)
+    };
 
-    float2 uv = (float2(pixel) + 0.5) * params.inv_screen_size;
+    float2 p = quad_vertices[vertex_id];
+
+    VertexOutput output;
+    output.position = float4(p, 0.0, 1.0);
+    output.uv       = float2(p.x * 0.5 + 0.5, 0.5 - p.y * 0.5);
+    return output;
+}
+
+[shader("fragment")]
+float4 fsmain(VertexOutput input) : SV_Target
+{
+    float2 uv = input.uv;
     float2 d  = params.inv_screen_size;
 
     // 1. Fetch 5 local luma samples
@@ -56,8 +73,7 @@ void cs_fxaa(uint3 dispatch_thread_id : SV_DispatchThreadID)
 
     // If local contrast is below threshold, skip AA
     if (luma_range < max(params.edge_threshold_min, luma_max * params.edge_threshold)) {
-        out_texture[pixel] = float4(color_m, 1.0);
-        return;
+        return float4(color_m, 1.0);
     }
 
     // 2. Fetch corner samples
@@ -67,33 +83,37 @@ void cs_fxaa(uint3 dispatch_thread_id : SV_DispatchThreadID)
     float luma_se = rgb_to_luma(input_texture.SampleLevel(linear_sampler, uv + float2( d.x,  d.y), 0.0).rgb);
 
     // 3. Compute edge direction (horizontal vs vertical)
-    float edge_horz = abs((luma_nw + luma_ne) - 2.0 * luma_n) +
-                      2.0 * abs((luma_w + luma_e) - 2.0 * luma_m) +
-                      abs((luma_sw + luma_se) - 2.0 * luma_s);
-
-    float edge_vert = abs((luma_nw + luma_sw) - 2.0 * luma_w) +
+    // Horizontal edge: high contrast vertically (between North and South)
+    float edge_horz = abs((luma_nw + luma_sw) - 2.0 * luma_w) +
                       2.0 * abs((luma_n + luma_s) - 2.0 * luma_m) +
                       abs((luma_ne + luma_se) - 2.0 * luma_e);
 
+    // Vertical edge: high contrast horizontally (between West and East)
+    float edge_vert = abs((luma_nw + luma_ne) - 2.0 * luma_n) +
+                      2.0 * abs((luma_w + luma_e) - 2.0 * luma_m) +
+                      abs((luma_sw + luma_se) - 2.0 * luma_s);
+
     bool is_horizontal = edge_horz >= edge_vert;
 
-    // 4. Select edge orientation and step
+    // 4. Select edge orientation and step towards the edge (the side with highest gradient)
     float luma_1 = is_horizontal ? luma_n : luma_w;
     float luma_2 = is_horizontal ? luma_s : luma_e;
     float grad_1 = abs(luma_1 - luma_m);
     float grad_2 = abs(luma_2 - luma_m);
 
+    // Step towards side 1 (-d) if grad_1 >= grad_2, else side 2 (+d)
     float step_length = is_horizontal ? d.y : d.x;
-    if (grad_1 < grad_2) {
+    if (grad_1 >= grad_2) {
         step_length = -step_length;
     }
 
-    // 5. Sub-pixel blending factor
-    float luma_avg = (luma_n + luma_s + luma_w + luma_e) * 0.25;
+    // 5. Sub-pixel blending factor using low-pass 3x3 filter
+    float luma_l          = (luma_n + luma_s + luma_w + luma_e) * 2.0 + (luma_nw + luma_ne + luma_sw + luma_se);
+    float luma_avg        = luma_l / 12.0;
     float subpixel_offset = clamp(abs(luma_avg - luma_m) / luma_range, 0.0, 1.0);
-    float blend_factor = subpixel_offset * subpixel_offset * params.subpixel_quality;
+    float blend_factor    = subpixel_offset * subpixel_offset * params.subpixel_quality;
 
-    // Sample along edge
+    // Sample across the edge
     float2 blend_uv = uv;
     if (is_horizontal) {
         blend_uv.y += step_length * blend_factor;
@@ -102,5 +122,5 @@ void cs_fxaa(uint3 dispatch_thread_id : SV_DispatchThreadID)
     }
 
     float3 final_color = input_texture.SampleLevel(linear_sampler, blend_uv, 0.0).rgb;
-    out_texture[pixel] = float4(final_color, 1.0);
+    return float4(final_color, 1.0);
 }

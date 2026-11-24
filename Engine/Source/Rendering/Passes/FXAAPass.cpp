@@ -7,15 +7,19 @@
 using namespace lyra;
 using namespace lyra::passes;
 
-bool FXAAPass::init(GPUDevice dev, Compiler compiler)
+bool FXAAPass::init(GPUDevice dev, Compiler compiler, GPUTextureFormat output_format)
 {
     if (initialized) {
-        return true;
+        if (cached_output_format == output_format) {
+            return true;
+        }
+        destroy();
     }
 
-    device = dev;
+    device               = dev;
+    cached_output_format = output_format;
 
-    // 1. compile compute shader module from sys://Shaders/PostProcess/FXAA.slang
+    // 1. compile vertex and fragment shaders from sys://Shaders/PostProcess/FXAA.slang
     auto module = execute([&]() {
         auto desc   = CompileDescriptor{};
         desc.module = "fxaa";
@@ -28,23 +32,34 @@ bool FXAAPass::init(GPUDevice dev, Compiler compiler)
         return false;
     }
 
-    // 2. reflect and create compute pipeline
+    // 2. reflect and create render pipeline
     auto reflection = compiler.reflect({
-        {*module, "cs_fxaa"},
+        {*module, "vsmain"},
+        {*module, "fsmain"},
     });
     if (!reflection) {
         return false;
     }
 
-    cshader = execute([&]() {
-        auto code  = module->get_shader_blob("cs_fxaa");
+    vshader = execute([&]() {
+        auto code  = module->get_shader_blob("vsmain");
         auto desc  = GPUShaderModuleDescriptor{};
-        desc.label = "fxaa_compute_shader";
+        desc.label = "fxaa_vertex_shader";
         desc.data  = code->data;
         desc.size  = code->size;
         return device.create_shader_module(desc);
     });
-    if (!cshader.valid()) {
+
+    fshader = execute([&]() {
+        auto code  = module->get_shader_blob("fsmain");
+        auto desc  = GPUShaderModuleDescriptor{};
+        desc.label = "fxaa_fragment_shader";
+        desc.data  = code->data;
+        desc.size  = code->size;
+        return device.create_shader_module(desc);
+    });
+
+    if (!vshader.valid() || !fshader.valid()) {
         return false;
     }
 
@@ -61,15 +76,6 @@ bool FXAAPass::init(GPUDevice dev, Compiler compiler)
         return device.create_pipeline_layout(desc);
     });
 
-    pipeline = execute([&]() {
-        auto cp_desc                = GPUComputePipelineDescriptor{};
-        cp_desc.label               = "fxaa_pipeline";
-        cp_desc.layout              = playout;
-        cp_desc.compute.module      = cshader;
-        cp_desc.compute.entry_point = "cs_fxaa";
-        return device.create_compute_pipeline(cp_desc);
-    });
-
     // 3. create bilinear clamp sampler
     linear_sampler = execute([&]() {
         auto desc           = GPUSamplerDescriptor{};
@@ -81,6 +87,29 @@ bool FXAAPass::init(GPUDevice dev, Compiler compiler)
         desc.address_mode_v = GPUAddressMode::CLAMP_TO_EDGE;
         desc.address_mode_w = GPUAddressMode::CLAMP_TO_EDGE;
         return device.create_sampler(desc);
+    });
+
+    pipeline = execute([&]() {
+        Vector<GPUColorTargetState> rstates;
+        auto                        color_state = GPUColorTargetState{};
+        color_state.format                      = cached_output_format;
+        color_state.blend_enable                = false;
+        rstates.push_back(color_state);
+
+        auto desc                         = GPURenderPipelineDescriptor{};
+        desc.layout                       = playout;
+        desc.primitive.cull_mode          = GPUCullMode::NONE;
+        desc.primitive.topology           = GPUPrimitiveTopology::TRIANGLE_LIST;
+        desc.primitive.front_face         = GPUFrontFace::CCW;
+        desc.primitive.strip_index_format = GPUIndexFormat::UINT32;
+        desc.multisample.count            = 1;
+        desc.vertex.module                = vshader;
+        desc.vertex.buffers               = {};
+        desc.vertex.entry_point           = "vsmain";
+        desc.fragment.module              = fshader;
+        desc.fragment.targets             = rstates;
+        desc.fragment.entry_point         = "fsmain";
+        return device.create_render_pipeline(desc);
     });
 
     // 4. create bind group heap
@@ -106,7 +135,8 @@ void FXAAPass::destroy()
     if (linear_sampler.valid()) linear_sampler.destroy();
     if (pipeline.valid()) pipeline.destroy();
     if (playout.valid()) playout.destroy();
-    if (cshader.valid()) cshader.destroy();
+    if (fshader.valid()) fshader.destroy();
+    if (vshader.valid()) vshader.destroy();
 
     blayouts.clear();
     initialized = false;
@@ -117,25 +147,30 @@ FXAAData FXAAPass::add(
     FrameGraphHandle<FrameGraphTexture> input_color,
     GPUExtent2D                         extent,
     GPUTextureFormat                    format,
-    const FXAASettings&                 settings)
+    const FXAASettings&                 settings,
+    FrameGraphHandle<FrameGraphTexture> output_target)
 {
     return builder.add_pass<FXAAData>(
         "FXAAPass",
         [&](FXAAData& data, FrameGraphPassBuilder& pass_builder) {
             data.color_input = pass_builder.sample(input_color);
 
-            auto out_desc            = GPUTextureDescriptor{};
-            out_desc.label           = "fxaa_output_texture";
-            out_desc.size.width      = extent.width;
-            out_desc.size.height     = extent.height;
-            out_desc.size.depth      = 1;
-            out_desc.dimension       = GPUTextureDimension::x2D;
-            out_desc.format          = format;
-            out_desc.usage           = GPUTextureUsage::STORAGE_BINDING | GPUTextureUsage::TEXTURE_BINDING;
-            out_desc.mip_level_count = 1;
+            if (output_target.valid()) {
+                data.color_output = pass_builder.render(output_target);
+            } else {
+                auto out_desc            = GPUTextureDescriptor{};
+                out_desc.label           = "fxaa_output_texture";
+                out_desc.size.width      = extent.width;
+                out_desc.size.height     = extent.height;
+                out_desc.size.depth      = 1;
+                out_desc.dimension       = GPUTextureDimension::x2D;
+                out_desc.format          = format;
+                out_desc.usage           = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
+                out_desc.mip_level_count = 1;
 
-            data.color_output = pass_builder.create<FrameGraphTexture>(out_desc);
-            data.color_output = pass_builder.write(data.color_output);
+                data.color_output = pass_builder.create<FrameGraphTexture>(out_desc);
+                data.color_output = pass_builder.render(data.color_output);
+            }
         },
         [this, extent, settings](const FXAAData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
             if (!ctx || !ctx->cmdlist.handle.valid() || !valid()) {
@@ -148,7 +183,29 @@ FXAAData FXAAPass::add(
                 return;
             }
 
-            auto command = ctx->cmdlist;
+            Array<GPUBindGroupEntry, 2> entries{};
+            entries[0].type    = GPUResourceType::TEXTURE;
+            entries[0].binding = 0;
+            entries[0].texture = in_tex->view;
+
+            entries[1].type    = GPUResourceType::SAMPLER;
+            entries[1].binding = 1;
+            entries[1].sampler = linear_sampler;
+
+            auto bg_desc    = GPUBindGroupDescriptor{};
+            bg_desc.heap    = heap;
+            bg_desc.layout  = blayouts[0];
+            bg_desc.entries = entries;
+            auto bg         = device.create_bind_group(bg_desc);
+
+            auto color_attachment        = GPURenderPassColorAttachment{};
+            color_attachment.view        = out_tex->view;
+            color_attachment.clear_value = GPUColor{0.0f, 0.0f, 0.0f, 1.0f};
+            color_attachment.load_op     = GPULoadOp::CLEAR;
+            color_attachment.store_op    = GPUStoreOp::STORE;
+
+            auto desc              = GPURenderPassDescriptor{};
+            desc.color_attachments = color_attachment;
 
             FXAAPushConstants push{};
             push.inv_screen_size    = Vector2(1.0f / static_cast<float>(extent.width), 1.0f / static_cast<float>(extent.height));
@@ -158,29 +215,14 @@ FXAAData FXAAPass::add(
             push.screen_width       = extent.width;
             push.screen_height      = extent.height;
 
+            auto command = ctx->cmdlist;
+            command.begin_render_pass(desc);
+            command.set_viewport(0.0f, 0.0f, static_cast<float>(extent.width), static_cast<float>(extent.height));
+            command.set_scissor_rect(0, 0, extent.width, extent.height);
             command.set_pipeline(pipeline);
-
-            Array<GPUBindGroupEntry, 3> entries{};
-            entries[0].type    = GPUResourceType::TEXTURE;
-            entries[0].binding = 0;
-            entries[0].texture = in_tex->view;
-
-            entries[1].type    = GPUResourceType::SAMPLER;
-            entries[1].binding = 1;
-            entries[1].sampler = linear_sampler;
-
-            entries[2].type    = GPUResourceType::STORAGE_TEXTURE;
-            entries[2].binding = 2;
-            entries[2].texture = out_tex->view;
-
-            auto bg_desc    = GPUBindGroupDescriptor{};
-            bg_desc.heap    = heap;
-            bg_desc.layout  = blayouts[0];
-            bg_desc.entries = entries;
-            auto bg         = device.create_bind_group(bg_desc);
-
             command.set_bind_group(0, bg);
             command.set_immediates(0, push);
-            command.dispatch_workgroups((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
+            command.draw(6, 1, 0, 0);
+            command.end_render_pass();
         });
 }

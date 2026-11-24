@@ -128,7 +128,7 @@ bool TonemappingPass::init(
     });
 
     // 2. default 1x1 black bloom fallback
-    default_bloom_tex = execute([&]() {
+    default_bloom_tex  = execute([&]() {
         auto desc            = GPUTextureDescriptor{};
         desc.label           = "default_black_bloom";
         desc.size            = {1, 1, 1};
@@ -141,7 +141,7 @@ bool TonemappingPass::init(
     default_bloom_view = default_bloom_tex.create_view();
 
     // 3. default 1x1 unit exposure fallback
-    default_exposure_tex = execute([&]() {
+    default_exposure_tex  = execute([&]() {
         auto desc            = GPUTextureDescriptor{};
         desc.label           = "default_unit_exposure";
         desc.size            = {1, 1, 1};
@@ -152,6 +152,17 @@ bool TonemappingPass::init(
         return device.create_texture(desc);
     });
     default_exposure_view = default_exposure_tex.create_view();
+
+    execute([&]() {
+        auto cmd_desc  = GPUCommandBufferDescriptor{};
+        cmd_desc.label = "tonemap_default_tex_transition_cmd";
+        cmd_desc.queue = GPUQueueType::DEFAULT;
+        auto cmdbuf    = device.create_command_buffer(cmd_desc);
+        cmdbuf.resource_barrier(state_transition(default_bloom_tex, undefined_texture_state(), shader_resource_texture_state(GPUBarrierSync::ALL_SHADING)));
+        cmdbuf.resource_barrier(state_transition(default_exposure_tex, undefined_texture_state(), shader_resource_texture_state(GPUBarrierSync::ALL_SHADING)));
+        cmdbuf.submit();
+        device.wait();
+    });
 
     initialized = pipeline.valid();
     return initialized;
@@ -187,7 +198,8 @@ TonemappingData TonemappingPass::add(
     FrameGraphHandle<FrameGraphTexture> bloom_input,
     FrameGraphHandle<FrameGraphTexture> exposure_input,
     const TonemappingSettings&          settings,
-    GPUTextureFormat                    output_format)
+    GPUTextureFormat                    output_format,
+    FrameGraphHandle<FrameGraphTexture> output_target)
 {
     return builder.add_pass<TonemappingData>(
         "TonemappingPass",
@@ -200,16 +212,20 @@ TonemappingData TonemappingPass::add(
                 data.exposure_input = pass_builder.sample(exposure_input);
             }
 
-            auto ldr_desc        = GPUTextureDescriptor{};
-            ldr_desc.label       = "tonemapped_ldr_buffer";
-            ldr_desc.size.width  = extent.width;
-            ldr_desc.size.height = extent.height;
-            ldr_desc.size.depth  = 1;
-            ldr_desc.dimension   = GPUTextureDimension::x2D;
-            ldr_desc.format      = output_format;
-            ldr_desc.usage       = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
-            data.ldr_output      = pass_builder.create<FrameGraphTexture>(ldr_desc);
-            data.ldr_output      = pass_builder.render(data.ldr_output);
+            if (output_target.valid()) {
+                data.ldr_output = pass_builder.render(output_target);
+            } else {
+                auto ldr_desc        = GPUTextureDescriptor{};
+                ldr_desc.label       = "tonemapped_ldr_buffer";
+                ldr_desc.size.width  = extent.width;
+                ldr_desc.size.height = extent.height;
+                ldr_desc.size.depth  = 1;
+                ldr_desc.dimension   = GPUTextureDimension::x2D;
+                ldr_desc.format      = output_format;
+                ldr_desc.usage       = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
+                data.ldr_output      = pass_builder.create<FrameGraphTexture>(ldr_desc);
+                data.ldr_output      = pass_builder.render(data.ldr_output);
+            }
         },
         [this, extent, settings](const TonemappingData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
             if (!ctx || !ctx->cmdlist.handle.valid() || !pipeline.valid()) {

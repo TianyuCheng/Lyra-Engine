@@ -90,5 +90,5 @@ float4 fsmain(VertexOutput input) : SV_Target
     }
 
     float3 srgb = linear_to_srgb(mapped);
-    return float4(srgb, hdr_sample.a);
+    return float4(srgb, 1.0);
 }

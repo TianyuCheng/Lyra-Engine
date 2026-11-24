@@ -20,7 +20,11 @@ namespace lyra
         ForwardRenderer()  = default;
         ~ForwardRenderer() = default;
 
-        bool init(GPUDevice device, Compiler compiler);
+        bool init(
+            GPUDevice        device,
+            Compiler         compiler,
+            GPUTextureFormat color_format = GPUTextureFormat::RGBA8UNORM,
+            GPUTextureFormat depth_format = GPUTextureFormat::DEPTH32FLOAT);
         void shutdown();
 
         auto render(const RenderFrameContext& ctx) -> FrameGraphHandle<FrameGraphTexture>;
@@ -30,6 +34,10 @@ namespace lyra
         void get_settings(RendererSettings& out) const { out = settings; }
         void get_statistics(RendererStats& out) const { out = stats; }
 
+        [[nodiscard]] bool             is_initialized() const { return initialized; }
+        [[nodiscard]] GPUTextureFormat get_color_format() const { return cached_color_format; }
+        [[nodiscard]] GPUTextureFormat get_depth_format() const { return cached_depth_format; }
+
         void draw_debug_panel();
 
     private:
@@ -37,6 +45,8 @@ namespace lyra
         Compiler         compiler;
         RendererSettings settings;
         RendererStats    stats;
+        GPUTextureFormat cached_color_format = GPUTextureFormat::RGBA8UNORM;
+        GPUTextureFormat cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;
 
         // composed engine passes
         passes::ForwardPass      forward_pass;

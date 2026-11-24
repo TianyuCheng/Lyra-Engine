@@ -43,12 +43,16 @@ float compute_coc(float linear_z)
     float f = params.focal_length;
     float n = params.aperture_f_stop;
 
-    // Thin lens formula: CoC = (A * f / (s - f)) * abs(s - z) / z
+    // Thin lens formula: CoC on film/sensor in meters = (A * f / (s - f)) * (z - s) / z
     float aperture_diameter = f / n;
-    float coc_scale = (aperture_diameter * f) / max(abs(s - f), 1e-4);
-    float coc = coc_scale * (linear_z - s) / max(linear_z, 1e-4);
+    float coc_scale         = (aperture_diameter * f) / max(abs(s - f), 1e-4);
+    float coc_meters        = coc_scale * (linear_z - s) / max(linear_z, 1e-4);
 
-    return clamp(coc / max(params.max_coc_radius, 1e-4), -1.0, 1.0);
+    // Convert meters on sensor to screen pixels (standard 24mm full-frame 35mm film sensor height)
+    static const float SENSOR_HEIGHT = 0.024;
+    float coc_pixels                 = (coc_meters / SENSOR_HEIGHT) * float(params.screen_height);
+
+    return clamp(coc_pixels / max(params.max_coc_radius, 1e-4), -1.0, 1.0);
 }
 
 [shader("compute")]

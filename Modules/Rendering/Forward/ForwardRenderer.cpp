@@ -8,17 +8,30 @@
 
 using namespace lyra;
 
-bool ForwardRenderer::init(GPUDevice in_device, Compiler in_compiler)
+bool ForwardRenderer::init(
+    GPUDevice        in_device,
+    Compiler         in_compiler,
+    GPUTextureFormat in_color_format,
+    GPUTextureFormat in_depth_format)
 {
-    device   = in_device;
-    compiler = in_compiler;
+    if (initialized) {
+        if (cached_color_format == in_color_format && cached_depth_format == in_depth_format) {
+            return true;
+        }
+        shutdown();
+    }
+
+    device              = in_device;
+    compiler            = in_compiler;
+    cached_color_format = in_color_format;
+    cached_depth_format = in_depth_format;
 
     if (!RHI::api() || !compiler.handle.valid()) {
         return false;
     }
 
     // 1. initialize core forward pass
-    if (!forward_pass.init(device, compiler)) {
+    if (!forward_pass.init(device, compiler, cached_color_format, cached_depth_format)) {
         return false;
     }
 
@@ -32,10 +45,10 @@ bool ForwardRenderer::init(GPUDevice in_device, Compiler in_compiler)
     light_culling_pass.init(device, compiler);
 
     // 5. initialize atmospheric skybox pass
-    skybox_pass.init(device, compiler);
+    skybox_pass.init(device, compiler, cached_color_format, cached_depth_format);
 
     // 6. initialize tonemapping pass
-    tonemap_pass.init(device, compiler);
+    tonemap_pass.init(device, compiler, cached_color_format);
 
     initialized = forward_pass.valid();
     return initialized;
@@ -70,6 +83,19 @@ FrameGraphHandle<FrameGraphTexture> ForwardRenderer::render(const RenderFrameCon
                              : ctx.display_extent;
 
     if (extent.width == 0 || extent.height == 0) {
+        return ctx.color_target;
+    }
+
+    // lazy-init if created without active RHI or if formats changed
+    if ((!initialized || cached_color_format != ctx.color_format || cached_depth_format != ctx.depth_format) && RHI::api()) {
+        auto dev  = RHI::get_current_device();
+        auto comp = compiler.handle.valid() ? compiler : (ctx.services ? *ctx.services->try_get<Compiler*>() : Compiler{});
+        if (comp.handle.valid()) {
+            init(dev, comp, ctx.color_format, ctx.depth_format);
+        }
+    }
+
+    if (!initialized) {
         return ctx.color_target;
     }
 

@@ -17,10 +17,10 @@ namespace lyra::passes
      */
     struct BloomSettings
     {
-        float threshold       = 1.0f;  // luminance threshold for bright pass
-        float knee            = 0.5f;  // soft knee threshold falloff [0, 1]
-        float intensity       = 1.0f;  // bloom glow intensity multiplier
-        float upsample_radius = 1.0f;  // upsample tent filter radius scale
+        float threshold       = 1.0f; // luminance threshold for bright pass
+        float knee            = 0.5f; // soft knee threshold falloff [0, 1]
+        float intensity       = 1.0f; // bloom glow intensity multiplier
+        float upsample_radius = 1.0f; // upsample tent filter radius scale
         bool  enabled         = true;
     };
 
@@ -68,7 +68,7 @@ namespace lyra::passes
         {
             Vector2 inv_src_size;
             Vector2 inv_dst_size;
-            Vector4 threshold;     // x: threshold, y: threshold - knee, z: 2*knee, w: 0.25/knee
+            Vector4 threshold; // x: threshold, y: threshold - knee, z: 2*knee, w: 0.25/knee
             float   bloom_intensity = 1.0f;
             float   upsample_radius = 1.0f;
             uint    dst_width       = 0;
