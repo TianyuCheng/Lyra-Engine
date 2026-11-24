@@ -7,16 +7,19 @@ using namespace lyra::passes;
 
 namespace
 {
-    struct TonemapParams
+    struct TonemapPushConstants
     {
-        float exposure      = 1.0f;
-        uint  operator_type = 0; // 0 = ACES, 1 = Reinhard, 2 = AgX, 3 = Uncharted2
-        float padding[2]    = {0.0f, 0.0f};
+        float exposure          = 1.0f;
+        uint  operator_type     = 0; // 0 = ACES, 1 = Reinhard, 2 = AgX, 3 = Uncharted2
+        float bloom_intensity   = 1.0f;
+        uint  use_auto_exposure = 0;
     };
+
+    static_assert(sizeof(TonemapPushConstants) == 16, "TonemapPushConstants must be 16 bytes");
 } // namespace
 
 bool TonemappingPass::init(
-    GPUDevice        device,
+    GPUDevice        dev,
     Compiler         compiler,
     GPUTextureFormat output_format)
 {
@@ -27,10 +30,10 @@ bool TonemappingPass::init(
         destroy();
     }
 
-    this->device               = device;
-    this->cached_output_format = output_format;
+    device               = dev;
+    cached_output_format = output_format;
 
-    // compile tonemapping shader asset
+    // 1. compile tonemapping shader asset
     auto module = execute([&]() {
         auto desc   = CompileDescriptor{};
         desc.module = "tonemap";
@@ -124,8 +127,34 @@ bool TonemappingPass::init(
         return device.create_bind_group_heap(desc);
     });
 
-    initialized = true;
-    return true;
+    // 2. default 1x1 black bloom fallback
+    default_bloom_tex = execute([&]() {
+        auto desc            = GPUTextureDescriptor{};
+        desc.label           = "default_black_bloom";
+        desc.size            = {1, 1, 1};
+        desc.dimension       = GPUTextureDimension::x2D;
+        desc.format          = GPUTextureFormat::RGBA16FLOAT;
+        desc.usage           = GPUTextureUsage::TEXTURE_BINDING | GPUTextureUsage::COPY_DST;
+        desc.mip_level_count = 1;
+        return device.create_texture(desc);
+    });
+    default_bloom_view = default_bloom_tex.create_view();
+
+    // 3. default 1x1 unit exposure fallback
+    default_exposure_tex = execute([&]() {
+        auto desc            = GPUTextureDescriptor{};
+        desc.label           = "default_unit_exposure";
+        desc.size            = {1, 1, 1};
+        desc.dimension       = GPUTextureDimension::x2D;
+        desc.format          = GPUTextureFormat::RGBA16FLOAT;
+        desc.usage           = GPUTextureUsage::TEXTURE_BINDING | GPUTextureUsage::COPY_DST;
+        desc.mip_level_count = 1;
+        return device.create_texture(desc);
+    });
+    default_exposure_view = default_exposure_tex.create_view();
+
+    initialized = pipeline.valid();
+    return initialized;
 }
 
 void TonemappingPass::destroy()
@@ -136,6 +165,10 @@ void TonemappingPass::destroy()
 
     device.wait();
 
+    if (default_exposure_view.valid()) default_exposure_view.destroy();
+    if (default_exposure_tex.valid()) default_exposure_tex.destroy();
+    if (default_bloom_view.valid()) default_bloom_view.destroy();
+    if (default_bloom_tex.valid()) default_bloom_tex.destroy();
     if (heap.valid()) heap.destroy();
     if (sampler.valid()) sampler.destroy();
     if (pipeline.valid()) pipeline.destroy();
@@ -143,7 +176,6 @@ void TonemappingPass::destroy()
     if (fshader.valid()) fshader.destroy();
     if (vshader.valid()) vshader.destroy();
     blayouts.clear();
-    bind_group = {};
 
     initialized = false;
 }
@@ -151,18 +183,27 @@ void TonemappingPass::destroy()
 TonemappingData TonemappingPass::add(
     FrameGraphBuilder&                  builder,
     FrameGraphHandle<FrameGraphTexture> hdr_input,
-    const RendererSettings&             settings,
+    GPUExtent2D                         extent,
+    FrameGraphHandle<FrameGraphTexture> bloom_input,
+    FrameGraphHandle<FrameGraphTexture> exposure_input,
+    const TonemappingSettings&          settings,
     GPUTextureFormat                    output_format)
 {
     return builder.add_pass<TonemappingData>(
         "TonemappingPass",
         [&](TonemappingData& data, FrameGraphPassBuilder& pass_builder) {
             data.hdr_input = pass_builder.sample(hdr_input);
+            if (bloom_input.valid()) {
+                data.bloom_input = pass_builder.sample(bloom_input);
+            }
+            if (exposure_input.valid()) {
+                data.exposure_input = pass_builder.sample(exposure_input);
+            }
 
             auto ldr_desc        = GPUTextureDescriptor{};
             ldr_desc.label       = "tonemapped_ldr_buffer";
-            ldr_desc.size.width  = 1280;
-            ldr_desc.size.height = 720;
+            ldr_desc.size.width  = extent.width;
+            ldr_desc.size.height = extent.height;
             ldr_desc.size.depth  = 1;
             ldr_desc.dimension   = GPUTextureDimension::x2D;
             ldr_desc.format      = output_format;
@@ -170,7 +211,7 @@ TonemappingData TonemappingPass::add(
             data.ldr_output      = pass_builder.create<FrameGraphTexture>(ldr_desc);
             data.ldr_output      = pass_builder.render(data.ldr_output);
         },
-        [this, settings](const TonemappingData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
+        [this, extent, settings](const TonemappingData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
             if (!ctx || !ctx->cmdlist.handle.valid() || !pipeline.valid()) {
                 return;
             }
@@ -181,8 +222,21 @@ TonemappingData TonemappingPass::add(
                 return;
             }
 
-            // create transient bind group pairing the HDR input texture view and linear sampler
-            Array<GPUBindGroupEntry, 2> entries = {};
+            GPUTextureView bloom_v = default_bloom_view;
+            if (data.bloom_input.valid()) {
+                if (auto b_tex = resources.get<FrameGraphTexture>(data.bloom_input)) {
+                    bloom_v = b_tex->view;
+                }
+            }
+
+            GPUTextureView exposure_v = default_exposure_view;
+            if (data.exposure_input.valid()) {
+                if (auto e_tex = resources.get<FrameGraphTexture>(data.exposure_input)) {
+                    exposure_v = e_tex->view;
+                }
+            }
+
+            Array<GPUBindGroupEntry, 4> entries = {};
             entries.at(0).type                  = GPUResourceType::TEXTURE;
             entries.at(0).binding               = 0;
             entries.at(0).texture               = hdr_tex->view;
@@ -190,6 +244,14 @@ TonemappingData TonemappingPass::add(
             entries.at(1).type    = GPUResourceType::SAMPLER;
             entries.at(1).binding = 1;
             entries.at(1).sampler = sampler;
+
+            entries.at(2).type    = GPUResourceType::TEXTURE;
+            entries.at(2).binding = 2;
+            entries.at(2).texture = bloom_v;
+
+            entries.at(3).type    = GPUResourceType::TEXTURE;
+            entries.at(3).binding = 3;
+            entries.at(3).texture = exposure_v;
 
             auto bg_desc    = GPUBindGroupDescriptor{};
             bg_desc.heap    = heap;
@@ -206,17 +268,19 @@ TonemappingData TonemappingPass::add(
             auto desc              = GPURenderPassDescriptor{};
             desc.color_attachments = color_attachment;
 
-            TonemapParams params{};
-            params.exposure      = settings.exposure;
-            params.operator_type = 0; // ACES filmic default
+            TonemapPushConstants push{};
+            push.exposure          = settings.exposure;
+            push.operator_type     = settings.operator_type;
+            push.bloom_intensity   = settings.bloom_intensity;
+            push.use_auto_exposure = settings.use_auto_exposure ? 1 : 0;
 
             auto command = ctx->cmdlist;
             command.begin_render_pass(desc);
-            command.set_viewport(0.0f, 0.0f, 1280.0f, 720.0f);
-            command.set_scissor_rect(0, 0, 1280, 720);
+            command.set_viewport(0.0f, 0.0f, static_cast<float>(extent.width), static_cast<float>(extent.height));
+            command.set_scissor_rect(0, 0, extent.width, extent.height);
             command.set_pipeline(pipeline);
             command.set_bind_group(0, bg);
-            command.set_immediates(0, params);
+            command.set_immediates(0, push);
             command.draw(6, 1, 0, 0);
             command.end_render_pass();
         });

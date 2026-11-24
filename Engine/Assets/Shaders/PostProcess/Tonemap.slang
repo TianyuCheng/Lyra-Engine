@@ -10,8 +10,9 @@ struct VertexOutput
 struct TonemapParams
 {
     float exposure;
-    uint  operator_type; // 0 = ACES, 1 = Reinhard, 2 = AgX, 3 = Uncharted2
-    float2 padding;
+    uint  operator_type;     // 0 = ACES, 1 = Reinhard, 2 = AgX, 3 = Uncharted2
+    float bloom_intensity;   // bloom multiplier
+    uint  use_auto_exposure; // 0 = manual, 1 = read from exposure_texture
 };
 
 [[lyra::immediates]]
@@ -22,6 +23,12 @@ Texture2D<float4> hdr_texture;
 
 [[lyra::binding(1, 0)]]
 SamplerState linear_sampler;
+
+[[lyra::binding(2, 0)]]
+Texture2D<float4> bloom_texture;
+
+[[lyra::binding(3, 0)]]
+Texture2D<float4> exposure_texture;
 
 [shader("vertex")]
 VertexOutput vsmain(uint vertex_id : SV_VertexID)
@@ -46,8 +53,22 @@ VertexOutput vsmain(uint vertex_id : SV_VertexID)
 [shader("fragment")]
 float4 fsmain(VertexOutput input) : SV_Target
 {
-    float4 hdr_sample = hdr_texture.Sample(linear_sampler, input.uv);
-    float3 color      = hdr_sample.rgb * max(params.exposure, 0.001);
+    float4 hdr_sample   = hdr_texture.Sample(linear_sampler, input.uv);
+    float3 bloom_sample = bloom_texture.Sample(linear_sampler, input.uv).rgb;
+
+    // Composite bloom in linear HDR space before tonemapping
+    float3 hdr_color = hdr_sample.rgb + bloom_sample * params.bloom_intensity;
+
+    // Determine exposure scale
+    float exposure = max(params.exposure, 0.001);
+    if (params.use_auto_exposure != 0) {
+        float auto_scale = exposure_texture.Load(int3(0, 0, 0)).r;
+        if (auto_scale > 0.0) {
+            exposure = auto_scale;
+        }
+    }
+
+    float3 color = hdr_color * exposure;
 
     float3 mapped = color;
     switch (params.operator_type) {

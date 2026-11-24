@@ -14,17 +14,31 @@
 namespace lyra::passes
 {
     /**
+     * @brief settings for the tonemapping and color grading pass.
+     */
+    struct TonemappingSettings
+    {
+        float exposure          = 1.0f;
+        uint  operator_type     = 0;     // 0 = ACES, 1 = Reinhard, 2 = AgX, 3 = Uncharted2
+        float bloom_intensity   = 1.0f;  // bloom multiplier
+        bool  use_auto_exposure = false; // whether to sample exposure from exposure_texture
+    };
+
+    /**
      * @brief outputs of the tonemapping pass.
      */
     struct TonemappingData
     {
         FrameGraphHandle<FrameGraphTexture> hdr_input;
+        FrameGraphHandle<FrameGraphTexture> bloom_input;
+        FrameGraphHandle<FrameGraphTexture> exposure_input;
         FrameGraphHandle<FrameGraphTexture> ldr_output;
     };
 
     /**
      * @brief Tonemapping pass maps high dynamic range (HDR) radiance values
-     * to standard low dynamic range (LDR) display color space with exposure and gamma correction.
+     * to standard low dynamic range (LDR) display color space with bloom composition,
+     * auto exposure, and AgX / ACES tone curve reproduction.
      */
     struct TonemappingPass
     {
@@ -57,7 +71,10 @@ namespace lyra::passes
         auto add(
             FrameGraphBuilder&                  builder,
             FrameGraphHandle<FrameGraphTexture> hdr_input,
-            const RendererSettings&             settings,
+            GPUExtent2D                         extent,
+            FrameGraphHandle<FrameGraphTexture> bloom_input = {},
+            FrameGraphHandle<FrameGraphTexture> exposure_input = {},
+            const TonemappingSettings&          settings = {},
             GPUTextureFormat                    output_format = GPUTextureFormat::RGBA8UNORM) -> TonemappingData;
 
         [[nodiscard]] bool valid() const { return initialized && pipeline.valid(); }
@@ -70,8 +87,13 @@ namespace lyra::passes
         GPUShaderModule                  fshader;
         GPUSampler                       sampler;
         GPUBindGroupHeap                 heap;
-        GPUBindGroup                     bind_group;
         Vector<GPUBindGroupLayoutHandle> blayouts;
+
+        // fallback 1x1 textures when bloom or auto-exposure are not supplied
+        GPUTexture     default_bloom_tex;
+        GPUTextureView default_bloom_view;
+        GPUTexture     default_exposure_tex;
+        GPUTextureView default_exposure_view;
 
         GPUTextureFormat cached_output_format = GPUTextureFormat::RGBA8UNORM;
         bool             initialized          = false;
