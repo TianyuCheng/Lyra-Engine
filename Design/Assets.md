@@ -85,12 +85,24 @@ When `AssetServer` loads a parent asset:
 
 ## API Interfaces
 
+### AssetConfigContext
+Context passed to configure asset loaders, cookers, and processors.
+```cpp
+struct AssetConfigContext
+{
+    AssetServer* server    = nullptr; ///< Pointer to parent AssetServer
+    const void*  desc_data = nullptr; ///< Pointer to type-specific descriptor struct
+    usize        desc_size = 0;       ///< Descriptor byte size for safety validation
+    AssetTypeID  desc_type = {};      ///< Descriptor UUID for type checking
+};
+```
+
 ### AssetLoaderAPI
 Defines how to take a binary file and construct an in-memory C++ asset.
 ```cpp
 struct AssetLoaderAPI
 {
-    void (*configure)(AssetServer* manager, const JSON& options);
+    void (*configure)(const AssetConfigContext& context);
     void* (*load)(FileLoader* loader, FSPath path);
     void (*unload)(void* data);
     uint (*get_supported_extensions)(CString* extensions);
@@ -102,7 +114,7 @@ Defines how to take a source file and produce a cooked binary file + metadata.
 ```cpp
 struct AssetCookerAPI
 {
-    void (*configure)(AssetServer* manager, const JSON& options);
+    void (*configure)(const AssetConfigContext& context);
     bool (*process)(JSON& metadata, OSPath source_path, OSPath caches_root);
     uint (*get_supported_extensions)(CString* extensions);
 };
@@ -113,7 +125,7 @@ Defines how to serialize an in-memory asset back to disk.
 ```cpp
 struct AssetSaverAPI
 {
-    void (*configure)(AssetServer* manager, const JSON& options);
+    void (*configure)(const AssetConfigContext& context);
     bool (*save)(const void* asset, OSPath path);
     uint (*get_supported_extensions)(CString* extensions);
 };
@@ -124,7 +136,7 @@ Defines how to render offline preview scenes and generate thumbnail images.
 ```cpp
 struct AssetPreviewAPI
 {
-    void (*configure)(AssetServer* manager, const JSON& options);
+    void (*configure)(const AssetConfigContext& context);
     PreviewTexture (*render_scene)(const PreviewScene& scene);
     Future<Path> (*generate_thumbnail)(const PreviewScene& scene, JSON& metadata);
 };

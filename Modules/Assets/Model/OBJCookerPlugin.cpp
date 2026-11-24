@@ -13,7 +13,7 @@
 using namespace lyra;
 using namespace lyra::model;
 
-static void configure_obj(AssetServer*, const JSON&) {}
+static void configure_obj(const AssetConfigContext&) {}
 
 struct OBJRawGeometry
 {

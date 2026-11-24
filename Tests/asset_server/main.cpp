@@ -591,12 +591,20 @@ TEST_CASE("ams::batched_preview_api")
     auto caches_dir = temp_dir / "Caches";
     fs::create_directories(caches_dir);
 
-    JSON config_opts;
-    config_opts["caches_root"] = caches_dir.string();
-    config_opts["width"]       = 64;
-    config_opts["height"]      = 64;
-    config_opts["enable_ssaa"] = true;
-    preview_api().configure(nullptr, config_opts);
+    auto caches_str = caches_dir.string();
+
+    PreviewDescriptor config_desc{};
+    config_desc.caches_root = caches_str.c_str();
+    config_desc.width       = 64;
+    config_desc.height      = 64;
+    config_desc.enable_ssaa = true;
+
+    AssetConfigContext ctx{
+        .server    = nullptr,
+        .desc_data = &config_desc,
+        .desc_size = sizeof(PreviewDescriptor),
+        .desc_type = PreviewDescriptor::type};
+    preview_api().configure(ctx);
 
     // 1. Synchronous render_scene test
     Vector<Vector3> positions = {

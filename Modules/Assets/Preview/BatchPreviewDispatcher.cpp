@@ -39,31 +39,30 @@ auto BatchPreviewDispatcher::instance() -> BatchPreviewDispatcher&
     return *INSTANCE;
 }
 
-void BatchPreviewDispatcher::configure(AssetServer* manager, const JSON& options)
+void BatchPreviewDispatcher::configure(const AssetConfigContext& context)
 {
-    (void)manager;
     UniqueLock lock(mutex);
 
-    if (options.contains("caches_root") && options["caches_root"].is_string()) {
-        G_CONFIG.caches_root = options["caches_root"].get<String>();
-    }
-    if (options.contains("width") && options["width"].is_number()) {
-        G_CONFIG.width = options["width"].get<uint>();
-    }
-    if (options.contains("height") && options["height"].is_number()) {
-        G_CONFIG.height = options["height"].get<uint>();
-    }
-    if (options.contains("pitch_deg") && options["pitch_deg"].is_number()) {
-        G_CONFIG.pitch_deg = options["pitch_deg"].get<float>();
-    }
-    if (options.contains("yaw_deg") && options["yaw_deg"].is_number()) {
-        G_CONFIG.yaw_deg = options["yaw_deg"].get<float>();
-    }
-    if (options.contains("fov_deg") && options["fov_deg"].is_number()) {
-        G_CONFIG.fov_deg = options["fov_deg"].get<float>();
-    }
-    if (options.contains("enable_ssaa") && options["enable_ssaa"].is_boolean()) {
-        G_CONFIG.enable_ssaa = options["enable_ssaa"].get<bool>();
+    if (context.desc_data && context.desc_type == PreviewDescriptor::type) {
+        const auto& desc = *reinterpret_cast<const PreviewDescriptor*>(context.desc_data);
+        if (desc.caches_root) {
+            G_CONFIG.caches_root = desc.caches_root;
+        }
+        if (desc.width > 0) {
+            G_CONFIG.width = desc.width;
+        }
+        if (desc.height > 0) {
+            G_CONFIG.height = desc.height;
+        }
+        G_CONFIG.pitch_deg   = desc.pitch_deg;
+        G_CONFIG.yaw_deg     = desc.yaw_deg;
+        G_CONFIG.fov_deg     = desc.fov_deg;
+        G_CONFIG.clear_color = desc.clear_color;
+        G_CONFIG.enable_ssaa = desc.enable_ssaa;
+
+        if (desc.compiler.valid()) {
+            external_compiler = desc.compiler;
+        }
     }
 }
 
@@ -231,30 +230,35 @@ auto BatchPreviewDispatcher::init_gpu_resources() -> bool
         auto& device = RHI::get_current_device();
 
         // 1. initialize shader compiler
-        CompilerDescriptor cdesc{};
-        StringView         api_name = RHI::api()->get_api_name();
-        if (api_name == "MockGPU") {
-            // MockGPU does not rasterize pixels; use mock thumbnail fallback
-            return false;
-        }
-
-        if (api_name == "Vulkan") {
-            cdesc.target = CompileTarget::SPIRV;
-        } else if (api_name == "D3D12") {
-            cdesc.target = CompileTarget::DXIL;
-        } else if (api_name == "Metal") {
-            cdesc.target = CompileTarget::MSL;
-        } else if (api_name == "SoftGPU") {
-            cdesc.target = CompileTarget::HOST;
+        if (external_compiler.valid()) {
+            compiler = Compiler(external_compiler);
         } else {
-            cdesc.target = CompileTarget::SPIRV;
-        }
+            CompilerDescriptor cdesc{};
+            StringView         api_name = RHI::api()->get_api_name();
+            if (api_name == "MockGPU") {
+                // MockGPU does not rasterize pixels; use mock thumbnail fallback
+                return false;
+            }
 
-        compiler = Compiler::init(cdesc);
-        if (!compiler || !compiler->handle.valid()) {
-            get_logger()->warn("Compiler not available for GPU preview rasterizer");
-            gpu_failed = true;
-            return false;
+            if (api_name == "Vulkan") {
+                cdesc.target = CompileTarget::SPIRV;
+            } else if (api_name == "D3D12") {
+                cdesc.target = CompileTarget::DXIL;
+            } else if (api_name == "Metal") {
+                cdesc.target = CompileTarget::MSL;
+            } else if (api_name == "SoftGPU") {
+                cdesc.target = CompileTarget::HOST;
+            } else {
+                cdesc.target = CompileTarget::SPIRV;
+            }
+
+            owned_compiler = Compiler::init(cdesc);
+            if (!owned_compiler || !owned_compiler->handle.valid()) {
+                get_logger()->warn("Compiler not available for GPU preview rasterizer");
+                gpu_failed = true;
+                return false;
+            }
+            compiler = *owned_compiler;
         }
 
         // 2. compile preview shader from embedded cmrc resource
@@ -267,14 +271,14 @@ auto BatchPreviewDispatcher::init_gpu_resources() -> bool
         sdesc.path   = "PreviewRasterizer.slang";
         sdesc.source = shader_src.c_str();
 
-        auto module = compiler->compile(sdesc);
+        auto module = compiler.compile(sdesc);
         if (!module) {
             get_logger()->warn("Failed to compile preview shader module");
             gpu_failed = true;
             return false;
         }
 
-        auto reflection = compiler->reflect({
+        auto reflection = compiler.reflect({
             {*module, "vsmain"},
             {*module, "fsmain"},
         });
@@ -523,6 +527,9 @@ void BatchPreviewDispatcher::destroy_gpu_resources()
         if (pipeline.handle.valid()) pipeline.destroy();
         if (pipeline_layout.handle.valid()) pipeline_layout.destroy();
     }
+
+    owned_compiler.reset();
+    compiler = {};
 
     gpu_initialized = false;
     gpu_failed      = false;

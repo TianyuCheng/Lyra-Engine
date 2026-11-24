@@ -24,9 +24,9 @@ static Logger get_logger()
     return logger;
 }
 
-static void configure_material_loader(AssetServer* manager, const JSON&)
+static void configure_material_loader(const AssetConfigContext& context)
 {
-    G_ASSET_SERVER = manager;
+    G_ASSET_SERVER = context.server;
 }
 
 static void* load_material_asset(FileLoader* loader, FSPath path)

@@ -11,6 +11,7 @@
 #include <Lyra/Utilities/Pointer.h>
 #include <Lyra/Utilities/Collections.h>
 #include <Lyra/FileSystem/VFSTypes.h>
+#include <Lyra/Compiler/SLCUtils.h>
 #include <Lyra/Assets/AMSEnums.h>
 
 namespace lyra
@@ -111,6 +112,7 @@ namespace lyra
         AMSImportDescriptor app;                ///< Project assets domain import paths (app://)
         FileLoader*         loader   = nullptr; ///< Unified file loader mounted with sys:// and app://
         OSPath              registry = nullptr;
+        CompilerHandle      compiler = {}; ///< Optional shader compiler handle for preview rendering.
 
         bool watch = false; ///< Whether to monitor the project asset directory for hot-reloading.
     };

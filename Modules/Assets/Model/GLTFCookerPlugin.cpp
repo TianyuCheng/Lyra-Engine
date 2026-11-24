@@ -13,7 +13,7 @@
 using namespace lyra;
 using namespace lyra::model;
 
-static void configure_gltf(AssetServer*, const JSON&) {}
+static void configure_gltf(const AssetConfigContext&) {}
 
 static MaterialAsset extract_gltf_material(const tinygltf::Material& g_mat)
 {

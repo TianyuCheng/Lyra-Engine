@@ -44,7 +44,7 @@ namespace lyra::preview
     public:
         static auto instance() -> BatchPreviewDispatcher&;
 
-        void configure(AssetServer* manager, const JSON& options);
+        void configure(const AssetConfigContext& context);
         auto generate_thumbnail(const PreviewScene& scene, JSON& metadata) -> Future<Path>;
         auto render_scene(const PreviewScene& scene) -> PreviewTexture;
         void flush();
@@ -98,7 +98,9 @@ namespace lyra::preview
         bool                   gpu_failed      = false;
 
         // gpu resources
-        OwnedResource<Compiler> compiler;
+        CompilerHandle          external_compiler;
+        OwnedResource<Compiler> owned_compiler;
+        Compiler                compiler;
         GPUBindGroupLayout      bind_group_layout;
         GPUBindGroupHeap        bind_group_heap;
         GPUPipelineLayout       pipeline_layout;

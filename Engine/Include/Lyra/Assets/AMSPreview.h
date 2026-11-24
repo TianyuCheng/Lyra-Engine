@@ -9,6 +9,7 @@
 #include <Lyra/Utilities/Macros.h>
 #include <Lyra/Utilities/Promise.h>
 #include <Lyra/Utilities/Collections.h>
+#include <Lyra/Compiler/SLCUtils.h>
 #include <Lyra/Assets/AMSAPI.h>
 
 namespace lyra
@@ -69,6 +70,25 @@ namespace lyra
             Vector<Vector3> normals = {},
             Vector<Vector2> uvs     = {},
             Vector<uint>    indices = {}) -> PreviewScene;
+    };
+
+    /**
+     * @brief Configuration descriptor for offline preview rasterizer.
+     */
+    struct PreviewDescriptor
+    {
+        static constexpr AssetTypeID type = make_uuid("10020030-4050-6070-8090-a0b0c0d0e0f0");
+
+        OSPath  caches_root = nullptr;
+        uint    width       = 128;
+        uint    height      = 128;
+        float   pitch_deg   = 25.0f;
+        float   yaw_deg     = 45.0f;
+        float   fov_deg     = 35.0f;
+        Vector4 clear_color = Vector4(0.0f, 0.0f, 0.0f, 0.0f);
+        bool    enable_ssaa = true;
+
+        CompilerHandle compiler = {};
     };
 
     /**

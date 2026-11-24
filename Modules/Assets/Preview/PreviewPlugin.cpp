@@ -5,9 +5,9 @@
 
 using namespace lyra;
 
-static void configure_preview(AssetServer* manager, const JSON& options)
+static void configure_preview(const AssetConfigContext& context)
 {
-    preview::BatchPreviewDispatcher::instance().configure(manager, options);
+    preview::BatchPreviewDispatcher::instance().configure(context);
 }
 
 static PreviewTexture render_scene_api(const PreviewScene& scene)

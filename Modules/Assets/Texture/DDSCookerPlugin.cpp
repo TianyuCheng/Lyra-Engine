@@ -9,7 +9,7 @@
 using namespace lyra;
 using namespace lyra::texture;
 
-static void configure_cooker(AssetServer* manager, const JSON& options) {}
+static void configure_cooker(const AssetConfigContext&) {}
 
 static bool process_dds(JSON& metadata, OSPath source_path, OSPath target_path)
 {

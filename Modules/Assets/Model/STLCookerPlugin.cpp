@@ -14,7 +14,7 @@ using namespace lyra::model;
 
 namespace fs = std::filesystem;
 
-static void configure_stl(AssetServer*, const JSON&) {}
+static void configure_stl(const AssetConfigContext&) {}
 
 struct STLRawGeometry
 {

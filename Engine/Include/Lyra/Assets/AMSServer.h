@@ -94,7 +94,7 @@ namespace lyra
          * If the asset type also provides a cooker() method, it will be registered automatically.
          */
         template <typename AssetType>
-        void register_asset(const JSON& options = {})
+        void register_asset(AssetConfigContext context = {})
         {
             auto info       = std::make_unique<AssetProcessor>();
             info->type_name = AssetType::name;
@@ -102,8 +102,10 @@ namespace lyra
             info->loader    = AssetType::loader();
             info->assets    = {};
 
+            context.server = this;
+
             if (info->loader.configure) {
-                info->loader.configure(this, options);
+                info->loader.configure(context);
             }
 
             uint count = info->loader.get_supported_extensions(nullptr);
@@ -120,20 +122,32 @@ namespace lyra
 
             // automatically register cooker if provided by the AssetType
             if constexpr (has_cooker<AssetType>::value) {
-                register_asset<AssetType, AssetType>(options);
+                register_asset<AssetType, AssetType>(context);
             }
 
             // automatically register saver if provided by the AssetType
             if constexpr (has_saver<AssetType>::value) {
-                register_saver<AssetType>(options);
+                register_saver<AssetType>(context);
             }
+        }
+
+        template <typename AssetType, typename DescType>
+        requires(!std::is_same_v<std::decay_t<DescType>, AssetConfigContext>)
+        void register_asset(const DescType& desc)
+        {
+            AssetConfigContext ctx{
+                .server    = this,
+                .desc_data = &desc,
+                .desc_size = sizeof(DescType),
+                .desc_type = DescType::type};
+            register_asset<AssetType>(ctx);
         }
 
         /**
          * @brief Register a cooker for an asset type from a specific source format.
          */
         template <typename AssetType, typename CookerType>
-        void register_asset(const JSON& options = {})
+        void register_asset(AssetConfigContext context = {})
         {
             auto it = processors.find(AssetType::type);
             if (it == processors.end()) {
@@ -144,8 +158,9 @@ namespace lyra
             auto& proc = it->second;
 
             AssetCookerAPI cooker = CookerType::cooker();
+            context.server        = this;
             if (cooker.configure) {
-                cooker.configure(this, options);
+                cooker.configure(context);
             }
 
             uint count = cooker.get_supported_extensions(nullptr);
@@ -162,11 +177,23 @@ namespace lyra
             }
         }
 
+        template <typename AssetType, typename CookerType, typename DescType>
+        requires(!std::is_same_v<std::decay_t<DescType>, AssetConfigContext>)
+        void register_asset(const DescType& desc)
+        {
+            AssetConfigContext ctx{
+                .server    = this,
+                .desc_data = &desc,
+                .desc_size = sizeof(DescType),
+                .desc_type = DescType::type};
+            register_asset<AssetType, CookerType>(ctx);
+        }
+
         /**
          * @brief Register a saver for an asset type.
          */
         template <typename AssetType>
-        void register_saver(const JSON& options = {})
+        void register_saver(AssetConfigContext context = {})
         {
             auto it = processors.find(AssetType::type);
             if (it == processors.end()) {
@@ -177,8 +204,9 @@ namespace lyra
             auto& proc = it->second;
 
             AssetSaverAPI saver = AssetType::saver();
+            context.server      = this;
             if (saver.configure) {
-                saver.configure(this, options);
+                saver.configure(context);
             }
 
             uint count = saver.get_supported_extensions(nullptr);
@@ -191,6 +219,18 @@ namespace lyra
             for (uint i = 0; i < count; ++i) {
                 saver_extensions.emplace(absl::AsciiStrToLower(exts[i]), proc.get());
             }
+        }
+
+        template <typename AssetType, typename DescType>
+        requires(!std::is_same_v<std::decay_t<DescType>, AssetConfigContext>)
+        void register_saver(const DescType& desc)
+        {
+            AssetConfigContext ctx{
+                .server    = this,
+                .desc_data = &desc,
+                .desc_size = sizeof(DescType),
+                .desc_type = DescType::type};
+            register_saver<AssetType>(ctx);
         }
 
         /**

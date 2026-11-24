@@ -18,14 +18,25 @@ namespace lyra
     struct PreviewTexture;
 
     /**
+     * @brief Context passed to configure asset loaders, cookers, and processors.
+     */
+    struct AssetConfigContext
+    {
+        AssetServer* server    = nullptr; ///< Pointer to parent AssetServer
+        const void*  desc_data = nullptr; ///< Pointer to type-specific descriptor struct
+        usize        desc_size = 0;       ///< Descriptor byte size for safety validation
+        AssetTypeID  desc_type = {};      ///< Descriptor UUID for type checking
+    };
+
+    /**
      * @brief The AssetLoaderAPI struct defines the interface for loading engine-ready assets.
      */
     struct AssetLoaderAPI
     {
         /**
-         * @brief Configure the loader and provide access to the AssetServer.
+         * @brief Configure the loader and provide access to the AssetServer and configuration context.
          */
-        void (*configure)(AssetServer* manager, const JSON& options);
+        void (*configure)(const AssetConfigContext& context);
 
         /**
          * @brief Load processed asset data into memory.
@@ -55,9 +66,9 @@ namespace lyra
     struct AssetSaverAPI
     {
         /**
-         * @brief Configure the saver and provide access to the AssetServer.
+         * @brief Configure the saver and provide access to the AssetServer and configuration context.
          */
-        void (*configure)(AssetServer* manager, const JSON& options);
+        void (*configure)(const AssetConfigContext& context);
 
         /**
          * @brief Save asset data to a target path in the OS filesystem.
@@ -81,9 +92,9 @@ namespace lyra
     struct AssetCookerAPI
     {
         /**
-         * @brief Configure the cooker and provide access to the AssetServer.
+         * @brief Configure the cooker and provide access to the AssetServer and configuration context.
          */
-        void (*configure)(AssetServer* manager, const JSON& options);
+        void (*configure)(const AssetConfigContext& context);
 
         /**
          * @brief Process a raw source asset and save it to a target path (cooking).
@@ -110,9 +121,9 @@ namespace lyra
     struct AssetPreviewAPI
     {
         /**
-         * @brief Configure the preview generator with pipeline-wide options (caches_root, width, height, SSAA, etc.).
+         * @brief Configure the preview generator with configuration context.
          */
-        void (*configure)(AssetServer* manager, const JSON& options);
+        void (*configure)(const AssetConfigContext& context);
 
         /**
          * @brief Render a preview scene offline to an in-memory pixel buffer.

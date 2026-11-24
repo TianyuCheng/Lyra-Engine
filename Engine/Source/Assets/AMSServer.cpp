@@ -353,16 +353,23 @@ AssetServer::AssetServer(const AMSDescriptor& descriptor) : descriptor(descripto
     }
 
     // configure preview generator
-    JSON preview_opts;
+    PreviewDescriptor preview_desc{};
     if (descriptor.app.caches_path) {
-        preview_opts["caches_root"] = Path(descriptor.app.caches_path).string();
+        preview_desc.caches_root = descriptor.app.caches_path;
     } else if (descriptor.sys.caches_path) {
-        preview_opts["caches_root"] = Path(descriptor.sys.caches_path).string();
+        preview_desc.caches_root = descriptor.sys.caches_path;
     }
-    preview_opts["width"]  = 128;
-    preview_opts["height"] = 128;
+    preview_desc.width    = 128;
+    preview_desc.height   = 128;
+    preview_desc.compiler = descriptor.compiler;
+
     if (preview_api().configure) {
-        preview_api().configure(this, preview_opts);
+        AssetConfigContext pctx{
+            .server    = this,
+            .desc_data = &preview_desc,
+            .desc_size = sizeof(PreviewDescriptor),
+            .desc_type = PreviewDescriptor::type};
+        preview_api().configure(pctx);
     }
 }
 
