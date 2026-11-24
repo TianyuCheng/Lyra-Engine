@@ -120,6 +120,7 @@ target_sources(lyra-engine PRIVATE
   Rendering/Passes/DepthPrepass.cpp
   Rendering/Passes/EditorGridPass.cpp
   Rendering/Passes/GBufferPass.cpp
+  Rendering/Passes/BloomPass.cpp
   Rendering/Passes/TonemappingPass.cpp
   Rendering/Passes/SkyboxPass.cpp
   Rendering/Passes/LightCullingPass.cpp

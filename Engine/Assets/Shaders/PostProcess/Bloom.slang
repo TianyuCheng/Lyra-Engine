@@ -8,20 +8,23 @@ struct BloomParams
     float4 threshold;     // x: threshold, y: threshold - knee, z: 2*knee, w: 0.25/knee
     float  bloom_intensity;
     float  upsample_radius;
-    float2 padding;
+    uint2  dst_size;
 };
 
-[[lyra::binding(0, 0)]]
+[[lyra::immediates]]
 ConstantBuffer<BloomParams> params;
 
-[[lyra::binding(1, 0)]]
+[[lyra::binding(0, 0)]]
 Texture2D<float4> src_texture;
 
-[[lyra::binding(2, 0)]]
+[[lyra::binding(1, 0)]]
 SamplerState linear_sampler;
 
-[[lyra::binding(3, 0)]]
+[[lyra::binding(2, 0)]]
 RWTexture2D<float4> out_texture;
+
+[[lyra::binding(3, 0)]]
+Texture2D<float4> current_texture;
 
 // =============================================================================
 // Helper Functions: Karis Anti-Flicker & Quadratic Threshold
@@ -51,10 +54,7 @@ float3 quadratic_threshold(float3 color, float threshold, float3 curve)
 void cs_downsample(uint3 dispatch_thread_id : SV_DispatchThreadID)
 {
     uint2 pixel = dispatch_thread_id.xy;
-    uint2 dst_dim;
-    out_texture.GetDimensions(dst_dim.x, dst_dim.y);
-
-    if (pixel.x >= dst_dim.x || pixel.y >= dst_dim.y) {
+    if (pixel.x >= params.dst_size.x || pixel.y >= params.dst_size.y) {
         return;
     }
 
@@ -113,10 +113,7 @@ void cs_downsample(uint3 dispatch_thread_id : SV_DispatchThreadID)
 void cs_upsample(uint3 dispatch_thread_id : SV_DispatchThreadID)
 {
     uint2 pixel = dispatch_thread_id.xy;
-    uint2 dst_dim;
-    out_texture.GetDimensions(dst_dim.x, dst_dim.y);
-
-    if (pixel.x >= dst_dim.x || pixel.y >= dst_dim.y) {
+    if (pixel.x >= params.dst_size.x || pixel.y >= params.dst_size.y) {
         return;
     }
 
@@ -138,7 +135,7 @@ void cs_upsample(uint3 dispatch_thread_id : SV_DispatchThreadID)
 
     float3 upsampled = (a + b + c + d_s + e + f + g + h + i) * (1.0 / 16.0);
 
-    // Read previous accumulation at this destination level and additively blend
-    float3 current_dst = out_texture[pixel].rgb;
+    // Read previous accumulation from current downsampled texture and additively blend
+    float3 current_dst = current_texture.Load(int3(pixel, 0)).rgb;
     out_texture[pixel] = float4(current_dst + upsampled * params.bloom_intensity, 1.0);
 }
