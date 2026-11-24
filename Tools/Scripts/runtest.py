@@ -118,6 +118,127 @@ def bucketize_tests(tests):
         buckets[name].append(test)
     return buckets
 
+RHI_TEST_ORDER = [
+    # 1. Pipeline & Geometry Drawing
+    "pipeline_basic",
+    "pipeline_immediates",
+    "pipeline_dynamic_uniform",
+    "pipeline_primitive_topologies",
+    "pipeline_index_formats_offsets",
+    "pipeline_instanced_drawing",
+    "pipeline_indirect_drawing",
+
+    # 2. Rasterizer & Fixed-Function State
+    "raster_culling_winding",
+    "raster_scissor_viewport",
+    "raster_fragment_discard",
+    "raster_color_write_mask",
+    "raster_blend_modes",
+
+    # 3. Depth & Stencil Operations
+    "depth_test",
+    "depth_compare_ops",
+    "depth_bias",
+    "depth_stencil_test",
+
+    # 4. Textures & Samplers
+    "texture_sampling",
+    "texture_sampler_modes",
+    "texture_perspective_correction",
+    "texture_lod",
+    "texture_anisotropic_filtering",
+
+    # 5. Render Targets & Framebuffer
+    "render_target_mrt",
+
+    # 6. Compute Pipeline & Storage
+    "compute_storage_buffer",
+    "compute_storage_image",
+    "compute_shared_memory",
+    "compute_indirect_dispatch",
+
+    # 7. Advanced RHI Subsystems
+    "ray_tracing",
+    "frame_graph",
+
+    # 8. UI System
+    "ui_system",
+
+    # 9. Materials & Environment
+    "shading_models",
+    "atmosphere",
+    "atmosphere_ibl",
+
+    # 10. Scene Renderers
+    "forward_renderer",
+    "forward_renderer_multilight",
+    "deferred_renderer",
+    "deferred_renderer_multilight",
+]
+
+RHI_TEST_ASPECTS = {
+    # 1. Pipeline & Geometry Drawing
+    "pipeline_basic": "Pipeline & Geometry",
+    "pipeline_immediates": "Pipeline & Geometry",
+    "pipeline_dynamic_uniform": "Pipeline & Geometry",
+    "pipeline_primitive_topologies": "Pipeline & Geometry",
+    "pipeline_index_formats_offsets": "Pipeline & Geometry",
+    "pipeline_instanced_drawing": "Pipeline & Geometry",
+    "pipeline_indirect_drawing": "Pipeline & Geometry",
+
+    # 2. Rasterizer & Fixed-Function State
+    "raster_culling_winding": "Rasterizer & State",
+    "raster_scissor_viewport": "Rasterizer & State",
+    "raster_fragment_discard": "Rasterizer & State",
+    "raster_color_write_mask": "Rasterizer & State",
+    "raster_blend_modes": "Rasterizer & State",
+
+    # 3. Depth & Stencil Operations
+    "depth_test": "Depth & Stencil",
+    "depth_compare_ops": "Depth & Stencil",
+    "depth_bias": "Depth & Stencil",
+    "depth_stencil_test": "Depth & Stencil",
+
+    # 4. Textures & Samplers
+    "texture_sampling": "Textures & Samplers",
+    "texture_sampler_modes": "Textures & Samplers",
+    "texture_perspective_correction": "Textures & Samplers",
+    "texture_lod": "Textures & Samplers",
+    "texture_anisotropic_filtering": "Textures & Samplers",
+
+    # 5. Render Targets & Framebuffer
+    "render_target_mrt": "Render Targets",
+
+    # 6. Compute Pipeline & Storage
+    "compute_storage_buffer": "Compute Pipeline",
+    "compute_storage_image": "Compute Pipeline",
+    "compute_shared_memory": "Compute Pipeline",
+    "compute_indirect_dispatch": "Compute Pipeline",
+
+    # 7. Advanced RHI Subsystems
+    "ray_tracing": "Ray Tracing & Graph",
+    "frame_graph": "Ray Tracing & Graph",
+
+    # 8. UI System
+    "ui_system": "UI System",
+
+    # 9. Materials & Environment
+    "shading_models": "Materials & Environment",
+    "atmosphere": "Materials & Environment",
+    "atmosphere_ibl": "Materials & Environment",
+
+    # 10. Scene Renderers
+    "forward_renderer": "Scene Renderers",
+    "forward_renderer_multilight": "Scene Renderers",
+    "deferred_renderer": "Scene Renderers",
+    "deferred_renderer_multilight": "Scene Renderers",
+}
+
+def get_test_order_index(test_name):
+    if test_name in RHI_TEST_ORDER:
+        return RHI_TEST_ORDER.index(test_name)
+    return len(RHI_TEST_ORDER) + 100
+
 def get_test_metadata(test_name, git_root):
     """
     Returns (tier_int, complexity_float, tier_name) for a test.
@@ -627,7 +748,7 @@ def run_rhi_tests(args, buckets, on_progress=None):
 
         backend_chunks = {backend: [] for backend in backend_groups}
         for backend, b_tasks in backend_groups.items():
-            b_tasks.sort(key=lambda it: (it[4], it[0], it[1]["name"]))
+            b_tasks.sort(key=lambda it: (get_test_order_index(it[0]), it[1]["name"]))
             for i in range(0, len(b_tasks), chunk_size):
                 backend_chunks[backend].append((backend, b_tasks[i : i + chunk_size]))
 
@@ -1103,6 +1224,7 @@ def generate_html_report(args, results, unit_success=True, finished=True):
     git_root = find_git_root()
     for test_name, buckets in results.items():
         tier_int, complexity, tier_name = get_test_metadata(test_name, git_root)
+        aspect_name = RHI_TEST_ASPECTS.get(test_name, "RHI Test")
         readme_path = os.path.join(git_root, "Tests", test_name, "README.md")
         has_readme = os.path.exists(readme_path)
         readme_content = ""
@@ -1117,7 +1239,7 @@ def generate_html_report(args, results, unit_success=True, finished=True):
             <td class="test-info">
                 <span class="test-name">{test_name}</span>
                 <div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-code); margin-top: 0.25rem;">
-                    {tier_name} &bull; complexity: {complexity:.2f}
+                    {aspect_name} &bull; {tier_name} &bull; complexity: {complexity:.2f}
                 </div>
                 <div style="margin-top: 0.75rem;">
                     <button class="docs-btn {"" if has_readme else "disabled"}"
@@ -1352,12 +1474,12 @@ def main():
         tests = [t for t in tests if get_test_metadata(t["components"][-1], git_root)[2] == args.stage]
     raw_buckets = bucketize_tests(tests) if tests else {}
 
-    # Sort test buckets by tier, complexity, and name
+    # Sort test buckets by tier, canonical aspect order, and name
     sorted_names = sorted(
         raw_buckets.keys(),
         key=lambda name: (
             get_test_metadata(name, git_root)[0],
-            get_test_metadata(name, git_root)[1],
+            get_test_order_index(name),
             name
         )
     )

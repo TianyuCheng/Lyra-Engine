@@ -44,43 +44,61 @@ target_link_libraries(lyra-unit-tests PRIVATE doctest::doctest)
 target_include_directories(lyra-unit-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/common)
 
 # rhi test cases
+# 1. Pipeline & Geometry Drawing
+add_subdirectory(pipeline_basic)
+add_subdirectory(pipeline_immediates)
+add_subdirectory(pipeline_dynamic_uniform)
+add_subdirectory(pipeline_primitive_topologies)
+add_subdirectory(pipeline_index_formats_offsets)
+add_subdirectory(pipeline_instanced_drawing)
+add_subdirectory(pipeline_indirect_drawing)
+
+# 2. Rasterizer & Fixed-Function State
+add_subdirectory(raster_culling_winding)
+add_subdirectory(raster_scissor_viewport)
+add_subdirectory(raster_fragment_discard)
+add_subdirectory(raster_color_write_mask)
+add_subdirectory(raster_blend_modes)
+
+# 3. Depth & Stencil Operations
 add_subdirectory(depth_test)
-add_subdirectory(depth_bias)
 add_subdirectory(depth_compare_ops)
-add_subdirectory(culling_winding)
-add_subdirectory(blend_modes)
-add_subdirectory(color_write_mask)
-add_subdirectory(scissor_viewport)
-add_subdirectory(primitive_topologies)
-add_subdirectory(index_formats_offsets)
-add_subdirectory(sampler_modes)
-add_subdirectory(multi_render_targets)
-add_subdirectory(instanced_drawing)
-add_subdirectory(indirect_drawing)
-add_subdirectory(compute_storage_image)
+add_subdirectory(depth_bias)
+add_subdirectory(depth_stencil_test)
+
+# 4. Textures & Samplers
+add_subdirectory(texture_sampling)
+add_subdirectory(texture_sampler_modes)
+add_subdirectory(texture_perspective_correction)
+add_subdirectory(texture_lod)
+add_subdirectory(texture_anisotropic_filtering)
+
+# 5. Render Targets & Framebuffer
+add_subdirectory(render_target_mrt)
+
+# 6. Compute Pipeline & Storage
 add_subdirectory(compute_storage_buffer)
+add_subdirectory(compute_storage_image)
 add_subdirectory(compute_shared_memory)
 add_subdirectory(compute_indirect_dispatch)
+
+# 7. Advanced RHI Subsystems
 add_subdirectory(ray_tracing)
 add_subdirectory(frame_graph)
-add_subdirectory(stencil_test)
-add_subdirectory(immediates)
-add_subdirectory(dynamic_uniform)
-add_subdirectory(texture_sampling)
-add_subdirectory(perspective_correction)
-add_subdirectory(texture_lod)
-add_subdirectory(anisotropic_filtering)
-add_subdirectory(fragment_discard)
-add_subdirectory(graphics_pipeline)
+
+# 8. UI System
 add_subdirectory(ui_system)
-add_subdirectory(forward_renderer)
-add_subdirectory(forward_renderer_multilight)
-add_subdirectory(deferred_renderer)
-add_subdirectory(deferred_renderer_multilight)
+
+# 9. Materials & Environment
 add_subdirectory(shading_models)
 add_subdirectory(atmosphere)
 add_subdirectory(atmosphere_ibl)
 
+# 10. Scene Renderers
+add_subdirectory(forward_renderer)
+add_subdirectory(forward_renderer_multilight)
+add_subdirectory(deferred_renderer)
+add_subdirectory(deferred_renderer_multilight)
 
 # non-rhi / unit test cases
 add_subdirectory(spatial)

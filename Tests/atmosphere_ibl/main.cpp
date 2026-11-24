@@ -202,25 +202,25 @@ struct AtmosphereIBLApp : public TestApp
 
         env_cubemap_texture = device.create_texture(tdesc);
 
-        auto vdesc             = GPUTextureViewDescriptor{};
-        vdesc.aspect           = GPUTextureAspect::COLOR;
-        vdesc.dimension        = GPUTextureViewDimension::CUBE;
-        vdesc.format           = GPUTextureFormat::RGBA32FLOAT;
-        vdesc.base_array_layer = 0;
+        auto vdesc              = GPUTextureViewDescriptor{};
+        vdesc.aspect            = GPUTextureAspect::COLOR;
+        vdesc.dimension         = GPUTextureViewDimension::CUBE;
+        vdesc.format            = GPUTextureFormat::RGBA32FLOAT;
+        vdesc.base_array_layer  = 0;
         vdesc.array_layer_count = 6;
-        vdesc.base_mip_level   = 0;
-        vdesc.mip_level_count  = NUM_MIPS;
+        vdesc.base_mip_level    = 0;
+        vdesc.mip_level_count   = NUM_MIPS;
 
         env_cubemap_view = env_cubemap_texture.create_view(vdesc);
 
         // calculate total staging buffer size
         struct CopyJob
         {
-            uint   mip;
-            uint   face;
-            uint   size;
-            uint   offset;
-            uint   bytes_per_row;
+            uint mip;
+            uint face;
+            uint size;
+            uint offset;
+            uint bytes_per_row;
         };
 
         Vector<CopyJob> jobs;
@@ -262,10 +262,10 @@ struct AtmosphereIBLApp : public TestApp
             for (uint y = 0; y < job.size; ++y) {
                 float v = (static_cast<float>(y) + 0.5f) / static_cast<float>(job.size) * 2.0f - 1.0f;
                 for (uint x = 0; x < job.size; ++x) {
-                    float   u    = (static_cast<float>(x) + 0.5f) / static_cast<float>(job.size) * 2.0f - 1.0f;
-                    Vector3 d    = cube_face_direction(job.face, u, v);
-                    Vector3 col  = evaluate_procedural_sky(d, roughness);
-                    uint    idx  = (y * job.size + x) * 4;
+                    float   u       = (static_cast<float>(x) + 0.5f) / static_cast<float>(job.size) * 2.0f - 1.0f;
+                    Vector3 d       = cube_face_direction(job.face, u, v);
+                    Vector3 col     = evaluate_procedural_sky(d, roughness);
+                    uint    idx     = (y * job.size + x) * 4;
                     pixels[idx + 0] = col.r;
                     pixels[idx + 1] = col.g;
                     pixels[idx + 2] = col.b;
