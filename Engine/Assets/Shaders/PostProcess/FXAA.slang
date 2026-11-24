@@ -4,22 +4,24 @@ import Common.Colorspace;
 struct FXAAParams
 {
     float2 inv_screen_size;
-    float  subpixel_quality; // 0.75 default, 1.0 maximum sharpness
-    float  edge_threshold;   // 0.166 default, 0.125 for higher edge sensitivity
+    float  subpixel_quality;   // 0.75 default, 1.0 maximum sharpness
+    float  edge_threshold;     // 0.166 default, 0.125 for higher edge sensitivity
     float  edge_threshold_min; // 0.0833 default, 0.0625 for low contrast edge sensitivity
-    float3 padding;
+    uint   screen_width;
+    uint   screen_height;
+    float  padding;
 };
 
-[[lyra::binding(0, 0)]]
+[[lyra::immediates]]
 ConstantBuffer<FXAAParams> params;
 
-[[lyra::binding(1, 0)]]
+[[lyra::binding(0, 0)]]
 Texture2D<float4> input_texture;
 
-[[lyra::binding(2, 0)]]
+[[lyra::binding(1, 0)]]
 SamplerState linear_sampler;
 
-[[lyra::binding(3, 0)]]
+[[lyra::binding(2, 0)]]
 RWTexture2D<float4> out_texture;
 
 float rgb_to_luma(float3 rgb)
@@ -32,10 +34,7 @@ float rgb_to_luma(float3 rgb)
 void cs_fxaa(uint3 dispatch_thread_id : SV_DispatchThreadID)
 {
     uint2 pixel = dispatch_thread_id.xy;
-    uint2 screen_dim;
-    out_texture.GetDimensions(screen_dim.x, screen_dim.y);
-
-    if (pixel.x >= screen_dim.x || pixel.y >= screen_dim.y) {
+    if (pixel.x >= params.screen_width || pixel.y >= params.screen_height) {
         return;
     }
 

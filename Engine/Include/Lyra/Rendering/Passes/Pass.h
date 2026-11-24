@@ -11,6 +11,7 @@
 #include <Lyra/Rendering/Passes/BloomPass.h>
 #include <Lyra/Rendering/Passes/AutoExposurePass.h>
 #include <Lyra/Rendering/Passes/DepthOfFieldPass.h>
+#include <Lyra/Rendering/Passes/FXAAPass.h>
 #include <Lyra/Rendering/Passes/TonemappingPass.h>
 #include <Lyra/Rendering/Passes/SkyboxPass.h>
 #include <Lyra/Rendering/Passes/LightCullingPass.h>

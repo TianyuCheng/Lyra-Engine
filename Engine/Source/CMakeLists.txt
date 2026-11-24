@@ -123,6 +123,7 @@ target_sources(lyra-engine PRIVATE
   Rendering/Passes/BloomPass.cpp
   Rendering/Passes/AutoExposurePass.cpp
   Rendering/Passes/DepthOfFieldPass.cpp
+  Rendering/Passes/FXAAPass.cpp
   Rendering/Passes/TonemappingPass.cpp
   Rendering/Passes/SkyboxPass.cpp
   Rendering/Passes/LightCullingPass.cpp
