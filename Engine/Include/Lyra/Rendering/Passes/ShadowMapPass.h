@@ -77,22 +77,17 @@ namespace lyra::passes
         static_assert(sizeof(InstanceData) == 80);
         static_assert(offsetof(InstanceData, position_offset) == 64);
 
-        static constexpr uint FRAMES_IN_FLIGHT = 3;
-
-        GPUDevice                             device;
-        GPURenderPipeline                     pipeline;
-        GPUPipelineLayout                     playout;
-        GPUShaderModule                       vshader;
-        GPUShaderModule                       fshader;
-        Vector<GPUBindGroupLayoutHandle>      blayouts;
-        GPUBindGroupHeap                      heap;
-        Array<GPUBuffer, FRAMES_IN_FLIGHT>    cascade_uniform_buffers{};
-        Array<GPUBindGroup, FRAMES_IN_FLIGHT> bind_groups{};
-        uint                                  frame_slot = 0;
-        HashMap<uint64_t, GPUBindGroup>       geometry_bind_groups;
-        GPUTextureFormat                      cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;
-        Matrix4x4                             light_vp{1.0f};
-        bool                                  initialized = false;
+        GPUDevice                        device;
+        GPURenderPipeline                pipeline;
+        GPUPipelineLayout                playout;
+        GPUShaderModule                  vshader;
+        GPUShaderModule                  fshader;
+        Vector<GPUBindGroupLayoutHandle> blayouts;
+        GPUBindGroupHeap                 heap;
+        HashMap<uint64_t, GPUBindGroup>  geometry_bind_groups;
+        GPUTextureFormat                 cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;
+        Matrix4x4                        light_vp{1.0f};
+        bool                             initialized = false;
     };
 
 } // namespace lyra::passes

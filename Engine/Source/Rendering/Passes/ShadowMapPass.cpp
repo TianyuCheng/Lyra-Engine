@@ -106,42 +106,11 @@ bool ShadowMapPass::init(
         return false;
     }
 
-    // 4. cascade uniform buffers and bind groups (multi-buffered for frames in flight)
-    for (uint i = 0; i < FRAMES_IN_FLIGHT; ++i) {
-        cascade_uniform_buffers[i] = execute([&]() {
-            auto desc               = GPUBufferDescriptor{};
-            desc.label              = "shadow_cascade_uniform_buffer";
-            desc.size               = sizeof(ShadowCascadeData);
-            desc.usage              = GPUBufferUsage::UNIFORM | GPUBufferUsage::MAP_WRITE;
-            desc.mapped_at_creation = true;
-            return device.create_buffer(desc);
-        });
-    }
-
     heap = execute([&]() {
         auto desc      = GPUBindGroupHeapDescriptor{};
         desc.page_size = 512;
         return device.create_bind_group_heap(desc);
     });
-
-    if (!blayouts.empty()) {
-        for (uint i = 0; i < FRAMES_IN_FLIGHT; ++i) {
-            bind_groups[i] = execute([&]() {
-                Array<GPUBindGroupEntry, 1> entries{};
-                entries[0].type          = GPUResourceType::BUFFER;
-                entries[0].binding       = 0;
-                entries[0].buffer.buffer = cascade_uniform_buffers[i].handle;
-                entries[0].buffer.offset = 0;
-                entries[0].buffer.size   = sizeof(ShadowCascadeData);
-
-                auto desc    = GPUBindGroupDescriptor{};
-                desc.heap    = heap;
-                desc.layout  = blayouts[0];
-                desc.entries = entries;
-                return device.create_bind_group(desc);
-            });
-        }
-    }
 
     initialized = true;
     return true;
@@ -158,13 +127,6 @@ void ShadowMapPass::destroy()
     if (heap.valid()) {
         heap.destroy();
     }
-    for (auto& buf : cascade_uniform_buffers) {
-        if (buf.valid()) {
-            buf.destroy();
-        }
-    }
-    cascade_uniform_buffers.fill({});
-    bind_groups.fill({});
 
     if (pipeline.valid()) {
         pipeline.destroy();
@@ -190,10 +152,7 @@ ShadowMapData ShadowMapPass::add(
     uint               cascade_count,
     uint               resolution)
 {
-    frame_slot        = (frame_slot + 1) % FRAMES_IN_FLIGHT;
-    uint current_slot = frame_slot;
-
-    // calculate directional light view-proj and update uniform buffer for current frame slot
+    // calculate directional light view-proj
     Vector3 light_dir = scene.directional_lights.empty()
                             ? glm::normalize(Vector3(0.6f, -1.0f, -0.5f))
                             : glm::normalize(scene.directional_lights[0].direction);
@@ -204,12 +163,8 @@ ShadowMapData ShadowMapPass::add(
     Matrix4x4 l_proj       = glm::ortho(-15.0f, 15.0f, -15.0f, 15.0f, 0.1f, 60.0f);
     light_vp               = l_proj * l_view;
 
-    if (cascade_uniform_buffers[current_slot].valid()) {
-        auto mapped = cascade_uniform_buffers[current_slot].get_mapped_range<ShadowCascadeData>();
-        if (mapped.count > 0) {
-            mapped.at(0).light_view_proj = light_vp;
-        }
-    }
+    ShadowCascadeData cascade_data{};
+    cascade_data.light_view_proj = light_vp;
 
     return builder.add_pass<ShadowMapData>(
         "ShadowMapPass",
@@ -226,7 +181,7 @@ ShadowMapData ShadowMapPass::add(
             data.shadow_map_array = pass_builder.create<FrameGraphTexture>(desc);
             data.shadow_map_array = pass_builder.render(data.shadow_map_array);
         },
-        [this, current_slot, resolution, &scene](const ShadowMapData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
+        [this, cascade_data, resolution, &scene](const ShadowMapData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
             if (!ctx || !ctx->cmdlist.handle.valid() || !pipeline.valid()) {
                 return;
             }
@@ -250,8 +205,22 @@ ShadowMapData ShadowMapPass::add(
             command.set_viewport(0.0f, 0.0f, static_cast<float>(resolution), static_cast<float>(resolution));
             command.set_scissor_rect(0, 0, resolution, resolution);
             command.set_pipeline(pipeline);
-            if (bind_groups[current_slot].valid()) {
-                command.set_bind_group(0, bind_groups[current_slot]);
+
+            if (!blayouts.empty()) {
+                auto u_slice = ctx->create_uniform(cascade_data);
+
+                Array<GPUBindGroupEntry, 1> entries{};
+                entries[0].type    = GPUResourceType::BUFFER;
+                entries[0].binding = 0;
+                entries[0].buffer  = u_slice;
+
+                auto bg_desc    = GPUBindGroupDescriptor{};
+                bg_desc.layout  = blayouts[0];
+                bg_desc.entries = entries;
+                auto bg         = ctx->allocate(bg_desc);
+                if (bg.valid()) {
+                    command.set_bind_group(0, bg);
+                }
             }
 
             uint64_t last_bound_vbuf = ~0ull;

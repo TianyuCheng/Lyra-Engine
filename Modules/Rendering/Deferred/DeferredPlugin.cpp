@@ -36,8 +36,6 @@ namespace
 
 struct DeferredRendererInstance
 {
-    static constexpr uint FRAMES_IN_FLIGHT = 3;
-
     RendererDescriptor descriptor;
     RendererSettings   settings;
     RendererStats      stats;
@@ -56,7 +54,6 @@ struct DeferredRendererInstance
     GPUShaderModule                  fshader;
     GPUPipelineLayout                lighting_playout;
     GPURenderPipeline                lighting_pipeline;
-    GPUBindGroupHeap                 heap;
     Vector<GPUBindGroupLayoutHandle> blayouts;
 
     GPUSampler     shadow_sampler;
@@ -182,12 +179,6 @@ struct DeferredRendererInstance
             return device.create_render_pipeline(pdesc);
         });
 
-        heap = execute([&]() {
-            auto hdesc      = GPUBindGroupHeapDescriptor{};
-            hdesc.page_size = 512;
-            return device.create_bind_group_heap(hdesc);
-        });
-
         shadow_sampler = execute([&]() {
             auto sdesc           = GPUSamplerDescriptor{};
             sdesc.label          = "deferred_shadow_sampler";
@@ -290,7 +281,6 @@ struct DeferredRendererInstance
         if (default_brdf_lut_view.valid()) default_brdf_lut_view.destroy();
         if (default_brdf_lut.valid()) default_brdf_lut.destroy();
 
-        if (heap.valid()) heap.destroy();
         if (lighting_pipeline.valid()) lighting_pipeline.destroy();
         if (lighting_playout.valid()) lighting_playout.destroy();
         if (fshader.valid()) fshader.destroy();
@@ -590,10 +580,9 @@ static FrameGraph::TextureHandle render(
             entries[13].sampler = renderer->environment_sampler.handle;
 
             auto bg_desc    = GPUBindGroupDescriptor{};
-            bg_desc.heap    = renderer->heap;
             bg_desc.layout  = renderer->blayouts.at(0);
             bg_desc.entries = entries;
-            auto bg         = renderer->device.create_bind_group(bg_desc);
+            auto bg         = fg_ctx->allocate(bg_desc);
 
             auto color_attachment        = GPURenderPassColorAttachment{};
             color_attachment.view        = lit_tex->view;

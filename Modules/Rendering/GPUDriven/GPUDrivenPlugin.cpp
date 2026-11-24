@@ -21,7 +21,6 @@ struct GPUDrivenRendererInstance
     // GPU buffers
     GPUBuffer instance_buffer;
     GPUBuffer indirect_draw_buffer;
-    GPUBuffer camera_uniform_buffer;
 
     // Hi-Z occlusion pyramid
     GPUTexture     hiz_texture;
@@ -70,7 +69,6 @@ static void delete_renderer(RendererHandle handle)
         // TODO: clean up allocated GPU buffers, pipelines, and Hi-Z textures
         if (ptr->instance_buffer.valid()) ptr->instance_buffer.destroy();
         if (ptr->indirect_draw_buffer.valid()) ptr->indirect_draw_buffer.destroy();
-        if (ptr->camera_uniform_buffer.valid()) ptr->camera_uniform_buffer.destroy();
         if (ptr->hiz_texture.valid()) ptr->hiz_texture.destroy();
         if (ptr->hiz_view.valid()) ptr->hiz_view.destroy();
         if (ptr->meshlet_pipeline.valid()) ptr->meshlet_pipeline.destroy();
