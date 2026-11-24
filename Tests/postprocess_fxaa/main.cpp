@@ -107,6 +107,7 @@ struct PostprocessFXAAApp : public TestApp
     FXAAPass             fxaa_pass;
     SimpleRenderPipeline scene_pipeline;
     FrameGraphAllocator  allocator;
+    FrameArena           arena;
 
     explicit PostprocessFXAAApp(const TestAppDescriptor& desc) : TestApp(desc)
     {
@@ -255,7 +256,7 @@ struct PostprocessFXAAApp : public TestApp
             });
 
         auto graph      = builder.build();
-        auto fg_context = FrameGraphContext{device, swp, command};
+        auto fg_context = FrameGraphContext{device, swp, command, &arena};
         graph->execute(&fg_context, &allocator);
 
         command.submit();

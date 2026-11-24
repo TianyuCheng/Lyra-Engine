@@ -7,6 +7,7 @@
 #include <Lyra/Utilities/Pointer.h>
 #include <Lyra/Graphics/RHITypes.h>
 #include <Lyra/Runtime/AppTypes.h>
+#include <Lyra/Rendering/FrameArena.h>
 #include <Lyra/Rendering/FrameGraph.h>
 #include <Lyra/Rendering/RendererTypes.h>
 #include <Lyra/Rendering/RendererAPI.h>
@@ -89,6 +90,12 @@ namespace lyra
         auto get_allocator() const -> const FrameGraphAllocator& { return allocator; }
 
         /**
+         * @brief access the shared per-frame transient arena.
+         */
+        auto get_arena() -> FrameArena& { return arena; }
+        auto get_arena() const -> const FrameArena& { return arena; }
+
+        /**
          * @brief render imgui debug controls if supported by active renderer.
          */
         void draw_debug_panel();
@@ -116,6 +123,7 @@ namespace lyra
         RendererSettings          settings   = {};
         RendererStats             stats      = {};
         FrameGraphAllocator       allocator;
+        FrameArena                arena;
         bool                      initialized = false;
     };
 

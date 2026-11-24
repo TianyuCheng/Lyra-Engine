@@ -95,10 +95,10 @@ void DepthOfFieldPass::destroy()
 
     device.wait();
 
-    if (linear_sampler.valid()) linear_sampler.destroy();
-    if (pipeline.valid()) pipeline.destroy();
-    if (playout.valid()) playout.destroy();
-    if (cshader.valid()) cshader.destroy();
+    linear_sampler.destroy();
+    pipeline.destroy();
+    playout.destroy();
+    cshader.destroy();
 
     blayouts.clear();
     initialized = false;

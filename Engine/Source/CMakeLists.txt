@@ -103,6 +103,7 @@ target_sources(lyra-engine PRIVATE
   Graphics/RHITypes.cpp
 
   # rendering
+  Rendering/FrameArena.cpp
   Rendering/FrameGraph.cpp
   Rendering/FrameGraphAllocator.cpp
   Rendering/FrameGraphBuilder.cpp

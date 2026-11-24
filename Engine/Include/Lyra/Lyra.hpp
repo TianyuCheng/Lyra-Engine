@@ -138,6 +138,7 @@
 #include <Lyra/Rendering/RendererTypes.h>
 
 // FrameGraph architecture & memory
+#include <Lyra/Rendering/FrameArena.h>
 #include <Lyra/Rendering/FrameGraph.h>
 #include <Lyra/Rendering/Geometry.h>
 #include <Lyra/Rendering/GeometryBufferPool.h>

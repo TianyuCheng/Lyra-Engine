@@ -155,15 +155,15 @@ void AutoExposurePass::destroy()
 
     device.wait();
 
-    if (exposure_view.valid()) exposure_view.destroy();
-    if (exposure_texture.valid()) exposure_texture.destroy();
-    if (histogram_buffer.valid()) histogram_buffer.destroy();
-    if (adapt_pipeline.valid()) adapt_pipeline.destroy();
-    if (adapt_playout.valid()) adapt_playout.destroy();
-    if (adapt_shader.valid()) adapt_shader.destroy();
-    if (histogram_pipeline.valid()) histogram_pipeline.destroy();
-    if (histogram_playout.valid()) histogram_playout.destroy();
-    if (histogram_shader.valid()) histogram_shader.destroy();
+    exposure_view.destroy();
+    exposure_texture.destroy();
+    histogram_buffer.destroy();
+    adapt_pipeline.destroy();
+    adapt_playout.destroy();
+    adapt_shader.destroy();
+    histogram_pipeline.destroy();
+    histogram_playout.destroy();
+    histogram_shader.destroy();
 
     histogram_blayouts.clear();
     adapt_blayouts.clear();

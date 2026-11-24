@@ -96,6 +96,7 @@ struct PostprocessTonemapApp : public TestApp
     TonemappingPass      tonemap_pass;
     SimpleRenderPipeline scene_pipeline;
     FrameGraphAllocator  allocator;
+    FrameArena           arena;
 
     explicit PostprocessTonemapApp(const TestAppDescriptor& desc) : TestApp(desc)
     {
@@ -246,7 +247,7 @@ struct PostprocessTonemapApp : public TestApp
             });
 
         auto graph      = builder.build();
-        auto fg_context = FrameGraphContext{device, swp, command};
+        auto fg_context = FrameGraphContext{device, swp, command, &arena};
         graph->execute(&fg_context, &allocator);
 
         command.submit();

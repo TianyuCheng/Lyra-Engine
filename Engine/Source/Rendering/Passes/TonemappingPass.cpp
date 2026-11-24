@@ -170,15 +170,15 @@ void TonemappingPass::destroy()
 
     device.wait();
 
-    if (default_exposure_view.valid()) default_exposure_view.destroy();
-    if (default_exposure_tex.valid()) default_exposure_tex.destroy();
-    if (default_bloom_view.valid()) default_bloom_view.destroy();
-    if (default_bloom_tex.valid()) default_bloom_tex.destroy();
-    if (sampler.valid()) sampler.destroy();
-    if (pipeline.valid()) pipeline.destroy();
-    if (playout.valid()) playout.destroy();
-    if (fshader.valid()) fshader.destroy();
-    if (vshader.valid()) vshader.destroy();
+    default_exposure_view.destroy();
+    default_exposure_tex.destroy();
+    default_bloom_view.destroy();
+    default_bloom_tex.destroy();
+    sampler.destroy();
+    pipeline.destroy();
+    playout.destroy();
+    fshader.destroy();
+    vshader.destroy();
     blayouts.clear();
 
     initialized = false;

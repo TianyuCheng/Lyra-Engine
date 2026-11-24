@@ -137,13 +137,13 @@ void BloomPass::destroy()
 
     device.wait();
 
-    if (linear_sampler.valid()) linear_sampler.destroy();
-    if (upsample_pipeline.valid()) upsample_pipeline.destroy();
-    if (upsample_playout.valid()) upsample_playout.destroy();
-    if (upsample_shader.valid()) upsample_shader.destroy();
-    if (downsample_pipeline.valid()) downsample_pipeline.destroy();
-    if (downsample_playout.valid()) downsample_playout.destroy();
-    if (downsample_shader.valid()) downsample_shader.destroy();
+    linear_sampler.destroy();
+    upsample_pipeline.destroy();
+    upsample_playout.destroy();
+    upsample_shader.destroy();
+    downsample_pipeline.destroy();
+    downsample_playout.destroy();
+    downsample_shader.destroy();
 
     downsample_blayouts.clear();
     upsample_blayouts.clear();

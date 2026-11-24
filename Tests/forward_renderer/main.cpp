@@ -19,6 +19,7 @@ struct RendererForwardApp : public TestApp
     Own<RenderWorld>      render_world;
     World                 ecs_world;
     FrameGraph::Allocator fg_allocator;
+    FrameArena            arena;
 
     explicit RendererForwardApp(const TestAppDescriptor& desc) : TestApp(desc)
     {
@@ -186,7 +187,7 @@ struct RendererForwardApp : public TestApp
             });
 
         auto graph  = builder.build();
-        auto fg_ctx = FrameGraphContext{device, swp, command};
+        auto fg_ctx = FrameGraphContext{device, swp, command, &arena};
         graph->execute(&fg_ctx, &fg_allocator);
         command.submit();
     }

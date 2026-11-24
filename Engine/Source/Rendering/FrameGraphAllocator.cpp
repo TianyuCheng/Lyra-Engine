@@ -3,10 +3,7 @@
 
 using namespace lyra;
 
-FrameGraphAllocator::FrameGraphAllocator(uint frames_in_flight)
-    : frames_in_flight(frames_in_flight)
-{
-}
+FrameGraphAllocator::FrameGraphAllocator() = default;
 
 FGBufferObject FrameGraphAllocator::allocate(const GPUBufferDescriptor& descriptor)
 {
@@ -84,28 +81,6 @@ void FrameGraphAllocator::recycle(const GPUTextureDescriptor& descriptor, FGText
             break;
         }
     }
-}
-
-GPUBindGroup FrameGraphAllocator::allocate(const GPUBindGroupDescriptor& descriptor, GPUDevice dev)
-{
-    auto device = dev.valid() ? dev : RHI::get_current_device();
-    auto desc   = descriptor;
-
-    if (!desc.heap.valid()) {
-        if (bind_group_heaps.empty()) {
-            bind_group_heaps.resize(std::max(1u, frames_in_flight));
-            for (auto& heap : bind_group_heaps) {
-                auto heap_desc      = GPUBindGroupHeapDescriptor{};
-                heap_desc.page_size = 4096;
-                heap                = device.create_bind_group_heap(heap_desc);
-            }
-        }
-        if (current_frame_slot < bind_group_heaps.size() && bind_group_heaps[current_frame_slot].valid()) {
-            desc.heap = bind_group_heaps[current_frame_slot].handle;
-        }
-    }
-
-    return device.create_bind_group(desc);
 }
 
 void FrameGraphAllocator::reclaim_unused()
@@ -248,13 +223,6 @@ void FrameGraphAllocator::tick(uint max_unused_frames)
     absl::erase_if(buffers, [](const auto& item) {
         return item.second.empty();
     });
-
-    if (frames_in_flight > 0 && !bind_group_heaps.empty()) {
-        current_frame_slot = (current_frame_slot + 1) % frames_in_flight;
-        if (bind_group_heaps[current_frame_slot].valid()) {
-            bind_group_heaps[current_frame_slot].reset();
-        }
-    }
 }
 
 uint FrameGraphAllocator::allocated_texture_count() const
@@ -275,17 +243,6 @@ uint FrameGraphAllocator::allocated_buffer_count() const
     return count;
 }
 
-uint FrameGraphAllocator::allocated_bind_group_count() const
-{
-    uint count = 0;
-    for (const auto& heap : bind_group_heaps) {
-        if (heap.valid()) {
-            count++;
-        }
-    }
-    return count;
-}
-
 FrameGraphAllocator::~FrameGraphAllocator()
 {
     clear();
@@ -294,14 +251,6 @@ FrameGraphAllocator::~FrameGraphAllocator()
 void FrameGraphAllocator::clear()
 {
     auto* api = RHI::api();
-
-    for (auto& heap : bind_group_heaps) {
-        if (heap.valid() && api) {
-            heap.destroy();
-        }
-    }
-    bind_group_heaps.clear();
-    current_frame_slot = 0;
 
     if (!api) {
         buffers.clear();

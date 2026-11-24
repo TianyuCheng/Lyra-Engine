@@ -377,6 +377,28 @@ TEST_CASE("fg::allocator_real_resources" * doctest::description("FrameGraphAlloc
     }
 }
 
+TEST_CASE("fg::frame_arena" * doctest::description("FrameArena transient bind group allocation, ring buffering, and reset"))
+{
+    FrameArena arena(3, 1024);
+    CHECK_EQ(arena.current_slot(), 0);
+    CHECK_EQ(arena.heap_count(), 0);
+
+    GPUBindGroupDescriptor desc{};
+    auto                   bg = arena.allocate(desc);
+    CHECK(bg.handle.valid());
+    CHECK_EQ(arena.heap_count(), 3);
+    CHECK_EQ(arena.current_slot(), 0);
+
+    arena.tick();
+    CHECK_EQ(arena.current_slot(), 1);
+
+    arena.tick();
+    CHECK_EQ(arena.current_slot(), 2);
+
+    arena.tick();
+    CHECK_EQ(arena.current_slot(), 0);
+}
+
 TEST_CASE("fg::transient_resource_lifecycle" * doctest::description("FrameGraph Transient Resource Allocation & Recycling"))
 {
     FrameGraphBuilder   builder;

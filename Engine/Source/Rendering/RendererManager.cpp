@@ -42,6 +42,7 @@ void RendererManager::shutdown(AppContext& context)
     }
 
     allocator.clear();
+    arena.destroy();
     initialized = false;
 }
 
@@ -185,13 +186,14 @@ void RendererManager::render(
     auto graph = builder.build();
     if (graph) {
         FrameGraphContext fg_context{};
-        fg_context.device    = context.services.get<GPUDevice>();
-        fg_context.cmdlist   = GPUCommandBuffer(command_encoder);
-        fg_context.allocator = &allocator;
+        fg_context.device  = context.services.get<GPUDevice>();
+        fg_context.cmdlist = GPUCommandBuffer(command_encoder);
+        fg_context.arena   = &arena;
         graph->execute(&fg_context, &allocator);
     }
 
     allocator.tick();
+    arena.tick();
 }
 
 void RendererManager::draw_debug_panel()

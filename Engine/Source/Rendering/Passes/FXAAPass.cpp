@@ -124,11 +124,11 @@ void FXAAPass::destroy()
 
     device.wait();
 
-    if (linear_sampler.valid()) linear_sampler.destroy();
-    if (pipeline.valid()) pipeline.destroy();
-    if (playout.valid()) playout.destroy();
-    if (fshader.valid()) fshader.destroy();
-    if (vshader.valid()) vshader.destroy();
+    linear_sampler.destroy();
+    pipeline.destroy();
+    playout.destroy();
+    fshader.destroy();
+    vshader.destroy();
 
     blayouts.clear();
     initialized = false;
