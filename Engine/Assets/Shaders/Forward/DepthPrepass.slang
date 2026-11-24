@@ -1,17 +1,8 @@
 import lyra;
-
-struct Camera
-{
-    float4x4 proj;
-    float4x4 view;
-    float4x4 inv_proj;
-    float4x4 inv_view;
-    float3   pos;
-    float    padding;
-};
+import Common.Camera;
 
 [[lyra::binding(0, 0)]]
-ConstantBuffer<Camera> camera;
+ConstantBuffer<CameraUniforms> camera;
 
 [[lyra::binding(0, 1)]]
 ByteAddressBuffer vertex_buffer;
