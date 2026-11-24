@@ -94,7 +94,7 @@ void ShadingModelRegistry::register_model(const ShadingModelInfo& info)
     g_models[info.id] = info;
 }
 
-auto ShadingModelRegistry::get_model(ShadingModelID id) -> Optional<ShadingModelInfo>
+Optional<ShadingModelInfo> ShadingModelRegistry::get_model(ShadingModelID id)
 {
     LockGuard<Mutex> lock(g_registry_mutex);
     if (!g_initialized) {

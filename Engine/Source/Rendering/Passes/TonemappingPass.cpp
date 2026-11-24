@@ -252,26 +252,26 @@ TonemappingData TonemappingPass::add(
                 }
             }
 
-            Array<GPUBindGroupEntry, 4> entries = {};
-            entries.at(0).type                  = GPUResourceType::TEXTURE;
-            entries.at(0).binding               = 0;
-            entries.at(0).texture               = hdr_tex->view;
+            Array<GPUBindGroupEntry, 4> entries{};
+            entries[0].type    = GPUResourceType::TEXTURE;
+            entries[0].binding = 0;
+            entries[0].texture = hdr_tex->view;
 
-            entries.at(1).type    = GPUResourceType::SAMPLER;
-            entries.at(1).binding = 1;
-            entries.at(1).sampler = sampler;
+            entries[1].type    = GPUResourceType::SAMPLER;
+            entries[1].binding = 1;
+            entries[1].sampler = sampler;
 
-            entries.at(2).type    = GPUResourceType::TEXTURE;
-            entries.at(2).binding = 2;
-            entries.at(2).texture = bloom_v;
+            entries[2].type    = GPUResourceType::TEXTURE;
+            entries[2].binding = 2;
+            entries[2].texture = bloom_v;
 
-            entries.at(3).type    = GPUResourceType::TEXTURE;
-            entries.at(3).binding = 3;
-            entries.at(3).texture = exposure_v;
+            entries[3].type    = GPUResourceType::TEXTURE;
+            entries[3].binding = 3;
+            entries[3].texture = exposure_v;
 
             auto bg_desc    = GPUBindGroupDescriptor{};
             bg_desc.heap    = heap;
-            bg_desc.layout  = blayouts.at(0);
+            bg_desc.layout  = blayouts[0];
             bg_desc.entries = entries;
             auto bg         = device.create_bind_group(bg_desc);
 

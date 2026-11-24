@@ -266,8 +266,8 @@ LightCullingData LightCullingPass::add(
                     api->get_mapped_range(grid_buf->buffer, grid_range);
                     api->get_mapped_range(index_buf->buffer, index_range);
 
-                    auto* grid_records = reinterpret_cast<ClusterRecordCPU*>(grid_range.data);
-                    auto* index_list   = reinterpret_cast<uint*>(index_range.data);
+                    auto grid_records = reinterpret_cast<ClusterRecordCPU*>(grid_range.data);
+                    auto index_list   = reinterpret_cast<uint*>(index_range.data);
 
                     if (grid_records && index_list) {
                         float near_p    = view.near_plane > 0.0f ? view.near_plane : 0.1f;

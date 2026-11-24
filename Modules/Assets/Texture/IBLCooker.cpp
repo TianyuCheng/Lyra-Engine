@@ -11,7 +11,7 @@ namespace
     constexpr float PI = 3.14159265358979323846f;
 
     // Hammersley 2D low-discrepancy sequence
-    inline auto radical_inverse_vdc(uint bits) -> float
+    inline float radical_inverse_vdc(uint bits)
     {
         bits = (bits << 16u) | (bits >> 16u);
         bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
@@ -21,13 +21,13 @@ namespace
         return static_cast<float>(bits) * 2.3283064365386963e-10f; // / 0x100000000
     }
 
-    inline auto hammersley_2d(uint i, uint n) -> Vector2
+    inline Vector2 hammersley_2d(uint i, uint n)
     {
         return Vector2(static_cast<float>(i) / static_cast<float>(n), radical_inverse_vdc(i));
     }
 
     // Direction vector for face f in [0..5] and normalized cube coords u, v in [-1, 1]
-    inline auto get_cube_direction(int face, float u, float v) -> Vector3
+    inline Vector3 get_cube_direction(int face, float u, float v)
     {
         Vector3 dir(0.0f);
         // clang-format off
@@ -45,7 +45,7 @@ namespace
     }
 
     // Bilinear sample from equirectangular HDR image
-    inline auto sample_equirectangular(const float* hdr_rgba, int width, int height, const Vector3& dir) -> Vector4
+    inline Vector4 sample_equirectangular(const float* hdr_rgba, int width, int height, const Vector3& dir)
     {
         if (!hdr_rgba || width <= 0 || height <= 0) {
             return Vector4(0.0f);

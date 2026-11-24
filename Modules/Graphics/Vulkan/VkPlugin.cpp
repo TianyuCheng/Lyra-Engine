@@ -468,7 +468,7 @@ bool api::poll_fence(GPUFenceHandle handle)
     return fetch_resource(rhi->fences, handle).ready();
 }
 
-LYRA_EXPORT auto prepare() -> void
+LYRA_EXPORT void prepare()
 {
     get_logger()->set_level(parse_log_level_from_env("LYRA_VULKAN_VERBOSITY"));
 
@@ -479,12 +479,12 @@ LYRA_EXPORT auto prepare() -> void
     }
 }
 
-LYRA_EXPORT auto cleanup() -> void
+LYRA_EXPORT void cleanup()
 {
     // do nothing
 }
 
-LYRA_EXPORT auto create() -> RenderAPI
+LYRA_EXPORT RenderAPI create()
 {
     auto api                             = RenderAPI{};
     api.get_api_name                     = get_api_name;

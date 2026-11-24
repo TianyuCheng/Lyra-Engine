@@ -55,15 +55,15 @@ namespace lyra::passes
 
         [[nodiscard]] bool valid() const { return initialized && histogram_pipeline.valid() && adapt_pipeline.valid(); }
 
-        auto add(
+        AutoExposureData add(
             FrameGraphBuilder&                  builder,
             FrameGraphHandle<FrameGraphTexture> hdr_input,
             GPUExtent2D                         extent,
             float                               delta_time,
-            const AutoExposureSettings&         settings = {}) -> AutoExposureData;
+            const AutoExposureSettings&         settings = {});
 
-        [[nodiscard]] auto get_exposure_texture() const -> GPUTexture { return exposure_texture; }
-        [[nodiscard]] auto get_exposure_view() const -> GPUTextureView { return exposure_view; }
+        [[nodiscard]] GPUTexture     get_exposure_texture() const { return exposure_texture; }
+        [[nodiscard]] GPUTextureView get_exposure_view() const { return exposure_view; }
 
     private:
         struct alignas(16) AutoExposurePushConstants

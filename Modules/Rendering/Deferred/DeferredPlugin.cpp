@@ -681,15 +681,15 @@ static void draw_debug_panel(RendererHandle handle)
     // debug panel UI
 }
 
-LYRA_EXPORT auto prepare() -> void
+LYRA_EXPORT void prepare()
 {
 }
 
-LYRA_EXPORT auto cleanup() -> void
+LYRA_EXPORT void cleanup()
 {
 }
 
-LYRA_EXPORT auto create() -> RendererAPI
+LYRA_EXPORT RendererAPI create()
 {
     RendererAPI api{};
     api.get_name         = get_name;

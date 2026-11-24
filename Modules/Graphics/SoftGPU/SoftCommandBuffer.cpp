@@ -1074,7 +1074,7 @@ void SoftCommandBuffer::draw_indirect(GPUBufferHandle indirect_buffer, GPUSize64
         for (GPUSize32 i = 0; i < draw_count; ++i) {
             GPUSize64 offset = indirect_offset + i * sizeof(SoftDrawIndirectCommand);
             if (offset + sizeof(SoftDrawIndirectCommand) > buf->data.size()) break;
-            const auto* cmd = reinterpret_cast<const SoftDrawIndirectCommand*>(buf->data.data() + offset);
+            const auto cmd = reinterpret_cast<const SoftDrawIndirectCommand*>(buf->data.data() + offset);
             execute_draw(device, ctx, cmd->vertex_count, cmd->instance_count, cmd->first_vertex, cmd->first_instance);
         }
     });
@@ -1088,7 +1088,7 @@ void SoftCommandBuffer::draw_indexed_indirect(GPUBufferHandle indirect_buffer, G
         for (GPUSize32 i = 0; i < draw_count; ++i) {
             GPUSize64 offset = indirect_offset + i * sizeof(SoftDrawIndexedIndirectCommand);
             if (offset + sizeof(SoftDrawIndexedIndirectCommand) > buf->data.size()) break;
-            const auto* cmd = reinterpret_cast<const SoftDrawIndexedIndirectCommand*>(buf->data.data() + offset);
+            const auto cmd = reinterpret_cast<const SoftDrawIndexedIndirectCommand*>(buf->data.data() + offset);
             execute_draw_indexed(device, ctx, cmd->index_count, cmd->instance_count, cmd->first_index, cmd->base_vertex, cmd->first_instance);
         }
     });

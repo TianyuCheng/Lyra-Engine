@@ -48,7 +48,7 @@ OwnedResource<RHI> RHI::init(const RHIDescriptor& descriptor)
 
     if (slot_id == -1) {
         show_error("RHI", "Exceeded maximum number of active RHI backends (16)!");
-        exit(1);
+        return {};
     }
 
     auto& slot        = G_BACKENDS[slot_id];

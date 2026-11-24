@@ -28,15 +28,15 @@ static Logger get_logger()
 
 static PipelinePreviewConfig G_CONFIG;
 
-auto lyra::preview::get_config() -> PipelinePreviewConfig&
+PipelinePreviewConfig& lyra::preview::get_config()
 {
     return G_CONFIG;
 }
 
-auto BatchPreviewDispatcher::instance() -> BatchPreviewDispatcher&
+BatchPreviewDispatcher& BatchPreviewDispatcher::instance()
 {
-    static auto* INSTANCE = new BatchPreviewDispatcher();
-    return *INSTANCE;
+    static auto instance = new BatchPreviewDispatcher();
+    return *instance;
 }
 
 void BatchPreviewDispatcher::configure(const AssetConfigContext& context)

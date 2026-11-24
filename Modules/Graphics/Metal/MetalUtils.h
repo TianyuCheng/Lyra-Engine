@@ -786,7 +786,7 @@ void MetalBindGroup::declare_resource_usages(TEncoder encoder)
                     auto  rhi      = get_rhi();
                     auto& tlas_res = fetch_resource(rhi->tlases, entry.tlas_handle);
                     if (tlas_res.descriptor) {
-                        auto* instance_desc = (MTLInstanceAccelerationStructureDescriptor*)tlas_res.descriptor;
+                        auto instance_desc = (MTLInstanceAccelerationStructureDescriptor*)tlas_res.descriptor;
                         for (NSUInteger b = 0; b < instance_desc.instancedAccelerationStructures.count; ++b) {
                             id<MTLAccelerationStructure> blas = instance_desc.instancedAccelerationStructures[b];
                             [encoder useResource:blas usage:MTLResourceUsageRead];
