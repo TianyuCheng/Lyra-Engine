@@ -46,22 +46,22 @@ namespace lyra
 
     using BufferSource = uint8_t*;
 
-    using GPUBufferDynamicOffset   = uint32_t;
-    using GPUStencilValue          = uint32_t;
-    using GPUSampleMask            = uint32_t;
+    using GPUBufferDynamicOffset   = uint;
+    using GPUStencilValue          = uint;
+    using GPUSampleMask            = uint;
     using GPUDepthBias             = int32_t;
-    using GPUSize64                = uint64_t;
-    using GPUIntegerCoordinate     = uint32_t;
-    using GPUIndex32               = uint32_t;
-    using GPUSize32                = uint32_t;
+    using GPUSize64                = ulong;
+    using GPUIntegerCoordinate     = uint;
+    using GPUIndex32               = uint;
+    using GPUSize32                = uint;
     using GPUSignedOffset32        = int32_t;
-    using GPUIndex64               = uint64_t;
-    using GPUSize64Out             = uint64_t;
-    using GPUIntegerCoordinateOut  = uint32_t;
-    using GPUSize32Out             = uint32_t;
-    using GPUFlagsConstant         = uint32_t;
-    using GPUPipelineConstantValue = uint64_t;
-    using GPUBufferAddress         = uint64_t;
+    using GPUIndex64               = ulong;
+    using GPUSize64Out             = ulong;
+    using GPUIntegerCoordinateOut  = uint;
+    using GPUSize32Out             = uint;
+    using GPUFlagsConstant         = uint;
+    using GPUPipelineConstantValue = ulong;
+    using GPUBufferAddress         = ulong;
     using RHIFlags                 = BitFlags<RHIFlag>;
     using GPUShaderStageFlags      = BitFlags<GPUShaderStage>;
     using GPUBufferUsageFlags      = BitFlags<GPUBufferUsage>;
@@ -498,8 +498,8 @@ namespace lyra
     struct GPUTlasInstance
     {
         float         transform[3][4]; // row major 3x4
-        uint32_t      custom_data;
-        uint8_t       mask;
+        uint          custom_data;
+        ubyte         mask;
         GPUBlasHandle blas;
     };
 

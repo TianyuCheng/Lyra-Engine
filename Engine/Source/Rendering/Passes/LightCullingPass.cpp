@@ -135,13 +135,13 @@ LightCullingData LightCullingPass::add(
 
             auto grid_desc           = GPUBufferDescriptor{};
             grid_desc.label          = "cluster_grid_buffer";
-            grid_desc.size           = total_clusters * 2 * sizeof(uint32_t); // uint2 (offset, count)
+            grid_desc.size           = total_clusters * 2 * sizeof(uint); // uint2 (offset, count)
             grid_desc.usage          = GPUBufferUsage::STORAGE | GPUBufferUsage::COPY_DST | GPUBufferUsage::MAP_WRITE;
             data.cluster_grid_buffer = pass_builder.create<FrameGraphBuffer>(grid_desc);
 
             auto index_desc       = GPUBufferDescriptor{};
             index_desc.label      = "cluster_light_index_list";
-            index_desc.size       = total_clusters * 64 * sizeof(uint32_t); // max 64 lights per cluster
+            index_desc.size       = total_clusters * 64 * sizeof(uint); // max 64 lights per cluster
             index_desc.usage      = GPUBufferUsage::STORAGE | GPUBufferUsage::COPY_DST | GPUBufferUsage::MAP_WRITE;
             data.light_index_list = pass_builder.create<FrameGraphBuffer>(index_desc);
 
@@ -253,8 +253,8 @@ LightCullingData LightCullingPass::add(
                 StringView(device.adapter_info.description.data).find("SoftGPU") != StringView::npos) {
                 struct ClusterRecordCPU
                 {
-                    uint32_t offset;
-                    uint32_t count;
+                    uint offset;
+                    uint count;
                 };
 
                 auto api = RHI::api();
@@ -267,7 +267,7 @@ LightCullingData LightCullingPass::add(
                     api->get_mapped_range(index_buf->buffer, index_range);
 
                     auto* grid_records = reinterpret_cast<ClusterRecordCPU*>(grid_range.data);
-                    auto* index_list   = reinterpret_cast<uint32_t*>(index_range.data);
+                    auto* index_list   = reinterpret_cast<uint*>(index_range.data);
 
                     if (grid_records && index_list) {
                         float near_p    = view.near_plane > 0.0f ? view.near_plane : 0.1f;

@@ -105,10 +105,10 @@ GPUTextureBarrier lyra::state_transition(
     GPUTextureHandle              texture,
     const TextureTransitionState& src_state,
     const TextureTransitionState& dst_state,
-    uint32_t                      base_array_layer,
-    uint32_t                      array_layers,
-    uint32_t                      base_mip_level,
-    uint32_t                      mip_level_count)
+    uint                          base_array_layer,
+    uint                          array_layers,
+    uint                          base_mip_level,
+    uint                          mip_level_count)
 {
     auto barrier                          = GPUTextureBarrier{};
     barrier.texture                       = texture;

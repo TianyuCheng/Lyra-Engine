@@ -57,30 +57,30 @@ OwnedResource<RHI> RHI::init(const RHIDescriptor& descriptor)
 
     switch (descriptor.backend) {
         case RHIBackend::D3D12:
-            slot.plugin = std::make_unique<RenderPlugin>("lyra-d3d12");
+            slot.plugin = make_own<RenderPlugin>("lyra-d3d12");
             slot.api    = slot.plugin->get_api();
             break;
         case RHIBackend::METAL:
-            slot.plugin = std::make_unique<RenderPlugin>("lyra-metal");
+            slot.plugin = make_own<RenderPlugin>("lyra-metal");
             slot.api    = slot.plugin->get_api();
             break;
         case RHIBackend::VULKAN:
-            slot.plugin = std::make_unique<RenderPlugin>("lyra-vulkan");
+            slot.plugin = make_own<RenderPlugin>("lyra-vulkan");
             slot.api    = slot.plugin->get_api();
             break;
         case RHIBackend::SOFTGPU:
-            slot.plugin = std::make_unique<RenderPlugin>("lyra-softgpu");
+            slot.plugin = make_own<RenderPlugin>("lyra-softgpu");
             slot.api    = slot.plugin->get_api();
             break;
         case RHIBackend::MOCKGPU:
-            slot.builtin_plugin = std::make_unique<BuiltinRenderPlugin>(
+            slot.builtin_plugin = make_own<BuiltinRenderPlugin>(
                 lyra::mockgpu::create,
                 lyra::mockgpu::prepare,
                 lyra::mockgpu::cleanup);
             slot.api = slot.builtin_plugin->get_api();
             break;
         case RHIBackend::CUSTOM:
-            slot.plugin = std::make_unique<RenderPlugin>(descriptor.custom_backend);
+            slot.plugin = make_own<RenderPlugin>(descriptor.custom_backend);
             slot.api    = slot.plugin->get_api();
             break;
     }

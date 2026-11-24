@@ -39,10 +39,10 @@ namespace lyra
         GPUTextureHandle              texture,
         const TextureTransitionState& src_state,
         const TextureTransitionState& dst_state,
-        uint32_t                      base_array_layer = 0,
-        uint32_t                      array_layers     = 1,
-        uint32_t                      base_mip_level   = 0,
-        uint32_t                      mip_level_count  = 1);
+        uint                          base_array_layer = 0,
+        uint                          array_layers     = 1,
+        uint                          base_mip_level   = 0,
+        uint                          mip_level_count  = 1);
 
     // =========================================================================
     // buffer transitions

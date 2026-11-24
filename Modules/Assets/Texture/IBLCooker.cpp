@@ -11,7 +11,7 @@ namespace
     constexpr float PI = 3.14159265358979323846f;
 
     // Hammersley 2D low-discrepancy sequence
-    inline auto radical_inverse_vdc(uint32_t bits) -> float
+    inline auto radical_inverse_vdc(uint bits) -> float
     {
         bits = (bits << 16u) | (bits >> 16u);
         bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
@@ -21,7 +21,7 @@ namespace
         return static_cast<float>(bits) * 2.3283064365386963e-10f; // / 0x100000000
     }
 
-    inline auto hammersley_2d(uint32_t i, uint32_t n) -> Vector2
+    inline auto hammersley_2d(uint i, uint n) -> Vector2
     {
         return Vector2(static_cast<float>(i) / static_cast<float>(n), radical_inverse_vdc(i));
     }
@@ -213,11 +213,11 @@ void lyra::texture::prefilter_environment_cubemap(
                         dst_pixels[idx + 2] = s.b;
                         dst_pixels[idx + 3] = 1.0f;
                     } else {
-                        constexpr uint32_t NUM_SAMPLES = 64;
-                        Vector3            prefiltered(0.0f);
-                        float              total_weight = 0.0f;
+                        constexpr uint NUM_SAMPLES = 64;
+                        Vector3        prefiltered(0.0f);
+                        float          total_weight = 0.0f;
 
-                        for (uint32_t i = 0; i < NUM_SAMPLES; ++i) {
+                        for (uint i = 0; i < NUM_SAMPLES; ++i) {
                             Vector2 xi = hammersley_2d(i, NUM_SAMPLES);
                             Vector3 H  = importance_sample_ggx(xi, N, roughness);
                             Vector3 L  = glm::normalize(2.0f * glm::dot(V, H) * H - V);

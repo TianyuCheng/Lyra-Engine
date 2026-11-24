@@ -102,7 +102,7 @@ bool ForwardPass::init(
     default_cluster_grid_buffer = execute([&]() {
         auto desc  = GPUBufferDescriptor{};
         desc.label = "forward_default_cluster_grid_buffer";
-        desc.size  = sizeof(uint32_t) * 2;
+        desc.size  = sizeof(uint) * 2;
         desc.usage = GPUBufferUsage::STORAGE;
         return device.create_buffer(desc);
     });
@@ -110,7 +110,7 @@ bool ForwardPass::init(
     default_light_index_buffer = execute([&]() {
         auto desc  = GPUBufferDescriptor{};
         desc.label = "forward_default_light_index_buffer";
-        desc.size  = sizeof(uint32_t);
+        desc.size  = sizeof(uint);
         desc.usage = GPUBufferUsage::STORAGE;
         return device.create_buffer(desc);
     });
