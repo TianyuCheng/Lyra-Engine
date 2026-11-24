@@ -67,18 +67,6 @@ bool ForwardPass::init(
         mesh_pass.init(device, blayouts[1]);
     }
 
-    // camera uniform buffers and bind groups
-    for (uint i = 0; i < FRAMES_IN_FLIGHT; ++i) {
-        camera_buffers[i] = execute([&]() {
-            auto desc               = GPUBufferDescriptor{};
-            desc.label              = "forward_camera_uniform_buffer";
-            desc.size               = sizeof(CameraUniforms);
-            desc.usage              = GPUBufferUsage::UNIFORM | GPUBufferUsage::MAP_WRITE;
-            desc.mapped_at_creation = true;
-            return device.create_buffer(desc);
-        });
-    }
-
     shadow_sampler = execute([&]() {
         auto desc           = GPUSamplerDescriptor{};
         desc.label          = "forward_shadow_sampler";
@@ -207,14 +195,6 @@ void ForwardPass::destroy()
     }
     variant_shader_modules.clear();
 
-    for (auto& buf : camera_buffers) {
-        if (buf.valid()) {
-            buf.destroy();
-        }
-    }
-    camera_buffers.fill({});
-    camera_bind_groups.fill({});
-
     if (shadow_sampler.valid()) {
         shadow_sampler.destroy();
     }
@@ -256,8 +236,7 @@ void ForwardPass::destroy()
     initialized = false;
 }
 
-void ForwardPass::update_camera_buffer(
-    uint               slot,
+ForwardPass::ForwardPassUniforms ForwardPass::make_uniforms(
     const RenderView&  view,
     const RenderScene& scene,
     const Matrix4x4&   light_vp,
@@ -265,56 +244,51 @@ void ForwardPass::update_camera_buffer(
     uint               cluster_grid_x,
     uint               cluster_grid_y,
     uint               cluster_grid_z,
-    uint               num_lights)
+    uint               num_lights) const
 {
-    if (slot >= FRAMES_IN_FLIGHT || !camera_buffers[slot].valid()) {
-        return;
+    ForwardPassUniforms u{};
+    u.proj                 = view.projection;
+    u.view                 = view.view;
+    u.inv_proj             = view.inv_projection;
+    u.inv_view             = view.inv_view;
+    float   exposure_scale = (view.exposure_scale > 0.0f) ? view.exposure_scale : (1.0f / (1.2f * 8192.0f));
+    Vector3 sun_dir        = glm::normalize(Vector3(0.6f, 1.0f, 0.5f));
+    Vector3 sun_color      = Vector3(1.0f);
+    float   sun_intensity  = 0.0f;
+
+    if (!scene.directional_lights.empty()) {
+        const auto& light = scene.directional_lights[0];
+        if (glm::length2(light.direction) > 1e-4f) {
+            sun_dir = -glm::normalize(light.direction);
+        }
+        sun_color     = light.color;
+        sun_intensity = std::max(light.intensity * exposure_scale, 0.0f);
     }
 
-    auto mapped = camera_buffers[slot].get_mapped_range<CameraUniforms>();
-    if (mapped.count > 0) {
-        mapped.at(0).proj      = view.projection;
-        mapped.at(0).view      = view.view;
-        mapped.at(0).inv_proj  = view.inv_projection;
-        mapped.at(0).inv_view  = view.inv_view;
-        float   exposure_scale = (view.exposure_scale > 0.0f) ? view.exposure_scale : (1.0f / (1.2f * 8192.0f));
-        Vector3 sun_dir        = glm::normalize(Vector3(0.6f, 1.0f, 0.5f));
-        Vector3 sun_color      = Vector3(1.0f);
-        float   sun_intensity  = 0.0f;
+    u.pos_and_intensity = Vector4(view.camera_position, sun_intensity);
+    u.sun_dir_and_pad   = Vector4(sun_dir, 0.0f);
+    u.sun_color_and_pad = Vector4(sun_color, 0.0f);
+    u.light_view_proj   = light_vp;
 
-        if (!scene.directional_lights.empty()) {
-            const auto& light = scene.directional_lights[0];
-            if (glm::length2(light.direction) > 1e-4f) {
-                sun_dir = -glm::normalize(light.direction);
-            }
-            sun_color     = light.color;
-            sun_intensity = std::max(light.intensity * exposure_scale, 0.0f);
-        }
+    float near_p = view.near_plane > 0.0f ? view.near_plane : 0.1f;
+    float far_p  = view.far_plane > near_p ? view.far_plane : 100.0f;
 
-        mapped.at(0).pos_and_intensity = Vector4(view.camera_position, sun_intensity);
-        mapped.at(0).sun_dir_and_pad   = Vector4(sun_dir, 0.0f);
-        mapped.at(0).sun_color_and_pad = Vector4(sun_color, 0.0f);
-        mapped.at(0).light_view_proj   = light_vp;
+    u.cluster_params = Vector4(
+        static_cast<float>(extent.width),
+        static_cast<float>(extent.height),
+        near_p,
+        far_p);
 
-        float near_p = view.near_plane > 0.0f ? view.near_plane : 0.1f;
-        float far_p  = view.far_plane > near_p ? view.far_plane : 100.0f;
+    u.cluster_dims = Vector4(
+        static_cast<float>(cluster_grid_x),
+        static_cast<float>(cluster_grid_y),
+        static_cast<float>(cluster_grid_z),
+        static_cast<float>(num_lights));
 
-        mapped.at(0).cluster_params = Vector4(
-            static_cast<float>(extent.width),
-            static_cast<float>(extent.height),
-            near_p,
-            far_p);
-
-        mapped.at(0).cluster_dims = Vector4(
-            static_cast<float>(cluster_grid_x),
-            static_cast<float>(cluster_grid_y),
-            static_cast<float>(cluster_grid_z),
-            static_cast<float>(num_lights));
-
-        for (size_t i = 0; i < 9; ++i) {
-            mapped.at(0).env_sh[i] = scene.env_sh[i];
-        }
+    for (size_t i = 0; i < 9; ++i) {
+        u.env_sh[i] = scene.env_sh[i];
     }
+    return u;
 }
 
 GPURenderPipeline ForwardPass::get_or_create_pipeline(ShadingModelID shading_model_id)
@@ -417,11 +391,7 @@ ForwardPassData ForwardPass::add(
         return out;
     }
 
-    frame_slot        = (frame_slot + 1) % FRAMES_IN_FLIGHT;
-    uint current_slot = frame_slot;
-
-    update_camera_buffer(
-        current_slot,
+    auto forward_uniforms = make_uniforms(
         params.view,
         params.scene,
         params.light_view_proj,
@@ -470,7 +440,7 @@ ForwardPassData ForwardPass::add(
             data.draw_calls         = mesh_pass.get_draw_call_count();
             data.triangles_rendered = mesh_pass.get_triangle_count();
         },
-        [this, current_slot, params](const ForwardPassData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
+        [this, forward_uniforms, params](const ForwardPassData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
             if (!ctx || !ctx->cmdlist.handle.valid()) {
                 return;
             }
@@ -518,12 +488,12 @@ ForwardPassData ForwardPass::add(
                 brdf_view = params.brdf_lut;
             }
 
+            auto u_slice = ctx->create_uniform(forward_uniforms);
+
             Array<GPUBindGroupEntry, 9> entries{};
-            entries[0].type          = GPUResourceType::BUFFER;
-            entries[0].binding       = 0;
-            entries[0].buffer.buffer = camera_buffers[current_slot].handle;
-            entries[0].buffer.offset = 0;
-            entries[0].buffer.size   = sizeof(CameraUniforms);
+            entries[0].type    = GPUResourceType::BUFFER;
+            entries[0].binding = 0;
+            entries[0].buffer  = u_slice;
 
             entries[1].type    = GPUResourceType::TEXTURE;
             entries[1].binding = 1;

@@ -51,9 +51,6 @@ struct DeferredRendererInstance
     passes::SkyboxPass       skybox_pass;
     passes::LightCullingPass light_culling_pass;
 
-    Array<GPUBuffer, FRAMES_IN_FLIGHT> camera_buffers;
-    uint                               frame_slot = 0;
-
     // lighting resolve pipeline handles
     GPUShaderModule                  vshader;
     GPUShaderModule                  fshader;
@@ -111,18 +108,6 @@ struct DeferredRendererInstance
 
         // 4. Initialize clustered light culling pass
         light_culling_pass.init(device, compiler);
-
-        // 4. Create camera buffers for deferred lighting
-        for (uint i = 0; i < FRAMES_IN_FLIGHT; ++i) {
-            camera_buffers[i] = execute([&]() {
-                auto bdesc               = GPUBufferDescriptor{};
-                bdesc.label              = "deferred_lighting_camera_buffer";
-                bdesc.size               = sizeof(DeferredCameraUniforms);
-                bdesc.usage              = GPUBufferUsage::UNIFORM | GPUBufferUsage::MAP_WRITE;
-                bdesc.mapped_at_creation = true;
-                return device.create_buffer(bdesc);
-            });
-        }
 
         // 5. Compile DeferredLighting shader
         auto module = execute([&]() {
@@ -296,13 +281,6 @@ struct DeferredRendererInstance
         skybox_pass.destroy();
         light_culling_pass.destroy();
 
-        for (auto& buf : camera_buffers) {
-            if (buf.valid()) {
-                buf.destroy();
-            }
-        }
-        camera_buffers.fill({});
-
         if (shadow_sampler.valid()) shadow_sampler.destroy();
         if (default_shadow_view.valid()) default_shadow_view.destroy();
         if (default_shadow_map.valid()) default_shadow_map.destroy();
@@ -439,62 +417,50 @@ static FrameGraph::TextureHandle render(
         shadow_map_h = s_data.shadow_map_array;
     }
 
-    renderer->frame_slot = (renderer->frame_slot + 1) % DeferredRendererInstance::FRAMES_IN_FLIGHT;
-    uint current_slot    = renderer->frame_slot;
-
-    if (renderer->camera_buffers[current_slot].valid()) {
-        auto mapped = renderer->camera_buffers[current_slot].get_mapped_range<DeferredCameraUniforms>();
-        if (mapped.count > 0) {
-            mapped.at(0).proj      = view.projection;
-            mapped.at(0).view      = view.view;
-            mapped.at(0).inv_proj  = view.inv_projection;
-            mapped.at(0).inv_view  = view.inv_view;
-            float   exposure_scale = (view.exposure_scale > 0.0f) ? view.exposure_scale : (1.0f / (1.2f * 8192.0f));
-            Vector3 sun_dir        = glm::normalize(Vector3(0.5f, 1.0f, 0.3f));
-            Vector3 sun_color      = Vector3(1.0f);
-            float   sun_intensity  = 0.0f;
-
-            if (!ctx.scene.directional_lights.empty()) {
-                const auto& light = ctx.scene.directional_lights[0];
-                if (glm::length2(light.direction) > 1e-4f) {
-                    sun_dir = -glm::normalize(light.direction);
-                }
-                sun_color     = light.color;
-                sun_intensity = std::max(light.intensity * exposure_scale, 0.0f);
-            }
-
-            mapped.at(0).pos_and_intensity = Vector4(view.camera_position, sun_intensity);
-            mapped.at(0).sun_dir_and_pad   = Vector4(sun_dir, 0.0f);
-            mapped.at(0).sun_color_and_pad = Vector4(sun_color, 0.0f);
-            mapped.at(0).light_view_proj   = renderer->shadow_pass.get_light_view_proj();
-        }
-    }
-
     // 1. G-Buffer pass
     auto gbuffer = renderer->gbuffer_pass.add(ctx.builder, view, ctx.scene, extent);
 
     // 2. Clustered light culling pass
     auto culling = renderer->light_culling_pass.add(ctx.builder, view, ctx.scene);
 
-    if (renderer->camera_buffers[current_slot].valid()) {
-        auto mapped = renderer->camera_buffers[current_slot].get_mapped_range<DeferredCameraUniforms>();
-        if (mapped.count > 0) {
-            float near_p                = (view.near_plane > 0.0f) ? view.near_plane : 0.1f;
-            float far_p                 = (view.far_plane > near_p) ? view.far_plane : 100.0f;
-            mapped.at(0).cluster_params = Vector4(
-                static_cast<float>(extent.width),
-                static_cast<float>(extent.height),
-                near_p,
-                far_p);
-            mapped.at(0).cluster_dims = Vector4(
-                static_cast<float>(culling.cluster_grid_x),
-                static_cast<float>(culling.cluster_grid_y),
-                static_cast<float>(culling.cluster_grid_z),
-                static_cast<float>(ctx.scene.directional_lights.size() + ctx.scene.local_lights.size()));
-            for (size_t i = 0; i < 9; ++i) {
-                mapped.at(0).env_sh[i] = ctx.scene.env_sh[i];
-            }
+    DeferredCameraUniforms camera_uniforms{};
+    camera_uniforms.proj     = view.projection;
+    camera_uniforms.view     = view.view;
+    camera_uniforms.inv_proj = view.inv_projection;
+    camera_uniforms.inv_view = view.inv_view;
+    float   exposure_scale   = (view.exposure_scale > 0.0f) ? view.exposure_scale : (1.0f / (1.2f * 8192.0f));
+    Vector3 sun_dir          = glm::normalize(Vector3(0.5f, 1.0f, 0.3f));
+    Vector3 sun_color        = Vector3(1.0f);
+    float   sun_intensity    = 0.0f;
+
+    if (!ctx.scene.directional_lights.empty()) {
+        const auto& light = ctx.scene.directional_lights[0];
+        if (glm::length2(light.direction) > 1e-4f) {
+            sun_dir = -glm::normalize(light.direction);
         }
+        sun_color     = light.color;
+        sun_intensity = std::max(light.intensity * exposure_scale, 0.0f);
+    }
+
+    camera_uniforms.pos_and_intensity = Vector4(view.camera_position, sun_intensity);
+    camera_uniforms.sun_dir_and_pad   = Vector4(sun_dir, 0.0f);
+    camera_uniforms.sun_color_and_pad = Vector4(sun_color, 0.0f);
+    camera_uniforms.light_view_proj   = renderer->shadow_pass.get_light_view_proj();
+
+    float near_p                   = (view.near_plane > 0.0f) ? view.near_plane : 0.1f;
+    float far_p                    = (view.far_plane > near_p) ? view.far_plane : 100.0f;
+    camera_uniforms.cluster_params = Vector4(
+        static_cast<float>(extent.width),
+        static_cast<float>(extent.height),
+        near_p,
+        far_p);
+    camera_uniforms.cluster_dims = Vector4(
+        static_cast<float>(culling.cluster_grid_x),
+        static_cast<float>(culling.cluster_grid_y),
+        static_cast<float>(culling.cluster_grid_z),
+        static_cast<float>(ctx.scene.directional_lights.size() + ctx.scene.local_lights.size()));
+    for (size_t i = 0; i < 9; ++i) {
+        camera_uniforms.env_sh[i] = ctx.scene.env_sh[i];
     }
 
     // 3. Deferred lighting composition pass
@@ -528,7 +494,7 @@ static FrameGraph::TextureHandle render(
             data.lit_output       = pass_builder.render(ctx.color_target);
             data.environment_map  = ctx.scene.environment_map;
         },
-        [renderer, extent, current_slot](const DeferredLightingPassData& data, FrameGraphResources& resources, FrameGraphContext* fg_ctx) {
+        [renderer, extent, camera_uniforms](const DeferredLightingPassData& data, FrameGraphResources& resources, FrameGraphContext* fg_ctx) {
             if (!fg_ctx || !fg_ctx->cmdlist.handle.valid() || !renderer->lighting_pipeline.valid()) {
                 return;
             }
@@ -574,11 +540,11 @@ static FrameGraph::TextureHandle render(
             entries[4].binding = 4;
             entries[4].texture = depth_tex->view;
 
-            entries[5].type          = GPUResourceType::BUFFER;
-            entries[5].binding       = 5;
-            entries[5].buffer.buffer = renderer->camera_buffers[current_slot];
-            entries[5].buffer.offset = 0;
-            entries[5].buffer.size   = sizeof(DeferredCameraUniforms);
+            auto u_slice = fg_ctx->create_uniform(camera_uniforms);
+
+            entries[5].type    = GPUResourceType::BUFFER;
+            entries[5].binding = 5;
+            entries[5].buffer  = u_slice;
 
             entries[6].type    = GPUResourceType::TEXTURE;
             entries[6].binding = 6;

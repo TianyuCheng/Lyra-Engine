@@ -73,21 +73,16 @@ namespace lyra::passes
         [[nodiscard]] bool valid() const { return initialized && pipeline.valid(); }
 
     private:
-        void update_camera_uniform(uint slot, const RenderView& view, const RenderScene& scene);
         void precompute_static_luts();
 
     private:
-        static constexpr uint FRAMES_IN_FLIGHT = 3;
-
-        GPUDevice                          device;
-        GPURenderPipeline                  pipeline;
-        GPUPipelineLayout                  playout;
-        GPUShaderModule                    vshader;
-        GPUShaderModule                    fshader;
-        Array<GPUBuffer, FRAMES_IN_FLIGHT> camera_buffers{};
-        uint                               frame_slot = 0;
-        GPUBindGroupHeap                   heap;
-        Vector<GPUBindGroupLayoutHandle>   blayouts;
+        GPUDevice                        device;
+        GPURenderPipeline                pipeline;
+        GPUPipelineLayout                playout;
+        GPUShaderModule                  vshader;
+        GPUShaderModule                  fshader;
+        GPUBindGroupHeap                 heap;
+        Vector<GPUBindGroupLayoutHandle> blayouts;
 
         // 3-LUT Atmospheric Scattering Pipeline (Milestone 3, Task 3.1.1)
         // 1. Transmittance LUT (256x64)
@@ -110,12 +105,11 @@ namespace lyra::passes
         GPUBindGroup                     multiscatter_bind_group;
 
         // 3. Sky-View LUT (192x108)
-        GPURenderPipeline                     sky_view_pipeline;
-        GPUPipelineLayout                     sky_view_playout;
-        GPUShaderModule                       sky_view_vshader;
-        GPUShaderModule                       sky_view_fshader;
-        Vector<GPUBindGroupLayoutHandle>      sky_view_blayouts;
-        Array<GPUBindGroup, FRAMES_IN_FLIGHT> sky_view_bind_groups{};
+        GPURenderPipeline                sky_view_pipeline;
+        GPUPipelineLayout                sky_view_playout;
+        GPUShaderModule                  sky_view_vshader;
+        GPUShaderModule                  sky_view_fshader;
+        Vector<GPUBindGroupLayoutHandle> sky_view_blayouts;
 
         GPUSampler linear_sampler;
 

@@ -181,22 +181,12 @@ bool SkyboxPass::init(
     s_desc.address_mode_v = GPUAddressMode::CLAMP_TO_EDGE;
     linear_sampler        = device.create_sampler(s_desc);
 
-    // 5. camera uniform buffers
-    for (uint i = 0; i < FRAMES_IN_FLIGHT; ++i) {
-        auto b_desc               = GPUBufferDescriptor{};
-        b_desc.label              = "skybox_camera_buffer";
-        b_desc.size               = sizeof(SkyboxUniform);
-        b_desc.usage              = GPUBufferUsage::UNIFORM | GPUBufferUsage::MAP_WRITE;
-        b_desc.mapped_at_creation = true;
-        camera_buffers[i]         = device.create_buffer(b_desc);
-    }
-
-    // 6. bind group heap
+    // 5. bind group heap
     auto h_desc      = GPUBindGroupHeapDescriptor{};
     h_desc.page_size = 4096;
     heap             = device.create_bind_group_heap(h_desc);
 
-    // 7. create static bind groups
+    // 6. create static bind groups
     if (!multiscatter_blayouts.empty()) {
         Array<GPUBindGroupEntry, 2> entries{};
         entries.at(0).type    = GPUResourceType::TEXTURE;
@@ -212,35 +202,6 @@ bool SkyboxPass::init(
         bg_desc.layout          = multiscatter_blayouts.at(0);
         bg_desc.entries         = entries;
         multiscatter_bind_group = device.create_bind_group(bg_desc);
-    }
-
-    if (!sky_view_blayouts.empty()) {
-        for (uint i = 0; i < FRAMES_IN_FLIGHT; ++i) {
-            Array<GPUBindGroupEntry, 4> entries{};
-            entries.at(0).type          = GPUResourceType::BUFFER;
-            entries.at(0).binding       = 0;
-            entries.at(0).buffer.buffer = camera_buffers[i];
-            entries.at(0).buffer.offset = 0;
-            entries.at(0).buffer.size   = 0;
-
-            entries.at(1).type    = GPUResourceType::TEXTURE;
-            entries.at(1).binding = 1;
-            entries.at(1).texture = transmittance_lut_view;
-
-            entries.at(2).type    = GPUResourceType::TEXTURE;
-            entries.at(2).binding = 2;
-            entries.at(2).texture = multiscatter_lut_view;
-
-            entries.at(3).type    = GPUResourceType::SAMPLER;
-            entries.at(3).binding = 3;
-            entries.at(3).sampler = linear_sampler;
-
-            auto bg_desc            = GPUBindGroupDescriptor{};
-            bg_desc.heap            = heap;
-            bg_desc.layout          = sky_view_blayouts.at(0);
-            bg_desc.entries         = entries;
-            sky_view_bind_groups[i] = device.create_bind_group(bg_desc);
-        }
     }
 
     // 8. precompute static Transmittance LUT and Multi-Scattering LUT
@@ -333,11 +294,6 @@ void SkyboxPass::destroy()
     if (heap.valid()) heap.destroy();
     if (linear_sampler.valid()) linear_sampler.destroy();
 
-    for (auto& buf : camera_buffers) {
-        if (buf.valid()) buf.destroy();
-    }
-    camera_buffers.fill({});
-    sky_view_bind_groups.fill({});
     multiscatter_bind_group = {};
 
     if (multiscatter_lut_view.valid()) multiscatter_lut_view.destroy();
@@ -377,25 +333,17 @@ void SkyboxPass::destroy()
     initialized = false;
 }
 
-void SkyboxPass::update_camera_uniform(uint slot, const RenderView& view, const RenderScene& scene)
+auto make_skybox_uniform(const RenderView& view, const RenderScene& scene) -> SkyboxUniform
 {
-    if (slot >= FRAMES_IN_FLIGHT || !camera_buffers[slot].valid()) {
-        return;
-    }
-
-    auto u = camera_buffers[slot].get_mapped_range<SkyboxUniform>();
-    if (u.count == 0) {
-        return;
-    }
-
-    float   exposure_scale     = (view.exposure_scale > 0.0f) ? view.exposure_scale : (1.0f / (1.2f * 8192.0f));
-    Vector3 sun_dir            = Vector3(0.2f, -0.6f, -0.7f);
-    Vector3 sun_color          = Vector3(1.0f, 0.98f, 0.94f);
-    float   sun_intensity      = 60000.0f;
-    float   sun_angular_radius = 0.004675f;
-    float   halo_size          = 12.0f;
-    float   halo_falloff       = 80.0f;
-    float   limb_darkening     = 0.6f;
+    SkyboxUniform u{};
+    float         exposure_scale     = (view.exposure_scale > 0.0f) ? view.exposure_scale : (1.0f / (1.2f * 8192.0f));
+    Vector3       sun_dir            = Vector3(0.2f, -0.6f, -0.7f);
+    Vector3       sun_color          = Vector3(1.0f, 0.98f, 0.94f);
+    float         sun_intensity      = 60000.0f;
+    float         sun_angular_radius = 0.004675f;
+    float         halo_size          = 12.0f;
+    float         halo_falloff       = 80.0f;
+    float         limb_darkening     = 0.6f;
 
     if (!scene.directional_lights.empty()) {
         const auto& light = scene.directional_lights[0];
@@ -410,15 +358,16 @@ void SkyboxPass::update_camera_uniform(uint slot, const RenderView& view, const 
         limb_darkening     = light.limb_darkening;
     }
 
-    u.at(0).proj                         = view.projection;
-    u.at(0).view                         = view.view;
-    u.at(0).inv_proj                     = view.inv_projection;
-    u.at(0).inv_view                     = view.inv_view;
-    u.at(0).camera_pos_and_sun_intensity = Vector4(view.camera_position, sun_intensity);
-    u.at(0).sun_dir_and_angular_radius   = Vector4(sun_dir, sun_angular_radius);
-    u.at(0).sun_color_and_exposure_scale = Vector4(sun_color, exposure_scale);
-    u.at(0).sky_params                   = Vector4(halo_size, halo_falloff, limb_darkening, 0.8f);
-    u.at(0).ground_albedo                = Vector4(0.12f, 0.12f, 0.14f, 1.0f);
+    u.proj                         = view.projection;
+    u.view                         = view.view;
+    u.inv_proj                     = view.inv_projection;
+    u.inv_view                     = view.inv_view;
+    u.camera_pos_and_sun_intensity = Vector4(view.camera_position, sun_intensity);
+    u.sun_dir_and_angular_radius   = Vector4(sun_dir, sun_angular_radius);
+    u.sun_color_and_exposure_scale = Vector4(sun_color, exposure_scale);
+    u.sky_params                   = Vector4(halo_size, halo_falloff, limb_darkening, 0.8f);
+    u.ground_albedo                = Vector4(0.12f, 0.12f, 0.14f, 1.0f);
+    return u;
 }
 
 SkyboxData SkyboxPass::add(
@@ -430,10 +379,7 @@ SkyboxData SkyboxPass::add(
     GPULoadOp                           depth_load_op,
     GPULoadOp                           color_load_op)
 {
-    frame_slot        = (frame_slot + 1) % FRAMES_IN_FLIGHT;
-    uint current_slot = frame_slot;
-
-    update_camera_uniform(current_slot, view, scene);
+    auto skybox_uniform = make_skybox_uniform(view, scene);
 
     // 1. Dynamic Sky-View LUT pass (192 x 108)
     struct SkyViewData
@@ -455,12 +401,36 @@ SkyboxData SkyboxPass::add(
             data.lut_target      = pass_builder.create<FrameGraphTexture>(lut_desc);
             data.lut_target      = pass_builder.render(data.lut_target);
         },
-        [this, current_slot](const SkyViewData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
-            if (!ctx || !ctx->cmdlist.handle.valid() || !sky_view_pipeline.valid()) {
+        [this, skybox_uniform](const SkyViewData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
+            if (!ctx || !ctx->cmdlist.handle.valid() || !sky_view_pipeline.valid() || sky_view_blayouts.empty()) {
                 return;
             }
             auto lut_tex = resources.get<FrameGraphTexture>(data.lut_target);
             if (!lut_tex) return;
+
+            auto u_slice = ctx->create_uniform(skybox_uniform);
+
+            Array<GPUBindGroupEntry, 4> entries{};
+            entries.at(0).type    = GPUResourceType::BUFFER;
+            entries.at(0).binding = 0;
+            entries.at(0).buffer  = u_slice;
+
+            entries.at(1).type    = GPUResourceType::TEXTURE;
+            entries.at(1).binding = 1;
+            entries.at(1).texture = transmittance_lut_view;
+
+            entries.at(2).type    = GPUResourceType::TEXTURE;
+            entries.at(2).binding = 2;
+            entries.at(2).texture = multiscatter_lut_view;
+
+            entries.at(3).type    = GPUResourceType::SAMPLER;
+            entries.at(3).binding = 3;
+            entries.at(3).sampler = linear_sampler;
+
+            auto bg_desc    = GPUBindGroupDescriptor{};
+            bg_desc.layout  = sky_view_blayouts.at(0);
+            bg_desc.entries = entries;
+            auto bg         = ctx->allocate(bg_desc);
 
             auto color_att        = GPURenderPassColorAttachment{};
             color_att.view        = lut_tex->view;
@@ -476,8 +446,8 @@ SkyboxData SkyboxPass::add(
             command.set_viewport(0.0f, 0.0f, 192.0f, 108.0f);
             command.set_scissor_rect(0, 0, 192, 108);
             command.set_pipeline(sky_view_pipeline);
-            if (sky_view_bind_groups[current_slot].valid()) {
-                command.set_bind_group(0, sky_view_bind_groups[current_slot]);
+            if (bg.valid()) {
+                command.set_bind_group(0, bg);
             }
             command.draw(6, 1, 0, 0);
             command.end_render_pass();
@@ -491,7 +461,7 @@ SkyboxData SkyboxPass::add(
             data.depth_input    = pass_builder.render(depth_target);
             data.sky_view_input = pass_builder.sample(sky_view_data.lut_target);
         },
-        [this, current_slot, depth_load_op, color_load_op, clear_color = scene.clear_color, extent = view.render_extent](const SkyboxData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
+        [this, skybox_uniform, depth_load_op, color_load_op, clear_color = scene.clear_color, extent = view.render_extent](const SkyboxData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
             if (!ctx || !ctx->cmdlist.handle.valid() || !pipeline.valid() || blayouts.empty()) {
                 return;
             }
@@ -503,12 +473,12 @@ SkyboxData SkyboxPass::add(
                 return;
             }
 
+            auto u_slice = ctx->create_uniform(skybox_uniform);
+
             Array<GPUBindGroupEntry, 4> entries{};
-            entries.at(0).type          = GPUResourceType::BUFFER;
-            entries.at(0).binding       = 0;
-            entries.at(0).buffer.buffer = camera_buffers[current_slot];
-            entries.at(0).buffer.offset = 0;
-            entries.at(0).buffer.size   = 0;
+            entries.at(0).type    = GPUResourceType::BUFFER;
+            entries.at(0).binding = 0;
+            entries.at(0).buffer  = u_slice;
 
             entries.at(1).type    = GPUResourceType::TEXTURE;
             entries.at(1).binding = 1;
@@ -523,10 +493,9 @@ SkyboxData SkyboxPass::add(
             entries.at(3).sampler = linear_sampler;
 
             auto bg_desc    = GPUBindGroupDescriptor{};
-            bg_desc.heap    = heap;
             bg_desc.layout  = blayouts.at(0);
             bg_desc.entries = entries;
-            auto bg         = device.create_bind_group(bg_desc);
+            auto bg         = ctx->allocate(bg_desc);
 
             auto color_attachment        = GPURenderPassColorAttachment{};
             color_attachment.view        = color_tex->view;

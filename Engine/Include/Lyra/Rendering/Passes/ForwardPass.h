@@ -104,7 +104,7 @@ namespace lyra::passes
          * @note Memory layout directly mirrors struct `Camera` in `sys://Shaders/Forward/Forward.slang`.
          *       Any layout modification must be kept strictly in sync across both C++ and Slang definitions.
          */
-        struct alignas(16) CameraUniforms
+        struct alignas(16) ForwardPassUniforms
         {
             Matrix4x4 proj;
             Matrix4x4 view;
@@ -119,11 +119,10 @@ namespace lyra::passes
             Vector4   env_sh[9];
         };
 
-        static_assert(sizeof(CameraUniforms) == 544, "CameraUniforms must be 544 bytes");
-        static_assert(alignof(CameraUniforms) == 16, "CameraUniforms must be 16-byte aligned");
+        static_assert(sizeof(ForwardPassUniforms) == 544, "ForwardPassUniforms must be 544 bytes");
+        static_assert(alignof(ForwardPassUniforms) == 16, "ForwardPassUniforms must be 16-byte aligned");
 
-        void update_camera_buffer(
-            uint               slot,
+        auto make_uniforms(
             const RenderView&  view,
             const RenderScene& scene,
             const Matrix4x4&   light_vp,
@@ -131,11 +130,9 @@ namespace lyra::passes
             uint               cluster_grid_x,
             uint               cluster_grid_y,
             uint               cluster_grid_z,
-            uint               num_lights);
+            uint               num_lights) const -> ForwardPassUniforms;
 
     private:
-        static constexpr uint FRAMES_IN_FLIGHT = 3;
-
         GPURenderPipeline get_or_create_pipeline(ShadingModelID shading_model_id);
 
         GPUDevice                                  device;
@@ -145,8 +142,6 @@ namespace lyra::passes
         Vector<GPUShaderModule>                    variant_shader_modules;
         GPUPipelineLayout                          playout;
         Vector<GPUBindGroupLayoutHandle>           blayouts;
-        Array<GPUBuffer, FRAMES_IN_FLIGHT>         camera_buffers{};
-        Array<GPUBindGroup, FRAMES_IN_FLIGHT>      camera_bind_groups{};
         GPUBuffer                                  default_cluster_grid_buffer;
         GPUBuffer                                  default_light_index_buffer;
         GPUBuffer                                  default_lights_buffer;
@@ -158,7 +153,6 @@ namespace lyra::passes
         GPUTextureView                             default_env_view;
         GPUTexture                                 default_brdf_lut;
         GPUTextureView                             default_brdf_lut_view;
-        uint                                       frame_slot = 0;
 
         GPUTextureFormat cached_color_format = GPUTextureFormat::RGBA8UNORM;
         GPUTextureFormat cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;
