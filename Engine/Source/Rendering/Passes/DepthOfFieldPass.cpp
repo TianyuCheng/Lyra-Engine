@@ -145,6 +145,10 @@ DOFData DepthOfFieldPass::add(
                 return;
             }
 
+            if (heap.valid()) {
+                heap.reset();
+            }
+
             auto color_tex = resources.get<FrameGraphTexture>(data.color_input);
             auto depth_tex = resources.get<FrameGraphTexture>(data.depth_input);
             auto out_tex   = resources.get<FrameGraphTexture>(data.dof_output);

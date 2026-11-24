@@ -133,6 +133,10 @@ HiZPyramidData HiZPyramidPass::add(
                 return;
             }
 
+            if (heap.valid()) {
+                heap.reset();
+            }
+
             auto depth_tex = resources.get<FrameGraphTexture>(data.depth_input);
             auto hiz_tex   = resources.get<FrameGraphTexture>(data.hiz_texture);
             if (!depth_tex || !hiz_tex) {

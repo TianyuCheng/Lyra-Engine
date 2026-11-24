@@ -232,6 +232,10 @@ TonemappingData TonemappingPass::add(
                 return;
             }
 
+            if (heap.valid()) {
+                heap.reset();
+            }
+
             auto hdr_tex = resources.get<FrameGraphTexture>(data.hdr_input);
             auto ldr_tex = resources.get<FrameGraphTexture>(data.ldr_output);
             if (!hdr_tex || !ldr_tex) {

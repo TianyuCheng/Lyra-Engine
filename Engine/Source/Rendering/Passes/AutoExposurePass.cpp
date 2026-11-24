@@ -202,6 +202,10 @@ AutoExposureData AutoExposurePass::add(
                 return;
             }
 
+            if (heap.valid()) {
+                heap.reset();
+            }
+
             auto hdr_tex = resources.get<FrameGraphTexture>(data.hdr_input);
             auto exp_tex = resources.get<FrameGraphTexture>(data.exposure_data);
             if (!hdr_tex || !exp_tex) {

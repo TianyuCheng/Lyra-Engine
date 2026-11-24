@@ -206,6 +206,7 @@ namespace lyra
 
         FORCE_INLINE bool valid() const { return handle.valid(); }
 
+        void reset();
         void destroy();
     };
 

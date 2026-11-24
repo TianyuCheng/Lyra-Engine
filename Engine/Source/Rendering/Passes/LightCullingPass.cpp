@@ -153,6 +153,10 @@ LightCullingData LightCullingPass::add(
                 return;
             }
 
+            if (heap.valid()) {
+                heap.reset();
+            }
+
             auto grid_buf  = resources.get<FrameGraphBuffer>(data.cluster_grid_buffer);
             auto index_buf = resources.get<FrameGraphBuffer>(data.light_index_list);
             if (!grid_buf || !index_buf) {

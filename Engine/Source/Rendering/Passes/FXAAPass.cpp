@@ -177,6 +177,10 @@ FXAAData FXAAPass::add(
                 return;
             }
 
+            if (heap.valid()) {
+                heap.reset();
+            }
+
             auto in_tex  = resources.get<FrameGraphTexture>(data.color_input);
             auto out_tex = resources.get<FrameGraphTexture>(data.color_output);
             if (!in_tex || !out_tex) {

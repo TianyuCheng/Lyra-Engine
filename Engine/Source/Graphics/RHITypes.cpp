@@ -702,6 +702,13 @@ void GPUBlas::destroy()
 #pragma endregion GPUBlas
 
 #pragma region GPUBindGroupHeap
+void GPUBindGroupHeap::reset()
+{
+    if (valid()) {
+        RHI::api(handle)->reset_bind_group_heap(handle.raw());
+    }
+}
+
 void GPUBindGroupHeap::destroy()
 {
     if (valid()) {

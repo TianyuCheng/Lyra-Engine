@@ -484,6 +484,10 @@ ForwardPassData ForwardPass::add(
                 return;
             }
 
+            if (heap.valid()) {
+                heap.reset();
+            }
+
             auto color_tex = resources.get<FrameGraphTexture>(data.color_target);
             auto depth_tex = resources.get<FrameGraphTexture>(data.depth_target);
             if (!color_tex || !depth_tex) {

@@ -214,6 +214,10 @@ BloomData BloomPass::add(
                 return;
             }
 
+            if (heap.valid()) {
+                heap.reset();
+            }
+
             auto input_tex = resources.get<FrameGraphTexture>(data.input_color);
             if (!input_tex) {
                 return;
