@@ -20,16 +20,22 @@ struct AutoExposureParams
     float high_percent;
     float delta_time;
     uint  pixel_count;
+    uint  screen_width;
+    uint  screen_height;
+    float2 padding;
 };
 
-[[lyra::binding(0, 0)]]
+[[lyra::immediates]]
 ConstantBuffer<AutoExposureParams> params;
 
-[[lyra::binding(1, 0)]]
+[[lyra::binding(0, 0)]]
 Texture2D<float4> hdr_scene_color;
 
-[[lyra::binding(2, 0)]]
+[[lyra::binding(1, 0)]]
 RWStructuredBuffer<uint> histogram_buffer;
+
+[[lyra::binding(2, 0)]]
+RWTexture2D<float4> out_exposure_data; // 1x1 buffer: { exposure_scale, ev100, avg_luminance, 1.0 }
 
 // =============================================================================
 // Pass 1: Build 64-Bin Luminance Histogram
@@ -58,10 +64,7 @@ void cs_build_histogram(
     }
     GroupMemoryBarrierWithGroupSync();
 
-    uint2 tex_dim;
-    hdr_scene_color.GetDimensions(tex_dim.x, tex_dim.y);
-
-    if (dispatch_thread_id.x < tex_dim.x && dispatch_thread_id.y < tex_dim.y) {
+    if (dispatch_thread_id.x < params.screen_width && dispatch_thread_id.y < params.screen_height) {
         float3 rgb = hdr_scene_color[dispatch_thread_id.xy].rgb;
         // Rec.709 perceived luminance
         float lum = linear_srgb_to_luminance(rgb);
@@ -79,9 +82,6 @@ void cs_build_histogram(
 // =============================================================================
 // Pass 2: Temporal Eye Adaptation Integration
 // =============================================================================
-
-[[lyra::binding(3, 0)]]
-RWTexture2D<float4> out_exposure_data; // 1x1 buffer: { exposure_scale, ev100, avg_luminance, 1.0 }
 
 float bin_to_luminance(float bin)
 {
