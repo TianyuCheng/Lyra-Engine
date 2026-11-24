@@ -13,21 +13,24 @@ struct DOFParams
     float  max_coc_radius;     // max blur radius in pixels
     float  near_plane;
     float  far_plane;
+    uint   screen_width;
+    uint   screen_height;
+    float2 padding;
 };
 
-[[lyra::binding(0, 0)]]
+[[lyra::immediates]]
 ConstantBuffer<DOFParams> params;
 
-[[lyra::binding(1, 0)]]
+[[lyra::binding(0, 0)]]
 Texture2D<float4> color_texture;
 
-[[lyra::binding(2, 0)]]
+[[lyra::binding(1, 0)]]
 Texture2D<float> depth_texture;
 
-[[lyra::binding(3, 0)]]
+[[lyra::binding(2, 0)]]
 SamplerState linear_sampler;
 
-[[lyra::binding(4, 0)]]
+[[lyra::binding(3, 0)]]
 RWTexture2D<float4> out_color;
 
 /**
@@ -53,10 +56,7 @@ float compute_coc(float linear_z)
 void cs_dof_bokeh(uint3 dispatch_thread_id : SV_DispatchThreadID)
 {
     uint2 pixel = dispatch_thread_id.xy;
-    uint2 screen_dim;
-    out_color.GetDimensions(screen_dim.x, screen_dim.y);
-
-    if (pixel.x >= screen_dim.x || pixel.y >= screen_dim.y) {
+    if (pixel.x >= params.screen_width || pixel.y >= params.screen_height) {
         return;
     }
 

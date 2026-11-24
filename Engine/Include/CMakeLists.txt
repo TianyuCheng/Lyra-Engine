@@ -83,6 +83,7 @@ target_sources(lyra-headers INTERFACE
     Lyra/Rendering/Passes/GBufferPass.h
     Lyra/Rendering/Passes/BloomPass.h
     Lyra/Rendering/Passes/AutoExposurePass.h
+    Lyra/Rendering/Passes/DepthOfFieldPass.h
     Lyra/Rendering/Passes/TonemappingPass.h
     Lyra/Rendering/Passes/SkyboxPass.h
     Lyra/Rendering/Passes/LightCullingPass.h
