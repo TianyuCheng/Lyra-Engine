@@ -3,6 +3,7 @@
 #include <Lyra/Utilities/Plugin.h>
 #include "TextureUtils.h"
 #include "ThumbnailUtils.h"
+#include "IBLCooker.h"
 
 using namespace lyra;
 using namespace lyra::texture;
@@ -37,7 +38,17 @@ static bool process_stb(JSON& metadata, OSPath source_path, OSPath target_path)
 
         generate_thumbnail_from_pixels(metadata, pixels, width, height, pixel_size, format, target_path);
 
-        bool success = encode_and_save_simple(metadata, pixels, width, height, pixel_size, format, target_path, get_logger());
+        bool is_env  = is_hdr && (metadata.value("is_environment", false) ||
+                                     source_path_str.find("env") != String::npos ||
+                                     source_path_str.find("sky") != String::npos ||
+                                     source_path_str.ends_with(".hdr"));
+        bool success = false;
+        if (is_env) {
+            auto res = process_environment_map(metadata, static_cast<const float*>(pixels), width, height, target_path, get_logger());
+            success  = res.success;
+        } else {
+            success = encode_and_save_simple(metadata, pixels, width, height, pixel_size, format, target_path, get_logger());
+        }
         stbi_image_free(pixels);
         return success;
     } catch (const std::exception& e) {

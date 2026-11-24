@@ -40,11 +40,13 @@ namespace lyra::passes
         FrameGraphHandle<FrameGraphTexture> shadow_map;
         FrameGraphHandle<FrameGraphBuffer>  cluster_grid_buffer;
         FrameGraphHandle<FrameGraphBuffer>  light_index_list;
-        const GPUBuffer*                    lights_buffer  = nullptr;
-        uint                                cluster_grid_x = 0;
-        uint                                cluster_grid_y = 0;
-        uint                                cluster_grid_z = 0;
-        uint                                num_lights     = 0;
+        const GPUBuffer*                    lights_buffer   = nullptr;
+        GPUTextureViewHandle                environment_map = {};
+        GPUTextureViewHandle                brdf_lut        = {};
+        uint                                cluster_grid_x  = 0;
+        uint                                cluster_grid_y  = 0;
+        uint                                cluster_grid_z  = 0;
+        uint                                num_lights      = 0;
         Matrix4x4                           light_view_proj{1.0f};
         const RenderView&                   view;
         const RenderScene&                  scene;
@@ -114,9 +116,10 @@ namespace lyra::passes
             Matrix4x4 light_view_proj = Matrix4x4(1.0f);
             Vector4   cluster_params;
             Vector4   cluster_dims;
+            Vector4   env_sh[9];
         };
 
-        static_assert(sizeof(CameraUniforms) == 400, "CameraUniforms must be 400 bytes");
+        static_assert(sizeof(CameraUniforms) == 544, "CameraUniforms must be 544 bytes");
         static_assert(alignof(CameraUniforms) == 16, "CameraUniforms must be 16-byte aligned");
 
         void update_camera_buffer(
@@ -151,6 +154,11 @@ namespace lyra::passes
         GPUSampler                                 shadow_sampler;
         GPUTexture                                 default_shadow_map;
         GPUTextureView                             default_shadow_view;
+        GPUSampler                                 environment_sampler;
+        GPUTexture                                 default_env_map;
+        GPUTextureView                             default_env_view;
+        GPUTexture                                 default_brdf_lut;
+        GPUTextureView                             default_brdf_lut_view;
         uint                                       frame_slot = 0;
 
         GPUTextureFormat cached_color_format = GPUTextureFormat::RGBA8UNORM;

@@ -59,6 +59,7 @@ namespace lyra
         Vector<RenderLight>  directional_lights;
         Vector<RenderLight>  local_lights;
         GPUTextureViewHandle environment_map;
+        Array<Vector4, 9>    env_sh{};
         Vector3              ambient_color     = Vector3(0.03f);
         float                ambient_intensity = 1.0f;
         Vector4              clear_color       = Vector4(0.18f, 0.18f, 0.20f, 1.0f); // neutral engine gray (similar to Unreal/Blender)
@@ -76,7 +77,8 @@ namespace lyra
             local_lights.clear();
             scene_tlas      = {};
             environment_map = {};
-            clear_color     = Vector4(0.18f, 0.18f, 0.20f, 1.0f);
+            env_sh.fill(Vector4(0.0f));
+            clear_color = Vector4(0.18f, 0.18f, 0.20f, 1.0f);
         }
 
         [[nodiscard]] bool empty() const

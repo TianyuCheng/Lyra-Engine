@@ -191,6 +191,14 @@ void RenderWorld::extract_lights(const World& ecs_world)
         l.spot_outer_angle = light.angle.y;
         scene.local_lights.push_back(l);
     }
+
+    auto sky_view = ecs_world.registry.view<SkyLight>();
+    for (auto entity : sky_view) {
+        auto& sky               = sky_view.get<SkyLight>(entity);
+        scene.ambient_intensity = sky.intensity;
+        scene.ambient_color     = sky.color;
+        scene.env_sh            = sky.sh9;
+    }
 }
 
 void RenderWorld::extract_meshes(const World& ecs_world, const RendererCapabilities& capabilities)

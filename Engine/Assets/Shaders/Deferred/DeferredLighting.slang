@@ -1,8 +1,9 @@
 import lyra;
 import Common.BSDF;
 import Common.Packing;
-import Common.Tonemapping;
 import Common.Lighting;
+import Common.Tonemapping;
+import Common.SphericalHarmonics;
 
 // Deferred lighting & hybrid ray tracing composition pass
 [[lyra::binding(0, 0)]] Texture2D<float4> gbuffer_albedo;
@@ -23,6 +24,7 @@ struct CameraUniforms
     float4x4 light_view_proj;
     float4   cluster_params;
     float4   cluster_dims;
+    float4   env_sh[9];
 
     property float3 pos           { get { return pos_and_intensity.xyz; } }
     property float  sun_intensity { get { return pos_and_intensity.w; } }
@@ -55,6 +57,10 @@ StructuredBuffer<uint> light_index_list;
 
 [[lyra::binding(10, 0)]]
 StructuredBuffer<LightData> lights;
+
+[[lyra::binding(11, 0)]] TextureCube<float4> environment_map;
+[[lyra::binding(12, 0)]] Texture2D<float4>   brdf_lut;
+[[lyra::binding(13, 0)]] SamplerState        environment_sampler;
 
 struct VertexOutput
 {
@@ -239,7 +245,34 @@ FragmentOutput fsmain(VertexOutput input)
         }
     }
 
-    float3 ambient = albedo_occlusion.rgb * max(camera.sun_intensity * 0.15, 0.04) * occlusion;
+    // -------------------------------------------------------------------------
+    // Image-Based Lighting (IBL): Split-Sum Specular + SH9 Diffuse Irradiance
+    // -------------------------------------------------------------------------
+    float3 R = reflect(-V, N);
+    float NoV = clamp(dot(N, V), 1e-4, 1.0);
+
+    float lod = roughness * 5.0;
+    float3 prefiltered_color = environment_map.SampleLevel(environment_sampler, R, lod).rgb;
+    float2 env_brdf = brdf_lut.SampleLevel(environment_sampler, float2(NoV, roughness), 0.0).rg;
+
+    float3 F0 = lerp(float3(0.04), albedo_occlusion.rgb, metallic);
+    float3 F_env = F0 + (max(float3(1.0 - roughness), F0) - F0) * pow(1.0 - NoV, 5.0);
+    float3 specular_ibl = prefiltered_color * (F_env * env_brdf.x + env_brdf.y) * occlusion;
+
+    SH9Color sh;
+    [unroll]
+    for (int i = 0; i < 9; ++i) {
+        sh.c[i] = camera.env_sh[i].rgb;
+    }
+    float3 diffuse_irradiance = evaluate_sh_irradiance(sh, N);
+
+    float3 ambient;
+    if (dot(diffuse_irradiance, diffuse_irradiance) < 1e-6) {
+        ambient = albedo_occlusion.rgb * max(camera.sun_intensity * 0.15, 0.04) * occlusion;
+    } else {
+        float3 kD = (1.0 - F_env) * (1.0 - metallic);
+        ambient = (kD * albedo_occlusion.rgb * diffuse_irradiance + specular_ibl);
+    }
 
     float3 final_color = tonemap_aces_film(direct + ambient + emissive);
 

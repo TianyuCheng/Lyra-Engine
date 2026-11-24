@@ -75,6 +75,9 @@ void SystemTextures::shutdown()
     brdf_lut_view.destroy();
     brdf_lut_texture.destroy();
 
+    if (environment_cubemap_view.valid()) environment_cubemap_view.destroy();
+    if (environment_cubemap_texture.valid()) environment_cubemap_texture.destroy();
+
     ies_atlas_view.destroy();
     ies_atlas_texture.destroy();
 
@@ -86,6 +89,31 @@ void SystemTextures::shutdown()
 
 void SystemTextures::init_solid_textures(GPUDevice device)
 {
+    auto create_solid_cubemap = [&](CString label) -> GPUTexture {
+        auto desc            = GPUTextureDescriptor{};
+        desc.label           = label;
+        desc.size.width      = 1;
+        desc.size.height     = 1;
+        desc.size.depth      = 1;
+        desc.dimension       = GPUTextureDimension::x2D;
+        desc.array_layers    = 6;
+        desc.format          = GPUTextureFormat::RGBA16FLOAT;
+        desc.usage           = GPUTextureUsage::TEXTURE_BINDING | GPUTextureUsage::COPY_DST;
+        desc.mip_level_count = 1;
+        desc.sample_count    = 1;
+        return device.create_texture(desc);
+    };
+
+    environment_cubemap_texture  = create_solid_cubemap("system_default_environment_cubemap");
+    auto cube_vdesc              = GPUTextureViewDescriptor{};
+    cube_vdesc.dimension         = GPUTextureViewDimension::CUBE;
+    cube_vdesc.format            = GPUTextureFormat::RGBA16FLOAT;
+    cube_vdesc.base_array_layer  = 0;
+    cube_vdesc.array_layer_count = 6;
+    cube_vdesc.base_mip_level    = 0;
+    cube_vdesc.mip_level_count   = 1;
+    environment_cubemap_view     = environment_cubemap_texture.create_view(cube_vdesc);
+
     auto create_solid_texture = [&](CString label) -> GPUTexture {
         auto desc            = GPUTextureDescriptor{};
         desc.label           = label;
@@ -309,21 +337,21 @@ bool SystemTextures::dispatch_compute_lut(
 
 void SystemTextures::init_procedural_textures(GPUDevice device, Compiler compiler, AssetServer* ams)
 {
-    constexpr uint32_t BRDF_SIZE    = 256;
+    constexpr uint32_t BRDF_SIZE    = 512;
     constexpr uint32_t SKY_WIDTH    = 64;
     constexpr uint32_t SKY_HEIGHT   = 64;
     constexpr uint32_t CHECKER_SIZE = 16;
     constexpr uint32_t IES_WIDTH    = 256;
     constexpr uint32_t IES_HEIGHT   = 16;
 
-    auto create_storage_tex = [&](uint32_t w, uint32_t h, CString label) -> GPUTexture {
+    auto create_storage_tex = [&](uint32_t w, uint32_t h, GPUTextureFormat fmt, CString label) -> GPUTexture {
         auto desc            = GPUTextureDescriptor{};
         desc.label           = label;
         desc.size.width      = w;
         desc.size.height     = h;
         desc.size.depth      = 1;
         desc.dimension       = GPUTextureDimension::x2D;
-        desc.format          = GPUTextureFormat::RGBA8UNORM;
+        desc.format          = fmt;
         desc.usage           = GPUTextureUsage::STORAGE_BINDING | GPUTextureUsage::TEXTURE_BINDING | GPUTextureUsage::COPY_DST;
         desc.mip_level_count = 1;
         desc.sample_count    = 1;
@@ -331,16 +359,16 @@ void SystemTextures::init_procedural_textures(GPUDevice device, Compiler compile
     };
 
     // 1. allocate textures with storage binding support
-    brdf_lut_texture = create_storage_tex(BRDF_SIZE, BRDF_SIZE, "system_brdf_lut");
+    brdf_lut_texture = create_storage_tex(BRDF_SIZE, BRDF_SIZE, GPUTextureFormat::RGBA16FLOAT, "system_brdf_lut");
     brdf_lut_view    = brdf_lut_texture.create_view();
 
-    skymap_texture = create_storage_tex(SKY_WIDTH, SKY_HEIGHT, "system_skymap");
+    skymap_texture = create_storage_tex(SKY_WIDTH, SKY_HEIGHT, GPUTextureFormat::RGBA8UNORM, "system_skymap");
     skymap_view    = skymap_texture.create_view();
 
-    checkerboard_texture = create_storage_tex(CHECKER_SIZE, CHECKER_SIZE, "system_checkerboard");
+    checkerboard_texture = create_storage_tex(CHECKER_SIZE, CHECKER_SIZE, GPUTextureFormat::RGBA8UNORM, "system_checkerboard");
     checkerboard_view    = checkerboard_texture.create_view();
 
-    ies_atlas_texture = create_storage_tex(IES_WIDTH, IES_HEIGHT, "system_ies_atlas");
+    ies_atlas_texture = create_storage_tex(IES_WIDTH, IES_HEIGHT, GPUTextureFormat::RGBA8UNORM, "system_ies_atlas");
     ies_atlas_view    = ies_atlas_texture.create_view();
 
     // 2. attempt GPU compute shader execution using shader library in Engine/Assets/Shaders/LUT/

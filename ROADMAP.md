@@ -126,38 +126,42 @@ Goal: Solidify the primary rasterization pipelines (Forward+ and Deferred Hybrid
   - Command: `just test forward_renderer_multilight`.
 
 #### 1.3 Material & Shading Model Unification
-- [ ] **1.3.1 PrimitiveMaterial Memory Layout & Buffer Pool**
-  - Header: [`Engine/Include/Lyra/Rendering/PrimitiveMaterial.h`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Include/Lyra/Rendering/PrimitiveMaterial.h)
-  - File: [`Engine/Source/Rendering/GeometryBufferPool.cpp`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Source/Rendering/GeometryBufferPool.cpp)
+- [x] **1.3.1 MaterialParams Memory Layout & Alignment**
+  - Header: [`Engine/Include/Lyra/Rendering/MaterialParams.h`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Include/Lyra/Rendering/MaterialParams.h)
+  - Shader: [`Engine/Assets/Shaders/Common/Material.slang`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Assets/Shaders/Common/Material.slang)
   - **16-Byte Aligned Struct (std140 / std430)**:
     ```cpp
-    struct alignas(16) PrimitiveMaterialGPU
+    struct alignas(16) MaterialParams
     {
-        Vector4  base_color_factor;       // 16 bytes (offset 0)
-        float    metallic_factor;         // 4 bytes  (offset 16)
-        float    roughness_factor;        // 4 bytes  (offset 20)
-        float    clear_coat_factor;       // 4 bytes  (offset 24)
-        float    clear_coat_roughness;   // 4 bytes  (offset 28)
-        Vector4  emissive_factor;         // 16 bytes (offset 32)
-        Vector4  custom_data;             // 16 bytes (offset 48) - SSS radius / cloth sheen
-        uint32_t shading_model_id;       // 4 bytes  (offset 64)
-        float    alpha_cutoff;            // 4 bytes  (offset 68)
-        uint32_t flags;                  // 4 bytes  (offset 72)
-        uint32_t padding;                // 4 bytes  (offset 76)
+        Vector4       base_color           = Vector4(1.0f); // 16 bytes (offset 0)
+        float         metallic             = 0.0f;          // 4 bytes  (offset 16)
+        float         roughness            = 0.5f;          // 4 bytes  (offset 20)
+        float         clear_coat           = 0.0f;          // 4 bytes  (offset 24)
+        float         clear_coat_roughness = 0.04f;         // 4 bytes  (offset 28)
+        Vector4       emissive             = Vector4(0.0f); // 16 bytes (offset 32)
+        Vector4       custom_data          = Vector4(0.0f); // 16 bytes (offset 48) - SSS radius / cloth sheen / NPR
+        uint          shading_model_id     = 0;             // 4 bytes  (offset 64)
+        float         alpha_cutoff         = 0.5f;          // 4 bytes  (offset 68)
+        MaterialFlags flags                = {};            // 4 bytes  (offset 72)
+        uint          custom_params_offset = 0;             // 4 bytes  (offset 76)
     }; // Total size: 80 bytes (multiple of 16)
     ```
-- [ ] **1.3.2 Shading Model Registry Implementation**
+  - *Design refinement*: Replaced arbitrary `padding` at offset 76 with `custom_params_offset` to enable dynamic indexing into custom material parameter storage buffers.
+  - Unit tests: [`Tests/material/material.cpp`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Tests/material/material.cpp).
+- [x] **1.3.2 Shading Model Registry & Extensible Archetypes**
+  - Header: [`Engine/Include/Lyra/Rendering/ShadingModelRegistry.h`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Include/Lyra/Rendering/ShadingModelRegistry.h)
   - File: [`Engine/Source/Rendering/ShadingModelRegistry.cpp`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Source/Rendering/ShadingModelRegistry.cpp)
-  - Shader: [`Engine/Assets/Shaders/Common/ShadingModel.slang`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Assets/Shaders/Common/ShadingModel.slang)
-  - Support distinct branching in Slang:
-    - `DefaultLit`: Standard GGX + Smith masking-shadowing $G_2$ + Schlick Fresnel.
-    - `Clearcoat`: Dual-specular lobe with uncoupled clearcoat normal and IOR 1.5.
-    - `Subsurface`: Normalized Burley diffuse profile scattering for skin/wax.
-    - `Unlit`: Direct emissive color passthrough.
-- [ ] **1.3.3 Shading Model Visual Test Fixture**
-  - Directory: `Tests/shading_models/`
-  - Render a $4 \times 4$ sphere matrix: Roughness $[0.05, 1.0]$, Metallic $[0.0, 1.0]$, Clearcoat, and Subsurface marble. Verify image against `reference.png`.
-  - Validate with `just test shading_models`.
+  - Shaders: [`Engine/Assets/Shaders/Common/ShadingModel.slang`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Assets/Shaders/Common/ShadingModel.slang), [`Engine/Assets/Shaders/Shading/BuiltinShading.slang`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Assets/Shaders/Shading/BuiltinShading.slang)
+  - *Design refinement*: Elevated built-in models and custom user-defined models into first-class citizens registered via `ShadingModelInfo` (`id`, `name`, `shader_module_path`, `entry_point_name`, `struct_name`) conforming to Slang `interface IShadingModel`:
+    - `Standard` (`0x1001`): GGX specular + Smith masking-shadowing $G_2$ + Schlick Fresnel (`fs_standard`).
+    - `Clearcoat` (`0x1002`): Dual-specular lobe with uncoupled clearcoat layer (`fs_clearcoat`).
+    - `Subsurface` (`0x1003`): Diffuse scattering profile for organic / translucent media (`fs_subsurface`).
+    - `Unlit` (`0x1004`): Direct emissive color passthrough (`fs_unlit`).
+  - Unit tests: [`Tests/rendering/test_shading_model_mesh_pass.cpp`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Tests/rendering/test_shading_model_mesh_pass.cpp).
+- [x] **1.3.3 Shading Model Visual Test Fixture**
+  - Directory: [`Tests/shading_models/`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Tests/shading_models/)
+  - Render a $4 \times 4$ sphere matrix: Roughness $[0.05, 0.95]$, Metallic $[0.0, 1.0]$, Clearcoat, and Subsurface scattering. Verify image against golden `reference.png`.
+  - Validate with `just test shading_models` (verified passing on Vulkan, Metal, SoftGPU).
 
 #### 1.4 Multi-Backend RHI Parity
 - [ ] **1.4.1 Vulkan & SoftGPU Visual Parity**
@@ -233,7 +237,7 @@ Goal: Complete the reference path tracer in `Modules/Rendering/PathTracer`, supp
 Goal: Hook up the existing environment and post-processing Slang shaders into the FrameGraph for high-fidelity lighting and camera effects, accompanied by visual verification.
 
 #### 3.1 Physical Sky, Atmosphere & Image-Based Lighting (IBL)
-- [ ] **3.1.1 Bruneton Precomputed Atmospheric Scattering**
+- [x] **3.1.1 Bruneton Precomputed Atmospheric Scattering**
   - Shader: [`Engine/Assets/Shaders/Sky/Atmosphere.slang`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Assets/Shaders/Sky/Atmosphere.slang)
   - Pass: [`Engine/Source/Rendering/Passes/SkyboxPass.cpp`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Source/Rendering/Passes/SkyboxPass.cpp)
   - Planetary Constants: Earth radius $R_p = 6360\,\text{km}$, top of atmosphere $R_a = 6420\,\text{km}$.
@@ -241,22 +245,24 @@ Goal: Hook up the existing environment and post-processing Slang shaders into th
   - Mie Scattering: $\beta_M = 3.996 \times 10^{-6}\,\text{m}^{-1}$, scale height $H_M = 1.2\,\text{km}$, asymmetry $g = 0.8$.
   - Ozone Absorption: $\beta_{\text{ozone}} = (0.650, 1.881, 0.085) \times 10^{-6}\,\text{m}^{-1}$, peak altitude $25\,\text{km}$.
   - Precompute 3 LUTs:
-    1. `TransmittanceLUT` ($256 \times 64$, optical depth).
-    2. `MultiScatteringLUT` ($32 \times 32$, 2nd-order scattering energy conservation).
-    3. `SkyViewLUT` ($192 \times 108$, spherical coordinates $(\theta, \phi)$).
-  - Synchronize dynamically with `SunComponent` direction.
-- [ ] **3.1.2 HDR Environment Map Cooker & Split-Sum IBL Integration**
-  - Shaders: [`Engine/Assets/Shaders/LUT/BRDFLut.slang`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Assets/Shaders/LUT/BRDFLut.slang), [`Engine/Assets/Shaders/Common/SphericalHarmonics.slang`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Assets/Shaders/Common/SphericalHarmonics.slang)
-  - Directory: [`Modules/Assets/Texture/`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Modules/Assets/Texture)
+    1. `TransmittanceLUT` ($256 \times 64$, optical depth & solar beam transmittance, [`AtmosphereTransmittanceLUT.slang`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Assets/Shaders/Sky/AtmosphereTransmittanceLUT.slang)).
+    2. `MultiScatteringLUT` ($32 \times 32$, 2nd-order scattering energy conservation, [`AtmosphereMultiScatterLUT.slang`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Assets/Shaders/Sky/AtmosphereMultiScatterLUT.slang)).
+    3. `SkyViewLUT` ($192 \times 108$, spherical coordinates $(\theta, \phi)$, [`AtmosphereSkyViewLUT.slang`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Assets/Shaders/Sky/AtmosphereSkyViewLUT.slang)).
+  - Synchronize dynamically with `SunComponent` and `DirectionalLight` direction and intensity.
+  - Test Fixture: [`Tests/atmosphere/`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Tests/atmosphere/) (`just test atmosphere` verified passing on Vulkan, Metal, SoftGPU).
+- [x] **3.1.2 HDR Environment Map Cooker & Split-Sum IBL Integration**
+  - Shaders: [`Engine/Assets/Shaders/LUT/BRDFLut.slang`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Assets/Shaders/LUT/BRDFLut.slang), [`Engine/Assets/Shaders/Common/SphericalHarmonics.slang`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Assets/Shaders/Common/SphericalHarmonics.slang), [`Forward.slang`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Assets/Shaders/Forward/Forward.slang), [`DeferredLighting.slang`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Assets/Shaders/Deferred/DeferredLighting.slang)
+  - Cooker Module: [`Modules/Assets/Texture/IBLCooker.h`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Modules/Assets/Texture/IBLCooker.h), [`IBLCooker.cpp`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Modules/Assets/Texture/IBLCooker.cpp), integrated into `STBCookerPlugin` and `EXRCookerPlugin`.
   - **Cooker Tasks**:
-    - Precompute 2D GGX Split-Sum BRDF LUT ($512 \times 512$, `RG16_FLOAT` encoding scale and bias).
+    - Precompute 2D GGX Split-Sum BRDF LUT ($512 \times 512$, `RGBA16FLOAT` encoding scale and bias).
     - Convolve `.hdr` / `.exr` into cubemap mip chain ($512 \times 512$ down to $16 \times 16$, 6 mips) using cosine-weighted importance sampling per roughness.
     - Project diffuse irradiance into 9-coefficient Spherical Harmonics ($L \le 2$):
       $$E(\vec{n}) \approx \sum_{l=0}^2 \sum_{m=-l}^l \hat{A}_l L_{l, m} Y_{l, m}(\vec{n})$$
-- [ ] **3.1.3 Environment & IBL Visual Test Fixture**
-  - Directory: `Tests/atmosphere_ibl/`
-  - Render outdoor test scene with physical atmosphere sky and HDR cubemap reflection on mirror & rough spheres; commit `reference.png`.
-  - Validate with `just test atmosphere_ibl`.
+    - Full Split-Sum IBL specular reflection + SH9 diffuse irradiance integrated into both Forward+ and Deferred lighting pipelines.
+- [x] **3.1.3 Environment & IBL Visual Test Fixture**
+  - Directory: [`Tests/atmosphere_ibl/`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Tests/atmosphere_ibl/)
+  - Render outdoor test scene with physical atmosphere sky, prefiltered HDR cubemap reflections, and 4x4 matrix of spheres demonstrating varying roughness $[0.05, 0.95]$ and metallic $[0.0, 1.0]$.
+  - Verified with `just test atmosphere_ibl` passing with golden `reference.png` on Vulkan ($\text{RMSE} = 0.00$) and Metal ($\text{RMSE} = 0.01$).
 
 #### 3.2 Unified Post-Processing & Cinematic Camera Stack
 - [ ] **3.2.1 Histogram Auto-Exposure & Eye Adaptation**

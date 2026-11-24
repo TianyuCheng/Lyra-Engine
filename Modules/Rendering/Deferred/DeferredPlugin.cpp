@@ -27,9 +27,10 @@ namespace
         Matrix4x4 light_view_proj = Matrix4x4(1.0f);
         Vector4   cluster_params;
         Vector4   cluster_dims;
+        Vector4   env_sh[9];
     };
 
-    static_assert(sizeof(CameraUniforms) == 400, "CameraUniforms must be 400 bytes");
+    static_assert(sizeof(CameraUniforms) == 544, "CameraUniforms must be 544 bytes");
     static_assert(alignof(CameraUniforms) == 16, "CameraUniforms must be 16-byte aligned");
 } // namespace
 
@@ -64,6 +65,11 @@ struct DeferredRendererInstance
     GPUSampler     shadow_sampler;
     GPUTexture     default_shadow_map;
     GPUTextureView default_shadow_view;
+    GPUSampler     environment_sampler;
+    GPUTexture     default_env_map;
+    GPUTextureView default_env_view;
+    GPUTexture     default_brdf_lut;
+    GPUTextureView default_brdf_lut_view;
 
     GPUTextureFormat cached_color_format = GPUTextureFormat::RGBA8UNORM;
     GPUTextureFormat cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;
@@ -217,6 +223,62 @@ struct DeferredRendererInstance
         });
         default_shadow_view = default_shadow_map.create_view();
 
+        environment_sampler = execute([&]() {
+            auto sdesc           = GPUSamplerDescriptor{};
+            sdesc.label          = "deferred_environment_sampler";
+            sdesc.min_filter     = GPUFilterMode::LINEAR;
+            sdesc.mag_filter     = GPUFilterMode::LINEAR;
+            sdesc.mipmap_filter  = GPUMipmapFilterMode::LINEAR;
+            sdesc.address_mode_u = GPUAddressMode::CLAMP_TO_EDGE;
+            sdesc.address_mode_v = GPUAddressMode::CLAMP_TO_EDGE;
+            sdesc.address_mode_w = GPUAddressMode::CLAMP_TO_EDGE;
+            return device.create_sampler(sdesc);
+        });
+
+        default_env_map = execute([&]() {
+            auto desc            = GPUTextureDescriptor{};
+            desc.label           = "deferred_default_env_map";
+            desc.size            = {1, 1, 1};
+            desc.dimension       = GPUTextureDimension::x2D;
+            desc.array_layers    = 6;
+            desc.format          = GPUTextureFormat::RGBA16FLOAT;
+            desc.usage           = GPUTextureUsage::TEXTURE_BINDING | GPUTextureUsage::COPY_DST;
+            desc.mip_level_count = 1;
+            return device.create_texture(desc);
+        });
+        GPUTextureViewDescriptor env_vdesc{};
+        env_vdesc.aspect            = GPUTextureAspect::COLOR;
+        env_vdesc.dimension         = GPUTextureViewDimension::CUBE;
+        env_vdesc.format            = GPUTextureFormat::RGBA16FLOAT;
+        env_vdesc.base_array_layer  = 0;
+        env_vdesc.array_layer_count = 6;
+        env_vdesc.base_mip_level    = 0;
+        env_vdesc.mip_level_count   = 1;
+        default_env_view            = default_env_map.create_view(env_vdesc);
+
+        default_brdf_lut      = execute([&]() {
+            auto desc            = GPUTextureDescriptor{};
+            desc.label           = "deferred_default_brdf_lut";
+            desc.size            = {1, 1, 1};
+            desc.dimension       = GPUTextureDimension::x2D;
+            desc.format          = GPUTextureFormat::RGBA16FLOAT;
+            desc.usage           = GPUTextureUsage::TEXTURE_BINDING | GPUTextureUsage::COPY_DST;
+            desc.mip_level_count = 1;
+            return device.create_texture(desc);
+        });
+        default_brdf_lut_view = default_brdf_lut.create_view();
+
+        execute([&]() {
+            auto cmd_desc  = GPUCommandBufferDescriptor{};
+            cmd_desc.label = "deferred_default_env_transition_cmd";
+            cmd_desc.queue = GPUQueueType::DEFAULT;
+            auto cmdbuf    = device.create_command_buffer(cmd_desc);
+            cmdbuf.resource_barrier(state_transition(default_env_map, undefined_texture_state(), shader_resource_texture_state(GPUBarrierSync::ALL_SHADING), 0, 6));
+            cmdbuf.resource_barrier(state_transition(default_brdf_lut, undefined_texture_state(), shader_resource_texture_state(GPUBarrierSync::ALL_SHADING)));
+            cmdbuf.submit();
+            device.wait();
+        });
+
         initialized = gbuffer_pass.valid() && lighting_pipeline.valid();
         return initialized;
     }
@@ -244,6 +306,11 @@ struct DeferredRendererInstance
         if (shadow_sampler.valid()) shadow_sampler.destroy();
         if (default_shadow_view.valid()) default_shadow_view.destroy();
         if (default_shadow_map.valid()) default_shadow_map.destroy();
+        if (environment_sampler.valid()) environment_sampler.destroy();
+        if (default_env_view.valid()) default_env_view.destroy();
+        if (default_env_map.valid()) default_env_map.destroy();
+        if (default_brdf_lut_view.valid()) default_brdf_lut_view.destroy();
+        if (default_brdf_lut.valid()) default_brdf_lut.destroy();
 
         if (heap.valid()) heap.destroy();
         if (lighting_pipeline.valid()) lighting_pipeline.destroy();
@@ -424,6 +491,9 @@ static FrameGraph::TextureHandle render(
                 static_cast<float>(culling.cluster_grid_y),
                 static_cast<float>(culling.cluster_grid_z),
                 static_cast<float>(ctx.scene.directional_lights.size() + ctx.scene.local_lights.size()));
+            for (size_t i = 0; i < 9; ++i) {
+                mapped.at(0).env_sh[i] = ctx.scene.env_sh[i];
+            }
         }
     }
 
@@ -439,6 +509,7 @@ static FrameGraph::TextureHandle render(
         FrameGraphHandle<FrameGraphBuffer>  cluster_grid;
         FrameGraphHandle<FrameGraphBuffer>  light_index_list;
         FrameGraphHandle<FrameGraphTexture> lit_output;
+        GPUTextureViewHandle                environment_map;
     };
 
     auto lighting_data = ctx.builder.add_pass<DeferredLightingPassData>(
@@ -455,6 +526,7 @@ static FrameGraph::TextureHandle render(
             data.cluster_grid     = pass_builder.read(culling.cluster_grid_buffer);
             data.light_index_list = pass_builder.read(culling.light_index_list);
             data.lit_output       = pass_builder.render(ctx.color_target);
+            data.environment_map  = ctx.scene.environment_map;
         },
         [renderer, extent, current_slot](const DeferredLightingPassData& data, FrameGraphResources& resources, FrameGraphContext* fg_ctx) {
             if (!fg_ctx || !fg_ctx->cmdlist.handle.valid() || !renderer->lighting_pipeline.valid()) {
@@ -481,7 +553,7 @@ static FrameGraph::TextureHandle render(
                 }
             }
 
-            Array<GPUBindGroupEntry, 11> entries{};
+            Array<GPUBindGroupEntry, 14> entries{};
             entries[0].type    = GPUResourceType::TEXTURE;
             entries[0].binding = 0;
             entries[0].texture = albedo_tex->view;
@@ -533,6 +605,23 @@ static FrameGraph::TextureHandle render(
             entries[10].buffer.buffer = renderer->light_culling_pass.get_lights_buffer().handle;
             entries[10].buffer.offset = 0;
             entries[10].buffer.size   = 0;
+
+            GPUTextureViewHandle env_view = renderer->default_env_view.handle;
+            if (data.environment_map.valid()) {
+                env_view = data.environment_map;
+            }
+
+            entries[11].type    = GPUResourceType::TEXTURE;
+            entries[11].binding = 11;
+            entries[11].texture = env_view;
+
+            entries[12].type    = GPUResourceType::TEXTURE;
+            entries[12].binding = 12;
+            entries[12].texture = renderer->default_brdf_lut_view.handle;
+
+            entries[13].type    = GPUResourceType::SAMPLER;
+            entries[13].binding = 13;
+            entries[13].sampler = renderer->environment_sampler.handle;
 
             auto bg_desc    = GPUBindGroupDescriptor{};
             bg_desc.heap    = renderer->heap;

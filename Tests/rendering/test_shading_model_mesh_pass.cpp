@@ -163,7 +163,7 @@ TEST_CASE("rendering::shading_model_variant_compilation" * doctest::description(
     CHECK_EQ(sizeof(MeshDrawInstance), 112);
     auto layouts = refl_standard->get_bind_group_layouts();
     REQUIRE_EQ(layouts.size(), 2);
-    CHECK_EQ(layouts[0].entries.size(), 6); // Camera, shadow map, shadow sampler, cluster grid, light index, lights in set 0
+    CHECK_EQ(layouts[0].entries.size(), 9); // Camera, shadow map, shadow sampler, cluster grid, light index, lights, env_map, brdf_lut, env_sampler in set 0
     CHECK_EQ(layouts[1].entries.size(), 1); // Vertex buffer in set 1
 
     // 3. Reflect specialized Clearcoat variant

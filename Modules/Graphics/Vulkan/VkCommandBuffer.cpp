@@ -411,20 +411,25 @@ void cmd::copy_buffer_to_texture(GPUCommandEncoderHandle cmdbuffer, const GPUTex
     auto& src = fetch_resource(rhi->buffers, source.buffer);
     auto& dst = fetch_resource(rhi->textures, destination.texture);
 
-    auto copy                            = VkBufferImageCopy{};
-    copy.bufferOffset                    = source.offset;
-    copy.bufferRowLength                 = infer_texture_row_length(dst.format, source.bytes_per_row);
-    copy.bufferImageHeight               = source.rows_per_image;
-    copy.imageOffset.x                   = destination.origin.x;
-    copy.imageOffset.y                   = destination.origin.y;
-    copy.imageOffset.z                   = destination.origin.z;
-    copy.imageExtent.width               = copy_size.width;
-    copy.imageExtent.height              = copy_size.height;
-    copy.imageExtent.depth               = copy_size.depth;
-    copy.imageSubresource.aspectMask     = vkenum(destination.aspect);
-    copy.imageSubresource.mipLevel       = destination.mip_level;
-    copy.imageSubresource.baseArrayLayer = 0; // TODO: Is WebGPU able to set this?
-    copy.imageSubresource.layerCount     = 1; // TODO: Is WebGPU able to set this?
+    auto copy              = VkBufferImageCopy{};
+    copy.bufferOffset      = source.offset;
+    copy.bufferRowLength   = infer_texture_row_length(dst.format, source.bytes_per_row);
+    copy.bufferImageHeight = source.rows_per_image;
+    copy.imageOffset.x     = destination.origin.x;
+    copy.imageOffset.y     = destination.origin.y;
+    if (dst.image_type == VK_IMAGE_TYPE_2D && dst.array_layers > 1) {
+        copy.imageOffset.z                   = 0;
+        copy.imageSubresource.baseArrayLayer = destination.origin.z;
+    } else {
+        copy.imageOffset.z                   = destination.origin.z;
+        copy.imageSubresource.baseArrayLayer = 0;
+    }
+    copy.imageExtent.width           = copy_size.width;
+    copy.imageExtent.height          = copy_size.height;
+    copy.imageExtent.depth           = copy_size.depth;
+    copy.imageSubresource.aspectMask = vkenum(destination.aspect);
+    copy.imageSubresource.mipLevel   = destination.mip_level;
+    copy.imageSubresource.layerCount = 1;
 
     auto layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     rhi->vtable.vkCmdCopyBufferToImage(cmd.command_buffer, src.buffer, dst.image, layout, 1, &copy);

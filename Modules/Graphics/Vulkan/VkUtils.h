@@ -140,13 +140,15 @@ struct VulkanBuffer
 struct VulkanTextureView;
 struct VulkanTexture
 {
-    VkImage            image      = VK_NULL_HANDLE;
-    VmaAllocation      allocation = {};
-    VmaAllocationInfo  alloc_info = {};
-    VkFormat           format     = VK_FORMAT_UNDEFINED;
-    VkImageAspectFlags aspects    = 0;
-    VkExtent2D         area       = {}; // only used for Render Area
-    VulkanTextureFlags flags      = VulkanTextureFlag::NONE;
+    VkImage            image        = VK_NULL_HANDLE;
+    VmaAllocation      allocation   = {};
+    VmaAllocationInfo  alloc_info   = {};
+    VkFormat           format       = VK_FORMAT_UNDEFINED;
+    VkImageType        image_type   = VK_IMAGE_TYPE_2D;
+    uint32_t           array_layers = 1;
+    VkImageAspectFlags aspects      = 0;
+    VkExtent2D         area         = {}; // only used for Render Area
+    VulkanTextureFlags flags        = VulkanTextureFlag::NONE;
 
     // implementation in VkImage.cpp
     explicit VulkanTexture();

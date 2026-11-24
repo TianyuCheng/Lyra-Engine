@@ -74,6 +74,18 @@ namespace lyra
         uint profile = 0; // IES profile index
     };
 
+    // component
+    struct [[lyra::component("Sky Light", category = "Lighting", icon = "LYRA_ICON_LIGHT")]] SkyLight
+    {
+        [[lyra::range(0.0f, 100000.0f), lyra::label("Intensity")]]
+        float intensity = 1.0f;
+
+        [[lyra::label("Color")]]
+        Vector3 color = Vector3(1.0f);
+
+        Array<Vector4, 9> sh9{};
+    };
+
 } // namespace lyra
 
 #endif // LYRA_ENGINE_COMPONENTS_LIGHT_H

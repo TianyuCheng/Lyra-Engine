@@ -5,6 +5,7 @@ import Common.BSDF;
 import Common.Lighting;
 import Common.Tonemapping;
 import Common.ShadingModel;
+import Common.SphericalHarmonics;
 import Shading.BuiltinShading;
 
 public struct Camera
@@ -19,6 +20,7 @@ public struct Camera
     public float4x4 light_view_proj;
     public float4   cluster_params;
     public float4   cluster_dims;
+    public float4   env_sh[9];
 
     public property float3 pos           { get { return pos_and_intensity.xyz; } }
     public property float  sun_intensity { get { return pos_and_intensity.w; } }
@@ -54,6 +56,15 @@ public StructuredBuffer<uint> light_index_list;
 
 [[lyra::binding(5, 0)]]
 public StructuredBuffer<LightData> lights;
+
+[[lyra::binding(6, 0)]]
+public TextureCube<float4> environment_map;
+
+[[lyra::binding(7, 0)]]
+public Texture2D<float4> brdf_lut;
+
+[[lyra::binding(8, 0)]]
+public SamplerState environment_sampler;
 
 [[lyra::binding(0, 1)]]
 public ByteAddressBuffer vertex_buffer;
@@ -227,7 +238,36 @@ public float4 evaluate_forward_shading<TModel : IShadingModel>(VertexOutput inpu
         }
     }
 
-    float3 ambient = surf.base_color.rgb * max(light.sun_intensity * 0.15, 0.04);
+    // -------------------------------------------------------------------------
+    // Image-Based Lighting (IBL): Split-Sum Specular + SH9 Diffuse Irradiance
+    // -------------------------------------------------------------------------
+    float3 V = surf.view_dir;
+    float3 N = surf.normal;
+    float3 R = reflect(-V, N);
+    float NoV = clamp(dot(N, V), 1e-4, 1.0);
+
+    float lod = surf.roughness * 5.0;
+    float3 prefiltered_color = environment_map.SampleLevel(environment_sampler, R, lod).rgb;
+    float2 env_brdf = brdf_lut.SampleLevel(environment_sampler, float2(NoV, surf.roughness), 0.0).rg;
+
+    float3 F0 = lerp(float3(0.04), surf.base_color.rgb, surf.metallic);
+    float3 F_env = F0 + (max(float3(1.0 - surf.roughness), F0) - F0) * pow(1.0 - NoV, 5.0);
+    float3 specular_ibl = prefiltered_color * (F_env * env_brdf.x + env_brdf.y);
+
+    SH9Color sh;
+    [unroll]
+    for (int i = 0; i < 9; ++i) {
+        sh.c[i] = camera.env_sh[i].rgb;
+    }
+    float3 diffuse_irradiance = evaluate_sh_irradiance(sh, N);
+
+    float3 ambient;
+    if (dot(diffuse_irradiance, diffuse_irradiance) < 1e-6) {
+        ambient = surf.base_color.rgb * max(light.sun_intensity * 0.15, 0.04);
+    } else {
+        float3 kD = (1.0 - F_env) * (1.0 - surf.metallic);
+        ambient = kD * surf.base_color.rgb * diffuse_irradiance + specular_ibl;
+    }
     float3 final_color = tonemap_aces_film(direct + ambient);
 
     return float4(final_color, surf.base_color.a);

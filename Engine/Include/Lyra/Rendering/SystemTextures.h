@@ -76,6 +76,10 @@ namespace lyra
         GPUTextureHandle     get_brdf_lut_texture() const { return brdf_lut_texture; }
         GPUTextureViewHandle get_brdf_lut_view() const { return brdf_lut_view; }
 
+        // default environment cubemap fallback
+        GPUTextureHandle     get_environment_cubemap_texture() const { return environment_cubemap_texture; }
+        GPUTextureViewHandle get_environment_cubemap_view() const { return environment_cubemap_view; }
+
         // precomputed IES photometric light profiles atlas (256x16)
         GPUTextureHandle     get_ies_atlas_texture() const { return ies_atlas_texture; }
         GPUTextureViewHandle get_ies_atlas_view() const { return ies_atlas_view; }
@@ -129,6 +133,9 @@ namespace lyra
 
         GPUTexture     brdf_lut_texture;
         GPUTextureView brdf_lut_view;
+
+        GPUTexture     environment_cubemap_texture;
+        GPUTextureView environment_cubemap_view;
 
         GPUTexture     ies_atlas_texture;
         GPUTextureView ies_atlas_view;

@@ -123,6 +123,62 @@ bool ForwardPass::init(
         return device.create_buffer(desc);
     });
 
+    environment_sampler = execute([&]() {
+        auto desc           = GPUSamplerDescriptor{};
+        desc.label          = "forward_environment_sampler";
+        desc.min_filter     = GPUFilterMode::LINEAR;
+        desc.mag_filter     = GPUFilterMode::LINEAR;
+        desc.mipmap_filter  = GPUMipmapFilterMode::LINEAR;
+        desc.address_mode_u = GPUAddressMode::CLAMP_TO_EDGE;
+        desc.address_mode_v = GPUAddressMode::CLAMP_TO_EDGE;
+        desc.address_mode_w = GPUAddressMode::CLAMP_TO_EDGE;
+        return device.create_sampler(desc);
+    });
+
+    default_env_map = execute([&]() {
+        auto desc            = GPUTextureDescriptor{};
+        desc.label           = "forward_default_env_map";
+        desc.size            = {1, 1, 1};
+        desc.dimension       = GPUTextureDimension::x2D;
+        desc.array_layers    = 6;
+        desc.format          = GPUTextureFormat::RGBA16FLOAT;
+        desc.usage           = GPUTextureUsage::TEXTURE_BINDING | GPUTextureUsage::COPY_DST;
+        desc.mip_level_count = 1;
+        return device.create_texture(desc);
+    });
+    GPUTextureViewDescriptor env_vdesc{};
+    env_vdesc.aspect            = GPUTextureAspect::COLOR;
+    env_vdesc.dimension         = GPUTextureViewDimension::CUBE;
+    env_vdesc.format            = GPUTextureFormat::RGBA16FLOAT;
+    env_vdesc.base_array_layer  = 0;
+    env_vdesc.array_layer_count = 6;
+    env_vdesc.base_mip_level    = 0;
+    env_vdesc.mip_level_count   = 1;
+    default_env_view            = default_env_map.create_view(env_vdesc);
+
+    default_brdf_lut      = execute([&]() {
+        auto desc            = GPUTextureDescriptor{};
+        desc.label           = "forward_default_brdf_lut";
+        desc.size            = {1, 1, 1};
+        desc.dimension       = GPUTextureDimension::x2D;
+        desc.format          = GPUTextureFormat::RGBA16FLOAT;
+        desc.usage           = GPUTextureUsage::TEXTURE_BINDING | GPUTextureUsage::COPY_DST;
+        desc.mip_level_count = 1;
+        return device.create_texture(desc);
+    });
+    default_brdf_lut_view = default_brdf_lut.create_view();
+
+    execute([&]() {
+        auto cmd_desc  = GPUCommandBufferDescriptor{};
+        cmd_desc.label = "forward_default_env_transition_cmd";
+        cmd_desc.queue = GPUQueueType::DEFAULT;
+        auto cmdbuf    = device.create_command_buffer(cmd_desc);
+        cmdbuf.resource_barrier(state_transition(default_env_map, undefined_texture_state(), shader_resource_texture_state(GPUBarrierSync::ALL_SHADING), 0, 6));
+        cmdbuf.resource_barrier(state_transition(default_brdf_lut, undefined_texture_state(), shader_resource_texture_state(GPUBarrierSync::ALL_SHADING)));
+        cmdbuf.submit();
+        device.wait();
+    });
+
     heap = execute([&]() {
         auto desc      = GPUBindGroupHeapDescriptor{};
         desc.page_size = 512;
@@ -170,6 +226,21 @@ void ForwardPass::destroy()
 
     if (shadow_sampler.valid()) {
         shadow_sampler.destroy();
+    }
+    if (environment_sampler.valid()) {
+        environment_sampler.destroy();
+    }
+    if (default_env_view.valid()) {
+        default_env_view.destroy();
+    }
+    if (default_env_map.valid()) {
+        default_env_map.destroy();
+    }
+    if (default_brdf_lut_view.valid()) {
+        default_brdf_lut_view.destroy();
+    }
+    if (default_brdf_lut.valid()) {
+        default_brdf_lut.destroy();
     }
     if (default_lights_buffer.valid()) {
         default_lights_buffer.destroy();
@@ -248,6 +319,10 @@ void ForwardPass::update_camera_buffer(
             static_cast<float>(cluster_grid_y),
             static_cast<float>(cluster_grid_z),
             static_cast<float>(num_lights));
+
+        for (size_t i = 0; i < 9; ++i) {
+            mapped.at(0).env_sh[i] = scene.env_sh[i];
+        }
     }
 }
 
@@ -440,7 +515,19 @@ ForwardPassData ForwardPass::add(
                 lights_buf_h = params.lights_buffer->handle;
             }
 
-            Array<GPUBindGroupEntry, 6> entries{};
+            GPUTextureViewHandle env_view = default_env_view.handle;
+            if (params.environment_map.valid()) {
+                env_view = params.environment_map;
+            } else if (params.scene.environment_map.valid()) {
+                env_view = params.scene.environment_map;
+            }
+
+            GPUTextureViewHandle brdf_view = default_brdf_lut_view.handle;
+            if (params.brdf_lut.valid()) {
+                brdf_view = params.brdf_lut;
+            }
+
+            Array<GPUBindGroupEntry, 9> entries{};
             entries[0].type          = GPUResourceType::BUFFER;
             entries[0].binding       = 0;
             entries[0].buffer.buffer = camera_buffers[current_slot].handle;
@@ -468,6 +555,22 @@ ForwardPassData ForwardPass::add(
             entries[4].buffer.size   = 0;
 
             entries[5].type          = GPUResourceType::BUFFER;
+            entries[5].binding       = 5;
+            entries[5].buffer.buffer = lights_buf_h;
+            entries[5].buffer.offset = 0;
+            entries[5].buffer.size   = 0;
+
+            entries[6].type    = GPUResourceType::TEXTURE;
+            entries[6].binding = 6;
+            entries[6].texture = env_view;
+
+            entries[7].type    = GPUResourceType::TEXTURE;
+            entries[7].binding = 7;
+            entries[7].texture = brdf_view;
+
+            entries[8].type          = GPUResourceType::SAMPLER;
+            entries[8].binding       = 8;
+            entries[8].sampler       = environment_sampler.handle;
             entries[5].binding       = 5;
             entries[5].buffer.buffer = lights_buf_h;
             entries[5].buffer.offset = 0;

@@ -42,6 +42,13 @@ VulkanTexture::VulkanTexture(const GPUTextureDescriptor& desc) : aspects(0)
     tex_create_info.usage         = vkenum(desc.usage, desc.format);
     tex_create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
+    if (desc.array_layers >= 6 && desc.size.width == desc.size.height) {
+        tex_create_info.flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+    }
+
+    this->image_type   = image_type;
+    this->array_layers = desc.array_layers;
+
     // allocation create info
     alloc_create_info.usage         = VMA_MEMORY_USAGE_AUTO;
     alloc_create_info.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
