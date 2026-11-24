@@ -443,6 +443,18 @@ namespace lyra
         FrameArena*      arena = nullptr;
 
         auto allocate(const GPUBindGroupDescriptor& descriptor) const -> GPUBindGroup;
+        auto allocate_uniform(usize size, usize alignment = 256) const -> GPUBufferSlice;
+
+        template <typename T>
+        auto create_uniform(const T& data, usize alignment = 256) const -> GPUBufferSlice
+        {
+            if (arena) {
+                return arena->create_uniform(data, alignment, device);
+            }
+            return {};
+        }
+
+        auto create_uniform(const void* data, usize size, usize alignment = 256) const -> GPUBufferSlice;
     };
 
     // -------------------------------------------------------------------------
@@ -515,6 +527,22 @@ namespace lyra
             return arena->allocate(descriptor, device);
         }
         return device.create_bind_group(descriptor);
+    }
+
+    FORCE_INLINE auto FrameGraphContext::allocate_uniform(usize size, usize alignment) const -> GPUBufferSlice
+    {
+        if (arena) {
+            return arena->allocate_uniform(size, alignment, device);
+        }
+        return {};
+    }
+
+    FORCE_INLINE auto FrameGraphContext::create_uniform(const void* data, usize size, usize alignment) const -> GPUBufferSlice
+    {
+        if (arena) {
+            return arena->create_uniform(data, size, alignment, device);
+        }
+        return {};
     }
 
     // -------------------------------------------------------------------------

@@ -379,9 +379,10 @@ TEST_CASE("fg::allocator_real_resources" * doctest::description("FrameGraphAlloc
 
 TEST_CASE("fg::frame_arena" * doctest::description("FrameArena transient bind group allocation, ring buffering, and reset"))
 {
-    FrameArena arena(3, 1024);
+    FrameArena arena(3, 1024, 65536);
     CHECK_EQ(arena.current_slot(), 0);
     CHECK_EQ(arena.heap_count(), 0);
+    CHECK_EQ(arena.uniform_page_count(), 0);
 
     GPUBindGroupDescriptor desc{};
     auto                   bg = arena.allocate(desc);
@@ -389,14 +390,51 @@ TEST_CASE("fg::frame_arena" * doctest::description("FrameArena transient bind gr
     CHECK_EQ(arena.heap_count(), 3);
     CHECK_EQ(arena.current_slot(), 0);
 
+    // 1. test uniform allocation and alignment
+    struct DummyCam
+    {
+        float view[16];
+        float proj[16];
+    };
+    DummyCam cam_data{};
+    cam_data.view[0] = 42.0f;
+    cam_data.proj[0] = 84.0f;
+
+    auto u1 = arena.create_uniform(cam_data);
+    CHECK(u1.valid());
+    CHECK_EQ(u1.offset, 0);
+    CHECK_EQ(u1.size, sizeof(DummyCam));
+    CHECK_EQ(u1.as<DummyCam>()->view[0], 42.0f);
+    CHECK_EQ(u1.as<DummyCam>()->proj[0], 84.0f);
+
+    auto u2 = arena.allocate_uniform(128, 256);
+    CHECK(u2.valid());
+    CHECK_EQ(u2.offset, 256); // aligned to 256 bytes after sizeof(DummyCam) = 128
+    CHECK_EQ(u2.size, 128);
+
+    // 2. advance frames and check ring buffering
     arena.tick();
     CHECK_EQ(arena.current_slot(), 1);
+
+    auto u_slot1 = arena.allocate_uniform(64, 256);
+    CHECK(u_slot1.valid());
+    CHECK_EQ(u_slot1.offset, 0);
 
     arena.tick();
     CHECK_EQ(arena.current_slot(), 2);
 
+    auto u_slot2 = arena.allocate_uniform(64, 256);
+    CHECK(u_slot2.valid());
+    CHECK_EQ(u_slot2.offset, 0);
+
+    // wrap around back to slot 0
     arena.tick();
     CHECK_EQ(arena.current_slot(), 0);
+
+    // slot 0 was reset, next allocation starts back at offset 0
+    auto u_slot0_reset = arena.allocate_uniform(64, 256);
+    CHECK(u_slot0_reset.valid());
+    CHECK_EQ(u_slot0_reset.offset, 0);
 }
 
 TEST_CASE("fg::transient_resource_lifecycle" * doctest::description("FrameGraph Transient Resource Allocation & Recycling"))
