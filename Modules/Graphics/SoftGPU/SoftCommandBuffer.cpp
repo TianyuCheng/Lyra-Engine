@@ -177,7 +177,8 @@ struct SoftDrawParams
 static void setup_draw_params(SoftDevice& device, const ExecutionContext& ctx, SoftDrawParams& p)
 {
     p.uniform_bytes.fill(0);
-    for (auto& pb : p.pb_bytes) pb.fill(0);
+    for (auto& pb : p.pb_bytes)
+        pb.fill(0);
 
     p.r_ctx.color_attachment         = ctx.color_attachment;
     p.r_ctx.color_attachments        = ctx.color_attachments;
@@ -531,14 +532,77 @@ static void execute_draw(SoftDevice& device, ExecutionContext& ctx, uint vertex_
 
     const ubyte* vdata = vbuf->data.data() + it_v->second.offset;
 
+    struct StreamAttr
+    {
+        const ubyte* base_ptr        = nullptr;
+        GPUSize64    stride          = 0;
+        GPUSize64    src_offset      = 0;
+        GPUSize64    dst_offset      = 0;
+        GPUSize64    size            = 0;
+        GPUSize64    buf_size        = 0;
+        uint         shader_location = 0;
+        bool         is_instance     = false;
+    };
+    SmallVector<StreamAttr, 8> stream_attrs;
+    bool                       has_multi_stream_vs = false;
+
+    if (ctx.render_pipeline && ctx.render_pipeline->vshader_func && ctx.render_pipeline->vertex_buffers.size() > 1) {
+        for (usize s = 0; s < ctx.render_pipeline->vertex_buffers.size(); ++s) {
+            const auto& vb   = ctx.render_pipeline->vertex_buffers[s];
+            auto        it_s = ctx.vertex_buffers.find(static_cast<uint>(s));
+            if (it_s == ctx.vertex_buffers.end()) continue;
+            auto buf = device.buffers.find(it_s->second.buffer.to_slotmap_handle<SoftBuffer>());
+            if (!buf || it_s->second.offset > buf->data.size()) continue;
+
+            const ubyte* s_ptr      = buf->data.data() + it_s->second.offset;
+            GPUSize64    avail_size = buf->data.size() - it_s->second.offset;
+
+            for (const auto& attr : vb.attributes) {
+                StreamAttr sa{};
+                sa.base_ptr        = s_ptr;
+                sa.stride          = vb.array_stride;
+                sa.src_offset      = attr.offset;
+                sa.size            = get_vertex_format_size(attr.format);
+                sa.buf_size        = avail_size;
+                sa.shader_location = attr.shader_location;
+                sa.is_instance     = (vb.step_mode == GPUVertexStepMode::INSTANCE);
+                stream_attrs.push_back(sa);
+            }
+        }
+        if (!stream_attrs.empty()) {
+            has_multi_stream_vs = true;
+            std::sort(stream_attrs.begin(), stream_attrs.end(), [](const StreamAttr& a, const StreamAttr& b) {
+                return a.shader_location < b.shader_location;
+            });
+            GPUSize64 cur_dst = 0;
+            for (auto& sa : stream_attrs) {
+                sa.dst_offset = cur_dst;
+                cur_dst += sa.size;
+            }
+        }
+    }
+
     auto read_vert = [&](uint idx, uint current_inst) -> SoftShadedVertex {
         SoftShadedVertex sv{};
         const ubyte*     ptr = vdata + (first_vertex + idx) * p.stride;
         if (ctx.render_pipeline && ctx.render_pipeline->vshader_func) {
-            run_vs(first_vertex + idx, sv, ptr);
+            if (has_multi_stream_vs) {
+                alignas(16) ubyte assembled_v[256] = {};
+                uint              vert_idx         = first_vertex + idx;
+                for (const auto& sa : stream_attrs) {
+                    uint      step_idx = sa.is_instance ? current_inst : vert_idx;
+                    GPUSize64 offset   = static_cast<GPUSize64>(step_idx) * sa.stride + sa.src_offset;
+                    if (offset + sa.size <= sa.buf_size) {
+                        std::memcpy(assembled_v + sa.dst_offset, sa.base_ptr + offset, sa.size);
+                    }
+                }
+                run_vs(vert_idx, sv, assembled_v);
+            } else {
+                run_vs(first_vertex + idx, sv, ptr);
+            }
             return sv;
         }
-        Vector4          local_pos(0.0f, 0.0f, 0.0f, 1.0f);
+        Vector4 local_pos(0.0f, 0.0f, 0.0f, 1.0f);
         if (p.pos_format == GPUVertexFormat::FLOAT32x2) {
             const auto pos = reinterpret_cast<const Vector2*>(ptr + p.pos_offset);
             local_pos.x    = pos->x;
@@ -736,6 +800,56 @@ static void execute_draw_indexed(SoftDevice& device, ExecutionContext& ctx, uint
         if (vbuf2) vdata2 = vbuf2->data.data() + it_v2->second.offset;
     }
 
+    struct StreamAttr
+    {
+        const ubyte* base_ptr        = nullptr;
+        GPUSize64    stride          = 0;
+        GPUSize64    src_offset      = 0;
+        GPUSize64    dst_offset      = 0;
+        GPUSize64    size            = 0;
+        GPUSize64    buf_size        = 0;
+        uint         shader_location = 0;
+        bool         is_instance     = false;
+    };
+    SmallVector<StreamAttr, 8> stream_attrs;
+    bool                       has_multi_stream_vs = false;
+
+    if (ctx.render_pipeline && ctx.render_pipeline->vshader_func && ctx.render_pipeline->vertex_buffers.size() > 1) {
+        for (usize s = 0; s < ctx.render_pipeline->vertex_buffers.size(); ++s) {
+            const auto& vb   = ctx.render_pipeline->vertex_buffers[s];
+            auto        it_s = ctx.vertex_buffers.find(static_cast<uint>(s));
+            if (it_s == ctx.vertex_buffers.end()) continue;
+            auto buf = device.buffers.find(it_s->second.buffer.to_slotmap_handle<SoftBuffer>());
+            if (!buf || it_s->second.offset > buf->data.size()) continue;
+
+            const ubyte* s_ptr      = buf->data.data() + it_s->second.offset;
+            GPUSize64    avail_size = buf->data.size() - it_s->second.offset;
+
+            for (const auto& attr : vb.attributes) {
+                StreamAttr sa{};
+                sa.base_ptr        = s_ptr;
+                sa.stride          = vb.array_stride;
+                sa.src_offset      = attr.offset;
+                sa.size            = get_vertex_format_size(attr.format);
+                sa.buf_size        = avail_size;
+                sa.shader_location = attr.shader_location;
+                sa.is_instance     = (vb.step_mode == GPUVertexStepMode::INSTANCE);
+                stream_attrs.push_back(sa);
+            }
+        }
+        if (!stream_attrs.empty()) {
+            has_multi_stream_vs = true;
+            std::sort(stream_attrs.begin(), stream_attrs.end(), [](const StreamAttr& a, const StreamAttr& b) {
+                return a.shader_location < b.shader_location;
+            });
+            GPUSize64 cur_dst = 0;
+            for (auto& sa : stream_attrs) {
+                sa.dst_offset = cur_dst;
+                cur_dst += sa.size;
+            }
+        }
+    }
+
     auto read_index = [&](uint idx) -> uint {
         if (ctx.index_buffer.format == GPUIndexFormat::UINT16) {
             return reinterpret_cast<const ushort*>(idata)[idx];
@@ -753,7 +867,19 @@ static void execute_draw_indexed(SoftDevice& device, ExecutionContext& ctx, uint
 
         const ubyte* ptr = vdata + vert_idx * p.stride;
         if (ctx.render_pipeline && ctx.render_pipeline->vshader_func) {
-            run_vs(vert_idx, sv, ptr);
+            if (has_multi_stream_vs) {
+                alignas(16) ubyte assembled_v[256] = {};
+                for (const auto& sa : stream_attrs) {
+                    uint      step_idx = sa.is_instance ? current_inst : vert_idx;
+                    GPUSize64 offset   = static_cast<GPUSize64>(step_idx) * sa.stride + sa.src_offset;
+                    if (offset + sa.size <= sa.buf_size) {
+                        std::memcpy(assembled_v + sa.dst_offset, sa.base_ptr + offset, sa.size);
+                    }
+                }
+                run_vs(vert_idx, sv, assembled_v);
+            } else {
+                run_vs(vert_idx, sv, ptr);
+            }
             return sv;
         }
 
@@ -791,7 +917,7 @@ static void execute_draw_indexed(SoftDevice& device, ExecutionContext& ctx, uint
         }
 
         ptr = vdata + vert_idx * p.stride;
-        Vector4      local_pos(0.0f, 0.0f, 0.0f, 1.0f);
+        Vector4 local_pos(0.0f, 0.0f, 0.0f, 1.0f);
         if (p.pos_format == GPUVertexFormat::FLOAT32x2) {
             const auto pos = reinterpret_cast<const Vector2*>(ptr + p.pos_offset);
             local_pos.x    = pos->x;

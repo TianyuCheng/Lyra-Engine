@@ -87,8 +87,8 @@ struct TextureLODApp : public TestApp
         uint    total_staging_size = 0;
 
         for (uint m = 0; m < mip_count; ++m) {
-            uint w = std::max(1u, base_size >> m);
-            uint h = std::max(1u, base_size >> m);
+            uint w     = std::max(1u, base_size >> m);
+            uint h     = std::max(1u, base_size >> m);
             uint pitch = align(static_cast<uint>(w * sizeof(uint32_t)), adapter.properties.texture_row_pitch_alignment);
             if (pitch == 0) pitch = w * sizeof(uint32_t);
 
@@ -132,12 +132,12 @@ struct TextureLODApp : public TestApp
         };
 
         const uint32_t mip_colors[mip_count] = {
-            pack_rgba(240, 50, 50),   // Mip 0: Red
-            pack_rgba(50, 240, 50),   // Mip 1: Green
-            pack_rgba(50, 50, 240),   // Mip 2: Blue
-            pack_rgba(240, 240, 50),  // Mip 3: Yellow
-            pack_rgba(240, 50, 240),  // Mip 4: Magenta
-            pack_rgba(50, 240, 240),  // Mip 5: Cyan
+            pack_rgba(240, 50, 50),  // Mip 0: Red
+            pack_rgba(50, 240, 50),  // Mip 1: Green
+            pack_rgba(50, 50, 240),  // Mip 2: Blue
+            pack_rgba(240, 240, 50), // Mip 3: Yellow
+            pack_rgba(240, 50, 240), // Mip 4: Magenta
+            pack_rgba(50, 240, 240), // Mip 5: Cyan
         };
 
         auto* mapped = staging.get_mapped_range<uint8_t>().data;

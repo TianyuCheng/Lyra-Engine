@@ -83,10 +83,10 @@ struct PerspectiveCorrectionApp : public TestApp
         auto& device = RHI::get_current_device();
 
         PerspectiveCameraUBO camera{};
-        float fovy   = glm::radians(60.0f);
-        float aspect = float(desc.width) / float(desc.height);
-        camera.proj  = glm::perspective(fovy, aspect, 0.1f, 100.0f);
-        camera.view  = glm::lookAt(glm::vec3(0.0f, 1.8f, 2.5f), glm::vec3(0.0f, -0.5f, -3.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        float                fovy   = glm::radians(60.0f);
+        float                aspect = float(desc.width) / float(desc.height);
+        camera.proj                 = glm::perspective(fovy, aspect, 0.1f, 100.0f);
+        camera.view                 = glm::lookAt(glm::vec3(0.0f, 1.8f, 2.5f), glm::vec3(0.0f, -0.5f, -3.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
         ubuffer = execute([&] {
             auto bdesc               = GPUBufferDescriptor{};
@@ -97,7 +97,7 @@ struct PerspectiveCorrectionApp : public TestApp
             return device.create_buffer(bdesc);
         });
 
-        auto mapped = ubuffer.get_mapped_range<PerspectiveCameraUBO>();
+        auto mapped  = ubuffer.get_mapped_range<PerspectiveCameraUBO>();
         mapped.at(0) = camera;
     }
 
@@ -146,7 +146,7 @@ struct PerspectiveCorrectionApp : public TestApp
         Vector<uint32_t> pixels(width * height);
         for (uint y = 0; y < height; ++y) {
             for (uint x = 0; x < width; ++x) {
-                bool is_white = ((x ^ y) & 1) != 0;
+                bool is_white         = ((x ^ y) & 1) != 0;
                 pixels[y * width + x] = is_white ? pack_rgba(240, 240, 240) : pack_rgba(20, 20, 25);
             }
         }
@@ -214,9 +214,9 @@ struct PerspectiveCorrectionApp : public TestApp
 
         // quad on ground plane receding into distance (depth variation from z = 1.0 to z = -7.0)
         PerspectiveVertex vertices[4] = {
-            {{-2.0f, -0.5f,  1.0f}, {0.0f, 8.0f}}, // near-left
-            {{ 2.0f, -0.5f,  1.0f}, {8.0f, 8.0f}}, // near-right
-            {{ 2.0f, -0.5f, -7.0f}, {8.0f, 0.0f}}, // far-right
+            {{-2.0f, -0.5f, 1.0f}, {0.0f, 8.0f}},  // near-left
+            {{2.0f, -0.5f, 1.0f}, {8.0f, 8.0f}},   // near-right
+            {{2.0f, -0.5f, -7.0f}, {8.0f, 0.0f}},  // far-right
             {{-2.0f, -0.5f, -7.0f}, {0.0f, 0.0f}}, // far-left
         };
 

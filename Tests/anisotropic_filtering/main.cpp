@@ -85,10 +85,10 @@ struct AnisotropicFilteringApp : public TestApp
         auto& device = RHI::get_current_device();
 
         AnisoCameraUBO camera{};
-        float fovy   = glm::radians(55.0f);
-        float aspect = float(desc.width) / float(desc.height);
-        camera.proj  = glm::perspective(fovy, aspect, 0.1f, 100.0f);
-        camera.view  = glm::lookAt(glm::vec3(0.0f, 0.8f, 2.0f), glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        float          fovy   = glm::radians(55.0f);
+        float          aspect = float(desc.width) / float(desc.height);
+        camera.proj           = glm::perspective(fovy, aspect, 0.1f, 100.0f);
+        camera.view           = glm::lookAt(glm::vec3(0.0f, 0.8f, 2.0f), glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
         ubuffer = execute([&] {
             auto bdesc               = GPUBufferDescriptor{};
@@ -99,7 +99,7 @@ struct AnisotropicFilteringApp : public TestApp
             return device.create_buffer(bdesc);
         });
 
-        auto mapped = ubuffer.get_mapped_range<AnisoCameraUBO>();
+        auto mapped  = ubuffer.get_mapped_range<AnisoCameraUBO>();
         mapped.at(0) = camera;
     }
 
@@ -172,7 +172,7 @@ struct AnisotropicFilteringApp : public TestApp
         mip_pixels[0].resize(base_size * base_size);
         for (uint y = 0; y < base_size; ++y) {
             for (uint x = 0; x < base_size; ++x) {
-                bool stripe = (((x / 2) ^ (y / 2)) & 1) != 0;
+                bool stripe                      = (((x / 2) ^ (y / 2)) & 1) != 0;
                 mip_pixels[0][y * base_size + x] = stripe ? pack_rgba(255, 255, 255) : pack_rgba(10, 10, 15);
             }
         }
@@ -191,11 +191,13 @@ struct AnisotropicFilteringApp : public TestApp
                     uint32_t c01 = mip_pixels[m - 1][std::min(2 * y + 1, mips[m - 1].height - 1) * pw + (2 * x + 0)];
                     uint32_t c11 = mip_pixels[m - 1][std::min(2 * y + 1, mips[m - 1].height - 1) * pw + std::min(2 * x + 1, pw - 1)];
 
-                    auto get_ch = [](uint32_t c, int s) -> uint32_t { return (c >> s) & 0xFFu; };
-                    uint32_t r  = (get_ch(c00, 0) + get_ch(c10, 0) + get_ch(c01, 0) + get_ch(c11, 0)) / 4;
-                    uint32_t g  = (get_ch(c00, 8) + get_ch(c10, 8) + get_ch(c01, 8) + get_ch(c11, 8)) / 4;
-                    uint32_t b  = (get_ch(c00, 16) + get_ch(c10, 16) + get_ch(c01, 16) + get_ch(c11, 16)) / 4;
-                    uint32_t a  = (get_ch(c00, 24) + get_ch(c10, 24) + get_ch(c01, 24) + get_ch(c11, 24)) / 4;
+                    auto get_ch = [](uint32_t c, int s) -> uint32_t {
+                        return (c >> s) & 0xFFu;
+                    };
+                    uint32_t r = (get_ch(c00, 0) + get_ch(c10, 0) + get_ch(c01, 0) + get_ch(c11, 0)) / 4;
+                    uint32_t g = (get_ch(c00, 8) + get_ch(c10, 8) + get_ch(c01, 8) + get_ch(c11, 8)) / 4;
+                    uint32_t b = (get_ch(c00, 16) + get_ch(c10, 16) + get_ch(c01, 16) + get_ch(c11, 16)) / 4;
+                    uint32_t a = (get_ch(c00, 24) + get_ch(c10, 24) + get_ch(c01, 24) + get_ch(c11, 24)) / 4;
 
                     mip_pixels[m][y * w + x] = pack_rgba(static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), static_cast<uint8_t>(a));
                 }
@@ -279,23 +281,33 @@ struct AnisotropicFilteringApp : public TestApp
         // two side-by-side quads on ground plane y = 0, receding into distance
         AnisoVertex vertices[8] = {
             // left quad (isotropic)
-            {{-2.2f, 0.0f,   1.0f}, {0.0f, 16.0f}},
-            {{-0.1f, 0.0f,   1.0f}, {8.0f, 16.0f}},
-            {{-0.1f, 0.0f, -12.0f}, {8.0f,  0.0f}},
-            {{-2.2f, 0.0f, -12.0f}, {0.0f,  0.0f}},
+            {{-2.2f, 0.0f, 1.0f}, {0.0f, 16.0f}},
+            {{-0.1f, 0.0f, 1.0f}, {8.0f, 16.0f}},
+            {{-0.1f, 0.0f, -12.0f}, {8.0f, 0.0f}},
+            {{-2.2f, 0.0f, -12.0f}, {0.0f, 0.0f}},
 
             // right quad (anisotropic)
-            {{ 0.1f, 0.0f,   1.0f}, {0.0f, 16.0f}},
-            {{ 2.2f, 0.0f,   1.0f}, {8.0f, 16.0f}},
-            {{ 2.2f, 0.0f, -12.0f}, {8.0f,  0.0f}},
-            {{ 0.1f, 0.0f, -12.0f}, {0.0f,  0.0f}},
+            {{0.1f, 0.0f, 1.0f}, {0.0f, 16.0f}},
+            {{2.2f, 0.0f, 1.0f}, {8.0f, 16.0f}},
+            {{2.2f, 0.0f, -12.0f}, {8.0f, 0.0f}},
+            {{0.1f, 0.0f, -12.0f}, {0.0f, 0.0f}},
         };
 
         uint16_t indices[12] = {
             // left quad
-            0, 1, 2, 0, 2, 3,
+            0,
+            1,
+            2,
+            0,
+            2,
+            3,
             // right quad
-            4, 5, 6, 4, 6, 7,
+            4,
+            5,
+            6,
+            4,
+            6,
+            7,
         };
 
         vbuffer = execute([&] {
