@@ -1,22 +1,13 @@
 import lyra;
+import Common.Camera;
 import Common.Material;
 import Common.Packing;
 
 // TODO: G-Buffer rasterization shader for deferred hybrid rendering
 // Supports standard PBR and user custom material shading IDs
 
-struct Camera
-{
-    float4x4 proj;
-    float4x4 view;
-    float4x4 inv_proj;
-    float4x4 inv_view;
-    float4   pos_and_pad;
-
-    property float3 pos { get { return pos_and_pad.xyz; } }
-};
-
-ConstantBuffer<Camera> camera;
+[[lyra::binding(0, 0)]]
+ConstantBuffer<CameraUniforms> camera;
 
 struct InstanceData
 {

@@ -1,4 +1,5 @@
 import lyra;
+import Common.Camera;
 
 struct VertexOutput
 {
@@ -12,17 +13,8 @@ struct FragmentOutput
     float  depth : SV_Depth;
 };
 
-struct Camera
-{
-    float4x4 proj;
-    float4x4 view;
-    float4x4 inv_proj;
-    float4x4 inv_view;
-    float3   pos;
-    float    padding;
-};
-
-ConstantBuffer<Camera> camera;
+[[lyra::binding(0, 0)]]
+ConstantBuffer<CameraUniforms> camera;
 
 [shader("vertex")]
 VertexOutput vsmain(uint vertex_id : SV_VertexID)

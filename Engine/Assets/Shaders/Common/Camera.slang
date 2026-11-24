@@ -15,6 +15,7 @@ public struct CameraUniforms
     public float4x4 prev_view_proj;
 
     public float3   camera_pos;
+    public property float3 pos { get { return camera_pos; } }
     public float    near_plane;
 
     public float2   jitter_offset;

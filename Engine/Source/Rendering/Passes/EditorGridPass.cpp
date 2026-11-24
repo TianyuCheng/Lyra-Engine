@@ -1,22 +1,10 @@
 #include <Lyra/Utilities/Macros.h>
 #include <Lyra/Graphics/RHIAPI.h>
 #include <Lyra/Rendering/Passes/EditorGridPass.h>
+#include <Lyra/Rendering/ViewUniforms.h>
 
 using namespace lyra;
 using namespace lyra::passes;
-
-namespace
-{
-    struct CameraUniform
-    {
-        Matrix4x4 proj;
-        Matrix4x4 view;
-        Matrix4x4 inv_proj;
-        Matrix4x4 inv_view;
-        Vector3   pos;
-        float     padding = 0.0f;
-    };
-} // namespace
 
 bool EditorGridPass::init(
     GPUDevice        device,
@@ -123,44 +111,6 @@ bool EditorGridPass::init(
         return device.create_render_pipeline(desc);
     });
 
-    for (uint i = 0; i < FRAMES_IN_FLIGHT; ++i) {
-        camera_buffers[i] = execute([&]() {
-            auto desc               = GPUBufferDescriptor{};
-            desc.label              = "grid_camera_buffer";
-            desc.size               = sizeof(CameraUniform);
-            desc.usage              = GPUBufferUsage::UNIFORM | GPUBufferUsage::MAP_WRITE;
-            desc.mapped_at_creation = true;
-            return device.create_buffer(desc);
-        });
-    }
-
-    heap = execute([&]() {
-        auto desc      = GPUBindGroupHeapDescriptor{};
-        desc.page_size = 2048;
-        return device.create_bind_group_heap(desc);
-    });
-
-    if (!blayouts.empty()) {
-        for (uint i = 0; i < FRAMES_IN_FLIGHT; ++i) {
-            bind_groups[i] = execute([&]() {
-                Array<GPUBindGroupEntry, 1> entries = {};
-
-                auto& entry         = entries.at(0);
-                entry.type          = GPUResourceType::BUFFER;
-                entry.binding       = 0;
-                entry.buffer.buffer = camera_buffers[i];
-                entry.buffer.offset = 0;
-                entry.buffer.size   = 0;
-
-                auto desc    = GPUBindGroupDescriptor{};
-                desc.heap    = heap;
-                desc.layout  = blayouts.at(0);
-                desc.entries = entries;
-                return device.create_bind_group(desc);
-            });
-        }
-    }
-
     initialized = true;
     return true;
 }
@@ -173,15 +123,6 @@ void EditorGridPass::destroy()
 
     device.wait();
 
-    if (heap.valid()) heap.destroy();
-    for (auto& buf : camera_buffers) {
-        if (buf.valid()) {
-            buf.destroy();
-        }
-    }
-    camera_buffers.fill({});
-    bind_groups.fill({});
-
     if (pipeline.valid()) pipeline.destroy();
     if (playout.valid()) playout.destroy();
     if (fshader.valid()) fshader.destroy();
@@ -189,21 +130,6 @@ void EditorGridPass::destroy()
 
     blayouts.clear();
     initialized = false;
-}
-
-void EditorGridPass::update_camera_uniform(uint slot, const RenderView& view)
-{
-    if (slot >= FRAMES_IN_FLIGHT || !camera_buffers[slot].valid()) {
-        return;
-    }
-
-    auto camera_gpu           = camera_buffers[slot].get_mapped_range<CameraUniform>();
-    camera_gpu.at(0).proj     = view.projection;
-    camera_gpu.at(0).view     = view.view;
-    camera_gpu.at(0).inv_proj = view.inv_projection;
-    camera_gpu.at(0).inv_view = view.inv_view;
-    camera_gpu.at(0).pos      = view.camera_position;
-    camera_gpu.at(0).padding  = 0.0f;
 }
 
 EditorGridData EditorGridPass::add(
@@ -215,19 +141,13 @@ EditorGridData EditorGridPass::add(
 {
     MAYBE_UNUSED(settings);
 
-    frame_slot        = (frame_slot + 1) % FRAMES_IN_FLIGHT;
-    uint current_slot = frame_slot;
-
-    // update camera uniforms for view in current slot
-    update_camera_uniform(current_slot, view);
-
     return builder.add_pass<EditorGridData>(
         "EditorGridPass",
         [&](EditorGridData& data, FrameGraphPassBuilder& pass_builder) {
             data.color_output = pass_builder.render(color_target);
             data.depth_input  = pass_builder.read(depth_target);
         },
-        [this, current_slot, extent = view.render_extent](const EditorGridData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
+        [this, extent = view.render_extent](const EditorGridData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
             if (!ctx || !ctx->cmdlist.handle.valid() || !pipeline.valid()) {
                 return;
             }
@@ -260,8 +180,11 @@ EditorGridData EditorGridPass::add(
             command.set_viewport(0.0f, 0.0f, static_cast<float>(extent.width), static_cast<float>(extent.height));
             command.set_scissor_rect(0, 0, extent.width, extent.height);
             command.set_pipeline(pipeline);
-            if (bind_groups[current_slot].valid()) {
-                command.set_bind_group(0, bind_groups[current_slot]);
+            if (ctx->view_uniforms && ctx->arena && !blayouts.empty()) {
+                auto camera_bg = ctx->view_uniforms->bind_group(blayouts[0], *ctx->arena, ctx->device);
+                if (camera_bg.valid()) {
+                    command.set_bind_group(0, camera_bg);
+                }
             }
             command.draw(6, 1, 0, 0);
             command.end_render_pass();

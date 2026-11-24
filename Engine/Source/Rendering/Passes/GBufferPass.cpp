@@ -1,23 +1,13 @@
 #include <Lyra/Utilities/Macros.h>
 #include <Lyra/Graphics/RHIAPI.h>
 #include <Lyra/Rendering/Passes/GBufferPass.h>
+#include <Lyra/Rendering/ViewUniforms.h>
 
 using namespace lyra;
 using namespace lyra::passes;
 
 namespace
 {
-    struct alignas(16) CameraUniform
-    {
-        Matrix4x4 proj;
-        Matrix4x4 view;
-        Matrix4x4 inv_proj;
-        Matrix4x4 inv_view;
-        Vector4   pos_and_pad = Vector4(0.0f);
-    };
-
-    static_assert(sizeof(CameraUniform) == 272, "CameraUniform must be 272 bytes");
-
     /**
      * @brief Per-instance push constant layout matching Slang shader `InstanceData` in `sys://Shaders/Deferred/GBuffer.slang`.
      */
@@ -213,38 +203,6 @@ bool GBufferPass::init(
         return device.create_render_pipeline(desc);
     });
 
-    camera_buffer = execute([&]() {
-        auto desc               = GPUBufferDescriptor{};
-        desc.label              = "gbuffer_camera_buffer";
-        desc.size               = sizeof(CameraUniform);
-        desc.usage              = GPUBufferUsage::UNIFORM | GPUBufferUsage::MAP_WRITE;
-        desc.mapped_at_creation = true;
-        return device.create_buffer(desc);
-    });
-
-    heap = execute([&]() {
-        auto desc      = GPUBindGroupHeapDescriptor{};
-        desc.page_size = 2048;
-        return device.create_bind_group_heap(desc);
-    });
-
-    bind_group = execute([&]() {
-        Array<GPUBindGroupEntry, 1> entries = {};
-
-        auto& entry         = entries.at(0);
-        entry.type          = GPUResourceType::BUFFER;
-        entry.binding       = 0;
-        entry.buffer.buffer = camera_buffer;
-        entry.buffer.offset = 0;
-        entry.buffer.size   = 0;
-
-        auto desc    = GPUBindGroupDescriptor{};
-        desc.heap    = heap;
-        desc.layout  = blayouts.at(0);
-        desc.entries = entries;
-        return device.create_bind_group(desc);
-    });
-
     initialized = true;
     return true;
 }
@@ -257,30 +215,13 @@ void GBufferPass::destroy()
 
     device.wait();
 
-    if (heap.valid()) heap.destroy();
-    if (camera_buffer.valid()) camera_buffer.destroy();
     if (pipeline.valid()) pipeline.destroy();
     if (playout.valid()) playout.destroy();
     if (fshader.valid()) fshader.destroy();
     if (vshader.valid()) vshader.destroy();
     blayouts.clear();
-    bind_group = {};
 
     initialized = false;
-}
-
-void GBufferPass::update_camera_uniform(const RenderView& view)
-{
-    if (!camera_buffer.valid()) {
-        return;
-    }
-
-    auto camera_gpu              = camera_buffer.get_mapped_range<CameraUniform>();
-    camera_gpu.at(0).proj        = view.projection;
-    camera_gpu.at(0).view        = view.view;
-    camera_gpu.at(0).inv_proj    = view.inv_projection;
-    camera_gpu.at(0).inv_view    = view.inv_view;
-    camera_gpu.at(0).pos_and_pad = Vector4(view.camera_position, 0.0f);
 }
 
 GBufferData GBufferPass::add(
@@ -289,7 +230,7 @@ GBufferData GBufferPass::add(
     const RenderScene& scene,
     GPUExtent2D        extent)
 {
-    update_camera_uniform(view);
+    (void)view;
 
     return builder.add_pass<GBufferData>(
         "GBufferPass",
@@ -400,7 +341,12 @@ GBufferData GBufferPass::add(
             command.set_viewport(0.0f, 0.0f, static_cast<float>(extent.width), static_cast<float>(extent.height));
             command.set_scissor_rect(0, 0, extent.width, extent.height);
             command.set_pipeline(pipeline);
-            command.set_bind_group(0, bind_group);
+            if (ctx->view_uniforms && ctx->arena && !blayouts.empty()) {
+                auto camera_bg = ctx->view_uniforms->bind_group(blayouts[0], *ctx->arena, ctx->device);
+                if (camera_bg.valid()) {
+                    command.set_bind_group(0, camera_bg);
+                }
+            }
 
             // rasterize all opaque scene meshes into G-Buffer
             for (const auto& mesh : scene.meshes) {
