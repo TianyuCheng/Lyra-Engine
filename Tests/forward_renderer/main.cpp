@@ -4,6 +4,7 @@
 #include <Lyra/Rendering/RenderWorld.h>
 #include <Lyra/Rendering/ProceduralMesh.h>
 #include <Lyra/Rendering/ResourceRetire.h>
+#include <Lyra/Rendering/ShadingBuffers.h>
 #include <Lyra/Components/Camera.h>
 #include <Lyra/Components/Light.h>
 #include <Lyra/Components/Sun.h>
@@ -158,11 +159,15 @@ struct RendererForwardApp : public TestApp
         RenderView view    = render_world->get_view();
         view.render_extent = {desc.width, desc.height};
 
+        ViewUniforms view_uniforms;
+        view_uniforms.init(view, arena);
+
         RenderFrameOutputs outputs{};
         RenderFrameContext ctx{
             .builder        = builder,
             .view           = view,
             .scene          = render_world->get_scene(),
+            .view_uniforms  = &view_uniforms,
             .color_target   = color_target,
             .depth_target   = {},
             .color_format   = get_backbuffer_format(),
@@ -187,7 +192,7 @@ struct RendererForwardApp : public TestApp
             });
 
         auto graph  = builder.build();
-        auto fg_ctx = FrameGraphContext{device, swp, command, &arena};
+        auto fg_ctx = FrameGraphContext{device, swp, command, &arena, &view_uniforms};
         graph->execute(&fg_ctx, &fg_allocator);
         command.submit();
     }

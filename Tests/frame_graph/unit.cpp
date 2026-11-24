@@ -1,5 +1,7 @@
 #include <doctest/doctest.h>
 #include <Lyra/Rendering/FrameGraph.h>
+#include <Lyra/Rendering/ShadingBuffers.h>
+#include <Lyra/Rendering/ViewUniforms.h>
 
 using namespace lyra;
 
@@ -435,6 +437,53 @@ TEST_CASE("fg::frame_arena" * doctest::description("FrameArena transient bind gr
     auto u_slot0_reset = arena.allocate_uniform(64, 256);
     CHECK(u_slot0_reset.valid());
     CHECK_EQ(u_slot0_reset.offset, 0);
+
+    // 3. test CameraUniforms from view
+    RenderView view{};
+    view.camera_position = Vector3(1.0f, 2.0f, 3.0f);
+    view.near_plane      = 0.5f;
+    view.far_plane       = 500.0f;
+    auto cu              = CameraUniforms::from_view(view);
+    CHECK_EQ(cu.camera_pos.x, 1.0f);
+    CHECK_EQ(cu.camera_pos.y, 2.0f);
+    CHECK_EQ(cu.camera_pos.z, 3.0f);
+    CHECK_EQ(cu.near_plane, 0.5f);
+    CHECK_EQ(cu.far_plane, 500.0f);
+
+    auto cu_slice = arena.create_uniform(cu);
+    CHECK(cu_slice.valid());
+    CHECK_EQ(cu_slice.size, sizeof(CameraUniforms));
+    CHECK_EQ(cu_slice.as<CameraUniforms>()->camera_pos.x, 1.0f);
+
+    // 4. test ViewUniforms caching and re-use
+    ViewUniforms vu{};
+    vu.init(view, arena);
+    CHECK(vu.slice.valid());
+    CHECK_EQ(vu.slice.size, sizeof(CameraUniforms));
+    CHECK_EQ(vu.slice.as<CameraUniforms>()->camera_pos.x, 1.0f);
+
+    GPUBindGroupLayout layout1{};
+    layout1.handle.value = 1001;
+
+    GPUBindGroupLayout layout2{};
+    layout2.handle.value = 1002;
+
+    auto bg1_a = vu.bind_group(layout1, arena);
+    CHECK(bg1_a.handle.valid());
+
+    auto bg1_b = vu.bind_group(layout1, arena);
+    CHECK_EQ(bg1_a.handle.value, bg1_b.handle.value); // Re-uses exact same bind group!
+
+    auto bg2 = vu.bind_group(layout2, arena);
+    CHECK(bg2.handle.valid());
+    CHECK_NE(bg1_a.handle.value, bg2.handle.value);
+
+    // FrameGraphContext integration
+    FrameGraphContext fg_ctx{};
+    fg_ctx.arena         = &arena;
+    fg_ctx.view_uniforms = &vu;
+    auto bg_ctx          = fg_ctx.view_uniforms->bind_group(layout1, *fg_ctx.arena);
+    CHECK_EQ(bg_ctx.handle.value, bg1_a.handle.value);
 }
 
 TEST_CASE("fg::transient_resource_lifecycle" * doctest::description("FrameGraph Transient Resource Allocation & Recycling"))

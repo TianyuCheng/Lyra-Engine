@@ -14,6 +14,8 @@
 #include <Lyra/Utilities/Pointer.h>
 #include <Lyra/Utilities/Function.h>
 #include <Lyra/Utilities/Collections.h>
+#include <Lyra/Utilities/Assert.h>
+#include <Lyra/Utilities/Logger.h>
 
 #include <Lyra/Graphics/RHIHash.h>
 #include <Lyra/Graphics/RHIDescs.h>
@@ -69,6 +71,7 @@ namespace lyra
     struct FrameGraphAllocator;
     struct FrameGraphBarrierBatch;
     class FrameArena;
+    struct ViewUniforms;
 
     template <typename T, typename = void>
     struct has_pre_read : std::false_type
@@ -440,7 +443,8 @@ namespace lyra
         GPUDevice        device;
         GPUSurface       surface;
         GPUCommandBuffer cmdlist;
-        FrameArena*      arena = nullptr;
+        FrameArena*      arena         = nullptr;
+        ViewUniforms*    view_uniforms = nullptr;
 
         auto allocate(const GPUBindGroupDescriptor& descriptor) const -> GPUBindGroup;
         auto allocate_uniform(usize size, usize alignment = 256) const -> GPUBufferSlice;
@@ -448,10 +452,12 @@ namespace lyra
         template <typename T>
         auto create_uniform(const T& data, usize alignment = 256) const -> GPUBufferSlice
         {
-            if (arena) {
-                return arena->create_uniform(data, alignment, device);
+            DEBUG_ASSERT(arena != nullptr, "FrameGraphContext::create_uniform requires a valid FrameArena");
+            if (!arena) {
+                spdlog::error("FrameGraphContext::create_uniform called without an active FrameArena");
+                return {};
             }
-            return {};
+            return arena->create_uniform(data, alignment, device);
         }
 
         auto create_uniform(const void* data, usize size, usize alignment = 256) const -> GPUBufferSlice;
@@ -531,18 +537,22 @@ namespace lyra
 
     FORCE_INLINE auto FrameGraphContext::allocate_uniform(usize size, usize alignment) const -> GPUBufferSlice
     {
-        if (arena) {
-            return arena->allocate_uniform(size, alignment, device);
+        DEBUG_ASSERT(arena != nullptr, "FrameGraphContext::allocate_uniform requires a valid FrameArena");
+        if (!arena) {
+            spdlog::error("FrameGraphContext::allocate_uniform called without an active FrameArena");
+            return {};
         }
-        return {};
+        return arena->allocate_uniform(size, alignment, device);
     }
 
     FORCE_INLINE auto FrameGraphContext::create_uniform(const void* data, usize size, usize alignment) const -> GPUBufferSlice
     {
-        if (arena) {
-            return arena->create_uniform(data, size, alignment, device);
+        DEBUG_ASSERT(arena != nullptr, "FrameGraphContext::create_uniform requires a valid FrameArena");
+        if (!arena) {
+            spdlog::error("FrameGraphContext::create_uniform called without an active FrameArena");
+            return {};
         }
-        return {};
+        return arena->create_uniform(data, size, alignment, device);
     }
 
     // -------------------------------------------------------------------------

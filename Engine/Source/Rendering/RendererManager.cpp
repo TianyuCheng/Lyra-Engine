@@ -2,6 +2,7 @@
 #include <Lyra/Runtime/Application.h>
 #include <Lyra/Graphics/RHITypes.h>
 #include <Lyra/Rendering/ResourceRetire.h>
+#include <Lyra/Rendering/ShadingBuffers.h>
 
 using namespace lyra;
 
@@ -168,10 +169,14 @@ void RendererManager::render(
     imported_target.format  = target.format;
     auto target_handle      = builder.import(imported_target);
 
+    ViewUniforms view_uniforms{};
+    view_uniforms.init(view, arena);
+
     RenderFrameContext ctx{
         .builder        = builder,
         .view           = view,
         .scene          = scene,
+        .view_uniforms  = &view_uniforms,
         .color_target   = target_handle,
         .depth_target   = {},
         .color_format   = target.format,
@@ -186,9 +191,10 @@ void RendererManager::render(
     auto graph = builder.build();
     if (graph) {
         FrameGraphContext fg_context{};
-        fg_context.device  = context.services.get<GPUDevice>();
-        fg_context.cmdlist = GPUCommandBuffer(command_encoder);
-        fg_context.arena   = &arena;
+        fg_context.device        = context.services.get<GPUDevice>();
+        fg_context.cmdlist       = GPUCommandBuffer(command_encoder);
+        fg_context.arena         = &arena;
+        fg_context.view_uniforms = ctx.view_uniforms;
         graph->execute(&fg_context, &allocator);
     }
 

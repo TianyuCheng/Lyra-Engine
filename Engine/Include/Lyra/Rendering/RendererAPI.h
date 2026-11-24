@@ -9,6 +9,7 @@
 #include <Lyra/Graphics/RHITypes.h>
 #include <Lyra/Runtime/AppTypes.h>
 #include <Lyra/Rendering/FrameGraph.h>
+#include <Lyra/Rendering/ViewUniforms.h>
 #include <Lyra/Rendering/RenderView.h>
 #include <Lyra/Rendering/RenderScene.h>
 #include <Lyra/Rendering/RendererTypes.h>
@@ -38,6 +39,9 @@ namespace lyra
         // scene & primary camera view
         const RenderView&  view;
         const RenderScene& scene;
+
+        // shared camera / view uniforms (uploaded once per frame and cached across passes)
+        ViewUniforms* view_uniforms = nullptr;
 
         // primary targets
         FrameGraph::TextureHandle color_target;

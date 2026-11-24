@@ -15,7 +15,7 @@ namespace
     /**
      * @brief Camera and lighting environment uniforms matching `CameraUniforms` in `sys://Shaders/Deferred/DeferredLighting.slang`.
      */
-    struct alignas(16) CameraUniforms
+    struct alignas(16) DeferredCameraUniforms
     {
         Matrix4x4 proj;
         Matrix4x4 view;
@@ -30,8 +30,8 @@ namespace
         Vector4   env_sh[9];
     };
 
-    static_assert(sizeof(CameraUniforms) == 544, "CameraUniforms must be 544 bytes");
-    static_assert(alignof(CameraUniforms) == 16, "CameraUniforms must be 16-byte aligned");
+    static_assert(sizeof(DeferredCameraUniforms) == 544, "DeferredCameraUniforms must be 544 bytes");
+    static_assert(alignof(DeferredCameraUniforms) == 16, "DeferredCameraUniforms must be 16-byte aligned");
 } // namespace
 
 struct DeferredRendererInstance
@@ -117,7 +117,7 @@ struct DeferredRendererInstance
             camera_buffers[i] = execute([&]() {
                 auto bdesc               = GPUBufferDescriptor{};
                 bdesc.label              = "deferred_lighting_camera_buffer";
-                bdesc.size               = sizeof(CameraUniforms);
+                bdesc.size               = sizeof(DeferredCameraUniforms);
                 bdesc.usage              = GPUBufferUsage::UNIFORM | GPUBufferUsage::MAP_WRITE;
                 bdesc.mapped_at_creation = true;
                 return device.create_buffer(bdesc);
@@ -443,7 +443,7 @@ static FrameGraph::TextureHandle render(
     uint current_slot    = renderer->frame_slot;
 
     if (renderer->camera_buffers[current_slot].valid()) {
-        auto mapped = renderer->camera_buffers[current_slot].get_mapped_range<CameraUniforms>();
+        auto mapped = renderer->camera_buffers[current_slot].get_mapped_range<DeferredCameraUniforms>();
         if (mapped.count > 0) {
             mapped.at(0).proj      = view.projection;
             mapped.at(0).view      = view.view;
@@ -477,7 +477,7 @@ static FrameGraph::TextureHandle render(
     auto culling = renderer->light_culling_pass.add(ctx.builder, view, ctx.scene);
 
     if (renderer->camera_buffers[current_slot].valid()) {
-        auto mapped = renderer->camera_buffers[current_slot].get_mapped_range<CameraUniforms>();
+        auto mapped = renderer->camera_buffers[current_slot].get_mapped_range<DeferredCameraUniforms>();
         if (mapped.count > 0) {
             float near_p                = (view.near_plane > 0.0f) ? view.near_plane : 0.1f;
             float far_p                 = (view.far_plane > near_p) ? view.far_plane : 100.0f;
@@ -578,7 +578,7 @@ static FrameGraph::TextureHandle render(
             entries[5].binding       = 5;
             entries[5].buffer.buffer = renderer->camera_buffers[current_slot];
             entries[5].buffer.offset = 0;
-            entries[5].buffer.size   = sizeof(CameraUniforms);
+            entries[5].buffer.size   = sizeof(DeferredCameraUniforms);
 
             entries[6].type    = GPUResourceType::TEXTURE;
             entries[6].binding = 6;

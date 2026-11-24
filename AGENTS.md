@@ -293,4 +293,4 @@ Agents and developers working on Lyra must use [`Justfile`](file:///C:/Users/tch
 | `just clean` | Clean all build products (requires confirmation) |
 
 > [!IMPORTANT]
-> **Workflow Rule**: Always prefer running tasks via `just <recipe>` instead of invoking low-level build commands directly. For testing, always use `just test` (or `just test <target>`) to ensure both unit tests and RHI regression tests with perceptual verification are executed.
+> **Workflow Rule**: Always prefer running tasks via `just <recipe>` instead of invoking low-level build commands directly. Always run `just build all` before `just test` (since `just test` builds only `lyra-testkit`, which will miss updated dynamic plugins and cause ABI mismatches). For testing, use `just test` (or `just test <target>`) to ensure both unit tests and RHI regression tests with perceptual verification are executed.
