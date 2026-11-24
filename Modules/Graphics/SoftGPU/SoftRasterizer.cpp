@@ -364,6 +364,13 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
         }
     }
 
+    uint32_t const_varyings_mask = 0;
+    for (int k = 0; k < 16; ++k) {
+        if (v0.varyings[k] == v1.varyings[k] && v1.varyings[k] == v2.varyings[k]) {
+            const_varyings_mask |= (1u << k);
+        }
+    }
+
     auto process_pixel = [&](int32_t x, int32_t y, float px, float py, float w0, float w1, float w2, float z, float w) {
         // apply depth bias
         float test_write_z = z;
@@ -416,6 +423,77 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
             return;
         }
 
+        // write color with write mask
+        bool             has_colors = !ctx.color_attachments.empty() || ctx.color_attachment != nullptr;
+        SoftShadedVertex interp;
+        interp.position = Vector4(px, py, z, w);
+        interp.screen   = Vector3(px, py, z);
+        interp.color    = (w0 * v0.color * v0.inv_w + w1 * v1.color * v1.inv_w + w2 * v2.color * v2.inv_w) * w;
+        interp.texcoord = (w0 * v0.texcoord * v0.inv_w + w1 * v1.texcoord * v1.inv_w + w2 * v2.texcoord * v2.inv_w) * w;
+        interp.normal   = (w0 * v0.normal * v0.inv_w + w1 * v1.normal * v1.inv_w + w2 * v2.normal * v2.inv_w) * w;
+        interp.extra    = (w0 * v0.extra * v0.inv_w + w1 * v1.extra * v1.inv_w + w2 * v2.extra * v2.inv_w) * w;
+        for (int k = 0; k < 16; ++k) {
+            if (const_varyings_mask & (1u << k)) {
+                interp.varyings[k] = v0.varyings[k];
+            } else {
+                interp.varyings[k] = (w0 * v0.varyings[k] * v0.inv_w + w1 * v1.varyings[k] * v1.inv_w + w2 * v2.varyings[k] * v2.inv_w) * w;
+            }
+        }
+
+        Vector4 out_colors[8] = {interp.color, Vector4(0.0f), Vector4(0.0f), Vector4(0.0f), Vector4(0.0f), Vector4(0.0f), Vector4(0.0f), Vector4(0.0f)};
+        if (ctx.color_targets.size() > 1) {
+            for (usize i = 0; i < std::min(ctx.color_targets.size(), usize(4)); ++i) {
+                Vector4 c = *reinterpret_cast<const Vector4*>(&interp.varyings[i * 4]);
+                if (c.r != 0.0f || c.g != 0.0f || c.b != 0.0f || c.a != 0.0f) {
+                    out_colors[i] = c;
+                } else {
+                    out_colors[i] = interp.color;
+                }
+            }
+        }
+        if (ctx.fragment_shader_mrt) {
+            ctx.fragment_shader_mrt(interp, out_colors, 8);
+        } else if (ctx.fshader_func) {
+            struct uint3
+            {
+                uint x, y, z;
+            };
+            struct ComputeVaryingInput
+            {
+                uint3 startGroupID;
+                uint3 endGroupID;
+            } varying = {{0, 0, 0}, {1, 1, 1}};
+
+            struct FragInput
+            {
+                Vector4 pos;
+                float   varyings[16];
+            } fin;
+            fin.pos = interp.position;
+            std::memcpy(fin.varyings, interp.varyings, sizeof(interp.varyings));
+
+            Vector4  f_out[8]     = {};
+            uint32_t is_discarded = 0;
+            struct EpParams
+            {
+                const void* in_v;
+                void*       out_c;
+                uint32_t*   is_discarded;
+            } ep = {&fin, f_out, &is_discarded};
+
+            using ComputeFunc = void (*)(ComputeVaryingInput*, void*, void*);
+            auto func         = reinterpret_cast<ComputeFunc>(ctx.fshader_func);
+            func(&varying, &ep, ctx.uniform_state);
+            if (is_discarded != 0) {
+                return;
+            }
+            for (int i = 0; i < 8; ++i) {
+                out_colors[i] = f_out[i];
+            }
+        } else if (ctx.fragment_shader) {
+            out_colors[0] = ctx.fragment_shader(interp);
+        }
+
         // write stencil
         if (ctx.depth_stencil_attachment && ctx.depth_stencil.stencil_write_mask != 0 &&
             ctx.depth_stencil.stencil_front.pass_op != GPUStencilOperation::KEEP) {
@@ -431,68 +509,7 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
             ctx.depth_stencil_attachment->write_depth(x, y, test_write_z);
         }
 
-        // write color with write mask
-        bool has_colors = !ctx.color_attachments.empty() || ctx.color_attachment != nullptr;
         if (has_colors) {
-            SoftShadedVertex interp;
-            interp.position = Vector4(px, py, z, w);
-            interp.screen   = Vector3(px, py, z);
-            interp.color    = (w0 * v0.color * v0.inv_w + w1 * v1.color * v1.inv_w + w2 * v2.color * v2.inv_w) * w;
-            interp.texcoord = (w0 * v0.texcoord * v0.inv_w + w1 * v1.texcoord * v1.inv_w + w2 * v2.texcoord * v2.inv_w) * w;
-            interp.normal   = (w0 * v0.normal * v0.inv_w + w1 * v1.normal * v1.inv_w + w2 * v2.normal * v2.inv_w) * w;
-            interp.extra    = (w0 * v0.extra * v0.inv_w + w1 * v1.extra * v1.inv_w + w2 * v2.extra * v2.inv_w) * w;
-            for (int k = 0; k < 16; ++k) {
-                interp.varyings[k] = (w0 * v0.varyings[k] * v0.inv_w + w1 * v1.varyings[k] * v1.inv_w + w2 * v2.varyings[k] * v2.inv_w) * w;
-            }
-
-            Vector4 out_colors[8] = {interp.color, Vector4(0.0f), Vector4(0.0f), Vector4(0.0f), Vector4(0.0f), Vector4(0.0f), Vector4(0.0f), Vector4(0.0f)};
-            if (ctx.color_targets.size() > 1) {
-                for (usize i = 0; i < std::min(ctx.color_targets.size(), usize(4)); ++i) {
-                    Vector4 c = *reinterpret_cast<const Vector4*>(&interp.varyings[i * 4]);
-                    if (c.r != 0.0f || c.g != 0.0f || c.b != 0.0f || c.a != 0.0f) {
-                        out_colors[i] = c;
-                    } else {
-                        out_colors[i] = interp.color;
-                    }
-                }
-            }
-            if (ctx.fragment_shader_mrt) {
-                ctx.fragment_shader_mrt(interp, out_colors, 8);
-            } else if (ctx.fshader_func) {
-                struct uint3
-                {
-                    uint x, y, z;
-                };
-                struct ComputeVaryingInput
-                {
-                    uint3 startGroupID;
-                    uint3 endGroupID;
-                } varying = {{0, 0, 0}, {1, 1, 1}};
-
-                struct FragInput
-                {
-                    Vector4 pos;
-                    float   varyings[16];
-                } fin;
-                fin.pos = interp.position;
-                std::memcpy(fin.varyings, interp.varyings, sizeof(interp.varyings));
-
-                Vector4 f_out[8] = {};
-                struct EpParams
-                {
-                    const void* in_v;
-                    void*       out_c;
-                } ep = {&fin, f_out};
-
-                using ComputeFunc = void (*)(ComputeVaryingInput*, void*, void*);
-                auto func         = reinterpret_cast<ComputeFunc>(ctx.fshader_func);
-                func(&varying, &ep, ctx.uniform_state);
-                for (int i = 0; i < 8; ++i) {
-                    out_colors[i] = f_out[i];
-                }
-            } else if (ctx.fragment_shader) {
-                out_colors[0] = ctx.fragment_shader(interp);
-            }
 
             if (!ctx.color_attachments.empty()) {
                 for (usize i = 0; i < ctx.color_attachments.size(); ++i) {

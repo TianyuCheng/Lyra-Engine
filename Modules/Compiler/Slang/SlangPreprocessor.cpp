@@ -36,21 +36,28 @@ String SlangPreprocessor::process_host_target(const String& input, String& wrapp
     String result = input;
 
     static const std::regex entry_re(R"re(\[shader\("(vertex|fragment)"\)\]\s*(?:public\s+)?([A-Za-z0-9_]+)\s+([A-Za-z0-9_]+)\s*\(([^)]*)\))re");
+    static const std::regex param_type_re(R"(\s*(?:uniform\s+)?([A-Za-z0-9_]+))");
 
     auto words_begin = std::sregex_iterator(result.begin(), result.end(), entry_re);
     auto words_end   = std::sregex_iterator();
 
+    bool has_fragment_stage = false;
     for (auto it = words_begin; it != words_end; ++it) {
-        const std::smatch& m         = *it;
-        String             stage     = m[1].str();
-        String             ret_type  = m[2].str();
-        String             func_name = m[3].str();
-        String             params    = m[4].str();
+        const std::smatch& m = *it;
+
+        String stage     = m[1].str();
+        String ret_type  = m[2].str();
+        String func_name = m[3].str();
+        String params    = m[4].str();
+
+        if (stage == "fragment") {
+            has_fragment_stage = true;
+        }
 
         // parse input parameter type
-        String                  in_type = "";
-        std::smatch             pm;
-        static const std::regex param_type_re(R"(\s*(?:uniform\s+)?([A-Za-z0-9_]+))");
+        String in_type = "";
+
+        std::smatch pm;
         if (std::regex_search(params, pm, param_type_re)) {
             in_type = pm[1].str();
         }
@@ -66,12 +73,23 @@ String SlangPreprocessor::process_host_target(const String& input, String& wrapp
             if (!is_void_in) wrappers += ", ";
             wrappers += "uniform " + ret_type + "* out_v";
         }
-        wrappers += ") {\n";
-        if (!is_void_ret) {
-            wrappers += "    *out_v = " + func_name + "(" + (is_void_in ? "" : "*in_v") + ");\n}\n";
-        } else {
-            wrappers += "    " + func_name + "(" + (is_void_in ? "" : "*in_v") + ");\n}\n";
+        if (stage == "fragment") {
+            if (!is_void_in || !is_void_ret) wrappers += ", ";
+            wrappers += "uniform uint* is_discarded";
         }
+        wrappers += ") {\n";
+        if (stage == "fragment") {
+            wrappers += "    __lyra_discarded = 0;\n";
+        }
+        if (!is_void_ret) {
+            wrappers += "    *out_v = " + func_name + "(" + (is_void_in ? "" : "*in_v") + ");\n";
+        } else {
+            wrappers += "    " + func_name + "(" + (is_void_in ? "" : "*in_v") + ");\n";
+        }
+        if (stage == "fragment") {
+            wrappers += "    if (is_discarded) *is_discarded = __lyra_discarded;\n";
+        }
+        wrappers += "}\n";
     }
 
     // strip [shader("vertex")] and [shader("fragment")]
@@ -85,7 +103,10 @@ String SlangPreprocessor::process_host_target(const String& input, String& wrapp
     result = std::regex_replace(result, std::regex(R"(:\s*SV_[Vv][Ee][Rr][Tt][Ee][Xx][Ii][Dd])"), "");
 
     // replace discard with return {} for compute-wrapper host callable compatibility
-    result = std::regex_replace(result, std::regex(R"(\bdiscard\s*;)"), "return {};");
+    if (has_fragment_stage) {
+        result = "static uint __lyra_discarded = 0;\n" + result;
+    }
+    result = std::regex_replace(result, std::regex(R"(\bdiscard\s*;)"), "{ __lyra_discarded = 1; return {}; }");
 
     return result;
 }
