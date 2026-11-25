@@ -199,4 +199,11 @@ TEST_CASE("rendering::shading_model_variant_compilation" * doctest::description(
         {*sky_mod, "fsmain"},
     });
     REQUIRE(refl_sky != nullptr);
+
+    // 6. Compile Clouds shader module
+    CompileDescriptor cloud_desc{};
+    cloud_desc.module = "Clouds";
+    cloud_desc.path   = "sys://Shaders/Sky/Clouds.slang";
+    auto cloud_mod    = compiler->compile(cloud_desc);
+    REQUIRE(cloud_mod != nullptr);
 }
