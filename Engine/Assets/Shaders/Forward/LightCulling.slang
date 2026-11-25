@@ -17,12 +17,6 @@ struct LightCullingParams
     property uint3 cluster_grid_dim { get { return uint3(cluster_grid_x, cluster_grid_y, cluster_grid_z); } }
 };
 
-struct ClusterRecord
-{
-    uint offset;
-    uint count;
-};
-
 [[lyra::immediates]]
 ConstantBuffer<LightCullingParams> params;
 

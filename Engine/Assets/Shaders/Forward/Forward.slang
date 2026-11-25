@@ -42,12 +42,6 @@ public Texture2D<float> shadow_map;
 [[lyra::binding(2, 0)]]
 public SamplerState shadow_sampler;
 
-public struct ClusterRecord
-{
-    public uint offset;
-    public uint count;
-};
-
 [[lyra::binding(3, 0)]]
 public StructuredBuffer<ClusterRecord> cluster_grid;
 
@@ -186,55 +180,22 @@ public float4 evaluate_forward_shading<TModel : IShadingModel>(VertexOutput inpu
 
     // Evaluate clustered point and spot lights (Forward+)
     if (camera.grid_dim.x > 0 && camera.grid_dim.y > 0 && camera.grid_dim.z > 0) {
-        uint tile_x = uint(input.position.x / 16.0);
-        uint tile_y = uint(input.position.y / 16.0);
-
         float4 view_pos = mul(float4(surf.world_pos, 1.0), camera.view);
-        float linear_z = max(abs(view_pos.z), camera.near_plane);
-        float log_ratio = log(max(camera.far_plane, camera.near_plane + 0.1) / max(camera.near_plane, 0.001));
-        float slice_f = (log(linear_z / max(camera.near_plane, 0.001)) / log_ratio) * float(camera.grid_dim.z);
-        uint tile_z = uint(clamp(slice_f, 0.0, float(camera.grid_dim.z - 1)));
-
-        uint3 cluster_coord = uint3(
-            clamp(tile_x, 0u, camera.grid_dim.x - 1u),
-            clamp(tile_y, 0u, camera.grid_dim.y - 1u),
-            tile_z
+        uint   cluster_index = compute_cluster_index(
+            input.position.xy,
+            view_pos.z,
+            camera.grid_dim,
+            camera.near_plane,
+            camera.far_plane
         );
-
-        uint cluster_index = cluster_coord.x +
-                             cluster_coord.y * camera.grid_dim.x +
-                             cluster_coord.z * camera.grid_dim.x * camera.grid_dim.y;
 
         ClusterRecord record = cluster_grid[cluster_index];
         for (uint li = 0; li < record.count; ++li) {
             uint light_idx = light_index_list[record.offset + li];
-            LightData pt_light = lights[light_idx];
-            if (pt_light.type == 0) {
-                continue; // Directional sun is evaluated explicitly
+            EvaluatedLight eval_light;
+            if (evaluate_analytical_light(lights[light_idx], surf.world_pos, eval_light)) {
+                direct += mat.evaluate(surf.view_dir, eval_light.direction, surf.normal) * eval_light.radiance;
             }
-
-            float3 to_light = pt_light.position - surf.world_pos;
-            float dist = length(to_light);
-            if (dist >= pt_light.range || dist < 1e-4) {
-                continue;
-            }
-
-            float3 L_local = to_light / dist;
-            float norm_dist = dist / pt_light.range;
-            float window = saturate(1.0 - norm_dist * norm_dist * norm_dist * norm_dist);
-            float atten = (window * window) / (dist * dist + 1.0);
-
-            // Spot light cone attenuation
-            if (pt_light.type == 2) {
-                float cos_theta = dot(-L_local, normalize(pt_light.direction));
-                float cos_outer = cos(pt_light.spot_outer_angle);
-                float cos_inner = cos(pt_light.spot_inner_angle);
-                float spot_factor = saturate((cos_theta - cos_outer) / max(cos_inner - cos_outer, 1e-4));
-                atten *= spot_factor * spot_factor;
-            }
-
-            float3 pt_radiance = pt_light.color * pt_light.intensity * atten;
-            direct += mat.evaluate(surf.view_dir, L_local, surf.normal) * pt_radiance;
         }
     }
 
