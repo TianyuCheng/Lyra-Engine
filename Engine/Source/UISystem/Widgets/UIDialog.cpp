@@ -76,7 +76,7 @@ static String path_to_utf8(const lyra::Path& path)
 static lyra::Path utf8_to_path(const char* utf8_str)
 {
     if (!utf8_str || *utf8_str == '\0') return {};
-    return std::filesystem::u8path(utf8_str);
+    return Path(reinterpret_cast<const char8_t*>(utf8_str));
 }
 
 auto lyra::ui::dialog::open_file(const Options& options) -> std::optional<Path>
