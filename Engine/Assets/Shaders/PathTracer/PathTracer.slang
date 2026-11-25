@@ -1,27 +1,77 @@
 import lyra;
+import Common.Camera;
 import Common.Sampling;
 import Common.BSDF;
 import Common.RayTracing;
+import Common.Lighting;
+import Common.Noise;
 
 // Hardware-accelerated Path Tracer (RayGen, ClosestHit, Miss)
 // Multi-bounce Monte Carlo global illumination with BSDF importance sampling
 
-struct RayPayload
+public struct PathTracerPushConstants
 {
-    float3  radiance;
-    float3  throughput;
-    uint    bounce_count;
-    uint    rng_state;
-    RayCone cone;
-    bool    terminated;
+    public uint  width;
+    public uint  height;
+    public uint  sample_index;
+    public uint  max_bounces;
+    public uint  frame_seed;
+    public float exposure;
+    public uint  debug_mode;
+    public uint  pad;
+};
+
+[[lyra::immediates]]
+ConstantBuffer<PathTracerPushConstants> push;
+
+[[lyra::binding(0, 0)]]
+ConstantBuffer<CameraUniforms> camera;
+
+[[lyra::binding(1, 0)]]
+RaytracingAccelerationStructure scene_tlas;
+
+[[lyra::binding(2, 0)]]
+RWTexture2D<float4> accumulation_buffer;
+
+[[lyra::binding(3, 0)]]
+RWTexture2D<float4> output_target;
+
+public struct RayPayload
+{
+    public float3  radiance;
+    public float3  throughput;
+    public uint    bounce_count;
+    public uint    rng_state;
+    public RayCone cone;
+    public bool    terminated;
 };
 
 [shader("raygeneration")]
 void raygen_main()
 {
-    // 1. generate camera primary ray using jittered sub-pixel sample and ray cone
-    // 2. trace ray against scene TLAS
-    // 3. evaluate multi-bounce radiance loop using IBSDF sampling and Russian roulette
+    uint2 pixel = DispatchRaysIndex().xy;
+    if (pixel.x >= push.width || pixel.y >= push.height) return;
+
+    float2 uv = (float2(pixel) + 0.5) / float2(push.width, push.height);
+    Ray ray = generate_camera_ray(uv, camera.inv_view, camera.inv_proj);
+
+    RayPayload payload;
+    payload.radiance     = float3(0.0);
+    payload.throughput   = float3(1.0);
+    payload.bounce_count = 0;
+    payload.rng_state    = pcg_hash(pixel.y * push.width + pixel.x + push.frame_seed);
+    payload.cone         = RayCone::from_camera(camera.fov * (3.14159265 / 180.0), float(push.height));
+    payload.terminated   = false;
+
+    RayDesc ray_desc;
+    ray_desc.Origin    = ray.origin;
+    ray_desc.Direction = ray.direction;
+    ray_desc.TMin      = 0.001;
+    ray_desc.TMax      = 10000.0;
+
+    TraceRay(scene_tlas, RAY_FLAG_NONE, 0xFF, 0, 1, 0, ray_desc, payload);
+
+    output_target[pixel] = float4(payload.radiance, 1.0);
 }
 
 [shader("miss")]
@@ -35,44 +85,39 @@ void miss_main(inout RayPayload payload)
 [shader("closesthit")]
 void closesthit_main(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attribs)
 {
-    // 1. fetch surface geometric normal and material parameters
-    float3 hit_pos = WorldRayOrigin() + WorldRayDirection() * RayTCurrent();
-    float3 N = float3(0.0, 1.0, 0.0);
-    float3 V = -WorldRayDirection();
+    float2 bary = attribs.barycentrics;
+    float3 bary_color = float3(1.0 - bary.x - bary.y, bary.x, bary.y);
+    payload.radiance += payload.throughput * bary_color;
+    payload.terminated = true;
+}
 
-    // propagate ray cone to current hit distance
-    payload.cone = payload.cone.propagate(RayTCurrent());
+[shader("compute")]
+[numthreads(8, 8, 1)]
+void csmain(uint3 dispatch_id : SV_DispatchThreadID)
+{
+    uint2 pixel = dispatch_id.xy;
+    if (pixel.x >= push.width || pixel.y >= push.height) return;
 
-    PBRMaterial mat;
-    mat.base_color   = float3(0.8, 0.8, 0.8);
-    mat.metallic     = 0.0;
-    mat.roughness    = 0.2;
-    mat.reflectance  = 0.5;
-    mat.clear_coat.factor = 0.0;
-    mat.clear_coat.roughness = 0.04;
-    mat.clear_coat.tint = float3(0.0);
-    mat.clear_coat.thickness = 0.0;
+    float2 uv = (float2(pixel) + 0.5) / float2(push.width, push.height);
+    Ray ray = generate_camera_ray(uv, camera.inv_view, camera.inv_proj);
 
-    // 2. sample next bounce ray using IBSDF::sample
-    float2 u = float2(0.5, 0.5); // random sample from payload RNG
-    float3 next_L;
-    float  pdf;
-    float3 bsdf_val = mat.sample(V, N, u, next_L, pdf);
+    RayQuery<RAY_FLAG_NONE> q;
+    RayDesc ray_desc;
+    ray_desc.Origin    = ray.origin;
+    ray_desc.Direction = ray.direction;
+    ray_desc.TMin      = 0.001;
+    ray_desc.TMax      = 10000.0;
+    q.TraceRayInline(scene_tlas, RAY_FLAG_NONE, 0xFF, ray_desc);
+    q.Proceed();
 
-    if (pdf > 0.0) {
-        payload.throughput *= bsdf_val / pdf;
-        payload.bounce_count++;
-        payload.cone = payload.cone.reflect(mat.roughness);
-
-        // evaluate Russian roulette path termination
-        if (!evaluate_russian_roulette(payload.throughput, 0.5, payload.bounce_count, 3)) {
-            payload.terminated = true;
-            return;
-        }
-
-        // offset ray origin to safely avoid self-intersection acne
-        float3 next_origin = offset_ray_origin(hit_pos, N, next_L);
+    float4 color = float4(0.0, 0.0, 0.0, 1.0);
+    if (q.CommittedStatus() == COMMITTED_TRIANGLE_HIT) {
+        float2 bary = q.CommittedTriangleBarycentrics();
+        float3 bary_color = float3(1.0 - bary.x - bary.y, bary.x, bary.y);
+        color = float4(bary_color, 1.0);
     } else {
-        payload.terminated = true;
+        color = float4(float3(0.18, 0.42, 0.85) * 0.5, 1.0);
     }
+
+    output_target[pixel] = color;
 }
