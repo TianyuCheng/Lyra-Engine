@@ -16,9 +16,13 @@ Types:
 use the lyra alias types if possible.
 using `auto` instead of `auto*`.
 
+Views & Container Access:
+Prefer exposing lightweight views / slices rather than raw pointers for containers and GPU buffers (e.g. `GPUBufferSlice`, `lyra::Span<T>` / `lyra::TypedView<T>`, `lyra::StringView`). Never expose raw pointers to internal containers or buffers (e.g. `const GPUBuffer*` or `const Vector<T>*`), as container reallocations lead to dangling pointers. Views provide copyable value semantics and support sub-allocations.
+
 ## 0.5 HARD RULES
 
 1. Don't do any hack just to make test pass (for example, relax pass criteria for softgpu, implement skybox in softgpu).
+2. Prefer views (`GPUBufferSlice`, `Span` / `TypedView`, `StringView`) instead of exposing raw pointers (`T*` or `const T*`) for containers and GPU buffers.
 
 ## 1. Lyra Common Type & Name Aliases (`Include/Lyra/Common/`)
 
@@ -81,7 +85,7 @@ Always prefer Lyra collection aliases. Note that associative containers use **Ab
 | `lyra::Variant<T...>` | `std::variant<T...>` | Type-safe union |
 | `lyra::Optional<T>` | `std::optional<T...>` | Optional value container |
 | `lyra::InitList<T>` | `std::initializer_list<T...>` | Initializer list |
-| `lyra::TypedView<T...>` | `lyra::detail::typed_view<T...>` | Type-erased or typed contiguous span |
+| `lyra::Span<T>` / `lyra::TypedView<T>` | `lyra::detail::typed_view<T...>` | Contiguous view / span adapter |
 | `lyra::Blackboard` | `lyra::detail::Blackboard` | Dynamic heterogeneous property storage |
 
 ---

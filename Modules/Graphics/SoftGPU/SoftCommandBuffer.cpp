@@ -1107,7 +1107,10 @@ static void execute_dispatch_workgroups(SoftDevice& device, ExecutionContext& ct
     const auto e_tlas = bg->find_entry(1);
     const auto e_out  = bg->find_entry(2);
 
-    if (e_cam && e_tlas && e_out && e_cam->buffer.buffer.valid() && e_tlas->tlas.valid() && e_out->texture.valid()) {
+    if (e_cam && e_tlas && e_out && e_cam->type == GPUResourceType::BUFFER &&
+        e_tlas->type == GPUResourceType::ACCELERATION_STRUCTURE &&
+        (e_out->type == GPUResourceType::TEXTURE || e_out->type == GPUResourceType::STORAGE_TEXTURE) &&
+        e_cam->buffer.buffer.valid() && e_tlas->tlas.valid() && e_out->texture.valid()) {
         auto         ubuf    = device.buffers.find(e_cam->buffer.buffer.to_slotmap_handle<SoftBuffer>());
         auto         tlas    = device.tlases.find(e_tlas->tlas.to_slotmap_handle<SoftTlas>());
         auto         view    = device.texture_views.find(e_out->texture.to_slotmap_handle<SoftTextureView>());
@@ -1149,8 +1152,145 @@ static void execute_dispatch_workgroups(SoftDevice& device, ExecutionContext& ct
                     }
                 }
             }
+            return;
         }
-        return;
+    }
+
+    if (e_cam && e_tlas && e_out && e_cam->type == GPUResourceType::BUFFER && e_tlas->type == GPUResourceType::BUFFER && e_out->type == GPUResourceType::BUFFER &&
+        ctx.immediates_data.size() >= 224) {
+        auto b_lights = device.buffers.find(e_cam->buffer.buffer.to_slotmap_handle<SoftBuffer>());
+        auto b_grid   = device.buffers.find(e_tlas->buffer.buffer.to_slotmap_handle<SoftBuffer>());
+        auto b_index  = device.buffers.find(e_out->buffer.buffer.to_slotmap_handle<SoftBuffer>());
+
+        if (b_lights && b_grid && b_index) {
+            struct alignas(16) LightCullingPush
+            {
+                Matrix4x4 view_matrix;
+                Matrix4x4 proj_matrix;
+                Matrix4x4 inv_proj_matrix;
+                Vector2   screen_resolution;
+                float     near_plane;
+                float     far_plane;
+                uint      cluster_grid_x;
+                uint      cluster_grid_y;
+                uint      cluster_grid_z;
+                uint      num_lights;
+            };
+            const auto push = reinterpret_cast<const LightCullingPush*>(ctx.immediates_data.data());
+
+            struct ClusterRecord
+            {
+                uint offset;
+                uint count;
+            };
+            struct alignas(16) LightData
+            {
+                Vector3 position;
+                float   range;
+                Vector3 direction;
+                float   intensity;
+                Vector3 color;
+                uint    type;
+                float   spot_inner_angle;
+                float   spot_outer_angle;
+                uint    cast_shadows;
+                uint    profile;
+            };
+
+            auto       grid_records    = reinterpret_cast<ClusterRecord*>(b_grid->data.data() + e_tlas->buffer.offset);
+            auto       index_list      = reinterpret_cast<uint*>(b_index->data.data() + e_out->buffer.offset);
+            const auto gathered_lights = reinterpret_cast<const LightData*>(b_lights->data.data() + e_cam->buffer.offset);
+
+            uint  num_lights = push->num_lights;
+            float near_p     = push->near_plane > 0.0f ? push->near_plane : 0.1f;
+            float far_p      = push->far_plane > near_p ? push->far_plane : 100.0f;
+            float screen_w   = push->screen_resolution.x;
+            float screen_h   = push->screen_resolution.y;
+            float log_ratio  = std::log(std::max(far_p, near_p + 0.1f) / std::max(near_p, 0.001f));
+
+            Matrix4x4 inv_proj = push->inv_proj_matrix;
+            Matrix4x4 view_mat = push->view_matrix;
+
+            for (uint cz = 0; cz < push->cluster_grid_z; ++cz) {
+                float z_near = near_p * std::exp(log_ratio * (float(cz) / float(push->cluster_grid_z)));
+                float z_far  = near_p * std::exp(log_ratio * (float(cz + 1) / float(push->cluster_grid_z)));
+
+                for (uint cy = 0; cy < push->cluster_grid_y; ++cy) {
+                    for (uint cx = 0; cx < push->cluster_grid_x; ++cx) {
+                        uint cluster_index = cx + cy * push->cluster_grid_x + cz * push->cluster_grid_x * push->cluster_grid_y;
+                        uint base_offset   = cluster_index * 64;
+                        uint visible_count = 0;
+
+                        Vector2 min_pixel = Vector2(float(cx * 16), float(cy * 16));
+                        Vector2 max_pixel = glm::min(min_pixel + Vector2(16.0f, 16.0f), Vector2(screen_w, screen_h));
+
+                        Vector2 ndc_min = Vector2(
+                            (min_pixel.x / screen_w) * 2.0f - 1.0f,
+                            1.0f - (max_pixel.y / screen_h) * 2.0f);
+                        Vector2 ndc_max = Vector2(
+                            (max_pixel.x / screen_w) * 2.0f - 1.0f,
+                            1.0f - (min_pixel.y / screen_h) * 2.0f);
+
+                        Vector4 c0 = inv_proj * Vector4(ndc_min.x, ndc_min.y, 0.5f, 1.0f);
+                        Vector4 c1 = inv_proj * Vector4(ndc_max.x, ndc_min.y, 0.5f, 1.0f);
+                        Vector4 c2 = inv_proj * Vector4(ndc_min.x, ndc_max.y, 0.5f, 1.0f);
+                        Vector4 c3 = inv_proj * Vector4(ndc_max.x, ndc_max.y, 0.5f, 1.0f);
+
+                        Vector3 ray0 = Vector3(c0) / c0.w;
+                        Vector3 ray1 = Vector3(c1) / c1.w;
+                        Vector3 ray2 = Vector3(c2) / c2.w;
+                        Vector3 ray3 = Vector3(c3) / c3.w;
+
+                        ray0 *= 1.0f / std::max(std::abs(ray0.z), 1e-6f);
+                        ray1 *= 1.0f / std::max(std::abs(ray1.z), 1e-6f);
+                        ray2 *= 1.0f / std::max(std::abs(ray2.z), 1e-6f);
+                        ray3 *= 1.0f / std::max(std::abs(ray3.z), 1e-6f);
+
+                        Vector3 p_near0 = ray0 * z_near;
+                        Vector3 p_near1 = ray1 * z_near;
+                        Vector3 p_near2 = ray2 * z_near;
+                        Vector3 p_near3 = ray3 * z_near;
+
+                        Vector3 p_far0 = ray0 * z_far;
+                        Vector3 p_far1 = ray1 * z_far;
+                        Vector3 p_far2 = ray2 * z_far;
+                        Vector3 p_far3 = ray3 * z_far;
+
+                        Vector3 aabb_min = glm::min(glm::min(glm::min(p_near0, p_near1), glm::min(p_near2, p_near3)),
+                            glm::min(glm::min(p_far0, p_far1), glm::min(p_far2, p_far3)));
+                        Vector3 aabb_max = glm::max(glm::max(glm::max(p_near0, p_near1), glm::max(p_near2, p_near3)),
+                            glm::max(glm::max(p_far0, p_far1), glm::max(p_far2, p_far3)));
+
+                        for (uint i = 0; i < num_lights && visible_count < 64; ++i) {
+                            const auto& light = gathered_lights[i];
+                            if (light.type == 0) {
+                                index_list[base_offset + visible_count] = i;
+                                visible_count++;
+                                continue;
+                            }
+
+                            Vector4 view_pos     = view_mat * Vector4(light.position, 1.0f);
+                            Vector3 light_center = Vector3(view_pos);
+
+                            Vector3 closest = glm::clamp(light_center, aabb_min, aabb_max);
+                            Vector3 delta   = light_center - closest;
+                            float   dist_sq = glm::dot(delta, delta);
+
+                            if (dist_sq <= (light.range * light.range)) {
+                                index_list[base_offset + visible_count] = i;
+                                visible_count++;
+                            }
+                        }
+
+                        grid_records[cluster_index] = ClusterRecord{
+                            .offset = base_offset,
+                            .count  = visible_count,
+                        };
+                    }
+                }
+            }
+            return;
+        }
     }
 
     const auto e_storage = bg->find_entry(0);

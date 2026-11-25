@@ -76,6 +76,9 @@ namespace lyra
     template <typename... T>
     using TypedView = lyra::detail::typed_view<T...>;
 
+    template <typename... T>
+    using Span = lyra::detail::typed_view<T...>;
+
     using Blackboard = lyra::detail::Blackboard;
     using Services   = lyra::detail::Services;
 
