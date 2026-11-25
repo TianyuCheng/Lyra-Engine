@@ -150,111 +150,84 @@ void BloomPass::destroy()
     initialized = false;
 }
 
+namespace
+{
+    struct BloomDownsamplePassData
+    {
+        FrameGraphHandle<FrameGraphTexture> src;
+        FrameGraphHandle<FrameGraphTexture> dst;
+    };
+
+    struct BloomUpsamplePassData
+    {
+        FrameGraphHandle<FrameGraphTexture> src;
+        FrameGraphHandle<FrameGraphTexture> curr;
+        FrameGraphHandle<FrameGraphTexture> dst;
+    };
+} // namespace
+
 BloomData BloomPass::add(
     FrameGraphBuilder&                  builder,
     FrameGraphHandle<FrameGraphTexture> input_color,
     GPUExtent2D                         extent,
     const BloomSettings&                settings)
 {
-    return builder.add_pass<BloomData>(
-        "BloomPass",
-        [&](BloomData& data, FrameGraphPassBuilder& pass_builder) {
-            data.input_color = pass_builder.sample(input_color);
+    BloomData data{};
+    data.input_color = input_color;
 
-            // compute 5 pyramid level dimensions starting at half resolution
-            Array<GPUExtent2D, 5> mips;
-            mips[0] = {std::max(1u, extent.width / 2), std::max(1u, extent.height / 2)};
-            for (usize i = 1; i < 5; ++i) {
-                mips[i] = {std::max(1u, mips[i - 1].width / 2), std::max(1u, mips[i - 1].height / 2)};
-            }
+    // compute 5 pyramid level dimensions starting at half resolution
+    Array<GPUExtent2D, 5> mips;
+    mips[0] = {std::max(1u, extent.width / 2), std::max(1u, extent.height / 2)};
+    for (usize i = 1; i < 5; ++i) {
+        mips[i] = {std::max(1u, mips[i - 1].width / 2), std::max(1u, mips[i - 1].height / 2)};
+    }
 
-            // create downsample textures
-            for (usize i = 0; i < 5; ++i) {
+    // precompute threshold curve
+    float   knee = std::clamp(settings.knee, 0.0f, 1.0f) * settings.threshold;
+    Vector4 threshold_curve{
+        settings.threshold,
+        settings.threshold - knee,
+        2.0f * knee,
+        0.25f / std::max(knee, 1e-4f)};
+
+    // =========================================================================
+    // Stage 1: Downsample Pyramid (5 Passes)
+    // =========================================================================
+    for (usize i = 0; i < 5; ++i) {
+        GPUExtent2D src_ext    = (i == 0) ? extent : mips[i - 1];
+        GPUExtent2D dst_ext    = mips[i];
+        auto        src_handle = (i == 0) ? input_color : data.down_mips[i - 1];
+
+        String pass_name = "BloomDownsample_" + std::to_string(i);
+
+        auto pass_data = builder.add_pass<BloomDownsamplePassData>(
+            pass_name,
+            [&, src_handle, dst_ext](BloomDownsamplePassData& pass_data, FrameGraphPassBuilder& pass_builder) {
+                pass_data.src = pass_builder.sample(src_handle);
+
                 auto desc            = GPUTextureDescriptor{};
                 desc.label           = "bloom_down_mip";
-                desc.size.width      = mips[i].width;
-                desc.size.height     = mips[i].height;
+                desc.size.width      = dst_ext.width;
+                desc.size.height     = dst_ext.height;
                 desc.size.depth      = 1;
                 desc.dimension       = GPUTextureDimension::x2D;
                 desc.format          = GPUTextureFormat::RGBA16FLOAT;
                 desc.usage           = GPUTextureUsage::STORAGE_BINDING | GPUTextureUsage::TEXTURE_BINDING;
                 desc.mip_level_count = 1;
-                data.down_mips[i]    = pass_builder.create<FrameGraphTexture>(desc);
-                data.down_mips[i]    = pass_builder.write(data.down_mips[i]);
-            }
 
-            // create upsample textures for levels 3, 2, 1, 0
-            for (usize i = 0; i < 4; ++i) {
-                auto desc            = GPUTextureDescriptor{};
-                desc.label           = "bloom_up_mip";
-                desc.size.width      = mips[i].width;
-                desc.size.height     = mips[i].height;
-                desc.size.depth      = 1;
-                desc.dimension       = GPUTextureDimension::x2D;
-                desc.format          = GPUTextureFormat::RGBA16FLOAT;
-                desc.usage           = GPUTextureUsage::STORAGE_BINDING | GPUTextureUsage::TEXTURE_BINDING;
-                desc.mip_level_count = 1;
-                data.up_mips[i]      = pass_builder.create<FrameGraphTexture>(desc);
-                data.up_mips[i]      = pass_builder.write(data.up_mips[i]);
-            }
-
-            // final bloom output is upsample level 0 (half resolution)
-            data.bloom_output = data.up_mips[0];
-        },
-        [this, extent, settings](const BloomData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
-            if (!ctx || !ctx->cmdlist.handle.valid() || !valid()) {
-                return;
-            }
-
-            auto input_tex = resources.get<FrameGraphTexture>(data.input_color);
-            if (!input_tex) {
-                return;
-            }
-
-            // retrieve downsample and upsample textures
-            Array<const FrameGraphTexture*, 5> down_texs;
-            for (usize i = 0; i < 5; ++i) {
-                down_texs[i] = resources.get<FrameGraphTexture>(data.down_mips[i]);
-                if (!down_texs[i]) {
+                pass_data.dst = pass_builder.create<FrameGraphTexture>(desc);
+                pass_data.dst = pass_builder.write(pass_data.dst);
+            },
+            [this, i, src_ext, dst_ext, threshold_curve, settings](const BloomDownsamplePassData& pass_data, FrameGraphResources& resources, FrameGraphContext* ctx) {
+                if (!ctx || !ctx->cmdlist.handle.valid() || !valid()) {
                     return;
                 }
-            }
 
-            Array<const FrameGraphTexture*, 4> up_texs;
-            for (usize i = 0; i < 4; ++i) {
-                up_texs[i] = resources.get<FrameGraphTexture>(data.up_mips[i]);
-                if (!up_texs[i]) {
+                auto src_tex = resources.get<FrameGraphTexture>(pass_data.src);
+                auto dst_tex = resources.get<FrameGraphTexture>(pass_data.dst);
+                if (!src_tex || !dst_tex) {
                     return;
                 }
-            }
-
-            // compute 5 pyramid level dimensions
-            Array<GPUExtent2D, 5> mips;
-            mips[0] = {std::max(1u, extent.width / 2), std::max(1u, extent.height / 2)};
-            for (usize i = 1; i < 5; ++i) {
-                mips[i] = {std::max(1u, mips[i - 1].width / 2), std::max(1u, mips[i - 1].height / 2)};
-            }
-
-            auto command = ctx->cmdlist;
-
-            // precompute threshold curve
-            float   knee = std::clamp(settings.knee, 0.0f, 1.0f) * settings.threshold;
-            Vector4 threshold_curve{
-                settings.threshold,
-                settings.threshold - knee,
-                2.0f * knee,
-                0.25f / std::max(knee, 1e-4f)};
-
-            // =========================================================================
-            // Stage 1: Downsample Pyramid (5 Dispatches)
-            // =========================================================================
-            command.set_pipeline(downsample_pipeline);
-
-            for (usize i = 0; i < 5; ++i) {
-                GPUExtent2D    src_ext  = (i == 0) ? extent : mips[i - 1];
-                GPUExtent2D    dst_ext  = mips[i];
-                GPUTextureView src_view = (i == 0) ? input_tex->view : down_texs[i - 1]->view;
-                GPUTextureView dst_view = down_texs[i]->view;
 
                 BloomPushConstants push{};
                 push.inv_src_size    = Vector2(1.0f / static_cast<float>(src_ext.width), 1.0f / static_cast<float>(src_ext.height));
@@ -268,7 +241,7 @@ BloomData BloomPass::add(
                 Array<GPUBindGroupEntry, 3> ds_entries{};
                 ds_entries[0].type    = GPUResourceType::TEXTURE;
                 ds_entries[0].binding = 0;
-                ds_entries[0].texture = src_view;
+                ds_entries[0].texture = src_tex->view;
 
                 ds_entries[1].type    = GPUResourceType::SAMPLER;
                 ds_entries[1].binding = 1;
@@ -276,32 +249,65 @@ BloomData BloomPass::add(
 
                 ds_entries[2].type    = GPUResourceType::STORAGE_TEXTURE;
                 ds_entries[2].binding = 2;
-                ds_entries[2].texture = dst_view;
+                ds_entries[2].texture = dst_tex->view;
 
                 auto bg_desc    = GPUBindGroupDescriptor{};
                 bg_desc.layout  = downsample_blayouts[0];
                 bg_desc.entries = ds_entries;
                 auto bg         = ctx->allocate(bg_desc);
 
+                auto command = ctx->cmdlist;
+                command.set_pipeline(downsample_pipeline);
                 command.set_bind_group(0, bg);
                 command.set_immediates(0, push);
                 command.dispatch_workgroups((dst_ext.width + 7) / 8, (dst_ext.height + 7) / 8, 1);
-            }
+            });
 
-            // =========================================================================
-            // Stage 2: Upsample Pyramid (4 Dispatches: 4->3, 3->2, 2->1, 1->0)
-            // =========================================================================
-            command.set_pipeline(upsample_pipeline);
+        data.down_mips[i] = pass_data.dst;
+    }
 
-            for (int i = 3; i >= 0; --i) {
-                usize       step    = static_cast<usize>(i);
-                GPUExtent2D src_ext = mips[step + 1];
-                GPUExtent2D dst_ext = mips[step];
+    // =========================================================================
+    // Stage 2: Upsample Pyramid (4 Passes: 4->3, 3->2, 2->1, 1->0)
+    // =========================================================================
+    for (int i = 3; i >= 0; --i) {
+        usize       step        = static_cast<usize>(i);
+        GPUExtent2D src_ext     = mips[step + 1];
+        GPUExtent2D dst_ext     = mips[step];
+        auto        src_handle  = (step == 3) ? data.down_mips[4] : data.up_mips[step + 1];
+        auto        curr_handle = data.down_mips[step];
 
-                // source is either previous upsampled mip or the coarsest downsampled mip
-                GPUTextureView src_view     = (step == 3) ? down_texs[4]->view : up_texs[step + 1]->view;
-                GPUTextureView current_view = down_texs[step]->view;
-                GPUTextureView dst_view     = up_texs[step]->view;
+        String pass_name = "BloomUpsample_" + std::to_string(step);
+
+        auto pass_data = builder.add_pass<BloomUpsamplePassData>(
+            pass_name,
+            [&, src_handle, curr_handle, dst_ext](BloomUpsamplePassData& pass_data, FrameGraphPassBuilder& pass_builder) {
+                pass_data.src  = pass_builder.sample(src_handle);
+                pass_data.curr = pass_builder.sample(curr_handle);
+
+                auto desc            = GPUTextureDescriptor{};
+                desc.label           = "bloom_up_mip";
+                desc.size.width      = dst_ext.width;
+                desc.size.height     = dst_ext.height;
+                desc.size.depth      = 1;
+                desc.dimension       = GPUTextureDimension::x2D;
+                desc.format          = GPUTextureFormat::RGBA16FLOAT;
+                desc.usage           = GPUTextureUsage::STORAGE_BINDING | GPUTextureUsage::TEXTURE_BINDING;
+                desc.mip_level_count = 1;
+
+                pass_data.dst = pass_builder.create<FrameGraphTexture>(desc);
+                pass_data.dst = pass_builder.write(pass_data.dst);
+            },
+            [this, step, src_ext, dst_ext, settings](const BloomUpsamplePassData& pass_data, FrameGraphResources& resources, FrameGraphContext* ctx) {
+                if (!ctx || !ctx->cmdlist.handle.valid() || !valid()) {
+                    return;
+                }
+
+                auto src_tex  = resources.get<FrameGraphTexture>(pass_data.src);
+                auto curr_tex = resources.get<FrameGraphTexture>(pass_data.curr);
+                auto dst_tex  = resources.get<FrameGraphTexture>(pass_data.dst);
+                if (!src_tex || !curr_tex || !dst_tex) {
+                    return;
+                }
 
                 BloomPushConstants push{};
                 push.inv_src_size    = Vector2(1.0f / static_cast<float>(src_ext.width), 1.0f / static_cast<float>(src_ext.height));
@@ -315,7 +321,7 @@ BloomData BloomPass::add(
                 Array<GPUBindGroupEntry, 4> us_entries{};
                 us_entries[0].type    = GPUResourceType::TEXTURE;
                 us_entries[0].binding = 0;
-                us_entries[0].texture = src_view;
+                us_entries[0].texture = src_tex->view;
 
                 us_entries[1].type    = GPUResourceType::SAMPLER;
                 us_entries[1].binding = 1;
@@ -323,20 +329,28 @@ BloomData BloomPass::add(
 
                 us_entries[2].type    = GPUResourceType::STORAGE_TEXTURE;
                 us_entries[2].binding = 2;
-                us_entries[2].texture = dst_view;
+                us_entries[2].texture = dst_tex->view;
 
                 us_entries[3].type    = GPUResourceType::TEXTURE;
                 us_entries[3].binding = 3;
-                us_entries[3].texture = current_view;
+                us_entries[3].texture = curr_tex->view;
 
                 auto bg_desc    = GPUBindGroupDescriptor{};
                 bg_desc.layout  = upsample_blayouts[0];
                 bg_desc.entries = us_entries;
                 auto bg         = ctx->allocate(bg_desc);
 
+                auto command = ctx->cmdlist;
+                command.set_pipeline(upsample_pipeline);
                 command.set_bind_group(0, bg);
                 command.set_immediates(0, push);
                 command.dispatch_workgroups((dst_ext.width + 7) / 8, (dst_ext.height + 7) / 8, 1);
-            }
-        });
+            });
+
+        data.up_mips[step] = pass_data.dst;
+    }
+
+    // final bloom output is upsample level 0 (half resolution)
+    data.bloom_output = data.up_mips[0];
+    return data;
 }
