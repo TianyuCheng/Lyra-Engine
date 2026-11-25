@@ -49,12 +49,13 @@ namespace lyra
         GPUTextureFormat cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;
 
         // composed engine passes
-        passes::ForwardPass      forward_pass;
-        passes::DepthPrepass     depth_prepass;
-        passes::ShadowMapPass    shadow_pass;
-        passes::LightCullingPass light_culling_pass;
-        passes::SkyboxPass       skybox_pass;
-        passes::TonemappingPass  tonemap_pass;
+        passes::ForwardPass         forward_pass;
+        passes::DepthPrepass        depth_prepass;
+        passes::ShadowMapPass       shadow_pass;
+        passes::LightCullingPass    light_culling_pass;
+        passes::SkyboxPass          skybox_pass;
+        passes::TonemappingPass     tonemap_pass;
+        Ref<GeometryBindGroupCache> geometry_bind_group_cache;
 
         bool initialized = false;
     };

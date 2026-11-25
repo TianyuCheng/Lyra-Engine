@@ -30,16 +30,18 @@ bool ForwardRenderer::init(
         return false;
     }
 
+    geometry_bind_group_cache = make_ref<GeometryBindGroupCache>();
+
     // 1. initialize core forward pass
-    if (!forward_pass.init(device, compiler, cached_color_format, cached_depth_format)) {
+    if (!forward_pass.init(device, compiler, cached_color_format, cached_depth_format, "sys://Shaders", geometry_bind_group_cache)) {
         return false;
     }
 
     // 2. initialize depth prepass
-    depth_prepass.init(device, compiler);
+    depth_prepass.init(device, compiler, cached_depth_format, "sys://Shaders", geometry_bind_group_cache);
 
     // 3. initialize shadow pass
-    shadow_pass.init(device, compiler);
+    shadow_pass.init(device, compiler, cached_depth_format, "sys://Shaders", geometry_bind_group_cache);
 
     // 4. initialize light culling pass for Forward+
     light_culling_pass.init(device, compiler);
@@ -63,6 +65,10 @@ void ForwardRenderer::shutdown()
         light_culling_pass.destroy();
         skybox_pass.destroy();
         tonemap_pass.destroy();
+        if (geometry_bind_group_cache) {
+            geometry_bind_group_cache->destroy();
+            geometry_bind_group_cache.reset();
+        }
         initialized = false;
     }
 }

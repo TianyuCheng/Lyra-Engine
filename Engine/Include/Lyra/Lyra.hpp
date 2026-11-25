@@ -143,6 +143,7 @@
 #include <Lyra/Rendering/SceneLighting.h>
 #include <Lyra/Rendering/FrameGraph.h>
 #include <Lyra/Rendering/Geometry.h>
+#include <Lyra/Rendering/GeometryBindGroupCache.h>
 #include <Lyra/Rendering/GeometryBufferPool.h>
 #include <Lyra/Rendering/GeometryCache.h>
 #include <Lyra/Rendering/ResourceRetire.h>

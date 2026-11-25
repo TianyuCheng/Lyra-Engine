@@ -66,6 +66,7 @@ target_sources(lyra-headers INTERFACE
     Lyra/Rendering/SceneLighting.h
     Lyra/Rendering/FrameGraph.h
     Lyra/Rendering/Geometry.h
+    Lyra/Rendering/GeometryBindGroupCache.h
     Lyra/Rendering/GeometryBufferPool.h
     Lyra/Rendering/GeometryCache.h
     Lyra/Rendering/ResourceRetire.h

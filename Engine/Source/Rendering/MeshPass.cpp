@@ -10,7 +10,7 @@ MeshPass::~MeshPass()
     destroy();
 }
 
-bool MeshPass::init(GPUDevice dev, GPUBindGroupLayoutHandle in_vertex_layout)
+bool MeshPass::init(GPUDevice dev, GPUBindGroupLayoutHandle in_vertex_layout, Ref<GeometryBindGroupCache> cache)
 {
     if (initialized) {
         destroy();
@@ -19,13 +19,17 @@ bool MeshPass::init(GPUDevice dev, GPUBindGroupLayoutHandle in_vertex_layout)
     device        = dev;
     vertex_layout = in_vertex_layout;
 
-    heap = execute([&]() {
-        auto desc      = GPUBindGroupHeapDescriptor{};
-        desc.page_size = 512;
-        return device.create_bind_group_heap(desc);
-    });
+    if (cache) {
+        geometry_cache = cache;
+        if (vertex_layout.valid() && (!geometry_cache->get_layout().valid() || !geometry_cache->valid())) {
+            geometry_cache->init(device, vertex_layout);
+        }
+    } else {
+        geometry_cache = make_ref<GeometryBindGroupCache>();
+        geometry_cache->init(device, vertex_layout);
+    }
 
-    initialized = heap.valid();
+    initialized = geometry_cache && geometry_cache->valid();
     return initialized;
 }
 
@@ -35,14 +39,16 @@ void MeshPass::destroy()
         return;
     }
 
-    if (heap.valid()) {
-        heap.destroy();
-    }
-    geometry_bind_groups.clear();
+    geometry_cache.reset();
     batches.clear();
     draw_calls         = 0;
     triangles_rendered = 0;
     initialized        = false;
+}
+
+void MeshPass::set_geometry_cache(Ref<GeometryBindGroupCache> cache)
+{
+    geometry_cache = cache;
 }
 
 void MeshPass::clear()
@@ -69,6 +75,7 @@ void MeshPass::prepare(
         RenderSortKey     sort_key;
         GPURenderPipeline pipeline;
         GPUBufferHandle   vertex_buffer;
+        GPUBindGroup      vertex_bind_group;
         MeshDrawCommand   cmd;
     };
 
@@ -118,10 +125,11 @@ void MeshPass::prepare(
         cmd.first_index  = mesh.first_index;
 
         sortable_items.push_back(SortableMesh{
-            .sort_key      = key,
-            .pipeline      = pipeline,
-            .vertex_buffer = vb_handle,
-            .cmd           = cmd,
+            .sort_key          = key,
+            .pipeline          = pipeline,
+            .vertex_buffer     = vb_handle,
+            .vertex_bind_group = mesh.geometry.vertex_bind_group,
+            .cmd               = cmd,
         });
 
         draw_calls++;
@@ -152,23 +160,10 @@ void MeshPass::prepare(
             last_pipe     = item.pipeline;
             last_vbuf     = item.vertex_buffer;
 
-            if (vertex_layout.valid()) {
-                auto it = geometry_bind_groups.find(item.vertex_buffer.value);
-                if (it == geometry_bind_groups.end()) {
-                    Array<GPUBindGroupEntry, 1> entries{};
-                    entries[0].type          = GPUResourceType::BUFFER;
-                    entries[0].binding       = 0;
-                    entries[0].buffer.buffer = item.vertex_buffer;
-                    entries[0].buffer.offset = 0;
-                    entries[0].buffer.size   = 0;
-
-                    auto bg_desc    = GPUBindGroupDescriptor{};
-                    bg_desc.heap    = heap;
-                    bg_desc.layout  = vertex_layout;
-                    bg_desc.entries = entries;
-                    it              = geometry_bind_groups.emplace(item.vertex_buffer.value, device.create_bind_group(bg_desc)).first;
-                }
-                current_batch->vertex_bind_group = it->second;
+            if (item.vertex_bind_group.valid()) {
+                current_batch->vertex_bind_group = item.vertex_bind_group;
+            } else if (geometry_cache) {
+                current_batch->vertex_bind_group = geometry_cache->get_or_create(item.vertex_buffer);
             }
         }
 

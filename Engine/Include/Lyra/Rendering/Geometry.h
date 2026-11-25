@@ -97,6 +97,7 @@ namespace lyra
         uint                vertex_count = 0;
         uint                index_count  = 0;
         VertexStreamOffsets stream_offsets;
+        GPUBindGroup        vertex_bind_group{};
 
         [[nodiscard]] bool valid() const { return vertex_slice.valid() && index_slice.valid(); }
     };

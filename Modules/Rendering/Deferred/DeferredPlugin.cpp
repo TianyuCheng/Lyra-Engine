@@ -44,10 +44,11 @@ struct DeferredRendererInstance
     Compiler  compiler;
 
     // composed passes
-    passes::GBufferPass      gbuffer_pass;
-    passes::ShadowMapPass    shadow_pass;
-    passes::SkyboxPass       skybox_pass;
-    passes::LightCullingPass light_culling_pass;
+    passes::GBufferPass         gbuffer_pass;
+    passes::ShadowMapPass       shadow_pass;
+    passes::SkyboxPass          skybox_pass;
+    passes::LightCullingPass    light_culling_pass;
+    Ref<GeometryBindGroupCache> geometry_bind_group_cache;
 
     // lighting resolve pipeline handles
     GPUShaderModule                  vshader;
@@ -98,7 +99,8 @@ struct DeferredRendererInstance
         }
 
         // 2. Initialize shadow map pass
-        shadow_pass.init(device, compiler);
+        geometry_bind_group_cache = make_ref<GeometryBindGroupCache>();
+        shadow_pass.init(device, compiler, cached_depth_format, "sys://Shaders", geometry_bind_group_cache);
 
         // 3. Initialize skybox pass
         skybox_pass.init(device, compiler, cached_color_format, cached_depth_format);
@@ -271,6 +273,10 @@ struct DeferredRendererInstance
         shadow_pass.destroy();
         skybox_pass.destroy();
         light_culling_pass.destroy();
+        if (geometry_bind_group_cache) {
+            geometry_bind_group_cache->destroy();
+            geometry_bind_group_cache.reset();
+        }
 
         if (shadow_sampler.valid()) shadow_sampler.destroy();
         if (default_shadow_view.valid()) default_shadow_view.destroy();

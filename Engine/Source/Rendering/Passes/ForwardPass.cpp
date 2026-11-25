@@ -8,11 +8,12 @@ using namespace lyra;
 using namespace lyra::passes;
 
 bool ForwardPass::init(
-    GPUDevice        dev,
-    Compiler         in_compiler,
-    GPUTextureFormat color_format,
-    GPUTextureFormat depth_format,
-    const Path&      shaders_root)
+    GPUDevice                   dev,
+    Compiler                    in_compiler,
+    GPUTextureFormat            color_format,
+    GPUTextureFormat            depth_format,
+    const Path&                 shaders_root,
+    Ref<GeometryBindGroupCache> cache)
 {
     if (initialized) {
         if (cached_color_format == color_format && cached_depth_format == depth_format) {
@@ -65,7 +66,7 @@ bool ForwardPass::init(
 
     // initialize MeshPass with vertex bind group layout (Bind Group 1)
     if (blayouts.size() > 1) {
-        mesh_pass.init(device, blayouts[1]);
+        mesh_pass.init(device, blayouts[1], cache);
     }
 
     shadow_sampler = execute([&]() {

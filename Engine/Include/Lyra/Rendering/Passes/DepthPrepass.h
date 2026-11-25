@@ -12,6 +12,7 @@
 #include <Lyra/Rendering/RenderView.h>
 #include <Lyra/Rendering/RenderScene.h>
 #include <Lyra/Rendering/RendererTypes.h>
+#include <Lyra/Rendering/GeometryBindGroupCache.h>
 
 namespace lyra::passes
 {
@@ -43,14 +44,20 @@ namespace lyra::passes
          * @brief initializes depth-only rasterization pipeline and layouts.
          */
         bool init(
-            GPUDevice        device,
-            Compiler         compiler,
-            GPUTextureFormat depth_format = GPUTextureFormat::DEPTH32FLOAT);
+            GPUDevice                   device,
+            Compiler                    compiler,
+            GPUTextureFormat            depth_format = GPUTextureFormat::DEPTH32FLOAT,
+            const Path&                 shaders_root = "sys://Shaders",
+            Ref<GeometryBindGroupCache> cache        = nullptr);
 
         /**
          * @brief safely destroys GPU pipeline and buffers.
          */
         void destroy();
+
+        void               set_geometry_cache(Ref<GeometryBindGroupCache> cache) { geometry_cache = cache; }
+        [[nodiscard]] auto get_geometry_cache() const -> Ref<GeometryBindGroupCache> { return geometry_cache; }
+        [[nodiscard]] auto get_vertex_layout() const -> GPUBindGroupLayoutHandle { return blayouts.size() > 1 ? blayouts[1] : GPUBindGroupLayoutHandle{}; }
 
         /**
          * @brief records depth prepass into the frame graph builder.
@@ -87,9 +94,8 @@ namespace lyra::passes
         GPUPipelineLayout                playout;
         GPUShaderModule                  vshader;
         GPUShaderModule                  fshader;
-        GPUBindGroupHeap                 heap;
         Vector<GPUBindGroupLayoutHandle> blayouts;
-        HashMap<uint64_t, GPUBindGroup>  geometry_bind_groups;
+        Ref<GeometryBindGroupCache>      geometry_cache;
 
         GPUTextureFormat cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;
         bool             initialized         = false;

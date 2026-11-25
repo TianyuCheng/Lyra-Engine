@@ -10,6 +10,7 @@
 #include <Lyra/Graphics/RHITypes.h>
 #include <Lyra/Rendering/RenderScene.h>
 #include <Lyra/Rendering/RenderView.h>
+#include <Lyra/Rendering/GeometryBindGroupCache.h>
 
 namespace lyra
 {
@@ -96,8 +97,10 @@ namespace lyra
         MeshPass(MeshPass&&) noexcept            = default;
         MeshPass& operator=(MeshPass&&) noexcept = default;
 
-        bool init(GPUDevice dev, GPUBindGroupLayoutHandle in_vertex_layout);
-        void destroy();
+        bool               init(GPUDevice dev, GPUBindGroupLayoutHandle in_vertex_layout, Ref<GeometryBindGroupCache> cache = nullptr);
+        void               destroy();
+        void               set_geometry_cache(Ref<GeometryBindGroupCache> cache);
+        [[nodiscard]] auto get_geometry_cache() const -> Ref<GeometryBindGroupCache> { return geometry_cache; }
 
         void prepare(
             GPUDevice          device,
@@ -112,14 +115,13 @@ namespace lyra
         [[nodiscard]] uint get_triangle_count() const { return triangles_rendered; }
 
     private:
-        GPUDevice                    device;
-        GPUBindGroupLayoutHandle     vertex_layout;
-        GPUBindGroupHeap             heap;
-        HashMap<ulong, GPUBindGroup> geometry_bind_groups;
-        Vector<MeshDrawBatch>        batches;
-        uint                         draw_calls         = 0;
-        uint                         triangles_rendered = 0;
-        bool                         initialized        = false;
+        GPUDevice                   device;
+        GPUBindGroupLayoutHandle    vertex_layout;
+        Ref<GeometryBindGroupCache> geometry_cache;
+        Vector<MeshDrawBatch>       batches;
+        uint                        draw_calls         = 0;
+        uint                        triangles_rendered = 0;
+        bool                        initialized        = false;
     };
 
 } // namespace lyra

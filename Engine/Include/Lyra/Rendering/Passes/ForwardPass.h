@@ -78,11 +78,12 @@ namespace lyra::passes
          * @brief initializes forward rasterization pipeline layouts and uniform buffers.
          */
         bool init(
-            GPUDevice        device,
-            Compiler         compiler,
-            GPUTextureFormat color_format = GPUTextureFormat::RGBA8UNORM,
-            GPUTextureFormat depth_format = GPUTextureFormat::DEPTH32FLOAT,
-            const Path&      shaders_root = "sys://Shaders");
+            GPUDevice                   device,
+            Compiler                    compiler,
+            GPUTextureFormat            color_format = GPUTextureFormat::RGBA8UNORM,
+            GPUTextureFormat            depth_format = GPUTextureFormat::DEPTH32FLOAT,
+            const Path&                 shaders_root = "sys://Shaders",
+            Ref<GeometryBindGroupCache> cache        = nullptr);
 
         /**
          * @brief safely destroys GPU pipeline, layouts, and buffers.
@@ -97,6 +98,8 @@ namespace lyra::passes
             const ForwardPassParams& params) -> ForwardPassData;
 
         [[nodiscard]] bool valid() const { return initialized; }
+        [[nodiscard]] auto get_vertex_layout() const -> GPUBindGroupLayoutHandle { return blayouts.size() > 1 ? blayouts[1] : GPUBindGroupLayoutHandle{}; }
+        [[nodiscard]] auto get_geometry_cache() const -> Ref<GeometryBindGroupCache> { return mesh_pass.get_geometry_cache(); }
 
     private:
         /**

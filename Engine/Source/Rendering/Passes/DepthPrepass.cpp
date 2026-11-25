@@ -7,9 +7,11 @@ using namespace lyra;
 using namespace lyra::passes;
 
 bool DepthPrepass::init(
-    GPUDevice        device,
-    Compiler         compiler,
-    GPUTextureFormat depth_format)
+    GPUDevice                   device,
+    Compiler                    compiler,
+    GPUTextureFormat            depth_format,
+    const Path&                 shaders_root,
+    Ref<GeometryBindGroupCache> cache)
 {
     if (initialized) {
         if (cached_depth_format == depth_format) {
@@ -22,10 +24,11 @@ bool DepthPrepass::init(
     this->cached_depth_format = depth_format;
 
     // compile depth-only shader asset
-    auto module = execute([&]() {
+    auto shader_path = (shaders_root / "Forward/DepthPrepass.slang").string();
+    auto module      = execute([&]() {
         auto desc   = CompileDescriptor{};
         desc.module = "depth_prepass";
-        desc.path   = "sys://Shaders/Forward/DepthPrepass.slang";
+        desc.path   = shader_path.c_str();
         desc.source = nullptr;
         return compiler.compile(desc);
     });
@@ -94,14 +97,18 @@ bool DepthPrepass::init(
         return device.create_render_pipeline(desc);
     });
 
-    heap = execute([&]() {
-        auto desc      = GPUBindGroupHeapDescriptor{};
-        desc.page_size = 2048;
-        return device.create_bind_group_heap(desc);
-    });
+    if (cache) {
+        geometry_cache = cache;
+        if (blayouts.size() > 1 && (!geometry_cache->get_layout().valid() || !geometry_cache->valid())) {
+            geometry_cache->init(device, blayouts[1]);
+        }
+    } else {
+        geometry_cache = make_ref<GeometryBindGroupCache>();
+        geometry_cache->init(device, blayouts.size() > 1 ? blayouts[1] : GPUBindGroupLayoutHandle{});
+    }
 
-    initialized = true;
-    return true;
+    initialized = pipeline.valid() && geometry_cache && geometry_cache->valid();
+    return initialized;
 }
 
 void DepthPrepass::destroy()
@@ -112,14 +119,12 @@ void DepthPrepass::destroy()
 
     device.wait();
 
-    if (heap.valid()) heap.destroy();
-
     if (pipeline.valid()) pipeline.destroy();
     if (playout.valid()) playout.destroy();
     if (fshader.valid()) fshader.destroy();
     if (vshader.valid()) vshader.destroy();
     blayouts.clear();
-    geometry_bind_groups.clear();
+    geometry_cache.reset();
 
     initialized = false;
 }
@@ -192,25 +197,13 @@ DepthPrepassData DepthPrepass::add(
                 }
 
                 if (blayouts.size() > 1) {
-                    auto it = geometry_bind_groups.find(vb_handle.value);
-                    if (it == geometry_bind_groups.end()) {
-                        Array<GPUBindGroupEntry, 1> entries{};
-                        entries[0].type          = GPUResourceType::BUFFER;
-                        entries[0].binding       = 0;
-                        entries[0].buffer.buffer = vb_handle;
-                        entries[0].buffer.offset = 0;
-                        entries[0].buffer.size   = 0;
-
-                        auto bg_desc    = GPUBindGroupDescriptor{};
-                        bg_desc.heap    = heap;
-                        bg_desc.layout  = blayouts[1];
-                        bg_desc.entries = entries;
-
-                        it = geometry_bind_groups.emplace(vb_handle.value, device.create_bind_group(bg_desc)).first;
+                    auto bg = mesh.geometry.vertex_bind_group;
+                    if (!bg.valid() && geometry_cache) {
+                        bg = geometry_cache->get_or_create(vb_handle);
                     }
 
-                    if (it != geometry_bind_groups.end() && last_bound_vbuf != vb_handle.value) {
-                        command.set_bind_group(1, it->second);
+                    if (bg.valid() && last_bound_vbuf != vb_handle.value) {
+                        command.set_bind_group(1, bg);
                         last_bound_vbuf = vb_handle.value;
                     }
                 }

@@ -8,6 +8,7 @@
 #include <Lyra/Rendering/FrameGraph.h>
 #include <Lyra/Rendering/RenderView.h>
 #include <Lyra/Rendering/RenderScene.h>
+#include <Lyra/Rendering/GeometryBindGroupCache.h>
 #include <Lyra/Compiler/SLCTypes.h>
 #include <Lyra/Utilities/Path.h>
 
@@ -38,11 +39,17 @@ namespace lyra::passes
         ShadowMapPass& operator=(ShadowMapPass&&) noexcept = default;
 
         bool init(
-            GPUDevice        device,
-            Compiler         compiler,
-            GPUTextureFormat depth_format = GPUTextureFormat::DEPTH32FLOAT);
+            GPUDevice                   device,
+            Compiler                    compiler,
+            GPUTextureFormat            depth_format = GPUTextureFormat::DEPTH32FLOAT,
+            const Path&                 shaders_root = "sys://Shaders",
+            Ref<GeometryBindGroupCache> cache        = nullptr);
 
         void destroy();
+
+        void               set_geometry_cache(Ref<GeometryBindGroupCache> cache) { geometry_cache = cache; }
+        [[nodiscard]] auto get_geometry_cache() const -> Ref<GeometryBindGroupCache> { return geometry_cache; }
+        [[nodiscard]] auto get_vertex_layout() const -> GPUBindGroupLayoutHandle { return blayouts.size() > 1 ? blayouts[1] : GPUBindGroupLayoutHandle{}; }
 
         [[nodiscard]] bool valid() const { return initialized && pipeline.valid(); }
         [[nodiscard]] auto get_light_view_proj() const -> const Matrix4x4& { return light_vp; }
@@ -83,8 +90,7 @@ namespace lyra::passes
         GPUShaderModule                  vshader;
         GPUShaderModule                  fshader;
         Vector<GPUBindGroupLayoutHandle> blayouts;
-        GPUBindGroupHeap                 heap;
-        HashMap<uint64_t, GPUBindGroup>  geometry_bind_groups;
+        Ref<GeometryBindGroupCache>      geometry_cache;
         GPUTextureFormat                 cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;
         Matrix4x4                        light_vp{1.0f};
         bool                             initialized = false;
