@@ -62,7 +62,7 @@ void CompilerWrapper::init()
 
 CompilerWrapper::CompilerWrapper(const CompilerDescriptor& descriptor)
 {
-    this->target    = descriptor.target;
+    this->target    = descriptor.target == CompileTarget::AUTO ? CompileTarget::SPIRV : descriptor.target;
     this->fs_loader = descriptor.fs_loader;
 
     Vector<slang::CompilerOptionEntry> options;
@@ -213,8 +213,9 @@ void CompilerWrapper::init_builtin_module()
 bool CompilerWrapper::compile(const CompileDescriptor& desc, CompileResultInternal& result)
 {
     // compile result shares the session
-    result.session = session;
-    result.target  = target;
+    result.session     = session;
+    result.target      = target;
+    result.module_name = desc.module ? desc.module : (desc.path ? desc.path : "");
 
     String source_text;
     if (desc.source && std::strlen(desc.source) > 0) {
@@ -559,6 +560,8 @@ bool CompileResultInternal::get_host_shader_blob(CString entry, slang::IComponen
     header->entry_func  = func_ptr;
     header->param_count = 0;
     std::memset(header->params, 0, sizeof(header->params));
+    std::memset(header->name, 0, sizeof(header->name));
+    std::strncpy(header->name, module_name.c_str(), sizeof(header->name) - 1);
 
     extract_host_param_bindings(linked_program->getLayout(), header);
 

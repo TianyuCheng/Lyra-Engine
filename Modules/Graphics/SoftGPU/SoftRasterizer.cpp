@@ -1,5 +1,6 @@
 #include "SoftRasterizer.h"
 #include "SoftSampler.h"
+#include "SoftShaderExecution.h"
 #if defined(__AVX2__)
 #include <immintrin.h>
 #define LYRA_USE_AVX2 1
@@ -512,37 +513,12 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
         if (ctx.fragment_shader_mrt) {
             ctx.fragment_shader_mrt(interp, out_colors, 8);
         } else if (ctx.fshader_func) {
-            struct uint3
-            {
-                uint x, y, z;
-            };
-            struct ComputeVaryingInput
-            {
-                uint3 startGroupID;
-                uint3 endGroupID;
-            } varying = {{0, 0, 0}, {1, 1, 1}};
-
-            struct FragInput
-            {
-                Vector4 pos;
-                float   varyings[16];
-            } fin;
-            fin.pos = interp.position;
+            FragmentShaderInput fin{};
+            fin.position = interp.position;
             std::memcpy(fin.varyings, interp.varyings, sizeof(interp.varyings));
 
-            Vector4  f_out[8]     = {};
-            uint32_t is_discarded = 0;
-            struct EpParams
-            {
-                const void* in_v;
-                void*       out_c;
-                uint32_t*   is_discarded;
-            } ep = {&fin, f_out, &is_discarded};
-
-            using ComputeFunc = void (*)(ComputeVaryingInput*, void*, void*);
-            auto func         = reinterpret_cast<ComputeFunc>(ctx.fshader_func);
-            func(&varying, &ep, ctx.uniform_state);
-            if (is_discarded != 0) {
+            Vector4 f_out[8] = {};
+            if (invoke_fragment_shader(ctx.fshader_func, fin, f_out, ctx.uniform_state)) {
                 return;
             }
             for (int i = 0; i < 8; ++i) {

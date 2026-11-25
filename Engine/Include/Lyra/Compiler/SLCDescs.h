@@ -16,7 +16,7 @@ namespace lyra
     struct CompilerDescriptor
     {
         CompileFlags   flags     = CompileFlag::NONE;
-        CompileTarget  target    = CompileTarget::SPIRV;
+        CompileTarget  target    = CompileTarget::AUTO;
         ShaderDefines  defines   = {};
         ShaderIncludes includes  = {};
         FileLoader*    fs_loader = nullptr;

@@ -2,6 +2,7 @@
 
 #include "SoftSampler.h"
 #include "SoftPipeline.h"
+#include "SoftShaderExecution.h"
 #include "SoftCommandBuffer.h"
 
 using namespace lyra;
@@ -430,33 +431,11 @@ static void execute_draw(SoftDevice& device, ExecutionContext& ctx, uint vertex_
 
     auto run_vs = [&](uint vid, SoftShadedVertex& sv, const void* vptr) {
         if (ctx.render_pipeline && ctx.render_pipeline->vshader_func) {
-            struct EpParams
-            {
-                const void* in_v;
-                void*       out_v;
-            };
-            struct VSOut
-            {
-                Vector4 pos;
-                float   varyings[16];
-            } vs_out{};
-            uint     v_idx = vid;
-            EpParams ep    = {vptr ? vptr : &v_idx, &vs_out};
+            ShadedVertexOutput vs_out{};
+            uint               v_idx = vid;
+            invoke_vertex_shader(ctx.render_pipeline->vshader_func, vptr ? vptr : &v_idx, vs_out, p.r_ctx.uniform_state);
 
-            using ComputeFunc = void (*)(void*, void*, void*);
-            auto func         = reinterpret_cast<ComputeFunc>(ctx.render_pipeline->vshader_func);
-            struct uint3
-            {
-                uint x, y, z;
-            };
-            struct ComputeVaryingInput
-            {
-                uint3 startGroupID;
-                uint3 endGroupID;
-            } varying = {{0, 0, 0}, {1, 1, 1}};
-            func(&varying, &ep, p.r_ctx.uniform_state);
-
-            sv.position = vs_out.pos;
+            sv.position = vs_out.position;
             std::memcpy(sv.varyings, vs_out.varyings, sizeof(sv.varyings));
             std::memcpy(&sv.texcoord, &vs_out.varyings[0], sizeof(Vector4));
             std::memcpy(&sv.normal, &vs_out.varyings[0], sizeof(Vector4));
@@ -754,33 +733,11 @@ static void execute_draw_indexed(SoftDevice& device, ExecutionContext& ctx, uint
 
     auto run_vs = [&](uint vid, SoftShadedVertex& sv, const void* vptr) {
         if (ctx.render_pipeline && ctx.render_pipeline->vshader_func) {
-            struct EpParams
-            {
-                const void* in_v;
-                void*       out_v;
-            };
-            struct VSOut
-            {
-                Vector4 pos;
-                float   varyings[16];
-            } vs_out{};
-            uint     v_idx = vid;
-            EpParams ep    = {vptr ? vptr : &v_idx, &vs_out};
+            ShadedVertexOutput vs_out{};
+            uint               v_idx = vid;
+            invoke_vertex_shader(ctx.render_pipeline->vshader_func, vptr ? vptr : &v_idx, vs_out, p.r_ctx.uniform_state);
 
-            using ComputeFunc = void (*)(void*, void*, void*);
-            auto func         = reinterpret_cast<ComputeFunc>(ctx.render_pipeline->vshader_func);
-            struct uint3
-            {
-                uint x, y, z;
-            };
-            struct ComputeVaryingInput
-            {
-                uint3 startGroupID;
-                uint3 endGroupID;
-            } varying = {{0, 0, 0}, {1, 1, 1}};
-            func(&varying, &ep, p.r_ctx.uniform_state);
-
-            sv.position = vs_out.pos;
+            sv.position = vs_out.position;
             std::memcpy(sv.varyings, vs_out.varyings, sizeof(sv.varyings));
             sv.color = Vector4(1.0f);
         }
@@ -1460,11 +1417,8 @@ static void execute_dispatch_workgroups(SoftDevice& device, ExecutionContext& ct
             bool is_shared_mem = false;
             if (ctx.compute_pipeline && ctx.compute_pipeline->compute.module.valid()) {
                 auto* sm = device.shader_modules.find(ctx.compute_pipeline->compute.module.to_slotmap_handle<SoftShaderModule>());
-                if (sm && !sm->bytecode.empty()) {
-                    std::string_view bc(reinterpret_cast<const char*>(sm->bytecode.data()), sm->bytecode.size());
-                    if (bc.find("s_tile") != std::string_view::npos || bc.find("compute_shared_memory") != std::string_view::npos) {
-                        is_shared_mem = true;
-                    }
+                if (sm && std::strstr(sm->name, "shared_memory") != nullptr) {
+                    is_shared_mem = true;
                 }
             }
 

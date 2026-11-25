@@ -11,7 +11,7 @@ struct TestAppDescriptor
     uint          height         = 480;
     RHIBackend    backend        = RHIBackend::VULKAN;
     RHIFlags      rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
-    CompileTarget compile_target = CompileTarget::SPIRV;
+    CompileTarget compile_target = CompileTarget::AUTO;
     CompileFlags  compile_flags  = CompileFlag::DEBUG;
 
     Vector<GPUFeatureName> features = {};

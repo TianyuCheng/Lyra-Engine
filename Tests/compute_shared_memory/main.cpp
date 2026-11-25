@@ -245,13 +245,12 @@ TEST_CASE("rhi::metal::compute_shared_memory" * doctest::description("Testing co
 TEST_CASE("rhi::softgpu::compute_shared_memory" * doctest::description("Testing compute shader workgroup shared memory and barrier sync."))
 {
     TestAppDescriptor desc{};
-    desc.name           = "softgpu";
-    desc.window         = false;
-    desc.backend        = RHIBackend::SOFTGPU;
-    desc.width          = 640;
-    desc.height         = 480;
-    desc.rhi_flags      = RHIFlag::DEBUG;
-    desc.compile_target = CompileTarget::SPIRV;
-    desc.compile_flags  = CompileFlag::DEBUG;
+    desc.name          = "softgpu";
+    desc.window        = false;
+    desc.backend       = RHIBackend::SOFTGPU;
+    desc.width         = 640;
+    desc.height        = 480;
+    desc.rhi_flags     = RHIFlag::DEBUG;
+    desc.compile_flags = CompileFlag::DEBUG;
     ComputeSharedMemoryApp(desc).run();
 }

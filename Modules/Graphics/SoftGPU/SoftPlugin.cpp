@@ -161,6 +161,7 @@ bool api::create_shader_module(GPUShaderModuleHandle& shader, const GPUShaderMod
                 sm.host_func    = hcs->entry_func;
                 sm.param_count  = hcs->param_count;
                 std::memcpy(sm.params, hcs->params, sizeof(hcs->params));
+                std::strncpy(sm.name, hcs->name, sizeof(sm.name) - 1);
             }
         }
     }

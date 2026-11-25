@@ -9,6 +9,7 @@
 #include <Lyra/Utilities/BitFlags.h>
 #include <Lyra/Utilities/Collections.h>
 #include <Lyra/Compiler/SLCEnums.h>
+#include <Lyra/Graphics/RHIEnums.h>
 
 ENABLE_BIT_FLAGS(lyra::CompileFlag);
 
@@ -76,7 +77,27 @@ namespace lyra
         void*            entry_func;
         uint             param_count;
         HostParamBinding params[32];
+        char             name[64];
     };
+
+    constexpr auto resolve_compile_target(CompileTarget target, RHIBackend backend) -> CompileTarget
+    {
+        if (target != CompileTarget::AUTO) {
+            return target;
+        }
+        switch (backend) {
+            case RHIBackend::VULKAN:
+                return CompileTarget::SPIRV;
+            case RHIBackend::D3D12:
+                return CompileTarget::DXIL;
+            case RHIBackend::METAL:
+                return CompileTarget::MSL;
+            case RHIBackend::SOFTGPU:
+                return CompileTarget::HOST;
+            default:
+                return CompileTarget::SPIRV;
+        }
+    }
 
     struct ShaderBlobDeleter
     {

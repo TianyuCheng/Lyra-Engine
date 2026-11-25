@@ -109,7 +109,7 @@ TestApp::TestApp(const TestAppDescriptor& app_desc) : desc(app_desc)
         static CString includes[] = {engine_shaders_str.c_str()};
 
         auto cdesc      = CompilerDescriptor{};
-        cdesc.target    = app_desc.compile_target;
+        cdesc.target    = resolve_compile_target(app_desc.compile_target, app_desc.backend);
         cdesc.flags     = app_desc.compile_flags;
         cdesc.includes  = includes;
         cdesc.fs_loader = loader;

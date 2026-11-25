@@ -79,17 +79,47 @@ String SlangPreprocessor::process_host_target(const String& input, String& wrapp
         }
         wrappers += ") {\n";
         if (stage == "fragment") {
-            wrappers += "    __lyra_discarded = 0;\n";
-        }
-        if (!is_void_ret) {
-            wrappers += "    *out_v = " + func_name + "(" + (is_void_in ? "" : "*in_v") + ");\n";
+            wrappers += "    uint __disc = 0;\n";
+            if (!is_void_ret) {
+                wrappers += "    *out_v = " + func_name + "(" + (is_void_in ? "" : "*in_v, ") + "__disc);\n";
+            } else {
+                wrappers += "    " + func_name + "(" + (is_void_in ? "" : "*in_v, ") + "__disc);\n";
+            }
+            wrappers += "    if (is_discarded) *is_discarded = __disc;\n";
         } else {
-            wrappers += "    " + func_name + "(" + (is_void_in ? "" : "*in_v") + ");\n";
-        }
-        if (stage == "fragment") {
-            wrappers += "    if (is_discarded) *is_discarded = __lyra_discarded;\n";
+            if (!is_void_ret) {
+                wrappers += "    *out_v = " + func_name + "(" + (is_void_in ? "" : "*in_v") + ");\n";
+            } else {
+                wrappers += "    " + func_name + "(" + (is_void_in ? "" : "*in_v") + ");\n";
+            }
         }
         wrappers += "}\n";
+    }
+
+    if (has_fragment_stage) {
+        // rewrite fragment entry signatures to accept out uint __lyra_discard_flag on the stack
+        static const std::regex frag_entry_sig_re(R"re((\[shader\("fragment"\)\]\s*(?:public\s+)?[A-Za-z0-9_]+\s+[A-Za-z0-9_]+\s*\()([^)]*)(\)))re");
+        result = regex_replace_callback(result, frag_entry_sig_re, [](const std::smatch& sm) -> String {
+            String prefix    = sm[1].str();
+            String params    = sm[2].str();
+            String p_trimmed = params;
+            p_trimmed.erase(0, p_trimmed.find_first_not_of(" \t\n\r"));
+            p_trimmed.erase(p_trimmed.find_last_not_of(" \t\n\r") + 1);
+            if (p_trimmed.empty() || p_trimmed == "void") {
+                return prefix + "out uint __lyra_discard_flag" + sm[3].str();
+            } else {
+                return prefix + params + ", out uint __lyra_discard_flag" + sm[3].str();
+            }
+        });
+
+        // initialize __lyra_discard_flag = 0 at start of fragment function body
+        static const std::regex frag_body_start_re(R"re((\[shader\("fragment"\)\]\s*(?:public\s+)?[A-Za-z0-9_]+\s+[A-Za-z0-9_]+\s*\([^)]*\)[^{]*\{))re");
+        result = regex_replace_callback(result, frag_body_start_re, [](const std::smatch& sm) -> String {
+            return sm[1].str() + "\n    __lyra_discard_flag = 0;";
+        });
+
+        // replace discard; with setting discard flag and early return
+        result = std::regex_replace(result, std::regex(R"(\bdiscard\s*;)"), "{ __lyra_discard_flag = 1; return {}; }");
     }
 
     // strip [shader("vertex")] and [shader("fragment")]
@@ -101,12 +131,6 @@ String SlangPreprocessor::process_host_target(const String& input, String& wrapp
 
     // strip : SV_VertexID
     result = std::regex_replace(result, std::regex(R"(:\s*SV_[Vv][Ee][Rr][Tt][Ee][Xx][Ii][Dd])"), "");
-
-    // replace discard with return {} for compute-wrapper host callable compatibility
-    if (has_fragment_stage) {
-        result = "static uint __lyra_discarded = 0;\n" + result;
-    }
-    result = std::regex_replace(result, std::regex(R"(\bdiscard\s*;)"), "{ __lyra_discarded = 1; return {}; }");
 
     return result;
 }
@@ -284,6 +308,13 @@ String SlangPreprocessor::process(const String& input, CompileTarget target)
     String result = input;
 
     if (target == CompileTarget::HOST) {
+        // barrier synchronization is a no-op on host CPU; define preprocessor macros instead of string regex replacement
+        result = "#define GroupMemoryBarrierWithGroupSync() do {} while(false)\n"
+                 "#define GroupMemoryBarrier() do {} while(false)\n"
+                 "#define DeviceMemoryBarrier() do {} while(false)\n"
+                 "#define AllMemoryBarrier() do {} while(false)\n" +
+                 result;
+
         String wrappers;
         result = process_host_target(result, wrappers);
         result += wrappers;

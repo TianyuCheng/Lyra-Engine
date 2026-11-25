@@ -32,20 +32,8 @@ AppDescriptor& AppDescriptor::with_window_extent(uint width, uint height)
 AppDescriptor& AppDescriptor::with_graphics_backend(RHIBackend backend)
 {
     rhi.backend = backend;
-    switch (backend) {
-        case RHIBackend::D3D12:
-            slc.target = CompileTarget::DXIL;
-            slc.flags |= CompileFlag::REFLECT; // reflect is always on
-            break;
-        case RHIBackend::METAL:
-            slc.target = CompileTarget::MSL;
-            slc.flags |= CompileFlag::REFLECT; // reflect is always on
-            break;
-        default:
-            slc.target = CompileTarget::SPIRV;
-            slc.flags |= CompileFlag::REFLECT; // reflect is always on
-            break;
-    }
+    slc.target  = resolve_compile_target(CompileTarget::AUTO, backend);
+    slc.flags |= CompileFlag::REFLECT; // reflect is always on
     return *this;
 }
 
@@ -228,7 +216,7 @@ void Application::init_compiler()
     // initialize SLC (shader langauge compiler)
     slc = lyra::execute([&]() {
         auto desc      = CompilerDescriptor{};
-        desc.target    = descriptor.slc.target;
+        desc.target    = resolve_compile_target(descriptor.slc.target, descriptor.rhi.backend);
         desc.flags     = descriptor.slc.flags;
         desc.fs_loader = get_file_loader();
 
