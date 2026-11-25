@@ -99,6 +99,7 @@ add_subdirectory(forward_renderer)
 add_subdirectory(forward_renderer_multilight)
 add_subdirectory(deferred_renderer)
 add_subdirectory(deferred_renderer_multilight)
+add_subdirectory(path_tracer)
 
 # 11. Post Processing
 add_subdirectory(postprocess_bloom)

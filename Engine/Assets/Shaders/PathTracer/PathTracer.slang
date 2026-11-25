@@ -5,6 +5,7 @@ import Common.BSDF;
 import Common.RayTracing;
 import Common.Lighting;
 import Common.Noise;
+import Common.Tonemapping;
 
 // Hardware-accelerated Path Tracer (RayGen, ClosestHit, Miss, Compute)
 // Multi-bounce Monte Carlo global illumination with BSDF importance sampling and Next-Event Estimation
@@ -75,14 +76,16 @@ public struct RayPayload
     public bool    terminated;
 };
 
+#if defined(__spirv__) || defined(__dxil__)
+
 [shader("raygeneration")]
 void raygen_main()
 {
     uint2 pixel = DispatchRaysIndex().xy;
     if (pixel.x >= push.width || pixel.y >= push.height) return;
 
-    float2 uv = (float2(pixel) + 0.5) / float2(push.width, push.height);
-    Ray ray = generate_camera_ray(uv, camera.inv_view, camera.inv_proj);
+    float2 uv  = (float2(pixel) + 0.5) / float2(push.width, push.height);
+    Ray    ray = generate_camera_ray(uv, camera.inv_view, camera.inv_proj);
 
     RayPayload payload;
     payload.radiance     = float3(0.0);
@@ -100,7 +103,19 @@ void raygen_main()
 
     TraceRay(scene_tlas, RAY_FLAG_NONE, 0xFF, 0, 1, 0, ray_desc, payload);
 
-    output_target[pixel] = float4(payload.radiance, 1.0);
+    float4 color = float4(payload.radiance, 1.0);
+    if (push.sample_index == 0) {
+        accumulation_buffer[pixel] = color;
+        float3 mapped              = tonemap_aces_film(color.rgb * push.exposure);
+        output_target[pixel]       = float4(mapped, 1.0);
+    } else {
+        float4 prev_sum            = accumulation_buffer[pixel];
+        float4 new_sum             = prev_sum + color;
+        accumulation_buffer[pixel] = new_sum;
+        float3 avg_color           = (new_sum.rgb / float(push.sample_index + 1)) * push.exposure;
+        float3 mapped              = tonemap_aces_film(avg_color);
+        output_target[pixel]       = float4(mapped, 1.0);
+    }
 }
 
 [shader("miss")]
@@ -137,8 +152,8 @@ void closesthit_main(inout RayPayload payload, in BuiltInTriangleIntersectionAtt
     mat.clear_coat.thickness = 0.0;
 
     // Next-Event Estimation
-    float2 u_light = rand_f2(payload.rng_state);
-    LightSample ls = sample_directional_sun(SUN_DIRECTION, SUN_ANGULAR_RADIUS, SUN_EMISSION, u_light);
+    float2      u_light = rand_f2(payload.rng_state);
+    LightSample ls      = sample_directional_sun(SUN_DIRECTION, SUN_ANGULAR_RADIUS, SUN_EMISSION, u_light);
     if (dot(N, ls.direction) > 0.0 && ls.pdf > 0.0) {
         float3 f = mat.evaluate(V, ls.direction, N);
         payload.radiance += payload.throughput * f * (ls.radiance / ls.pdf);
@@ -146,6 +161,8 @@ void closesthit_main(inout RayPayload payload, in BuiltInTriangleIntersectionAtt
 
     payload.terminated = true;
 }
+
+#endif
 
 float4 trace_path(uint2 pixel, inout uint rng_state)
 {
@@ -311,5 +328,16 @@ void csmain(uint3 dispatch_id : SV_DispatchThreadID)
         }
     }
 
-    output_target[pixel] = color;
+    if (push.sample_index == 0) {
+        accumulation_buffer[pixel] = color;
+        float3 mapped              = tonemap_aces_film(color.rgb * push.exposure);
+        output_target[pixel]       = float4(mapped, 1.0);
+    } else {
+        float4 prev_sum            = accumulation_buffer[pixel];
+        float4 new_sum             = prev_sum + color;
+        accumulation_buffer[pixel] = new_sum;
+        float3 avg_color           = (new_sum.rgb / float(push.sample_index + 1)) * push.exposure;
+        float3 mapped              = tonemap_aces_film(avg_color);
+        output_target[pixel]       = float4(mapped, 1.0);
+    }
 }

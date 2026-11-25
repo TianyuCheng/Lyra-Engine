@@ -60,7 +60,8 @@ struct PathTracerRendererInstance
     GPUBuffer fallback_vbuffer;
 
     // temporal accumulation state
-    uint accumulated_frames = 0;
+    uint      accumulated_frames = 0;
+    Matrix4x4 prev_view_proj{0.0f};
 
     auto init(GPUDevice dev, Compiler comp) -> bool;
     void setup_sbt(GPUDevice dev);
@@ -317,7 +318,9 @@ static void resize(RendererHandle handle, uint width, uint height)
 static void set_settings(RendererHandle handle, const RendererSettings& settings)
 {
     if (auto ptr = handle.as_type<PathTracerRendererInstance>()) {
-        if (ptr->settings.max_ray_bounces != settings.max_ray_bounces) {
+        if (ptr->settings.max_ray_bounces != settings.max_ray_bounces ||
+            ptr->settings.exposure != settings.exposure ||
+            ptr->settings.debug_mode != settings.debug_mode) {
             ptr->accumulated_frames = 0;
         }
         ptr->settings = settings;
@@ -355,8 +358,15 @@ static FrameGraph::TextureHandle render(
         return ctx.color_target;
     }
 
+    // reset temporal accumulation if camera moved
+    Matrix4x4 cur_view_proj = ctx.view.projection * ctx.view.view;
+    if (cur_view_proj != renderer->prev_view_proj) {
+        renderer->accumulated_frames = 0;
+        renderer->prev_view_proj     = cur_view_proj;
+    }
+
     // lazy initialization if needed
-    if (!renderer->path_trace_pipeline.valid() || !renderer->rt_pipeline.valid()) {
+    if (!renderer->path_trace_pipeline.valid() && !renderer->rt_pipeline.valid()) {
         auto comp = renderer->compiler.handle.valid()
                         ? renderer->compiler
                         : (ctx.services ? *ctx.services->try_get<Compiler*>() : Compiler{});
@@ -414,7 +424,7 @@ static FrameGraph::TextureHandle render(
             push.sample_index = renderer->accumulated_frames;
             push.max_bounces  = renderer->settings.max_ray_bounces;
             push.frame_seed   = renderer->accumulated_frames * 1999u + 1u;
-            push.exposure     = renderer->settings.exposure;
+            push.exposure     = renderer->settings.exposure > 0.0f ? renderer->settings.exposure : 1.0f;
             push.debug_mode   = renderer->settings.debug_mode;
 
             auto cam_uniforms = CameraUniforms::from_view(view);
