@@ -411,7 +411,7 @@ static FrameGraph::TextureHandle render(
     auto gbuffer = renderer->gbuffer_pass.add(ctx.builder, view, ctx.scene, extent);
 
     // 2. Clustered light culling pass
-    auto culling = renderer->light_culling_pass.add(ctx.builder, view, ctx.scene);
+    auto culling = renderer->light_culling_pass.add(ctx.builder, view, ctx.scene, ctx.scene_lighting ? ctx.scene_lighting->lights_slice : GPUBufferSlice{});
 
     DeferredCameraUniforms camera_uniforms{};
     camera_uniforms.proj     = view.projection;
@@ -484,7 +484,7 @@ static FrameGraph::TextureHandle render(
             data.lit_output       = pass_builder.render(ctx.color_target);
             data.environment_map  = ctx.scene.environment_map;
         },
-        [renderer, extent, camera_uniforms](const DeferredLightingPassData& data, FrameGraphResources& resources, FrameGraphContext* fg_ctx) {
+        [renderer, extent, camera_uniforms, &scene = ctx.scene](const DeferredLightingPassData& data, FrameGraphResources& resources, FrameGraphContext* fg_ctx) {
             if (!fg_ctx || !fg_ctx->cmdlist.handle.valid() || !renderer->lighting_pipeline.valid()) {
                 return;
             }
@@ -556,11 +556,19 @@ static FrameGraph::TextureHandle render(
             entries[9].buffer.offset = 0;
             entries[9].buffer.size   = 0;
 
-            entries[10].type          = GPUResourceType::BUFFER;
-            entries[10].binding       = 10;
-            entries[10].buffer.buffer = renderer->light_culling_pass.get_lights_buffer().handle;
-            entries[10].buffer.offset = 0;
-            entries[10].buffer.size   = 0;
+            auto lights_slice = renderer->light_culling_pass.get_lights_slice();
+            if (!lights_slice.valid() && fg_ctx->scene_lighting && fg_ctx->scene_lighting->lights_slice.valid()) {
+                lights_slice = fg_ctx->scene_lighting->lights_slice;
+            }
+            if (!lights_slice.valid() && fg_ctx->arena) {
+                SceneLighting sl{};
+                sl.init(scene, *fg_ctx->arena, fg_ctx->device);
+                lights_slice = sl.lights_slice;
+            }
+
+            entries[10].type    = GPUResourceType::BUFFER;
+            entries[10].binding = 10;
+            entries[10].buffer  = lights_slice;
 
             GPUTextureViewHandle env_view = renderer->default_env_view.handle;
             if (data.environment_map.valid()) {

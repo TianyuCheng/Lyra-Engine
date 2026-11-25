@@ -63,6 +63,7 @@ target_sources(lyra-headers INTERFACE
     # rendering
     Lyra/Rendering/FrameArena.h
     Lyra/Rendering/ViewUniforms.h
+    Lyra/Rendering/SceneLighting.h
     Lyra/Rendering/FrameGraph.h
     Lyra/Rendering/Geometry.h
     Lyra/Rendering/GeometryBufferPool.h

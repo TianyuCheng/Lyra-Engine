@@ -40,7 +40,7 @@ namespace lyra::passes
         FrameGraphHandle<FrameGraphTexture> shadow_map;
         FrameGraphHandle<FrameGraphBuffer>  cluster_grid_buffer;
         FrameGraphHandle<FrameGraphBuffer>  light_index_list;
-        const GPUBuffer*                    lights_buffer   = nullptr;
+        GPUBufferSlice                      lights_slice{};
         GPUTextureViewHandle                environment_map = {};
         GPUTextureViewHandle                brdf_lut        = {};
         uint                                cluster_grid_x  = 0;
@@ -144,7 +144,6 @@ namespace lyra::passes
         Vector<GPUBindGroupLayoutHandle>           blayouts;
         GPUBuffer                                  default_cluster_grid_buffer;
         GPUBuffer                                  default_light_index_buffer;
-        GPUBuffer                                  default_lights_buffer;
         GPUSampler                                 shadow_sampler;
         GPUTexture                                 default_shadow_map;
         GPUTextureView                             default_shadow_view;

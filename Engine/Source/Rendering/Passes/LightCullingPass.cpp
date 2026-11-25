@@ -68,16 +68,6 @@ bool LightCullingPass::init(GPUDevice dev, Compiler compiler)
     cp_desc.compute.entry_point = "csmain";
     pipeline                    = device.create_compute_pipeline(cp_desc);
 
-    // 5. lights staging buffer
-    lights_buffer = execute([&]() {
-        auto lb_desc               = GPUBufferDescriptor{};
-        lb_desc.label              = "light_culling_lights_buffer";
-        lb_desc.size               = std::max<usize>(sizeof(GPULightData), 256 * sizeof(GPULightData));
-        lb_desc.usage              = GPUBufferUsage::STORAGE | GPUBufferUsage::MAP_WRITE;
-        lb_desc.mapped_at_creation = true;
-        return device.create_buffer(lb_desc);
-    });
-
     initialized = pipeline.valid();
     return initialized;
 }
@@ -90,9 +80,6 @@ void LightCullingPass::destroy()
 
     device.wait();
 
-    if (lights_buffer.valid()) {
-        lights_buffer.destroy();
-    }
     if (pipeline.valid()) {
         pipeline.destroy();
     }
@@ -103,14 +90,17 @@ void LightCullingPass::destroy()
         cshader.destroy();
     }
     blayouts.clear();
-    initialized = false;
+    lights_slice = {};
+    initialized  = false;
 }
 
 LightCullingData LightCullingPass::add(
     FrameGraphBuilder& builder,
     const RenderView&  view,
-    const RenderScene& scene)
+    const RenderScene& scene,
+    GPUBufferSlice     in_lights_slice)
 {
+    lights_slice              = in_lights_slice;
     const uint cluster_grid_x = std::max(1u, (view.render_extent.width + 15) / 16);
     const uint cluster_grid_y = std::max(1u, (view.render_extent.height + 15) / 16);
     const uint cluster_grid_z = 24;
@@ -149,64 +139,22 @@ LightCullingData LightCullingPass::add(
                 return;
             }
 
-            // gather lights from scene
-            Vector<GPULightData> gathered_lights;
-            gathered_lights.reserve(scene.directional_lights.size() + scene.local_lights.size());
-
-            for (const auto& dl : scene.directional_lights) {
-                GPULightData l{};
-                l.position     = dl.position;
-                l.range        = dl.range;
-                l.direction    = dl.direction;
-                l.intensity    = dl.intensity;
-                l.color        = dl.color;
-                l.type         = static_cast<uint>(RenderLightType::DIRECTIONAL);
-                l.cast_shadows = dl.cast_shadows ? 1 : 0;
-                gathered_lights.push_back(l);
+            auto active_slice = lights_slice;
+            if (!active_slice.valid() && ctx->scene_lighting && ctx->scene_lighting->lights_slice.valid()) {
+                active_slice = ctx->scene_lighting->lights_slice;
             }
-
-            for (const auto& ll : scene.local_lights) {
-                GPULightData l{};
-                l.position         = ll.position;
-                l.range            = ll.range;
-                l.direction        = ll.direction;
-                l.intensity        = ll.intensity;
-                l.color            = ll.color;
-                l.type             = static_cast<uint>(ll.type);
-                l.spot_inner_angle = ll.spot_inner_angle;
-                l.spot_outer_angle = ll.spot_outer_angle;
-                l.cast_shadows     = ll.cast_shadows ? 1 : 0;
-                gathered_lights.push_back(l);
+            if (!active_slice.valid() && ctx->arena) {
+                SceneLighting sl{};
+                sl.init(scene, *ctx->arena, ctx->device);
+                active_slice = sl.lights_slice;
             }
-
-            // update staging lights buffer
-            usize required_size = std::max<usize>(sizeof(GPULightData), gathered_lights.size() * sizeof(GPULightData));
-            if (!lights_buffer.valid() || lights_buffer.size < required_size) {
-                if (lights_buffer.valid()) {
-                    lights_buffer.destroy();
-                }
-                auto lb_desc               = GPUBufferDescriptor{};
-                lb_desc.label              = "light_culling_lights_buffer";
-                lb_desc.size               = required_size;
-                lb_desc.usage              = GPUBufferUsage::STORAGE | GPUBufferUsage::MAP_WRITE;
-                lb_desc.mapped_at_creation = true;
-                lights_buffer              = device.create_buffer(lb_desc);
-            }
-
-            if (lights_buffer.valid() && !gathered_lights.empty()) {
-                auto mapped = lights_buffer.get_mapped_range<GPULightData>();
-                for (usize i = 0; i < gathered_lights.size() && i < mapped.count; ++i) {
-                    mapped.at(i) = gathered_lights[i];
-                }
-            }
+            lights_slice = active_slice;
 
             // create bind group
             Array<GPUBindGroupEntry, 3> entries{};
-            entries[0].type          = GPUResourceType::BUFFER;
-            entries[0].binding       = 0;
-            entries[0].buffer.buffer = lights_buffer.handle;
-            entries[0].buffer.offset = 0;
-            entries[0].buffer.size   = 0;
+            entries[0].type    = GPUResourceType::BUFFER;
+            entries[0].binding = 0;
+            entries[0].buffer  = active_slice;
 
             entries[1].type          = GPUResourceType::BUFFER;
             entries[1].binding       = 1;
@@ -235,7 +183,7 @@ LightCullingData LightCullingPass::add(
             push.cluster_grid_x    = cluster_grid_x;
             push.cluster_grid_y    = cluster_grid_y;
             push.cluster_grid_z    = cluster_grid_z;
-            push.num_lights        = static_cast<uint>(gathered_lights.size());
+            push.num_lights        = (ctx->scene_lighting) ? ctx->scene_lighting->total_light_count : static_cast<uint>(scene.directional_lights.size() + scene.local_lights.size());
 
             auto command = ctx->cmdlist;
             command.set_pipeline(pipeline);

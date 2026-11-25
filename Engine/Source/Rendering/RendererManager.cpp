@@ -3,6 +3,7 @@
 #include <Lyra/Graphics/RHITypes.h>
 #include <Lyra/Rendering/ResourceRetire.h>
 #include <Lyra/Rendering/ShadingBuffers.h>
+#include <Lyra/Rendering/SceneLighting.h>
 
 using namespace lyra;
 
@@ -172,11 +173,15 @@ void RendererManager::render(
     ViewUniforms view_uniforms{};
     view_uniforms.init(view, arena);
 
+    SceneLighting scene_lighting{};
+    scene_lighting.init(scene, arena, context.services.get<GPUDevice>());
+
     RenderFrameContext ctx{
         .builder        = builder,
         .view           = view,
         .scene          = scene,
         .view_uniforms  = &view_uniforms,
+        .scene_lighting = &scene_lighting,
         .color_target   = target_handle,
         .depth_target   = {},
         .color_format   = target.format,
@@ -191,10 +196,11 @@ void RendererManager::render(
     auto graph = builder.build();
     if (graph) {
         FrameGraphContext fg_context{};
-        fg_context.device        = context.services.get<GPUDevice>();
-        fg_context.cmdlist       = GPUCommandBuffer(command_encoder);
-        fg_context.arena         = &arena;
-        fg_context.view_uniforms = ctx.view_uniforms;
+        fg_context.device         = context.services.get<GPUDevice>();
+        fg_context.cmdlist        = GPUCommandBuffer(command_encoder);
+        fg_context.arena          = &arena;
+        fg_context.view_uniforms  = ctx.view_uniforms;
+        fg_context.scene_lighting = ctx.scene_lighting;
         graph->execute(&fg_context, &allocator);
     }
 

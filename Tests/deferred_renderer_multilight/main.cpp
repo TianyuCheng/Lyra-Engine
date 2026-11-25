@@ -225,12 +225,16 @@ struct RendererDeferredMultiLightApp : public TestApp
         ViewUniforms view_uniforms;
         view_uniforms.init(view, arena);
 
+        SceneLighting scene_lighting;
+        scene_lighting.init(render_world->get_scene(), arena, device);
+
         RenderFrameOutputs outputs{};
         RenderFrameContext ctx{
             .builder        = builder,
             .view           = view,
             .scene          = render_world->get_scene(),
             .view_uniforms  = &view_uniforms,
+            .scene_lighting = &scene_lighting,
             .color_target   = color_target,
             .depth_target   = {},
             .color_format   = get_backbuffer_format(),
@@ -255,7 +259,7 @@ struct RendererDeferredMultiLightApp : public TestApp
             });
 
         auto graph  = builder.build();
-        auto fg_ctx = FrameGraphContext{device, swp, command, &arena, &view_uniforms};
+        auto fg_ctx = FrameGraphContext{device, swp, command, &arena, &view_uniforms, &scene_lighting};
         graph->execute(&fg_ctx, &fg_allocator);
         command.submit();
     }

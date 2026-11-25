@@ -72,6 +72,7 @@ namespace lyra
     struct FrameGraphBarrierBatch;
     class FrameArena;
     struct ViewUniforms;
+    struct SceneLighting;
 
     template <typename T, typename = void>
     struct has_pre_read : std::false_type
@@ -443,8 +444,9 @@ namespace lyra
         GPUDevice        device;
         GPUSurface       surface;
         GPUCommandBuffer cmdlist;
-        FrameArena*      arena         = nullptr;
-        ViewUniforms*    view_uniforms = nullptr;
+        FrameArena*      arena          = nullptr;
+        ViewUniforms*    view_uniforms  = nullptr;
+        SceneLighting*   scene_lighting = nullptr;
 
         auto allocate(const GPUBindGroupDescriptor& descriptor) const -> GPUBindGroup;
         auto allocate_uniform(usize size, usize alignment = 256) const -> GPUBufferSlice;

@@ -1,6 +1,7 @@
 #include <Lyra/Graphics/RHIAPI.h>
 #include <Lyra/Rendering/Passes/ForwardPass.h>
 #include <Lyra/Rendering/ShadingModelRegistry.h>
+#include <Lyra/Rendering/SceneLighting.h>
 #include <spdlog/spdlog.h>
 
 using namespace lyra;
@@ -99,14 +100,6 @@ bool ForwardPass::init(
         auto desc  = GPUBufferDescriptor{};
         desc.label = "forward_default_light_index_buffer";
         desc.size  = sizeof(uint);
-        desc.usage = GPUBufferUsage::STORAGE;
-        return device.create_buffer(desc);
-    });
-
-    default_lights_buffer = execute([&]() {
-        auto desc  = GPUBufferDescriptor{};
-        desc.label = "forward_default_lights_buffer";
-        desc.size  = 64;
         desc.usage = GPUBufferUsage::STORAGE;
         return device.create_buffer(desc);
     });
@@ -212,9 +205,6 @@ void ForwardPass::destroy()
     }
     if (default_brdf_lut.valid()) {
         default_brdf_lut.destroy();
-    }
-    if (default_lights_buffer.valid()) {
-        default_lights_buffer.destroy();
     }
     if (default_light_index_buffer.valid()) {
         default_light_index_buffer.destroy();
@@ -458,9 +448,8 @@ ForwardPassData ForwardPass::add(
                 }
             }
 
-            GPUBufferHandle grid_buf_h   = default_cluster_grid_buffer.handle;
-            GPUBufferHandle index_buf_h  = default_light_index_buffer.handle;
-            GPUBufferHandle lights_buf_h = default_lights_buffer.handle;
+            GPUBufferHandle grid_buf_h  = default_cluster_grid_buffer.handle;
+            GPUBufferHandle index_buf_h = default_light_index_buffer.handle;
 
             if (data.cluster_grid_buffer.valid()) {
                 if (auto b = resources.get<FrameGraphBuffer>(data.cluster_grid_buffer)) {
@@ -472,8 +461,15 @@ ForwardPassData ForwardPass::add(
                     index_buf_h = b->buffer;
                 }
             }
-            if (params.lights_buffer && params.lights_buffer->valid()) {
-                lights_buf_h = params.lights_buffer->handle;
+
+            auto active_lights = params.lights_slice;
+            if (!active_lights.valid() && ctx->scene_lighting && ctx->scene_lighting->lights_slice.valid()) {
+                active_lights = ctx->scene_lighting->lights_slice;
+            }
+            if (!active_lights.valid() && ctx->arena) {
+                SceneLighting sl{};
+                sl.init(params.scene, *ctx->arena, ctx->device);
+                active_lights = sl.lights_slice;
             }
 
             GPUTextureViewHandle env_view = default_env_view.handle;
@@ -515,11 +511,9 @@ ForwardPassData ForwardPass::add(
             entries[4].buffer.offset = 0;
             entries[4].buffer.size   = 0;
 
-            entries[5].type          = GPUResourceType::BUFFER;
-            entries[5].binding       = 5;
-            entries[5].buffer.buffer = lights_buf_h;
-            entries[5].buffer.offset = 0;
-            entries[5].buffer.size   = 0;
+            entries[5].type    = GPUResourceType::BUFFER;
+            entries[5].binding = 5;
+            entries[5].buffer  = active_lights;
 
             entries[6].type    = GPUResourceType::TEXTURE;
             entries[6].binding = 6;
@@ -529,13 +523,9 @@ ForwardPassData ForwardPass::add(
             entries[7].binding = 7;
             entries[7].texture = brdf_view;
 
-            entries[8].type          = GPUResourceType::SAMPLER;
-            entries[8].binding       = 8;
-            entries[8].sampler       = environment_sampler.handle;
-            entries[5].binding       = 5;
-            entries[5].buffer.buffer = lights_buf_h;
-            entries[5].buffer.offset = 0;
-            entries[5].buffer.size   = 0;
+            entries[8].type    = GPUResourceType::SAMPLER;
+            entries[8].binding = 8;
+            entries[8].sampler = environment_sampler.handle;
 
             auto bg_desc = GPUBindGroupDescriptor{};
             if (!blayouts.empty()) {

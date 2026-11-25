@@ -8,6 +8,7 @@
 #include <Lyra/Rendering/FrameGraph.h>
 #include <Lyra/Rendering/RenderView.h>
 #include <Lyra/Rendering/RenderScene.h>
+#include <Lyra/Rendering/SceneLighting.h>
 #include <Lyra/Compiler/SLCTypes.h>
 #include <Lyra/Utilities/Path.h>
 
@@ -46,13 +47,13 @@ namespace lyra::passes
 
         [[nodiscard]] bool valid() const { return initialized && pipeline.valid(); }
 
-        [[nodiscard]] auto get_lights_buffer() const -> GPUBuffer { return lights_buffer; }
-        [[nodiscard]] auto get_lights_buffer_ptr() const -> const GPUBuffer* { return &lights_buffer; }
+        [[nodiscard]] auto get_lights_slice() const -> GPUBufferSlice { return lights_slice; }
 
         auto add(
             FrameGraphBuilder& builder,
             const RenderView&  view,
-            const RenderScene& scene) -> LightCullingData;
+            const RenderScene& scene,
+            GPUBufferSlice     in_lights_slice = {}) -> LightCullingData;
 
     private:
         /**
@@ -76,33 +77,12 @@ namespace lyra::passes
         static_assert(sizeof(LightCullingPushConstants) == 224, "LightCullingPushConstants must be 224 bytes");
         static_assert(alignof(LightCullingPushConstants) == 16, "LightCullingPushConstants must be 16-byte aligned");
 
-        /**
-         * @brief GPU light data layout matching struct `LightData` in `sys://Shaders/Common/Lighting.slang`.
-         * Total size: exactly 64 bytes. Aligned to 16 bytes.
-         */
-        struct alignas(16) GPULightData
-        {
-            Vector3 position;
-            float   range = 0.0f;
-            Vector3 direction;
-            float   intensity        = 1.0f;
-            Vector3 color            = Vector3(1.0f);
-            uint    type             = 0;
-            float   spot_inner_angle = 0.0f;
-            float   spot_outer_angle = 0.0f;
-            uint    cast_shadows     = 0;
-            uint    profile          = 0;
-        };
-
-        static_assert(sizeof(GPULightData) == 64, "GPULightData must be 64 bytes");
-        static_assert(alignof(GPULightData) == 16, "GPULightData must be 16-byte aligned");
-
         GPUDevice                        device;
         GPUComputePipeline               pipeline;
         GPUPipelineLayout                playout;
         GPUShaderModule                  cshader;
         Vector<GPUBindGroupLayoutHandle> blayouts;
-        GPUBuffer                        lights_buffer;
+        GPUBufferSlice                   lights_slice{};
         bool                             initialized = false;
     };
 

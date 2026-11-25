@@ -148,7 +148,7 @@ GPUBufferSlice FrameArena::allocate_uniform(usize size, usize alignment, GPUDevi
     GPUBufferDescriptor bdesc{};
     bdesc.label              = "frame_arena_uniform_page";
     bdesc.size               = page_alloc_size;
-    bdesc.usage              = GPUBufferUsage::UNIFORM | GPUBufferUsage::MAP_WRITE;
+    bdesc.usage              = GPUBufferUsage::UNIFORM | GPUBufferUsage::STORAGE | GPUBufferUsage::MAP_WRITE;
     bdesc.mapped_at_creation = true;
 
     auto new_buffer = target_device.create_buffer(bdesc);
