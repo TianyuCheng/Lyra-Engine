@@ -394,12 +394,14 @@ def write_png_rgba(path, width, height, rgba_data):
         f.write(struct.pack(">I4s", len(compressed), b"IDAT") + compressed + struct.pack(">I", zlib.crc32(b"IDAT" + compressed)))
         f.write(struct.pack(">I4s", 0, b"IEND") + struct.pack(">I", zlib.crc32(b"IEND")))
 
+_REF_IMAGE_CACHE_LOCK = threading.Lock()
 _REF_IMAGE_CACHE = {}
 
 def get_cached_ref_rgba(path):
-    if path not in _REF_IMAGE_CACHE:
-        _REF_IMAGE_CACHE[path] = read_png_rgba(path)
-    return _REF_IMAGE_CACHE[path]
+    with _REF_IMAGE_CACHE_LOCK:
+        if path not in _REF_IMAGE_CACHE:
+            _REF_IMAGE_CACHE[path] = read_png_rgba(path)
+        return _REF_IMAGE_CACHE[path]
 
 def check_perceptual_mismatch(ref_path, test_path, diff_output_path=None, pixel_tolerance=2, max_mismatch_pct=1.0, rmse_threshold=2.0):
     if not os.path.exists(ref_path):

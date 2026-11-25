@@ -1,5 +1,6 @@
 #include <Lyra/Utilities/Plugin.h>
 #include <Lyra/Utilities/Logger.h>
+#include <Lyra/Utilities/Sync.h>
 #include <Lyra/Graphics/RHIAPI.h>
 #include <Lyra/Graphics/RHITypes.h>
 
@@ -22,13 +23,15 @@ struct RHIBackendSlot
     bool                     active       = false;
 };
 
+static Mutex                     G_BACKENDS_MUTEX;
 static Array<RHIBackendSlot, 16> G_BACKENDS = {};
-
-static ubyte ACTIVE_BACKEND_ID = 0;
+static Atomic<ubyte>             ACTIVE_BACKEND_ID{0};
 
 #pragma region RHI
 OwnedResource<RHI> RHI::init(const RHIDescriptor& descriptor)
 {
+    LockGuard<Mutex> lock(G_BACKENDS_MUTEX);
+
     int slot_id = -1;
     for (int i = 0; i < 16; ++i) {
         if (G_BACKENDS[i].active && G_BACKENDS[i].backend_type == descriptor.backend) {
@@ -85,7 +88,7 @@ OwnedResource<RHI> RHI::init(const RHIDescriptor& descriptor)
             break;
     }
 
-    ACTIVE_BACKEND_ID = static_cast<ubyte>(slot_id);
+    ACTIVE_BACKEND_ID.store(static_cast<ubyte>(slot_id), memory_order_release);
 
     OwnedResource<RHI> rhi(new RHI());
     rhi->id             = static_cast<ubyte>(slot_id);
@@ -106,8 +109,9 @@ OwnedResource<RHI> RHI::init(StringView custom_backend, const RHIDescriptor& des
 
 RenderAPI* RHI::api()
 {
-    if (G_BACKENDS[ACTIVE_BACKEND_ID].active && G_BACKENDS[ACTIVE_BACKEND_ID].api) {
-        return G_BACKENDS[ACTIVE_BACKEND_ID].api;
+    ubyte active_id = ACTIVE_BACKEND_ID.load(memory_order_relaxed);
+    if (G_BACKENDS[active_id].active && G_BACKENDS[active_id].api) {
+        return G_BACKENDS[active_id].api;
     }
     for (auto& slot : G_BACKENDS) {
         if (slot.active && slot.api) return slot.api;
@@ -125,6 +129,8 @@ RenderAPI* RHI::api(uint rhi)
 
 void RHI::destroy() const
 {
+    LockGuard<Mutex> lock(G_BACKENDS_MUTEX);
+
     if (id < G_BACKENDS.size()) {
         auto& slot = G_BACKENDS[id];
         if (slot.active && slot.api) {
@@ -144,14 +150,15 @@ void RHI::destroy() const
         slot.adapter      = {};
         slot.device       = {};
 
-        if (ACTIVE_BACKEND_ID == id) {
-            ACTIVE_BACKEND_ID = 0;
+        if (ACTIVE_BACKEND_ID.load(memory_order_relaxed) == id) {
+            ubyte next_id = 0;
             for (usize i = 0; i < G_BACKENDS.size(); ++i) {
                 if (G_BACKENDS[i].active && G_BACKENDS[i].api) {
-                    ACTIVE_BACKEND_ID = static_cast<ubyte>(i);
+                    next_id = static_cast<ubyte>(i);
                     break;
                 }
             }
+            ACTIVE_BACKEND_ID.store(next_id, memory_order_release);
         }
     }
 }
@@ -173,24 +180,26 @@ void RHI::end_frame()
 
 GPUAdapter& RHI::get_current_adapter()
 {
-    if (G_BACKENDS[ACTIVE_BACKEND_ID].active && G_BACKENDS[ACTIVE_BACKEND_ID].adapter.valid()) {
-        return G_BACKENDS[ACTIVE_BACKEND_ID].adapter;
+    ubyte active_id = ACTIVE_BACKEND_ID.load(memory_order_relaxed);
+    if (G_BACKENDS[active_id].active && G_BACKENDS[active_id].adapter.valid()) {
+        return G_BACKENDS[active_id].adapter;
     }
     for (auto& slot : G_BACKENDS) {
         if (slot.active && slot.adapter.valid()) return slot.adapter;
     }
-    return G_BACKENDS[ACTIVE_BACKEND_ID].adapter;
+    return G_BACKENDS[active_id].adapter;
 }
 
 GPUDevice& RHI::get_current_device()
 {
-    if (G_BACKENDS[ACTIVE_BACKEND_ID].active && G_BACKENDS[ACTIVE_BACKEND_ID].device.valid()) {
-        return G_BACKENDS[ACTIVE_BACKEND_ID].device;
+    ubyte active_id = ACTIVE_BACKEND_ID.load(memory_order_relaxed);
+    if (G_BACKENDS[active_id].active && G_BACKENDS[active_id].device.valid()) {
+        return G_BACKENDS[active_id].device;
     }
     for (auto& slot : G_BACKENDS) {
         if (slot.active && slot.device.valid()) return slot.device;
     }
-    return G_BACKENDS[ACTIVE_BACKEND_ID].device;
+    return G_BACKENDS[active_id].device;
 }
 
 GPUAdapter RHI::request_adapter(const GPUAdapterDescriptor& descriptor) const
@@ -198,12 +207,13 @@ GPUAdapter RHI::request_adapter(const GPUAdapterDescriptor& descriptor) const
     GPUAdapterProps props;
     RHI::api(id)->create_adapter(props, descriptor);
 
-    auto& adapter      = G_BACKENDS[id].adapter;
-    adapter.rhi        = id;
-    adapter.info       = props.info;
-    adapter.features   = props.features;
-    adapter.limits     = props.limits;
-    adapter.properties = props.properties;
+    LockGuard<Mutex> lock(G_BACKENDS_MUTEX);
+    auto&            adapter = G_BACKENDS[id].adapter;
+    adapter.rhi              = id;
+    adapter.info             = props.info;
+    adapter.features         = props.features;
+    adapter.limits           = props.limits;
+    adapter.properties       = props.properties;
     return adapter;
 }
 
@@ -279,10 +289,11 @@ GPUDevice GPUAdapter::request_device(const GPUDeviceDescriptor& descriptor)
         }
     }
 
-    auto& device        = G_BACKENDS[rhi].device;
-    device.rhi          = rhi;
-    device.adapter_info = info;
-    device.features     = features;
+    LockGuard<Mutex> lock(G_BACKENDS_MUTEX);
+    auto&            device = G_BACKENDS[rhi].device;
+    device.rhi              = rhi;
+    device.adapter_info     = info;
+    device.features         = features;
     if (!RHI::api(rhi)->create_device(descriptor)) {
         device.reset();
         return {};
