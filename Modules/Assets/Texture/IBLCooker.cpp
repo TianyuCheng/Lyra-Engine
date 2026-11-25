@@ -1,7 +1,10 @@
 #include "IBLCooker.h"
 #include "TextureUtils.h"
+#include <Lyra/JobSystem/JobScheduler.h>
+#include <Lyra/Utilities/Sync.h>
 #include <algorithm>
 #include <cmath>
+#include <thread>
 
 using namespace lyra;
 using namespace lyra::texture;
@@ -177,84 +180,102 @@ void lyra::texture::compute_sh9_from_equirectangular(
 }
 
 void lyra::texture::prefilter_environment_cubemap(
-    const float*                   hdr_rgba,
-    int                            src_width,
-    int                            src_height,
-    int                            base_face_size,
-    int                            num_mips,
-    Vector<Vector<Vector<float>>>& out_mip_faces)
+    const float*     hdr_rgba,
+    int              src_width,
+    int              src_height,
+    int              base_face_size,
+    int              num_mips,
+    CubemapMipChain& out_cubemap)
 {
-    out_mip_faces.resize(num_mips);
+    out_cubemap.init(static_cast<uint>(base_face_size), static_cast<uint>(num_mips));
 
-    for (int mip = 0; mip < num_mips; ++mip) {
+    auto process_face = [&](uint mip, uint face) {
         int   face_size = std::max(1, base_face_size >> mip);
         float roughness = (num_mips > 1) ? static_cast<float>(mip) / static_cast<float>(num_mips - 1) : 0.0f;
 
-        out_mip_faces[mip].resize(6);
+        auto   slice      = out_cubemap.get_face_slice(mip, face);
+        float* dst_pixels = slice.data();
 
-        for (int face = 0; face < 6; ++face) {
-            out_mip_faces[mip][face].resize(face_size * face_size * 4);
-            float* dst_pixels = out_mip_faces[mip][face].data();
+        for (int y = 0; y < face_size; ++y) {
+            float v = (static_cast<float>(y) + 0.5f) / static_cast<float>(face_size) * 2.0f - 1.0f;
 
-            for (int y = 0; y < face_size; ++y) {
-                float v = (static_cast<float>(y) + 0.5f) / static_cast<float>(face_size) * 2.0f - 1.0f;
+            for (int x = 0; x < face_size; ++x) {
+                float   u = (static_cast<float>(x) + 0.5f) / static_cast<float>(face_size) * 2.0f - 1.0f;
+                Vector3 N = get_cube_direction(static_cast<int>(face), u, v);
+                Vector3 R = N;
+                Vector3 V = R;
 
-                for (int x = 0; x < face_size; ++x) {
-                    float   u = (static_cast<float>(x) + 0.5f) / static_cast<float>(face_size) * 2.0f - 1.0f;
-                    Vector3 N = get_cube_direction(face, u, v);
-                    Vector3 R = N;
-                    Vector3 V = R;
+                if (roughness <= 1e-4f) {
+                    Vector4 s           = sample_equirectangular(hdr_rgba, src_width, src_height, R);
+                    int     idx         = (y * face_size + x) * 4;
+                    dst_pixels[idx + 0] = s.r;
+                    dst_pixels[idx + 1] = s.g;
+                    dst_pixels[idx + 2] = s.b;
+                    dst_pixels[idx + 3] = 1.0f;
+                } else {
+                    constexpr uint NUM_SAMPLES = 64;
+                    Vector3        prefiltered(0.0f);
+                    float          total_weight = 0.0f;
 
-                    if (roughness <= 1e-4f) {
-                        Vector4 s           = sample_equirectangular(hdr_rgba, src_width, src_height, R);
-                        int     idx         = (y * face_size + x) * 4;
-                        dst_pixels[idx + 0] = s.r;
-                        dst_pixels[idx + 1] = s.g;
-                        dst_pixels[idx + 2] = s.b;
-                        dst_pixels[idx + 3] = 1.0f;
-                    } else {
-                        constexpr uint NUM_SAMPLES = 64;
-                        Vector3        prefiltered(0.0f);
-                        float          total_weight = 0.0f;
+                    for (uint i = 0; i < NUM_SAMPLES; ++i) {
+                        Vector2 xi = hammersley_2d(i, NUM_SAMPLES);
+                        Vector3 H  = importance_sample_ggx(xi, N, roughness);
+                        Vector3 L  = glm::normalize(2.0f * glm::dot(V, H) * H - V);
 
-                        for (uint i = 0; i < NUM_SAMPLES; ++i) {
-                            Vector2 xi = hammersley_2d(i, NUM_SAMPLES);
-                            Vector3 H  = importance_sample_ggx(xi, N, roughness);
-                            Vector3 L  = glm::normalize(2.0f * glm::dot(V, H) * H - V);
-
-                            float NdotL = std::max(glm::dot(N, L), 0.0f);
-                            if (NdotL > 0.0f) {
-                                Vector4 sample_val = sample_equirectangular(hdr_rgba, src_width, src_height, L);
-                                prefiltered += Vector3(sample_val.r, sample_val.g, sample_val.b) * NdotL;
-                                total_weight += NdotL;
-                            }
+                        float NdotL = std::max(glm::dot(N, L), 0.0f);
+                        if (NdotL > 0.0f) {
+                            Vector4 sample_val = sample_equirectangular(hdr_rgba, src_width, src_height, L);
+                            prefiltered += Vector3(sample_val.r, sample_val.g, sample_val.b) * NdotL;
+                            total_weight += NdotL;
                         }
-
-                        if (total_weight > 0.0f) {
-                            prefiltered /= total_weight;
-                        } else {
-                            Vector4 s   = sample_equirectangular(hdr_rgba, src_width, src_height, R);
-                            prefiltered = Vector3(s.r, s.g, s.b);
-                        }
-
-                        int idx             = (y * face_size + x) * 4;
-                        dst_pixels[idx + 0] = prefiltered.r;
-                        dst_pixels[idx + 1] = prefiltered.g;
-                        dst_pixels[idx + 2] = prefiltered.b;
-                        dst_pixels[idx + 3] = 1.0f;
                     }
+
+                    if (total_weight > 0.0f) {
+                        prefiltered /= total_weight;
+                    } else {
+                        Vector4 s   = sample_equirectangular(hdr_rgba, src_width, src_height, R);
+                        prefiltered = Vector3(s.r, s.g, s.b);
+                    }
+
+                    int idx             = (y * face_size + x) * 4;
+                    dst_pixels[idx + 0] = prefiltered.r;
+                    dst_pixels[idx + 1] = prefiltered.g;
+                    dst_pixels[idx + 2] = prefiltered.b;
+                    dst_pixels[idx + 3] = 1.0f;
                 }
+            }
+        }
+    };
+
+    if (JobScheduler::is_initialized()) {
+        Atomic<uint> remaining_tasks{static_cast<uint>(num_mips * 6)};
+        for (uint mip = 0; mip < static_cast<uint>(num_mips); ++mip) {
+            for (uint face = 0; face < 6; ++face) {
+                JobScheduler::schedule(JobPriority::HIGH, [&, mip, face]() {
+                    process_face(mip, face);
+                    remaining_tasks.fetch_sub(1, memory_order_release);
+                });
+            }
+        }
+
+        while (remaining_tasks.load(memory_order_acquire) > 0) {
+            if (!assist_work()) {
+                std::this_thread::yield();
+            }
+        }
+    } else {
+        for (uint mip = 0; mip < static_cast<uint>(num_mips); ++mip) {
+            for (uint face = 0; face < 6; ++face) {
+                process_face(mip, face);
             }
         }
     }
 }
 
 bool lyra::texture::save_cubemap_to_ktx2(
-    const Vector<Vector<Vector<float>>>& mip_faces,
-    int                                  base_size,
-    int                                  num_mips,
-    const Path&                          target_path,
-    Logger                               logger)
+    const CubemapMipChain& cubemap,
+    const Path&            target_path,
+    Logger                 logger)
 {
     try {
         fs::create_directories(target_path.parent_path());
@@ -267,11 +288,11 @@ bool lyra::texture::save_cubemap_to_ktx2(
     ktxTextureCreateInfo create_info{};
     create_info.glInternalformat = 0;
     create_info.vkFormat         = VK_FORMAT_R32G32B32A32_SFLOAT;
-    create_info.baseWidth        = static_cast<uint32_t>(base_size);
-    create_info.baseHeight       = static_cast<uint32_t>(base_size);
+    create_info.baseWidth        = static_cast<uint32_t>(cubemap.base_size);
+    create_info.baseHeight       = static_cast<uint32_t>(cubemap.base_size);
     create_info.baseDepth        = 1;
     create_info.numDimensions    = 2;
-    create_info.numLevels        = static_cast<uint32_t>(num_mips);
+    create_info.numLevels        = static_cast<uint32_t>(cubemap.num_mips);
     create_info.numLayers        = 1;
     create_info.numFaces         = 6;
     create_info.isArray          = KTX_FALSE;
@@ -283,17 +304,17 @@ bool lyra::texture::save_cubemap_to_ktx2(
         return false;
     }
 
-    for (int mip = 0; mip < num_mips; ++mip) {
-        int face_size = std::max(1, base_size >> mip);
-        for (int face = 0; face < 6; ++face) {
-            const auto& pixels    = mip_faces[mip][face];
-            ktx_size_t  data_size = face_size * face_size * 4 * sizeof(float);
-            result                = ktxTexture_SetImageFromMemory(
+    for (uint mip = 0; mip < cubemap.num_mips; ++mip) {
+        uint face_size = std::max(1u, cubemap.base_size >> mip);
+        for (uint face = 0; face < 6; ++face) {
+            auto       slice     = cubemap.get_face_slice(mip, face);
+            ktx_size_t data_size = face_size * face_size * 4 * sizeof(float);
+            result               = ktxTexture_SetImageFromMemory(
                 ktxTexture(ktx_tex),
                 static_cast<uint32_t>(mip),
                 0,
                 static_cast<uint32_t>(face),
-                reinterpret_cast<const ktx_uint8_t*>(pixels.data()),
+                reinterpret_cast<const ktx_uint8_t*>(slice.data()),
                 data_size);
             if (result != KTX_SUCCESS) {
                 if (logger) logger->error("Failed to set image for cubemap mip {} face {}: {}", mip, face, ktxErrorString(result));
@@ -332,11 +353,11 @@ IBLCookResult lyra::texture::process_environment_map(
     compute_sh9_from_equirectangular(hdr_rgba, width, height, res.sh9);
 
     // 2. Prefilter cubemap mips
-    Vector<Vector<Vector<float>>> mip_faces;
-    prefilter_environment_cubemap(hdr_rgba, width, height, res.base_resolution, res.mip_levels, mip_faces);
+    CubemapMipChain cubemap;
+    prefilter_environment_cubemap(hdr_rgba, width, height, res.base_resolution, res.mip_levels, cubemap);
 
     // 3. Save cubemap to KTX2
-    if (!save_cubemap_to_ktx2(mip_faces, res.base_resolution, res.mip_levels, target_path, logger)) {
+    if (!save_cubemap_to_ktx2(cubemap, target_path, logger)) {
         return res;
     }
 
