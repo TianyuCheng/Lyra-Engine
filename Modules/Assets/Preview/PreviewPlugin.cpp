@@ -30,7 +30,7 @@ namespace lyra::preview
     void prepare() {}
     void cleanup()
     {
-        BatchPreviewDispatcher::instance().shutdown();
+        BatchPreviewDispatcher::shutdown();
     }
     auto create() -> AssetPreviewAPI
     {

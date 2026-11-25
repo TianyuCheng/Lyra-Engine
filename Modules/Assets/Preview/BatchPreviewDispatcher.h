@@ -43,12 +43,17 @@ namespace lyra::preview
     {
     public:
         static auto instance() -> BatchPreviewDispatcher&;
+        static void shutdown();
+
+        BatchPreviewDispatcher() = default;
+        ~BatchPreviewDispatcher();
+        BatchPreviewDispatcher(const BatchPreviewDispatcher&)                    = delete;
+        auto operator=(const BatchPreviewDispatcher&) -> BatchPreviewDispatcher& = delete;
 
         void configure(const AssetConfigContext& context);
         auto generate_thumbnail(const PreviewScene& scene, JSON& metadata) -> Future<Path>;
         auto render_scene(const PreviewScene& scene) -> PreviewTexture;
         void flush();
-        void shutdown();
 
     private:
         static constexpr usize MAX_BATCH_SIZE = 64;

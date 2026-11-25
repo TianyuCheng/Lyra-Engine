@@ -33,10 +33,21 @@ PipelinePreviewConfig& lyra::preview::get_config()
     return G_CONFIG;
 }
 
+static Own<BatchPreviewDispatcher> G_DISPATCHER_INSTANCE;
+
 BatchPreviewDispatcher& BatchPreviewDispatcher::instance()
 {
-    static auto instance = new BatchPreviewDispatcher();
-    return *instance;
+    if (!G_DISPATCHER_INSTANCE) {
+        G_DISPATCHER_INSTANCE = make_own<BatchPreviewDispatcher>();
+    }
+    return *G_DISPATCHER_INSTANCE;
+}
+
+BatchPreviewDispatcher::~BatchPreviewDispatcher()
+{
+    if (gpu_initialized) {
+        destroy_gpu_resources();
+    }
 }
 
 void BatchPreviewDispatcher::configure(const AssetConfigContext& context)
@@ -198,9 +209,14 @@ void BatchPreviewDispatcher::flush()
 
 void BatchPreviewDispatcher::shutdown()
 {
-    flush();
-    UniqueLock lock(mutex);
-    destroy_gpu_resources();
+    if (G_DISPATCHER_INSTANCE) {
+        G_DISPATCHER_INSTANCE->flush();
+        {
+            UniqueLock lock(G_DISPATCHER_INSTANCE->mutex);
+            G_DISPATCHER_INSTANCE->destroy_gpu_resources();
+        }
+        G_DISPATCHER_INSTANCE.reset();
+    }
 }
 
 void BatchPreviewDispatcher::arm_debounce_timer_locked()

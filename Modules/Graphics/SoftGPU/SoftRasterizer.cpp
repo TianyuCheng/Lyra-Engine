@@ -507,13 +507,7 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
         float dudy = (shift_x == 0) ? (u_01 - u_00) : (u_11 - u_10);
         float dvdy = (shift_x == 0) ? (v_01 - v_00) : (v_11 - v_10);
 
-        SoftSamplerTLS::current_gradients.dudx          = dudx;
-        SoftSamplerTLS::current_gradients.dvdx          = dvdx;
-        SoftSamplerTLS::current_gradients.dudy          = dudy;
-        SoftSamplerTLS::current_gradients.dvdy          = dvdy;
-        SoftSamplerTLS::current_gradients.px            = x;
-        SoftSamplerTLS::current_gradients.py            = y;
-        SoftSamplerTLS::current_gradients.has_gradients = true;
+        ScopedPixelGradients scoped_gradients(dudx, dvdx, dudy, dvdy, x, y);
 
         if (ctx.fragment_shader_mrt) {
             ctx.fragment_shader_mrt(interp, out_colors, 8);
@@ -738,8 +732,6 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
             }
         }
     }
-
-    SoftSamplerTLS::current_gradients.has_gradients = false;
 }
 
 void SoftRasterizer::rasterize_triangles(std::span<const SoftRasterTriangle> triangles, const SoftRasterizerContext& ctx)

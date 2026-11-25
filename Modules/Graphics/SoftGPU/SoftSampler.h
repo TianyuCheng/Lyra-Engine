@@ -24,6 +24,31 @@ namespace lyra::softgpu
         static inline thread_local SoftPixelGradients current_gradients{};
     };
 
+    /**
+     * @brief RAII guard scoping pixel screen-space gradients to the current fragment invocation.
+     */
+    struct ScopedPixelGradients
+    {
+        ScopedPixelGradients(float dudx, float dvdx, float dudy, float dvdy, int px, int py)
+        {
+            SoftSamplerTLS::current_gradients.dudx          = dudx;
+            SoftSamplerTLS::current_gradients.dvdx          = dvdx;
+            SoftSamplerTLS::current_gradients.dudy          = dudy;
+            SoftSamplerTLS::current_gradients.dvdy          = dvdy;
+            SoftSamplerTLS::current_gradients.px            = px;
+            SoftSamplerTLS::current_gradients.py            = py;
+            SoftSamplerTLS::current_gradients.has_gradients = true;
+        }
+
+        ~ScopedPixelGradients()
+        {
+            SoftSamplerTLS::current_gradients.has_gradients = false;
+        }
+
+        ScopedPixelGradients(const ScopedPixelGradients&)                    = delete;
+        auto operator=(const ScopedPixelGradients&) -> ScopedPixelGradients& = delete;
+    };
+
     struct SoftSampler
     {
         GPUSamplerDescriptor desc;

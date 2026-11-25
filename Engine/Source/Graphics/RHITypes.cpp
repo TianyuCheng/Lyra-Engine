@@ -23,14 +23,18 @@ struct RHIBackendSlot
     bool                     active       = false;
 };
 
-static Mutex                     G_BACKENDS_MUTEX;
+static Mutex& get_backends_mutex()
+{
+    static auto mtx = new Mutex();
+    return *mtx;
+}
 static Array<RHIBackendSlot, 16> G_BACKENDS = {};
 static Atomic<ubyte>             ACTIVE_BACKEND_ID{0};
 
 #pragma region RHI
 OwnedResource<RHI> RHI::init(const RHIDescriptor& descriptor)
 {
-    LockGuard<Mutex> lock(G_BACKENDS_MUTEX);
+    LockGuard<Mutex> lock(get_backends_mutex());
 
     int slot_id = -1;
     for (int i = 0; i < 16; ++i) {
@@ -129,7 +133,7 @@ RenderAPI* RHI::api(uint rhi)
 
 void RHI::destroy() const
 {
-    LockGuard<Mutex> lock(G_BACKENDS_MUTEX);
+    LockGuard<Mutex> lock(get_backends_mutex());
 
     if (id < G_BACKENDS.size()) {
         auto& slot = G_BACKENDS[id];
@@ -207,7 +211,7 @@ GPUAdapter RHI::request_adapter(const GPUAdapterDescriptor& descriptor) const
     GPUAdapterProps props;
     RHI::api(id)->create_adapter(props, descriptor);
 
-    LockGuard<Mutex> lock(G_BACKENDS_MUTEX);
+    LockGuard<Mutex> lock(get_backends_mutex());
     auto&            adapter = G_BACKENDS[id].adapter;
     adapter.rhi              = id;
     adapter.info             = props.info;
@@ -289,7 +293,7 @@ GPUDevice GPUAdapter::request_device(const GPUDeviceDescriptor& descriptor)
         }
     }
 
-    LockGuard<Mutex> lock(G_BACKENDS_MUTEX);
+    LockGuard<Mutex> lock(get_backends_mutex());
     auto&            device = G_BACKENDS[rhi].device;
     device.rhi              = rhi;
     device.adapter_info     = info;
