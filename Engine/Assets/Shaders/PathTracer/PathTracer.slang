@@ -1,14 +1,32 @@
 import lyra;
-import Common.Camera;
-import Common.Sampling;
 import Common.BSDF;
-import Common.RayTracing;
-import Common.Lighting;
 import Common.Noise;
+import Common.Camera;
+import Common.Lighting;
+import Common.Sampling;
+import Common.RayTracing;
 import Common.Tonemapping;
 
 // Hardware-accelerated Path Tracer (RayGen, ClosestHit, Miss, Compute)
 // Multi-bounce Monte Carlo global illumination with BSDF importance sampling and Next-Event Estimation
+
+public struct PathTracerVertex
+{
+    public float3 position;
+    public float3 normal;
+    public float3 color;
+    public float3 emission;
+};
+
+public struct EmissiveTriangle
+{
+    public float3 p0;
+    public float3 p1;
+    public float3 p2;
+    public float3 normal;
+    public float3 emission;
+    public float  area;
+};
 
 public struct PathTracerPushConstants
 {
@@ -19,7 +37,7 @@ public struct PathTracerPushConstants
     public uint  frame_seed;
     public float exposure;
     public uint  debug_mode;
-    public uint  pad;
+    public uint  num_emissive_triangles;
 };
 
 [[lyra::immediates]]
@@ -36,6 +54,15 @@ RWTexture2D<float4> accumulation_buffer;
 
 [[lyra::binding(3, 0)]]
 RWTexture2D<float4> output_target;
+
+[[lyra::binding(4, 0)]]
+StructuredBuffer<PathTracerVertex> scene_vertices;
+
+[[lyra::binding(5, 0)]]
+StructuredBuffer<uint> scene_indices;
+
+[[lyra::binding(6, 0)]]
+StructuredBuffer<EmissiveTriangle> emissive_triangles;
 
 static const float3 SUN_DIRECTION      = normalize(float3(0.4, 0.8, 0.3));
 static const float3 SUN_EMISSION       = float3(12.0, 11.5, 10.0);
@@ -130,21 +157,35 @@ void closesthit_main(inout RayPayload payload, in BuiltInTriangleIntersectionAtt
 {
     float3 hit_pos = WorldRayOrigin() + WorldRayDirection() * RayTCurrent();
     float3 V       = -WorldRayDirection();
-    float3 N       = float3(0.0, 1.0, 0.0);
+    uint   prim_id = PrimitiveIndex();
 
-    if (abs(hit_pos.y) > abs(hit_pos.x) && abs(hit_pos.y) > abs(hit_pos.z)) {
-        N = float3(0.0, sign(hit_pos.y), 0.0);
-    } else if (abs(hit_pos.x) > abs(hit_pos.z)) {
-        N = float3(sign(hit_pos.x), 0.0, 0.0);
-    } else {
-        N = float3(0.0, 0.0, sign(hit_pos.z));
-    }
+    uint i0 = scene_indices[prim_id * 3 + 0];
+    uint i1 = scene_indices[prim_id * 3 + 1];
+    uint i2 = scene_indices[prim_id * 3 + 2];
+    PathTracerVertex v0 = scene_vertices[i0];
+    PathTracerVertex v1 = scene_vertices[i1];
+    PathTracerVertex v2 = scene_vertices[i2];
+
+    float2 bary = attribs.barycentrics;
+    float3 w    = float3(1.0 - bary.x - bary.y, bary.x, bary.y);
+    float3 N    = normalize(v0.normal * w.x + v1.normal * w.y + v2.normal * w.z);
     if (dot(N, V) < 0.0) N = -N;
 
+    float3 albedo   = v0.color * w.x + v1.color * w.y + v2.color * w.z;
+    float3 emission = v0.emission * w.x + v1.emission * w.y + v2.emission * w.z;
+
+    if (any(emission > 0.0)) {
+        if (payload.bounce_count == 0) {
+            payload.radiance += payload.throughput * emission;
+        }
+        payload.terminated = true;
+        return;
+    }
+
     PBRMaterial mat;
-    mat.base_color           = float3(0.85, 0.85, 0.85);
+    mat.base_color           = albedo;
     mat.metallic             = 0.0;
-    mat.roughness            = 0.4;
+    mat.roughness            = 0.5;
     mat.reflectance          = 0.5;
     mat.clear_coat.factor    = 0.0;
     mat.clear_coat.roughness = 0.04;
@@ -152,11 +193,35 @@ void closesthit_main(inout RayPayload payload, in BuiltInTriangleIntersectionAtt
     mat.clear_coat.thickness = 0.0;
 
     // Next-Event Estimation
-    float2      u_light = rand_f2(payload.rng_state);
-    LightSample ls      = sample_directional_sun(SUN_DIRECTION, SUN_ANGULAR_RADIUS, SUN_EMISSION, u_light);
-    if (dot(N, ls.direction) > 0.0 && ls.pdf > 0.0) {
-        float3 f = mat.evaluate(V, ls.direction, N);
-        payload.radiance += payload.throughput * f * (ls.radiance / ls.pdf);
+    if (push.num_emissive_triangles > 0) {
+        float u_pick = rand_f(payload.rng_state);
+        uint tri_idx = min(uint(u_pick * float(push.num_emissive_triangles)), push.num_emissive_triangles - 1);
+        EmissiveTriangle tri = emissive_triangles[tri_idx];
+
+        float2 u_tri = rand_f2(payload.rng_state);
+        float3 bary_light = sample_triangle_uniform(u_tri);
+        float3 light_pos = tri.p0 * bary_light.x + tri.p1 * bary_light.y + tri.p2 * bary_light.z;
+
+        float3 light_dir = light_pos - hit_pos;
+        float  dist_sq   = dot(light_dir, light_dir);
+        float  dist      = sqrt(dist_sq);
+        float3 L         = light_dir / dist;
+
+        float NoL       = dot(N, L);
+        float cos_light = max(dot(tri.normal, -L), 0.0);
+
+        if (NoL > 0.0 && cos_light > 0.0) {
+            float pdf = (dist_sq / (tri.area * cos_light)) * (1.0 / float(push.num_emissive_triangles));
+            float3 f = mat.evaluate(V, L, N);
+            payload.radiance += payload.throughput * f * (tri.emission / pdf);
+        }
+    } else {
+        float2 u_light = rand_f2(payload.rng_state);
+        LightSample ls = sample_directional_sun(SUN_DIRECTION, SUN_ANGULAR_RADIUS, SUN_EMISSION, u_light);
+        if (dot(N, ls.direction) > 0.0 && ls.pdf > 0.0) {
+            float3 f = mat.evaluate(V, ls.direction, N);
+            payload.radiance += payload.throughput * f * (ls.radiance / ls.pdf);
+        }
     }
 
     payload.terminated = true;
@@ -181,91 +246,113 @@ float4 trace_path(uint2 pixel, inout uint rng_state)
         RayDesc ray_desc;
         ray_desc.Origin    = ray.origin;
         ray_desc.Direction = ray.direction;
-        ray_desc.TMin      = 0.001;
+        ray_desc.TMin      = 0.01;
         ray_desc.TMax      = 10000.0;
         q.TraceRayInline(scene_tlas, RAY_FLAG_NONE, 0xFF, ray_desc);
         q.Proceed();
 
         if (q.CommittedStatus() != COMMITTED_TRIANGLE_HIT) {
-            float3 sky = evaluate_sky(ray.direction);
-            accumulated_radiance += throughput * sky;
+            if (bounce == 0 && push.num_emissive_triangles == 0) {
+                accumulated_radiance += throughput * evaluate_sky(ray.direction);
+            }
             break;
         }
 
         float hit_t    = q.CommittedRayT();
+        uint  prim_id  = q.CommittedPrimitiveIndex();
         float3 hit_pos = ray.origin + ray.direction * hit_t;
         float3 V       = -ray.direction;
 
         cone = cone.propagate(hit_t);
 
-        // Estimate geometric normal
-        float3 N = float3(0.0, 1.0, 0.0);
-        if (abs(hit_pos.y) > abs(hit_pos.x) && abs(hit_pos.y) > abs(hit_pos.z)) {
-            N = float3(0.0, sign(hit_pos.y), 0.0);
-        } else if (abs(hit_pos.x) > abs(hit_pos.z)) {
-            N = float3(sign(hit_pos.x), 0.0, 0.0);
-        } else {
-            N = float3(0.0, 0.0, sign(hit_pos.z));
-        }
+        // Fetch hit triangle vertices from scene buffers
+        uint i0 = scene_indices[prim_id * 3 + 0];
+        uint i1 = scene_indices[prim_id * 3 + 1];
+        uint i2 = scene_indices[prim_id * 3 + 2];
+        PathTracerVertex v0 = scene_vertices[i0];
+        PathTracerVertex v1 = scene_vertices[i1];
+        PathTracerVertex v2 = scene_vertices[i2];
+
+        float2 bary = q.CommittedTriangleBarycentrics();
+        float3 w    = float3(1.0 - bary.x - bary.y, bary.x, bary.y);
+        float3 N    = normalize(v0.normal * w.x + v1.normal * w.y + v2.normal * w.z);
         if (dot(N, V) < 0.0) N = -N;
 
-        // PBR material properties based on normal orientation
+        float3 albedo   = v0.color * w.x + v1.color * w.y + v2.color * w.z;
+        float3 emission = v0.emission * w.x + v1.emission * w.y + v2.emission * w.z;
+
+        // Direct hit on an emissive surface
+        if (any(emission > 0.0)) {
+            if (bounce == 0) {
+                accumulated_radiance += throughput * emission;
+            }
+            break;
+        }
+
         PBRMaterial mat;
+        mat.base_color           = albedo;
+        mat.metallic             = 0.0;
+        mat.roughness            = 0.5;
+        mat.reflectance          = 0.5;
         mat.clear_coat.factor    = 0.0;
         mat.clear_coat.roughness = 0.04;
         mat.clear_coat.tint      = float3(0.0);
         mat.clear_coat.thickness = 0.0;
-        mat.reflectance          = 0.5;
-
-        if (N.x > 0.6) {
-            // Left wall: red
-            mat.base_color = float3(0.85, 0.12, 0.12);
-            mat.metallic   = 0.0;
-            mat.roughness  = 0.5;
-        } else if (N.x < -0.6) {
-            // Right wall: green
-            mat.base_color = float3(0.12, 0.85, 0.12);
-            mat.metallic   = 0.0;
-            mat.roughness  = 0.5;
-        } else if (N.y > 0.6) {
-            // Floor: neutral gray
-            mat.base_color = float3(0.75, 0.75, 0.75);
-            mat.metallic   = 0.0;
-            mat.roughness  = 0.4;
-        } else if (N.y < -0.6) {
-            // Ceiling
-            mat.base_color = float3(0.85, 0.85, 0.85);
-            mat.metallic   = 0.0;
-            mat.roughness  = 0.6;
-        } else {
-            // Back wall / object
-            mat.base_color = float3(0.9, 0.9, 0.9);
-            mat.metallic   = 0.1;
-            mat.roughness  = 0.2;
-        }
 
         // =====================================================================
         // Next-Event Estimation (NEE)
         // =====================================================================
-        float2 u_light = rand_f2(rng_state);
-        LightSample ls = sample_directional_sun(SUN_DIRECTION, SUN_ANGULAR_RADIUS, SUN_EMISSION, u_light);
+        if (push.num_emissive_triangles > 0) {
+            float u_pick = rand_f(rng_state);
+            uint tri_idx = min(uint(u_pick * float(push.num_emissive_triangles)), push.num_emissive_triangles - 1);
+            EmissiveTriangle tri = emissive_triangles[tri_idx];
 
-        float NoL = dot(N, ls.direction);
-        if (NoL > 0.0 && ls.pdf > 0.0) {
-            RayQuery<RAY_FLAG_NONE> shadow_q;
-            RayDesc shadow_ray;
-            shadow_ray.Origin    = offset_ray_origin(hit_pos, N, ls.direction);
-            shadow_ray.Direction = ls.direction;
-            shadow_ray.TMin      = 0.001;
-            shadow_ray.TMax      = 10000.0;
-            shadow_q.TraceRayInline(scene_tlas, RAY_FLAG_NONE, 0xFF, shadow_ray);
-            shadow_q.Proceed();
+            float2 u_tri = rand_f2(rng_state);
+            float3 bary_light = sample_triangle_uniform(u_tri);
+            float3 light_pos = tri.p0 * bary_light.x + tri.p1 * bary_light.y + tri.p2 * bary_light.z;
 
-            if (shadow_q.CommittedStatus() != COMMITTED_TRIANGLE_HIT) {
-                float3 f         = mat.evaluate(V, ls.direction, N);
-                float  bsdf_pdf  = mat.pdf(V, ls.direction, N);
-                float  mis_weight = power_heuristic(ls.pdf, bsdf_pdf);
-                accumulated_radiance += throughput * f * (ls.radiance / ls.pdf) * mis_weight;
+            float3 light_dir = light_pos - hit_pos;
+            float  dist_sq   = dot(light_dir, light_dir);
+            float  dist      = sqrt(dist_sq);
+            float3 L         = light_dir / dist;
+
+            float NoL       = dot(N, L);
+            float cos_light = max(dot(tri.normal, -L), 0.0);
+
+            if (NoL > 0.0 && cos_light > 0.0) {
+                RayQuery<RAY_FLAG_NONE> shadow_q;
+                RayDesc                 shadow_ray;
+                shadow_ray.Origin    = offset_ray_origin(hit_pos, N, L);
+                shadow_ray.Direction = L;
+                shadow_ray.TMin      = 0.01;
+                shadow_ray.TMax      = max(dist - 0.05, 0.01);
+                shadow_q.TraceRayInline(scene_tlas, RAY_FLAG_NONE, 0xFF, shadow_ray);
+                shadow_q.Proceed();
+
+                if (shadow_q.CommittedStatus() != COMMITTED_TRIANGLE_HIT) {
+                    float  pdf = (dist_sq / (tri.area * cos_light)) * (1.0 / float(push.num_emissive_triangles));
+                    float3 f   = mat.evaluate(V, L, N);
+                    accumulated_radiance += throughput * f * (tri.emission / pdf);
+                }
+            }
+        } else {
+            float2 u_light = rand_f2(rng_state);
+            LightSample ls = sample_directional_sun(SUN_DIRECTION, SUN_ANGULAR_RADIUS, SUN_EMISSION, u_light);
+            float NoL = dot(N, ls.direction);
+            if (NoL > 0.0 && ls.pdf > 0.0) {
+                RayQuery<RAY_FLAG_NONE> shadow_q;
+                RayDesc                 shadow_ray;
+                shadow_ray.Origin    = offset_ray_origin(hit_pos, N, ls.direction);
+                shadow_ray.Direction = ls.direction;
+                shadow_ray.TMin      = 0.01;
+                shadow_ray.TMax      = 10000.0;
+                shadow_q.TraceRayInline(scene_tlas, RAY_FLAG_NONE, 0xFF, shadow_ray);
+                shadow_q.Proceed();
+
+                if (shadow_q.CommittedStatus() != COMMITTED_TRIANGLE_HIT) {
+                    float3 f = mat.evaluate(V, ls.direction, N);
+                    accumulated_radiance += throughput * f * (ls.radiance / ls.pdf);
+                }
             }
         }
 

@@ -21,14 +21,14 @@ namespace
 
     struct alignas(16) PathTracerPushConstants
     {
-        uint  width        = 0;
-        uint  height       = 0;
-        uint  sample_index = 0;
-        uint  max_bounces  = 4;
-        uint  frame_seed   = 0;
-        float exposure     = 1.0f;
-        uint  debug_mode   = 0;
-        uint  pad          = 0;
+        uint  width                  = 0;
+        uint  height                 = 0;
+        uint  sample_index           = 0;
+        uint  max_bounces            = 4;
+        uint  frame_seed             = 0;
+        float exposure               = 1.0f;
+        uint  debug_mode             = 0;
+        uint  num_emissive_triangles = 0;
     };
     static_assert(sizeof(PathTracerPushConstants) == 32, "PathTracerPushConstants must be 32 bytes");
 } // namespace
@@ -58,6 +58,8 @@ struct PathTracerRendererInstance
     GPUBlas   fallback_blas;
     GPUBuffer fallback_scratch;
     GPUBuffer fallback_vbuffer;
+    GPUBuffer fallback_ibuffer;
+    GPUBuffer fallback_ebuffer;
 
     // temporal accumulation state
     uint      accumulated_frames = 0;
@@ -87,10 +89,14 @@ void PathTracerRendererInstance::setup_fallback_as(GPUDevice dev)
 {
     if (fallback_tlas.handle.valid()) return;
 
-    Vector3 vertices[3] = {
-        Vector3(-1.0f, -1.0f, 0.0f),
-        Vector3(1.0f, -1.0f, 0.0f),
-        Vector3(0.0f, 1.0f, 0.0f)};
+    PathTracerVertex vertices[3] = {
+        {Vector3(-1.0f, -1.0f, 0.0f), Vector3(0.0f, 0.0f, 1.0f), Vector3(1.0f), Vector3(0.0f)},
+        {Vector3(1.0f, -1.0f, 0.0f), Vector3(0.0f, 0.0f, 1.0f), Vector3(1.0f), Vector3(0.0f)},
+        {Vector3(0.0f, 1.0f, 0.0f), Vector3(0.0f, 0.0f, 1.0f), Vector3(1.0f), Vector3(0.0f)}};
+
+    uint indices[3] = {0, 1, 2};
+
+    EmissiveTriangle dummy_emissive{};
 
     GPUBufferDescriptor vdesc{};
     vdesc.label              = "path_tracer_fallback_vbuffer";
@@ -98,9 +104,29 @@ void PathTracerRendererInstance::setup_fallback_as(GPUDevice dev)
     vdesc.usage              = GPUBufferUsage::STORAGE | GPUBufferUsage::MAP_WRITE;
     vdesc.mapped_at_creation = true;
     fallback_vbuffer         = dev.create_buffer(vdesc);
-    auto mapped              = fallback_vbuffer.get_mapped_range<Vector3>();
+    auto mapped              = fallback_vbuffer.get_mapped_range<PathTracerVertex>();
     std::memcpy(mapped.data, vertices, sizeof(vertices));
     fallback_vbuffer.unmap();
+
+    GPUBufferDescriptor idesc{};
+    idesc.label              = "path_tracer_fallback_ibuffer";
+    idesc.size               = sizeof(indices);
+    idesc.usage              = GPUBufferUsage::STORAGE | GPUBufferUsage::MAP_WRITE;
+    idesc.mapped_at_creation = true;
+    fallback_ibuffer         = dev.create_buffer(idesc);
+    auto imapped             = fallback_ibuffer.get_mapped_range<uint>();
+    std::memcpy(imapped.data, indices, sizeof(indices));
+    fallback_ibuffer.unmap();
+
+    GPUBufferDescriptor edesc{};
+    edesc.label              = "path_tracer_fallback_ebuffer";
+    edesc.size               = sizeof(dummy_emissive);
+    edesc.usage              = GPUBufferUsage::STORAGE | GPUBufferUsage::MAP_WRITE;
+    edesc.mapped_at_creation = true;
+    fallback_ebuffer         = dev.create_buffer(edesc);
+    auto emapped             = fallback_ebuffer.get_mapped_range<EmissiveTriangle>();
+    std::memcpy(emapped.data, &dummy_emissive, sizeof(dummy_emissive));
+    fallback_ebuffer.unmap();
 
     GPUBlasDescriptor bdesc{};
     bdesc.label = "path_tracer_fallback_blas";
@@ -139,7 +165,7 @@ void PathTracerRendererInstance::setup_fallback_as(GPUDevice dev)
     tri.size.vertex_format = GPUVertexFormat::FLOAT32x3;
     tri.size.vertex_count  = 3;
     tri.vertex_buffer      = fallback_vbuffer;
-    tri.vertex_stride      = sizeof(Vector3);
+    tri.vertex_stride      = sizeof(PathTracerVertex);
 
     GPUBlasBuildEntry b_entry{};
     b_entry.blas                 = fallback_blas;
@@ -256,6 +282,8 @@ void PathTracerRendererInstance::cleanup()
         if (fallback_blas.valid()) fallback_blas.destroy();
         if (fallback_scratch.valid()) fallback_scratch.destroy();
         if (fallback_vbuffer.valid()) fallback_vbuffer.destroy();
+        if (fallback_ibuffer.valid()) fallback_ibuffer.destroy();
+        if (fallback_ebuffer.valid()) fallback_ebuffer.destroy();
     }
 }
 
@@ -410,27 +438,35 @@ static FrameGraph::TextureHandle render(
         "PathTracerPass",
         [&](PathTracerPassData& data, FrameGraphPassBuilder& pass_builder) {
             data.output = pass_builder.write(ctx.color_target);
+            pass_builder.preserve();
         },
-        [renderer, extent, &view = ctx.view, active_tlas](const PathTracerPassData& data, FrameGraphResources& resources, FrameGraphContext* fg_ctx) {
+        [renderer, extent, &view = ctx.view, &scene = ctx.scene, active_tlas](const PathTracerPassData& data, FrameGraphResources& resources, FrameGraphContext* fg_ctx) {
             if (!fg_ctx || !fg_ctx->cmdlist.handle.valid()) return;
             if (!renderer->path_trace_pipeline.valid() && !renderer->rt_pipeline.valid()) return;
 
             auto out_tex = resources.get<FrameGraphTexture>(data.output);
             if (!out_tex) return;
 
+            renderer->setup_fallback_as(renderer->device);
+
             PathTracerPushConstants push{};
-            push.width        = extent.width;
-            push.height       = extent.height;
-            push.sample_index = renderer->accumulated_frames;
-            push.max_bounces  = renderer->settings.max_ray_bounces;
-            push.frame_seed   = renderer->accumulated_frames * 1999u + 1u;
-            push.exposure     = renderer->settings.exposure > 0.0f ? renderer->settings.exposure : 1.0f;
-            push.debug_mode   = renderer->settings.debug_mode;
+            push.width                  = extent.width;
+            push.height                 = extent.height;
+            push.sample_index           = renderer->accumulated_frames;
+            push.max_bounces            = renderer->settings.max_ray_bounces;
+            push.frame_seed             = renderer->accumulated_frames * 1999u + 1u;
+            push.exposure               = renderer->settings.exposure > 0.0f ? renderer->settings.exposure : 1.0f;
+            push.debug_mode             = renderer->settings.debug_mode;
+            push.num_emissive_triangles = scene.emissive_triangle_count;
 
             auto cam_uniforms = CameraUniforms::from_view(view);
             auto cam_slice    = fg_ctx->create_uniform(cam_uniforms, 256);
 
-            Array<GPUBindGroupEntry, 4> entries{};
+            BufferSlice vbuf = scene.scene_vbuffer.valid() ? scene.scene_vbuffer : BufferSlice{renderer->fallback_vbuffer, 0, sizeof(PathTracerVertex) * 3};
+            BufferSlice ibuf = scene.scene_ibuffer.valid() ? scene.scene_ibuffer : BufferSlice{renderer->fallback_ibuffer, 0, sizeof(uint) * 3};
+            BufferSlice ebuf = scene.emissive_triangles.valid() ? scene.emissive_triangles : BufferSlice{renderer->fallback_ebuffer, 0, sizeof(EmissiveTriangle)};
+
+            Array<GPUBindGroupEntry, 7> entries{};
             entries[0].type          = GPUResourceType::BUFFER;
             entries[0].binding       = 0;
             entries[0].buffer.buffer = cam_slice.buffer;
@@ -448,6 +484,24 @@ static FrameGraph::TextureHandle render(
             entries[3].type    = GPUResourceType::STORAGE_TEXTURE;
             entries[3].binding = 3;
             entries[3].texture = out_tex->view;
+
+            entries[4].type          = GPUResourceType::BUFFER;
+            entries[4].binding       = 4;
+            entries[4].buffer.buffer = vbuf.buffer;
+            entries[4].buffer.offset = vbuf.offset;
+            entries[4].buffer.size   = vbuf.size;
+
+            entries[5].type          = GPUResourceType::BUFFER;
+            entries[5].binding       = 5;
+            entries[5].buffer.buffer = ibuf.buffer;
+            entries[5].buffer.offset = ibuf.offset;
+            entries[5].buffer.size   = ibuf.size;
+
+            entries[6].type          = GPUResourceType::BUFFER;
+            entries[6].binding       = 6;
+            entries[6].buffer.buffer = ebuf.buffer;
+            entries[6].buffer.offset = ebuf.offset;
+            entries[6].buffer.size   = ebuf.size;
 
             GPUBindGroupDescriptor bg_desc{};
             bg_desc.layout  = renderer->blayouts.empty() ? GPUBindGroupLayoutHandle{} : renderer->blayouts[0];
@@ -480,7 +534,7 @@ static FrameGraph::TextureHandle render(
         ctx.outputs->depth = ctx.depth_target;
     }
 
-    return ctx.color_target;
+    return pass_data.output;
 }
 
 static void draw_debug_panel(RendererHandle handle)

@@ -520,22 +520,32 @@ public struct PBRMaterial : IBSDF
 
     public float3 sample(float3 V, float3 N, float2 u, out float3 out_L, out float out_pdf)
     {
-        if (u.x < (1.0 - metallic) * 0.5) {
-            float2 u_sub = float2(u.x / ((1.0 - metallic) * 0.5), u.y);
-            float3 local_L = sample_hemisphere_cosine(u_sub);
+        float diff_weight = 1.0 - metallic;
+        if (diff_weight >= 1.0) {
+            float3 local_L = sample_hemisphere_cosine(u);
             out_L = tangent_to_world(local_L, N);
             float NoL = max(dot(N, out_L), 0.0);
             out_pdf = pdf_hemisphere_cosine(NoL);
             return evaluate(V, out_L, N);
-        } else {
-            float2 u_sub = float2((u.x - (1.0 - metallic) * 0.5) / (1.0 - (1.0 - metallic) * 0.5), u.y);
-            float3 H = sample_ggx_vndf(u_sub, roughness, V, N);
+        } else if (diff_weight <= 0.0) {
+            float3 H = sample_ggx_vndf(u, roughness, V, N);
             out_L = normalize(2.0 * dot(V, H) * H - V);
-
             float NoH = max(dot(N, H), 0.0);
             float VoH = max(dot(V, H), 0.0);
             float D = distribution_ggx(NoH, roughness);
             out_pdf = pdf_ggx(D, NoH, VoH);
+            return evaluate(V, out_L, N);
+        } else {
+            if (u.x < diff_weight) {
+                float2 u_sub = float2(u.x / diff_weight, u.y);
+                float3 local_L = sample_hemisphere_cosine(u_sub);
+                out_L = tangent_to_world(local_L, N);
+            } else {
+                float2 u_sub = float2((u.x - diff_weight) / (1.0 - diff_weight), u.y);
+                float3 H = sample_ggx_vndf(u_sub, roughness, V, N);
+                out_L = normalize(2.0 * dot(V, H) * H - V);
+            }
+            out_pdf = pdf(V, out_L, N);
             return evaluate(V, out_L, N);
         }
     }
@@ -545,12 +555,13 @@ public struct PBRMaterial : IBSDF
         float NoL = max(dot(N, L), 0.0);
         if (NoL <= 0.0) return 0.0;
 
+        float pdf_diff = pdf_hemisphere_cosine(NoL);
+        if (metallic <= 0.0) return pdf_diff;
+
         float3 H = normalize(V + L);
         float NoH = max(dot(N, H), 0.0);
         float VoH = max(dot(V, H), 0.0);
         float D = distribution_ggx(NoH, roughness);
-
-        float pdf_diff = pdf_hemisphere_cosine(NoL);
         float pdf_spec = pdf_ggx(D, NoH, VoH);
 
         return lerp(pdf_diff, pdf_spec, metallic);

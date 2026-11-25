@@ -42,6 +42,30 @@ namespace lyra
     };
 
     /**
+     * @brief Vertex layout for ray tracing and path tracing passes.
+     */
+    struct PathTracerVertex
+    {
+        Vector3 position;
+        Vector3 normal;
+        Vector3 color;
+        Vector3 emission;
+    };
+
+    /**
+     * @brief Emissive triangle record for Next-Event Estimation (NEE) area light sampling.
+     */
+    struct EmissiveTriangle
+    {
+        Vector3 p0;
+        Vector3 p1;
+        Vector3 p2;
+        Vector3 normal;
+        Vector3 emission;
+        float   area = 0.0f;
+    };
+
+    /**
      * @brief flat, cache-friendly scene packet extracted per-frame for renderer consumption.
      */
     struct RenderScene
@@ -54,6 +78,12 @@ namespace lyra
 
         // hardware acceleration structure (built when ray tracing is active)
         GPUTlasHandle scene_tlas;
+
+        // consolidated geometry views for ray tracing / path tracing
+        BufferSlice scene_vbuffer{};
+        BufferSlice scene_ibuffer{};
+        BufferSlice emissive_triangles{};
+        uint        emissive_triangle_count = 0;
 
         // lighting and environment
         Vector<RenderLight>  directional_lights;
@@ -75,8 +105,12 @@ namespace lyra
             bvh_instances.clear();
             directional_lights.clear();
             local_lights.clear();
-            scene_tlas      = {};
-            environment_map = {};
+            scene_tlas              = {};
+            scene_vbuffer           = {};
+            scene_ibuffer           = {};
+            emissive_triangles      = {};
+            emissive_triangle_count = 0;
+            environment_map         = {};
             env_sh.fill(Vector4(0.0f));
             clear_color = Vector4(0.18f, 0.18f, 0.20f, 1.0f);
         }

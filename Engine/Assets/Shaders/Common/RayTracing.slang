@@ -177,10 +177,9 @@ public Ray generate_camera_ray(
     float2 ndc = screen_uv * 2.0 - 1.0;
     ndc.y = -ndc.y;
 
-    float4 target = mul(inv_proj, float4(ndc, 1.0, 1.0));
-    float3 ray_dir_view = normalize(target.xyz / target.w);
-    float3 ray_dir_world = normalize(mul((float3x3)inv_view, ray_dir_view));
-    float3 ray_origin_world = inv_view[3].xyz;
+    float4 target = mul(float4(ndc, 1.0, 1.0), inv_proj);
+    float3 ray_dir_world = normalize(mul(float4(normalize(target.xyz / target.w), 0.0), inv_view).xyz);
+    float3 ray_origin_world = mul(float4(0.0, 0.0, 0.0, 1.0), inv_view).xyz;
 
     Ray ray;
     ray.origin    = ray_origin_world;
@@ -207,9 +206,9 @@ public Ray generate_thin_lens_ray(
     }
 
     float2 lens_offset = sample_disk_concentric(lens_sample) * lens_radius;
-    float3 lens_point_world = pinhole.origin + mul((float3x3)inv_view, float3(lens_offset, 0.0));
+    float3 lens_point_world = pinhole.origin + mul(float4(lens_offset, 0.0, 0.0), inv_view).xyz;
 
-    float ft = focal_distance / max(abs(dot(pinhole.direction, mul((float3x3)inv_view, float3(0.0, 0.0, -1.0)))), 1e-5);
+    float ft = focal_distance / max(abs(dot(pinhole.direction, mul(float4(0.0, 0.0, -1.0, 0.0), inv_view).xyz)), 1e-5);
     float3 focal_point = pinhole.origin + pinhole.direction * ft;
 
     Ray ray;

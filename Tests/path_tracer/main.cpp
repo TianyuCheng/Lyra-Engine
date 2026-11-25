@@ -15,11 +15,13 @@ struct PathTracerApp : public TestApp
     FrameArena            arena;
     RenderView            view{};
 
-    Vector<Vertex> cornell_vertices;
-    Vector<uint>   cornell_indices;
+    Vector<PathTracerVertex> cornell_vertices;
+    Vector<uint>             cornell_indices;
+    Vector<EmissiveTriangle> emissive_triangles;
 
     GPUBuffer cornell_vbuffer;
     GPUBuffer cornell_ibuffer;
+    GPUBuffer cornell_ebuffer;
     GPUBlas   cornell_blas;
     GPUTlas   cornell_tlas;
     GPUBuffer cornell_scratch;
@@ -31,13 +33,14 @@ struct PathTracerApp : public TestApp
         const Vector3& p2,
         const Vector3& p3,
         const Vector3& normal,
-        const Vector3& color = Vector3(1.0f))
+        const Vector3& color,
+        const Vector3& emission = Vector3(0.0f))
     {
         uint base = static_cast<uint>(cornell_vertices.size());
-        cornell_vertices.push_back({p0, normal, color, {0.0f, 0.0f}});
-        cornell_vertices.push_back({p1, normal, color, {1.0f, 0.0f}});
-        cornell_vertices.push_back({p2, normal, color, {1.0f, 1.0f}});
-        cornell_vertices.push_back({p3, normal, color, {0.0f, 1.0f}});
+        cornell_vertices.push_back({p0, normal, color, emission});
+        cornell_vertices.push_back({p1, normal, color, emission});
+        cornell_vertices.push_back({p2, normal, color, emission});
+        cornell_vertices.push_back({p3, normal, color, emission});
 
         cornell_indices.push_back(base + 0);
         cornell_indices.push_back(base + 1);
@@ -45,58 +48,48 @@ struct PathTracerApp : public TestApp
         cornell_indices.push_back(base + 0);
         cornell_indices.push_back(base + 2);
         cornell_indices.push_back(base + 3);
-    }
 
-    void add_box(const Vector3& center, const Vector3& size, float rot_y)
-    {
-        Matrix4x4 t     = glm::translate(Matrix4x4(1.0f), center);
-        Matrix4x4 r     = glm::rotate(Matrix4x4(1.0f), rot_y, Vector3(0.0f, 1.0f, 0.0f));
-        Matrix4x4 s     = glm::scale(Matrix4x4(1.0f), size * 0.5f);
-        Matrix4x4 xform = t * r * s;
-
-        auto xf = [&](float x, float y, float z) -> Vector3 {
-            return Vector3(xform * Vector4(x, y, z, 1.0f));
-        };
-
-        // front (+Z)
-        add_quad(xf(-1, -1, 1), xf(1, -1, 1), xf(1, 1, 1), xf(-1, 1, 1), Vector3(0, 0, 1));
-        // back (-Z)
-        add_quad(xf(1, -1, -1), xf(-1, -1, -1), xf(-1, 1, -1), xf(1, 1, -1), Vector3(0, 0, -1));
-        // left (-X)
-        add_quad(xf(-1, -1, -1), xf(-1, -1, 1), xf(-1, 1, 1), xf(-1, 1, -1), Vector3(-1, 0, 0));
-        // right (+X)
-        add_quad(xf(1, -1, 1), xf(1, -1, -1), xf(1, 1, -1), xf(1, 1, 1), Vector3(1, 0, 0));
-        // top (+Y)
-        add_quad(xf(-1, 1, 1), xf(1, 1, 1), xf(1, 1, -1), xf(-1, 1, -1), Vector3(0, 1, 0));
-        // bottom (-Y)
-        add_quad(xf(-1, -1, -1), xf(1, -1, -1), xf(1, -1, 1), xf(-1, -1, 1), Vector3(0, -1, 0));
+        if (glm::length(emission) > 0.0f) {
+            float area1 = 0.5f * glm::length(glm::cross(p1 - p0, p2 - p0));
+            float area2 = 0.5f * glm::length(glm::cross(p2 - p0, p3 - p0));
+            emissive_triangles.push_back({p0, p1, p2, normal, emission, area1});
+            emissive_triangles.push_back({p0, p2, p3, normal, emission, area2});
+        }
     }
 
     void build_cornell_geometry()
     {
-        // 1. Floor (y = -1.0)
-        add_quad({-1.0f, -1.0f, 1.0f}, {1.0f, -1.0f, 1.0f}, {1.0f, -1.0f, -1.0f}, {-1.0f, -1.0f, -1.0f}, {0.0f, 1.0f, 0.0f});
+        // 0. Floor (White)
+        add_quad({552.8f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 559.2f}, {549.6f, 0.0f, 559.2f}, {0.0f, 1.0f, 0.0f}, {0.73f, 0.73f, 0.73f});
 
-        // 2. Ceiling with central aperture (y = 1.0)
-        add_quad({-1.0f, 1.0f, -1.0f}, {1.0f, 1.0f, -1.0f}, {1.0f, 1.0f, -0.35f}, {-1.0f, 1.0f, -0.35f}, {0.0f, -1.0f, 0.0f});
-        add_quad({-1.0f, 1.0f, 0.35f}, {1.0f, 1.0f, 0.35f}, {1.0f, 1.0f, 1.0f}, {-1.0f, 1.0f, 1.0f}, {0.0f, -1.0f, 0.0f});
-        add_quad({-1.0f, 1.0f, -0.35f}, {-0.35f, 1.0f, -0.35f}, {-0.35f, 1.0f, 0.35f}, {-1.0f, 1.0f, 0.35f}, {0.0f, -1.0f, 0.0f});
-        add_quad({0.35f, 1.0f, -0.35f}, {1.0f, 1.0f, -0.35f}, {1.0f, 1.0f, 0.35f}, {0.35f, 1.0f, 0.35f}, {0.0f, -1.0f, 0.0f});
+        // 1. Ceiling (White)
+        add_quad({556.0f, 548.8f, 0.0f}, {556.0f, 548.8f, 559.2f}, {0.0f, 548.8f, 559.2f}, {0.0f, 548.8f, 0.0f}, {0.0f, -1.0f, 0.0f}, {0.73f, 0.73f, 0.73f});
 
-        // 3. Back wall (z = -1.0)
-        add_quad({-1.0f, -1.0f, -1.0f}, {1.0f, -1.0f, -1.0f}, {1.0f, 1.0f, -1.0f}, {-1.0f, 1.0f, -1.0f}, {0.0f, 0.0f, 1.0f});
+        // 2. Back wall (White)
+        add_quad({549.6f, 0.0f, 559.2f}, {0.0f, 0.0f, 559.2f}, {0.0f, 548.8f, 559.2f}, {556.0f, 548.8f, 559.2f}, {0.0f, 0.0f, -1.0f}, {0.73f, 0.73f, 0.73f});
 
-        // 4. Left wall (red, x = -1.0)
-        add_quad({-1.0f, -1.0f, 1.0f}, {-1.0f, -1.0f, -1.0f}, {-1.0f, 1.0f, -1.0f}, {-1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f});
+        // 3. Right wall (Green, x = 0)
+        add_quad({0.0f, 0.0f, 559.2f}, {0.0f, 0.0f, 0.0f}, {0.0f, 548.8f, 0.0f}, {0.0f, 548.8f, 559.2f}, {1.0f, 0.0f, 0.0f}, {0.12f, 0.45f, 0.15f});
 
-        // 5. Right wall (green, x = 1.0)
-        add_quad({1.0f, -1.0f, -1.0f}, {1.0f, -1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, -1.0f}, {-1.0f, 0.0f, 0.0f});
+        // 4. Left wall (Red, x ~ 552)
+        add_quad({552.8f, 0.0f, 0.0f}, {549.6f, 0.0f, 559.2f}, {556.0f, 548.8f, 559.2f}, {556.0f, 548.8f, 0.0f}, {-1.0f, 0.0f, 0.0f}, {0.65f, 0.05f, 0.05f});
 
-        // 6. Tall block (left-back)
-        add_box({-0.35f, -0.3f, -0.35f}, {0.35f, 0.7f, 0.35f}, 0.314f);
+        // Short block (5 faces, White)
+        add_quad({130.0f, 165.0f, 65.0f}, {82.0f, 165.0f, 225.0f}, {240.0f, 165.0f, 272.0f}, {290.0f, 165.0f, 114.0f}, {0.0f, 1.0f, 0.0f}, {0.73f, 0.73f, 0.73f});
+        add_quad({290.0f, 0.0f, 114.0f}, {290.0f, 165.0f, 114.0f}, {240.0f, 165.0f, 272.0f}, {240.0f, 0.0f, 272.0f}, {0.9534f, 0.0f, 0.3017f}, {0.73f, 0.73f, 0.73f});
+        add_quad({130.0f, 0.0f, 65.0f}, {130.0f, 165.0f, 65.0f}, {290.0f, 165.0f, 114.0f}, {290.0f, 0.0f, 114.0f}, {0.2928f, 0.0f, -0.9562f}, {0.73f, 0.73f, 0.73f});
+        add_quad({82.0f, 0.0f, 225.0f}, {82.0f, 165.0f, 225.0f}, {130.0f, 165.0f, 65.0f}, {130.0f, 0.0f, 65.0f}, {-0.9578f, 0.0f, -0.2873f}, {0.73f, 0.73f, 0.73f});
+        add_quad({240.0f, 0.0f, 272.0f}, {240.0f, 165.0f, 272.0f}, {82.0f, 165.0f, 225.0f}, {82.0f, 0.0f, 225.0f}, {-0.2851f, 0.0f, 0.9585f}, {0.73f, 0.73f, 0.73f});
 
-        // 7. Short block (right-front)
-        add_box({0.35f, -0.65f, 0.3f}, {0.35f, 0.35f, 0.35f}, -0.314f);
+        // Tall block (5 faces, White)
+        add_quad({423.0f, 330.0f, 247.0f}, {265.0f, 330.0f, 296.0f}, {314.0f, 330.0f, 456.0f}, {472.0f, 330.0f, 406.0f}, {0.0f, 1.0f, 0.0f}, {0.73f, 0.73f, 0.73f});
+        add_quad({423.0f, 0.0f, 247.0f}, {423.0f, 330.0f, 247.0f}, {472.0f, 330.0f, 406.0f}, {472.0f, 0.0f, 406.0f}, {0.9556f, 0.0f, -0.2945f}, {0.73f, 0.73f, 0.73f});
+        add_quad({472.0f, 0.0f, 406.0f}, {472.0f, 330.0f, 406.0f}, {314.0f, 330.0f, 456.0f}, {314.0f, 0.0f, 456.0f}, {0.3017f, 0.0f, 0.9534f}, {0.73f, 0.73f, 0.73f});
+        add_quad({314.0f, 0.0f, 456.0f}, {314.0f, 330.0f, 456.0f}, {265.0f, 330.0f, 296.0f}, {265.0f, 0.0f, 296.0f}, {-0.9562f, 0.0f, 0.2928f}, {0.73f, 0.73f, 0.73f});
+        add_quad({265.0f, 0.0f, 296.0f}, {265.0f, 330.0f, 296.0f}, {423.0f, 330.0f, 247.0f}, {423.0f, 0.0f, 247.0f}, {-0.2962f, 0.0f, -0.9551f}, {0.73f, 0.73f, 0.73f});
+
+        // 15. Ceiling light quad (emissive white light source)
+        add_quad({343.0f, 548.7f, 227.0f}, {343.0f, 548.7f, 332.0f}, {213.0f, 548.7f, 332.0f}, {213.0f, 548.7f, 227.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {18.0f, 18.0f, 18.0f});
     }
 
     void setup_buffers()
@@ -108,11 +101,11 @@ struct PathTracerApp : public TestApp
         // Vertex buffer
         GPUBufferDescriptor vdesc{};
         vdesc.label              = "cornell_vbuffer";
-        vdesc.size               = sizeof(Vertex) * cornell_vertices.size();
+        vdesc.size               = sizeof(PathTracerVertex) * cornell_vertices.size();
         vdesc.usage              = GPUBufferUsage::STORAGE | GPUBufferUsage::MAP_WRITE;
         vdesc.mapped_at_creation = true;
         cornell_vbuffer          = current_device.create_buffer(vdesc);
-        auto vmapped             = cornell_vbuffer.get_mapped_range<Vertex>();
+        auto vmapped             = cornell_vbuffer.get_mapped_range<PathTracerVertex>();
         std::memcpy(vmapped.data, cornell_vertices.data(), vdesc.size);
         cornell_vbuffer.unmap();
 
@@ -127,14 +120,27 @@ struct PathTracerApp : public TestApp
         std::memcpy(imapped.data, cornell_indices.data(), idesc.size);
         cornell_ibuffer.unmap();
 
+        // Emissive triangles buffer
+        GPUBufferDescriptor edesc{};
+        edesc.label              = "cornell_ebuffer";
+        edesc.size               = sizeof(EmissiveTriangle) * std::max<usize>(1, emissive_triangles.size());
+        edesc.usage              = GPUBufferUsage::STORAGE | GPUBufferUsage::MAP_WRITE;
+        edesc.mapped_at_creation = true;
+        cornell_ebuffer          = current_device.create_buffer(edesc);
+        if (!emissive_triangles.empty()) {
+            auto emapped = cornell_ebuffer.get_mapped_range<EmissiveTriangle>();
+            std::memcpy(emapped.data, emissive_triangles.data(), sizeof(EmissiveTriangle) * emissive_triangles.size());
+        }
+        cornell_ebuffer.unmap();
+
         // Camera view setup
         view.render_extent        = {desc.width, desc.height};
-        view.fov                  = 45.0f;
-        view.near_plane           = 0.1f;
-        view.far_plane            = 100.0f;
-        view.camera_position      = Vector3(0.0f, 0.0f, 2.7f);
+        view.fov                  = 39.3077f;
+        view.near_plane           = 10.0f;
+        view.far_plane            = 5000.0f;
+        view.camera_position      = Vector3(278.0f, 273.0f, -800.0f);
         view.projection           = glm::perspective(glm::radians(view.fov), float(desc.width) / float(desc.height), view.near_plane, view.far_plane);
-        view.view                 = glm::lookAt(view.camera_position, Vector3(0.0f, 0.0f, 0.0f), Vector3(0.0f, 1.0f, 0.0f));
+        view.view                 = glm::lookAt(view.camera_position, Vector3(278.0f, 273.0f, 0.0f), Vector3(0.0f, 1.0f, 0.0f));
         view.view_projection      = view.projection * view.view;
         view.inv_view             = glm::inverse(view.view);
         view.inv_projection       = glm::inverse(view.projection);
@@ -197,7 +203,7 @@ struct PathTracerApp : public TestApp
         tri.size.index_count   = static_cast<uint>(cornell_indices.size());
         tri.size.index_format  = GPUIndexFormat::UINT32;
         tri.vertex_buffer      = cornell_vbuffer;
-        tri.vertex_stride      = sizeof(Vertex);
+        tri.vertex_stride      = sizeof(PathTracerVertex);
         tri.first_vertex       = 0;
         tri.index_buffer       = cornell_ibuffer;
         tri.first_index        = 0;
@@ -259,7 +265,8 @@ struct PathTracerApp : public TestApp
         api->get_settings(renderer_handle, settings);
         settings.max_ray_bounces   = 4;
         settings.samples_per_pixel = 1;
-        settings.exposure          = 1.0f;
+        settings.exposure          = 2.2f;
+        settings.debug_mode        = 0;
         api->set_settings(renderer_handle, settings);
 
         arena.init(current_device);
@@ -267,6 +274,11 @@ struct PathTracerApp : public TestApp
 
     explicit PathTracerApp(const TestAppDescriptor& desc) : TestApp(desc)
     {
+        if (desc.backend == RHIBackend::SOFTGPU) {
+            skipped     = true;
+            skip_reason = "Path tracer requires hardware compute / ray tracing";
+            return;
+        }
         if (skipped) return;
         setup_buffers();
         setup_as();
@@ -314,7 +326,11 @@ struct PathTracerApp : public TestApp
             auto color_target      = builder.import(backbuffer_tex);
 
             RenderScene scene{};
-            scene.scene_tlas = cornell_tlas;
+            scene.scene_tlas              = cornell_tlas;
+            scene.scene_vbuffer           = BufferSlice{cornell_vbuffer, 0, sizeof(PathTracerVertex) * cornell_vertices.size()};
+            scene.scene_ibuffer           = BufferSlice{cornell_ibuffer, 0, sizeof(uint) * cornell_indices.size()};
+            scene.emissive_triangles      = BufferSlice{cornell_ebuffer, 0, sizeof(EmissiveTriangle) * emissive_triangles.size()};
+            scene.emissive_triangle_count = static_cast<uint>(emissive_triangles.size());
 
             RenderFrameOutputs outputs{};
             RenderFrameContext ctx{

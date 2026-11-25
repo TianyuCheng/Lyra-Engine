@@ -1105,7 +1105,9 @@ static void execute_dispatch_workgroups(SoftDevice& device, ExecutionContext& ct
 
     const auto e_cam  = bg->find_entry(0);
     const auto e_tlas = bg->find_entry(1);
-    const auto e_out  = bg->find_entry(2);
+    const auto e_out2 = bg->find_entry(2);
+    const auto e_out3 = bg->find_entry(3);
+    const auto e_out  = e_out3 ? e_out3 : e_out2;
 
     if (e_cam && e_tlas && e_out && e_cam->type == GPUResourceType::BUFFER &&
         e_tlas->type == GPUResourceType::ACCELERATION_STRUCTURE &&
@@ -1117,17 +1119,41 @@ static void execute_dispatch_workgroups(SoftDevice& device, ExecutionContext& ct
         SoftTexture* out_tex = view ? device.textures.find(view->texture.to_slotmap_handle<SoftTexture>()) : nullptr;
 
         if (ubuf && tlas && out_tex) {
-            struct CameraData
+            struct CameraLegacyData
             {
                 Matrix4x4 proj;
                 Matrix4x4 view;
                 Matrix4x4 view_inv;
                 Matrix4x4 proj_inv;
             };
-            if (ubuf->data.size() >= sizeof(CameraData)) {
-                const auto cam    = reinterpret_cast<const CameraData*>(ubuf->data.data() + e_cam->buffer.offset);
-                uint       width  = out_tex->extent.width;
-                uint       height = out_tex->extent.height;
+            struct CameraUniformsData
+            {
+                Matrix4x4 view;
+                Matrix4x4 proj;
+                Matrix4x4 view_proj;
+                Matrix4x4 inv_view;
+                Matrix4x4 inv_proj;
+            };
+
+            Matrix4x4 view_inv{1.0f};
+            Matrix4x4 proj_inv{1.0f};
+            bool      valid_cam = false;
+
+            if (ubuf->data.size() - e_cam->buffer.offset >= sizeof(CameraUniformsData)) {
+                const auto cam = reinterpret_cast<const CameraUniformsData*>(ubuf->data.data() + e_cam->buffer.offset);
+                view_inv       = cam->inv_view;
+                proj_inv       = cam->inv_proj;
+                valid_cam      = true;
+            } else if (ubuf->data.size() - e_cam->buffer.offset >= sizeof(CameraLegacyData)) {
+                const auto cam = reinterpret_cast<const CameraLegacyData*>(ubuf->data.data() + e_cam->buffer.offset);
+                view_inv       = cam->view_inv;
+                proj_inv       = cam->proj_inv;
+                valid_cam      = true;
+            }
+
+            if (valid_cam) {
+                uint width  = out_tex->extent.width;
+                uint height = out_tex->extent.height;
 
                 for (uint py = 0; py < height; ++py) {
                     for (uint px = 0; px < width; ++px) {
@@ -1136,9 +1162,9 @@ static void execute_dispatch_workgroups(SoftDevice& device, ExecutionContext& ct
                         float ndc_x = u * 2.0f - 1.0f;
                         float ndc_y = -(v * 2.0f - 1.0f);
 
-                        Vector4 target = cam->proj_inv * Vector4(ndc_x, ndc_y, 1.0f, 1.0f);
-                        Vector3 dir    = Vector3(cam->view_inv * Vector4(glm::normalize(Vector3(target) / target.w), 0.0f));
-                        Vector3 orig   = Vector3(cam->view_inv * Vector4(0.0f, 0.0f, 0.0f, 1.0f));
+                        Vector4 target = proj_inv * Vector4(ndc_x, ndc_y, 1.0f, 1.0f);
+                        Vector3 dir    = Vector3(view_inv * Vector4(glm::normalize(Vector3(target) / target.w), 0.0f));
+                        Vector3 orig   = Vector3(view_inv * Vector4(0.0f, 0.0f, 0.0f, 1.0f));
 
                         SoftRayQuery q;
                         q.trace_ray_inline(*tlas, 0, 0xFF, orig, glm::normalize(dir), 0.001f, 10000.0f, device.blases);
