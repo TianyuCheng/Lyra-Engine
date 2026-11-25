@@ -45,7 +45,7 @@ namespace lyra::passes
         SkyboxPass& operator=(SkyboxPass&&) noexcept = default;
 
         /**
-         * @brief initialize skybox and atmospheric LUT pipelines, layouts, textures, and camera uniform buffers.
+         * @brief initialize skybox and atmospheric LUT pipelines, layouts, textures, and uniform buffers.
          */
         bool init(
             GPUDevice        device,

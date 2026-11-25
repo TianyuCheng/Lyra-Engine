@@ -120,12 +120,12 @@ namespace lyra
         [[nodiscard]] auto get_layout() const -> GPUBindGroupLayoutHandle { return layout; }
 
     private:
-        GPUDevice                       device;
-        GPUBindGroupLayout              layout;
-        GPUBindGroupHeap                heap;
-        HashMap<ulong, GPUBindGroup>    bind_groups;
-        bool                            owns_layout = false;
-        bool                            initialized = false;
+        GPUDevice                    device;
+        GPUBindGroupLayout           layout;
+        GPUBindGroupHeap             heap;
+        HashMap<ulong, GPUBindGroup> bind_groups;
+        bool                         owns_layout = false;
+        bool                         initialized = false;
     };
 
 } // namespace lyra

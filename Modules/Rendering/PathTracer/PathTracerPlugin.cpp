@@ -19,7 +19,6 @@ struct PathTracerRendererInstance
 
     // shader binding table & accumulation buffers
     GPUBuffer          sbt_buffer;
-    GPUBuffer          camera_buffer;
     GPUTexture         accumulation_tex;
     GPUTextureView     accumulation_view;
     GPUComputePipeline denoiser_pipeline;
@@ -74,7 +73,6 @@ static void delete_renderer(RendererHandle handle)
         if (ptr->accumulation_tex.valid()) ptr->accumulation_tex.destroy();
         if (ptr->accumulation_view.valid()) ptr->accumulation_view.destroy();
         if (ptr->sbt_buffer.valid()) ptr->sbt_buffer.destroy();
-        if (ptr->camera_buffer.valid()) ptr->camera_buffer.destroy();
         if (ptr->rt_pipeline.valid()) ptr->rt_pipeline.destroy();
         if (ptr->rt_layout.valid()) ptr->rt_layout.destroy();
         if (ptr->denoiser_pipeline.valid()) ptr->denoiser_pipeline.destroy();
