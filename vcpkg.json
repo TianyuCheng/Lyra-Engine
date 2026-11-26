@@ -41,6 +41,12 @@
         "geometry-instance",
         "ray-mask"
       ]
+    },
+    {
+      "name": "joltphysics",
+      "features": [
+        "debugrenderer"
+      ]
     }
   ],
   "overrides": [

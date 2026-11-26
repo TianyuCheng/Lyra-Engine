@@ -102,6 +102,9 @@ target_sources(lyra-engine PRIVATE
   Graphics/RHIInits.cpp
   Graphics/RHITypes.cpp
 
+  # physics
+  Physics/PhysicsTypes.cpp
+
   # rendering
   Rendering/FrameArena.cpp
   Rendering/FrameGraph.cpp
@@ -185,6 +188,7 @@ lyra_bindgen(engine
     ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Components/Light.h
     ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Components/Sun.h
     ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Components/Camera.h
+    ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Components/Physics.h
     ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Components/Transform.h
 )
 
@@ -194,6 +198,8 @@ target_link_libraries(lyra-engine PUBLIC lyra::headers)
 
 # link builtin plugins
 target_link_libraries(lyra-engine PRIVATE lyra::mockgpu)
+target_link_libraries(lyra-engine PRIVATE lyra::mockphysics)
+target_link_libraries(lyra-engine PRIVATE lyra::jolt)
 target_link_libraries(lyra-engine PRIVATE lyra::mesh)
 target_link_libraries(lyra-engine PRIVATE lyra::model)
 target_link_libraries(lyra-engine PRIVATE lyra::scene)

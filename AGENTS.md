@@ -19,6 +19,9 @@ using `auto` instead of `auto*`.
 Views & Container Access:
 Prefer exposing lightweight views / slices rather than raw pointers for containers and GPU buffers (e.g. `GPUBufferSlice`, `lyra::Span<T>` / `lyra::TypedView<T>`, `lyra::StringView`). Never expose raw pointers to internal containers or buffers (e.g. `const GPUBuffer*` or `const Vector<T>*`), as container reallocations lead to dangling pointers. Views provide copyable value semantics and support sub-allocations.
 
+Enums:
+Enum values declaration should all end with `,` (even for the last one).
+
 ## 0.5 HARD RULES
 
 1. Don't do any hack just to make test pass (for example, relax pass criteria for softgpu, implement skybox in softgpu).
@@ -236,6 +239,9 @@ Lyra wraps GLM with Depth $[0, 1]$ and Radians enabled:
 
 - **Comments**:
   - Prefer lowercase comments (e.g. `// resolve stable id across re-imports` rather than `// Resolve stable id across re-imports`).
+
+- **Enums**:
+  - Enum values declaration should all end with `,` (even for the last one).
 
 - **`auto` & Code Alignment**:
   - `auto` can be used for variable declarations, as well as `auto` with trailing return types for function declarations (`auto func(...) -> ReturnType`).

@@ -103,6 +103,15 @@
 #include <Lyra/Compiler/SLCDescs.h>
 #include <Lyra/Compiler/SLCTypes.h>
 
+// Physics & Collision Subsystem
+#include <Lyra/Physics/PhysicsAPI.h>
+#include <Lyra/Physics/PhysicsDescs.h>
+#include <Lyra/Physics/PhysicsEnums.h>
+#include <Lyra/Physics/PhysicsEvents.h>
+#include <Lyra/Physics/PhysicsLayers.h>
+#include <Lyra/Physics/PhysicsQueries.h>
+#include <Lyra/Physics/PhysicsTypes.h>
+
 // =============================================================================
 // 3. ECS Scene & Spatial Hierarchy
 // =============================================================================
@@ -112,6 +121,7 @@
 #include <Lyra/Components/Mesh.h>
 #include <Lyra/Components/Light.h>
 #include <Lyra/Components/Camera.h>
+#include <Lyra/Components/Physics.h>
 #include <Lyra/Components/Transform.h>
 #include <Lyra/Components/SDFVolume.h>
 
