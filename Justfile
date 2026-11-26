@@ -18,9 +18,9 @@ build target="all":
 run target="all" *args="":
     @{{PYTHON}} Tools/Scripts/build.py run --target {{target}} -- {{args}}
 
-test target="all":
+test target="all" *args="":
     @{{PYTHON}} Tools/Scripts/build.py build --target testkit
-    @{{PYTHON}} Tools/Scripts/build.py test --target {{target}}
+    @{{PYTHON}} Tools/Scripts/build.py test --target {{target}} {{args}}
 
 format:
     @{{PYTHON}} Tools/Scripts/build.py format

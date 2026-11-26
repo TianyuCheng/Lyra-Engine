@@ -130,6 +130,21 @@ def do_run(args: argparse.Namespace):
 def do_test(args: argparse.Namespace):
     config = load_config()
     preset = f"{config.generator}-{config.preset}"
+
+    # Handle extra positional/flag args
+    extra_args = getattr(args, "extra_args", [])
+    for extra in extra_args:
+        if extra in ("--non-interactive", "--headless"):
+            args.non_interactive = True
+        elif extra == "--interactive":
+            args.interactive = True
+        elif extra in ("--skip-expensive", "--skip-long"):
+            args.skip_expensive = True
+        elif extra in ("--no-skip-expensive", "--include-expensive", "--no-skip-long", "--include-long"):
+            args.skip_expensive = False
+        elif not extra.startswith("-") and args.target in ("all", None):
+            args.target = extra
+
     if not args.target:
         args.target = "all"
     elif args.target in ("--non-interactive", "--headless"):
@@ -138,6 +153,13 @@ def do_test(args: argparse.Namespace):
     elif args.target == "--interactive":
         args.interactive = True
         args.target = "all"
+    elif args.target in ("--skip-expensive", "--skip-long"):
+        args.skip_expensive = True
+        args.target = "all"
+    elif args.target in ("--no-skip-expensive", "--include-expensive", "--no-skip-long", "--include-long"):
+        args.skip_expensive = False
+        args.target = "all"
+
     target = args.target if args.target in ("unit-tests", "rhi-tests", "testkit") else "testkit"
     command = ["cmake", "--build", "--preset", preset, "--target", target]
     env_vars = {}
@@ -147,6 +169,10 @@ def do_test(args: argparse.Namespace):
         env_vars["LYRA_TESTKIT_NON_INTERACTIVE"] = "1"
     elif getattr(args, "interactive", None) is True:
         env_vars["LYRA_TESTKIT_INTERACTIVE"] = "1"
+    if getattr(args, "skip_expensive", None) is True:
+        env_vars["LYRA_TESTKIT_SKIP_EXPENSIVE"] = "1"
+    elif getattr(args, "skip_expensive", None) is False:
+        env_vars["LYRA_TESTKIT_SKIP_EXPENSIVE"] = "0"
     execute(command, env_vars)
 
 def do_amalgamate(args: argparse.Namespace):
@@ -239,6 +265,9 @@ def parse_args():
     test_parser.add_argument("--target", nargs="?", default="all")
     test_parser.add_argument("--interactive", action="store_true", default=None)
     test_parser.add_argument("--non-interactive", "--headless", dest="non_interactive", action="store_true", default=False)
+    test_parser.add_argument("--skip-expensive", "--skip-long", dest="skip_expensive", action="store_true", default=None)
+    test_parser.add_argument("--no-skip-expensive", "--include-expensive", "--no-skip-long", "--include-long", dest="skip_expensive", action="store_false", default=None)
+    test_parser.add_argument("extra_args", nargs="*")
 
     # just amalgamate headers
     amalgamate_parser = subparsers.add_parser("amalgamate")

@@ -32,11 +32,20 @@ def parse_args():
     parser.add_argument("--non-interactive", "--headless", dest="non_interactive", action="store_true", default=False, help="run in non-interactive / headless mode without opening the browser")
     parser.add_argument("--serve", action="store_true", default=False, help="keep the live HTTP server running after tests finish until Ctrl+C")
     parser.add_argument("--stage", choices=["all", "primitive", "usecase"], default="all", help="filter tests by stage tier: 'primitive', 'usecase', or 'all' (default: all)")
+    parser.add_argument("--skip-expensive", "--skip-long", dest="skip_expensive", action="store_true", default=None, help="skip computationally expensive tests marked in their config.json")
+    parser.add_argument("--no-skip-expensive", "--include-expensive", "--no-skip-long", "--include-long", dest="skip_expensive", action="store_false", default=None, help="do not skip expensive tests")
     args = parser.parse_args()
     args.executable = os.path.abspath(args.executable)
     args.directory = os.path.join(args.directory, "runs")
+    if args.skip_expensive is None:
+        env_skip = os.environ.get("LYRA_TESTKIT_SKIP_EXPENSIVE") or os.environ.get("LYRA_TESTKIT_SKIP_LONG")
+        if env_skip is not None:
+            args.skip_expensive = env_skip.strip().lower() in ("1", "true", "yes", "on")
+        else:
+            args.skip_expensive = False
     print("TestKit executable:", args.executable)
     print("TestKit directory:", args.directory)
+    print("TestKit skip expensive tests:", args.skip_expensive)
     return args
 
 def find_git_root(start_path=None):
@@ -166,23 +175,31 @@ RHI_TEST_ORDER = [
     "ray_tracing",
     "frame_graph",
 
-    # 8. UI System
-    "ui_system",
+    # 8. Post-Processing Pipeline
+    "postprocess_tonemapping",
+    "postprocess_bloom",
+    "postprocess_dof",
+    "postprocess_fxaa",
 
     # 9. Materials & Environment
     "shading_models",
     "atmosphere",
     "atmosphere_ibl",
 
-    # 10. Scene Renderers
+    # 10. Scene Renderers & Path Tracing
     "forward_renderer",
     "forward_renderer_multilight",
     "deferred_renderer",
     "deferred_renderer_multilight",
+    "path_tracer",
 
     # 11. Specialized Surface Renderers
     "ocean",
     "volumetric_clouds",
+
+    # 12. UI System
+    "ui_system",
+    "ui_node_editor",
 ]
 
 RHI_TEST_ASPECTS = {
@@ -225,26 +242,34 @@ RHI_TEST_ASPECTS = {
     "compute_indirect_dispatch": "Compute Pipeline",
 
     # 7. Advanced RHI Subsystems
-    "ray_tracing": "Ray Tracing & Graph",
-    "frame_graph": "Ray Tracing & Graph",
+    "ray_tracing": "Ray Tracing",
+    "frame_graph": "Frame Graph",
 
-    # 8. UI System
-    "ui_system": "UI System",
+    # 8. Post-Processing Pipeline
+    "postprocess_tonemapping": "Post-Processing",
+    "postprocess_bloom": "Post-Processing",
+    "postprocess_dof": "Post-Processing",
+    "postprocess_fxaa": "Post-Processing",
 
     # 9. Materials & Environment
     "shading_models": "Materials & Environment",
     "atmosphere": "Materials & Environment",
     "atmosphere_ibl": "Materials & Environment",
 
-    # 10. Scene Renderers
+    # 10. Scene Renderers & Path Tracing
     "forward_renderer": "Scene Renderers",
     "forward_renderer_multilight": "Scene Renderers",
     "deferred_renderer": "Scene Renderers",
     "deferred_renderer_multilight": "Scene Renderers",
+    "path_tracer": "Scene Renderers",
 
     # 11. Specialized Surface Renderers
     "ocean": "Specialized Renderers",
     "volumetric_clouds": "Specialized Renderers",
+
+    # 12. UI System
+    "ui_system": "UI System",
+    "ui_node_editor": "UI System",
 }
 
 def get_test_order_index(test_name):
@@ -254,14 +279,16 @@ def get_test_order_index(test_name):
 
 def get_test_metadata(test_name, git_root):
     """
-    Returns (tier_int, complexity_float, tier_name) for a test.
+    Returns (tier_int, complexity_float, tier_name, aspect_str) for a test.
     tier 0 -> "primitive" (default)
     tier 1 -> "usecase"
     complexity -> float between 0.0 and 1.0 (default: 0.0)
+    aspect_str -> optional category/aspect string from config.json or None
     """
     cfg_path = os.path.join(git_root, "Tests", test_name, "config.json")
     tier_int, tier_name = 0, "primitive"
     complexity = 0.0
+    aspect_str = None
     if os.path.exists(cfg_path):
         try:
             with open(cfg_path, "r", encoding="utf-8") as f:
@@ -283,9 +310,53 @@ def get_test_metadata(test_name, git_root):
                         complexity = max(0.0, min(1.0, float(comp_val)))
                     except (ValueError, TypeError):
                         pass
+                if "category" in data and isinstance(data["category"], str):
+                    aspect_str = data["category"]
+                elif "aspect" in data and isinstance(data["aspect"], str):
+                    aspect_str = data["aspect"]
         except Exception:
             pass
-    return tier_int, complexity, tier_name
+    return tier_int, complexity, tier_name, aspect_str
+
+def is_test_expensive_for_backend(test_name, backend, git_root):
+    """
+    Checks if a test is marked as expensive in Tests/<test_name>/config.json.
+    "expensive": true -> expensive on all backends.
+    "expensive": ["softgpu", ...] or "expensive": "softgpu" -> expensive on specified backend(s).
+    """
+    cfg_path = os.path.join(git_root, "Tests", test_name, "config.json")
+    if os.path.exists(cfg_path):
+        try:
+            with open(cfg_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                exp_val = data.get("expensive") if "expensive" in data else data.get("long")
+                if exp_val is True:
+                    return True
+                elif isinstance(exp_val, list):
+                    return backend.lower() in [str(b).strip().lower() for b in exp_val]
+                elif isinstance(exp_val, str):
+                    return backend.lower() == exp_val.strip().lower()
+        except Exception:
+            pass
+    return False
+
+def get_test_expensive_info(test_name, git_root):
+    """Returns (is_expensive_any, expensive_desc) for display in the test card."""
+    cfg_path = os.path.join(git_root, "Tests", test_name, "config.json")
+    if os.path.exists(cfg_path):
+        try:
+            with open(cfg_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                exp_val = data.get("expensive") if "expensive" in data else data.get("long")
+                if exp_val is True:
+                    return True, "all"
+                elif isinstance(exp_val, list) and exp_val:
+                    return True, ", ".join(str(b).strip() for b in exp_val)
+                elif isinstance(exp_val, str) and exp_val:
+                    return True, exp_val.strip()
+        except Exception:
+            pass
+    return False, None
 
 def read_png_rgba(path):
     """Reads an 8-bit PNG file using only python standard libraries and returns (width, height, bytearray_rgba)."""
@@ -751,15 +822,21 @@ def run_rhi_tests(args, buckets, on_progress=None):
 
     # Partition tasks by stage tier
     staged_tasks = {}
+    skipped_expensive_tasks = []
     for test_name, variants in buckets.items():
         directory = os.path.join(args.directory, test_name)
         os.makedirs(directory, exist_ok=True)
         ref_image = results[test_name]["reference"]
-        tier_int, complexity, tier_name = get_test_metadata(test_name, git_root)
+        tier_int, complexity, tier_name, _ = get_test_metadata(test_name, git_root)
         if tier_int not in staged_tasks:
             staged_tasks[tier_int] = (tier_name, [])
         for variant in variants:
-            staged_tasks[tier_int][1].append((test_name, variant, directory, ref_image, complexity))
+            backend = variant["components"][1]
+            item = (test_name, variant, directory, ref_image, complexity)
+            if getattr(args, "skip_expensive", False) and is_test_expensive_for_backend(test_name, backend, git_root):
+                skipped_expensive_tasks.append(item)
+            else:
+                staged_tasks[tier_int][1].append(item)
 
     results_lock = threading.Lock()
 
@@ -921,11 +998,38 @@ def run_rhi_tests(args, buckets, on_progress=None):
             if unexecuted:
                 remaining_tasks = unexecuted
 
+    # Immediately report skipped expensive tests without spawning worker processes
+    if skipped_expensive_tasks:
+        print(f"\n>>> Skipping {len(skipped_expensive_tasks)} expensive test variant(s)...")
+        for item in skipped_expensive_tasks:
+            test_name, variant, directory, ref_image, _ = item
+            full_name = variant["name"]
+            backend = variant["components"][1]
+            metrics = {
+                "passed": True,
+                "skipped": True,
+                "skip_reason": "Skipped (configured as expensive test)",
+                "error": None,
+                "rmse": 0.0,
+                "mismatch_pct": 0.0,
+                "diff_pixels": 0,
+                "total_pixels": 0,
+                "max_diff": 0,
+                "diff_image": None,
+            }
+            with results_lock:
+                results[test_name][backend] = None
+                results[test_name]["_metrics"][backend] = metrics
+                print(f"::{full_name}")
+                print(f"  -> [SKIP] {backend} (Skipped: configured as expensive test)")
+                if on_progress:
+                    on_progress(test_name, backend, metrics, None, None)
+
     max_workers = args.jobs if (args.jobs is not None and args.jobs > 0) else max(1, min(os.cpu_count() or 4, 8))
-    sorted_tiers = sorted(staged_tasks.keys())
+    sorted_tiers = [k for k in sorted(staged_tasks.keys()) if len(staged_tasks[k][1]) > 0]
     total_stages = len(sorted_tiers)
     total_tasks_count = sum(len(staged_tasks[k][1]) for k in sorted_tiers)
-    print(f">>> Running {total_tasks_count} RHI test variants across {total_stages} stage(s) with {max_workers} parallel workers...")
+    print(f">>> Running {total_tasks_count} test variants across {total_stages} stage(s) with {max_workers} parallel workers...")
 
     for idx, tier_int in enumerate(sorted_tiers, 1):
         tier_name, stage_tasks = staged_tasks[tier_int]
@@ -1138,7 +1242,7 @@ def generate_html_report(args, results, unit_success=True, finished=True, for_we
             border-radius: 12px;
             overflow: hidden;
             border: 1px solid var(--border);
-            table-layout: auto;
+            table-layout: fixed;
         }}
         th {{
             background-color: var(--surface-low);
@@ -1146,36 +1250,84 @@ def generate_html_report(args, results, unit_success=True, finished=True, for_we
             text-transform: uppercase;
             font-size: 0.75rem;
             font-weight: 700;
-            padding: 1rem;
+            padding: 1rem 0.75rem;
             text-align: left;
             border-bottom: 1px solid var(--border);
             position: sticky;
             top: 0;
             z-index: 10;
         }}
+        th.col-target {{
+            width: 260px;
+        }}
+        th.col-backend {{
+            text-align: center;
+        }}
         td {{
-            padding: 1rem;
+            padding: 0.85rem 0.75rem;
             border-bottom: 1px solid var(--border);
-            vertical-align: middle;
+            vertical-align: top;
         }}
         tr:last-child td {{ border-bottom: none; }}
         tr:hover td {{ background-color: var(--surface-high); }}
 
         .test-info {{
-            padding-left: 1.5rem;
+            width: 260px;
+            vertical-align: top;
+        }}
+        .test-card {{
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+            padding: 0.1rem 0;
         }}
         .test-name {{
             font-family: var(--font-code);
-            font-weight: 600;
-            font-size: 1rem;
+            font-weight: 700;
+            font-size: 0.95rem;
             display: block;
+            color: var(--accent);
+            word-break: break-word;
+            line-height: 1.35;
+        }}
+        .test-tag {{
+            display: inline-block;
+            align-self: flex-start;
+            padding: 0.15rem 0.5rem;
+            background: var(--surface-low);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }}
+        .test-row {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.74rem;
+            font-family: var(--font-code);
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+            padding-bottom: 0.2rem;
+        }}
+        .test-row-label {{
+            color: var(--text-muted);
+        }}
+        .test-row-val {{
             color: var(--text);
-            word-break: break-all;
+            font-weight: 600;
+        }}
+        .test-row-val.primitive {{ color: var(--accent); }}
+        .test-row-val.usecase {{ color: #e5c07b; }}
+        .test-docs-row {{
+            margin-top: 0.35rem;
         }}
 
         .docs-btn {{
             display: inline-flex;
             align-items: center;
+            justify-content: center;
+            width: 100%;
             padding: 0.4rem 0.8rem;
             background-color: var(--surface-high);
             color: var(--accent);
@@ -1203,34 +1355,60 @@ def generate_html_report(args, results, unit_success=True, finished=True, for_we
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 0.4rem;
-            min-height: 120px;
+            width: 100%;
+        }}
+        .img-wrap {{
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            display: flex;
+            align-items: center;
             justify-content: center;
+            background: #101216;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }}
+        .empty-thumb {{
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px dashed var(--border);
         }}
         .test-img {{
-            max-width: 320px;
-            height: auto;
-            border-radius: 8px;
-            border: 1px solid var(--border);
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
             background: #000;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s;
             cursor: pointer;
+            display: block;
         }}
         .test-img:hover {{
-            transform: translateY(-4px) scale(1.02);
-            border-color: var(--accent);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.5), 0 0 0 2px var(--accent-glow);
+            transform: scale(1.03);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+        }}
+
+        .meta-wrap {{
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.35rem;
+            margin-top: 0.5rem;
+            min-height: 52px;
+            justify-content: flex-start;
         }}
 
         .badge {{
             display: inline-block;
-            padding: 0.25rem 0.6rem;
-            font-size: 0.72rem;
+            padding: 0.25rem 0.55rem;
+            font-size: 0.7rem;
             font-family: var(--font-code);
             font-weight: 600;
             border-radius: 4px;
             text-align: center;
-            white-space: nowrap;
+            max-width: 100%;
+            word-break: break-word;
+            line-height: 1.3;
         }}
         .badge-ref {{
             background-color: rgba(97, 175, 239, 0.15);
@@ -1259,11 +1437,20 @@ def generate_html_report(args, results, unit_success=True, finished=True, for_we
             animation: pulse 1.5s infinite ease-in-out;
         }}
 
+        .skip-reason {{
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-family: var(--font-code);
+            text-align: center;
+            max-width: 100%;
+            word-break: break-word;
+            line-height: 1.3;
+        }}
+
         .diff-btn {{
             display: inline-flex;
             align-items: center;
-            margin-top: 0.2rem;
-            padding: 0.2rem 0.5rem;
+            padding: 0.22rem 0.55rem;
             font-size: 0.7rem;
             font-family: var(--font-code);
             background: var(--surface-low);
@@ -1394,7 +1581,7 @@ def generate_html_report(args, results, unit_success=True, finished=True, for_we
                 <span class="stat-value">{total_test_groups}</span>
             </div>
             <div class="stat">
-                <span class="stat-label">RHI Checks</span>
+                <span class="stat-label">Visual Checks</span>
                 <span class="stat-value" id="stat-progress">{completed_checks}/{total_checks} ({passed_checks} Pass, {skipped_checks} Skip, {failed_checks} Fail)</span>
             </div>
             <div class="stat">
@@ -1411,16 +1598,17 @@ def generate_html_report(args, results, unit_success=True, finished=True, for_we
 
     html_content.append("<table>")
     html_content.append("<thead><tr>")
-    html_content.append('<th>Target Test</th>')
+    html_content.append('<th class="col-target">Target Test</th>')
     for key in sequence:
-        html_content.append(f'<th style="text-align: center;">{key}</th>')
+        html_content.append(f'<th class="col-backend">{key}</th>')
     html_content.append('</tr></thead>')
     html_content.append("<tbody>")
 
     git_root = find_git_root()
     for test_name, buckets in results.items():
-        tier_int, complexity, tier_name = get_test_metadata(test_name, git_root)
-        aspect_name = RHI_TEST_ASPECTS.get(test_name, "RHI Test")
+        tier_int, complexity, tier_name, cfg_aspect = get_test_metadata(test_name, git_root)
+        aspect_name = cfg_aspect or RHI_TEST_ASPECTS.get(test_name, "Rendering")
+        is_expensive, expensive_backends = get_test_expensive_info(test_name, git_root)
         readme_path = os.path.join(git_root, "Tests", test_name, "README.md")
         has_readme = os.path.exists(readme_path)
         readme_content = ""
@@ -1430,20 +1618,34 @@ def generate_html_report(args, results, unit_success=True, finished=True, for_we
 
         encoded_docs = base64.b64encode(readme_content.encode("utf-8")).decode("utf-8")
 
+        expensive_row_html = f'''
+                    <div class="test-row">
+                        <span class="test-row-label">Expensive</span>
+                        <span class="test-row-val">{expensive_backends}</span>
+                    </div>''' if is_expensive else ''
+
         html_content.append('<tr>')
         html_content.append(f'''
             <td class="test-info">
-                <span class="test-name">{test_name}</span>
-                <div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-code); margin-top: 0.25rem;">
-                    {aspect_name} &bull; {tier_name} &bull; complexity: {complexity:.2f}
-                </div>
-                <div style="margin-top: 0.75rem;">
-                    <button class="docs-btn {"" if has_readme else "disabled"}"
-                            onclick="openDocs('{encoded_docs}', '{test_name}')"
-                            {"disabled" if not has_readme else ""}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;margin-right:6px;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-                        View Docs
-                    </button>
+                <div class="test-card">
+                    <span class="test-name">{test_name}</span>
+                    <span class="test-tag">{aspect_name}</span>
+                    <div class="test-row">
+                        <span class="test-row-label">Tier</span>
+                        <span class="test-row-val {tier_name}">{tier_name.capitalize()}</span>
+                    </div>
+                    <div class="test-row">
+                        <span class="test-row-label">Complexity</span>
+                        <span class="test-row-val">{complexity:.2f}</span>
+                    </div>{expensive_row_html}
+                    <div class="test-docs-row">
+                        <button class="docs-btn {"" if has_readme else "disabled"}"
+                                onclick="openDocs('{encoded_docs}', '{test_name}')"
+                                {"disabled" if not has_readme else ""}>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;margin-right:6px;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                            View Docs
+                        </button>
+                    </div>
                 </div>
             </td>''')
 
@@ -1456,36 +1658,75 @@ def generate_html_report(args, results, unit_success=True, finished=True, for_we
             if key == "reference":
                 if "reference" in buckets and os.path.exists(buckets["reference"]):
                     ref_uri = f"/Tests/{test_name}/reference.png" if for_web_server else pathlib.Path(os.path.abspath(buckets["reference"])).as_uri()
-                    html_content.append(f'<img src="{ref_uri}" class="test-img" onclick="openLightbox(this.src, \'{test_name} [REFERENCE]\')"/>')
-                    html_content.append('<span class="badge badge-ref">REFERENCE</span>')
+                    html_content.append(f'''
+                        <div class="img-wrap">
+                            <img src="{ref_uri}" class="test-img" onclick="openLightbox(this.src, \'{test_name} [REFERENCE]\')"/>
+                        </div>
+                        <div class="meta-wrap">
+                            <span class="badge badge-ref">REFERENCE</span>
+                        </div>
+                    ''')
                 else:
-                    html_content.append('<span class="empty-state">No Reference</span>')
-            elif key in buckets and os.path.exists(buckets[key]):
+                    html_content.append('''
+                        <div class="img-wrap empty-thumb">
+                            <span class="empty-state">No Reference</span>
+                        </div>
+                        <div class="meta-wrap"></div>
+                    ''')
+            elif key in buckets and buckets[key] and os.path.exists(buckets[key]):
                 image = buckets[key]
                 image_uri = f"/runs/{test_name}/{key}.png" if for_web_server else pathlib.Path(os.path.abspath(image)).as_uri()
-                html_content.append(f'<img src="{image_uri}" class="test-img" onclick="openLightbox(this.src, \'{test_name} [{key.upper()}]\')"/>')
 
+                badge_html = ""
+                diff_btn_html = ""
                 if key in metrics_map:
                     m = metrics_map[key]
                     if m.get("passed", False):
-                        html_content.append(f'<span class="badge badge-pass">PASS &bull; RMSE {m["rmse"]:.2f} &bull; {m["mismatch_pct"]:.2f}% diff</span>')
+                        badge_html = f'<span class="badge badge-pass">PASS &bull; RMSE {m["rmse"]:.2f} &bull; {m["mismatch_pct"]:.2f}%</span>'
                     else:
                         err = m.get("error") or f'RMSE {m["rmse"]:.2f}'
-                        html_content.append(f'<span class="badge badge-fail">FAIL &bull; {err}</span>')
+                        badge_html = f'<span class="badge badge-fail" title="{err}">FAIL &bull; {err}</span>'
 
                     diff_img = buckets.get(f"{key}_diff")
                     if diff_img and os.path.exists(diff_img):
                         diff_uri = f"/runs/{test_name}/{key}_diff.png" if for_web_server else pathlib.Path(os.path.abspath(diff_img)).as_uri()
-                        html_content.append(f'<button class="diff-btn" onclick="openLightbox(\'{diff_uri}\', \'{test_name} [{key.upper()} DIFF]\')">View Diff</button>')
+                        diff_btn_html = f'<button class="diff-btn" onclick="openLightbox(\'{diff_uri}\', \'{test_name} [{key.upper()} DIFF]\')">View Diff</button>'
+
+                html_content.append(f'''
+                    <div class="img-wrap">
+                        <img src="{image_uri}" class="test-img" onclick="openLightbox(this.src, \'{test_name} [{key.upper()}]\')"/>
+                    </div>
+                    <div class="meta-wrap">
+                        {badge_html}
+                        {diff_btn_html}
+                    </div>
+                ''')
             elif key in metrics_map and metrics_map[key].get("skipped"):
                 m = metrics_map[key]
                 reason = m.get("skip_reason", "Feature not supported")
-                html_content.append(f'<span class="badge badge-skip">SKIPPED &bull; {reason}</span>')
+                html_content.append(f'''
+                    <div class="img-wrap empty-thumb">
+                        <span class="badge badge-skip">SKIPPED</span>
+                    </div>
+                    <div class="meta-wrap">
+                        <span class="skip-reason" title="{reason}">{reason}</span>
+                    </div>
+                ''')
             else:
                 if finished or (available_backends is not None and key not in available_backends):
-                    html_content.append('<span class="empty-state">Not Available</span>')
+                    html_content.append('''
+                        <div class="img-wrap empty-thumb">
+                            <span class="empty-state">Not Available</span>
+                        </div>
+                        <div class="meta-wrap"></div>
+                    ''')
                 else:
-                    html_content.append('<span class="badge badge-pending">PENDING</span>')
+                    html_content.append('''
+                        <div class="img-wrap empty-thumb">
+                            <span class="badge badge-pending">PENDING</span>
+                        </div>
+                        <div class="meta-wrap"></div>
+                    ''')
             html_content.append('</div></td>')
 
         html_content.append('</tr>')
@@ -1588,14 +1829,21 @@ def generate_html_report(args, results, unit_success=True, finished=True, for_we
                     const container = cell.querySelector('.img-cell') || cell;
                     if (msg.skipped) {
                         const reason = msg.skip_reason || "Feature not supported";
-                        container.innerHTML = `<span class="badge badge-skip">SKIPPED &bull; ${reason}</span>`;
+                        container.innerHTML = `
+                            <div class="img-wrap empty-thumb">
+                                <span class="badge badge-skip">SKIPPED</span>
+                            </div>
+                            <div class="meta-wrap">
+                                <span class="skip-reason" title="${reason}">${reason}</span>
+                            </div>
+                        `;
                     } else if (msg.image_url) {
                         let badgeHtml = '';
                         if (msg.passed) {
-                            badgeHtml = `<span class="badge badge-pass">PASS &bull; RMSE ${msg.rmse.toFixed(2)} &bull; ${msg.mismatch_pct.toFixed(2)}% diff</span>`;
+                            badgeHtml = `<span class="badge badge-pass">PASS &bull; RMSE ${msg.rmse.toFixed(2)} &bull; ${msg.mismatch_pct.toFixed(2)}%</span>`;
                         } else {
                             const err = msg.error || `RMSE ${msg.rmse.toFixed(2)}`;
-                            badgeHtml = `<span class="badge badge-fail">FAIL &bull; ${err}</span>`;
+                            badgeHtml = `<span class="badge badge-fail" title="${err}">FAIL &bull; ${err}</span>`;
                         }
 
                         let diffBtnHtml = '';
@@ -1606,9 +1854,13 @@ def generate_html_report(args, results, unit_success=True, finished=True, for_we
                         }
 
                         container.innerHTML = `
-                            <img src="${msg.image_url}" class="test-img" onclick="openLightbox('${msg.image_url}', '${msg.test_name} [${msg.backend.toUpperCase()}]')"/>
-                            ${badgeHtml}
-                            ${diffBtnHtml}
+                            <div class="img-wrap">
+                                <img src="${msg.image_url}" class="test-img" onclick="openLightbox('${msg.image_url}', '${msg.test_name} [${msg.backend.toUpperCase()}]')"/>
+                            </div>
+                            <div class="meta-wrap">
+                                ${badgeHtml}
+                                ${diffBtnHtml}
+                            </div>
                         `;
                     }
                 }
@@ -1620,7 +1872,8 @@ def generate_html_report(args, results, unit_success=True, finished=True, for_we
             } else if (msg.type === 'finished') {
                 if (statusElem) {
                     document.querySelectorAll('.badge-pending').forEach(el => {
-                        el.outerHTML = '<span class="empty-state">Not Available</span>';
+                        const wrap = el.closest('.img-wrap') || el;
+                        wrap.innerHTML = '<span class="empty-state">Not Available</span>';
                     });
                     if (msg.overall_passed) {
                         statusElem.textContent = "ALL PASSED";
