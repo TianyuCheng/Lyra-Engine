@@ -236,6 +236,10 @@ namespace lyra
         virtual void pre_read(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphReadOp op, FrameGraphBarrierBatch* barriers) = 0;
 
         virtual void pre_write(FrameGraphContext* context, FrameGraphPass* pass, FrameGraphWriteOp op, FrameGraphBarrierBatch* barriers) = 0;
+
+        virtual void set_memory_hint(GPUMemoryHint hint) {}
+
+        virtual auto get_memory_hint() const -> GPUMemoryHint { return GPUMemoryHint::dedicated(); }
     };
 
     template <typename T>
@@ -281,6 +285,21 @@ namespace lyra
                 value.pre_write(context, pass, op, barriers);
             else if constexpr (has_pre_write_v<T>)
                 value.pre_write(context, pass, op);
+        }
+
+        void set_memory_hint(GPUMemoryHint hint) override
+        {
+            if constexpr (requires { desc.memory_hint; }) {
+                desc.memory_hint = hint;
+            }
+        }
+
+        auto get_memory_hint() const -> GPUMemoryHint override
+        {
+            if constexpr (requires { desc.memory_hint; }) {
+                return desc.memory_hint;
+            }
+            return GPUMemoryHint::dedicated();
         }
     };
 
@@ -515,8 +534,7 @@ namespace lyra
         void reclaim_unused();
         void reclaim_unused_if(FunctionRef<bool(const GPUTextureDescriptor&)> texture_pred);
         void reclaim_unused_if(FunctionRef<bool(const GPUBufferDescriptor&)> buffer_pred);
-        void reclaim_unused_if(FunctionRef<bool(const GPUTextureDescriptor&)> texture_pred,
-            FunctionRef<bool(const GPUBufferDescriptor&)>                     buffer_pred);
+        void reclaim_unused_if(FunctionRef<bool(const GPUTextureDescriptor&)> texture_pred, FunctionRef<bool(const GPUBufferDescriptor&)> buffer_pred);
         void tick(uint max_unused_frames = 60);
 
         void clear();
@@ -673,6 +691,16 @@ namespace lyra
         virtual ~FrameGraph();
 
         void execute(FrameGraphContext* context, FrameGraphAllocator* allocator);
+
+        [[nodiscard]] auto get_physical_resource(uint pid) const -> const FrameGraphResourceModel*
+        {
+            return (pid < physical_resources.size()) ? physical_resources[pid].get() : nullptr;
+        }
+
+        [[nodiscard]] auto physical_resource_count() const -> usize
+        {
+            return physical_resources.size();
+        }
 
     private:
         void compile();

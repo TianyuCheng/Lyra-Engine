@@ -226,7 +226,7 @@ void cmd::begin_render_pass(GPUCommandEncoderHandle cmdbuffer, const GPURenderPa
     render_area.offset.x = 0;
     render_area.offset.y = 0;
     if (!descriptor.color_attachments.empty()) {
-        auto& view                = fetch_resource(rhi->views, descriptor.color_attachments.at(0).view);
+        auto& view                = fetch_resource(rhi->views, descriptor.color_attachments[0].view);
         render_area.extent.width  = view.area.width;
         render_area.extent.height = view.area.height;
     } else if (has_depth_stencil) {
@@ -851,7 +851,7 @@ void cmd::build_blases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
         // update geometries and ranges
         uint geometry_count = static_cast<uint>(std::min(entry.geometries.triangles.size(), blas.geometries.size()));
         for (uint k = 0; k < geometry_count; k++) {
-            auto& src_geometry = entry.geometries.triangles.at(k);
+            auto& src_geometry = entry.geometries.triangles[k];
             auto& dst_geometry = blas.geometries.at(k);
 
             auto index_data = VkDeviceAddress{0};

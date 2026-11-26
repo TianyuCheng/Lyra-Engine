@@ -113,6 +113,7 @@ target_sources(lyra-engine PRIVATE
   # rendering
   Rendering/FrameArena.cpp
   Rendering/FrameGraph.cpp
+  Rendering/FrameGraphMemory.cpp
   Rendering/FrameGraphAllocator.cpp
   Rendering/FrameGraphBuilder.cpp
   Rendering/FrameGraphTexture.cpp

@@ -32,6 +32,32 @@ namespace lyra
         GPUFeatureNames features = {};
     };
 
+    struct GPUMemoryHint
+    {
+        uint slot = 0; // 0 = dedicated, >0 = alias slot
+
+        constexpr GPUMemoryHint() noexcept = default;
+        constexpr explicit GPUMemoryHint(uint slot) noexcept : slot(slot) {}
+
+        [[nodiscard]] constexpr bool is_aliased() const noexcept { return slot != 0; }
+        [[nodiscard]] constexpr bool is_dedicated() const noexcept { return slot == 0; }
+
+        static constexpr auto dedicated() noexcept -> GPUMemoryHint
+        {
+            return GPUMemoryHint{0};
+        }
+
+        static constexpr auto aliased(uint slot) noexcept -> GPUMemoryHint
+        {
+            return GPUMemoryHint{slot};
+        }
+
+        constexpr bool operator==(const GPUMemoryHint&) const noexcept = default;
+        constexpr bool operator!=(const GPUMemoryHint&) const noexcept = default;
+    };
+
+    static_assert(sizeof(GPUMemoryHint) == sizeof(uint), "GPUMemoryHint must be exactly 4 bytes");
+
     // NOTE: Non-WebGPU standard API
     // WebGPU does not need to directly operating with GPU surface,
     // it should directly work with <canvas> element in web context.
@@ -57,12 +83,14 @@ namespace lyra
         GPUBufferUsageFlags usage              = 0;
         bool                virtual_address    = false;
         bool                mapped_at_creation = false;
+        GPUMemoryHint       memory_hint        = GPUMemoryHint::dedicated();
 
         friend bool operator==(const GPUBufferDescriptor& lhs, const GPUBufferDescriptor& rhs)
         {
             return lhs.size == rhs.size &&
                    lhs.usage.value == rhs.usage &&
-                   lhs.virtual_address == rhs.virtual_address;
+                   lhs.virtual_address == rhs.virtual_address &&
+                   lhs.memory_hint == rhs.memory_hint;
         }
     };
 
@@ -90,6 +118,7 @@ namespace lyra
         GPUTextureDimension  dimension       = GPUTextureDimension::x2D;
         GPUTextureFormat     format          = GPUTextureFormat::RGBA8UNORM;
         GPUTextureUsageFlags usage           = 0;
+        GPUMemoryHint        memory_hint     = GPUMemoryHint::dedicated();
 
         friend bool operator==(const GPUTextureDescriptor& lhs, const GPUTextureDescriptor& rhs)
         {
@@ -101,7 +130,8 @@ namespace lyra
                    lhs.sample_count == rhs.sample_count &&
                    lhs.dimension == rhs.dimension &&
                    lhs.format == rhs.format &&
-                   lhs.usage.value == rhs.usage;
+                   lhs.usage.value == rhs.usage &&
+                   lhs.memory_hint == rhs.memory_hint;
         }
     };
 

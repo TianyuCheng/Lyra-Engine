@@ -181,8 +181,8 @@ bool WindowInput::has_dropped_files() const
     return !current_state().files.entries.empty();
 }
 
-lyra::detail::typed_view<String> WindowInput::get_dropped_files() const
+Span<const String> WindowInput::get_dropped_files() const
 {
     const auto& entries = current_state().files.entries;
-    return detail::typed_view(entries.data(), entries.size());
+    return Span<const String>(entries.data(), entries.size());
 }

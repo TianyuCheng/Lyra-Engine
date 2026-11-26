@@ -15,6 +15,7 @@ struct std::hash<lyra::GPUBufferDescriptor>
         lyra::hash_combine(res, d.size);
         lyra::hash_combine(res, d.usage.value);
         lyra::hash_combine(res, d.virtual_address);
+        lyra::hash_combine(res, d.memory_hint.slot);
         return res;
     }
 };
@@ -33,6 +34,7 @@ struct std::hash<lyra::GPUTextureDescriptor>
         lyra::hash_combine(res, d.dimension);
         lyra::hash_combine(res, d.format);
         lyra::hash_combine(res, d.usage.value);
+        lyra::hash_combine(res, d.memory_hint.slot);
         return res;
     }
 };

@@ -11,7 +11,6 @@ target_sources(lyra-headers INTERFACE
     Lyra/Utilities/Detail/Arena.h
     Lyra/Utilities/Detail/Blackboard.h
     Lyra/Utilities/Detail/Services.h
-    Lyra/Utilities/Detail/View.h
 
     # utilities headers
     Lyra/Utilities/Assert.h
@@ -65,6 +64,7 @@ target_sources(lyra-headers INTERFACE
     Lyra/Rendering/ViewUniforms.h
     Lyra/Rendering/SceneLighting.h
     Lyra/Rendering/FrameGraph.h
+    Lyra/Rendering/FrameGraphMemory.h
     Lyra/Rendering/Geometry.h
     Lyra/Rendering/GeometryBindGroupCache.h
     Lyra/Rendering/GeometryBufferPool.h

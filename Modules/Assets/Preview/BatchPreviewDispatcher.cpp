@@ -314,7 +314,7 @@ auto BatchPreviewDispatcher::init_gpu_resources() -> bool
 
         GPUPipelineLayoutDescriptor playout_desc{};
         playout_desc.label              = "preview_pipeline_layout";
-        playout_desc.bind_group_layouts = TypedView<GPUBindGroupLayoutHandle>(blayouts);
+        playout_desc.bind_group_layouts = Span<GPUBindGroupLayoutHandle>(blayouts);
         playout_desc.immediate_size     = reflection->get_immediate_size();
         pipeline_layout                 = device.create_pipeline_layout(playout_desc);
 
@@ -382,7 +382,7 @@ auto BatchPreviewDispatcher::init_gpu_resources() -> bool
         GPUBindGroupDescriptor bg_desc{};
         bg_desc.heap             = bind_group_heap;
         bg_desc.layout           = bind_group_layout;
-        bg_desc.entries          = TypedView<GPUBindGroupEntry>(bg_entries);
+        bg_desc.entries          = Span<GPUBindGroupEntry>(bg_entries);
         default_white_bind_group = device.create_bind_group(bg_desc);
 
         // 5. shader modules
@@ -416,10 +416,10 @@ auto BatchPreviewDispatcher::init_gpu_resources() -> bool
             GPUVertexAttribute{GPUVertexFormat::FLOAT32x3, offsetof(PreviewVertex, position), 0, "POSITION"},
             GPUVertexAttribute{GPUVertexFormat::FLOAT32x3, offsetof(PreviewVertex, normal), 1, "NORMAL"},
             GPUVertexAttribute{GPUVertexFormat::FLOAT32x2, offsetof(PreviewVertex, uv), 2, "TEXCOORD"}};
-        vbl.attributes = TypedView<GPUVertexAttribute>(attrs);
+        vbl.attributes = Span<GPUVertexAttribute>(attrs);
 
         Vector<GPUVertexBufferLayout> vbls = {vbl};
-        pdesc.vertex.buffers               = TypedView<GPUVertexBufferLayout>(vbls);
+        pdesc.vertex.buffers               = Span<GPUVertexBufferLayout>(vbls);
 
         pdesc.fragment.module      = fshader;
         pdesc.fragment.entry_point = "fsmain";
@@ -429,7 +429,7 @@ auto BatchPreviewDispatcher::init_gpu_resources() -> bool
         cts.write_mask = GPUColorWrite::ALL;
 
         Vector<GPUColorTargetState> targets = {cts};
-        pdesc.fragment.targets              = TypedView<GPUColorTargetState>(targets);
+        pdesc.fragment.targets              = Span<GPUColorTargetState>(targets);
 
         pdesc.primitive.topology           = GPUPrimitiveTopology::TRIANGLE_LIST;
         pdesc.primitive.cull_mode          = GPUCullMode::NONE;
@@ -721,7 +721,7 @@ void BatchPreviewDispatcher::dispatch_batch_locked()
             GPUBindGroupDescriptor bg_desc{};
             bg_desc.heap    = bind_group_heap;
             bg_desc.layout  = bind_group_layout;
-            bg_desc.entries = TypedView<GPUBindGroupEntry>(bg_entries);
+            bg_desc.entries = Span<GPUBindGroupEntry>(bg_entries);
             auto bg         = device.create_bind_group(bg_desc);
 
             texture_bind_groups[static_cast<int>(t)] = bg;
@@ -881,7 +881,7 @@ void BatchPreviewDispatcher::dispatch_batch_locked()
     GPURenderPassDescriptor rp_desc{};
     rp_desc.label                                          = "preview_atlas_pass";
     Vector<GPURenderPassColorAttachment> color_attachments = {cat};
-    rp_desc.color_attachments                              = TypedView<GPURenderPassColorAttachment>(color_attachments);
+    rp_desc.color_attachments                              = Span<GPURenderPassColorAttachment>(color_attachments);
     rp_desc.depth_stencil_attachment                       = dat;
 
     cmd_buf.begin_render_pass(rp_desc);

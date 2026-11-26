@@ -113,7 +113,7 @@ void SoftCommandBuffer::set_raytracing_pipeline(GPURayTracingPipelineHandle pipe
     });
 }
 
-void SoftCommandBuffer::set_bind_group(uint index, GPUBindGroupHandle bind_group, TypedView<uint> dynamic_offsets)
+void SoftCommandBuffer::set_bind_group(uint index, GPUBindGroupHandle bind_group, Span<uint> dynamic_offsets)
 {
     Vector<uint> offsets(dynamic_offsets.begin(), dynamic_offsets.end());
     commands.push_back([index, bind_group, offsets = std::move(offsets)](SoftDevice&, ExecutionContext& ctx) {
@@ -1675,7 +1675,7 @@ void SoftCommandBuffer::build_blases(GPUBufferHandle, GPUBlasBuildEntries entrie
                 GPUBlasBuildEntry b_entry{};
                 b_entry.blas                 = entry.blas;
                 b_entry.geometries.type      = GPUBlasType::TRIANGLE;
-                b_entry.geometries.triangles = TypedView<GPUBlasTriangleGeometry>(entry.triangles.data(), entry.triangles.size());
+                b_entry.geometries.triangles = Span<GPUBlasTriangleGeometry>(entry.triangles.data(), entry.triangles.size());
                 blas->build(b_entry, device.buffers);
             }
         }
@@ -1703,7 +1703,7 @@ void SoftCommandBuffer::build_tlases(GPUBufferHandle, GPUTlasBuildEntries entrie
             if (tlas) {
                 GPUTlasBuildEntry t_entry{};
                 t_entry.tlas      = entry.tlas;
-                t_entry.instances = TypedView<GPUTlasInstance>(entry.instances.data(), entry.instances.size());
+                t_entry.instances = Span<GPUTlasInstance>(entry.instances.data(), entry.instances.size());
                 tlas->build(t_entry, device.blases);
             }
         }

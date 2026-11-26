@@ -139,64 +139,64 @@ namespace lyra
     using GPURayTracingPipelineHandle = GPUHandle<GPUObjectType::RAYTRACING_PIPELINE>;
 
     // forward declarations
-    using GPUFeatureNames   = TypedView<GPUFeatureName>;
-    using GPUTextureFormats = TypedView<GPUTextureFormat>;
+    using GPUFeatureNames   = Span<GPUFeatureName>;
+    using GPUTextureFormats = Span<GPUTextureFormat>;
 
     struct GPUTlasInstance;
-    using GPUTlasInstances = TypedView<GPUTlasInstance>;
+    using GPUTlasInstances = Span<GPUTlasInstance>;
 
     struct GPUBlasTriangleGeometry;
-    using GPUBlasTriangleGeometries = TypedView<GPUBlasTriangleGeometry>;
+    using GPUBlasTriangleGeometries = Span<GPUBlasTriangleGeometry>;
 
     struct GPUBindGroupEntry;
-    using GPUBindGroupEntries = TypedView<GPUBindGroupEntry>;
+    using GPUBindGroupEntries = Span<GPUBindGroupEntry>;
 
     struct GPUBindGroupLayoutEntry;
-    using GPUBindGroupLayoutEntries = TypedView<GPUBindGroupLayoutEntry>;
-    using GPUBindGroupLayoutHandles = TypedView<GPUBindGroupLayoutHandle>;
+    using GPUBindGroupLayoutEntries = Span<GPUBindGroupLayoutEntry>;
+    using GPUBindGroupLayoutHandles = Span<GPUBindGroupLayoutHandle>;
 
     struct GPUBindGroupLayoutDescriptor;
-    using GPUBindGroupLayoutDescriptors = TypedView<GPUBindGroupLayoutDescriptor>;
+    using GPUBindGroupLayoutDescriptors = Span<GPUBindGroupLayoutDescriptor>;
 
     struct GPUPipelineConstant;
-    using GPUPipelineConstants = TypedView<GPUPipelineConstant>;
+    using GPUPipelineConstants = Span<GPUPipelineConstant>;
 
     struct GPUVertexAttribute;
-    using GPUVertexAttributes = TypedView<GPUVertexAttribute>;
+    using GPUVertexAttributes = Span<GPUVertexAttribute>;
 
     struct GPUVertexBufferLayout;
-    using GPUVertexBufferLayouts = TypedView<GPUVertexBufferLayout>;
+    using GPUVertexBufferLayouts = Span<GPUVertexBufferLayout>;
 
     struct GPUColorTargetState;
-    using GPUColorTargetStates = TypedView<GPUColorTargetState>;
+    using GPUColorTargetStates = Span<GPUColorTargetState>;
 
     struct GPURenderPassColorAttachment;
-    using GPURenderPassColorAttachments = TypedView<GPURenderPassColorAttachment>;
+    using GPURenderPassColorAttachments = Span<GPURenderPassColorAttachment>;
 
     struct GPUBlasGeometrySizeDescriptor;
-    using GPUBlasGeometrySizeDescriptors = TypedView<GPUBlasGeometrySizeDescriptor>;
+    using GPUBlasGeometrySizeDescriptors = Span<GPUBlasGeometrySizeDescriptor>;
 
     struct GPUTlasBuildEntry;
-    using GPUTlasBuildEntries = TypedView<GPUTlasBuildEntry>;
+    using GPUTlasBuildEntries = Span<GPUTlasBuildEntry>;
 
     struct GPUBlasBuildEntry;
-    using GPUBlasBuildEntries = TypedView<GPUBlasBuildEntry>;
+    using GPUBlasBuildEntries = Span<GPUBlasBuildEntry>;
 
     struct GPUMemoryBarrier;
-    using GPUMemoryBarriers = TypedView<GPUMemoryBarrier>;
+    using GPUMemoryBarriers = Span<GPUMemoryBarrier>;
 
     struct GPUBufferBarrier;
-    using GPUBufferBarriers = TypedView<GPUBufferBarrier>;
+    using GPUBufferBarriers = Span<GPUBufferBarrier>;
 
     struct GPUTextureBarrier;
-    using GPUTextureBarriers = TypedView<GPUTextureBarrier>;
+    using GPUTextureBarriers = Span<GPUTextureBarrier>;
 
     struct GPUBufferBinding;
-    using GPUBufferBindings     = TypedView<GPUBufferBinding>;
-    using GPUSamplerHandles     = TypedView<GPUSamplerHandle>;
-    using GPUTextureViewHandles = TypedView<GPUTextureViewHandle>;
+    using GPUBufferBindings     = Span<GPUBufferBinding>;
+    using GPUSamplerHandles     = Span<GPUSamplerHandle>;
+    using GPUTextureViewHandles = Span<GPUTextureViewHandle>;
 
-    using GPUBufferDynamicOffsets = TypedView<GPUBufferDynamicOffset>;
+    using GPUBufferDynamicOffsets = Span<GPUBufferDynamicOffset>;
 
     struct MappedBufferRange
     {

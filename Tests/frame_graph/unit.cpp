@@ -1,5 +1,6 @@
 #include <doctest/doctest.h>
 #include <Lyra/Rendering/FrameGraph.h>
+#include <Lyra/Rendering/FrameGraphMemory.h>
 #include <Lyra/Rendering/ShadingBuffers.h>
 #include <Lyra/Rendering/ViewUniforms.h>
 
@@ -539,4 +540,181 @@ TEST_CASE("fg::transient_resource_lifecycle" * doctest::description("FrameGraph 
     CHECK(consumer_executed);
     // Transient texture should have been allocated and then recycled into the allocator
     CHECK_EQ(allocator.allocated_texture_count(), 1);
+}
+
+TEST_CASE("fg::memory_hint_semantics" * doctest::description("GPUMemoryHint Size and Semantics"))
+{
+    CHECK_EQ(sizeof(GPUMemoryHint), sizeof(uint));
+
+    auto dedicated = GPUMemoryHint::dedicated();
+    CHECK(dedicated.is_dedicated());
+    CHECK_FALSE(dedicated.is_aliased());
+    CHECK_EQ(dedicated.slot, 0);
+
+    auto aliased = GPUMemoryHint::aliased(3);
+    CHECK(aliased.is_aliased());
+    CHECK_FALSE(aliased.is_dedicated());
+    CHECK_EQ(aliased.slot, 3);
+
+    CHECK_EQ(dedicated, GPUMemoryHint{0});
+    CHECK_EQ(aliased, GPUMemoryHint{3});
+    CHECK_NE(dedicated, aliased);
+}
+
+TEST_CASE("fg::memory_planner_disjoint_and_overlapping" * doctest::description("FrameGraphMemoryPlanner Interval Graph Coloring"))
+{
+    // Test 1: Two disjoint intervals should share the same alias slot
+    {
+        Vector<ResourceLifetimeInterval> intervals(2);
+        intervals[0] = {0, 0, 1, true}; // [0, 1]
+        intervals[1] = {1, 2, 3, true}; // [2, 3]
+
+        auto plan = FrameGraphMemoryPlanner::compute_plan(intervals);
+        REQUIRE_EQ(plan.resource_hints.size(), 2);
+        CHECK(plan.resource_hints[0].is_aliased());
+        CHECK(plan.resource_hints[1].is_aliased());
+        // Disjoint -> same slot
+        CHECK_EQ(plan.resource_hints[0].slot, plan.resource_hints[1].slot);
+        CHECK_EQ(plan.max_color_slots, 1);
+    }
+
+    // Test 2: Two overlapping intervals must receive distinct alias slots
+    {
+        Vector<ResourceLifetimeInterval> intervals(2);
+        intervals[0] = {0, 0, 2, true}; // [0, 2]
+        intervals[1] = {1, 1, 3, true}; // [1, 3]
+
+        auto plan = FrameGraphMemoryPlanner::compute_plan(intervals);
+        REQUIRE_EQ(plan.resource_hints.size(), 2);
+        CHECK(plan.resource_hints[0].is_aliased());
+        CHECK(plan.resource_hints[1].is_aliased());
+        // Overlapping -> different slots
+        CHECK_NE(plan.resource_hints[0].slot, plan.resource_hints[1].slot);
+        CHECK_EQ(plan.max_color_slots, 2);
+    }
+
+    // Test 3: Complex chain: A:[0, 1], B:[1, 2], C:[2, 3]
+    // A and B overlap at pass 1 -> distinct slots
+    // B and C overlap at pass 2 -> distinct slots
+    // A:[0, 1] and C:[2, 3] are disjoint -> can share slot!
+    {
+        Vector<ResourceLifetimeInterval> intervals(3);
+        intervals[0] = {0, 0, 1, true};
+        intervals[1] = {1, 1, 2, true};
+        intervals[2] = {2, 2, 3, true};
+
+        auto plan = FrameGraphMemoryPlanner::compute_plan(intervals);
+        REQUIRE_EQ(plan.resource_hints.size(), 3);
+        CHECK_NE(plan.resource_hints[0].slot, plan.resource_hints[1].slot);
+        CHECK_NE(plan.resource_hints[1].slot, plan.resource_hints[2].slot);
+        // A and C can share slot
+        CHECK_EQ(plan.resource_hints[0].slot, plan.resource_hints[2].slot);
+        CHECK_EQ(plan.max_color_slots, 2);
+    }
+}
+
+TEST_CASE("fg::transient_memory_aliasing_integration" * doctest::description("FrameGraph Transient Memory Aliasing Integration"))
+{
+    FrameGraphBuilder   builder;
+    FrameGraphAllocator allocator;
+
+    GPUTextureDescriptor tex_desc{};
+    tex_desc.label        = "chain_tex";
+    tex_desc.size         = GPUExtent3D{64, 64, 1};
+    tex_desc.format       = GPUTextureFormat::RGBA8UNORM;
+    tex_desc.usage        = GPUTextureUsage::TEXTURE_BINDING | GPUTextureUsage::RENDER_ATTACHMENT;
+    tex_desc.sample_count = 1;
+
+    struct PassDataA
+    {
+        FrameGraph::TextureHandle tex;
+    };
+    struct PassDataB
+    {
+        FrameGraph::TextureHandle in_tex;
+        FrameGraph::TextureHandle out_tex;
+    };
+    struct PassDataC
+    {
+        FrameGraph::TextureHandle in_tex;
+        FrameGraph::TextureHandle out_tex;
+    };
+    struct PassDataD
+    {
+        FrameGraph::TextureHandle in_tex;
+    };
+
+    // Pass A: creates and writes TexA (lifetime: Pass A .. Pass B)
+    auto pass_a = builder.add_pass<PassDataA>(
+        "PassA",
+        [&](PassDataA& data, FrameGraphPassBuilder& pb) {
+            data.tex = pb.create<FrameGraphTexture>(tex_desc);
+            data.tex = pb.render(data.tex);
+        },
+        [&](const PassDataA&, FrameGraphResources&, FrameGraphContext*) {
+        });
+
+    // Pass B: reads TexA, creates and writes TexB (TexA ends here; TexB lifetime: Pass B .. Pass C)
+    auto pass_b = builder.add_pass<PassDataB>(
+        "PassB",
+        [&](PassDataB& data, FrameGraphPassBuilder& pb) {
+            data.in_tex  = pb.sample(pass_a.tex);
+            data.out_tex = pb.create<FrameGraphTexture>(tex_desc);
+            data.out_tex = pb.render(data.out_tex);
+        },
+        [&](const PassDataB&, FrameGraphResources&, FrameGraphContext*) {
+        });
+
+    // Pass C: reads TexB, creates and writes TexC (TexB ends here; TexC lifetime: Pass C .. Pass D)
+    auto pass_c = builder.add_pass<PassDataC>(
+        "PassC",
+        [&](PassDataC& data, FrameGraphPassBuilder& pb) {
+            data.in_tex  = pb.sample(pass_b.out_tex);
+            data.out_tex = pb.create<FrameGraphTexture>(tex_desc);
+            data.out_tex = pb.render(data.out_tex);
+        },
+        [&](const PassDataC&, FrameGraphResources&, FrameGraphContext*) {
+        });
+
+    // Pass D: reads TexC and preserves it
+    builder.add_pass<PassDataD>(
+        "PassD",
+        [&](PassDataD& data, FrameGraphPassBuilder& pb) {
+            data.in_tex = pb.sample(pass_c.out_tex);
+            pb.preserve();
+        },
+        [&](const PassDataD&, FrameGraphResources&, FrameGraphContext*) {
+        });
+
+    auto graph = builder.build();
+    REQUIRE(graph != nullptr);
+
+    // Verify physical resources got assigned aliased memory hints
+    REQUIRE_GE(graph->physical_resource_count(), 3);
+
+    auto res_a = graph->get_physical_resource(0);
+    auto res_b = graph->get_physical_resource(1);
+    auto res_c = graph->get_physical_resource(2);
+
+    REQUIRE(res_a != nullptr);
+    REQUIRE(res_b != nullptr);
+    REQUIRE(res_c != nullptr);
+
+    auto hint_a = res_a->get_memory_hint();
+    auto hint_b = res_b->get_memory_hint();
+    auto hint_c = res_c->get_memory_hint();
+
+    CHECK(hint_a.is_aliased());
+    CHECK(hint_b.is_aliased());
+    CHECK(hint_c.is_aliased());
+
+    // TexA (Pass A..B) and TexB (Pass B..C) overlap at Pass B -> distinct slots!
+    CHECK_NE(hint_a.slot, hint_b.slot);
+    // TexB (Pass B..C) and TexC (Pass C..D) overlap at Pass C -> distinct slots!
+    CHECK_NE(hint_b.slot, hint_c.slot);
+    // TexA (Pass A..B) and TexC (Pass C..D) are disjoint -> must share the same slot!
+    CHECK_EQ(hint_a.slot, hint_c.slot);
+
+    // Execute the graph with allocator
+    graph->execute(nullptr, &allocator);
 }

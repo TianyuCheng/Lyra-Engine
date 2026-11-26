@@ -17,7 +17,7 @@ use the lyra alias types if possible.
 using `auto` instead of `auto*`.
 
 Views & Container Access:
-Prefer exposing lightweight views / slices rather than raw pointers for containers and GPU buffers (e.g. `GPUBufferSlice`, `lyra::Span<T>` / `lyra::TypedView<T>`, `lyra::StringView`). Never expose raw pointers to internal containers or buffers (e.g. `const GPUBuffer*` or `const Vector<T>*`), as container reallocations lead to dangling pointers. Views provide copyable value semantics and support sub-allocations.
+Prefer exposing lightweight views / slices rather than raw pointers for containers and GPU buffers (e.g. `GPUBufferSlice`, `lyra::Span<T>`, `lyra::StringView`). Never expose raw pointers to internal containers or buffers (e.g. `const GPUBuffer*` or `const Vector<T>*`), as container reallocations lead to dangling pointers. Views provide copyable value semantics and support sub-allocations.
 
 Enums:
 Enum values declaration should all end with `,` (even for the last one).
@@ -25,7 +25,7 @@ Enum values declaration should all end with `,` (even for the last one).
 ## 0.5 HARD RULES
 
 1. Don't do any hack just to make test pass (for example, relax pass criteria for softgpu, implement skybox in softgpu).
-2. Prefer views (`GPUBufferSlice`, `Span` / `TypedView`, `StringView`) instead of exposing raw pointers (`T*` or `const T*`) for containers and GPU buffers.
+2. Prefer views (`GPUBufferSlice`, `Span`, `StringView`) instead of exposing raw pointers (`T*` or `const T*`) for containers and GPU buffers.
 
 ## 1. Lyra Common Type & Name Aliases (`Include/Lyra/Common/`)
 
@@ -79,6 +79,8 @@ Always prefer Lyra collection aliases. Note that associative containers use **Ab
 | `lyra::List<T>` | `std::list<T...>` | Doubly linked list |
 | `lyra::FList<T>` | `std::forward_list<T...>` | Singly linked list |
 | `lyra::Stack<T>` | `std::stack<T...>` | LIFO stack adapter |
+| `lyra::Queue<T>` | `std::queue<T...>` | FIFO queue adapter |
+| `lyra::PriorityQueue<T>` | `std::priority_queue<T...>` | Priority queue adapter |
 | `lyra::RingBuffer<T>` | `apus::ring_buffer<T...>` | Circular buffer |
 | `lyra::Slotmap<T>` | `apus::slot_map<T...>` | Stable index generational slot map |
 | `lyra::HashSet<T>` | `absl::flat_hash_set<T...>` | High-performance cache-friendly hash set |
@@ -88,7 +90,7 @@ Always prefer Lyra collection aliases. Note that associative containers use **Ab
 | `lyra::Variant<T...>` | `std::variant<T...>` | Type-safe union |
 | `lyra::Optional<T>` | `std::optional<T...>` | Optional value container |
 | `lyra::InitList<T>` | `std::initializer_list<T...>` | Initializer list |
-| `lyra::Span<T>` / `lyra::TypedView<T>` | `lyra::detail::typed_view<T...>` | Contiguous view / span adapter |
+| `lyra::Span<T>` | `std::span<T...>` | Contiguous view / span adapter |
 | `lyra::Blackboard` | `lyra::detail::Blackboard` | Dynamic heterogeneous property storage |
 
 ---

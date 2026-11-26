@@ -6,6 +6,8 @@
 #include <list>
 #include <array>
 #include <deque>
+#include <queue>
+#include <span>
 #include <stack>
 #include <vector>
 #include <variant>
@@ -19,7 +21,6 @@
 #include <apus/ring_buffer.hpp>
 #include <apus/small_vector.hpp>
 #include <Lyra/Utilities/Stdint.h>
-#include <Lyra/Utilities/Detail/View.h>
 #include <Lyra/Utilities/Detail/Blackboard.h>
 #include <Lyra/Utilities/Detail/Services.h>
 
@@ -33,6 +34,12 @@ namespace lyra
 
     template <typename... T>
     using Deque = std::deque<T...>;
+
+    template <typename... T>
+    using Queue = std::queue<T...>;
+
+    template <typename... T>
+    using PriorityQueue = std::priority_queue<T...>;
 
     template <typename... T>
     using Stack = std::stack<T...>;
@@ -73,11 +80,39 @@ namespace lyra
     template <typename T, usize N>
     using SmallVector = apus::small_vector<T, N>;
 
-    template <typename... T>
-    using TypedView = lyra::detail::typed_view<T...>;
+    template <typename T, usize Extent = std::dynamic_extent>
+    struct Span : public std::span<T, Extent>
+    {
+        using Base = std::span<T, Extent>;
+        using Base::Base;
 
-    template <typename... T>
-    using Span = lyra::detail::typed_view<T...>;
+        constexpr Span() noexcept = default;
+        constexpr Span(const Base& other) noexcept : Base(other) {}
+        constexpr Span(const T* ptr, usize count) noexcept : Base(const_cast<T*>(ptr), count) {}
+
+        // allow construction from containers (vector, array, etc.)
+        template <typename Container, typename = std::enable_if_t<
+                                          !std::is_same_v<std::decay_t<Container>, Span> &&
+                                          !std::is_same_v<std::decay_t<Container>, Base> &&
+                                          requires(Container& c) { std::data(c); std::size(c); }>>
+        constexpr Span(Container&& cont) noexcept
+            : Base(const_cast<T*>(std::data(cont)), static_cast<usize>(std::size(cont))) {}
+
+        // allow construction from a single element
+        template <typename U, typename = std::enable_if_t<
+                                  !std::is_array_v<U> &&
+                                  !requires(U& u) { std::data(u); } &&
+                                  std::is_convertible_v<U*, const T*>>>
+        constexpr Span(U& single) noexcept : Base(const_cast<T*>(std::addressof(single)), 1) {}
+
+        constexpr auto at(usize i) const -> typename Base::reference
+        {
+            if (i >= this->size()) {
+                throw std::out_of_range("Span::at: index out of range");
+            }
+            return (*this)[i];
+        }
+    };
 
     using Blackboard = lyra::detail::Blackboard;
     using Services   = lyra::detail::Services;

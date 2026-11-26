@@ -583,8 +583,8 @@ void cmd::copy_buffer_to_texture(GPUCommandEncoderHandle cmdbuffer, const GPUTex
         uint bh = block_height(texture.format);
         uint bs = size_of(texture.format);
         if (bytes_per_row == 0) {
-            uint pitch = ((copy_size.width + bw - 1) / bw) * bs;
-            bytes_per_row  = (pitch + rhi->texture_row_pitch_alignment - 1) & ~(rhi->texture_row_pitch_alignment - 1);
+            uint pitch    = ((copy_size.width + bw - 1) / bw) * bs;
+            bytes_per_row = (pitch + rhi->texture_row_pitch_alignment - 1) & ~(rhi->texture_row_pitch_alignment - 1);
         }
         if (rows_per_image == 0) {
             rows_per_image = (copy_size.height + bh - 1) / bh;
@@ -637,8 +637,8 @@ void cmd::copy_texture_to_buffer(GPUCommandEncoderHandle cmdbuffer, const GPUTex
         uint bh = block_height(texture.format);
         uint bs = size_of(texture.format);
         if (bytes_per_row == 0) {
-            uint pitch = ((copy_size.width + bw - 1) / bw) * bs;
-            bytes_per_row  = (pitch + rhi->texture_row_pitch_alignment - 1) & ~(rhi->texture_row_pitch_alignment - 1);
+            uint pitch    = ((copy_size.width + bw - 1) / bw) * bs;
+            bytes_per_row = (pitch + rhi->texture_row_pitch_alignment - 1) & ~(rhi->texture_row_pitch_alignment - 1);
         }
         if (rows_per_image == 0) {
             rows_per_image = (copy_size.height + bh - 1) / bh;
@@ -861,8 +861,8 @@ void cmd::resolve_query_set(GPUCommandEncoderHandle cmdbuffer, GPUQuerySetHandle
             if (query_set.visibility_buffer) {
                 // copy from visibility buffer to destination
                 usize element_size  = (query_set.type == GPUQueryType::OCCLUSION)
-                                           ? sizeof(ulong)
-                                           : sizeof(MTLAccelerationStructureSizes);
+                                          ? sizeof(ulong)
+                                          : sizeof(MTLAccelerationStructureSizes);
                 usize copy_size     = query_count * element_size;
                 usize source_offset = first_query * element_size;
 
@@ -958,13 +958,13 @@ void cmd::build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
 
             // collect unique referenced BLAS acceleration structures and build index map
             NSMutableArray<id<MTLAccelerationStructure>>* blas_array = [NSMutableArray new];
-            HashMap<ulong, uint>                           blas_index_map;
+            HashMap<ulong, uint>                          blas_index_map;
 
             for (auto& src_instance : entry.instances) {
                 if (src_instance.blas.valid()) {
                     ulong blas_val = src_instance.blas.value;
                     if (blas_index_map.find(blas_val) == blas_index_map.end()) {
-                        auto& blas = fetch_resource(rhi->blases, src_instance.blas);
+                        auto& blas               = fetch_resource(rhi->blases, src_instance.blas);
                         blas_index_map[blas_val] = static_cast<uint>(blas_array.count);
                         [blas_array addObject:blas.blas];
                     }
@@ -973,7 +973,7 @@ void cmd::build_tlases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
             as_desc.instancedAccelerationStructures = blas_array;
 
             for (NSUInteger i = 0; i < instance_count; ++i) {
-                auto& src_instance   = entry.instances.at(i);
+                auto& src_instance   = entry.instances[i];
                 auto& dst_descriptor = descriptors[i];
 
                 // copy transform (3x4 matrix in row-major order)
@@ -1045,7 +1045,7 @@ void cmd::build_blases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
         if (entry.geometries.type == GPUBlasType::TRIANGLE) {
             auto& triangles = entry.geometries.triangles;
             for (NSUInteger i = 0; i < triangles.size() && i < geom_descs.count; ++i) {
-                auto&                                               triangle_geom = triangles.at(i);
+                auto&                                               triangle_geom = triangles[i];
                 MTLAccelerationStructureTriangleGeometryDescriptor* geom          = geom_descs[i];
 
                 auto& vertex_buffer     = fetch_resource(rhi->buffers, triangle_geom.vertex_buffer);

@@ -24,13 +24,13 @@ namespace lyra
 
     using ShaderError            = CString;
     using ShaderInclude          = CString;
-    using ShaderDefines          = TypedView<ShaderDefine>;
-    using ShaderIncludes         = TypedView<ShaderInclude>;
+    using ShaderDefines          = Span<ShaderDefine>;
+    using ShaderIncludes         = Span<ShaderInclude>;
     using CompilerHandle         = TypedPointerHandle<Compiler>;
     using ShaderModuleHandle     = TypedPointerHandle<ShaderModule>;
     using ShaderReflectionHandle = TypedPointerHandle<ShaderReflection>;
-    using ShaderEntryPoints      = TypedView<ShaderEntryPoint>;
-    using ShaderAttributes       = TypedView<ShaderAttribute>;
+    using ShaderEntryPoints      = Span<ShaderEntryPoint>;
+    using ShaderAttributes       = Span<ShaderAttribute>;
     using CompileFlags           = BitFlags<CompileFlag>;
 
     constexpr uint32_t HOST_MAGIC = 0x534C4843; // 'SLHC'

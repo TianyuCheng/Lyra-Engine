@@ -75,7 +75,7 @@ namespace lyra
         bool is_key_released(KeyButton key) const; // exactly once when key is released up
 
         bool has_dropped_files() const;
-        auto get_dropped_files() const -> detail::typed_view<String>;
+        auto get_dropped_files() const -> Span<const String>;
 
     private:
         auto current_state() const -> const InputState& { return states[state_index]; }

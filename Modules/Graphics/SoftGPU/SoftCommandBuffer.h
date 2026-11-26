@@ -69,7 +69,7 @@ namespace lyra::softgpu
         void set_compute_pipeline(GPUComputePipelineHandle pipeline);
         void set_raytracing_pipeline(GPURayTracingPipelineHandle pipeline);
 
-        void set_bind_group(uint index, GPUBindGroupHandle bind_group, TypedView<uint> dynamic_offsets = {});
+        void set_bind_group(uint index, GPUBindGroupHandle bind_group, Span<uint> dynamic_offsets = {});
         void set_stencil_reference(uint reference);
         void set_immediates(uint offset, uint size, const void* data);
         void set_vertex_buffer(uint slot, GPUBufferHandle buffer, GPUSize64 offset, GPUSize64 size);

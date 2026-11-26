@@ -130,7 +130,7 @@
 ---
 
 ## 1.9 FrameGraph Transient VRAM Memory Aliasing
-- [ ] **1.9.1 Virtual Allocation Lifetime Analysis & Memory Placement Heaps**
+- [x] **1.9.1 Virtual Allocation Lifetime Analysis & Memory Placement Heaps**
   - Files: `Engine/Include/Lyra/Rendering/FrameGraphMemory.h`, `Engine/Source/Rendering/FrameGraph.cpp`
   - Analyze pass dependency DAG and calculate disjoint lifetime intervals $[t_{\text{start}}, t_{\text{end}}]$ for all transient textures and buffers in the frame.
   - Group non-overlapping resources into shared memory blocks backed by placed allocations on `VkDeviceMemory` / `ID3D12Heap` / `MTLHeap`.

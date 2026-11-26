@@ -2,6 +2,7 @@
 // reference: https://www.gdcvault.com/play/1024045/FrameGraph-Extensible-Rendering-Architecture-in
 
 #include <Lyra/Rendering/FrameGraph.h>
+#include <Lyra/Rendering/FrameGraphMemory.h>
 
 using namespace lyra;
 
@@ -229,11 +230,24 @@ void FrameGraph::compile()
             update_physical(write.resource.id);
     }
 
+    Vector<ResourceLifetimeInterval> intervals(physical_lifetimes.size());
     for (usize pid = 0; pid < physical_lifetimes.size(); ++pid) {
         auto& lt = physical_lifetimes[pid];
         if (lt.has_access && physical_resources.at(pid)->type == FrameGraphResourceType::TRANSIENT) {
             passes.at(lt.first_pass).creates.push_back(static_cast<uint>(pid));
             passes.at(lt.last_pass).deletes.push_back(static_cast<uint>(pid));
+
+            intervals[pid].physical_id = static_cast<uint>(pid);
+            intervals[pid].start_pass  = static_cast<uint>(lt.first_idx);
+            intervals[pid].end_pass    = static_cast<uint>(lt.last_idx);
+            intervals[pid].is_active   = true;
+        }
+    }
+
+    auto plan = FrameGraphMemoryPlanner::compute_plan(intervals);
+    for (usize pid = 0; pid < physical_resources.size(); ++pid) {
+        if (intervals[pid].is_active) {
+            physical_resources[pid]->set_memory_hint(plan.resource_hints[pid]);
         }
     }
 }

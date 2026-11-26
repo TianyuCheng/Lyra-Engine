@@ -348,7 +348,7 @@ void cmd::set_bind_group(GPUCommandEncoderHandle cmdbuffer, GPUIndex32 index, GP
     for (uint i = 0; i < dynamic_offsets.size(); i++) {
         auto& heap    = fetch_resource(rhi->bind_group_heaps, des->heap);
         auto& dynamic = heap.dynamic_heap.at(des->dynamic_index + i);
-        auto  address = dynamic.address + dynamic_offsets.at(i);
+        auto  address = dynamic.address + dynamic_offsets[i];
         if (dynamic.type == D3D12_ROOT_PARAMETER_TYPE_CBV) {
             if (cmd.pso.compute) {
                 cmd.command_buffer->SetComputeRootConstantBufferView(info.dynamic_root_parameter + i, address);
@@ -993,7 +993,7 @@ void cmd::build_blases(GPUCommandEncoderHandle cmdbuffer, GPUBufferHandle scratc
 
             uint geometry_count = static_cast<uint>(std::min((usize)entry.geometries.triangles.size(), blas.geometries.size()));
             for (uint k = 0; k < geometry_count; k++) {
-                auto& src = entry.geometries.triangles.at(k);
+                auto& src = entry.geometries.triangles[k];
                 auto& dst = blas.geometries.at(k);
 
                 dst.Triangles.VertexCount  = src.size.vertex_count;
