@@ -36,8 +36,8 @@ void cs_atrous(uint3 dispatch_id : SV_DispatchThreadID)
     float  center_lum   = center_ycocg.x;
 
     // don't filter background / empty space
-    if (center_lum <= 1e-6) {
-        output_texture[pixel] = center_val;
+    if (all(center_rgb <= 1e-6)) {
+        output_texture[pixel] = float4(0.0, 0.0, 0.0, 1.0);
         return;
     }
 
@@ -71,10 +71,11 @@ void cs_atrous(uint3 dispatch_id : SV_DispatchThreadID)
             float3 tap_rgb = tap_val.rgb;
             float  tap_lum = rgb_to_ycocg(tap_rgb).x;
 
-            if (tap_lum <= 1e-6) continue;
+            if (all(tap_rgb <= 1e-6)) continue;
 
             float ker_w = atrous_kernel_weight(dx, dy);
-            float w_l   = edge_stopping_luminance(center_lum, tap_lum, var_lum, push.sigma_l);
+            float denom = max(push.sigma_l * sqrt(max(var_lum, 0.0)), 0.15);
+            float w_l   = exp(-abs(center_lum - tap_lum) / denom);
             float w     = ker_w * w_l;
 
             accum_color  += tap_rgb * w;
@@ -83,5 +84,5 @@ void cs_atrous(uint3 dispatch_id : SV_DispatchThreadID)
     }
 
     float3 final_color    = accum_color / max(accum_weight, 1e-5);
-    output_texture[pixel] = float4(final_color, center_val.a);
+    output_texture[pixel] = float4(final_color, 1.0);
 }
