@@ -174,6 +174,9 @@ RHI_TEST_ORDER = [
     "forward_renderer_multilight",
     "deferred_renderer",
     "deferred_renderer_multilight",
+
+    # 11. Specialized Surface Renderers
+    "ocean",
 ]
 
 RHI_TEST_ASPECTS = {
@@ -232,6 +235,9 @@ RHI_TEST_ASPECTS = {
     "forward_renderer_multilight": "Scene Renderers",
     "deferred_renderer": "Scene Renderers",
     "deferred_renderer_multilight": "Scene Renderers",
+
+    # 11. Specialized Surface Renderers
+    "ocean": "Specialized Renderers",
 }
 
 def get_test_order_index(test_name):

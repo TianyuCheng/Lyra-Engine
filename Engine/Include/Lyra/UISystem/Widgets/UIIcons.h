@@ -28,6 +28,8 @@
 #define LYRA_ICON_TRANSFORM         "\ue84d"
 #define LYRA_ICON_SETTINGS          "\ue8b8"
 #define LYRA_ICON_SYSTEM            "\ue879"
+#define LYRA_ICON_VOLUME_UP         "\ue050"
+#define LYRA_ICON_HEADPHONES        "\ue310"
 
 #define LYRA_ICON_PLAY              "\ue037"
 #define LYRA_ICON_PAUSE             "\ue034"

@@ -40,6 +40,7 @@ target_sources(lyra-unit-tests PRIVATE
   ./common/test_geometry_cache.cpp
   ./common/test_gizmo.cpp
   ./common/test_node_editor.cpp
+  ./common/test_audio.cpp
 )
 target_link_libraries(lyra-unit-tests PRIVATE doctest::doctest)
 target_include_directories(lyra-unit-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/common)
@@ -107,6 +108,9 @@ add_subdirectory(postprocess_bloom)
 add_subdirectory(postprocess_dof)
 add_subdirectory(postprocess_tonemapping)
 add_subdirectory(postprocess_fxaa)
+
+# 12. Specialized Surface Renderers
+add_subdirectory(ocean)
 
 # non-rhi / unit test cases
 add_subdirectory(spatial)

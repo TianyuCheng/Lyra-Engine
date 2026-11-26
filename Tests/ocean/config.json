@@ -1,0 +1,6 @@
+{
+    "tier": "usecase",
+    "complexity": 0.85,
+    "rmse_threshold": 2.0,
+    "mismatch_threshold": 1.0
+}

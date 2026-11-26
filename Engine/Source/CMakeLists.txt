@@ -107,6 +107,9 @@ target_sources(lyra-engine PRIVATE
   # physics
   Physics/PhysicsTypes.cpp
 
+  # audio
+  Audio/AudioTypes.cpp
+
   # rendering
   Rendering/FrameArena.cpp
   Rendering/FrameGraph.cpp
@@ -136,6 +139,7 @@ target_sources(lyra-engine PRIVATE
   Rendering/Passes/HiZPyramidPass.cpp
   Rendering/Passes/ShadowMapPass.cpp
   Rendering/Passes/ForwardPass.cpp
+  Rendering/Passes/OceanPass.cpp
 
   # windowing
   Windowing/WSIState.cpp
@@ -192,6 +196,7 @@ lyra_bindgen(engine
     ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Components/Sun.h
     ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Components/Camera.h
     ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Components/Physics.h
+    ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Components/Audio.h
     ${CMAKE_SOURCE_DIR}/Engine/Include/Lyra/Components/Transform.h
 )
 
@@ -202,6 +207,8 @@ target_link_libraries(lyra-engine PUBLIC lyra::headers)
 # link builtin plugins
 target_link_libraries(lyra-engine PRIVATE lyra::mockgpu)
 target_link_libraries(lyra-engine PRIVATE lyra::mockphysics)
+target_link_libraries(lyra-engine PRIVATE lyra::mockaudio)
+target_link_libraries(lyra-engine PRIVATE lyra::miniaudio)
 target_link_libraries(lyra-engine PRIVATE lyra::jolt)
 target_link_libraries(lyra-engine PRIVATE lyra::mesh)
 target_link_libraries(lyra-engine PRIVATE lyra::model)
