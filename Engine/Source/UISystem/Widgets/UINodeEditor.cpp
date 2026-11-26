@@ -11,6 +11,9 @@ namespace
 {
     void ensure_context()
     {
+        if (ImGui::GetCurrentContext() != nullptr) {
+            ImNodes::SetImGuiContext(ImGui::GetCurrentContext());
+        }
         if (ImNodes::GetCurrentContext() == nullptr) {
             ImNodes::CreateContext();
             ImNodes::StyleColorsDark();
@@ -301,16 +304,19 @@ bool node::is_editor_hovered()
 
 auto node::num_selected_nodes() -> int32_t
 {
+    ensure_context();
     return ImNodes::NumSelectedNodes();
 }
 
 auto node::num_selected_links() -> int32_t
 {
+    ensure_context();
     return ImNodes::NumSelectedLinks();
 }
 
 void node::get_selected_nodes(Span<NodeId> out_nodes)
 {
+    ensure_context();
     if (!out_nodes.empty()) {
         ImNodes::GetSelectedNodes(out_nodes.data());
     }
@@ -318,6 +324,7 @@ void node::get_selected_nodes(Span<NodeId> out_nodes)
 
 void node::get_selected_links(Span<LinkId> out_links)
 {
+    ensure_context();
     if (!out_links.empty()) {
         ImNodes::GetSelectedLinks(out_links.data());
     }
@@ -325,32 +332,38 @@ void node::get_selected_links(Span<LinkId> out_links)
 
 void node::select_node(NodeId id)
 {
+    ensure_context();
     ImNodes::SelectNode(id);
 }
 
 void node::clear_node_selection(NodeId id)
 {
+    ensure_context();
     ImNodes::ClearNodeSelection(id);
 }
 
 void node::clear_selection()
 {
+    ensure_context();
     ImNodes::ClearNodeSelection();
     ImNodes::ClearLinkSelection();
 }
 
 bool node::is_node_selected(NodeId id)
 {
+    ensure_context();
     return ImNodes::IsNodeSelected(id);
 }
 
 bool node::is_link_selected(LinkId id)
 {
+    ensure_context();
     return ImNodes::IsLinkSelected(id);
 }
 
 auto node::get_node_position(NodeId id, CoordinateSpace space) -> Vector2
 {
+    ensure_context();
     switch (space) {
         case CoordinateSpace::Grid:
             return to_vector2(ImNodes::GetNodeGridSpacePos(id));
@@ -364,6 +377,7 @@ auto node::get_node_position(NodeId id, CoordinateSpace space) -> Vector2
 
 void node::set_node_position(NodeId id, const Vector2& pos, CoordinateSpace space)
 {
+    ensure_context();
     switch (space) {
         case CoordinateSpace::Grid:
             ImNodes::SetNodeGridSpacePos(id, to_imvec2(pos));
@@ -379,36 +393,43 @@ void node::set_node_position(NodeId id, const Vector2& pos, CoordinateSpace spac
 
 auto node::get_node_dimensions(NodeId id) -> Vector2
 {
+    ensure_context();
     return to_vector2(ImNodes::GetNodeDimensions(id));
 }
 
 void node::snap_node_to_grid(NodeId id)
 {
+    ensure_context();
     ImNodes::SnapNodeToGrid(id);
 }
 
 void node::set_node_draggable(NodeId id, bool draggable)
 {
+    ensure_context();
     ImNodes::SetNodeDraggable(id, draggable);
 }
 
 auto node::get_panning() -> Vector2
 {
+    ensure_context();
     return to_vector2(ImNodes::EditorContextGetPanning());
 }
 
 void node::reset_panning(const Vector2& pos)
 {
+    ensure_context();
     ImNodes::EditorContextResetPanning(to_imvec2(pos));
 }
 
 void node::move_to_node(NodeId id)
 {
+    ensure_context();
     ImNodes::EditorContextMoveToNode(id);
 }
 
 auto node::save_editor_state(const NodeEditorContext* ctx) -> String
 {
+    ensure_context();
     if (ctx) {
         auto* str = ImNodes::SaveEditorStateToIniString(static_cast<const ImNodesEditorContext*>(ctx->native_handle()));
         return str ? String(str) : String();
@@ -419,6 +440,7 @@ auto node::save_editor_state(const NodeEditorContext* ctx) -> String
 
 void node::load_editor_state(StringView ini_data, NodeEditorContext* ctx)
 {
+    ensure_context();
     if (ctx) {
         ImNodes::LoadEditorStateFromIniString(static_cast<ImNodesEditorContext*>(ctx->native_handle()), ini_data.data(), ini_data.size());
     } else {

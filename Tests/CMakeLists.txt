@@ -90,6 +90,7 @@ add_subdirectory(frame_graph)
 
 # 8. UI System
 add_subdirectory(ui_system)
+add_subdirectory(ui_node_editor)
 
 # 9. Materials & Environment
 add_subdirectory(shading_models)
