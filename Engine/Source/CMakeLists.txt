@@ -14,6 +14,7 @@ find_package(spdlog REQUIRED)
 find_package(libassert REQUIRED)
 find_package(magic_enum REQUIRED)
 find_package(imguizmo REQUIRED)
+find_package(imnodes REQUIRED)
 
 # create a dependency interface library
 add_library(lyra-commons INTERFACE)
@@ -46,6 +47,7 @@ target_link_libraries(lyra-commons INTERFACE
   # gui libraries
   $<BUILD_INTERFACE:imgui::imgui>
   $<BUILD_INTERFACE:imguizmo::imguizmo>
+  $<BUILD_INTERFACE:imnodes::imnodes>
 
   # debugging libraries
   $<BUILD_INTERFACE:fmt::fmt>
@@ -151,6 +153,7 @@ target_sources(lyra-engine PRIVATE
   UISystem/Widgets/UIControls.cpp
   UISystem/Widgets/UIProperty.cpp
   UISystem/Widgets/UIInternals.cpp
+  UISystem/Widgets/UINodeEditor.cpp
 
   # scene
   Scene/SceneTree.cpp
