@@ -1,8 +1,10 @@
 import os
 import sys
+import time
 import math
 import json
 import zlib
+import queue
 import struct
 import shutil
 import base64
@@ -13,6 +15,8 @@ import platform
 import subprocess
 import webbrowser
 import threading
+import http.server
+import urllib.parse
 import concurrent.futures
 import xml.etree.ElementTree as ET
 
@@ -24,8 +28,9 @@ def parse_args():
     parser.add_argument("--pixel-tolerance", type=int, default=2, help="per-channel threshold for imperceptible noise (default: 2)")
     parser.add_argument("--mismatch-threshold", type=float, default=1.0, help="max percentage of mismatched pixels allowed (default: 1.0%%)")
     parser.add_argument("--rmse-threshold", type=float, default=2.0, help="max allowed RMSE across RGB channels (default: 2.0)")
-    parser.add_argument("--interactive", action="store_true", default=None, help="open browser immediately and poll results live during test execution")
+    parser.add_argument("--interactive", action="store_true", default=None, help="open browser immediately and stream results live via local HTTP server")
     parser.add_argument("--non-interactive", "--headless", dest="non_interactive", action="store_true", default=False, help="run in non-interactive / headless mode without opening the browser")
+    parser.add_argument("--serve", action="store_true", default=False, help="keep the live HTTP server running after tests finish until Ctrl+C")
     parser.add_argument("--stage", choices=["all", "primitive", "usecase"], default="all", help="filter tests by stage tier: 'primitive', 'usecase', or 'all' (default: all)")
     args = parser.parse_args()
     args.executable = os.path.abspath(args.executable)
@@ -532,21 +537,202 @@ def check_perceptual_mismatch(ref_path, test_path, diff_output_path=None, pixel_
         "diff_image": diff_image_saved,
     }
 
-def write_status_js(path, status_data):
-    """Writes status_data atomically to a JS file for dynamic browser polling without CORS."""
-    content = f"window.updateLiveStatus({json.dumps(status_data, indent=2)});\n"
-    tmp_path = path + ".tmp"
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        f.write(content)
-    try:
-        os.replace(tmp_path, path)
-    except Exception:
-        # Fallback for Windows file lock edge case
+class SSEBroadcaster:
+    """Manages active Server-Sent Events (SSE) connections for live browser updates."""
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._clients = set()
+
+    def add_client(self):
+        q = queue.Queue(maxsize=1000)
+        with self._lock:
+            self._clients.add(q)
+        return q
+
+    def remove_client(self, q):
+        with self._lock:
+            self._clients.discard(q)
+
+    def broadcast(self, data):
+        with self._lock:
+            for q in list(self._clients):
+                try:
+                    q.put_nowait(data)
+                except queue.Full:
+                    pass
+
+class LiveTestRequestHandler(http.server.BaseHTTPRequestHandler):
+    """Zero-dependency HTTP request handler for the live test report and image streaming."""
+    broadcaster = None
+    runs_dir = None
+    git_root = None
+    html_provider = None
+
+    def log_message(self, format, *args):
+        # Silence access logs to keep terminal output clean
+        pass
+
+    def do_GET(self):
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+
+        if path in ("/", "/index.html", "/report.html"):
+            html = self.__class__.html_provider()
+            encoded = html.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(encoded)))
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            self.wfile.write(encoded)
+            return
+
+        if path == "/events":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+
+            q = self.broadcaster.add_client()
+            try:
+                self.wfile.write(b": connected\n\n")
+                self.wfile.flush()
+                while True:
+                    try:
+                        msg = q.get(timeout=1.0)
+                        payload = f"data: {json.dumps(msg)}\n\n".encode("utf-8")
+                        self.wfile.write(payload)
+                        self.wfile.flush()
+                    except queue.Empty:
+                        self.wfile.write(b": ping\n\n")
+                        self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError, Exception):
+                pass
+            finally:
+                self.broadcaster.remove_client(q)
+            return
+
+        if path.startswith("/runs/"):
+            rel_path = urllib.parse.unquote(path[len("/runs/"):])
+            full_path = os.path.abspath(os.path.join(self.runs_dir, rel_path))
+            runs_root = os.path.abspath(self.runs_dir)
+            if os.path.commonpath([full_path, runs_root]) == runs_root and os.path.isfile(full_path):
+                self._serve_file(full_path)
+                return
+
+        if path.startswith("/Tests/"):
+            rel_path = urllib.parse.unquote(path[len("/Tests/"):])
+            full_path = os.path.abspath(os.path.join(self.git_root, "Tests", rel_path))
+            tests_root = os.path.abspath(os.path.join(self.git_root, "Tests"))
+            if os.path.commonpath([full_path, tests_root]) == tests_root and os.path.isfile(full_path):
+                self._serve_file(full_path)
+                return
+
+        self.send_error(404, "Not Found")
+
+    def _serve_file(self, full_path):
+        content_type = "application/octet-stream"
+        if full_path.endswith(".png"):
+            content_type = "image/png"
+        elif full_path.endswith(".html"):
+            content_type = "text/html; charset=utf-8"
+        elif full_path.endswith(".json"):
+            content_type = "application/json"
+        elif full_path.endswith(".md") or full_path.endswith(".txt"):
+            content_type = "text/plain; charset=utf-8"
+
         try:
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(content)
+            with open(full_path, "rb") as f:
+                data = f.read()
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            self.wfile.write(data)
         except Exception:
-            pass
+            self.send_error(500, "Error reading file")
+
+def start_live_server(runs_dir, git_root, html_provider):
+    """Starts an ephemeral local HTTP server on an unoccupied port."""
+    broadcaster = SSEBroadcaster()
+
+    class Handler(LiveTestRequestHandler):
+        pass
+
+    Handler.broadcaster = broadcaster
+    Handler.runs_dir = runs_dir
+    Handler.git_root = git_root
+    Handler.html_provider = staticmethod(html_provider)
+
+    # Binding to port 0 asks the OS to assign an available, unoccupied port
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    port = server.server_address[1]
+
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+    return server, port, broadcaster
+
+def generate_results_json(args, results, unit_passed=True, finished=True):
+    """Generates a structured, machine-readable results.json for CI/CD pipelines."""
+    total_checks = 0
+    passed_checks = 0
+    skipped_checks = 0
+    failed_checks = 0
+
+    test_data = {}
+    for test_name, buckets in results.items():
+        test_data[test_name] = {}
+        metrics_map = buckets.get("_metrics", {})
+        for backend, m in metrics_map.items():
+            total_checks += 1
+            is_skipped = bool(m.get("skipped", False))
+            is_passed = bool(m.get("passed", False))
+            if is_skipped:
+                skipped_checks += 1
+            elif is_passed:
+                passed_checks += 1
+            else:
+                failed_checks += 1
+
+            img_path = buckets.get(backend)
+            diff_path = buckets.get(f"{backend}_diff")
+
+            test_data[test_name][backend] = {
+                "passed": is_passed,
+                "skipped": is_skipped,
+                "skip_reason": m.get("skip_reason"),
+                "error": m.get("error"),
+                "rmse": m.get("rmse", 0.0),
+                "mismatch_pct": m.get("mismatch_pct", 0.0),
+                "diff_pixels": m.get("diff_pixels", 0),
+                "total_pixels": m.get("total_pixels", 0),
+                "max_diff": m.get("max_diff", 0),
+                "image": os.path.relpath(img_path, args.directory) if img_path and os.path.exists(img_path) else None,
+                "diff": os.path.relpath(diff_path, args.directory) if diff_path and os.path.exists(diff_path) else None,
+            }
+
+    overall_passed = (failed_checks == 0) and unit_passed
+    summary = {
+        "timestamp": datetime.datetime.now().isoformat(),
+        "platform": platform.system(),
+        "machine": platform.machine(),
+        "finished": finished,
+        "overall_passed": overall_passed,
+        "unit_tests_passed": unit_passed,
+        "total_checks": total_checks,
+        "passed_checks": passed_checks,
+        "skipped_checks": skipped_checks,
+        "failed_checks": failed_checks,
+        "tests": test_data,
+    }
+
+    path = os.path.join(args.directory, "results.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(summary, f, indent=2)
+    return path, summary
 
 def run_rhi_tests(args, buckets, on_progress=None):
     results = {}
@@ -803,7 +989,7 @@ def run_unit_tests(args):
         print(f">>> Unit Tests FAILED with exit code {e.returncode}.")
         return False
 
-def generate_html_report(args, results, unit_success=True, finished=True):
+def generate_html_report(args, results, unit_success=True, finished=True, for_web_server=False):
     sequence = ["reference", "softgpu"]
 
     os_name = platform.system()
@@ -1269,14 +1455,14 @@ def generate_html_report(args, results, unit_success=True, finished=True):
             html_content.append(f'<td id="{cell_id}"><div class="img-cell" id="container-{test_name}-{key}">')
             if key == "reference":
                 if "reference" in buckets and os.path.exists(buckets["reference"]):
-                    ref_uri = pathlib.Path(os.path.abspath(buckets["reference"])).as_uri()
+                    ref_uri = f"/Tests/{test_name}/reference.png" if for_web_server else pathlib.Path(os.path.abspath(buckets["reference"])).as_uri()
                     html_content.append(f'<img src="{ref_uri}" class="test-img" onclick="openLightbox(this.src, \'{test_name} [REFERENCE]\')"/>')
                     html_content.append('<span class="badge badge-ref">REFERENCE</span>')
                 else:
                     html_content.append('<span class="empty-state">No Reference</span>')
             elif key in buckets and os.path.exists(buckets[key]):
                 image = buckets[key]
-                image_uri = pathlib.Path(os.path.abspath(image)).as_uri()
+                image_uri = f"/runs/{test_name}/{key}.png" if for_web_server else pathlib.Path(os.path.abspath(image)).as_uri()
                 html_content.append(f'<img src="{image_uri}" class="test-img" onclick="openLightbox(this.src, \'{test_name} [{key.upper()}]\')"/>')
 
                 if key in metrics_map:
@@ -1289,7 +1475,7 @@ def generate_html_report(args, results, unit_success=True, finished=True):
 
                     diff_img = buckets.get(f"{key}_diff")
                     if diff_img and os.path.exists(diff_img):
-                        diff_uri = pathlib.Path(os.path.abspath(diff_img)).as_uri()
+                        diff_uri = f"/runs/{test_name}/{key}_diff.png" if for_web_server else pathlib.Path(os.path.abspath(diff_img)).as_uri()
                         html_content.append(f'<button class="diff-btn" onclick="openLightbox(\'{diff_uri}\', \'{test_name} [{key.upper()} DIFF]\')">View Diff</button>')
             elif key in metrics_map and metrics_map[key].get("skipped"):
                 m = metrics_map[key]
@@ -1367,97 +1553,95 @@ def generate_html_report(args, results, unit_success=True, finished=True):
             }
         });
 
-        // Live Polling Mechanism (zero-CORS dynamic script inclusion)
-        let isFinished = false;
-        function pollStatus() {
-            if (isFinished) return;
-            const old = document.getElementById('live-script');
-            if (old) old.remove();
-            const s = document.createElement('script');
-            s.id = 'live-script';
-            s.src = 'status.js?t=' + Date.now();
-            s.onerror = () => {
-                if (!isFinished) setTimeout(pollStatus, 500);
+        // Live SSE Streaming Mechanism
+        if (window.EventSource && location.protocol.startsWith('http')) {
+            const evtSource = new EventSource('/events');
+
+            evtSource.onmessage = function(e) {
+                try {
+                    const msg = JSON.parse(e.data);
+                    handleLiveMessage(msg);
+                } catch (err) {
+                    // Ignore keepalive comments or non-JSON payloads
+                }
             };
-            document.head.appendChild(s);
+
+            evtSource.onerror = function() {
+                // Server closed or network disconnected
+            };
         }
 
-        window.updateLiveStatus = function(data) {
-            if (!data) return;
+        function handleLiveMessage(msg) {
+            if (!msg) return;
 
             const progressElem = document.getElementById('stat-progress');
-            if (progressElem) {
-                progressElem.textContent = `${data.completed_count}/${data.total_count} (${data.passed_count} Pass, ${data.failed_count} Fail)`;
+            if (progressElem && msg.completed_count !== undefined) {
+                progressElem.textContent = `${msg.completed_count}/${msg.total_count} (${msg.passed_count} Pass, ${msg.skipped_count || 0} Skip, ${msg.failed_count} Fail)`;
             }
 
             const statusElem = document.getElementById('stat-status');
-            if (statusElem) {
-                if (data.finished) {
-                    isFinished = true;
+
+            if (msg.type === 'progress') {
+                const cellId = `cell-${msg.test_name}-${msg.backend}`;
+                const cell = document.getElementById(cellId);
+                if (cell) {
+                    const container = cell.querySelector('.img-cell') || cell;
+                    if (msg.skipped) {
+                        const reason = msg.skip_reason || "Feature not supported";
+                        container.innerHTML = `<span class="badge badge-skip">SKIPPED &bull; ${reason}</span>`;
+                    } else if (msg.image_url) {
+                        let badgeHtml = '';
+                        if (msg.passed) {
+                            badgeHtml = `<span class="badge badge-pass">PASS &bull; RMSE ${msg.rmse.toFixed(2)} &bull; ${msg.mismatch_pct.toFixed(2)}% diff</span>`;
+                        } else {
+                            const err = msg.error || `RMSE ${msg.rmse.toFixed(2)}`;
+                            badgeHtml = `<span class="badge badge-fail">FAIL &bull; ${err}</span>`;
+                        }
+
+                        let diffBtnHtml = '';
+                        if (msg.diff_url) {
+                            const preload = new Image();
+                            preload.src = msg.diff_url;
+                            diffBtnHtml = `<button class="diff-btn" onclick="openLightbox('${msg.diff_url}', '${msg.test_name} [${msg.backend.toUpperCase()} DIFF]')">View Diff</button>`;
+                        }
+
+                        container.innerHTML = `
+                            <img src="${msg.image_url}" class="test-img" onclick="openLightbox('${msg.image_url}', '${msg.test_name} [${msg.backend.toUpperCase()}]')"/>
+                            ${badgeHtml}
+                            ${diffBtnHtml}
+                        `;
+                    }
+                }
+            } else if (msg.type === 'unit_tests') {
+                if (!msg.passed && statusElem) {
+                    statusElem.textContent = "UNIT FAILED";
+                    statusElem.className = "stat-badge stat-failed";
+                }
+            } else if (msg.type === 'finished') {
+                if (statusElem) {
                     document.querySelectorAll('.badge-pending').forEach(el => {
                         el.outerHTML = '<span class="empty-state">Not Available</span>';
                     });
-                    if (data.failed_count === 0 && data.unit_passed) {
+                    if (msg.overall_passed) {
                         statusElem.textContent = "ALL PASSED";
                         statusElem.className = "stat-badge stat-passed";
                     } else {
                         statusElem.textContent = "FAILED";
                         statusElem.className = "stat-badge stat-failed";
                     }
-                } else {
-                    statusElem.textContent = "RUNNING...";
-                    statusElem.className = "stat-badge stat-running";
                 }
             }
-
-            if (data.results) {
-                for (const [testName, backends] of Object.entries(data.results)) {
-                    for (const [backend, info] of Object.entries(backends)) {
-                        const cellId = `cell-${testName}-${backend}`;
-                        const cell = document.getElementById(cellId);
-                        if (!cell) continue;
-
-                        const container = cell.querySelector('.img-cell') || cell;
-                        if (info.skipped) {
-                            const reason = info.skip_reason || "Feature not supported";
-                            container.innerHTML = `<span class="badge badge-skip">SKIPPED &bull; ${reason}</span>`;
-                        } else if (!container.querySelector('.test-img') && info.image_uri) {
-                            let badgeHtml = '';
-                            if (info.passed) {
-                                badgeHtml = `<span class="badge badge-pass">PASS &bull; RMSE ${info.rmse.toFixed(2)} &bull; ${info.mismatch_pct.toFixed(2)}% diff</span>`;
-                            } else {
-                                const err = info.error || `RMSE ${info.rmse.toFixed(2)}`;
-                                badgeHtml = `<span class="badge badge-fail">FAIL &bull; ${err}</span>`;
-                            }
-
-                            let diffBtnHtml = '';
-                            if (info.diff_uri) {
-                                diffBtnHtml = `<button class="diff-btn" onclick="openLightbox('${info.diff_uri}', '${testName} [${backend.toUpperCase()} DIFF]')">View Diff</button>`;
-                            }
-
-                            container.innerHTML = `
-                                <img src="${info.image_uri}" class="test-img" onclick="openLightbox('${info.image_uri}', '${testName} [${backend.toUpperCase()}]')"/>
-                                ${badgeHtml}
-                                ${diffBtnHtml}
-                            `;
-                        }
-                    }
-                }
-            }
-
-            if (!data.finished && !isFinished) {
-                setTimeout(pollStatus, 500);
-            }
-        };
-
-        // Start live polling
-        setTimeout(pollStatus, 300);
+        }
     </script>
 </body>
 </html>
 ''')
 
-    html = "\n".join(html_content)
+    return "\n".join(html_content)
+
+def save_static_html_report(args, results, unit_success=True, finished=True):
+    """Saves the final standalone static HTML report to disk for offline viewing."""
+    html = generate_html_report(args, results, unit_success=unit_success, finished=finished, for_web_server=False)
     path = os.path.join(args.directory, "report.html")
     with open(path, "w", encoding="utf-8") as f:
         f.write(html)
@@ -1504,16 +1688,6 @@ def main():
             "_available_backends": [v["components"][1] for v in buckets[test_name]]
         }
 
-    status_js_path = os.path.join(args.directory, "status.js")
-
-    sequence = ["softgpu"]
-    if platform.system() == "Windows":
-        sequence.append("d3d12")
-    if platform.system() == "Darwin":
-        sequence.append("metal")
-    if check_vulkan_info():
-        sequence.append("vulkan")
-
     total_expected = len(tests)
 
     live_state = {
@@ -1522,24 +1696,41 @@ def main():
         "completed_count": 0,
         "total_count": total_expected,
         "passed_count": 0,
+        "skipped_count": 0,
         "failed_count": 0,
-        "results": {}
     }
-    write_status_js(status_js_path, live_state)
 
-    report_path = generate_html_report(args, initial_results, unit_success=True, finished=False)
+    broadcaster = None
+    server_port = None
+    current_results = initial_results
 
     if is_interactive:
-        print(">>> Interactive mode enabled: opening live report in browser immediately...")
+        _, server_port, broadcaster = start_live_server(
+            runs_dir=args.directory,
+            git_root=git_root,
+            html_provider=lambda: generate_html_report(
+                args,
+                current_results,
+                unit_success=live_state["unit_passed"],
+                finished=live_state["finished"],
+                for_web_server=True
+            )
+        )
+        url = f"http://127.0.0.1:{server_port}/"
+        print(f">>> Interactive mode enabled: live report available at {url}")
         try:
-            webbrowser.open(pathlib.Path(report_path).as_uri())
+            webbrowser.open(url)
         except Exception as e:
             print(f"Note: Could not automatically open browser: {e}")
 
     # Run unit tests
     unit_passed = run_unit_tests(args)
     live_state["unit_passed"] = unit_passed
-    write_status_js(status_js_path, live_state)
+    if broadcaster:
+        broadcaster.broadcast({
+            "type": "unit_tests",
+            "passed": unit_passed,
+        })
 
     rhi_passed = True
     progress_lock = threading.Lock()
@@ -1547,45 +1738,78 @@ def main():
         def on_progress(test_name, backend, metrics, image_path, diff_path):
             with progress_lock:
                 live_state["completed_count"] += 1
-                if metrics.get("passed", False):
+                if metrics.get("skipped", False):
+                    live_state["skipped_count"] += 1
+                elif metrics.get("passed", False):
                     live_state["passed_count"] += 1
                 else:
                     live_state["failed_count"] += 1
 
-                if test_name not in live_state["results"]:
-                    live_state["results"][test_name] = {}
-
-                img_uri = pathlib.Path(os.path.abspath(image_path)).as_uri() if image_path and os.path.exists(image_path) else None
-                diff_uri = pathlib.Path(os.path.abspath(diff_path)).as_uri() if diff_path and os.path.exists(diff_path) else None
-
-                live_state["results"][test_name][backend] = {
-                    "passed": metrics.get("passed", False),
-                    "skipped": metrics.get("skipped", False),
-                    "skip_reason": metrics.get("skip_reason"),
-                    "rmse": metrics.get("rmse", 0.0),
-                    "mismatch_pct": metrics.get("mismatch_pct", 0.0),
-                    "error": metrics.get("error"),
-                    "image_uri": img_uri,
-                    "diff_uri": diff_uri,
-                }
-                write_status_js(status_js_path, live_state)
+                if broadcaster:
+                    img_url = f"/runs/{test_name}/{backend}.png" if image_path and os.path.exists(image_path) else None
+                    diff_url = f"/runs/{test_name}/{backend}_diff.png" if diff_path and os.path.exists(diff_path) else None
+                    broadcaster.broadcast({
+                        "type": "progress",
+                        "test_name": test_name,
+                        "backend": backend,
+                        "passed": metrics.get("passed", False),
+                        "skipped": metrics.get("skipped", False),
+                        "skip_reason": metrics.get("skip_reason"),
+                        "rmse": metrics.get("rmse", 0.0),
+                        "mismatch_pct": metrics.get("mismatch_pct", 0.0),
+                        "max_diff": metrics.get("max_diff", 0),
+                        "error": metrics.get("error"),
+                        "image_url": img_url,
+                        "diff_url": diff_url,
+                        "completed_count": live_state["completed_count"],
+                        "total_count": live_state["total_count"],
+                        "passed_count": live_state["passed_count"],
+                        "skipped_count": live_state["skipped_count"],
+                        "failed_count": live_state["failed_count"],
+                    })
 
         results, rhi_passed = run_rhi_tests(args, buckets, on_progress=on_progress)
+        current_results = results
     else:
         results = initial_results
+        current_results = results
 
     # Finalize state
     live_state["finished"] = True
-    write_status_js(status_js_path, live_state)
-    generate_html_report(args, results, unit_success=unit_passed, finished=True)
-
     overall_passed = unit_passed and rhi_passed
+
+    if broadcaster:
+        broadcaster.broadcast({
+            "type": "finished",
+            "overall_passed": overall_passed,
+            "completed_count": live_state["completed_count"],
+            "total_count": live_state["total_count"],
+            "passed_count": live_state["passed_count"],
+            "skipped_count": live_state["skipped_count"],
+            "failed_count": live_state["failed_count"],
+        })
+
+    # Generate CI/CD manifest (results.json) and static standalone report.html
+    manifest_path, _ = generate_results_json(args, results, unit_passed=unit_passed, finished=True)
+    report_path = save_static_html_report(args, results, unit_success=unit_passed, finished=True)
+
     print("=" * 60)
     print(f"Lyra TestKit Result: {'SUCCESS' if overall_passed else 'FAILURE'}")
     print(f"  Unit Tests: {'PASSED' if unit_passed else 'FAILED'}")
     print(f"  RHI Tests:  {'PASSED' if rhi_passed else 'FAILED'}")
     print(f"  Report:     {report_path}")
+    print(f"  Manifest:   {manifest_path}")
+    if is_interactive and server_port:
+        print(f"  Live URL:   http://127.0.0.1:{server_port}/")
     print("=" * 60)
+
+    if is_interactive and getattr(args, "serve", False):
+        print(f"\n>>> Live server running at http://127.0.0.1:{server_port}/. Press Ctrl+C to stop.")
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\n>>> Server stopped.")
 
     if not overall_passed:
         sys.exit(1)
