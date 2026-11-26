@@ -117,10 +117,14 @@ namespace
         const char* GetBroadPhaseLayerName(JPH::BroadPhaseLayer inLayer) const override
         {
             switch ((JPH::BroadPhaseLayer::Type)inLayer) {
-                case (JPH::BroadPhaseLayer::Type)BroadPhaseLayers::NON_MOVING: return "NON_MOVING";
-                case (JPH::BroadPhaseLayer::Type)BroadPhaseLayers::MOVING:     return "MOVING";
-                case (JPH::BroadPhaseLayer::Type)BroadPhaseLayers::TRIGGER:    return "TRIGGER";
-                default:                                                       return "INVALID";
+                case (JPH::BroadPhaseLayer::Type)BroadPhaseLayers::NON_MOVING:
+                    return "NON_MOVING";
+                case (JPH::BroadPhaseLayer::Type)BroadPhaseLayers::MOVING:
+                    return "MOVING";
+                case (JPH::BroadPhaseLayer::Type)BroadPhaseLayers::TRIGGER:
+                    return "TRIGGER";
+                default:
+                    return "INVALID";
             }
         }
 #endif
@@ -157,21 +161,21 @@ namespace
 
     struct WorldContext
     {
-        PhysicsWorldDescriptor                       desc;
-        Own<JPH::PhysicsSystem>                      physics_system;
-        Own<JPH::TempAllocatorImpl>                  temp_allocator;
-        Own<JPH::JobSystemThreadPool>                job_system;
-        BPLayerInterfaceImpl                         bp_layer_interface;
-        ObjectVsBroadPhaseLayerFilterImpl            object_vs_bp_filter;
-        ObjectLayerPairFilterImpl                    object_layer_pair_filter;
+        PhysicsWorldDescriptor            desc;
+        Own<JPH::PhysicsSystem>           physics_system;
+        Own<JPH::TempAllocatorImpl>       temp_allocator;
+        Own<JPH::JobSystemThreadPool>     job_system;
+        BPLayerInterfaceImpl              bp_layer_interface;
+        ObjectVsBroadPhaseLayerFilterImpl object_vs_bp_filter;
+        ObjectLayerPairFilterImpl         object_layer_pair_filter;
 
-        HashMap<uint, JPH::BodyID>                   handle_to_body;
-        HashMap<uint, uint>                          body_to_handle;
-        HashMap<uint, ulong>                         body_user_data;
+        HashMap<uint, JPH::BodyID> handle_to_body;
+        HashMap<uint, uint>        body_to_handle;
+        HashMap<uint, ulong>       body_user_data;
     };
 
-    HashMap<uint, Own<WorldContext>>                 g_worlds;
-    HashMap<uint, JPH::Ref<JPH::Shape>>              g_shapes;
+    HashMap<uint, Own<WorldContext>>    g_worlds;
+    HashMap<uint, JPH::Ref<JPH::Shape>> g_shapes;
 
     void ensure_jolt_initialized()
     {
@@ -198,8 +202,8 @@ namespace api
     {
         ensure_jolt_initialized();
 
-        auto ctx = make_own<WorldContext>();
-        ctx->desc = desc;
+        auto ctx            = make_own<WorldContext>();
+        ctx->desc           = desc;
         ctx->temp_allocator = make_own<JPH::TempAllocatorImpl>(desc.temp_allocator_size_mb * 1024 * 1024);
         ctx->job_system     = make_own<JPH::JobSystemThreadPool>(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers);
 
@@ -211,11 +215,10 @@ namespace api
             desc.max_contact_constraints,
             ctx->bp_layer_interface,
             ctx->object_vs_bp_filter,
-            ctx->object_layer_pair_filter
-        );
+            ctx->object_layer_pair_filter);
         ctx->physics_system->SetGravity(to_jph_vec3(desc.gravity));
 
-        out_world = make_handle<PhysicsWorldHandle>();
+        out_world                 = make_handle<PhysicsWorldHandle>();
         g_worlds[out_world.value] = std::move(ctx);
         return true;
     }
@@ -230,8 +233,8 @@ namespace api
         auto it = g_worlds.find(world.value);
         if (it == g_worlds.end()) return;
 
-        auto& ctx = *it->second;
-        uint steps = collision_steps > 0 ? collision_steps : 1;
+        auto& ctx   = *it->second;
+        uint  steps = collision_steps > 0 ? collision_steps : 1;
         ctx.physics_system->Update(delta_time, steps, ctx.temp_allocator.get(), ctx.job_system.get());
     }
 
@@ -249,12 +252,12 @@ namespace api
     {
         ensure_jolt_initialized();
         JPH::BoxShapeSettings settings(to_jph_vec3(half_extents));
-        auto result = settings.Create();
+        auto                  result = settings.Create();
         if (result.HasError()) {
             get_logger()->error("Failed to create Jolt BoxShape: {}", result.GetError().c_str());
             return false;
         }
-        out_shape = make_handle<PhysicsShapeHandle>();
+        out_shape                 = make_handle<PhysicsShapeHandle>();
         g_shapes[out_shape.value] = result.Get();
         return true;
     }
@@ -263,12 +266,12 @@ namespace api
     {
         ensure_jolt_initialized();
         JPH::SphereShapeSettings settings(std::max(radius, 0.001f));
-        auto result = settings.Create();
+        auto                     result = settings.Create();
         if (result.HasError()) {
             get_logger()->error("Failed to create Jolt SphereShape: {}", result.GetError().c_str());
             return false;
         }
-        out_shape = make_handle<PhysicsShapeHandle>();
+        out_shape                 = make_handle<PhysicsShapeHandle>();
         g_shapes[out_shape.value] = result.Get();
         return true;
     }
@@ -277,12 +280,12 @@ namespace api
     {
         ensure_jolt_initialized();
         JPH::CapsuleShapeSettings settings(std::max(half_height, 0.001f), std::max(radius, 0.001f));
-        auto result = settings.Create();
+        auto                      result = settings.Create();
         if (result.HasError()) {
             get_logger()->error("Failed to create Jolt CapsuleShape: {}", result.GetError().c_str());
             return false;
         }
-        out_shape = make_handle<PhysicsShapeHandle>();
+        out_shape                 = make_handle<PhysicsShapeHandle>();
         g_shapes[out_shape.value] = result.Get();
         return true;
     }
@@ -291,12 +294,12 @@ namespace api
     {
         ensure_jolt_initialized();
         JPH::CylinderShapeSettings settings(std::max(half_height, 0.001f), std::max(radius, 0.001f));
-        auto result = settings.Create();
+        auto                       result = settings.Create();
         if (result.HasError()) {
             get_logger()->error("Failed to create Jolt CylinderShape: {}", result.GetError().c_str());
             return false;
         }
-        out_shape = make_handle<PhysicsShapeHandle>();
+        out_shape                 = make_handle<PhysicsShapeHandle>();
         g_shapes[out_shape.value] = result.Get();
         return true;
     }
@@ -313,12 +316,12 @@ namespace api
         }
 
         JPH::ConvexHullShapeSettings settings(jph_points.data(), static_cast<int>(jph_points.size()));
-        auto result = settings.Create();
+        auto                         result = settings.Create();
         if (result.HasError()) {
             get_logger()->error("Failed to create Jolt ConvexHullShape: {}", result.GetError().c_str());
             return false;
         }
-        out_shape = make_handle<PhysicsShapeHandle>();
+        out_shape                 = make_handle<PhysicsShapeHandle>();
         g_shapes[out_shape.value] = result.Get();
         return true;
     }
@@ -341,12 +344,12 @@ namespace api
         }
 
         JPH::MeshShapeSettings settings(jph_verts, jph_tris);
-        auto result = settings.Create();
+        auto                   result = settings.Create();
         if (result.HasError()) {
             get_logger()->error("Failed to create Jolt MeshShape: {}", result.GetError().c_str());
             return false;
         }
-        out_shape = make_handle<PhysicsShapeHandle>();
+        out_shape                 = make_handle<PhysicsShapeHandle>();
         g_shapes[out_shape.value] = result.Get();
         return true;
     }
@@ -360,7 +363,7 @@ namespace api
         for (usize i = 0; i < child_shapes.size(); ++i) {
             auto it = g_shapes.find(child_shapes[i].value);
             if (it == g_shapes.end()) continue;
-            Vector3 pos = (i < positions.size()) ? positions[i] : Vector3(0.0f);
+            Vector3    pos = (i < positions.size()) ? positions[i] : Vector3(0.0f);
             Quaternion rot = (i < rotations.size()) ? rotations[i] : glm::identity<Quaternion>();
             settings.AddShape(to_jph_vec3(pos), to_jph_quat(rot), it->second);
         }
@@ -370,7 +373,7 @@ namespace api
             get_logger()->error("Failed to create Jolt CompoundShape: {}", result.GetError().c_str());
             return false;
         }
-        out_shape = make_handle<PhysicsShapeHandle>();
+        out_shape                 = make_handle<PhysicsShapeHandle>();
         g_shapes[out_shape.value] = result.Get();
         return true;
     }
@@ -383,9 +386,12 @@ namespace api
     static auto to_jph_motion_type(MotionType type) -> JPH::EMotionType
     {
         switch (type) {
-            case MotionType::Static:    return JPH::EMotionType::Static;
-            case MotionType::Kinematic: return JPH::EMotionType::Kinematic;
-            case MotionType::Dynamic:   return JPH::EMotionType::Dynamic;
+            case MotionType::Static:
+                return JPH::EMotionType::Static;
+            case MotionType::Kinematic:
+                return JPH::EMotionType::Kinematic;
+            case MotionType::Dynamic:
+                return JPH::EMotionType::Dynamic;
         }
         return JPH::EMotionType::Dynamic;
     }
@@ -393,9 +399,12 @@ namespace api
     static auto to_lyra_motion_type(JPH::EMotionType type) -> MotionType
     {
         switch (type) {
-            case JPH::EMotionType::Static:    return MotionType::Static;
-            case JPH::EMotionType::Kinematic: return MotionType::Kinematic;
-            case JPH::EMotionType::Dynamic:   return MotionType::Dynamic;
+            case JPH::EMotionType::Static:
+                return MotionType::Static;
+            case JPH::EMotionType::Kinematic:
+                return MotionType::Kinematic;
+            case JPH::EMotionType::Dynamic:
+                return MotionType::Dynamic;
         }
         return MotionType::Dynamic;
     }
@@ -411,7 +420,7 @@ namespace api
             return false;
         }
 
-        auto& ctx = *wit->second;
+        auto& ctx            = *wit->second;
         auto& body_interface = ctx.physics_system->GetBodyInterface();
 
         JPH::BodyCreationSettings settings(
@@ -419,8 +428,7 @@ namespace api
             to_jph_rvec3(desc.position),
             to_jph_quat(desc.rotation),
             to_jph_motion_type(desc.motion_type),
-            static_cast<JPH::ObjectLayer>(desc.collision_layer)
-        );
+            static_cast<JPH::ObjectLayer>(desc.collision_layer));
 
         settings.mLinearDamping  = desc.linear_damping;
         settings.mAngularDamping = desc.angular_damping;
@@ -431,7 +439,7 @@ namespace api
         settings.mMotionQuality  = desc.enable_ccd ? JPH::EMotionQuality::LinearCast : JPH::EMotionQuality::Discrete;
 
         if (desc.motion_type == MotionType::Dynamic && desc.mass > 0.0f) {
-            settings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
+            settings.mOverrideMassProperties       = JPH::EOverrideMassProperties::CalculateInertia;
             settings.mMassPropertiesOverride.mMass = desc.mass;
         }
 
@@ -448,8 +456,8 @@ namespace api
             body_interface.SetAngularVelocity(body->GetID(), to_jph_vec3(desc.angular_velocity));
         }
 
-        out_body = make_handle<PhysicsBodyHandle>();
-        ctx.handle_to_body[out_body.value] = body->GetID();
+        out_body                                                      = make_handle<PhysicsBodyHandle>();
+        ctx.handle_to_body[out_body.value]                            = body->GetID();
         ctx.body_to_handle[body->GetID().GetIndexAndSequenceNumber()] = out_body.value;
         ctx.body_user_data[body->GetID().GetIndexAndSequenceNumber()] = desc.user_data;
 
@@ -462,7 +470,7 @@ namespace api
         if (wit == g_worlds.end()) return;
 
         auto& ctx = *wit->second;
-        auto bit = ctx.handle_to_body.find(body.value);
+        auto  bit = ctx.handle_to_body.find(body.value);
         if (bit == ctx.handle_to_body.end()) return;
 
         auto& body_interface = ctx.physics_system->GetBodyInterface();
@@ -479,15 +487,14 @@ namespace api
         auto wit = g_worlds.find(world.value);
         if (wit == g_worlds.end()) return;
         auto& ctx = *wit->second;
-        auto bit = ctx.handle_to_body.find(body.value);
+        auto  bit = ctx.handle_to_body.find(body.value);
         if (bit == ctx.handle_to_body.end()) return;
 
         ctx.physics_system->GetBodyInterface().SetPositionAndRotation(
             bit->second,
             to_jph_rvec3(pos),
             to_jph_quat(rot),
-            JPH::EActivation::DontActivate
-        );
+            JPH::EActivation::DontActivate);
     }
 
     static void get_transform(PhysicsWorldHandle world, PhysicsBodyHandle body, Vector3& out_pos, Quaternion& out_rot)
@@ -495,7 +502,7 @@ namespace api
         auto wit = g_worlds.find(world.value);
         if (wit == g_worlds.end()) return;
         auto& ctx = *wit->second;
-        auto bit = ctx.handle_to_body.find(body.value);
+        auto  bit = ctx.handle_to_body.find(body.value);
         if (bit == ctx.handle_to_body.end()) return;
 
         JPH::RVec3 pos;
@@ -510,14 +517,13 @@ namespace api
         auto wit = g_worlds.find(world.value);
         if (wit == g_worlds.end()) return;
         auto& ctx = *wit->second;
-        auto bit = ctx.handle_to_body.find(body.value);
+        auto  bit = ctx.handle_to_body.find(body.value);
         if (bit == ctx.handle_to_body.end()) return;
 
         ctx.physics_system->GetBodyInterface().SetMotionType(
             bit->second,
             to_jph_motion_type(motion_type),
-            JPH::EActivation::Activate
-        );
+            JPH::EActivation::Activate);
     }
 
     static auto get_motion_type(PhysicsWorldHandle world, PhysicsBodyHandle body) -> MotionType
@@ -525,7 +531,7 @@ namespace api
         auto wit = g_worlds.find(world.value);
         if (wit == g_worlds.end()) return MotionType::Static;
         auto& ctx = *wit->second;
-        auto bit = ctx.handle_to_body.find(body.value);
+        auto  bit = ctx.handle_to_body.find(body.value);
         if (bit == ctx.handle_to_body.end()) return MotionType::Static;
 
         return to_lyra_motion_type(ctx.physics_system->GetBodyInterface().GetMotionType(bit->second));
@@ -536,7 +542,7 @@ namespace api
         auto wit = g_worlds.find(world.value);
         if (wit == g_worlds.end()) return;
         auto& ctx = *wit->second;
-        auto bit = ctx.handle_to_body.find(body.value);
+        auto  bit = ctx.handle_to_body.find(body.value);
         if (bit == ctx.handle_to_body.end()) return;
 
         ctx.physics_system->GetBodyInterface().AddForce(bit->second, to_jph_vec3(force));
@@ -547,7 +553,7 @@ namespace api
         auto wit = g_worlds.find(world.value);
         if (wit == g_worlds.end()) return;
         auto& ctx = *wit->second;
-        auto bit = ctx.handle_to_body.find(body.value);
+        auto  bit = ctx.handle_to_body.find(body.value);
         if (bit == ctx.handle_to_body.end()) return;
 
         ctx.physics_system->GetBodyInterface().AddImpulse(bit->second, to_jph_vec3(impulse));
@@ -558,7 +564,7 @@ namespace api
         auto wit = g_worlds.find(world.value);
         if (wit == g_worlds.end()) return;
         auto& ctx = *wit->second;
-        auto bit = ctx.handle_to_body.find(body.value);
+        auto  bit = ctx.handle_to_body.find(body.value);
         if (bit == ctx.handle_to_body.end()) return;
 
         ctx.physics_system->GetBodyInterface().SetLinearVelocity(bit->second, to_jph_vec3(velocity));
@@ -569,7 +575,7 @@ namespace api
         auto wit = g_worlds.find(world.value);
         if (wit == g_worlds.end()) return Vector3(0.0f);
         auto& ctx = *wit->second;
-        auto bit = ctx.handle_to_body.find(body.value);
+        auto  bit = ctx.handle_to_body.find(body.value);
         if (bit == ctx.handle_to_body.end()) return Vector3(0.0f);
 
         return to_lyra_vec3(ctx.physics_system->GetBodyInterface().GetLinearVelocity(bit->second));
@@ -580,7 +586,7 @@ namespace api
         auto wit = g_worlds.find(world.value);
         if (wit == g_worlds.end()) return;
         auto& ctx = *wit->second;
-        auto bit = ctx.handle_to_body.find(body.value);
+        auto  bit = ctx.handle_to_body.find(body.value);
         if (bit == ctx.handle_to_body.end()) return;
 
         ctx.physics_system->GetBodyInterface().SetAngularVelocity(bit->second, to_jph_vec3(angular_velocity));
@@ -591,7 +597,7 @@ namespace api
         auto wit = g_worlds.find(world.value);
         if (wit == g_worlds.end()) return Vector3(0.0f);
         auto& ctx = *wit->second;
-        auto bit = ctx.handle_to_body.find(body.value);
+        auto  bit = ctx.handle_to_body.find(body.value);
         if (bit == ctx.handle_to_body.end()) return Vector3(0.0f);
 
         return to_lyra_vec3(ctx.physics_system->GetBodyInterface().GetAngularVelocity(bit->second));
@@ -602,7 +608,7 @@ namespace api
         auto wit = g_worlds.find(world.value);
         if (wit == g_worlds.end()) return false;
         auto& ctx = *wit->second;
-        auto bit = ctx.handle_to_body.find(body.value);
+        auto  bit = ctx.handle_to_body.find(body.value);
         if (bit == ctx.handle_to_body.end()) return false;
 
         return ctx.physics_system->GetBodyInterface().IsActive(bit->second);
@@ -613,7 +619,7 @@ namespace api
         auto wit = g_worlds.find(world.value);
         if (wit == g_worlds.end()) return;
         auto& ctx = *wit->second;
-        auto bit = ctx.handle_to_body.find(body.value);
+        auto  bit = ctx.handle_to_body.find(body.value);
         if (bit == ctx.handle_to_body.end()) return;
 
         ctx.physics_system->GetBodyInterface().ActivateBody(bit->second);
@@ -634,8 +640,8 @@ namespace api
         auto wit = g_worlds.find(world.value);
         if (wit == g_worlds.end()) return false;
 
-        auto& ctx = *wit->second;
-        JPH::RRayCast ray{to_jph_rvec3(query.origin), to_jph_vec3(query.direction * query.max_distance)};
+        auto&              ctx = *wit->second;
+        JPH::RRayCast      ray{to_jph_rvec3(query.origin), to_jph_vec3(query.direction * query.max_distance)};
         JPH::RayCastResult hit;
 
         bool has_hit = ctx.physics_system->GetNarrowPhaseQuery().CastRay(ray, hit);
@@ -646,9 +652,9 @@ namespace api
 
             JPH::BodyLockRead lock(ctx.physics_system->GetBodyLockInterface(), hit.mBodyID);
             if (lock.Succeeded()) {
-                const JPH::Body& b = lock.GetBody();
-                JPH::Vec3 normal = b.GetWorldSpaceSurfaceNormal(hit.mSubShapeID2, to_jph_rvec3(out_hit.position));
-                out_hit.normal = to_lyra_vec3(normal);
+                const JPH::Body& b      = lock.GetBody();
+                JPH::Vec3        normal = b.GetWorldSpaceSurfaceNormal(hit.mSubShapeID2, to_jph_rvec3(out_hit.position));
+                out_hit.normal          = to_lyra_vec3(normal);
             }
 
             auto hid_it = ctx.body_to_handle.find(hit.mBodyID.GetIndexAndSequenceNumber());
@@ -668,8 +674,8 @@ namespace api
         auto wit = g_worlds.find(world.value);
         if (wit == g_worlds.end()) return;
 
-        auto& ctx = *wit->second;
-        JPH::RRayCast ray{to_jph_rvec3(query.origin), to_jph_vec3(query.direction * query.max_distance)};
+        auto&                                                ctx = *wit->second;
+        JPH::RRayCast                                        ray{to_jph_rvec3(query.origin), to_jph_vec3(query.direction * query.max_distance)};
         JPH::AllHitCollisionCollector<JPH::CastRayCollector> collector;
 
         ctx.physics_system->GetNarrowPhaseQuery().CastRay(ray, {}, collector);
@@ -704,7 +710,7 @@ namespace api
         auto wit = g_worlds.find(world.value);
         if (wit == g_worlds.end()) return;
 
-        auto& ctx = *wit->second;
+        auto&                                                         ctx = *wit->second;
         JPH::AllHitCollisionCollector<JPH::CollideShapeBodyCollector> collector;
         ctx.physics_system->GetBroadPhaseQuery().CollideSphere(to_jph_rvec3(query.center), query.radius, collector);
 
@@ -738,8 +744,8 @@ namespace api
 
     static void get_character_state(PhysicsWorldHandle /*world*/, PhysicsCharacterHandle /*character*/, Vector3& out_position, Quaternion& out_rotation, bool& out_is_on_ground)
     {
-        out_position = Vector3(0.0f);
-        out_rotation = glm::identity<Quaternion>();
+        out_position     = Vector3(0.0f);
+        out_rotation     = glm::identity<Quaternion>();
         out_is_on_ground = true;
     }
 
@@ -756,22 +762,28 @@ namespace api
         auto wit = g_worlds.find(world.value);
         if (wit == g_worlds.end()) return;
 
-        auto& ctx = *wit->second;
+        auto& ctx            = *wit->second;
         auto& body_interface = ctx.physics_system->GetBodyInterface();
 
         for (const auto& [handle, body_id] : ctx.handle_to_body) {
             JPH::RVec3 pos = body_interface.GetPosition(body_id);
-            Vector3 p = to_lyra_vec3(pos);
+            Vector3    p   = to_lyra_vec3(pos);
 
             // small orientation axes
-            out_lines.push_back(p); out_lines.push_back(p + Vector3(0.5f, 0.0f, 0.0f));
-            out_colors.push_back(0xFF0000FF); out_colors.push_back(0xFF0000FF);
+            out_lines.push_back(p);
+            out_lines.push_back(p + Vector3(0.5f, 0.0f, 0.0f));
+            out_colors.push_back(0xFF0000FF);
+            out_colors.push_back(0xFF0000FF);
 
-            out_lines.push_back(p); out_lines.push_back(p + Vector3(0.0f, 0.5f, 0.0f));
-            out_colors.push_back(0xFF00FF00); out_colors.push_back(0xFF00FF00);
+            out_lines.push_back(p);
+            out_lines.push_back(p + Vector3(0.0f, 0.5f, 0.0f));
+            out_colors.push_back(0xFF00FF00);
+            out_colors.push_back(0xFF00FF00);
 
-            out_lines.push_back(p); out_lines.push_back(p + Vector3(0.0f, 0.0f, 0.5f));
-            out_colors.push_back(0xFFFF0000); out_colors.push_back(0xFFFF0000);
+            out_lines.push_back(p);
+            out_lines.push_back(p + Vector3(0.0f, 0.0f, 0.5f));
+            out_colors.push_back(0xFFFF0000);
+            out_colors.push_back(0xFFFF0000);
         }
     }
 } // namespace api
@@ -781,48 +793,48 @@ namespace lyra::jolt
     auto get_api() -> PhysicsAPI
     {
         PhysicsAPI api{};
-        api.get_api_name            = api::get_api_name;
-        api.create_world            = api::create_world;
-        api.delete_world            = api::delete_world;
-        api.step_simulation         = api::step_simulation;
-        api.create_material         = api::create_material;
-        api.release_material        = api::release_material;
-        api.create_box_shape        = api::create_box_shape;
-        api.create_sphere_shape     = api::create_sphere_shape;
-        api.create_capsule_shape    = api::create_capsule_shape;
-        api.create_cylinder_shape   = api::create_cylinder_shape;
-        api.create_convex_hull_shape= api::create_convex_hull_shape;
+        api.get_api_name               = api::get_api_name;
+        api.create_world               = api::create_world;
+        api.delete_world               = api::delete_world;
+        api.step_simulation            = api::step_simulation;
+        api.create_material            = api::create_material;
+        api.release_material           = api::release_material;
+        api.create_box_shape           = api::create_box_shape;
+        api.create_sphere_shape        = api::create_sphere_shape;
+        api.create_capsule_shape       = api::create_capsule_shape;
+        api.create_cylinder_shape      = api::create_cylinder_shape;
+        api.create_convex_hull_shape   = api::create_convex_hull_shape;
         api.create_triangle_mesh_shape = api::create_triangle_mesh_shape;
-        api.create_compound_shape   = api::create_compound_shape;
-        api.release_shape           = api::release_shape;
-        api.create_body             = api::create_body;
-        api.delete_body             = api::delete_body;
-        api.set_transform           = api::set_transform;
-        api.get_transform           = api::get_transform;
-        api.set_motion_type         = api::set_motion_type;
-        api.get_motion_type         = api::get_motion_type;
-        api.add_force               = api::add_force;
-        api.add_impulse             = api::add_impulse;
-        api.set_linear_velocity     = api::set_linear_velocity;
-        api.get_linear_velocity     = api::get_linear_velocity;
-        api.set_angular_velocity    = api::set_angular_velocity;
-        api.get_angular_velocity    = api::get_angular_velocity;
-        api.is_active               = api::is_active;
-        api.activate_body           = api::activate_body;
-        api.create_joint            = api::create_joint;
-        api.delete_joint            = api::delete_joint;
-        api.raycast_closest         = api::raycast_closest;
-        api.raycast_all             = api::raycast_all;
-        api.shape_sweep             = api::shape_sweep;
-        api.query_overlap_sphere    = api::query_overlap_sphere;
-        api.query_overlap_box       = api::query_overlap_box;
-        api.create_character        = api::create_character;
-        api.delete_character        = api::delete_character;
-        api.update_character        = api::update_character;
-        api.get_character_state     = api::get_character_state;
-        api.fetch_contact_events    = api::fetch_contact_events;
-        api.fetch_trigger_events    = api::fetch_trigger_events;
-        api.extract_debug_lines     = api::extract_debug_lines;
+        api.create_compound_shape      = api::create_compound_shape;
+        api.release_shape              = api::release_shape;
+        api.create_body                = api::create_body;
+        api.delete_body                = api::delete_body;
+        api.set_transform              = api::set_transform;
+        api.get_transform              = api::get_transform;
+        api.set_motion_type            = api::set_motion_type;
+        api.get_motion_type            = api::get_motion_type;
+        api.add_force                  = api::add_force;
+        api.add_impulse                = api::add_impulse;
+        api.set_linear_velocity        = api::set_linear_velocity;
+        api.get_linear_velocity        = api::get_linear_velocity;
+        api.set_angular_velocity       = api::set_angular_velocity;
+        api.get_angular_velocity       = api::get_angular_velocity;
+        api.is_active                  = api::is_active;
+        api.activate_body              = api::activate_body;
+        api.create_joint               = api::create_joint;
+        api.delete_joint               = api::delete_joint;
+        api.raycast_closest            = api::raycast_closest;
+        api.raycast_all                = api::raycast_all;
+        api.shape_sweep                = api::shape_sweep;
+        api.query_overlap_sphere       = api::query_overlap_sphere;
+        api.query_overlap_box          = api::query_overlap_box;
+        api.create_character           = api::create_character;
+        api.delete_character           = api::delete_character;
+        api.update_character           = api::update_character;
+        api.get_character_state        = api::get_character_state;
+        api.fetch_contact_events       = api::fetch_contact_events;
+        api.fetch_trigger_events       = api::fetch_trigger_events;
+        api.extract_debug_lines        = api::extract_debug_lines;
         return api;
     }
 

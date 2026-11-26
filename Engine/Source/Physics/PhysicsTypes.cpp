@@ -61,12 +61,12 @@ bool Physics::init(PhysicsBackend backend)
     g_slot.backend_type = backend;
 
     switch (backend) {
-        case PhysicsBackend::Jolt: {
+        case PhysicsBackend::Jolt:
+        {
             g_slot.builtin_plugin = make_own<BuiltinPhysicsPlugin>(
                 lyra::jolt::create,
                 lyra::jolt::prepare,
-                lyra::jolt::cleanup
-            );
+                lyra::jolt::cleanup);
             g_slot.api = g_slot.builtin_plugin->get_api();
             if (!g_slot.api) {
                 get_logger()->warn("Builtin Jolt plugin not available, attempting dynamic load...");
@@ -79,11 +79,11 @@ bool Physics::init(PhysicsBackend backend)
             g_slot.builtin_plugin = make_own<BuiltinPhysicsPlugin>(
                 lyra::mockphysics::create,
                 lyra::mockphysics::prepare,
-                lyra::mockphysics::cleanup
-            );
+                lyra::mockphysics::cleanup);
             g_slot.api = g_slot.builtin_plugin->get_api();
             break;
-        case PhysicsBackend::Custom: {
+        case PhysicsBackend::Custom:
+        {
             get_logger()->error("Use Physics::init(StringView custom_backend) for custom plugins");
             return false;
         }
@@ -273,7 +273,7 @@ void PhysicsBody::get_transform(Vector3& out_pos, Quaternion& out_rot) const
 
 Vector3 PhysicsBody::get_position() const
 {
-    Vector3 pos(0.0f);
+    Vector3    pos(0.0f);
     Quaternion rot = glm::identity<Quaternion>();
     get_transform(pos, rot);
     return pos;
@@ -281,7 +281,7 @@ Vector3 PhysicsBody::get_position() const
 
 Quaternion PhysicsBody::get_rotation() const
 {
-    Vector3 pos(0.0f);
+    Vector3    pos(0.0f);
     Quaternion rot = glm::identity<Quaternion>();
     get_transform(pos, rot);
     return rot;
@@ -389,18 +389,18 @@ void PhysicsCharacter::get_state(Vector3& out_position, Quaternion& out_rotation
 
 Vector3 PhysicsCharacter::get_position() const
 {
-    Vector3 pos(0.0f);
-    Quaternion rot = glm::identity<Quaternion>();
-    bool grounded = false;
+    Vector3    pos(0.0f);
+    Quaternion rot      = glm::identity<Quaternion>();
+    bool       grounded = false;
     get_state(pos, rot, grounded);
     return pos;
 }
 
 bool PhysicsCharacter::is_on_ground() const
 {
-    Vector3 pos(0.0f);
-    Quaternion rot = glm::identity<Quaternion>();
-    bool grounded = false;
+    Vector3    pos(0.0f);
+    Quaternion rot      = glm::identity<Quaternion>();
+    bool       grounded = false;
     get_state(pos, rot, grounded);
     return grounded;
 }

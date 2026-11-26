@@ -572,3 +572,80 @@ void SoftHostTextureWrapper::SampleLevel(void* samplerState, const float* loc, f
         std::memcpy(outData, &c, dataSize);
     }
 }
+
+SoftHostRWTextureWrapper::SoftHostRWTextureWrapper(SoftTexture* t, const SoftTextureView* v)
+    : tex(t), view(v)
+{
+    mip = view ? view->base_mip_level : 0;
+    if (tex) {
+        width  = (mip < tex->mips.size()) ? tex->mips[mip].width : std::max(1u, tex->extent.width >> mip);
+        height = (mip < tex->mips.size()) ? tex->mips[mip].height : std::max(1u, tex->extent.height >> mip);
+        storage.resize(width * height);
+        for (uint y = 0; y < height; ++y) {
+            for (uint x = 0; x < width; ++x) {
+                storage[y * width + x] = tex->read_rgba(x, y, 0, mip);
+            }
+        }
+    }
+}
+
+SlangTextureDimensions SoftHostRWTextureWrapper::GetDimensions(int mipLevel)
+{
+    if (!tex) return {2, 0, 0, 0, 0, 0};
+    uint        m  = (mipLevel >= 0) ? std::min(static_cast<uint>(mipLevel), tex->mip_level_count - 1) : mip;
+    const auto& ml = (m < tex->mips.size()) ? tex->mips[m] : SoftMipLevel{tex->extent.width, tex->extent.height, tex->extent.depth};
+    return {2, ml.width, ml.height, ml.depth, tex->mip_level_count, 0};
+}
+
+void SoftHostRWTextureWrapper::Load(const int32_t* v, void* outData, usize dataSize)
+{
+    if (!outData || !v) return;
+    int32_t x = v[0];
+    int32_t y = v[1];
+    Vector4 c(0.0f);
+    if (x >= 0 && x < static_cast<int32_t>(width) && y >= 0 && y < static_cast<int32_t>(height)) {
+        c = storage[y * width + x];
+    }
+    if (dataSize == sizeof(float)) {
+        *reinterpret_cast<float*>(outData) = c.r;
+    } else if (dataSize >= sizeof(Vector4)) {
+        *reinterpret_cast<Vector4*>(outData) = c;
+    } else {
+        std::memcpy(outData, &c, dataSize);
+    }
+}
+
+void SoftHostRWTextureWrapper::Sample(void* samplerState, const float* loc, void* outData, usize dataSize)
+{
+    SoftHostTextureWrapper wrapper(tex, view);
+    wrapper.Sample(samplerState, loc, outData, dataSize);
+}
+
+void SoftHostRWTextureWrapper::SampleLevel(void* samplerState, const float* loc, float level, void* outData, usize dataSize)
+{
+    SoftHostTextureWrapper wrapper(tex, view);
+    wrapper.SampleLevel(samplerState, loc, level, outData, dataSize);
+}
+
+void* SoftHostRWTextureWrapper::refAt(const uint32_t* loc)
+{
+    if (loc) {
+        uint x = loc[0];
+        uint y = loc[1];
+        if (x < width && y < height) {
+            return &storage[y * width + x];
+        }
+    }
+    return &dummy;
+}
+
+void SoftHostRWTextureWrapper::flush()
+{
+    if (tex) {
+        for (uint y = 0; y < height; ++y) {
+            for (uint x = 0; x < width; ++x) {
+                tex->write_rgba(x, y, storage[y * width + x], 0, mip);
+            }
+        }
+    }
+}

@@ -193,14 +193,13 @@ struct AtmosphereApp : public TestApp
 TEST_CASE("rhi::vulkan::atmosphere" * doctest::description("Atmospheric scattering sky rendering"))
 {
     TestAppDescriptor desc{};
-    desc.name           = "vulkan";
-    desc.window         = false;
-    desc.backend        = RHIBackend::VULKAN;
-    desc.width          = 640;
-    desc.height         = 480;
-    desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
-    desc.compile_target = CompileTarget::SPIRV;
-    desc.compile_flags  = CompileFlag::DEBUG;
+    desc.name          = "vulkan";
+    desc.window        = false;
+    desc.backend       = RHIBackend::VULKAN;
+    desc.width         = 640;
+    desc.height        = 480;
+    desc.rhi_flags     = RHIFlag::DEBUG | RHIFlag::VALIDATION;
+    desc.compile_flags = CompileFlag::DEBUG;
     AtmosphereApp(desc).run();
 }
 #endif
@@ -209,14 +208,13 @@ TEST_CASE("rhi::vulkan::atmosphere" * doctest::description("Atmospheric scatteri
 TEST_CASE("rhi::d3d12::atmosphere" * doctest::description("Atmospheric scattering sky rendering"))
 {
     TestAppDescriptor desc{};
-    desc.name           = "d3d12";
-    desc.window         = false;
-    desc.backend        = RHIBackend::D3D12;
-    desc.width          = 640;
-    desc.height         = 480;
-    desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
-    desc.compile_target = CompileTarget::DXIL;
-    desc.compile_flags  = CompileFlag::DEBUG;
+    desc.name          = "d3d12";
+    desc.window        = false;
+    desc.backend       = RHIBackend::D3D12;
+    desc.width         = 640;
+    desc.height        = 480;
+    desc.rhi_flags     = RHIFlag::DEBUG | RHIFlag::VALIDATION;
+    desc.compile_flags = CompileFlag::DEBUG;
     AtmosphereApp(desc).run();
 }
 #endif
@@ -225,14 +223,13 @@ TEST_CASE("rhi::d3d12::atmosphere" * doctest::description("Atmospheric scatterin
 TEST_CASE("rhi::metal::atmosphere" * doctest::description("Atmospheric scattering sky rendering"))
 {
     TestAppDescriptor desc{};
-    desc.name           = "metal";
-    desc.window         = false;
-    desc.backend        = RHIBackend::METAL;
-    desc.width          = 640;
-    desc.height         = 480;
-    desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
-    desc.compile_target = CompileTarget::MSL;
-    desc.compile_flags  = CompileFlag::DEBUG;
+    desc.name          = "metal";
+    desc.window        = false;
+    desc.backend       = RHIBackend::METAL;
+    desc.width         = 640;
+    desc.height        = 480;
+    desc.rhi_flags     = RHIFlag::DEBUG | RHIFlag::VALIDATION;
+    desc.compile_flags = CompileFlag::DEBUG;
     AtmosphereApp(desc).run();
 }
 #endif
@@ -240,13 +237,12 @@ TEST_CASE("rhi::metal::atmosphere" * doctest::description("Atmospheric scatterin
 TEST_CASE("rhi::softgpu::atmosphere" * doctest::description("Atmospheric scattering sky rendering"))
 {
     TestAppDescriptor desc{};
-    desc.name           = "softgpu";
-    desc.window         = false;
-    desc.backend        = RHIBackend::SOFTGPU;
-    desc.width          = 640;
-    desc.height         = 480;
-    desc.rhi_flags      = RHIFlag::DEBUG;
-    desc.compile_target = CompileTarget::HOST;
-    desc.compile_flags  = CompileFlag::DEBUG;
+    desc.name          = "softgpu";
+    desc.window        = false;
+    desc.backend       = RHIBackend::SOFTGPU;
+    desc.width         = 640;
+    desc.height        = 480;
+    desc.rhi_flags     = RHIFlag::DEBUG;
+    desc.compile_flags = CompileFlag::DEBUG;
     AtmosphereApp(desc).run();
 }

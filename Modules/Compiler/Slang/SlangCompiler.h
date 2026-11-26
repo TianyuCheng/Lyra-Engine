@@ -16,6 +16,7 @@ struct CompileResultInternal
     ComPtr<slang::IModule>  module;
     CompileTarget           target = CompileTarget::SPIRV;
     String                  module_name;
+    String                  source_text;
 
     // cached compiled binaries — keyed by entry point name.
     // blob.data pointers returned to callers are stable views into this storage;

@@ -16,9 +16,9 @@ namespace lyra
     struct ContactPoint
     {
         Vector3 position;
-        Vector3 normal;   ///< surface normal pointing from body A to body B.
-        float   depth;    ///< penetration depth.
-        float   impulse;  ///< applied normal constraint impulse magnitude.
+        Vector3 normal;  ///< surface normal pointing from body A to body B.
+        float   depth;   ///< penetration depth.
+        float   impulse; ///< applied normal constraint impulse magnitude.
     };
 
     /**

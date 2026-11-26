@@ -54,7 +54,7 @@ namespace lyra::softgpu
         if (!func_ptr) return;
         ComputeVaryingInput varying;
         VertexShaderParams  params{in_vertex, &out_vertex};
-        auto func = reinterpret_cast<SlangComputeCallable>(func_ptr);
+        auto                func = reinterpret_cast<SlangComputeCallable>(func_ptr);
         func(&varying, &params, uniform_state);
     }
 
@@ -64,7 +64,7 @@ namespace lyra::softgpu
         ComputeVaryingInput  varying;
         uint                 is_discarded = 0;
         FragmentShaderParams params{&in_frag, out_colors, &is_discarded};
-        auto func = reinterpret_cast<SlangComputeCallable>(func_ptr);
+        auto                 func = reinterpret_cast<SlangComputeCallable>(func_ptr);
         func(&varying, &params, uniform_state);
         return is_discarded != 0;
     }

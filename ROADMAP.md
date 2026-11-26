@@ -521,14 +521,31 @@ Goal: Complete the gameplay foundations by introducing multi-threaded physics si
   - Draw live collider wireframes, contact normals, and center-of-mass gizmos in `SceneView` viewport.
 
 #### 7.2 3D Spatial Audio Subsystem (miniaudio)
-- [ ] **7.2.1 Audio Subsystem Module**
+- [ ] **7.2.1 Audio Subsystem Core Contracts & C-ABI Interface Table**
+  - Headers: `Engine/Include/Lyra/Audio/AudioAPI.h`, `AudioEnums.h`, `AudioDescs.h`, `AudioTypes.h`
+  - Implementation: `Engine/Source/Audio/AudioTypes.cpp`
+  - C-ABI swappable function pointer table (`AudioAPI`) supporting dynamic and builtin plugin loading (`Plugin<AudioAPI>`, `BuiltinPlugin<AudioAPI>`).
+  - Type-safe generational handles (`AudioClipHandle`, `SoundHandle`, `AudioBusHandle`) with fluent RAII wrappers (`Sound`, `AudioClip`, `AudioBus`).
+  - Bus mixing hierarchy (`Master`, `SFX`, `Music`, `Ambient`, `Voice`, `UI`) with volume, muting, and sub-bus routing.
+- [ ] **7.2.2 Headless MockAudio Backend & Unit Testing**
+  - Module: `Modules/Audio/Mock/`
+  - Headless deterministic in-memory audio backend for CI/CD test runners without sound cards.
+  - Automated test fixture (`Tests/audio/`) validating clip loading, play state transitions, seek cursor, volume/pitch clamping, and 3D distance attenuation calculations.
+- [ ] **7.2.3 miniaudio Hardware Backend & 3D Spatial Attenuation**
   - Module: `Modules/Audio/Miniaudio/`
-  - Embed lightweight multi-platform **miniaudio** (`ma_engine`) supporting 3D spatial attenuation, HRTF, and bus mixing (Master, SFX, Music, Ambient).
-- [ ] **7.2.2 Audio Components**
-  - Components: `AudioSourceComponent` (audio clip handle, volume, pitch, loop, attenuation falloff) and `AudioListenerComponent` (bound to active camera transform).
-- [ ] **7.2.3 Audio Asset Cooker**
+  - Embed single-header multiplatform **miniaudio** (`ma_engine`, `ma_sound`, `ma_spatializer_listener`) supporting CoreAudio, WASAPI, and ALSA.
+  - Attenuation models: Inverse square, linear, and exponential falloff with configurable min/max distances, rolloff, directional sound cones, and Doppler velocity.
+- [ ] **7.2.4 Audio ECS Components & Scene Synchronization**
+  - Header: `Engine/Include/Lyra/Components/Audio.h`
+  - Components:
+    - `AudioSourceComponent`: Audio asset handle, bus type, volume, pitch, looping, spatialization, attenuation parameters, and runtime sound handle.
+    - `AudioListenerComponent`: Active listener toggle, gain, and camera transform orientation binding.
+  - Scene extraction and transform synchronization in engine update loop.
+- [ ] **7.2.5 Audio Asset Cooker & Streamable Binary Format**
+  - Header: `Engine/Include/Lyra/Assets/Format/AudioAsset.h`
   - Cooker: `Modules/Assets/Audio/AudioCookerPlugin.cpp`
-  - Cook `.wav`, `.ogg`, `.mp3`, `.flac` into streamable compressed `.audio` binary format.
+  - Cook `.wav`, `.ogg`, `.mp3`, `.flac` into streamable compressed binary `.audio` files using AMS dependencies and deterministic GUID resolution.
+  - Large audio file thresholding for disk streaming vs. full in-memory PCM caching.
 
 #### 7.3 High-Level Scripting (Lua / Luau)
 - [ ] **7.3.1 Luau / Sol2 Integration**

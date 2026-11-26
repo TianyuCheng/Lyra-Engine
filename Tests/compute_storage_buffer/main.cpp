@@ -265,14 +265,13 @@ struct ComputeStorageBufferApp : public TestApp
 TEST_CASE("rhi::vulkan::compute_storage_buffer" * doctest::description("Testing compute shader reading structured storage buffer."))
 {
     TestAppDescriptor desc{};
-    desc.name           = "vulkan";
-    desc.window         = false;
-    desc.backend        = RHIBackend::VULKAN;
-    desc.width          = 640;
-    desc.height         = 480;
-    desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
-    desc.compile_target = CompileTarget::SPIRV;
-    desc.compile_flags  = CompileFlag::DEBUG;
+    desc.name          = "vulkan";
+    desc.window        = false;
+    desc.backend       = RHIBackend::VULKAN;
+    desc.width         = 640;
+    desc.height        = 480;
+    desc.rhi_flags     = RHIFlag::DEBUG | RHIFlag::VALIDATION;
+    desc.compile_flags = CompileFlag::DEBUG;
     ComputeStorageBufferApp(desc).run();
 }
 #endif
@@ -281,14 +280,13 @@ TEST_CASE("rhi::vulkan::compute_storage_buffer" * doctest::description("Testing 
 TEST_CASE("rhi::d3d12::compute_storage_buffer" * doctest::description("Testing compute shader reading structured storage buffer."))
 {
     TestAppDescriptor desc{};
-    desc.name           = "d3d12";
-    desc.window         = false;
-    desc.backend        = RHIBackend::D3D12;
-    desc.width          = 640;
-    desc.height         = 480;
-    desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
-    desc.compile_target = CompileTarget::DXIL;
-    desc.compile_flags  = CompileFlag::DEBUG;
+    desc.name          = "d3d12";
+    desc.window        = false;
+    desc.backend       = RHIBackend::D3D12;
+    desc.width         = 640;
+    desc.height        = 480;
+    desc.rhi_flags     = RHIFlag::DEBUG | RHIFlag::VALIDATION;
+    desc.compile_flags = CompileFlag::DEBUG;
     ComputeStorageBufferApp(desc).run();
 }
 #endif
@@ -297,14 +295,13 @@ TEST_CASE("rhi::d3d12::compute_storage_buffer" * doctest::description("Testing c
 TEST_CASE("rhi::metal::compute_storage_buffer" * doctest::description("Testing compute shader reading structured storage buffer."))
 {
     TestAppDescriptor desc{};
-    desc.name           = "metal";
-    desc.window         = false;
-    desc.backend        = RHIBackend::METAL;
-    desc.width          = 640;
-    desc.height         = 480;
-    desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
-    desc.compile_target = CompileTarget::MSL;
-    desc.compile_flags  = CompileFlag::DEBUG;
+    desc.name          = "metal";
+    desc.window        = false;
+    desc.backend       = RHIBackend::METAL;
+    desc.width         = 640;
+    desc.height        = 480;
+    desc.rhi_flags     = RHIFlag::DEBUG | RHIFlag::VALIDATION;
+    desc.compile_flags = CompileFlag::DEBUG;
     ComputeStorageBufferApp(desc).run();
 }
 #endif
@@ -312,13 +309,12 @@ TEST_CASE("rhi::metal::compute_storage_buffer" * doctest::description("Testing c
 TEST_CASE("rhi::softgpu::compute_storage_buffer" * doctest::description("Testing compute shader reading structured storage buffer."))
 {
     TestAppDescriptor desc{};
-    desc.name           = "softgpu";
-    desc.window         = false;
-    desc.backend        = RHIBackend::SOFTGPU;
-    desc.width          = 640;
-    desc.height         = 480;
-    desc.rhi_flags      = RHIFlag::DEBUG;
-    desc.compile_target = CompileTarget::SPIRV;
-    desc.compile_flags  = CompileFlag::DEBUG;
+    desc.name          = "softgpu";
+    desc.window        = false;
+    desc.backend       = RHIBackend::SOFTGPU;
+    desc.width         = 640;
+    desc.height        = 480;
+    desc.rhi_flags     = RHIFlag::DEBUG;
+    desc.compile_flags = CompileFlag::DEBUG;
     ComputeStorageBufferApp(desc).run();
 }

@@ -79,6 +79,7 @@ SoftRenderPipeline::SoftRenderPipeline(const GPURenderPipelineDescriptor& desc)
         auto* sm  = dev ? dev->shader_modules.find(desc.fragment.module.to_slotmap_handle<SoftShaderModule>()) : nullptr;
         if (sm) {
             fshader_func = sm->host_func;
+            depth_offset = sm->depth_offset;
         }
     }
 }

@@ -59,6 +59,7 @@ namespace lyra::softgpu
         char             name[64]{};
         uint             param_count = 0;
         HostParamBinding params[32]{};
+        ushort           depth_offset = 0xFFFF;
 
         void destroy() {}
     };
@@ -93,6 +94,7 @@ namespace lyra::softgpu
         String                fentry_point;
         void*                 vshader_func = nullptr;
         void*                 fshader_func = nullptr;
+        ushort                depth_offset = 0xFFFF;
 
         SoftRenderPipeline() = default;
         explicit SoftRenderPipeline(const GPURenderPipelineDescriptor& desc);

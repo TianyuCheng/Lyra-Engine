@@ -786,7 +786,10 @@ GPUTextureFormat ReflectResultInternal::infer_texture_format(slang::TypeLayoutRe
 GPUVertexFormat ReflectResultInternal::infer_vertex_format(slang::TypeLayoutReflection* type) const
 {
     auto scalar_type     = type->getScalarType();
-    auto component_count = type->getElementCount();
+    auto component_count = (type->getKind() == slang::TypeReflection::Kind::Scalar) ? 1 : type->getElementCount();
+    if (component_count == 0) {
+        component_count = 1;
+    }
 
     // clang-format off
     switch (scalar_type) {

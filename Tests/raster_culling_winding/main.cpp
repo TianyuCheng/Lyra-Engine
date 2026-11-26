@@ -334,14 +334,13 @@ struct CullingWindingApp : public TestApp
 TEST_CASE("rhi::vulkan::raster_culling_winding" * doctest::description("Testing rasterizer face culling and front-face winding."))
 {
     TestAppDescriptor desc{};
-    desc.name           = "vulkan";
-    desc.window         = false;
-    desc.backend        = RHIBackend::VULKAN;
-    desc.width          = 640;
-    desc.height         = 480;
-    desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
-    desc.compile_target = CompileTarget::SPIRV;
-    desc.compile_flags  = CompileFlag::DEBUG;
+    desc.name          = "vulkan";
+    desc.window        = false;
+    desc.backend       = RHIBackend::VULKAN;
+    desc.width         = 640;
+    desc.height        = 480;
+    desc.rhi_flags     = RHIFlag::DEBUG | RHIFlag::VALIDATION;
+    desc.compile_flags = CompileFlag::DEBUG;
     CullingWindingApp(desc).run();
 }
 #endif
@@ -350,14 +349,13 @@ TEST_CASE("rhi::vulkan::raster_culling_winding" * doctest::description("Testing 
 TEST_CASE("rhi::d3d12::raster_culling_winding" * doctest::description("Testing rasterizer face culling and front-face winding."))
 {
     TestAppDescriptor desc{};
-    desc.name           = "d3d12";
-    desc.window         = false;
-    desc.backend        = RHIBackend::D3D12;
-    desc.width          = 640;
-    desc.height         = 480;
-    desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
-    desc.compile_target = CompileTarget::DXIL;
-    desc.compile_flags  = CompileFlag::DEBUG;
+    desc.name          = "d3d12";
+    desc.window        = false;
+    desc.backend       = RHIBackend::D3D12;
+    desc.width         = 640;
+    desc.height        = 480;
+    desc.rhi_flags     = RHIFlag::DEBUG | RHIFlag::VALIDATION;
+    desc.compile_flags = CompileFlag::DEBUG;
     CullingWindingApp(desc).run();
 }
 #endif
@@ -366,14 +364,13 @@ TEST_CASE("rhi::d3d12::raster_culling_winding" * doctest::description("Testing r
 TEST_CASE("rhi::metal::raster_culling_winding" * doctest::description("Testing rasterizer face culling and front-face winding."))
 {
     TestAppDescriptor desc{};
-    desc.name           = "metal";
-    desc.window         = false;
-    desc.backend        = RHIBackend::METAL;
-    desc.width          = 640;
-    desc.height         = 480;
-    desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
-    desc.compile_target = CompileTarget::MSL;
-    desc.compile_flags  = CompileFlag::DEBUG;
+    desc.name          = "metal";
+    desc.window        = false;
+    desc.backend       = RHIBackend::METAL;
+    desc.width         = 640;
+    desc.height        = 480;
+    desc.rhi_flags     = RHIFlag::DEBUG | RHIFlag::VALIDATION;
+    desc.compile_flags = CompileFlag::DEBUG;
     CullingWindingApp(desc).run();
 }
 #endif
@@ -381,13 +378,12 @@ TEST_CASE("rhi::metal::raster_culling_winding" * doctest::description("Testing r
 TEST_CASE("rhi::softgpu::raster_culling_winding" * doctest::description("Testing rasterizer face culling and front-face winding."))
 {
     TestAppDescriptor desc{};
-    desc.name           = "softgpu";
-    desc.window         = false;
-    desc.backend        = RHIBackend::SOFTGPU;
-    desc.width          = 640;
-    desc.height         = 480;
-    desc.rhi_flags      = RHIFlag::DEBUG;
-    desc.compile_target = CompileTarget::SPIRV;
-    desc.compile_flags  = CompileFlag::DEBUG;
+    desc.name          = "softgpu";
+    desc.window        = false;
+    desc.backend       = RHIBackend::SOFTGPU;
+    desc.width         = 640;
+    desc.height        = 480;
+    desc.rhi_flags     = RHIFlag::DEBUG;
+    desc.compile_flags = CompileFlag::DEBUG;
     CullingWindingApp(desc).run();
 }

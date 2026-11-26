@@ -308,15 +308,14 @@ struct RayTracingApp : public TestApp
 TEST_CASE("rhi::vulkan::ray_tracing" * doctest::description("Basic ray tracing using RayQuery."))
 {
     TestAppDescriptor desc{};
-    desc.name           = "vulkan";
-    desc.window         = false;
-    desc.backend        = RHIBackend::VULKAN;
-    desc.width          = 640;
-    desc.height         = 480;
-    desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
-    desc.compile_target = CompileTarget::SPIRV;
-    desc.compile_flags  = CompileFlag::DEBUG | CompileFlag::REFLECT;
-    desc.features       = {GPUFeatureName::RAYTRACING};
+    desc.name          = "vulkan";
+    desc.window        = false;
+    desc.backend       = RHIBackend::VULKAN;
+    desc.width         = 640;
+    desc.height        = 480;
+    desc.rhi_flags     = RHIFlag::DEBUG | RHIFlag::VALIDATION;
+    desc.compile_flags = CompileFlag::DEBUG | CompileFlag::REFLECT;
+    desc.features      = {GPUFeatureName::RAYTRACING};
     RayTracingApp(desc).run();
 }
 #endif
@@ -325,15 +324,14 @@ TEST_CASE("rhi::vulkan::ray_tracing" * doctest::description("Basic ray tracing u
 TEST_CASE("rhi::d3d12::ray_tracing" * doctest::description("Basic ray tracing using RayQuery."))
 {
     TestAppDescriptor desc{};
-    desc.name           = "d3d12";
-    desc.window         = false;
-    desc.backend        = RHIBackend::D3D12;
-    desc.width          = 640;
-    desc.height         = 480;
-    desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
-    desc.compile_target = CompileTarget::DXIL;
-    desc.compile_flags  = CompileFlag::DEBUG | CompileFlag::REFLECT;
-    desc.features       = {GPUFeatureName::RAYTRACING};
+    desc.name          = "d3d12";
+    desc.window        = false;
+    desc.backend       = RHIBackend::D3D12;
+    desc.width         = 640;
+    desc.height        = 480;
+    desc.rhi_flags     = RHIFlag::DEBUG | RHIFlag::VALIDATION;
+    desc.compile_flags = CompileFlag::DEBUG | CompileFlag::REFLECT;
+    desc.features      = {GPUFeatureName::RAYTRACING};
     RayTracingApp(desc).run();
 }
 #endif
@@ -342,15 +340,14 @@ TEST_CASE("rhi::d3d12::ray_tracing" * doctest::description("Basic ray tracing us
 TEST_CASE("rhi::metal::ray_tracing" * doctest::description("Basic ray tracing using RayQuery."))
 {
     TestAppDescriptor desc{};
-    desc.name           = "metal";
-    desc.window         = false;
-    desc.backend        = RHIBackend::METAL;
-    desc.width          = 640;
-    desc.height         = 480;
-    desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
-    desc.compile_target = CompileTarget::MSL;
-    desc.compile_flags  = CompileFlag::DEBUG;
-    desc.features       = {GPUFeatureName::RAYTRACING};
+    desc.name          = "metal";
+    desc.window        = false;
+    desc.backend       = RHIBackend::METAL;
+    desc.width         = 640;
+    desc.height        = 480;
+    desc.rhi_flags     = RHIFlag::DEBUG | RHIFlag::VALIDATION;
+    desc.compile_flags = CompileFlag::DEBUG;
+    desc.features      = {GPUFeatureName::RAYTRACING};
     RayTracingApp(desc).run();
 }
 #endif

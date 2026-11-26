@@ -302,14 +302,13 @@ struct IndexFormatsOffsetsApp : public TestApp
 TEST_CASE("rhi::vulkan::pipeline_index_formats_offsets" * doctest::description("Testing index formats UINT16/UINT32 and base vertex/index offsets."))
 {
     TestAppDescriptor desc{};
-    desc.name           = "vulkan";
-    desc.window         = false;
-    desc.backend        = RHIBackend::VULKAN;
-    desc.width          = 640;
-    desc.height         = 480;
-    desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
-    desc.compile_target = CompileTarget::SPIRV;
-    desc.compile_flags  = CompileFlag::DEBUG;
+    desc.name          = "vulkan";
+    desc.window        = false;
+    desc.backend       = RHIBackend::VULKAN;
+    desc.width         = 640;
+    desc.height        = 480;
+    desc.rhi_flags     = RHIFlag::DEBUG | RHIFlag::VALIDATION;
+    desc.compile_flags = CompileFlag::DEBUG;
     IndexFormatsOffsetsApp(desc).run();
 }
 #endif
@@ -318,14 +317,13 @@ TEST_CASE("rhi::vulkan::pipeline_index_formats_offsets" * doctest::description("
 TEST_CASE("rhi::d3d12::pipeline_index_formats_offsets" * doctest::description("Testing index formats UINT16/UINT32 and base vertex/index offsets."))
 {
     TestAppDescriptor desc{};
-    desc.name           = "d3d12";
-    desc.window         = false;
-    desc.backend        = RHIBackend::D3D12;
-    desc.width          = 640;
-    desc.height         = 480;
-    desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
-    desc.compile_target = CompileTarget::DXIL;
-    desc.compile_flags  = CompileFlag::DEBUG;
+    desc.name          = "d3d12";
+    desc.window        = false;
+    desc.backend       = RHIBackend::D3D12;
+    desc.width         = 640;
+    desc.height        = 480;
+    desc.rhi_flags     = RHIFlag::DEBUG | RHIFlag::VALIDATION;
+    desc.compile_flags = CompileFlag::DEBUG;
     IndexFormatsOffsetsApp(desc).run();
 }
 #endif
@@ -334,14 +332,13 @@ TEST_CASE("rhi::d3d12::pipeline_index_formats_offsets" * doctest::description("T
 TEST_CASE("rhi::metal::pipeline_index_formats_offsets" * doctest::description("Testing index formats UINT16/UINT32 and base vertex/index offsets."))
 {
     TestAppDescriptor desc{};
-    desc.name           = "metal";
-    desc.window         = false;
-    desc.backend        = RHIBackend::METAL;
-    desc.width          = 640;
-    desc.height         = 480;
-    desc.rhi_flags      = RHIFlag::DEBUG | RHIFlag::VALIDATION;
-    desc.compile_target = CompileTarget::MSL;
-    desc.compile_flags  = CompileFlag::DEBUG;
+    desc.name          = "metal";
+    desc.window        = false;
+    desc.backend       = RHIBackend::METAL;
+    desc.width         = 640;
+    desc.height        = 480;
+    desc.rhi_flags     = RHIFlag::DEBUG | RHIFlag::VALIDATION;
+    desc.compile_flags = CompileFlag::DEBUG;
     IndexFormatsOffsetsApp(desc).run();
 }
 #endif
@@ -349,13 +346,12 @@ TEST_CASE("rhi::metal::pipeline_index_formats_offsets" * doctest::description("T
 TEST_CASE("rhi::softgpu::pipeline_index_formats_offsets" * doctest::description("Testing index formats UINT16/UINT32 and base vertex/index offsets."))
 {
     TestAppDescriptor desc{};
-    desc.name           = "softgpu";
-    desc.window         = false;
-    desc.backend        = RHIBackend::SOFTGPU;
-    desc.width          = 640;
-    desc.height         = 480;
-    desc.rhi_flags      = RHIFlag::DEBUG;
-    desc.compile_target = CompileTarget::SPIRV;
-    desc.compile_flags  = CompileFlag::DEBUG;
+    desc.name          = "softgpu";
+    desc.window        = false;
+    desc.backend       = RHIBackend::SOFTGPU;
+    desc.width         = 640;
+    desc.height        = 480;
+    desc.rhi_flags     = RHIFlag::DEBUG;
+    desc.compile_flags = CompileFlag::DEBUG;
     IndexFormatsOffsetsApp(desc).run();
 }

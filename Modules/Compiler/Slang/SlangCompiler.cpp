@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <filesystem>
+#include <regex>
 #include <Lyra/FileSystem/VFSTypes.h>
 #include <Lyra/FileSystem/VFSPath.h>
 
@@ -270,6 +271,7 @@ bool CompilerWrapper::compile(const CompileDescriptor& desc, CompileResultIntern
     // create shader module
     ComPtr<slang::IBlob> diagnostics;
     if (!source_text.empty()) {
+        result.source_text      = source_text;
         String processed_source = preprocess_lyra_shader_source(source_text, target);
         result.module           = session->loadModuleFromSourceString(
             desc.module,                         // module name
@@ -533,6 +535,69 @@ static void extract_host_param_bindings(slang::ProgramLayout* layout, HostCallab
     header->param_count = param_idx;
 }
 
+static ushort find_depth_output_offset(slang::ProgramLayout* layout, CString entry, const String& source_text)
+{
+    if (!layout) return 0xFFFF;
+
+    String depth_field_name;
+    if (!source_text.empty()) {
+        static const std::regex depth_field_re(R"re(([A-Za-z0-9_]+)\s*:\s*SV_[Dd][Ee][Pp][Tt][Hh])re");
+        std::smatch             m;
+        if (std::regex_search(source_text, m, depth_field_re)) {
+            depth_field_name = m[1].str();
+        }
+    }
+
+    for (uint i = 0; i < layout->getEntryPointCount(); ++i) {
+        auto ep = layout->getEntryPointByIndex(i);
+        if (!ep) continue;
+        if (entry && std::strcmp(ep->getName(), entry) != 0) {
+            String wrapper = String(entry) + "_Callable";
+            if (std::strcmp(ep->getName(), wrapper.c_str()) != 0) continue;
+        }
+
+        // check result var layout
+        auto check_struct = [&](slang::TypeLayoutReflection* t) -> ushort {
+            if (!t) return 0xFFFF;
+            if (t->getKind() == slang::TypeReflection::Kind::Pointer) {
+                t = t->getElementTypeLayout();
+            }
+            if (t && t->getKind() == slang::TypeReflection::Kind::Scalar) {
+                if (!depth_field_name.empty()) return 0;
+            }
+            if (t && t->getKind() == slang::TypeReflection::Kind::Struct) {
+                for (uint f = 0; f < t->getFieldCount(); ++f) {
+                    auto field = t->getFieldByIndex(f);
+                    if (!field) continue;
+                    const char* sem = field->getSemanticName();
+                    if (sem && (strcasecmp(sem, "SV_Depth") == 0 || strcasecmp(sem, "SV_DepthGreaterEqual") == 0 || strcasecmp(sem, "SV_DepthLessEqual") == 0)) {
+                        return static_cast<ushort>(field->getOffset(SLANG_PARAMETER_CATEGORY_UNIFORM));
+                    }
+                    const char* fname = field->getName();
+                    if (fname && !depth_field_name.empty() && strcasecmp(fname, depth_field_name.c_str()) == 0) {
+                        return static_cast<ushort>(field->getOffset(SLANG_PARAMETER_CATEGORY_UNIFORM));
+                    }
+                }
+            }
+            return 0xFFFF;
+        };
+
+        if (auto res_var = ep->getResultVarLayout()) {
+            ushort off = check_struct(res_var->getTypeLayout());
+            if (off != 0xFFFF) return off;
+        }
+
+        // check entry point parameters (such as out_v in wrapper)
+        for (uint p = 0; p < ep->getParameterCount(); ++p) {
+            auto param = ep->getParameterByIndex(p);
+            if (!param) continue;
+            ushort off = check_struct(param->getTypeLayout());
+            if (off != 0xFFFF) return off;
+        }
+    }
+    return 0xFFFF;
+}
+
 bool CompileResultInternal::get_host_shader_blob(CString entry, slang::IComponentType* linked_program, ShaderBlob& blob)
 {
     ComPtr<slang::IBlob>        diagnostics;
@@ -554,11 +619,13 @@ bool CompileResultInternal::get_host_shader_blob(CString entry, slang::IComponen
 
     auto& cached = compiled_blobs[entry];
     cached.resize(sizeof(HostCallableShader));
-    auto header         = reinterpret_cast<HostCallableShader*>(cached.data());
-    header->magic       = HOST_MAGIC;
-    header->library     = shared_lib.get();
-    header->entry_func  = func_ptr;
-    header->param_count = 0;
+    auto header          = reinterpret_cast<HostCallableShader*>(cached.data());
+    header->magic        = HOST_MAGIC;
+    header->library      = shared_lib.get();
+    header->entry_func   = func_ptr;
+    header->param_count  = 0;
+    header->depth_offset = find_depth_output_offset(linked_program->getLayout(), entry, source_text);
+    header->flags        = 0;
     std::memset(header->params, 0, sizeof(header->params));
     std::memset(header->name, 0, sizeof(header->name));
     std::strncpy(header->name, module_name.c_str(), sizeof(header->name) - 1);

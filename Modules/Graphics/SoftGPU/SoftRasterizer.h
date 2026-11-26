@@ -62,6 +62,7 @@ namespace lyra::softgpu
 
         // fragment shader callable
         void*                                                                                  fshader_func  = nullptr;
+        ushort                                                                                 depth_offset  = 0xFFFF;
         void*                                                                                  uniform_state = nullptr;
         mutable Function<Vector4(const SoftShadedVertex&)>                                     fragment_shader;
         mutable Function<void(const SoftShadedVertex&, Vector4* out_colors, uint max_targets)> fragment_shader_mrt;

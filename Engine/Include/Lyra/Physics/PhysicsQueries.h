@@ -29,7 +29,7 @@ namespace lyra
         Vector3           normal    = Vector3(0.0f, 1.0f, 0.0f);
         float             distance  = 0.0f;
         PhysicsBodyHandle body      = {};
-        ulong             user_data = 0;     ///< user payload from body descriptor (entity ID).
+        ulong             user_data = 0; ///< user payload from body descriptor (entity ID).
         bool              has_hit   = false;
     };
 
@@ -42,8 +42,8 @@ namespace lyra
         Vector3            start_position = Vector3(0.0f);
         Quaternion         start_rotation = glm::identity<Quaternion>();
         Vector3            direction;
-        float              max_distance   = 100.0f;
-        uint               layer_mask     = 0xFFFFFFFF;
+        float              max_distance = 100.0f;
+        uint               layer_mask   = 0xFFFFFFFF;
     };
 
     /**

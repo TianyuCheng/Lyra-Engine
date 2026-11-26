@@ -43,11 +43,11 @@ namespace
 
     struct MockWorldData
     {
-        PhysicsWorldDescriptor           desc;
-        HashMap<uint, MockBodyData>      bodies;
-        HashMap<uint, MockShapeData>     shapes;
-        Vector<ContactEvent>             contacts;
-        Vector<TriggerEvent>             triggers;
+        PhysicsWorldDescriptor       desc;
+        HashMap<uint, MockBodyData>  bodies;
+        HashMap<uint, MockShapeData> shapes;
+        Vector<ContactEvent>         contacts;
+        Vector<TriggerEvent>         triggers;
     };
 
     HashMap<uint, MockWorldData> g_worlds;
@@ -66,7 +66,7 @@ namespace api
     {
         out_world = make_mock_handle<PhysicsWorldHandle>();
         MockWorldData world{};
-        world.desc = desc;
+        world.desc                = desc;
         g_worlds[out_world.value] = std::move(world);
         return true;
     }
@@ -110,8 +110,8 @@ namespace api
     {
         out_shape = make_mock_handle<PhysicsShapeHandle>();
         MockShapeData shape{};
-        shape.shape_type   = ShapeType::Box;
-        shape.half_extents = half_extents;
+        shape.shape_type                 = ShapeType::Box;
+        shape.half_extents               = half_extents;
         g_global_shapes[out_shape.value] = shape;
         return true;
     }
@@ -120,8 +120,8 @@ namespace api
     {
         out_shape = make_mock_handle<PhysicsShapeHandle>();
         MockShapeData shape{};
-        shape.shape_type = ShapeType::Sphere;
-        shape.radius     = radius;
+        shape.shape_type                 = ShapeType::Sphere;
+        shape.radius                     = radius;
         g_global_shapes[out_shape.value] = shape;
         return true;
     }
@@ -130,9 +130,9 @@ namespace api
     {
         out_shape = make_mock_handle<PhysicsShapeHandle>();
         MockShapeData shape{};
-        shape.shape_type = ShapeType::Capsule;
-        shape.radius     = radius;
-        shape.height     = half_height * 2.0f;
+        shape.shape_type                 = ShapeType::Capsule;
+        shape.radius                     = radius;
+        shape.height                     = half_height * 2.0f;
         g_global_shapes[out_shape.value] = shape;
         return true;
     }
@@ -141,9 +141,9 @@ namespace api
     {
         out_shape = make_mock_handle<PhysicsShapeHandle>();
         MockShapeData shape{};
-        shape.shape_type = ShapeType::Cylinder;
-        shape.radius     = radius;
-        shape.height     = half_height * 2.0f;
+        shape.shape_type                 = ShapeType::Cylinder;
+        shape.radius                     = radius;
+        shape.height                     = half_height * 2.0f;
         g_global_shapes[out_shape.value] = shape;
         return true;
     }
@@ -152,7 +152,7 @@ namespace api
     {
         out_shape = make_mock_handle<PhysicsShapeHandle>();
         MockShapeData shape{};
-        shape.shape_type = ShapeType::ConvexHull;
+        shape.shape_type                 = ShapeType::ConvexHull;
         g_global_shapes[out_shape.value] = shape;
         return true;
     }
@@ -161,7 +161,7 @@ namespace api
     {
         out_shape = make_mock_handle<PhysicsShapeHandle>();
         MockShapeData shape{};
-        shape.shape_type = ShapeType::TriangleMesh;
+        shape.shape_type                 = ShapeType::TriangleMesh;
         g_global_shapes[out_shape.value] = shape;
         return true;
     }
@@ -170,7 +170,7 @@ namespace api
     {
         out_shape = make_mock_handle<PhysicsShapeHandle>();
         MockShapeData shape{};
-        shape.shape_type = ShapeType::Compound;
+        shape.shape_type                 = ShapeType::Compound;
         g_global_shapes[out_shape.value] = shape;
         return true;
     }
@@ -477,14 +477,20 @@ namespace api
         for (const auto& [id, body] : it->second.bodies) {
             // draw a small coordinate cross for each body
             Vector3 p = body.position;
-            out_lines.push_back(p); out_lines.push_back(p + Vector3(0.5f, 0.0f, 0.0f));
-            out_colors.push_back(0xFF0000FF); out_colors.push_back(0xFF0000FF);
+            out_lines.push_back(p);
+            out_lines.push_back(p + Vector3(0.5f, 0.0f, 0.0f));
+            out_colors.push_back(0xFF0000FF);
+            out_colors.push_back(0xFF0000FF);
 
-            out_lines.push_back(p); out_lines.push_back(p + Vector3(0.0f, 0.5f, 0.0f));
-            out_colors.push_back(0xFF00FF00); out_colors.push_back(0xFF00FF00);
+            out_lines.push_back(p);
+            out_lines.push_back(p + Vector3(0.0f, 0.5f, 0.0f));
+            out_colors.push_back(0xFF00FF00);
+            out_colors.push_back(0xFF00FF00);
 
-            out_lines.push_back(p); out_lines.push_back(p + Vector3(0.0f, 0.0f, 0.5f));
-            out_colors.push_back(0xFFFF0000); out_colors.push_back(0xFFFF0000);
+            out_lines.push_back(p);
+            out_lines.push_back(p + Vector3(0.0f, 0.0f, 0.5f));
+            out_colors.push_back(0xFFFF0000);
+            out_colors.push_back(0xFFFF0000);
         }
     }
 } // namespace api

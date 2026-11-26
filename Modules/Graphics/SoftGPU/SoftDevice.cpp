@@ -23,8 +23,9 @@ bool SoftDevice::init(const RHIDescriptor& descriptor)
     adapter_props.info.description = "Lyra CPU Software RHI (Rasterization + Raytracing)";
 
     // capabilities
-    adapter_props.features.raytracing = true;
-    adapter_props.features.bindless   = true;
+    adapter_props.features.raytracing         = true;
+    adapter_props.features.bindless           = true;
+    adapter_props.features.bgra8unorm_storage = true;
 
     // properties
     adapter_props.properties.subgroup_min_size            = 32;

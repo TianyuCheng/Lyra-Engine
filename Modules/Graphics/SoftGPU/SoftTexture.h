@@ -103,6 +103,32 @@ namespace lyra::softgpu
         void                   Sample(void* samplerState, const float* loc, void* outData, usize dataSize) override;
         void                   SampleLevel(void* samplerState, const float* loc, float level, void* outData, usize dataSize) override;
     };
+
+    struct ISlangHostRWTexture : public ISlangHostTexture
+    {
+        virtual void* refAt(const uint32_t* loc) = 0;
+    };
+
+    struct SoftHostRWTextureWrapper : public ISlangHostRWTexture
+    {
+        SoftTexture*           tex  = nullptr;
+        const SoftTextureView* view = nullptr;
+        Vector<Vector4>        storage;
+        uint                   mip    = 0;
+        uint                   width  = 0;
+        uint                   height = 0;
+        Vector4                dummy{0.0f};
+
+        SoftHostRWTextureWrapper() = default;
+        SoftHostRWTextureWrapper(SoftTexture* t, const SoftTextureView* v);
+
+        SlangTextureDimensions GetDimensions(int mipLevel = -1) override;
+        void                   Load(const int32_t* v, void* outData, usize dataSize) override;
+        void                   Sample(void* samplerState, const float* loc, void* outData, usize dataSize) override;
+        void                   SampleLevel(void* samplerState, const float* loc, float level, void* outData, usize dataSize) override;
+        void*                  refAt(const uint32_t* loc) override;
+        void                   flush();
+    };
 } // namespace lyra::softgpu
 
 #endif // LYRA_MODULES_GRAPHICS_SOFTGPU_SOFTTEXTURE_H

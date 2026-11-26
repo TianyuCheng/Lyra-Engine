@@ -78,6 +78,8 @@ namespace lyra
         uint             param_count;
         HostParamBinding params[32];
         char             name[64];
+        ushort           depth_offset = 0xFFFF;
+        ushort           flags        = 0;
     };
 
     constexpr auto resolve_compile_target(CompileTarget target, RHIBackend backend) -> CompileTarget

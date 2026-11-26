@@ -308,13 +308,6 @@ String SlangPreprocessor::process(const String& input, CompileTarget target)
     String result = input;
 
     if (target == CompileTarget::HOST) {
-        // barrier synchronization is a no-op on host CPU; define preprocessor macros instead of string regex replacement
-        result = "#define GroupMemoryBarrierWithGroupSync() do {} while(false)\n"
-                 "#define GroupMemoryBarrier() do {} while(false)\n"
-                 "#define DeviceMemoryBarrier() do {} while(false)\n"
-                 "#define AllMemoryBarrier() do {} while(false)\n" +
-                 result;
-
         String wrappers;
         result = process_host_target(result, wrappers);
         result += wrappers;

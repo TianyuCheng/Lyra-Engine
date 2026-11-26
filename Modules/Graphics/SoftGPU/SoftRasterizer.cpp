@@ -521,6 +521,23 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
             if (invoke_fragment_shader(ctx.fshader_func, fin, f_out, ctx.uniform_state)) {
                 return;
             }
+            if (ctx.depth_offset != 0xFFFF) {
+                test_write_z = *reinterpret_cast<const float*>(reinterpret_cast<const ubyte*>(f_out) + ctx.depth_offset);
+                if (ctx.depth_stencil_attachment) {
+                    float current_depth = ctx.depth_stencil_attachment->read_depth(x, y);
+                    if (!test_depth(test_write_z, current_depth, ctx.depth_stencil.depth_compare)) {
+                        if (ctx.depth_stencil.stencil_write_mask != 0 &&
+                            ctx.depth_stencil.stencil_front.depth_fail_op != GPUStencilOperation::KEEP) {
+                            ubyte new_val = apply_stencil_op(ctx.depth_stencil.stencil_front.depth_fail_op,
+                                curr_stencil,
+                                static_cast<ubyte>(ctx.stencil_reference),
+                                static_cast<ubyte>(ctx.depth_stencil.stencil_write_mask));
+                            ctx.depth_stencil_attachment->write_stencil(x, y, new_val);
+                        }
+                        return;
+                    }
+                }
+            }
             for (int i = 0; i < 8; ++i) {
                 out_colors[i] = f_out[i];
             }
