@@ -20,12 +20,18 @@ namespace
     auto to_imnodes_pin_shape(node::PinShape shape) -> ImNodesPinShape
     {
         switch (shape) {
-            case node::PinShape::Circle:         return ImNodesPinShape_Circle;
-            case node::PinShape::CircleFilled:   return ImNodesPinShape_CircleFilled;
-            case node::PinShape::Triangle:       return ImNodesPinShape_Triangle;
-            case node::PinShape::TriangleFilled: return ImNodesPinShape_TriangleFilled;
-            case node::PinShape::Quad:           return ImNodesPinShape_Quad;
-            case node::PinShape::QuadFilled:     return ImNodesPinShape_QuadFilled;
+            case node::PinShape::Circle:
+                return ImNodesPinShape_Circle;
+            case node::PinShape::CircleFilled:
+                return ImNodesPinShape_CircleFilled;
+            case node::PinShape::Triangle:
+                return ImNodesPinShape_Triangle;
+            case node::PinShape::TriangleFilled:
+                return ImNodesPinShape_TriangleFilled;
+            case node::PinShape::Quad:
+                return ImNodesPinShape_Quad;
+            case node::PinShape::QuadFilled:
+                return ImNodesPinShape_QuadFilled;
         }
         return ImNodesPinShape_CircleFilled;
     }
@@ -33,10 +39,14 @@ namespace
     auto to_imnodes_minimap_location(node::MinimapLocation location) -> ImNodesMiniMapLocation
     {
         switch (location) {
-            case node::MinimapLocation::BottomLeft:  return ImNodesMiniMapLocation_BottomLeft;
-            case node::MinimapLocation::BottomRight: return ImNodesMiniMapLocation_BottomRight;
-            case node::MinimapLocation::TopLeft:     return ImNodesMiniMapLocation_TopLeft;
-            case node::MinimapLocation::TopRight:    return ImNodesMiniMapLocation_TopRight;
+            case node::MinimapLocation::BottomLeft:
+                return ImNodesMiniMapLocation_BottomLeft;
+            case node::MinimapLocation::BottomRight:
+                return ImNodesMiniMapLocation_BottomRight;
+            case node::MinimapLocation::TopLeft:
+                return ImNodesMiniMapLocation_TopLeft;
+            case node::MinimapLocation::TopRight:
+                return ImNodesMiniMapLocation_TopRight;
         }
         return ImNodesMiniMapLocation_BottomRight;
     }
@@ -44,21 +54,36 @@ namespace
     auto to_imnodes_col(node::NodeColorSlot slot) -> ImNodesCol
     {
         switch (slot) {
-            case node::NodeColorSlot::NodeBackground:         return ImNodesCol_NodeBackground;
-            case node::NodeColorSlot::NodeBackgroundHovered:  return ImNodesCol_NodeBackgroundHovered;
-            case node::NodeColorSlot::NodeBackgroundSelected: return ImNodesCol_NodeBackgroundSelected;
-            case node::NodeColorSlot::NodeOutline:            return ImNodesCol_NodeOutline;
-            case node::NodeColorSlot::TitleBar:               return ImNodesCol_TitleBar;
-            case node::NodeColorSlot::TitleBarHovered:        return ImNodesCol_TitleBarHovered;
-            case node::NodeColorSlot::TitleBarSelected:       return ImNodesCol_TitleBarSelected;
-            case node::NodeColorSlot::Pin:                    return ImNodesCol_Pin;
-            case node::NodeColorSlot::PinHovered:             return ImNodesCol_PinHovered;
-            case node::NodeColorSlot::Link:                   return ImNodesCol_Link;
-            case node::NodeColorSlot::LinkHovered:            return ImNodesCol_LinkHovered;
-            case node::NodeColorSlot::LinkSelected:           return ImNodesCol_LinkSelected;
-            case node::NodeColorSlot::GridBackground:         return ImNodesCol_GridBackground;
-            case node::NodeColorSlot::GridLine:               return ImNodesCol_GridLine;
-            case node::NodeColorSlot::GridLinePrimary:        return ImNodesCol_GridLinePrimary;
+            case node::NodeColorSlot::NodeBackground:
+                return ImNodesCol_NodeBackground;
+            case node::NodeColorSlot::NodeBackgroundHovered:
+                return ImNodesCol_NodeBackgroundHovered;
+            case node::NodeColorSlot::NodeBackgroundSelected:
+                return ImNodesCol_NodeBackgroundSelected;
+            case node::NodeColorSlot::NodeOutline:
+                return ImNodesCol_NodeOutline;
+            case node::NodeColorSlot::TitleBar:
+                return ImNodesCol_TitleBar;
+            case node::NodeColorSlot::TitleBarHovered:
+                return ImNodesCol_TitleBarHovered;
+            case node::NodeColorSlot::TitleBarSelected:
+                return ImNodesCol_TitleBarSelected;
+            case node::NodeColorSlot::Pin:
+                return ImNodesCol_Pin;
+            case node::NodeColorSlot::PinHovered:
+                return ImNodesCol_PinHovered;
+            case node::NodeColorSlot::Link:
+                return ImNodesCol_Link;
+            case node::NodeColorSlot::LinkHovered:
+                return ImNodesCol_LinkHovered;
+            case node::NodeColorSlot::LinkSelected:
+                return ImNodesCol_LinkSelected;
+            case node::NodeColorSlot::GridBackground:
+                return ImNodesCol_GridBackground;
+            case node::NodeColorSlot::GridLine:
+                return ImNodesCol_GridLine;
+            case node::NodeColorSlot::GridLinePrimary:
+                return ImNodesCol_GridLinePrimary;
         }
         return ImNodesCol_NodeBackground;
     }
@@ -66,16 +91,26 @@ namespace
     auto to_imnodes_style_var(node::NodeStyleVar var) -> ImNodesStyleVar
     {
         switch (var) {
-            case node::NodeStyleVar::GridSpacing:                return ImNodesStyleVar_GridSpacing;
-            case node::NodeStyleVar::NodeCornerRounding:         return ImNodesStyleVar_NodeCornerRounding;
-            case node::NodeStyleVar::NodePadding:                return ImNodesStyleVar_NodePadding;
-            case node::NodeStyleVar::NodeBorderThickness:        return ImNodesStyleVar_NodeBorderThickness;
-            case node::NodeStyleVar::LinkThickness:              return ImNodesStyleVar_LinkThickness;
-            case node::NodeStyleVar::LinkLineSegmentsPerLength:  return ImNodesStyleVar_LinkLineSegmentsPerLength;
-            case node::NodeStyleVar::LinkHoverDistance:          return ImNodesStyleVar_LinkHoverDistance;
-            case node::NodeStyleVar::PinCircleRadius:            return ImNodesStyleVar_PinCircleRadius;
-            case node::NodeStyleVar::PinHoverRadius:             return ImNodesStyleVar_PinHoverRadius;
-            case node::NodeStyleVar::PinOffset:                  return ImNodesStyleVar_PinOffset;
+            case node::NodeStyleVar::GridSpacing:
+                return ImNodesStyleVar_GridSpacing;
+            case node::NodeStyleVar::NodeCornerRounding:
+                return ImNodesStyleVar_NodeCornerRounding;
+            case node::NodeStyleVar::NodePadding:
+                return ImNodesStyleVar_NodePadding;
+            case node::NodeStyleVar::NodeBorderThickness:
+                return ImNodesStyleVar_NodeBorderThickness;
+            case node::NodeStyleVar::LinkThickness:
+                return ImNodesStyleVar_LinkThickness;
+            case node::NodeStyleVar::LinkLineSegmentsPerLength:
+                return ImNodesStyleVar_LinkLineSegmentsPerLength;
+            case node::NodeStyleVar::LinkHoverDistance:
+                return ImNodesStyleVar_LinkHoverDistance;
+            case node::NodeStyleVar::PinCircleRadius:
+                return ImNodesStyleVar_PinCircleRadius;
+            case node::NodeStyleVar::PinHoverRadius:
+                return ImNodesStyleVar_PinHoverRadius;
+            case node::NodeStyleVar::PinOffset:
+                return ImNodesStyleVar_PinOffset;
         }
         return ImNodesStyleVar_GridSpacing;
     }
@@ -317,9 +352,12 @@ bool node::is_link_selected(LinkId id)
 auto node::get_node_position(NodeId id, CoordinateSpace space) -> Vector2
 {
     switch (space) {
-        case CoordinateSpace::Grid:   return to_vector2(ImNodes::GetNodeGridSpacePos(id));
-        case CoordinateSpace::Editor: return to_vector2(ImNodes::GetNodeEditorSpacePos(id));
-        case CoordinateSpace::Screen: return to_vector2(ImNodes::GetNodeScreenSpacePos(id));
+        case CoordinateSpace::Grid:
+            return to_vector2(ImNodes::GetNodeGridSpacePos(id));
+        case CoordinateSpace::Editor:
+            return to_vector2(ImNodes::GetNodeEditorSpacePos(id));
+        case CoordinateSpace::Screen:
+            return to_vector2(ImNodes::GetNodeScreenSpacePos(id));
     }
     return Vector2(0.0f);
 }
@@ -327,9 +365,15 @@ auto node::get_node_position(NodeId id, CoordinateSpace space) -> Vector2
 void node::set_node_position(NodeId id, const Vector2& pos, CoordinateSpace space)
 {
     switch (space) {
-        case CoordinateSpace::Grid:   ImNodes::SetNodeGridSpacePos(id, to_imvec2(pos)); break;
-        case CoordinateSpace::Editor: ImNodes::SetNodeEditorSpacePos(id, to_imvec2(pos)); break;
-        case CoordinateSpace::Screen: ImNodes::SetNodeScreenSpacePos(id, to_imvec2(pos)); break;
+        case CoordinateSpace::Grid:
+            ImNodes::SetNodeGridSpacePos(id, to_imvec2(pos));
+            break;
+        case CoordinateSpace::Editor:
+            ImNodes::SetNodeEditorSpacePos(id, to_imvec2(pos));
+            break;
+        case CoordinateSpace::Screen:
+            ImNodes::SetNodeScreenSpacePos(id, to_imvec2(pos));
+            break;
     }
 }
 

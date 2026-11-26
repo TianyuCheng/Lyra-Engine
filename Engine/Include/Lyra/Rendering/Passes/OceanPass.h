@@ -105,13 +105,13 @@ namespace lyra::passes
         GPUShaderModule                  fshader;
         Vector<GPUBindGroupLayoutHandle> blayouts;
 
-        GPUBuffer                        grid_vbuffer;
-        GPUBuffer                        grid_ibuffer;
-        uint                             grid_index_count = 0;
+        GPUBuffer grid_vbuffer;
+        GPUBuffer grid_ibuffer;
+        uint      grid_index_count = 0;
 
-        GPUTextureFormat                 cached_color_format = GPUTextureFormat::RGBA8UNORM;
-        GPUTextureFormat                 cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;
-        bool                             initialized         = false;
+        GPUTextureFormat cached_color_format = GPUTextureFormat::RGBA8UNORM;
+        GPUTextureFormat cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;
+        bool             initialized         = false;
     };
 } // namespace lyra::passes
 

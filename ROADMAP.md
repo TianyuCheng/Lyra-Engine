@@ -551,11 +551,11 @@ Goal: Complete the specialized surface rendering shaders and deformation systems
   - Validate with `just test terrain`.
 
 #### 5.2 FFT / Gerstner Ocean Surface Rendering
-- [ ] **5.2.1 Ocean Displacement, Refraction & Foam**
+- [x] **5.2.1 Ocean Displacement, Refraction & Foam**
   - Shader: [`Engine/Assets/Shaders/Water/Ocean.slang`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Assets/Shaders/Water/Ocean.slang)
   - Compute wave displacement using Gerstner sums or compute-driven Philips spectrum IFFT ($512 \times 512$).
   - Screen-space planar reflection/refraction, dynamic foam accumulation on wave crests ($J < 0$), and depth-based underwater light absorption.
-- [ ] **5.2.2 Ocean Visual Test Fixture**
+- [x] **5.2.2 Ocean Visual Test Fixture**
   - Directory: `Tests/ocean/`
   - Render agitated water surface with foam caps and sun glint reflection; commit `reference.png`.
   - Validate with `just test ocean`.

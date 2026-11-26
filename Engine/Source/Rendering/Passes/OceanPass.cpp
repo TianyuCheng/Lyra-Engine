@@ -117,8 +117,8 @@ bool OceanPass::init(
             float      fx = static_cast<float>(x) / static_cast<float>(grid_subdivs_x);
             float      px = -half_w + fx * grid_width;
             GridVertex v;
-            v.pos    = Vector3(px, 0.0f, pz);
-            v.uv     = Vector2(fx, fz);
+            v.pos = Vector3(px, 0.0f, pz);
+            v.uv  = Vector2(fx, fz);
             vertices.push_back(v);
         }
     }
@@ -191,23 +191,23 @@ bool OceanPass::init(
     Vector<GPUColorTargetState> rstates;
     rstates.push_back(color_state);
 
-    auto pipe_desc                         = GPURenderPipelineDescriptor{};
-    pipe_desc.label                        = "ocean_pipeline";
-    pipe_desc.layout                       = playout;
-    pipe_desc.primitive.cull_mode          = GPUCullMode::NONE;
-    pipe_desc.primitive.topology           = GPUPrimitiveTopology::TRIANGLE_LIST;
-    pipe_desc.primitive.front_face         = GPUFrontFace::CCW;
-    pipe_desc.primitive.strip_index_format = GPUIndexFormat::UINT32;
+    auto pipe_desc                              = GPURenderPipelineDescriptor{};
+    pipe_desc.label                             = "ocean_pipeline";
+    pipe_desc.layout                            = playout;
+    pipe_desc.primitive.cull_mode               = GPUCullMode::NONE;
+    pipe_desc.primitive.topology                = GPUPrimitiveTopology::TRIANGLE_LIST;
+    pipe_desc.primitive.front_face              = GPUFrontFace::CCW;
+    pipe_desc.primitive.strip_index_format      = GPUIndexFormat::UINT32;
     pipe_desc.depth_stencil.depth_compare       = GPUCompareFunction::LESS_EQUAL;
     pipe_desc.depth_stencil.depth_write_enabled = true;
     pipe_desc.depth_stencil.format              = depth_format;
-    pipe_desc.multisample.count            = 1;
-    pipe_desc.vertex.module                = vshader;
-    pipe_desc.vertex.entry_point           = "vsmain";
-    pipe_desc.vertex.buffers               = vlayouts;
-    pipe_desc.fragment.module              = fshader;
-    pipe_desc.fragment.entry_point         = "fsmain";
-    pipe_desc.fragment.targets             = rstates;
+    pipe_desc.multisample.count                 = 1;
+    pipe_desc.vertex.module                     = vshader;
+    pipe_desc.vertex.entry_point                = "vsmain";
+    pipe_desc.vertex.buffers                    = vlayouts;
+    pipe_desc.fragment.module                   = fshader;
+    pipe_desc.fragment.entry_point              = "fsmain";
+    pipe_desc.fragment.targets                  = rstates;
 
     pipeline = device.create_render_pipeline(pipe_desc);
     if (!pipeline.valid()) {
@@ -280,9 +280,9 @@ auto OceanPass::add(FrameGraphBuilder& builder, const OceanPassParams& params) -
             }
 
             // convert raw illuminance into exposed radiance, matching the skybox pass
-            float exposure_scale    = (params.view.exposure_scale > 0.0f) ? params.view.exposure_scale : (1.0f / (1.2f * 8192.0f));
-            float sun_radiance      = glm::clamp(sun_int * exposure_scale * 1.8f, 5.0f, 40.0f);
-            u.sun_dir_and_intensity = Vector4(sun_dir, sun_radiance);
+            float exposure_scale       = (params.view.exposure_scale > 0.0f) ? params.view.exposure_scale : (1.0f / (1.2f * 8192.0f));
+            float sun_radiance         = glm::clamp(sun_int * exposure_scale * 1.8f, 5.0f, 40.0f);
+            u.sun_dir_and_intensity    = Vector4(sun_dir, sun_radiance);
             u.sun_color_and_foam_scale = Vector4(sun_col, params.foam_scale);
             u.water_params             = Vector4(params.water_depth, params.water_clarity, params.wave_speed, params.roughness);
             u.deep_color               = params.deep_color;

@@ -22,7 +22,7 @@ namespace lyra::ui::node
         NodeEditorContext();
         ~NodeEditorContext();
 
-        NodeEditorContext(const NodeEditorContext&) = delete;
+        NodeEditorContext(const NodeEditorContext&)                    = delete;
         auto operator=(const NodeEditorContext&) -> NodeEditorContext& = delete;
 
         NodeEditorContext(NodeEditorContext&& other) noexcept;

@@ -36,10 +36,10 @@ namespace lyra
      */
     struct AudioClipDescriptor
     {
-        Span<ubyte>       data;                     ///< encoded file payload or raw PCM buffer.
-        CString           source_format    = "";    ///< "wav", "ogg", "mp3", "flac" or empty for raw PCM.
-        bool              stream_from_disk = false; ///< stream large files (e.g. music) from disk without full preloading.
-        StringView        stream_path      = {};    ///< virtual filesystem path when stream_from_disk is true.
+        Span<ubyte> data;                     ///< encoded file payload or raw PCM buffer.
+        CString     source_format    = "";    ///< "wav", "ogg", "mp3", "flac" or empty for raw PCM.
+        bool        stream_from_disk = false; ///< stream large files (e.g. music) from disk without full preloading.
+        StringView  stream_path      = {};    ///< virtual filesystem path when stream_from_disk is true.
     };
 
     /**

@@ -20,9 +20,15 @@ namespace lyra
     struct AudioAPI;
 
     // handle tags
-    struct AudioClipTag {};
-    struct SoundTag {};
-    struct AudioBusTag {};
+    struct AudioClipTag
+    {
+    };
+    struct SoundTag
+    {
+    };
+    struct AudioBusTag
+    {
+    };
 
     /**
      * @brief Type-safe generation handle wrapper for audio resources.
@@ -36,7 +42,7 @@ namespace lyra
         constexpr explicit AudioHandle(uint val) : value(val) {}
 
         [[nodiscard]] constexpr bool valid() const { return value != 0; }
-        constexpr void reset() { value = 0; }
+        constexpr void               reset() { value = 0; }
 
         constexpr bool operator==(const AudioHandle& other) const = default;
         constexpr bool operator!=(const AudioHandle& other) const = default;
