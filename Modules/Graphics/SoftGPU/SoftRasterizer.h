@@ -8,6 +8,8 @@
 
 namespace lyra::softgpu
 {
+    class SoftThreadPool;
+
     struct SoftShadedVertex
     {
         Vector4 position{0.0f}; // clip space (X, Y, Z, W)
@@ -76,7 +78,9 @@ namespace lyra::softgpu
 
         static void rasterize_triangle(const SoftRasterTriangle& tri, const SoftRasterizerContext& ctx);
 
-        static void rasterize_triangles(std::span<const SoftRasterTriangle> triangles, const SoftRasterizerContext& ctx);
+        static void rasterize_triangle_clamped_y(const SoftRasterTriangle& tri, const SoftRasterizerContext& ctx, int32_t clamp_min_y, int32_t clamp_max_y);
+
+        static void rasterize_triangles(std::span<const SoftRasterTriangle> triangles, const SoftRasterizerContext& ctx, SoftThreadPool* pool = nullptr);
     };
 } // namespace lyra::softgpu
 

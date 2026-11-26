@@ -447,6 +447,7 @@ static void execute_draw(SoftDevice& device, ExecutionContext& ctx, uint vertex_
     bool has_vbuf = (it_v != ctx.vertex_buffers.end()) && ctx.render_pipeline && !ctx.render_pipeline->vertex_buffers.empty();
     if (!has_vbuf) {
         if (ctx.render_pipeline && ctx.render_pipeline->vshader_func) {
+            Vector<SoftRasterTriangle> draw_tris;
             for (uint inst = 0; inst < instance_count; ++inst) {
                 uint num_tris = vertex_count / 3;
                 for (uint t = 0; t < num_tris; ++t) {
@@ -456,12 +457,15 @@ static void execute_draw(SoftDevice& device, ExecutionContext& ctx, uint vertex_
                     run_vs(first_vertex + t * 3 + 1, v1, nullptr);
                     run_vs(first_vertex + t * 3 + 2, v2, nullptr);
 
-                    Vector<SoftRasterTriangle> tris;
-                    SoftRasterizer::clip_and_project_triangle(v0, v1, v2, ctx.viewport, tris);
-                    for (const auto& tri : tris) {
-                        SoftRasterizer::rasterize_triangle(tri, p.r_ctx);
+                    SoftRasterizer::clip_and_project_triangle(v0, v1, v2, ctx.viewport, draw_tris);
+                    if (draw_tris.size() >= 4096) {
+                        SoftRasterizer::rasterize_triangles(draw_tris, p.r_ctx, &device.thread_pool);
+                        draw_tris.clear();
                     }
                 }
+            }
+            if (!draw_tris.empty()) {
+                SoftRasterizer::rasterize_triangles(draw_tris, p.r_ctx, &device.thread_pool);
             }
         } else if (vertex_count == 3) {
             SoftShadedVertex v0{}, v1{}, v2{};
@@ -479,9 +483,7 @@ static void execute_draw(SoftDevice& device, ExecutionContext& ctx, uint vertex_
 
             Vector<SoftRasterTriangle> tris;
             SoftRasterizer::clip_and_project_triangle(v0, v1, v2, ctx.viewport, tris);
-            for (const auto& tri : tris) {
-                SoftRasterizer::rasterize_triangle(tri, p.r_ctx);
-            }
+            SoftRasterizer::rasterize_triangles(tris, p.r_ctx, &device.thread_pool);
         } else if (vertex_count >= 4) {
             SoftShadedVertex v[4];
             v[0].position = Vector4(-1.0f, -1.0f, 0.0f, 1.0f);
@@ -497,12 +499,8 @@ static void execute_draw(SoftDevice& device, ExecutionContext& ctx, uint vertex_
 
             Vector<SoftRasterTriangle> tris;
             SoftRasterizer::clip_and_project_triangle(v[0], v[1], v[2], ctx.viewport, tris);
-            for (const auto& tri : tris)
-                SoftRasterizer::rasterize_triangle(tri, p.r_ctx);
-            tris.clear();
             SoftRasterizer::clip_and_project_triangle(v[0], v[2], v[3], ctx.viewport, tris);
-            for (const auto& tri : tris)
-                SoftRasterizer::rasterize_triangle(tri, p.r_ctx);
+            SoftRasterizer::rasterize_triangles(tris, p.r_ctx, &device.thread_pool);
         }
         return;
     }
@@ -713,6 +711,7 @@ static void execute_draw(SoftDevice& device, ExecutionContext& ctx, uint vertex_
     bool is_strip = (p.r_ctx.primitive.topology == GPUPrimitiveTopology::TRIANGLE_STRIP);
     uint num_tris = is_strip ? (vertex_count >= 3 ? vertex_count - 2 : 0) : (vertex_count / 3);
 
+    Vector<SoftRasterTriangle> draw_tris;
     for (uint inst = 0; inst < instance_count; ++inst) {
         uint current_inst = first_instance + inst;
         for (uint t = 0; t < num_tris; ++t) {
@@ -737,12 +736,15 @@ static void execute_draw(SoftDevice& device, ExecutionContext& ctx, uint vertex_
             SoftShadedVertex v1 = read_vert(off1, current_inst);
             SoftShadedVertex v2 = read_vert(off2, current_inst);
 
-            Vector<SoftRasterTriangle> tris;
-            SoftRasterizer::clip_and_project_triangle(v0, v1, v2, ctx.viewport, tris);
-            for (const auto& tri : tris) {
-                SoftRasterizer::rasterize_triangle(tri, p.r_ctx);
+            SoftRasterizer::clip_and_project_triangle(v0, v1, v2, ctx.viewport, draw_tris);
+            if (draw_tris.size() >= 4096) {
+                SoftRasterizer::rasterize_triangles(draw_tris, p.r_ctx, &device.thread_pool);
+                draw_tris.clear();
             }
         }
+    }
+    if (!draw_tris.empty()) {
+        SoftRasterizer::rasterize_triangles(draw_tris, p.r_ctx, &device.thread_pool);
     }
 }
 
@@ -1037,8 +1039,9 @@ static void execute_draw_indexed(SoftDevice& device, ExecutionContext& ctx, uint
         return sv;
     };
 
-    bool is_strip = (p.r_ctx.primitive.topology == GPUPrimitiveTopology::TRIANGLE_STRIP);
-    uint num_tris = is_strip ? (index_count >= 3 ? index_count - 2 : 0) : (index_count / 3);
+    bool                       is_strip = (p.r_ctx.primitive.topology == GPUPrimitiveTopology::TRIANGLE_STRIP);
+    uint                       num_tris = is_strip ? (index_count >= 3 ? index_count - 2 : 0) : (index_count / 3);
+    Vector<SoftRasterTriangle> draw_tris;
     for (uint inst = 0; inst < instance_count; ++inst) {
         uint current_inst = first_instance + inst;
         for (uint t = 0; t < num_tris; ++t) {
@@ -1067,12 +1070,15 @@ static void execute_draw_indexed(SoftDevice& device, ExecutionContext& ctx, uint
             SoftShadedVertex v1 = read_vertex(i1, current_inst);
             SoftShadedVertex v2 = read_vertex(i2, current_inst);
 
-            Vector<SoftRasterTriangle> tris;
-            SoftRasterizer::clip_and_project_triangle(v0, v1, v2, ctx.viewport, tris);
-            for (const auto& tri : tris) {
-                SoftRasterizer::rasterize_triangle(tri, p.r_ctx);
+            SoftRasterizer::clip_and_project_triangle(v0, v1, v2, ctx.viewport, draw_tris);
+            if (draw_tris.size() >= 4096) {
+                SoftRasterizer::rasterize_triangles(draw_tris, p.r_ctx, &device.thread_pool);
+                draw_tris.clear();
             }
         }
+    }
+    if (!draw_tris.empty()) {
+        SoftRasterizer::rasterize_triangles(draw_tris, p.r_ctx, &device.thread_pool);
     }
 }
 
@@ -1436,9 +1442,46 @@ static void execute_dispatch_workgroups(SoftDevice& device, ExecutionContext& ct
                 }
             }
 
-            ComputeVaryingInput vi{{0, 0, 0}, {x, y, z}};
-            auto                func = reinterpret_cast<SlangComputeCallable>(ctx.compute_pipeline->cshader_func);
-            func(&vi, nullptr, uniform_bytes.data());
+            auto func     = reinterpret_cast<SlangComputeCallable>(ctx.compute_pipeline->cshader_func);
+            uint max_axis = std::max({x, y, z});
+            uint total_wg = x * y * z;
+            if (max_axis <= 1 || total_wg < 4 || device.thread_pool.thread_count() <= 1) {
+                ComputeVaryingInput vi{{0, 0, 0}, {x, y, z}};
+                func(&vi, nullptr, uniform_bytes.data());
+            } else {
+                uint num_threads = device.thread_pool.thread_count();
+                if (z >= y && z >= x) {
+                    uint chunk_count = std::min(z, num_threads * 4);
+                    device.thread_pool.parallel_for(chunk_count, [&](uint chunk) {
+                        uint z0 = (chunk * z) / chunk_count;
+                        uint z1 = ((chunk + 1) * z) / chunk_count;
+                        if (z0 < z1) {
+                            ComputeVaryingInput vi{{0, 0, z0}, {x, y, z1}};
+                            func(&vi, nullptr, uniform_bytes.data());
+                        }
+                    });
+                } else if (y >= x) {
+                    uint chunk_count = std::min(y, num_threads * 4);
+                    device.thread_pool.parallel_for(chunk_count, [&](uint chunk) {
+                        uint y0 = (chunk * y) / chunk_count;
+                        uint y1 = ((chunk + 1) * y) / chunk_count;
+                        if (y0 < y1) {
+                            ComputeVaryingInput vi{{0, y0, 0}, {x, y1, z}};
+                            func(&vi, nullptr, uniform_bytes.data());
+                        }
+                    });
+                } else {
+                    uint chunk_count = std::min(x, num_threads * 4);
+                    device.thread_pool.parallel_for(chunk_count, [&](uint chunk) {
+                        uint x0 = (chunk * x) / chunk_count;
+                        uint x1 = ((chunk + 1) * x) / chunk_count;
+                        if (x0 < x1) {
+                            ComputeVaryingInput vi{{x0, 0, 0}, {x1, y, z}};
+                            func(&vi, nullptr, uniform_bytes.data());
+                        }
+                    });
+                }
+            }
 
             for (uint i = 0; i < host_rw_tex_count; ++i) {
                 host_rw_textures[i].flush();

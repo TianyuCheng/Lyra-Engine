@@ -11,6 +11,7 @@
 #include "SoftSwapchain.h"
 #include "SoftRaytracing.h"
 #include "SoftPipeline.h"
+#include "SoftThreadPool.h"
 
 namespace lyra::softgpu
 {
@@ -48,6 +49,7 @@ namespace lyra::softgpu
         SoftResourceManager<SoftSwapchain>          swapchains;
         SoftResourceManager<SoftQuerySet>           query_sets;
 
+        SoftThreadPool                         thread_pool;
         HashMap<ulong, Own<SoftCommandBuffer>> command_buffers;
         Atomic<ulong>                          cmd_counter{1};
         Atomic<ulong>                          heap_counter{1};

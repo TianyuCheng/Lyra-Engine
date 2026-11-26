@@ -7,6 +7,8 @@ find_package(embree 4 CONFIG REQUIRED)
 target_sources(lyra-softgpu PRIVATE
   SoftPlugin.cpp
   SoftCommon.h
+  SoftThreadPool.h
+  SoftThreadPool.cpp
   SoftBuffer.h
   SoftBuffer.cpp
   SoftTexture.h

@@ -1,6 +1,7 @@
 #include "SoftRasterizer.h"
 #include "SoftSampler.h"
 #include "SoftShaderExecution.h"
+#include "SoftThreadPool.h"
 #if defined(__AVX2__)
 #include <immintrin.h>
 #define LYRA_USE_AVX2 1
@@ -265,6 +266,11 @@ static Vector4 apply_blend(const Vector4& src, const Vector4& dst, const GPUBlen
 
 void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const SoftRasterizerContext& ctx)
 {
+    rasterize_triangle_clamped_y(tri, ctx, INT32_MIN, INT32_MAX);
+}
+
+void SoftRasterizer::rasterize_triangle_clamped_y(const SoftRasterTriangle& tri, const SoftRasterizerContext& ctx, int32_t clamp_min_y, int32_t clamp_max_y)
+{
     const auto& v0 = tri.v0;
     const auto& v1 = tri.v1;
     const auto& v2 = tri.v2;
@@ -309,8 +315,8 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
 
     int32_t min_x = std::max(sc_x0, static_cast<int32_t>(std::floor(min_x_f)));
     int32_t max_x = std::min(sc_x1 - 1, static_cast<int32_t>(std::ceil(max_x_f)));
-    int32_t min_y = std::max(sc_y0, static_cast<int32_t>(std::floor(min_y_f)));
-    int32_t max_y = std::min(sc_y1 - 1, static_cast<int32_t>(std::ceil(max_y_f)));
+    int32_t min_y = std::max({sc_y0, static_cast<int32_t>(std::floor(min_y_f)), clamp_min_y});
+    int32_t max_y = std::min({sc_y1 - 1, static_cast<int32_t>(std::ceil(max_y_f)), clamp_max_y});
 
     if (min_x > max_x || min_y > max_y) return;
 
@@ -727,9 +733,62 @@ void SoftRasterizer::rasterize_triangle(const SoftRasterTriangle& tri, const Sof
     }
 }
 
-void SoftRasterizer::rasterize_triangles(std::span<const SoftRasterTriangle> triangles, const SoftRasterizerContext& ctx)
+void SoftRasterizer::rasterize_triangles(std::span<const SoftRasterTriangle> triangles, const SoftRasterizerContext& ctx, SoftThreadPool* pool)
 {
-    for (const auto& tri : triangles) {
-        rasterize_triangle(tri, ctx);
+    if (triangles.empty()) return;
+
+    // Small primitive counts or single-threaded pool: rasterize immediately on caller thread
+    // to avoid thread synchronization and binning overhead
+    if (triangles.size() <= 32 || !pool || pool->thread_count() <= 1) {
+        for (const auto& tri : triangles) {
+            rasterize_triangle(tri, ctx);
+        }
+        return;
     }
+
+    uint32_t height = 0;
+    if (ctx.color_attachment) {
+        height = ctx.color_attachment->extent.height;
+    } else if (!ctx.color_attachments.empty() && ctx.color_attachments[0]) {
+        height = ctx.color_attachments[0]->extent.height;
+    } else if (ctx.depth_stencil_attachment) {
+        height = ctx.depth_stencil_attachment->extent.height;
+    } else {
+        height = static_cast<uint32_t>(ctx.viewport.height);
+    }
+
+    if (height == 0) return;
+
+    constexpr uint32_t BAND_HEIGHT = 32;
+    uint32_t           num_bands   = (height + BAND_HEIGHT - 1) / BAND_HEIGHT;
+
+    struct BandBin
+    {
+        Vector<uint32_t> triangle_indices;
+    };
+    Vector<BandBin> bins(num_bands);
+
+    for (uint32_t i = 0; i < triangles.size(); ++i) {
+        const auto& tri     = triangles[i];
+        float       min_y_f = std::min({tri.v0.screen.y, tri.v1.screen.y, tri.v2.screen.y});
+        float       max_y_f = std::max({tri.v0.screen.y, tri.v1.screen.y, tri.v2.screen.y});
+        if (max_y_f < 0.0f || min_y_f >= static_cast<float>(height)) continue;
+
+        int32_t b_start = std::clamp(static_cast<int32_t>(min_y_f) / static_cast<int32_t>(BAND_HEIGHT), 0, static_cast<int32_t>(num_bands) - 1);
+        int32_t b_end   = std::clamp(static_cast<int32_t>(max_y_f) / static_cast<int32_t>(BAND_HEIGHT), 0, static_cast<int32_t>(num_bands) - 1);
+
+        for (int32_t b = b_start; b <= b_end; ++b) {
+            bins[b].triangle_indices.push_back(i);
+        }
+    }
+
+    pool->parallel_for(num_bands, [&](uint32_t b) {
+        if (bins[b].triangle_indices.empty()) return;
+        int32_t y0 = static_cast<int32_t>(b * BAND_HEIGHT);
+        int32_t y1 = std::min(static_cast<int32_t>(height - 1), static_cast<int32_t>((b + 1) * BAND_HEIGHT - 1));
+
+        for (uint32_t tri_idx : bins[b].triangle_indices) {
+            rasterize_triangle_clamped_y(triangles[tri_idx], ctx, y0, y1);
+        }
+    });
 }

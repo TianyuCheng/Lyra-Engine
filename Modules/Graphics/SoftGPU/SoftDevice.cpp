@@ -33,6 +33,8 @@ bool SoftDevice::init(const RHIDescriptor& descriptor)
     adapter_props.properties.texture_row_pitch_alignment  = 256;
     adapter_props.properties.min_uniform_buffer_alignment = 256;
 
+    thread_pool.init();
+
     initialized.store(true, MemoryOrder::release);
     return true;
 }
@@ -41,6 +43,7 @@ void SoftDevice::destroy()
 {
     get_logger()->trace("Destroying SoftGPU device resources");
 
+    thread_pool.shutdown();
     command_buffers.clear();
 
     buffers              = {};

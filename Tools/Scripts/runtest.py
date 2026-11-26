@@ -776,6 +776,7 @@ def generate_results_json(args, results, unit_passed=True, finished=True):
                 "skipped": is_skipped,
                 "skip_reason": m.get("skip_reason"),
                 "error": m.get("error"),
+                "duration": round(m.get("duration", 0.0), 3),
                 "rmse": m.get("rmse", 0.0),
                 "mismatch_pct": m.get("mismatch_pct", 0.0),
                 "diff_pixels": m.get("diff_pixels", 0),
@@ -839,8 +840,9 @@ def run_rhi_tests(args, buckets, on_progress=None):
                 staged_tasks[tier_int][1].append(item)
 
     results_lock = threading.Lock()
+    max_workers = args.jobs if (args.jobs is not None and args.jobs > 0) else max(1, min(os.cpu_count() or 4, 8))
 
-    def handle_test_finished(item, proc_success, proc_output):
+    def handle_test_finished(item, proc_success, proc_output, duration=0.0):
         nonlocal all_passed
         test_name, variant, directory, ref_image, _ = item
         full_name = variant["name"]
@@ -864,6 +866,7 @@ def run_rhi_tests(args, buckets, on_progress=None):
                 "skipped": True,
                 "skip_reason": skip_reason,
                 "error": None,
+                "duration": duration,
                 "rmse": 0.0,
                 "mismatch_pct": 0.0,
                 "diff_pixels": 0,
@@ -894,6 +897,7 @@ def run_rhi_tests(args, buckets, on_progress=None):
                 max_mismatch_pct=cur_mismatch_thresh,
                 rmse_threshold=cur_rmse_thresh,
             )
+            metrics["duration"] = duration
         else:
             err_detail = "Execution failed"
             if not os.path.exists(test_result) and proc_success:
@@ -901,6 +905,7 @@ def run_rhi_tests(args, buckets, on_progress=None):
             metrics = {
                 "passed": False,
                 "error": err_detail,
+                "duration": duration,
                 "rmse": 0.0,
                 "mismatch_pct": 100.0,
                 "diff_pixels": 0,
@@ -915,19 +920,20 @@ def run_rhi_tests(args, buckets, on_progress=None):
             if metrics.get("diff_image"):
                 results[test_name][f"{backend}_diff"] = metrics["diff_image"]
 
+            dur_str = f" [{duration:.2f}s]" if duration > 0.0 else ""
             print(f"::{full_name}")
             if not proc_success:
                 all_passed = False
-                print(f"  -> [FAIL] Execution failed: {full_name}")
+                print(f"  -> [FAIL] Execution failed: {full_name}{dur_str}")
                 if proc_output.strip():
                     print(f"     Output: {proc_output.strip()[:500]}")
             elif metrics.get("skipped"):
-                print(f"  -> [SKIP] {backend} ({metrics.get('skip_reason', 'Feature not supported')})")
+                print(f"  -> [SKIP] {backend} ({metrics.get('skip_reason', 'Feature not supported')}){dur_str}")
             elif metrics["passed"]:
-                print(f"  -> [PASS] {backend} (RMSE: {metrics['rmse']:.2f}, Diff: {metrics['mismatch_pct']:.2f}%, MaxDiff: {metrics['max_diff']})")
+                print(f"  -> [PASS] {backend}{dur_str} (RMSE: {metrics['rmse']:.2f}, Diff: {metrics['mismatch_pct']:.2f}%, MaxDiff: {metrics['max_diff']})")
             else:
                 all_passed = False
-                print(f"  -> [FAIL] {backend}: {metrics['error']}")
+                print(f"  -> [FAIL] {backend}{dur_str}: {metrics['error']}")
 
             if on_progress:
                 on_progress(test_name, backend, metrics, test_result, results[test_name].get(f"{backend}_diff"))
@@ -937,6 +943,12 @@ def run_rhi_tests(args, buckets, on_progress=None):
         proc_env = os.environ.copy()
         proc_env["LYRA_REPO_ROOT"] = git_root
         proc_env["LYRA_TESTKIT_RUNS_DIR"] = args.directory
+
+        # Prevent CPU thread oversubscription during multi-process batch test runs
+        if backend == "softgpu" and "LYRA_SOFTGPU_THREADS" not in proc_env:
+            if max_workers > 2:
+                soft_threads = max(1, (os.cpu_count() or 4) // max_workers)
+                proc_env["LYRA_SOFTGPU_THREADS"] = str(soft_threads)
 
         while remaining_tasks:
             current_batch = remaining_tasks
@@ -958,11 +970,12 @@ def run_rhi_tests(args, buckets, on_progress=None):
                 )
             except Exception as e:
                 for item in current_batch:
-                    handle_test_finished(item, False, str(e))
+                    handle_test_finished(item, False, str(e), 0.0)
                 continue
 
             current_test_name = None
             current_test_output = []
+            current_test_start = None
             executed_in_chunk = set()
 
             for raw_line in iter(proc.stdout.readline, ""):
@@ -970,15 +983,18 @@ def run_rhi_tests(args, buckets, on_progress=None):
                 if line.startswith(">>> TEST_START: "):
                     current_test_name = line[len(">>> TEST_START: "):].strip()
                     current_test_output = []
+                    current_test_start = time.perf_counter()
                 elif line.startswith(">>> TEST_END: "):
                     status_str = line[len(">>> TEST_END: "):].strip()
                     test_success = (status_str == "PASS")
+                    duration = (time.perf_counter() - current_test_start) if current_test_start is not None else 0.0
                     if current_test_name in task_map:
                         item = task_map[current_test_name]
-                        handle_test_finished(item, test_success, "\n".join(current_test_output))
+                        handle_test_finished(item, test_success, "\n".join(current_test_output), duration)
                         executed_in_chunk.add(current_test_name)
                     current_test_name = None
                     current_test_output = []
+                    current_test_start = None
                 else:
                     if current_test_name is not None:
                         current_test_output.append(line)
@@ -991,7 +1007,8 @@ def run_rhi_tests(args, buckets, on_progress=None):
                 crash_output = f"Process terminated unexpectedly with code {ret_code}"
                 if current_test_output:
                     crash_output += ":\n" + "\n".join(current_test_output[-10:])
-                handle_test_finished(item, False, crash_output)
+                duration = (time.perf_counter() - current_test_start) if current_test_start is not None else 0.0
+                handle_test_finished(item, False, crash_output, duration)
                 executed_in_chunk.add(current_test_name)
 
             unexecuted = [item for item in current_batch if item[1]["name"] not in executed_in_chunk]
@@ -1025,7 +1042,6 @@ def run_rhi_tests(args, buckets, on_progress=None):
                 if on_progress:
                     on_progress(test_name, backend, metrics, None, None)
 
-    max_workers = args.jobs if (args.jobs is not None and args.jobs > 0) else max(1, min(os.cpu_count() or 4, 8))
     sorted_tiers = [k for k in sorted(staged_tasks.keys()) if len(staged_tasks[k][1]) > 0]
     total_stages = len(sorted_tiers)
     total_tasks_count = sum(len(staged_tasks[k][1]) for k in sorted_tiers)
@@ -1075,6 +1091,7 @@ def run_unit_tests(args):
     exec_ext = os.path.splitext(args.executable)[1]
     unit_exec = os.path.join(exec_dir, f"lyra-unit-tests{exec_ext}")
     print(">>> Running Unit Tests...")
+    start_time = time.perf_counter()
     try:
         unit_filter = os.environ.get("LYRA_UNIT_FILTER", None)
         if os.path.exists(unit_exec):
@@ -1087,10 +1104,12 @@ def run_unit_tests(args):
             if unit_filter:
                 cmd.append(f"-tc={unit_filter}")
             subprocess.check_call(cmd, cwd=git_root)
-        print(">>> Unit Tests PASSED.")
+        elapsed = time.perf_counter() - start_time
+        print(f">>> Unit Tests PASSED in {elapsed:.2f}s.")
         return True
     except subprocess.CalledProcessError as e:
-        print(f">>> Unit Tests FAILED with exit code {e.returncode}.")
+        elapsed = time.perf_counter() - start_time
+        print(f">>> Unit Tests FAILED with exit code {e.returncode} in {elapsed:.2f}s.")
         return False
 
 def generate_html_report(args, results, unit_success=True, finished=True, for_web_server=False):
@@ -1681,11 +1700,13 @@ def generate_html_report(args, results, unit_success=True, finished=True, for_we
                 diff_btn_html = ""
                 if key in metrics_map:
                     m = metrics_map[key]
+                    dur_val = m.get("duration", 0.0)
+                    dur_text = f" &bull; {dur_val:.2f}s" if dur_val > 0.0 else ""
                     if m.get("passed", False):
-                        badge_html = f'<span class="badge badge-pass">PASS &bull; RMSE {m["rmse"]:.2f} &bull; {m["mismatch_pct"]:.2f}%</span>'
+                        badge_html = f'<span class="badge badge-pass">PASS &bull; RMSE {m["rmse"]:.2f} &bull; {m["mismatch_pct"]:.2f}%{dur_text}</span>'
                     else:
                         err = m.get("error") or f'RMSE {m["rmse"]:.2f}'
-                        badge_html = f'<span class="badge badge-fail" title="{err}">FAIL &bull; {err}</span>'
+                        badge_html = f'<span class="badge badge-fail" title="{err}">FAIL &bull; {err}{dur_text}</span>'
 
                     diff_img = buckets.get(f"{key}_diff")
                     if diff_img and os.path.exists(diff_img):
@@ -1704,9 +1725,11 @@ def generate_html_report(args, results, unit_success=True, finished=True, for_we
             elif key in metrics_map and metrics_map[key].get("skipped"):
                 m = metrics_map[key]
                 reason = m.get("skip_reason", "Feature not supported")
+                dur_val = m.get("duration", 0.0)
+                dur_text = f" &bull; {dur_val:.2f}s" if dur_val > 0.0 else ""
                 html_content.append(f'''
                     <div class="img-wrap empty-thumb">
-                        <span class="badge badge-skip">SKIPPED</span>
+                        <span class="badge badge-skip">SKIPPED{dur_text}</span>
                     </div>
                     <div class="meta-wrap">
                         <span class="skip-reason" title="{reason}">{reason}</span>
@@ -1829,9 +1852,10 @@ def generate_html_report(args, results, unit_success=True, finished=True, for_we
                     const container = cell.querySelector('.img-cell') || cell;
                     if (msg.skipped) {
                         const reason = msg.skip_reason || "Feature not supported";
+                        const durText = (msg.duration !== undefined && msg.duration > 0) ? ` &bull; ${msg.duration.toFixed(2)}s` : '';
                         container.innerHTML = `
                             <div class="img-wrap empty-thumb">
-                                <span class="badge badge-skip">SKIPPED</span>
+                                <span class="badge badge-skip">SKIPPED${durText}</span>
                             </div>
                             <div class="meta-wrap">
                                 <span class="skip-reason" title="${reason}">${reason}</span>
@@ -1839,11 +1863,12 @@ def generate_html_report(args, results, unit_success=True, finished=True, for_we
                         `;
                     } else if (msg.image_url) {
                         let badgeHtml = '';
+                        const durText = (msg.duration !== undefined && msg.duration > 0) ? ` &bull; ${msg.duration.toFixed(2)}s` : '';
                         if (msg.passed) {
-                            badgeHtml = `<span class="badge badge-pass">PASS &bull; RMSE ${msg.rmse.toFixed(2)} &bull; ${msg.mismatch_pct.toFixed(2)}%</span>`;
+                            badgeHtml = `<span class="badge badge-pass">PASS &bull; RMSE ${msg.rmse.toFixed(2)} &bull; ${msg.mismatch_pct.toFixed(2)}%${durText}</span>`;
                         } else {
                             const err = msg.error || `RMSE ${msg.rmse.toFixed(2)}`;
-                            badgeHtml = `<span class="badge badge-fail" title="${err}">FAIL &bull; ${err}</span>`;
+                            badgeHtml = `<span class="badge badge-fail" title="${err}">FAIL &bull; ${err}${durText}</span>`;
                         }
 
                         let diffBtnHtml = '';
@@ -2008,6 +2033,7 @@ def main():
                         "passed": metrics.get("passed", False),
                         "skipped": metrics.get("skipped", False),
                         "skip_reason": metrics.get("skip_reason"),
+                        "duration": metrics.get("duration", 0.0),
                         "rmse": metrics.get("rmse", 0.0),
                         "mismatch_pct": metrics.get("mismatch_pct", 0.0),
                         "max_diff": metrics.get("max_diff", 0),
