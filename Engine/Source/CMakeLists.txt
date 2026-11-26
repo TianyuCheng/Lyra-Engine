@@ -14,7 +14,7 @@ find_package(spdlog REQUIRED)
 find_package(libassert REQUIRED)
 find_package(magic_enum REQUIRED)
 find_package(imguizmo REQUIRED)
-find_package(imnodes REQUIRED)
+find_package(nodeeditor REQUIRED)
 
 # create a dependency interface library
 add_library(lyra-commons INTERFACE)
@@ -47,7 +47,7 @@ target_link_libraries(lyra-commons INTERFACE
   # gui libraries
   $<BUILD_INTERFACE:imgui::imgui>
   $<BUILD_INTERFACE:imguizmo::imguizmo>
-  $<BUILD_INTERFACE:imnodes::imnodes>
+  $<BUILD_INTERFACE:nodeeditor::nodeeditor>
 
   # debugging libraries
   $<BUILD_INTERFACE:fmt::fmt>

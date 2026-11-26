@@ -89,6 +89,16 @@ namespace lyra::ui::node
     void link(LinkId id, PinId start_pin, PinId end_pin);
 
     /**
+     * @brief triggers visual flow particles animating along a link connection.
+     */
+    void flow(LinkId id);
+
+    /**
+     * @brief declares an interactive Blueprint/Blender-style grouping box around nodes.
+     */
+    void group(NodeId id, CString title, Vector2 size, ActionRef content);
+
+    /**
      * @brief displays an interactive canvas minimap overlay.
      */
     void minimap(float size_fraction = 0.2f, MinimapLocation location = MinimapLocation::BottomRight);
@@ -158,6 +168,9 @@ namespace lyra::ui::node
     auto get_panning() -> Vector2;
     void reset_panning(const Vector2& pos = {0.0f, 0.0f});
     void move_to_node(NodeId id);
+    auto get_zoom() -> float;
+    void navigate_to_content(float duration = -1.0f);
+    void navigate_to_selection(bool zoom_in = false, float duration = -1.0f);
 
     // =========================================================================
     // 7. Serialization / State Persistence
