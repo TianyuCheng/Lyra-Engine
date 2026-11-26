@@ -140,6 +140,7 @@ target_sources(lyra-engine PRIVATE
   Rendering/Passes/ShadowMapPass.cpp
   Rendering/Passes/ForwardPass.cpp
   Rendering/Passes/OceanPass.cpp
+  Rendering/Passes/VolumetricCloudPass.cpp
 
   # windowing
   Windowing/WSIState.cpp

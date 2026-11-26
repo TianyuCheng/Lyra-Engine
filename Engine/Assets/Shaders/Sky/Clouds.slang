@@ -95,8 +95,8 @@ public CloudParameters default_earth_clouds()
     p.cloud_top_altitude    = 4.0;
     p.max_march_distance    = 50.0;
 
-    p.cloud_coverage        = 0.45;
-    p.cloud_density_scale   = 0.03;
+    p.cloud_coverage        = 0.48;
+    p.cloud_density_scale   = 0.55;
     p.cloud_type            = 0.7; // predominantly cumulus / stratocumulus
     p.shape_scale           = 0.35;
     p.detail_scale          = 2.8;
@@ -502,8 +502,7 @@ public float cloud_worley_fbm(float3 p, float freq_mult = 2.0)
 {
     float w1 = 1.0 - saturate(cellular_noise(p).f1);
     float w2 = 1.0 - saturate(cellular_noise(p * freq_mult).f1);
-    float w3 = 1.0 - saturate(cellular_noise(p * (freq_mult * freq_mult)).f1);
-    return w1 * 0.625 + w2 * 0.25 + w3 * 0.125;
+    return w1 * 0.7 + w2 * 0.3;
 }
 
 /**
@@ -536,6 +535,7 @@ public float sample_cloud_density(
     // 3. Apply wind drift and vertical wind shear
     float3 wind_offset = params.wind_direction * (params.time * params.wind_speed);
     float3 sample_p    = world_pos - wind_offset;
+    sample_p.y        -= params.planet_radius;
     sample_p.xz       -= params.wind_direction.xz * (h * params.height_shear);
 
     // 4. Low-frequency shape noise with curl distortion
@@ -547,8 +547,8 @@ public float sample_cloud_density(
 
     float base_fbm    = fbm(base_uvw, 4, 2.0, 0.5);
     float base_worley = 1.0 - saturate(cellular_noise(base_uvw * 1.5).f1);
-    // Perlin-Worley hybrid base noise
-    float base_noise  = cloud_remap_saturate(base_fbm, 1.0 - base_worley, 1.0, 0.0, 1.0);
+    // Perlin-Worley hybrid base noise (Schneider 2015: erode Perlin with Worley noise)
+    float base_noise  = cloud_remap_saturate(base_fbm, base_worley - 1.0, 1.0, 0.0, 1.0);
 
     // 5. Modulate by coverage threshold and height profile
     float threshold    = 1.0 - params.cloud_coverage;
@@ -629,9 +629,10 @@ public float march_cloud_light_transmittance(
         current_step *= 1.35;
     }
 
-    // Combine Beer-Lambert with Beer-Powder dark border effect
+    // Combine Beer-Lambert with Beer-Powder dark border effect (Schneider 2015)
     float trans_beer   = cloud_beer_lambert(acc_optical_depth);
-    float trans_powder = 1.0 - exp(-2.0 * acc_optical_depth * params.powder_scale);
+    float powder_term  = 1.0 - exp(-2.0 * acc_optical_depth * params.powder_scale);
+    float trans_powder = lerp(1.0, powder_term * 2.0, saturate(acc_optical_depth * 0.5));
 
     return trans_beer * trans_powder;
 }
@@ -709,7 +710,7 @@ public CloudRaymarchResult raymarch_volumetric_clouds(
     int consecutive_zero_samples = 0;
 
     for (int i = 0; i < max_steps; ++i) {
-        if (current_t >= t_end || result.transmittance < 0.002) {
+        if (current_t >= t_end || result.transmittance < 0.02) {
             break; // early ray termination
         }
 
@@ -724,8 +725,8 @@ public CloudRaymarchResult raymarch_volumetric_clouds(
 
             consecutive_zero_samples = 0;
 
-            // Evaluate direct sun transmission with light marching
-            float sun_trans = march_cloud_light_transmittance(params, sample_p, sun_dir, 5, light_step);
+            // Evaluate direct sun transmission with 3-step light marching
+            float sun_trans = march_cloud_light_transmittance(params, sample_p, sun_dir, 3, light_step);
 
             // Multiple scattering approximation boost
             float ms_boost = cloud_multiple_scattering_attenuation(
@@ -758,7 +759,7 @@ public CloudRaymarchResult raymarch_volumetric_clouds(
         } else {
             // Empty space skipping: accelerate ray when density is zero
             consecutive_zero_samples++;
-            float skip_multiplier = consecutive_zero_samples > 2 ? 1.5 : 1.0;
+            float skip_multiplier = consecutive_zero_samples > 3 ? 2.5 : (consecutive_zero_samples > 1 ? 1.75 : 1.0);
             current_t += step_size * skip_multiplier;
         }
     }

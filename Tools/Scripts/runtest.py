@@ -177,6 +177,7 @@ RHI_TEST_ORDER = [
 
     # 11. Specialized Surface Renderers
     "ocean",
+    "volumetric_clouds",
 ]
 
 RHI_TEST_ASPECTS = {
@@ -238,6 +239,7 @@ RHI_TEST_ASPECTS = {
 
     # 11. Specialized Surface Renderers
     "ocean": "Specialized Renderers",
+    "volumetric_clouds": "Specialized Renderers",
 }
 
 def get_test_order_index(test_name):

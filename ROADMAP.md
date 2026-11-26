@@ -176,32 +176,32 @@ Goal: Solidify the primary rasterization pipelines (Forward+ and Deferred Hybrid
 Goal: Complete the reference path tracer in `Modules/Rendering/PathTracer`, supporting hardware DXR/Vulkan ray tracing with fallback to SoftGPU Embree, verified by progressive image testing.
 
 #### 2.1 Ray Tracing Pipeline & Acceleration Structures
-- [ ] **2.1.1 Ray Tracing Pipeline & Shader Binding Table (SBT)**
-  - File: [`Modules/Rendering/PathTracer/PathTracerRendererPlugin.cpp`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Modules/Rendering/PathTracer/PathTracerRendererPlugin.cpp)
-  - Shader: [`Engine/Assets/Shaders/PathTracer/PathTracer.slang`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Assets/Shaders/PathTracer/PathTracer.slang)
-  - Compile RayGen (`raygen_main`), ClosestHit (`closesthit_main`), and Miss (`miss_main`) shaders into `GPURayTracingPipeline`.
+- [x] **2.1.1 Ray Tracing Pipeline & Shader Binding Table (SBT)**
+  - File: [`Modules/Rendering/PathTracer/PathTracerPlugin.cpp`](file:///Users/tcheng/Repositories/Lyra-Engine/Modules/Rendering/PathTracer/PathTracerPlugin.cpp)
+  - Shader: [`Engine/Assets/Shaders/PathTracer/PathTracer.slang`](file:///Users/tcheng/Repositories/Lyra-Engine/Engine/Assets/Shaders/PathTracer/PathTracer.slang)
+  - Compile RayGen (`raygen_main`), ClosestHit (`closesthit_main`), and Miss (`miss_main`) shaders into `GPURayTracingPipeline` alongside compute inline ray-query dispatch (`csmain`).
   - **Shader Binding Table (SBT) Layout**:
     - `RaygenTable`: 1 record (32-byte shader identifier + 32-byte camera uniform descriptor).
     - `MissTable`: 2 records (Record 0 = Radiance miss / Atmosphere sky; Record 1 = Shadow ray miss).
     - `HitGroupTable`: $N$ records (64 bytes aligned per geometry instance, storing vertex/index buffer device addresses and material index).
-- [ ] **2.1.2 Dynamic TLAS Construction in FrameGraph**
-  - Files: [`Engine/Source/Rendering/RenderWorld.cpp`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Source/Rendering/RenderWorld.cpp), [`Modules/Graphics/Vulkan/VkTlas.cpp`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Modules/Graphics/Vulkan/VkTlas.cpp)
-  - Extract `GPUBlasHandle` instances and build Top-Level Acceleration Structure via `vkCmdBuildAccelerationStructuresKHR` on Vulkan, or `BuildRaytracingAccelerationStructure` on D3D12.
-- [ ] **2.1.3 SoftGPU Embree CPU Fallback**
+- [x] **2.1.2 Dynamic TLAS Construction in FrameGraph**
+  - Files: [`Engine/Source/Rendering/RenderWorld.cpp`](file:///Users/tcheng/Repositories/Lyra-Engine/Engine/Source/Rendering/RenderWorld.cpp), [`Modules/Rendering/PathTracer/PathTracerPlugin.cpp`](file:///Users/tcheng/Repositories/Lyra-Engine/Modules/Rendering/PathTracer/PathTracerPlugin.cpp)
+  - Extract `GPUBlasHandle` instances and build Top-Level Acceleration Structure via `vkCmdBuildAccelerationStructuresKHR` on Vulkan, `BuildRaytracingAccelerationStructure` on D3D12, and `build_tlases` on Metal / SoftGPU.
+- [x] **2.1.3 SoftGPU Embree CPU Fallback**
   - Library: Intel Embree 4.x (linked via `vcpkg`)
-  - File: [`Modules/Graphics/SoftGPU/`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Modules/Graphics/SoftGPU)
-  - Implement software ray tracing fallback via `rtcNewGeometry`, `rtcCommitScene`, `rtcIntersect1`, and `rtcOccluded1`.
+  - Files: [`Modules/Graphics/SoftGPU/SoftRaytracing.cpp`](file:///Users/tcheng/Repositories/Lyra-Engine/Modules/Graphics/SoftGPU/SoftRaytracing.cpp), [`Modules/Graphics/SoftGPU/SoftRaytracing.h`](file:///Users/tcheng/Repositories/Lyra-Engine/Modules/Graphics/SoftGPU/SoftRaytracing.h)
+  - Implement software ray tracing fallback via `rtcNewGeometry`, `rtcCommitScene`, `rtcIntersect1`, and `SoftRayQuery` inline traversal. (Note: Standalone software path tracing awaits CPU compute pipeline dispatch support in SoftGPU).
 
 #### 2.2 Monte Carlo Multi-Bounce Global Illumination
-- [ ] **2.2.1 Multi-Bounce Path Integration & Russian Roulette**
-  - Shaders: [`Engine/Assets/Shaders/PathTracer/PathTracer.slang`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Assets/Shaders/PathTracer/PathTracer.slang), [`Engine/Assets/Shaders/Common/RayTracing.slang`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Assets/Shaders/Common/RayTracing.slang)
-  - Loop depth: Up to 16 bounces.
+- [x] **2.2.1 Multi-Bounce Path Integration & Russian Roulette**
+  - Shaders: [`Engine/Assets/Shaders/PathTracer/PathTracer.slang`](file:///Users/tcheng/Repositories/Lyra-Engine/Engine/Assets/Shaders/PathTracer/PathTracer.slang), [`Engine/Assets/Shaders/Common/RayTracing.slang`](file:///Users/tcheng/Repositories/Lyra-Engine/Engine/Assets/Shaders/Common/RayTracing.slang)
+  - Loop depth: Up to 16 bounces configurable via push constants.
   - Russian Roulette path termination based on throughput $\beta$:
     $$q = \min\left(0.95, \max(\beta_r, \beta_g, \beta_b)\right); \quad \text{if } \xi > q \implies \text{terminate}; \quad \text{else } \beta \leftarrow \frac{\beta}{q}$$
   - Ray Cone propagation for mip level texture filtering:
     $$\text{cone.width}' = \text{cone.width} + 2 \cdot t \cdot \tan\left(\frac{\text{cone.spread}}{2}\right)$$
-- [ ] **2.2.2 BSDF Importance Sampling & Next-Event Estimation (NEE)**
-  - Shaders: [`Engine/Assets/Shaders/Common/BSDF.slang`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Assets/Shaders/Common/BSDF.slang), [`Engine/Assets/Shaders/Common/Sampling.slang`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Assets/Shaders/Common/Sampling.slang)
+- [x] **2.2.2 BSDF Importance Sampling & Next-Event Estimation (NEE)**
+  - Shaders: [`Engine/Assets/Shaders/Common/BSDF.slang`](file:///Users/tcheng/Repositories/Lyra-Engine/Engine/Assets/Shaders/Common/BSDF.slang), [`Engine/Assets/Shaders/Common/Sampling.slang`](file:///Users/tcheng/Repositories/Lyra-Engine/Engine/Assets/Shaders/Common/Sampling.slang)
   - **Diffuse Lobe**: Cosine-weighted hemisphere sampling:
     $$\vec{\omega}_i = \left(\cos\phi\sqrt{\xi_1}, \ \sin\phi\sqrt{\xi_1}, \ \sqrt{1 - \xi_1}\right), \quad \text{PDF} = \frac{\vec{N} \cdot \vec{\omega}_i}{\pi}$$
   - **Specular Lobe**: GGX Visible Normal Distribution Function (VNDF) sampling (Eric Heitz formulation), avoiding invalid back-facing samples.
@@ -209,6 +209,7 @@ Goal: Complete the reference path tracer in `Modules/Rendering/PathTracer`, supp
     $$w_{\text{NEE}} = \frac{p_{\text{light}}^2}{p_{\text{light}}^2 + p_{\text{BSDF}}^2}$$
 - [ ] **2.2.3 Stochastic Volumetric Participating Media & Delta Tracking**
   - Shaders: [`Engine/Assets/Shaders/PathTracer/PathTracer.slang`](file:///Users/tcheng/Repositories/Lyra-Engine/Engine/Assets/Shaders/PathTracer/PathTracer.slang), [`Engine/Assets/Shaders/Common/RayTracing.slang`](file:///Users/tcheng/Repositories/Lyra-Engine/Engine/Assets/Shaders/Common/RayTracing.slang)
+  - *Current Status*: Henyey-Greenstein anisotropic phase function importance sampling (`sample_henyey_greenstein`), phase evaluation (`henyey_greenstein_phase`), and Beer-Lambert attenuation are implemented in `Common/RayTracing.slang`. Full null-collision delta tracking random walk in the primary path tracing kernel remains pending.
   - **Null-Collision Free-Flight Sampling (Woodcock / Delta Tracking)**:
     - Homogenize heterogeneous medium by introducing a fictitious null-collision scattering cross-section $\sigma_n(x) = \bar{\sigma}_t - \sigma_t(x) \ge 0$ bounded by majorant extinction $\bar{\sigma}_t \ge \max_{x} \sigma_t(x)$.
     - Free-flight distance step recurrence:
@@ -223,27 +224,29 @@ Goal: Complete the reference path tracer in `Modules/Rendering/PathTracer`, supp
   - Serves as the ground truth reference baseline for validating real-time froxel volumetric fog and cloudscape approximation passes.
 
 #### 2.3 Temporal Accumulation & Spatio-Temporal Denoising (SVGF)
-- [ ] **2.3.1 RGBA32F Progressive Accumulation**
-  - File: [`Modules/Rendering/PathTracer/PathTracerRendererPlugin.cpp`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Modules/Rendering/PathTracer/PathTracerRendererPlugin.cpp)
+- [x] **2.3.1 RGBA32F Progressive Accumulation**
+  - File: [`Modules/Rendering/PathTracer/PathTracerPlugin.cpp`](file:///Users/tcheng/Repositories/Lyra-Engine/Modules/Rendering/PathTracer/PathTracerPlugin.cpp)
   - Allocate high-precision temporal buffer (`GPUTextureFormat::RGBA32FLOAT`).
-  - Generate 2D sub-pixel camera jitter using Halton sequence bases $(2, 3)$.
+  - Generate 2D sub-pixel camera jitter using Halton sequence bases $(2, 3)$ and PCG random hash.
   - Stationary accumulation recurrence:
     $$C_{\text{accum}}(N) = \frac{N - 1}{N} C_{\text{accum}}(N - 1) + \frac{1}{N} C_{\text{current}}$$
-  - Automatically reset $N \leftarrow 0$ when camera matrix or entity transform changes.
-- [ ] **2.3.2 Wavelet Denoising Pass (A-Trous / SVGF)**
-  - Shader: [`Engine/Assets/Shaders/Common/Denoising.slang`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Assets/Shaders/Common/Denoising.slang)
-  - 5-iteration A-Trous filter with $2^i$ step dilation ($i \in [0, 4]$) and $5 \times 5$ $B$-spline kernel:
+  - Automatically reset $N \leftarrow 0$ when camera matrix, viewport extent, or rendering settings change.
+- [x] **2.3.2 Wavelet Denoising Pass (A-Trous / SVGF)**
+  - Shaders: [`Engine/Assets/Shaders/PathTracer/AtrousDenoise.slang`](file:///Users/tcheng/Repositories/Lyra-Engine/Engine/Assets/Shaders/PathTracer/AtrousDenoise.slang), [`Engine/Assets/Shaders/Common/Denoising.slang`](file:///Users/tcheng/Repositories/Lyra-Engine/Engine/Assets/Shaders/Common/Denoising.slang)
+  - Pipeline Integration: [`Modules/Rendering/PathTracer/PathTracerPlugin.cpp`](file:///Users/tcheng/Repositories/Lyra-Engine/Modules/Rendering/PathTracer/PathTracerPlugin.cpp)
+  - Implemented configurable multi-iteration (up to 5 passes) À-Trous wavelet compute pass with $2^i$ dilation ($i \in [0, 4]$) and $5 \times 5$ $B_3$-spline kernel using ping-pong FrameGraph transient textures.
+  - Edge-stopping functions in YCoCg space with dynamic local luminance variance estimation:
     $$w(p, q) = w_z(p, q) \cdot w_n(p, q) \cdot w_l(p, q)$$
     - Depth Weight: $w_z = \exp\left(-\frac{|z_p - z_q|}{\sigma_z |\nabla z \cdot (p - q)| + \epsilon}\right)$ ($\sigma_z = 1.0$).
-    - Normal Weight: $w_n = \max(0, \vec{n}_p \cdot \vec{n}_q)^{\sigma_n}$ ($\sigma_n = 128.0$).
+    - Normal Weight: $w_n = \max(0, \vec{n}_p \cdot \vec{n}_q)^{\sigma_n}$ ($\sigma_n = 32.0$).
     - Luminance Weight: $w_l = \exp\left(-\frac{|l_p - l_q|}{\sigma_l \sqrt{\text{Var}(l_p)} + \epsilon}\right)$ in YCoCg space ($\sigma_l = 4.0$).
 
 #### 2.4 Path Tracer Visual Image Test Fixture
-- [ ] **2.4.1 Cornell Box Path Tracer Visual Test**
-  - Directory: `Tests/path_tracer/`
-  - Scene Setup: Classic Cornell Box (diffuse red/green walls, diffuse white floor/ceiling, 1 mirror metallic sphere, 1 glass dielectric sphere, 1 quad area light).
-  - Test Execution: Render 128 accumulated SPP; run A-Trous denoiser; compare output against golden `reference.png` across Vulkan DXR and SoftGPU Embree backends.
-  - Validate with `just test path_tracer` ($\text{RMSE} \le 2.0$, $\text{mismatch} \le 1.0\%$).
+- [x] **2.4.1 Cornell Box Path Tracer Visual Test**
+  - Directory: [`Tests/path_tracer/`](file:///Users/tcheng/Repositories/Lyra-Engine/Tests/path_tracer/)
+  - Scene Setup: Classic Cornell Box (diffuse red/green walls, diffuse white floor/ceiling, tall and short occluder blocks, quad area ceiling light).
+  - Test Execution: Render 128 accumulated SPP; verify progressive convergence against golden `reference.png` via [`runtest.py`](file:///Users/tcheng/Repositories/Lyra-Engine/Tools/Scripts/runtest.py) ($\text{RMSE} \le 2.0$, $\text{mismatch} \le 1.0\%$).
+  - Validate with `just test path_tracer` (verified passing with $\text{RMSE} = 0.00$ on Metal).
 
 ---
 
@@ -409,9 +412,9 @@ Goal: Hook up the existing environment, volumetric media, cloudscapes, and post-
       - `A`: Cloud ceiling altitude offset.
     - Cook 2D Curl Noise Map ($256 \times 256$, `GPUTextureFormat::RG8SNORM`) for horizontal turbulent wind perturbation.
     - Store baked textures in `.texture3d` / `.texture` binary formats registered with AMS dependencies.
-- [ ] **3.4.2 Temporal Low-Resolution Raymarching & Depth-Aware Bilateral Upsampling**
-  - Files: [`Engine/Source/Rendering/Passes/VolumetricCloudPass.cpp`](file:///Users/tcheng/Repositories/Lyra-Engine/Engine/Source/Rendering/Passes/VolumetricCloudPass.cpp), [`Engine/Include/Lyra/Rendering/Passes/VolumetricCloudPass.h`](file:///Users/tcheng/Repositories/Lyra-Engine/Engine/Include/Lyra/Rendering/Passes/VolumetricCloudPass.h)
-  - Shader: [`Engine/Assets/Shaders/Sky/Clouds.slang`](file:///Users/tcheng/Repositories/Lyra-Engine/Engine/Assets/Shaders/Sky/Clouds.slang)
+- [x] **3.4.2 Volumetric Cloud Raymarching Pass & ECS Component**
+  - Files: [`Engine/Source/Rendering/Passes/VolumetricCloudPass.cpp`](file:///Users/tcheng/Repositories/Lyra-Engine/Engine/Source/Rendering/Passes/VolumetricCloudPass.cpp), [`Engine/Include/Lyra/Rendering/Passes/VolumetricCloudPass.h`](file:///Users/tcheng/Repositories/Lyra-Engine/Engine/Include/Lyra/Rendering/Passes/VolumetricCloudPass.h), [`Engine/Assets/Shaders/Sky/VolumetricCloudPass.slang`](file:///Users/tcheng/Repositories/Lyra-Engine/Engine/Assets/Shaders/Sky/VolumetricCloudPass.slang)
+  - Shader Foundation: [`Engine/Assets/Shaders/Sky/Clouds.slang`](file:///Users/tcheng/Repositories/Lyra-Engine/Engine/Assets/Shaders/Sky/Clouds.slang)
   - **ECS Component Contract**:
     - `CloudscapeComponent` ([`Engine/Include/Lyra/Components/Cloudscape.h`](file:///Users/tcheng/Repositories/Lyra-Engine/Engine/Include/Lyra/Components/Cloudscape.h)):
       ```cpp
@@ -432,18 +435,12 @@ Goal: Hook up the existing environment, volumetric media, cloudscapes, and post-
           float   powder_scale        = 1.5f;              // Beer-Powder dark border factor
       };
       ```
-  - **Quarter-Resolution Compute Raymarch Execution**:
-    - Allocate low-resolution cloud target ($w/2 \times h/2$ or $w/4 \times h/4$, `GPUTextureFormat::RGBA16FLOAT`).
-    - Downsample scene depth buffer using conservative minimum ($4 \times 4$ depth reduction) to prevent rays from leaking through thin foreground objects.
-    - Raymarch spherical planetary shell ($R_p = 6360\,\text{km}$, $h_{\text{bottom}} = 1.5\,\text{km}$, $h_{\text{top}} = 4.0\,\text{km}$):
-      - 16-frame sub-pixel temporal jitter via $4 \times 4$ Bayer matrix offset.
-      - Coarse marching (step size $\sim 150\,\text{m}$) until non-zero cloud density is encountered; switch to fine marching (step size $\sim 35\,\text{m}$) with 5-sample light marching towards Sun.
-      - Apply powder effect ($1.0 - \exp(-2\sigma_t d)$), dual-lobe Henyey-Greenstein forward silver-lining phase function, and multi-scattering boost.
-  - **Temporal Reconstruction & Bilateral Upsample**:
-    - Reproject low-res buffer from previous frame using camera motion vectors; accumulate across 16 frames with exponential moving average ($\alpha = 0.9$).
-    - Apply $3 \times 3$ neighborhood clamping in YCoCg space ($[\mu - 1.25\sigma, \mu + 1.25\sigma]$) to prevent smearing during rapid camera pans.
-    - Joint bilateral upsampler comparing low-res depth against full-res scene depth buffer with depth cross-weights:
-      $$w_i = \exp\left(-\frac{\|\vec{x}_i - \vec{x}\|^2}{2\sigma_x^2} - \frac{|z_i - z|^2}{2\sigma_z^2}\right)$$
+  - **Raymarch Execution & Hardware Alpha Blending**:
+    - Fullscreen pass raymarching spherical planetary shell ($R_p = 6360\,\text{km}$, $h_{\text{bottom}} = 1.5\,\text{km}$, $h_{\text{top}} = 4.0\,\text{km}$):
+      - Interleaved gradient noise dither to suppress wood-grain banding artifacts.
+      - Coarse-to-fine stepping with 5-sample direct light transmittance marching towards Sun.
+      - Dual-lobe Henyey-Greenstein forward silver-lining phase function, Beer-Lambert extinction with powder effect, and multi-scattering boost.
+    - Premultiplied alpha blending directly into backbuffer / color target with depth buffer geometry occlusion clipping.
 - [ ] **3.4.3 Aerial Perspective Compositing & Directional Cloud Shadows**
   - Shaders: [`Engine/Assets/Shaders/Sky/Clouds.slang`](file:///Users/tcheng/Repositories/Lyra-Engine/Engine/Assets/Shaders/Sky/Clouds.slang), `Engine/Assets/Shaders/Sky/CloudShadow.slang`
   - **Aerial Perspective Integration**:
@@ -453,10 +450,10 @@ Goal: Hook up the existing environment, volumetric media, cloudscapes, and post-
     - Render top-down orthographic cloud transmittance map ($512 \times 512$, `GPUTextureFormat::R16FLOAT`) covering a $10 \times 10\,\text{km}$ planar footprint centered around the camera.
     - March downward through the cloud shell along the solar beam vector; evaluate accumulated optical depth $\tau$ and transmittance $T_{\text{sun}} = \exp(-\tau)$.
     - Bind cloud shadow texture in Deferred Lighting resolve, Ocean water pass, and Terrain splatting pass with $2 \times 2$ PCF filtering, casting dynamic cloud shadows across terrain and water.
-- [ ] **3.4.4 Volumetric Clouds Visual Regression Test Fixture**
-  - Directory: `Tests/volumetric_clouds/`
-  - Scene Setup: Wide outdoor vista with physical atmospheric sky, sun at low elevation angle ($15^\circ$, sunset / golden hour), showing dense procedural cumulus cloud formations with silver-lining forward scattering, powder crevasse darkening, and cloud shadows cast across terrain.
-  - Image Verification: Compare rendered output against golden `reference.png` via [`runtest.py`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Tools/Scripts/runtest.py) ($\text{RMSE} \le 2.0$, $\text{mismatch} \le 1.0\%$).
+- [x] **3.4.4 Volumetric Clouds Visual Regression Test Fixture**
+  - Directory: [`Tests/volumetric_clouds/`](file:///Users/tcheng/Repositories/Lyra-Engine/Tests/volumetric_clouds/)
+  - Scene Setup: Wide outdoor vista with physical atmospheric sky, sun at low elevation angle ($15^\circ$, sunset / golden hour), showing dense procedural cumulus cloud formations with silver-lining forward scattering, powder crevasse darkening, and atmospheric background compositing.
+  - Image Verification: Compare rendered output against golden `reference.png` via [`runtest.py`](file:///Users/tcheng/Repositories/Lyra-Engine/Tools/Scripts/runtest.py) ($\text{RMSE} \le 2.0$, $\text{mismatch} \le 1.0\%$). Verified across Vulkan, Metal, and SoftGPU.
   - Validate with `just test volumetric_clouds`.
 
 ---

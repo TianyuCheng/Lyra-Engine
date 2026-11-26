@@ -95,6 +95,8 @@ target_sources(lyra-headers INTERFACE
     Lyra/Rendering/Passes/HiZPyramidPass.h
     Lyra/Rendering/Passes/ShadowMapPass.h
     Lyra/Rendering/Passes/ForwardPass.h
+    Lyra/Rendering/Passes/OceanPass.h
+    Lyra/Rendering/Passes/VolumetricCloudPass.h
 
     # compiler
     Lyra/Compiler/SLCAPI.h
@@ -157,6 +159,8 @@ target_sources(lyra-headers INTERFACE
     Lyra/Components/Sun.h
     Lyra/Components/Mesh.h
     Lyra/Components/SDFVolume.h
+    Lyra/Components/Water.h
+    Lyra/Components/Cloudscape.h
 
     # scene
     Lyra/Scene/SceneNode.h

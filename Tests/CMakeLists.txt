@@ -112,6 +112,7 @@ add_subdirectory(postprocess_fxaa)
 
 # 12. Specialized Surface Renderers
 add_subdirectory(ocean)
+add_subdirectory(volumetric_clouds)
 
 # non-rhi / unit test cases
 add_subdirectory(spatial)
