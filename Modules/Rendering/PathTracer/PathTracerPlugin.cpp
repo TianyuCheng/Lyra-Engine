@@ -31,6 +31,19 @@ namespace
         uint  num_emissive_triangles = 0;
     };
     static_assert(sizeof(PathTracerPushConstants) == 32, "PathTracerPushConstants must be 32 bytes");
+
+    struct alignas(16) AtrousPushConstants
+    {
+        uint  width     = 0;
+        uint  height    = 0;
+        int   step_size = 1;
+        float sigma_l   = 4.0f;
+        float sigma_n   = 32.0f;
+        float sigma_z   = 1.0f;
+        uint  iteration = 0;
+        uint  reserved  = 0;
+    };
+    static_assert(sizeof(AtrousPushConstants) == 32, "AtrousPushConstants must be 32 bytes");
 } // namespace
 
 struct PathTracerRendererInstance
@@ -46,6 +59,11 @@ struct PathTracerRendererInstance
     GPUPipelineLayout                rt_layout;
     GPUComputePipeline               path_trace_pipeline;
     Vector<GPUBindGroupLayoutHandle> blayouts;
+
+    // atrous denoising pipeline
+    GPUComputePipeline               atrous_pipeline;
+    GPUPipelineLayout                atrous_layout;
+    Vector<GPUBindGroupLayoutHandle> atrous_blayouts;
 
     // shader binding table & accumulation buffers
     GPUBuffer      sbt_buffer;
@@ -261,6 +279,49 @@ auto PathTracerRendererInstance::init(GPUDevice dev, Compiler comp) -> bool
     // 6. construct shader binding table
     setup_sbt(device);
 
+    // 7. compile and reflect atrous denoising compute shader
+    auto atrous_module = execute([&]() {
+        CompileDescriptor desc{};
+        desc.module = "atrous_denoise";
+        desc.path   = "sys://Shaders/PathTracer/AtrousDenoise.slang";
+        desc.source = nullptr;
+        return compiler.compile(desc);
+    });
+
+    if (atrous_module) {
+        auto atrous_reflection = compiler.reflect({
+            {*atrous_module, "cs_atrous"},
+        });
+        if (atrous_reflection) {
+            atrous_blayouts.clear();
+            for (const auto& bg_desc : atrous_reflection->get_bind_group_layouts()) {
+                atrous_blayouts.push_back(device.create_bind_group_layout(bg_desc));
+            }
+
+            GPUPipelineLayoutDescriptor playout_desc{};
+            playout_desc.label              = "atrous_playout";
+            playout_desc.bind_group_layouts = atrous_blayouts;
+            playout_desc.immediate_size     = atrous_reflection->get_immediate_size();
+            atrous_layout                   = device.create_pipeline_layout(playout_desc);
+
+            auto atrous_code = atrous_module->get_shader_blob("cs_atrous");
+            if (atrous_code) {
+                GPUShaderModuleDescriptor sm_desc{};
+                sm_desc.label = "atrous_cs_module";
+                sm_desc.data  = atrous_code->data;
+                sm_desc.size  = atrous_code->size;
+                auto sm       = device.create_shader_module(sm_desc);
+
+                GPUComputePipelineDescriptor cp_desc{};
+                cp_desc.label               = "atrous_compute_pipeline";
+                cp_desc.layout              = atrous_layout;
+                cp_desc.compute.module      = sm;
+                cp_desc.compute.entry_point = "cs_atrous";
+                atrous_pipeline             = device.create_compute_pipeline(cp_desc);
+            }
+        }
+    }
+
     return true;
 }
 
@@ -268,6 +329,12 @@ void PathTracerRendererInstance::cleanup()
 {
     if (device.valid()) {
         device.wait();
+        if (atrous_pipeline.valid()) atrous_pipeline.destroy();
+        for (auto& layout : atrous_blayouts) {
+            if (layout.valid()) GPUBindGroupLayout(layout).destroy();
+        }
+        atrous_blayouts.clear();
+        if (atrous_layout.valid()) atrous_layout.destroy();
         if (accumulation_view.valid()) accumulation_view.destroy();
         if (accumulation_tex.valid()) accumulation_tex.destroy();
         if (sbt_buffer.valid()) sbt_buffer.destroy();
@@ -348,7 +415,9 @@ static void set_settings(RendererHandle handle, const RendererSettings& settings
     if (auto ptr = handle.as_type<PathTracerRendererInstance>()) {
         if (ptr->settings.max_ray_bounces != settings.max_ray_bounces ||
             ptr->settings.exposure != settings.exposure ||
-            ptr->settings.debug_mode != settings.debug_mode) {
+            ptr->settings.debug_mode != settings.debug_mode ||
+            ptr->settings.enable_denoiser != settings.enable_denoiser ||
+            ptr->settings.denoiser_iterations != settings.denoiser_iterations) {
             ptr->accumulated_frames = 0;
         }
         ptr->settings = settings;
@@ -429,96 +498,272 @@ static FrameGraph::TextureHandle render(
         active_tlas = renderer->fallback_tlas;
     }
 
+    bool use_denoiser = renderer->settings.enable_denoiser &&
+                        renderer->settings.denoiser_iterations > 0 &&
+                        renderer->atrous_pipeline.valid();
+
     struct PathTracerPassData
     {
         FrameGraphHandle<FrameGraphTexture> output;
     };
 
-    auto pass_data = ctx.builder.add_pass<PathTracerPassData>(
-        "PathTracerPass",
-        [&](PathTracerPassData& data, FrameGraphPassBuilder& pass_builder) {
-            data.output = pass_builder.write(ctx.color_target);
-            pass_builder.preserve();
-        },
-        [renderer, extent, &view = ctx.view, &scene = ctx.scene, active_tlas](const PathTracerPassData& data, FrameGraphResources& resources, FrameGraphContext* fg_ctx) {
-            if (!fg_ctx || !fg_ctx->cmdlist.handle.valid()) return;
-            if (!renderer->path_trace_pipeline.valid() && !renderer->rt_pipeline.valid()) return;
+    struct AtrousPassData
+    {
+        FrameGraphHandle<FrameGraphTexture> input;
+        FrameGraphHandle<FrameGraphTexture> output;
+    };
 
-            auto out_tex = resources.get<FrameGraphTexture>(data.output);
-            if (!out_tex) return;
+    FrameGraphHandle<FrameGraphTexture> final_output;
 
-            renderer->setup_fallback_as(renderer->device);
+    if (!use_denoiser) {
+        auto pass_data = ctx.builder.add_pass<PathTracerPassData>(
+            "PathTracerPass",
+            [&](PathTracerPassData& data, FrameGraphPassBuilder& pass_builder) {
+                data.output = pass_builder.write(ctx.color_target);
+                pass_builder.preserve();
+            },
+            [renderer, extent, &view = ctx.view, &scene = ctx.scene, active_tlas](const PathTracerPassData& data, FrameGraphResources& resources, FrameGraphContext* fg_ctx) {
+                if (!fg_ctx || !fg_ctx->cmdlist.handle.valid()) return;
+                if (!renderer->path_trace_pipeline.valid() && !renderer->rt_pipeline.valid()) return;
 
-            PathTracerPushConstants push{};
-            push.width                  = extent.width;
-            push.height                 = extent.height;
-            push.sample_index           = renderer->accumulated_frames;
-            push.max_bounces            = renderer->settings.max_ray_bounces;
-            push.frame_seed             = renderer->accumulated_frames * 1999u + 1u;
-            push.exposure               = renderer->settings.exposure > 0.0f ? renderer->settings.exposure : 1.0f;
-            push.debug_mode             = renderer->settings.debug_mode;
-            push.num_emissive_triangles = scene.emissive_triangle_count;
+                auto out_tex = resources.get<FrameGraphTexture>(data.output);
+                if (!out_tex) return;
 
-            auto cam_uniforms = CameraUniforms::from_view(view);
-            auto cam_slice    = fg_ctx->create_uniform(cam_uniforms, 256);
+                renderer->setup_fallback_as(renderer->device);
 
-            BufferSlice vbuf = scene.scene_vbuffer.valid() ? scene.scene_vbuffer : BufferSlice{renderer->fallback_vbuffer, 0, sizeof(PathTracerVertex) * 3};
-            BufferSlice ibuf = scene.scene_ibuffer.valid() ? scene.scene_ibuffer : BufferSlice{renderer->fallback_ibuffer, 0, sizeof(uint) * 3};
-            BufferSlice ebuf = scene.emissive_triangles.valid() ? scene.emissive_triangles : BufferSlice{renderer->fallback_ebuffer, 0, sizeof(EmissiveTriangle)};
+                PathTracerPushConstants push{};
+                push.width                  = extent.width;
+                push.height                 = extent.height;
+                push.sample_index           = renderer->accumulated_frames;
+                push.max_bounces            = renderer->settings.max_ray_bounces;
+                push.frame_seed             = renderer->accumulated_frames * 1999u + 1u;
+                push.exposure               = renderer->settings.exposure > 0.0f ? renderer->settings.exposure : 1.0f;
+                push.debug_mode             = renderer->settings.debug_mode;
+                push.num_emissive_triangles = scene.emissive_triangle_count;
 
-            Array<GPUBindGroupEntry, 7> entries{};
-            entries[0].type          = GPUResourceType::BUFFER;
-            entries[0].binding       = 0;
-            entries[0].buffer.buffer = cam_slice.buffer;
-            entries[0].buffer.offset = cam_slice.offset;
-            entries[0].buffer.size   = sizeof(CameraUniforms);
+                auto cam_uniforms = CameraUniforms::from_view(view);
+                auto cam_slice    = fg_ctx->create_uniform(cam_uniforms, 256);
 
-            entries[1].type    = GPUResourceType::ACCELERATION_STRUCTURE;
-            entries[1].binding = 1;
-            entries[1].tlas    = active_tlas;
+                BufferSlice vbuf = scene.scene_vbuffer.valid() ? scene.scene_vbuffer : BufferSlice{renderer->fallback_vbuffer, 0, sizeof(PathTracerVertex) * 3};
+                BufferSlice ibuf = scene.scene_ibuffer.valid() ? scene.scene_ibuffer : BufferSlice{renderer->fallback_ibuffer, 0, sizeof(uint) * 3};
+                BufferSlice ebuf = scene.emissive_triangles.valid() ? scene.emissive_triangles : BufferSlice{renderer->fallback_ebuffer, 0, sizeof(EmissiveTriangle)};
 
-            entries[2].type    = GPUResourceType::STORAGE_TEXTURE;
-            entries[2].binding = 2;
-            entries[2].texture = renderer->accumulation_view;
+                Array<GPUBindGroupEntry, 7> entries{};
+                entries[0].type          = GPUResourceType::BUFFER;
+                entries[0].binding       = 0;
+                entries[0].buffer.buffer = cam_slice.buffer;
+                entries[0].buffer.offset = cam_slice.offset;
+                entries[0].buffer.size   = sizeof(CameraUniforms);
 
-            entries[3].type    = GPUResourceType::STORAGE_TEXTURE;
-            entries[3].binding = 3;
-            entries[3].texture = out_tex->view;
+                entries[1].type    = GPUResourceType::ACCELERATION_STRUCTURE;
+                entries[1].binding = 1;
+                entries[1].tlas    = active_tlas;
 
-            entries[4].type          = GPUResourceType::BUFFER;
-            entries[4].binding       = 4;
-            entries[4].buffer.buffer = vbuf.buffer;
-            entries[4].buffer.offset = vbuf.offset;
-            entries[4].buffer.size   = vbuf.size;
+                entries[2].type    = GPUResourceType::STORAGE_TEXTURE;
+                entries[2].binding = 2;
+                entries[2].texture = renderer->accumulation_view;
 
-            entries[5].type          = GPUResourceType::BUFFER;
-            entries[5].binding       = 5;
-            entries[5].buffer.buffer = ibuf.buffer;
-            entries[5].buffer.offset = ibuf.offset;
-            entries[5].buffer.size   = ibuf.size;
+                entries[3].type    = GPUResourceType::STORAGE_TEXTURE;
+                entries[3].binding = 3;
+                entries[3].texture = out_tex->view;
 
-            entries[6].type          = GPUResourceType::BUFFER;
-            entries[6].binding       = 6;
-            entries[6].buffer.buffer = ebuf.buffer;
-            entries[6].buffer.offset = ebuf.offset;
-            entries[6].buffer.size   = ebuf.size;
+                entries[4].type          = GPUResourceType::BUFFER;
+                entries[4].binding       = 4;
+                entries[4].buffer.buffer = vbuf.buffer;
+                entries[4].buffer.offset = vbuf.offset;
+                entries[4].buffer.size   = vbuf.size;
 
-            GPUBindGroupDescriptor bg_desc{};
-            bg_desc.layout  = renderer->blayouts.empty() ? GPUBindGroupLayoutHandle{} : renderer->blayouts[0];
-            bg_desc.entries = entries;
-            auto bg         = fg_ctx->allocate(bg_desc);
+                entries[5].type          = GPUResourceType::BUFFER;
+                entries[5].binding       = 5;
+                entries[5].buffer.buffer = ibuf.buffer;
+                entries[5].buffer.offset = ibuf.offset;
+                entries[5].buffer.size   = ibuf.size;
 
-            auto command = fg_ctx->cmdlist;
-            if (renderer->rt_pipeline.valid()) {
-                command.set_pipeline(renderer->rt_pipeline);
-            }
-            if (renderer->path_trace_pipeline.valid()) {
-                command.set_pipeline(renderer->path_trace_pipeline);
-            }
-            command.set_bind_group(0, bg);
-            command.set_immediates(0, push);
-            command.dispatch_workgroups((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
-        });
+                entries[6].type          = GPUResourceType::BUFFER;
+                entries[6].binding       = 6;
+                entries[6].buffer.buffer = ebuf.buffer;
+                entries[6].buffer.offset = ebuf.offset;
+                entries[6].buffer.size   = ebuf.size;
+
+                GPUBindGroupDescriptor bg_desc{};
+                bg_desc.layout  = renderer->blayouts.empty() ? GPUBindGroupLayoutHandle{} : renderer->blayouts[0];
+                bg_desc.entries = entries;
+                auto bg         = fg_ctx->allocate(bg_desc);
+
+                auto command = fg_ctx->cmdlist;
+                if (renderer->rt_pipeline.valid()) {
+                    command.set_pipeline(renderer->rt_pipeline);
+                }
+                if (renderer->path_trace_pipeline.valid()) {
+                    command.set_pipeline(renderer->path_trace_pipeline);
+                }
+                command.set_bind_group(0, bg);
+                command.set_immediates(0, push);
+                command.dispatch_workgroups((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
+            });
+
+        final_output = pass_data.output;
+    } else {
+        GPUTextureDescriptor raw_desc{};
+        raw_desc.label           = "path_tracer_raw";
+        raw_desc.dimension       = GPUTextureDimension::x2D;
+        raw_desc.size            = GPUExtent3D{extent.width, extent.height, 1};
+        raw_desc.format          = GPUTextureFormat::RGBA16FLOAT;
+        raw_desc.usage           = GPUTextureUsage::STORAGE_BINDING | GPUTextureUsage::TEXTURE_BINDING;
+        raw_desc.mip_level_count = 1;
+
+        auto raw_pass = ctx.builder.add_pass<PathTracerPassData>(
+            "PathTracerPass",
+            [&](PathTracerPassData& data, FrameGraphPassBuilder& pass_builder) {
+                data.output = pass_builder.create<FrameGraphTexture>(raw_desc);
+                data.output = pass_builder.write(data.output);
+            },
+            [renderer, extent, &view = ctx.view, &scene = ctx.scene, active_tlas](const PathTracerPassData& data, FrameGraphResources& resources, FrameGraphContext* fg_ctx) {
+                if (!fg_ctx || !fg_ctx->cmdlist.handle.valid()) return;
+                if (!renderer->path_trace_pipeline.valid() && !renderer->rt_pipeline.valid()) return;
+
+                auto out_tex = resources.get<FrameGraphTexture>(data.output);
+                if (!out_tex) return;
+
+                renderer->setup_fallback_as(renderer->device);
+
+                PathTracerPushConstants push{};
+                push.width                  = extent.width;
+                push.height                 = extent.height;
+                push.sample_index           = renderer->accumulated_frames;
+                push.max_bounces            = renderer->settings.max_ray_bounces;
+                push.frame_seed             = renderer->accumulated_frames * 1999u + 1u;
+                push.exposure               = renderer->settings.exposure > 0.0f ? renderer->settings.exposure : 1.0f;
+                push.debug_mode             = renderer->settings.debug_mode;
+                push.num_emissive_triangles = scene.emissive_triangle_count;
+
+                auto cam_uniforms = CameraUniforms::from_view(view);
+                auto cam_slice    = fg_ctx->create_uniform(cam_uniforms, 256);
+
+                BufferSlice vbuf = scene.scene_vbuffer.valid() ? scene.scene_vbuffer : BufferSlice{renderer->fallback_vbuffer, 0, sizeof(PathTracerVertex) * 3};
+                BufferSlice ibuf = scene.scene_ibuffer.valid() ? scene.scene_ibuffer : BufferSlice{renderer->fallback_ibuffer, 0, sizeof(uint) * 3};
+                BufferSlice ebuf = scene.emissive_triangles.valid() ? scene.emissive_triangles : BufferSlice{renderer->fallback_ebuffer, 0, sizeof(EmissiveTriangle)};
+
+                Array<GPUBindGroupEntry, 7> entries{};
+                entries[0].type          = GPUResourceType::BUFFER;
+                entries[0].binding       = 0;
+                entries[0].buffer.buffer = cam_slice.buffer;
+                entries[0].buffer.offset = cam_slice.offset;
+                entries[0].buffer.size   = sizeof(CameraUniforms);
+
+                entries[1].type    = GPUResourceType::ACCELERATION_STRUCTURE;
+                entries[1].binding = 1;
+                entries[1].tlas    = active_tlas;
+
+                entries[2].type    = GPUResourceType::STORAGE_TEXTURE;
+                entries[2].binding = 2;
+                entries[2].texture = renderer->accumulation_view;
+
+                entries[3].type    = GPUResourceType::STORAGE_TEXTURE;
+                entries[3].binding = 3;
+                entries[3].texture = out_tex->view;
+
+                entries[4].type          = GPUResourceType::BUFFER;
+                entries[4].binding       = 4;
+                entries[4].buffer.buffer = vbuf.buffer;
+                entries[4].buffer.offset = vbuf.offset;
+                entries[4].buffer.size   = vbuf.size;
+
+                entries[5].type          = GPUResourceType::BUFFER;
+                entries[5].binding       = 5;
+                entries[5].buffer.buffer = ibuf.buffer;
+                entries[5].buffer.offset = ibuf.offset;
+                entries[5].buffer.size   = ibuf.size;
+
+                entries[6].type          = GPUResourceType::BUFFER;
+                entries[6].binding       = 6;
+                entries[6].buffer.buffer = ebuf.buffer;
+                entries[6].buffer.offset = ebuf.offset;
+                entries[6].buffer.size   = ebuf.size;
+
+                GPUBindGroupDescriptor bg_desc{};
+                bg_desc.layout  = renderer->blayouts.empty() ? GPUBindGroupLayoutHandle{} : renderer->blayouts[0];
+                bg_desc.entries = entries;
+                auto bg         = fg_ctx->allocate(bg_desc);
+
+                auto command = fg_ctx->cmdlist;
+                if (renderer->rt_pipeline.valid()) {
+                    command.set_pipeline(renderer->rt_pipeline);
+                }
+                if (renderer->path_trace_pipeline.valid()) {
+                    command.set_pipeline(renderer->path_trace_pipeline);
+                }
+                command.set_bind_group(0, bg);
+                command.set_immediates(0, push);
+                command.dispatch_workgroups((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
+            });
+
+        uint total_iters = std::clamp(renderer->settings.denoiser_iterations, 1u, 5u);
+
+        FrameGraphHandle<FrameGraphTexture> current_src = raw_pass.output;
+
+        for (uint i = 0; i < total_iters; ++i) {
+            bool is_last = (i == total_iters - 1);
+            int  step    = 1 << i;
+
+            String pass_name = "AtrousDenoise_" + std::to_string(i);
+
+            auto atrous_pass = ctx.builder.add_pass<AtrousPassData>(
+                pass_name,
+                [&, current_src, is_last, i](AtrousPassData& data, FrameGraphPassBuilder& pass_builder) {
+                    data.input = pass_builder.sample(current_src);
+                    if (is_last) {
+                        data.output = pass_builder.write(ctx.color_target);
+                        pass_builder.preserve();
+                    } else {
+                        auto desc   = raw_desc;
+                        desc.label  = "atrous_step";
+                        data.output = pass_builder.create<FrameGraphTexture>(desc);
+                        data.output = pass_builder.write(data.output);
+                    }
+                },
+                [renderer, extent, i, step](const AtrousPassData& data, FrameGraphResources& resources, FrameGraphContext* fg_ctx) {
+                    if (!fg_ctx || !fg_ctx->cmdlist.handle.valid()) return;
+
+                    auto in_tex  = resources.get<FrameGraphTexture>(data.input);
+                    auto out_tex = resources.get<FrameGraphTexture>(data.output);
+                    if (!in_tex || !out_tex) return;
+
+                    AtrousPushConstants push{};
+                    push.width     = extent.width;
+                    push.height    = extent.height;
+                    push.step_size = step;
+                    push.sigma_l   = 4.0f;
+                    push.sigma_n   = 32.0f;
+                    push.sigma_z   = 1.0f;
+                    push.iteration = i;
+
+                    Array<GPUBindGroupEntry, 2> entries{};
+                    entries[0].type    = GPUResourceType::TEXTURE;
+                    entries[0].binding = 0;
+                    entries[0].texture = in_tex->view;
+
+                    entries[1].type    = GPUResourceType::STORAGE_TEXTURE;
+                    entries[1].binding = 1;
+                    entries[1].texture = out_tex->view;
+
+                    GPUBindGroupDescriptor bg_desc{};
+                    bg_desc.layout  = renderer->atrous_blayouts[0];
+                    bg_desc.entries = entries;
+                    auto bg         = fg_ctx->allocate(bg_desc);
+
+                    auto command = fg_ctx->cmdlist;
+                    command.set_pipeline(renderer->atrous_pipeline);
+                    command.set_bind_group(0, bg);
+                    command.set_immediates(0, push);
+                    command.dispatch_workgroups((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
+                    renderer->stats.dispatch_calls++;
+                });
+
+            current_src  = atrous_pass.output;
+            final_output = atrous_pass.output;
+        }
+    }
 
     uint triangles = 0;
     for (const auto& mesh : ctx.scene.meshes) {
@@ -534,7 +779,7 @@ static FrameGraph::TextureHandle render(
         ctx.outputs->depth = ctx.depth_target;
     }
 
-    return pass_data.output;
+    return final_output;
 }
 
 static void draw_debug_panel(RendererHandle handle)

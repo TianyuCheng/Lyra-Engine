@@ -263,10 +263,12 @@ struct PathTracerApp : public TestApp
 
         RendererSettings settings{};
         api->get_settings(renderer_handle, settings);
-        settings.max_ray_bounces   = 4;
-        settings.samples_per_pixel = 1;
-        settings.exposure          = 2.2f;
-        settings.debug_mode        = 0;
+        settings.max_ray_bounces     = 4;
+        settings.samples_per_pixel   = 1;
+        settings.exposure            = 2.2f;
+        settings.debug_mode          = 0;
+        settings.enable_denoiser     = true;
+        settings.denoiser_iterations = 4;
         api->set_settings(renderer_handle, settings);
 
         arena.init(current_device);

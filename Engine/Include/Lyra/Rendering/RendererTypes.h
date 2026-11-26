@@ -135,6 +135,8 @@ namespace lyra
         uint  samples_per_pixel   = 1;
         float exposure            = 1.0f;
         uint  debug_mode          = 0; // 0 = lit, 1 = normal, 2 = albedo, 3 = wireframe, 4 = heatmaps
+        bool  enable_denoiser     = false;
+        uint  denoiser_iterations = 4;
     };
 
     /**

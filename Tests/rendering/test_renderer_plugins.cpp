@@ -39,6 +39,20 @@ TEST_CASE("rendering::renderer_plugins" * doctest::description("Renderer plugin 
         CHECK(api->create_renderer(handle, desc));
         CHECK(handle.valid());
 
+        RendererSettings settings{};
+        api->get_settings(handle, settings);
+        CHECK_FALSE(settings.enable_denoiser);
+        CHECK_EQ(settings.denoiser_iterations, 4);
+
+        settings.enable_denoiser     = true;
+        settings.denoiser_iterations = 3;
+        api->set_settings(handle, settings);
+
+        RendererSettings updated_settings{};
+        api->get_settings(handle, updated_settings);
+        CHECK(updated_settings.enable_denoiser);
+        CHECK_EQ(updated_settings.denoiser_iterations, 3);
+
         // test render with frame graph builder and logical context
         REQUIRE(api->render != nullptr);
         FrameGraphBuilder  builder;
@@ -80,6 +94,20 @@ TEST_CASE("rendering::renderer_plugins" * doctest::description("Renderer plugin 
         RendererDescriptor desc{};
         CHECK(api->create_renderer(handle, desc));
         CHECK(handle.valid());
+
+        RendererSettings settings{};
+        api->get_settings(handle, settings);
+        CHECK_FALSE(settings.enable_denoiser);
+        CHECK_EQ(settings.denoiser_iterations, 4);
+
+        settings.enable_denoiser     = true;
+        settings.denoiser_iterations = 3;
+        api->set_settings(handle, settings);
+
+        RendererSettings updated_settings{};
+        api->get_settings(handle, updated_settings);
+        CHECK(updated_settings.enable_denoiser);
+        CHECK_EQ(updated_settings.denoiser_iterations, 3);
 
         // test render with frame graph builder and logical context
         REQUIRE(api->render != nullptr);
@@ -123,6 +151,20 @@ TEST_CASE("rendering::renderer_plugins" * doctest::description("Renderer plugin 
         CHECK(api->create_renderer(handle, desc));
         CHECK(handle.valid());
 
+        RendererSettings settings{};
+        api->get_settings(handle, settings);
+        CHECK_FALSE(settings.enable_denoiser);
+        CHECK_EQ(settings.denoiser_iterations, 4);
+
+        settings.enable_denoiser     = true;
+        settings.denoiser_iterations = 3;
+        api->set_settings(handle, settings);
+
+        RendererSettings updated_settings{};
+        api->get_settings(handle, updated_settings);
+        CHECK(updated_settings.enable_denoiser);
+        CHECK_EQ(updated_settings.denoiser_iterations, 3);
+
         // test render with frame graph builder and logical context
         REQUIRE(api->render != nullptr);
         FrameGraphBuilder  builder;
@@ -164,6 +206,20 @@ TEST_CASE("rendering::renderer_plugins" * doctest::description("Renderer plugin 
         RendererDescriptor desc{};
         CHECK(api->create_renderer(handle, desc));
         CHECK(handle.valid());
+
+        RendererSettings settings{};
+        api->get_settings(handle, settings);
+        CHECK_FALSE(settings.enable_denoiser);
+        CHECK_EQ(settings.denoiser_iterations, 4);
+
+        settings.enable_denoiser     = true;
+        settings.denoiser_iterations = 3;
+        api->set_settings(handle, settings);
+
+        RendererSettings updated_settings{};
+        api->get_settings(handle, updated_settings);
+        CHECK(updated_settings.enable_denoiser);
+        CHECK_EQ(updated_settings.denoiser_iterations, 3);
 
         // test render with frame graph builder and logical context
         REQUIRE(api->render != nullptr);
