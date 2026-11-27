@@ -142,11 +142,11 @@
 ---
 
 ## 1.10 Async Compute Queue Scheduling & Cross-Queue Synchronization
-- [ ] **1.10.1 Multi-Queue FrameGraph Scheduling (`GPUQueueType::COMPUTE`)**
+- [x] **1.10.1 Multi-Queue FrameGraph Scheduling (`GPUQueueType::COMPUTE`)**
   - Files: `Engine/Source/Rendering/FrameGraph.cpp`, `Modules/Graphics/Vulkan/VkQueue.cpp`, `Modules/Graphics/D3D12/D3D12Queue.cpp`
   - Detect compute passes with no direct raster dependencies (e.g. Clustered Light Culling, Hi-Z Pyramid downsample, ReSTIR candidate generation).
   - Dispatch passes on dedicated hardware asynchronous compute queues concurrently while the graphics queue executes independent workloads (Shadow Maps or Depth Prepass).
-- [ ] **1.10.2 Cross-Queue Timeline Semaphore & Barrier Management**
+- [x] **1.10.2 Cross-Queue Timeline Semaphore & Barrier Management**
   - Automatically insert timeline semaphore wait/signal operations and cross-queue resource ownership transfer barriers.
   - Yields 10–25% faster frame rendering times on modern multi-queue GPUs.
 

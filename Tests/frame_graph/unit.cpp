@@ -842,3 +842,186 @@ TEST_CASE("fg::aliased_hazard_tracking" * doctest::description("Aliasing Hazard 
     CHECK_EQ(plan.predecessor_physical_id[2], 10);
     CHECK_EQ(plan.resource_hints[2].slot, plan.resource_hints[0].slot);
 }
+
+TEST_CASE("fg::async_compute_pass_declaration" * doctest::description("Async Compute Pass Queue Declaration & Builders"))
+{
+    FrameGraphBuilder builder;
+
+    struct PassData
+    {
+    };
+
+    auto p1 = builder.add_pass<PassData>(
+        "GraphicsPass",
+        [](PassData&, FrameGraphPassBuilder& pb) {
+            CHECK_EQ(pb.get_queue(), GPUQueueType::DEFAULT);
+        },
+        [](const PassData&, FrameGraphResources&, FrameGraphContext*) {
+        });
+
+    auto p2 = builder.add_compute_pass<PassData>(
+        "ComputePass",
+        [](PassData&, FrameGraphPassBuilder& pb) {
+            CHECK_EQ(pb.get_queue(), GPUQueueType::COMPUTE);
+        },
+        [](const PassData&, FrameGraphResources&, FrameGraphContext*) {
+        });
+
+    auto p3 = builder.add_pass<PassData>(
+        "ExplicitComputePass",
+        [](PassData&, FrameGraphPassBuilder& pb) {
+            pb.set_queue(GPUQueueType::COMPUTE);
+            CHECK_EQ(pb.get_queue(), GPUQueueType::COMPUTE);
+        },
+        [](const PassData&, FrameGraphResources&, FrameGraphContext*) {
+        });
+
+    auto graph = builder.build();
+    REQUIRE(graph != nullptr);
+    CHECK_FALSE(graph->has_async_compute()); // culled because unreferenced
+}
+
+TEST_CASE("fg::async_compute_single_queue_batch" * doctest::description("Single-Queue Fast Path Batch Generation"))
+{
+    FrameGraphBuilder   builder;
+    FrameGraphAllocator allocator;
+
+    GPUTextureDescriptor desc{};
+    desc.label  = "tex";
+    desc.size   = GPUExtent3D{16, 16, 1};
+    desc.format = GPUTextureFormat::RGBA8UNORM;
+    desc.usage  = GPUTextureUsage::RENDER_ATTACHMENT;
+
+    struct Data
+    {
+        FrameGraph::TextureHandle tex;
+    };
+
+    builder.add_pass<Data>(
+        "GPass1",
+        [&](Data& d, FrameGraphPassBuilder& pb) {
+            d.tex = pb.create<FrameGraphTexture>(desc);
+            d.tex = pb.render(d.tex);
+            pb.preserve();
+        },
+        [](const Data&, FrameGraphResources&, FrameGraphContext*) {
+        });
+
+    auto graph = builder.build();
+    REQUIRE(graph != nullptr);
+    CHECK_FALSE(graph->has_async_compute());
+    CHECK_EQ(graph->get_sync_points().size(), 0);
+    REQUIRE_EQ(graph->get_queue_batches().size(), 1);
+    CHECK_EQ(graph->get_queue_batches()[0].queue_type, GPUQueueType::DEFAULT);
+
+    graph->execute(nullptr, &allocator);
+}
+
+TEST_CASE("fg::async_compute_cross_queue_sync" * doctest::description("Async Compute Cross-Queue Synchronization & Batching"))
+{
+    FrameGraphBuilder   builder;
+    FrameGraphAllocator allocator;
+
+    GPUTextureDescriptor tex_desc{};
+    tex_desc.label  = "depth_tex";
+    tex_desc.size   = GPUExtent3D{32, 32, 1};
+    tex_desc.format = GPUTextureFormat::DEPTH32FLOAT;
+    tex_desc.usage  = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
+
+    GPUBufferDescriptor buf_desc{};
+    buf_desc.label = "light_grid";
+    buf_desc.size  = 256;
+    buf_desc.usage = GPUBufferUsage::STORAGE;
+
+    struct PassAData
+    {
+        FrameGraph::TextureHandle depth;
+    };
+
+    struct PassBData
+    {
+        FrameGraph::TextureHandle depth;
+        FrameGraph::BufferHandle  grid;
+    };
+
+    struct PassCData
+    {
+        FrameGraph::TextureHandle depth;
+        FrameGraph::BufferHandle  grid;
+    };
+
+    // Pass A: Graphics queue produces depth
+    auto pass_a = builder.add_pass<PassAData>(
+        "DepthPrepass",
+        [&](PassAData& d, FrameGraphPassBuilder& pb) {
+            d.depth = pb.create<FrameGraphTexture>(tex_desc);
+            d.depth = pb.render(d.depth);
+        },
+        [](const PassAData&, FrameGraphResources&, FrameGraphContext*) {
+        });
+
+    // Pass B: Async Compute queue reads depth, produces light grid buffer
+    auto pass_b = builder.add_compute_pass<PassBData>(
+        "ClusteredLightCulling",
+        [&](PassBData& d, FrameGraphPassBuilder& pb) {
+            d.depth = pb.read(pass_a.depth);
+            d.grid  = pb.create<FrameGraphBuffer>(buf_desc);
+            d.grid  = pb.write(d.grid);
+        },
+        [](const PassBData&, FrameGraphResources&, FrameGraphContext*) {
+        });
+
+    // Pass C: Graphics queue reads light grid buffer and preserves
+    builder.add_pass<PassCData>(
+        "DeferredLighting",
+        [&](PassCData& d, FrameGraphPassBuilder& pb) {
+            d.grid = pb.read(pass_b.grid);
+            pb.preserve();
+        },
+        [](const PassCData&, FrameGraphResources&, FrameGraphContext*) {
+        });
+
+    auto graph = builder.build();
+    REQUIRE(graph != nullptr);
+
+    // Multi-queue async compute detected
+    CHECK(graph->has_async_compute());
+
+    // Should create 2 cross-queue sync points:
+    // S0: DEFAULT (Pass A) -> COMPUTE (Pass B)
+    // S1: COMPUTE (Pass B) -> DEFAULT (Pass C)
+    auto sync_points = graph->get_sync_points();
+    REQUIRE_EQ(sync_points.size(), 2);
+
+    CHECK_EQ(sync_points[0].from_queue, GPUQueueType::DEFAULT);
+    CHECK_EQ(sync_points[0].to_queue, GPUQueueType::COMPUTE);
+
+    CHECK_EQ(sync_points[1].from_queue, GPUQueueType::COMPUTE);
+    CHECK_EQ(sync_points[1].to_queue, GPUQueueType::DEFAULT);
+
+    // Should partition into 3 discrete queue batches:
+    // Batch 0: DEFAULT (DepthPrepass), signals S0
+    // Batch 1: COMPUTE (ClusteredLightCulling), waits S0, signals S1
+    // Batch 2: DEFAULT (DeferredLighting), waits S1
+    auto batches = graph->get_queue_batches();
+    REQUIRE_EQ(batches.size(), 3);
+
+    CHECK_EQ(batches[0].queue_type, GPUQueueType::DEFAULT);
+    CHECK_EQ(batches[0].wait_syncs.size(), 0);
+    REQUIRE_EQ(batches[0].signal_syncs.size(), 1);
+    CHECK_EQ(batches[0].signal_syncs[0], 0);
+
+    CHECK_EQ(batches[1].queue_type, GPUQueueType::COMPUTE);
+    REQUIRE_EQ(batches[1].wait_syncs.size(), 1);
+    CHECK_EQ(batches[1].wait_syncs[0], 0);
+    REQUIRE_EQ(batches[1].signal_syncs.size(), 1);
+    CHECK_EQ(batches[1].signal_syncs[0], 1);
+
+    CHECK_EQ(batches[2].queue_type, GPUQueueType::DEFAULT);
+    REQUIRE_EQ(batches[2].wait_syncs.size(), 1);
+    CHECK_EQ(batches[2].wait_syncs[0], 1);
+    CHECK_EQ(batches[2].signal_syncs.size(), 0);
+
+    // Execute multi-queue graph with allocator
+    graph->execute(nullptr, &allocator);
+}

@@ -17,52 +17,131 @@ void FrameGraph::execute(FrameGraphContext* context, FrameGraphAllocator* alloca
         registry.put(resource.rsid, resource.entry);
     }
 
-    FrameGraphBarrierBatch barriers;
+    if (!has_compute_queue || !context || !context->device.valid()) {
+        FrameGraphBarrierBatch barriers;
 
-    for (uint psid : execution_order) {
-        auto& pass = passes.at(psid);
-        if (!pass.active()) continue;
+        for (uint psid : execution_order) {
+            auto& pass = passes.at(psid);
+            if (!pass.active()) continue;
 
-        // create physical resources that become active in this pass
-        for (uint pid : pass.creates) {
-            physical_resources.at(pid)->create(allocator);
+            // create physical resources that become active in this pass
+            for (uint pid : pass.creates) {
+                physical_resources.at(pid)->create(allocator);
+            }
+
+            // pre-read
+            for (auto& read : pass.reads) {
+                auto& resource = resources.at(read.resource.id);
+                resource.entry->pre_read(context, pass.entry.get(), read.read_op, &barriers);
+            }
+
+            // pre-write
+            for (auto& write : pass.writes) {
+                auto& resource = resources.at(write.resource.id);
+                resource.entry->pre_write(context, pass.entry.get(), write.write_op, &barriers);
+            }
+
+            // flush batched barriers before executing the pass
+            barriers.submit(context ? context->cmdlist : GPUCommandBuffer{});
+
+            // debug marker push
+            if (context && context->cmdlist.handle.valid() && pass.entry) {
+                context->cmdlist.push_debug_group(pass.entry->name.c_str());
+            }
+
+            // execute pass callback
+            if (pass.entry && pass.entry->callback) {
+                std::invoke(pass.entry->callback, registry, context);
+            }
+
+            // debug marker pop
+            if (context && context->cmdlist.handle.valid() && pass.entry) {
+                context->cmdlist.pop_debug_group();
+            }
+
+            // delete physical resources whose lifetime ends in this pass
+            for (uint pid : pass.deletes) {
+                physical_resources.at(pid)->destroy(allocator);
+            }
         }
-
-        // pre-read
-        for (auto& read : pass.reads) {
-            auto& resource = resources.at(read.resource.id);
-            resource.entry->pre_read(context, pass.entry.get(), read.read_op, &barriers);
-        }
-
-        // pre-write
-        for (auto& write : pass.writes) {
-            auto& resource = resources.at(write.resource.id);
-            resource.entry->pre_write(context, pass.entry.get(), write.write_op, &barriers);
-        }
-
-        // flush batched barriers before executing the pass
-        barriers.submit(context ? context->cmdlist : GPUCommandBuffer{});
-
-        // debug marker push
-        if (context && context->cmdlist.handle.valid() && pass.entry) {
-            context->cmdlist.push_debug_group(pass.entry->name.c_str());
-        }
-
-        // execute pass callback
-        if (pass.entry && pass.entry->callback) {
-            std::invoke(pass.entry->callback, registry, context);
-        }
-
-        // debug marker pop
-        if (context && context->cmdlist.handle.valid() && pass.entry) {
-            context->cmdlist.pop_debug_group();
-        }
-
-        // delete physical resources whose lifetime ends in this pass
-        for (uint pid : pass.deletes) {
-            physical_resources.at(pid)->destroy(allocator);
-        }
+        return;
     }
+
+    // multi-queue execution path
+    Vector<GPUFence> sync_fences;
+    sync_fences.reserve(sync_points.size());
+    for (usize i = 0; i < sync_points.size(); ++i) {
+        sync_fences.push_back(context->device.create_fence());
+    }
+
+    GPUCommandBuffer original_cmdlist = context->cmdlist;
+
+    for (auto& batch : batches) {
+        GPUCommandBuffer batch_cmd = context->device.create_command_buffer({.queue = batch.queue_type});
+        context->cmdlist           = batch_cmd;
+
+        // wait on cross-queue sync points before executing batch
+        for (uint s_id : batch.wait_syncs) {
+            batch_cmd.wait(sync_fences.at(s_id), GPUBarrierSync::ALL);
+        }
+
+        FrameGraphBarrierBatch barriers;
+
+        for (uint psid : batch.passes) {
+            auto& pass = passes.at(psid);
+            if (!pass.active()) continue;
+
+            // create physical resources that become active in this pass
+            for (uint pid : pass.creates) {
+                physical_resources.at(pid)->create(allocator);
+            }
+
+            // pre-read
+            for (auto& read : pass.reads) {
+                auto& resource = resources.at(read.resource.id);
+                resource.entry->pre_read(context, pass.entry.get(), read.read_op, &barriers);
+            }
+
+            // pre-write
+            for (auto& write : pass.writes) {
+                auto& resource = resources.at(write.resource.id);
+                resource.entry->pre_write(context, pass.entry.get(), write.write_op, &barriers);
+            }
+
+            // flush batched barriers before executing the pass
+            barriers.submit(batch_cmd);
+
+            // debug marker push
+            if (batch_cmd.handle.valid() && pass.entry) {
+                batch_cmd.push_debug_group(pass.entry->name.c_str());
+            }
+
+            // execute pass callback
+            if (pass.entry && pass.entry->callback) {
+                std::invoke(pass.entry->callback, registry, context);
+            }
+
+            // debug marker pop
+            if (batch_cmd.handle.valid() && pass.entry) {
+                batch_cmd.pop_debug_group();
+            }
+
+            // delete physical resources whose lifetime ends in this pass
+            for (uint pid : pass.deletes) {
+                physical_resources.at(pid)->destroy(allocator);
+            }
+        }
+
+        // signal cross-queue sync points after executing batch
+        for (uint s_id : batch.signal_syncs) {
+            batch_cmd.signal(sync_fences.at(s_id), GPUBarrierSync::ALL);
+        }
+
+        // submit completed batch command buffer
+        batch_cmd.submit();
+    }
+
+    context->cmdlist = original_cmdlist;
 }
 
 void FrameGraph::compile()
@@ -186,6 +265,93 @@ void FrameGraph::compile()
         if (pass.active()) active_count++;
     }
     assert(execution_order.size() == active_count && "FrameGraph: Cycle detected in render pass dependencies!");
+
+    // identify if any active pass runs on an asynchronous compute queue
+    has_compute_queue = false;
+    for (uint psid : execution_order) {
+        if (passes.at(psid).get_queue() == GPUQueueType::COMPUTE) {
+            has_compute_queue = true;
+            break;
+        }
+    }
+
+    batches.clear();
+    sync_points.clear();
+
+    if (!has_compute_queue) {
+        if (!execution_order.empty()) {
+            FrameGraphQueueBatch batch;
+            batch.batch_id   = 0;
+            batch.queue_type = GPUQueueType::DEFAULT;
+            batch.passes     = execution_order;
+            batches.push_back(std::move(batch));
+        }
+    } else {
+        // collect cross-queue dependency edges
+        HashMap<uint, Vector<uint>> pass_signals;
+        HashMap<uint, Vector<uint>> pass_waits;
+
+        for (uint u : execution_order) {
+            auto it = adj.find(u);
+            if (it == adj.end()) continue;
+            GPUQueueType q_u = passes.at(u).get_queue();
+
+            for (uint v : it->second) {
+                if (!passes.at(v).active()) continue;
+                GPUQueueType q_v = passes.at(v).get_queue();
+
+                if (q_u != q_v) {
+                    uint                sync_id = static_cast<uint>(sync_points.size());
+                    FrameGraphSyncPoint sp;
+                    sp.sync_id    = sync_id;
+                    sp.from_queue = q_u;
+                    sp.to_queue   = q_v;
+                    sp.from_pass  = u;
+                    sp.to_pass    = v;
+                    sync_points.push_back(sp);
+
+                    pass_signals[u].push_back(sync_id);
+                    pass_waits[v].push_back(sync_id);
+                }
+            }
+        }
+
+        // partition topological execution order into non-empty queue batches
+        for (uint psid : execution_order) {
+            GPUQueueType q_type    = passes.at(psid).get_queue();
+            bool         has_waits = pass_waits.contains(psid);
+
+            bool need_new_batch = batches.empty() ||
+                                  batches.back().queue_type != q_type ||
+                                  has_waits ||
+                                  !batches.back().signal_syncs.empty();
+
+            if (need_new_batch) {
+                FrameGraphQueueBatch new_batch;
+                new_batch.batch_id   = static_cast<uint>(batches.size());
+                new_batch.queue_type = q_type;
+                batches.push_back(std::move(new_batch));
+            }
+
+            auto& current_batch = batches.back();
+            current_batch.passes.push_back(psid);
+
+            if (auto it = pass_waits.find(psid); it != pass_waits.end()) {
+                for (uint s_id : it->second) {
+                    if (std::find(current_batch.wait_syncs.begin(), current_batch.wait_syncs.end(), s_id) == current_batch.wait_syncs.end()) {
+                        current_batch.wait_syncs.push_back(s_id);
+                    }
+                }
+            }
+            if (auto it = pass_signals.find(psid); it != pass_signals.end()) {
+                for (uint s_id : it->second) {
+                    if (std::find(current_batch.signal_syncs.begin(), current_batch.signal_syncs.end(), s_id) == current_batch.signal_syncs.end()) {
+                        current_batch.signal_syncs.push_back(s_id);
+                    }
+                }
+            }
+        }
+    }
 
     // determine physical resource lifetimes based on actual execution order
     for (auto& pass : passes) {

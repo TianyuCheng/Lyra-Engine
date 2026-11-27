@@ -158,8 +158,8 @@ namespace lyra
             return FrameGraphHandle<U>{id, version};
         }
 
-        [[nodiscard]] constexpr uint rsid() const noexcept { return id; }
-        [[nodiscard]] constexpr bool valid() const noexcept { return id != ~0u; }
+        constexpr uint rsid() const noexcept { return id; }
+        constexpr bool valid() const noexcept { return id != ~0u; }
 
         constexpr void reset() noexcept
         {
@@ -430,14 +430,18 @@ namespace lyra
         void execute(ExecuteCallback&& f) { this->callback = std::move(f); }
 
         // prevent from being culled
-        void               preserve() { is_preserved = true; }
-        [[nodiscard]] bool preserved() const { return is_preserved; }
+        void preserve() { is_preserved = true; }
+        bool preserved() const { return is_preserved; }
 
-        [[nodiscard]] auto get_name() const -> StringView { return name; }
+        void set_queue(GPUQueueType queue) { queue_type = queue; }
+        auto get_queue() const -> GPUQueueType { return queue_type; }
+
+        auto get_name() const -> StringView { return name; }
 
     private:
         String          name         = "";
         bool            is_preserved = false;
+        GPUQueueType    queue_type   = GPUQueueType::DEFAULT;
         ExecuteCallback callback;
     };
 
@@ -452,6 +456,7 @@ namespace lyra
         Vector<uint>                    deletes = {};
 
         bool active() const { return refcnt != 0 || (entry && entry->preserved()); }
+        auto get_queue() const -> GPUQueueType { return entry ? entry->get_queue() : GPUQueueType::DEFAULT; }
     };
 
     // -------------------------------------------------------------------------
@@ -539,8 +544,8 @@ namespace lyra
 
         void clear();
 
-        [[nodiscard]] uint allocated_texture_count() const;
-        [[nodiscard]] uint allocated_buffer_count() const;
+        uint allocated_texture_count() const;
+        uint allocated_buffer_count() const;
 
     private:
         HashMap<GPUBufferDescriptor, FGBufferVector>   buffers;
@@ -662,6 +667,24 @@ namespace lyra
     struct FrameGraphBuilder;
     struct FrameGraphPassBuilder;
 
+    struct FrameGraphSyncPoint
+    {
+        uint         sync_id    = 0;
+        GPUQueueType from_queue = GPUQueueType::DEFAULT;
+        GPUQueueType to_queue   = GPUQueueType::DEFAULT;
+        uint         from_pass  = ~0u;
+        uint         to_pass    = ~0u;
+    };
+
+    struct FrameGraphQueueBatch
+    {
+        uint         batch_id     = 0;
+        GPUQueueType queue_type   = GPUQueueType::DEFAULT;
+        Vector<uint> passes       = {};
+        Vector<uint> wait_syncs   = {};
+        Vector<uint> signal_syncs = {};
+    };
+
     struct FrameGraph
     {
     public:
@@ -692,15 +715,19 @@ namespace lyra
 
         void execute(FrameGraphContext* context, FrameGraphAllocator* allocator);
 
-        [[nodiscard]] auto get_physical_resource(uint pid) const -> const FrameGraphResourceModel*
+        auto get_physical_resource(uint pid) const -> const FrameGraphResourceModel*
         {
             return (pid < physical_resources.size()) ? physical_resources[pid].get() : nullptr;
         }
 
-        [[nodiscard]] auto physical_resource_count() const -> usize
+        auto physical_resource_count() const -> usize
         {
             return physical_resources.size();
         }
+
+        auto get_queue_batches() const -> Span<const FrameGraphQueueBatch> { return batches; }
+        auto get_sync_points() const -> Span<const FrameGraphSyncPoint> { return sync_points; }
+        bool has_async_compute() const { return has_compute_queue; }
 
     private:
         void compile();
@@ -740,6 +767,9 @@ namespace lyra
         Vector<FrameGraphResourceNode>       resources;
         Vector<Own<FrameGraphResourceModel>> physical_resources;
         Vector<uint>                         execution_order;
+        Vector<FrameGraphQueueBatch>         batches;
+        Vector<FrameGraphSyncPoint>          sync_points;
+        bool                                 has_compute_queue = false;
         FrameGraphResources                  registry;
     };
 
@@ -871,6 +901,19 @@ namespace lyra
                 pass_node.entry->preserve();
         }
 
+        void set_queue(GPUQueueType queue)
+        {
+            auto& pass_node = graph.passes.at(pass_id);
+            if (pass_node.entry)
+                pass_node.entry->set_queue(queue);
+        }
+
+        auto get_queue() const -> GPUQueueType
+        {
+            auto& pass_node = graph.passes.at(pass_id);
+            return pass_node.entry ? pass_node.entry->get_queue() : GPUQueueType::DEFAULT;
+        }
+
     private:
         FrameGraph& graph;
         uint        pass_id;
@@ -911,6 +954,38 @@ namespace lyra
         void add_pass(StringView name, Setup&& setup, Exec&& exec)
         {
             auto& pass_entry = create_pass(name);
+
+            FrameGraphPassBuilder pass_builder(*graph, this->pass);
+            setup(pass_builder);
+
+            pass_entry.execute([exec = std::forward<Exec>(exec)](FrameGraphResources& resources, FrameGraphContext* ctx) {
+                exec(resources, ctx);
+            });
+        }
+
+        // modern idiomatic async compute pass declaration with PassData
+        template <typename Data, typename Setup, typename Exec>
+        Data add_compute_pass(StringView name, Setup&& setup, Exec&& exec)
+        {
+            auto& pass_entry = create_pass(name);
+            pass_entry.set_queue(GPUQueueType::COMPUTE);
+            Data data{};
+
+            FrameGraphPassBuilder pass_builder(*graph, this->pass);
+            setup(data, pass_builder);
+
+            pass_entry.execute([data, exec = std::forward<Exec>(exec)](FrameGraphResources& resources, FrameGraphContext* ctx) {
+                exec(data, resources, ctx);
+            });
+            return data;
+        }
+
+        // modern idiomatic async compute pass declaration without PassData
+        template <typename Setup, typename Exec>
+        void add_compute_pass(StringView name, Setup&& setup, Exec&& exec)
+        {
+            auto& pass_entry = create_pass(name);
+            pass_entry.set_queue(GPUQueueType::COMPUTE);
 
             FrameGraphPassBuilder pass_builder(*graph, this->pass);
             setup(pass_builder);
@@ -1002,8 +1077,8 @@ namespace lyra
 
         [[nodiscard]] auto build() -> Own<FrameGraph>;
 
-        [[nodiscard]] Blackboard&       get_blackboard() { return blackboard; }
-        [[nodiscard]] const Blackboard& get_blackboard() const { return blackboard; }
+        Blackboard&       get_blackboard() { return blackboard; }
+        const Blackboard& get_blackboard() const { return blackboard; }
 
     private:
         bool is_pass_valid() const { return pass != 0xFFFFFFFFu; }
