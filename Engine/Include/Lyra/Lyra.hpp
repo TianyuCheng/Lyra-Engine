@@ -28,6 +28,7 @@
 #include <Lyra/Utilities/BitFlags.h>
 #include <Lyra/Utilities/Function.h>
 #include <Lyra/Utilities/Collections.h>
+#include <Lyra/Utilities/Result.h>
 
 // Math, geometry & identifiers
 #include <Lyra/Utilities/Math.h>

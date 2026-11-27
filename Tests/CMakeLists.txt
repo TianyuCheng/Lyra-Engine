@@ -37,6 +37,7 @@ lyra_sample(unit-tests)
 target_sources(lyra-unit-tests PRIVATE
   unit_main.cpp
   ./common/test_enums.cpp
+  ./common/test_result.cpp
   ./common/test_geometry_cache.cpp
   ./common/test_gizmo.cpp
   ./common/test_node_editor.cpp

@@ -31,10 +31,11 @@ bool DepthPrepass::init(
     shader_desc.vertex_entry   = "vsmain";
     shader_desc.fragment_entry = "fsmain";
 
-    auto layout_info = pipeline_manager.reflect_render_layout(shader_desc);
-    if (!layout_info.valid()) {
+    auto layout_res = pipeline_manager.reflect_render_layout(shader_desc);
+    if (!layout_res) {
         return false;
     }
+    const auto& layout_info = *layout_res;
     blayouts.assign(layout_info.bind_group_layouts.begin(), layout_info.bind_group_layouts.end());
 
     GPUDepthStencilState ds{};
@@ -42,18 +43,18 @@ bool DepthPrepass::init(
     ds.depth_write_enabled = true;
     ds.format              = cached_depth_format;
 
-    try {
-        pipeline = pipeline_manager.render_pipeline_builder()
-                       .with_shader(shader_desc)
-                       .with_cull_mode(GPUCullMode::BACK)
-                       .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
-                       .with_front_face(GPUFrontFace::CCW)
-                       .with_depth_stencil(ds)
-                       .with_label("depth_prepass_pipeline")
-                       .build();
-    } catch (const std::exception&) {
+    auto pipe_res = pipeline_manager.render_pipeline_builder()
+                        .with_shader(shader_desc)
+                        .with_cull_mode(GPUCullMode::BACK)
+                        .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
+                        .with_front_face(GPUFrontFace::CCW)
+                        .with_depth_stencil(ds)
+                        .with_label("depth_prepass_pipeline")
+                        .build();
+    if (!pipe_res) {
         return false;
     }
+    pipeline = *pipe_res;
 
     if (cache) {
         geometry_cache = cache;

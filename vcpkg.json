@@ -28,6 +28,7 @@
     "tinyexr",
     "tinygltf",
     "tinyobjloader",
+    "tl-expected",
     "tomlplusplus",
     "volk",
     "vulkan-headers",

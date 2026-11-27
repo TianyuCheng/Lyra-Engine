@@ -35,6 +35,7 @@ target_sources(lyra-headers INTERFACE
     Lyra/Utilities/Plugin.h
     Lyra/Utilities/Pointer.h
     Lyra/Utilities/Promise.h
+    Lyra/Utilities/Result.h
     Lyra/Utilities/Stdint.h
     Lyra/Utilities/String.h
     Lyra/Utilities/UUID.h

@@ -21,10 +21,11 @@ bool BloomPass::init(GPUDevice dev, Compiler compiler)
     down_desc.module        = "sys://Shaders/PostProcess/Bloom.slang";
     down_desc.compute_entry = "cs_downsample";
 
-    auto down_layout = pipeline_manager.reflect_compute_layout(down_desc);
-    if (!down_layout.valid()) {
+    auto down_layout_res = pipeline_manager.reflect_compute_layout(down_desc);
+    if (!down_layout_res) {
         return false;
     }
+    const auto& down_layout = *down_layout_res;
     downsample_blayouts.assign(down_layout.bind_group_layouts.begin(), down_layout.bind_group_layouts.end());
 
     // 2. upsample compute pipeline (cs_upsample)
@@ -32,25 +33,30 @@ bool BloomPass::init(GPUDevice dev, Compiler compiler)
     up_desc.module        = "sys://Shaders/PostProcess/Bloom.slang";
     up_desc.compute_entry = "cs_upsample";
 
-    auto up_layout = pipeline_manager.reflect_compute_layout(up_desc);
-    if (!up_layout.valid()) {
+    auto up_layout_res = pipeline_manager.reflect_compute_layout(up_desc);
+    if (!up_layout_res) {
         return false;
     }
+    const auto& up_layout = *up_layout_res;
     upsample_blayouts.assign(up_layout.bind_group_layouts.begin(), up_layout.bind_group_layouts.end());
 
-    try {
-        downsample_pipeline = pipeline_manager.compute_pipeline_builder()
-                                  .with_shader(down_desc)
-                                  .with_label("bloom_downsample_pipeline")
-                                  .build();
-
-        upsample_pipeline = pipeline_manager.compute_pipeline_builder()
-                                .with_shader(up_desc)
-                                .with_label("bloom_upsample_pipeline")
-                                .build();
-    } catch (const std::exception&) {
+    auto down_pipe_res = pipeline_manager.compute_pipeline_builder()
+                             .with_shader(down_desc)
+                             .with_label("bloom_downsample_pipeline")
+                             .build();
+    if (!down_pipe_res) {
         return false;
     }
+    downsample_pipeline = *down_pipe_res;
+
+    auto up_pipe_res = pipeline_manager.compute_pipeline_builder()
+                           .with_shader(up_desc)
+                           .with_label("bloom_upsample_pipeline")
+                           .build();
+    if (!up_pipe_res) {
+        return false;
+    }
+    upsample_pipeline = *up_pipe_res;
 
     // 3. create bilinear clamp-to-edge sampler
     linear_sampler = execute([&]() {

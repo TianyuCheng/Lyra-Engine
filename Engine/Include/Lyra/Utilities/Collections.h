@@ -21,6 +21,7 @@
 #include <apus/ring_buffer.hpp>
 #include <apus/small_vector.hpp>
 #include <Lyra/Utilities/Stdint.h>
+#include <Lyra/Utilities/Result.h>
 #include <Lyra/Utilities/Detail/Blackboard.h>
 #include <Lyra/Utilities/Detail/Services.h>
 

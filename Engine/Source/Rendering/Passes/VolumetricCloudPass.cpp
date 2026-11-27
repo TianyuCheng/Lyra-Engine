@@ -55,11 +55,12 @@ bool VolumetricCloudPass::init(
     shader_desc.vertex_entry   = "vsmain";
     shader_desc.fragment_entry = "fsmain";
 
-    auto layout_info = pipeline_manager.reflect_render_layout(shader_desc);
-    if (!layout_info.valid()) {
-        spdlog::error("[VolumetricCloudPass] failed to reflect volumetric cloud pass shaders");
+    auto layout_res = pipeline_manager.reflect_render_layout(shader_desc);
+    if (!layout_res) {
+        spdlog::error("[VolumetricCloudPass] failed to reflect volumetric cloud pass shaders: {}", layout_res.error());
         return false;
     }
+    const auto& layout_info = *layout_res;
     blayouts.assign(layout_info.bind_group_layouts.begin(), layout_info.bind_group_layouts.end());
 
     // 2. linear clamp sampler
@@ -113,20 +114,20 @@ bool VolumetricCloudPass::init(
     color_state.blend.alpha.dst_factor      = GPUBlendFactor::ONE_MINUS_SRC_ALPHA;
     rstates.push_back(color_state);
 
-    try {
-        pipeline = pipeline_manager.render_pipeline_builder()
-                       .with_shader(shader_desc)
-                       .with_cull_mode(GPUCullMode::NONE)
-                       .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
-                       .with_front_face(GPUFrontFace::CCW)
-                       .with_target(color_state)
-                       .without_depth_stencil()
-                       .with_label("volumetric_cloud_pipeline")
-                       .build();
-    } catch (const std::exception& e) {
-        spdlog::error("[VolumetricCloudPass] failed to create volumetric cloud render pipeline: {}", e.what());
+    auto pipe_res = pipeline_manager.render_pipeline_builder()
+                        .with_shader(shader_desc)
+                        .with_cull_mode(GPUCullMode::NONE)
+                        .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
+                        .with_front_face(GPUFrontFace::CCW)
+                        .with_target(color_state)
+                        .without_depth_stencil()
+                        .with_label("volumetric_cloud_pipeline")
+                        .build();
+    if (!pipe_res) {
+        spdlog::error("[VolumetricCloudPass] failed to create volumetric cloud render pipeline: {}", pipe_res.error());
         return false;
     }
+    pipeline = *pipe_res;
 
     initialized = pipeline.valid();
     return initialized;

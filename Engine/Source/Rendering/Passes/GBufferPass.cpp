@@ -79,10 +79,11 @@ bool GBufferPass::init(
     shader_desc.vertex_entry   = "vsmain";
     shader_desc.fragment_entry = "fsmain";
 
-    auto layout_info = pipeline_manager.reflect_render_layout(shader_desc);
-    if (!layout_info.valid()) {
+    auto layout_res = pipeline_manager.reflect_render_layout(shader_desc);
+    if (!layout_res) {
         return false;
     }
+    const auto& layout_info = *layout_res;
     blayouts.assign(layout_info.bind_group_layouts.begin(), layout_info.bind_group_layouts.end());
 
     Vector<GPUVertexBufferLayout> vlayouts;
@@ -144,20 +145,20 @@ bool GBufferPass::init(
     rstates[3].format       = GPUTextureFormat::RG8UINT;
     rstates[3].blend_enable = false;
 
-    try {
-        pipeline = pipeline_manager.render_pipeline_builder()
-                       .with_shader(shader_desc)
-                       .with_vertex_layouts(vlayouts)
-                       .with_cull_mode(GPUCullMode::BACK)
-                       .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
-                       .with_front_face(GPUFrontFace::CCW)
-                       .with_targets(rstates)
-                       .with_depth_stencil(cached_depth_format, true, GPUCompareFunction::LESS_EQUAL)
-                       .with_label("gbuffer_pipeline")
-                       .build();
-    } catch (const std::exception&) {
+    auto pipe_res = pipeline_manager.render_pipeline_builder()
+                        .with_shader(shader_desc)
+                        .with_vertex_layouts(vlayouts)
+                        .with_cull_mode(GPUCullMode::BACK)
+                        .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
+                        .with_front_face(GPUFrontFace::CCW)
+                        .with_targets(rstates)
+                        .with_depth_stencil(cached_depth_format, true, GPUCompareFunction::LESS_EQUAL)
+                        .with_label("gbuffer_pipeline")
+                        .build();
+    if (!pipe_res) {
         return false;
     }
+    pipeline = *pipe_res;
 
     initialized = pipeline.valid();
     return initialized;

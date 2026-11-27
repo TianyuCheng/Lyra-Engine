@@ -7,6 +7,7 @@
 #include <Lyra/Utilities/String.h>
 #include <Lyra/Utilities/Collections.h>
 #include <Lyra/Utilities/Pointer.h>
+#include <Lyra/Utilities/Result.h>
 #include <Lyra/Compiler/SLCTypes.h>
 #include <Lyra/Graphics/RHITypes.h>
 #include <Lyra/Graphics/RHIDescs.h>
@@ -82,17 +83,17 @@ namespace lyra
          */
         auto reflect_layout(
             const PipelineShaderDescriptor& shader_desc,
-            Span<const ShaderEntryPoint>    extra_entries = {}) -> ReflectedPipelineLayout;
+            Span<const ShaderEntryPoint>    extra_entries = {}) -> Result<ReflectedPipelineLayout>;
 
         /**
          * @brief Derive layout for render pipeline stages (vertex + fragment).
          */
-        auto reflect_render_layout(const PipelineShaderDescriptor& shader_desc) -> ReflectedPipelineLayout;
+        auto reflect_render_layout(const PipelineShaderDescriptor& shader_desc) -> Result<ReflectedPipelineLayout>;
 
         /**
          * @brief Derive layout for compute pipeline stage (compute).
          */
-        auto reflect_compute_layout(const PipelineShaderDescriptor& shader_desc) -> ReflectedPipelineLayout;
+        auto reflect_compute_layout(const PipelineShaderDescriptor& shader_desc) -> Result<ReflectedPipelineLayout>;
 
         /**
          * @brief Retrieve or compile a GPUShaderModule from virtual path and entry point.
@@ -100,7 +101,7 @@ namespace lyra
         auto get_or_compile_shader_module(
             StringView                     module_path,
             StringView                     entry_point,
-            const HashMap<String, String>& macros = {}) -> GPUShaderModule;
+            const HashMap<String, String>& macros = {}) -> Result<GPUShaderModule>;
 
         /**
          * @brief Create render pipeline from in-memory PipelineAsset using automated layout derivation.
@@ -108,14 +109,14 @@ namespace lyra
         auto create_render_pipeline(
             const PipelineAsset&              asset,
             Span<const GPUVertexBufferLayout> vertex_layouts = {},
-            CString                           label          = nullptr) -> GPURenderPipeline;
+            CString                           label          = nullptr) -> Result<GPURenderPipeline>;
 
         /**
          * @brief Create compute pipeline from in-memory PipelineAsset using automated layout derivation.
          */
         auto create_compute_pipeline(
             const PipelineAsset& asset,
-            CString              label = nullptr) -> GPUComputePipeline;
+            CString              label = nullptr) -> Result<GPUComputePipeline>;
 
         /**
          * @brief Load declarative .pipeline file from VFS/disk and instantiate GPURenderPipeline.
@@ -123,14 +124,14 @@ namespace lyra
         auto load_render_pipeline(
             StringView                        virtual_path,
             Span<const GPUVertexBufferLayout> vertex_layouts = {},
-            CString                           label          = nullptr) -> GPURenderPipeline;
+            CString                           label          = nullptr) -> Result<GPURenderPipeline>;
 
         /**
          * @brief Load declarative .pipeline file from VFS/disk and instantiate GPUComputePipeline.
          */
         auto load_compute_pipeline(
             StringView virtual_path,
-            CString    label = nullptr) -> GPUComputePipeline;
+            CString    label = nullptr) -> Result<GPUComputePipeline>;
 
         /**
          * @brief Fluent builder for constructing render pipelines declaratively.
@@ -145,7 +146,7 @@ namespace lyra
         /**
          * @brief Read a pipeline asset from file without instantiating GPU resources.
          */
-        auto load_pipeline_asset(StringView virtual_path) const -> PipelineAsset;
+        auto load_pipeline_asset(StringView virtual_path) const -> Result<PipelineAsset>;
 
         /**
          * @brief Accessors.
@@ -157,7 +158,7 @@ namespace lyra
     private:
         auto compile_module(
             StringView                     module_path,
-            const HashMap<String, String>& macros = {}) -> Own<ShaderModule>;
+            const HashMap<String, String>& macros = {}) -> Result<Own<ShaderModule>>;
 
         auto make_cache_key(
             StringView                     module_path,
@@ -224,7 +225,7 @@ namespace lyra
 
         auto with_label(CString label) -> RenderPipelineBuilder&;
 
-        auto build() -> GPURenderPipeline;
+        auto build() -> Result<GPURenderPipeline>;
 
     private:
         PipelineManager&              manager;
@@ -232,6 +233,7 @@ namespace lyra
         Vector<GPUVertexBufferLayout> vertex_layouts;
         CString                       label          = nullptr;
         bool                          custom_targets = false;
+        Optional<String>              error_message;
     };
 
     /**
@@ -252,12 +254,13 @@ namespace lyra
 
         auto with_label(CString label) -> ComputePipelineBuilder&;
 
-        auto build() -> GPUComputePipeline;
+        auto build() -> Result<GPUComputePipeline>;
 
     private:
         PipelineManager& manager;
         PipelineAsset    asset;
         CString          label = nullptr;
+        Optional<String> error_message;
     };
 
 } // namespace lyra

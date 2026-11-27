@@ -13,6 +13,7 @@ find_package(boxer REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(libassert REQUIRED)
 find_package(magic_enum REQUIRED)
+find_package(tl-expected CONFIG REQUIRED)
 find_package(imguizmo REQUIRED)
 find_package(nodeeditor REQUIRED)
 
@@ -62,6 +63,7 @@ target_link_libraries(lyra-commons INTERFACE
   $<BUILD_INTERFACE:nfd::nfd>
   $<BUILD_INTERFACE:efsw::efsw>
   $<BUILD_INTERFACE:magic_enum::magic_enum>
+  $<BUILD_INTERFACE:tl::expected>
 
   # common
   boxer::boxer

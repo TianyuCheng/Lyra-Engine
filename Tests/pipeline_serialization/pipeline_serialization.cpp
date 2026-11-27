@@ -256,16 +256,18 @@ TEST_CASE("pipeline_manager::automated_reflection_and_layout_synthesis")
         shader.fragment_entry = "fsmain";
 
         auto layout_info = pipeline_manager.reflect_render_layout(shader);
-        REQUIRE(layout_info.valid());
-        CHECK_EQ(layout_info.immediate_size, 128u);
-        CHECK_FALSE(layout_info.bind_group_layouts.empty());
-        for (const auto& bgl : layout_info.bind_group_layouts) {
+        REQUIRE(layout_info.has_value());
+        REQUIRE(layout_info->valid());
+        CHECK_EQ(layout_info->immediate_size, 128u);
+        CHECK_FALSE(layout_info->bind_group_layouts.empty());
+        for (const auto& bgl : layout_info->bind_group_layouts) {
             CHECK(bgl.valid());
         }
 
         // Layout deduplication test: second reflect call returns identical cached layout
         auto layout_cached = pipeline_manager.reflect_render_layout(shader);
-        CHECK_EQ(layout_cached.layout.handle, layout_info.layout.handle);
+        REQUIRE(layout_cached.has_value());
+        CHECK_EQ(layout_cached->layout.handle, layout_info->layout.handle);
     }
 
     SUBCASE("Reflect compute layout for light culling")
@@ -275,8 +277,9 @@ TEST_CASE("pipeline_manager::automated_reflection_and_layout_synthesis")
         shader.compute_entry = "csmain";
 
         auto layout_info = pipeline_manager.reflect_compute_layout(shader);
-        REQUIRE(layout_info.valid());
-        CHECK_FALSE(layout_info.bind_group_layouts.empty());
+        REQUIRE(layout_info.has_value());
+        REQUIRE(layout_info->valid());
+        CHECK_FALSE(layout_info->bind_group_layouts.empty());
     }
 
     SUBCASE("Declarative render pipeline creation from PipelineAsset")
@@ -295,7 +298,8 @@ TEST_CASE("pipeline_manager::automated_reflection_and_layout_synthesis")
         asset.targets.push_back(target);
 
         auto pipeline = pipeline_manager.create_render_pipeline(asset);
-        CHECK(pipeline.valid());
+        REQUIRE(pipeline.has_value());
+        CHECK(pipeline->valid());
     }
 
     SUBCASE("Declarative compute pipeline creation from PipelineAsset")
@@ -306,7 +310,8 @@ TEST_CASE("pipeline_manager::automated_reflection_and_layout_synthesis")
         asset.shader.compute_entry = "csmain";
 
         auto pipeline = pipeline_manager.create_compute_pipeline(asset);
-        CHECK(pipeline.valid());
+        REQUIRE(pipeline.has_value());
+        CHECK(pipeline->valid());
     }
 
     SUBCASE("Fluent RenderPipelineBuilder and VFS loading")
@@ -334,7 +339,8 @@ TEST_CASE("pipeline_manager::automated_reflection_and_layout_synthesis")
                             .with_label("DeclarativeFXAA")
                             .build();
 
-        CHECK(pipeline.valid());
+        REQUIRE(pipeline.has_value());
+        CHECK(pipeline->valid());
 
         fs::remove_all(temp_dir);
     }

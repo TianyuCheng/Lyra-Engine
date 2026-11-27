@@ -50,10 +50,11 @@ bool SkyboxPass::init(
         shader_desc.vertex_entry   = "vsmain";
         shader_desc.fragment_entry = "fsmain";
 
-        auto layout_info = pipeline_manager.reflect_render_layout(shader_desc);
-        if (!layout_info.valid()) {
+        auto layout_res = pipeline_manager.reflect_render_layout(shader_desc);
+        if (!layout_res) {
             return {};
         }
+        const auto& layout_info = *layout_res;
         out_blayouts.assign(layout_info.bind_group_layouts.begin(), layout_info.bind_group_layouts.end());
 
         auto builder = pipeline_manager.render_pipeline_builder()
@@ -70,11 +71,7 @@ bool SkyboxPass::init(
             builder.without_depth_stencil();
         }
 
-        try {
-            return builder.build();
-        } catch (const std::exception&) {
-            return {};
-        }
+        return builder.build().value_or(GPURenderPipeline{});
     };
 
     auto create_lut_texture = [&](uint width, uint height, GPUTextureFormat format, CString label) -> GPUTexture {

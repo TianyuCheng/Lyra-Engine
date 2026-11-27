@@ -59,11 +59,12 @@ bool OceanPass::init(
     shader_desc.vertex_entry   = "vsmain";
     shader_desc.fragment_entry = "fsmain";
 
-    auto layout_info = pipeline_manager.reflect_render_layout(shader_desc);
-    if (!layout_info.valid()) {
-        spdlog::error("[OceanPass] failed to reflect ocean pass shaders");
+    auto layout_res = pipeline_manager.reflect_render_layout(shader_desc);
+    if (!layout_res) {
+        spdlog::error("[OceanPass] failed to reflect ocean pass shaders: {}", layout_res.error());
         return false;
     }
+    const auto& layout_info = *layout_res;
     blayouts.assign(layout_info.bind_group_layouts.begin(), layout_info.bind_group_layouts.end());
 
     // generate ocean planar tessellation grid
@@ -158,21 +159,21 @@ bool OceanPass::init(
     Vector<GPUColorTargetState> rstates;
     rstates.push_back(color_state);
 
-    try {
-        pipeline = pipeline_manager.render_pipeline_builder()
-                       .with_shader(shader_desc)
-                       .with_vertex_layouts(vlayouts)
-                       .with_cull_mode(GPUCullMode::NONE)
-                       .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
-                       .with_front_face(GPUFrontFace::CCW)
-                       .with_target(color_format)
-                       .with_depth_stencil(depth_format, true, GPUCompareFunction::LESS_EQUAL)
-                       .with_label("ocean_pipeline")
-                       .build();
-    } catch (const std::exception& e) {
-        spdlog::error("[OceanPass] failed to create ocean render pipeline: {}", e.what());
+    auto pipe_res = pipeline_manager.render_pipeline_builder()
+                        .with_shader(shader_desc)
+                        .with_vertex_layouts(vlayouts)
+                        .with_cull_mode(GPUCullMode::NONE)
+                        .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
+                        .with_front_face(GPUFrontFace::CCW)
+                        .with_target(color_format)
+                        .with_depth_stencil(depth_format, true, GPUCompareFunction::LESS_EQUAL)
+                        .with_label("ocean_pipeline")
+                        .build();
+    if (!pipe_res) {
+        spdlog::error("[OceanPass] failed to create ocean render pipeline: {}", pipe_res.error());
         return false;
     }
+    pipeline = *pipe_res;
 
     initialized = pipeline.valid();
     return initialized;

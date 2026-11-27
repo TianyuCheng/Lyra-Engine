@@ -24,10 +24,11 @@ bool FXAAPass::init(GPUDevice dev, Compiler compiler, GPUTextureFormat output_fo
     shader_desc.vertex_entry   = "vsmain";
     shader_desc.fragment_entry = "fsmain";
 
-    auto layout_info = pipeline_manager.reflect_render_layout(shader_desc);
-    if (!layout_info.valid()) {
+    auto layout_res = pipeline_manager.reflect_render_layout(shader_desc);
+    if (!layout_res) {
         return false;
     }
+    const auto& layout_info = *layout_res;
     blayouts.assign(layout_info.bind_group_layouts.begin(), layout_info.bind_group_layouts.end());
 
     // 2. create bilinear clamp sampler
@@ -44,20 +45,20 @@ bool FXAAPass::init(GPUDevice dev, Compiler compiler, GPUTextureFormat output_fo
     });
 
     // 3. construct render pipeline via fluent builder
-    try {
-        pipeline = pipeline_manager
-                       .render_pipeline_builder()
-                       .with_shader(shader_desc)
-                       .with_cull_mode(GPUCullMode::NONE)
-                       .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
-                       .with_front_face(GPUFrontFace::CCW)
-                       .without_depth_stencil()
-                       .with_target(cached_output_format)
-                       .with_label("fxaa_pipeline")
-                       .build();
-    } catch (const std::exception&) {
+    auto pipe_res = pipeline_manager
+                        .render_pipeline_builder()
+                        .with_shader(shader_desc)
+                        .with_cull_mode(GPUCullMode::NONE)
+                        .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
+                        .with_front_face(GPUFrontFace::CCW)
+                        .without_depth_stencil()
+                        .with_target(cached_output_format)
+                        .with_label("fxaa_pipeline")
+                        .build();
+    if (!pipe_res) {
         return false;
     }
+    pipeline = *pipe_res;
 
     initialized = pipeline.valid();
     return initialized;
