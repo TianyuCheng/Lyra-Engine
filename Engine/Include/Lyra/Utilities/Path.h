@@ -6,6 +6,7 @@
 #include <filesystem>
 
 #include <Lyra/Utilities/String.h>
+#include <Lyra/Utilities/Result.h>
 
 namespace lyra
 {
@@ -21,7 +22,7 @@ namespace lyra
     using FSPath = CString;
 
     // find git root directory from current directory
-    inline Path git_root()
+    inline auto git_root() -> Result<Path>
     {
         // start from the current working directory
         Path current_path = std::filesystem::current_path();
@@ -43,9 +44,7 @@ namespace lyra
         if (std::filesystem::exists(current_path / ".git"))
             return current_path;
 
-        // Return an empty path if not found
-        throw std::runtime_error("Not under a git repository!");
-        return Path();
+        return make_unexpected("Not under a git repository!");
     }
 } // end of namespace lyra
 

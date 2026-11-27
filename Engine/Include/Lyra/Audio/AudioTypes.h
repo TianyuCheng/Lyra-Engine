@@ -7,6 +7,7 @@
 #include <Lyra/Utilities/Math.h>
 #include <Lyra/Utilities/String.h>
 #include <Lyra/Utilities/Macros.h>
+#include <Lyra/Utilities/Result.h>
 #include <Lyra/Audio/AudioEnums.h>
 
 namespace lyra
@@ -118,8 +119,8 @@ namespace lyra
      */
     struct Audio
     {
-        static bool init(AudioBackend backend = AudioBackend::Miniaudio);
-        static bool init(StringView custom_backend);
+        static auto init(AudioBackend backend = AudioBackend::Miniaudio) -> Result<void>;
+        static auto init(StringView custom_backend) -> Result<void>;
         static void shutdown();
 
         static auto api() -> AudioAPI*;

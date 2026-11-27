@@ -164,10 +164,10 @@ struct InstancedDrawingApp : public TestApp
         card_pipeline.primitive = prim;
 
         card_pipeline.init_color_state(get_backbuffer_format());
-        card_pipeline.init_vshader(device, module.get(), "vsmain");
-        card_pipeline.init_fshader(device, module.get(), "fsmain");
-        card_pipeline.init_playout(device, reflection.get());
-        card_pipeline.init_pipeline(device, reflection.get());
+        card_pipeline.init_vshader(device, module->get(), "vsmain");
+        card_pipeline.init_fshader(device, module->get(), "fsmain");
+        card_pipeline.init_playout(device, reflection->get());
+        card_pipeline.init_pipeline(device, reflection->get());
     }
 
     void setup_instanced_geometry()
@@ -287,9 +287,9 @@ struct InstancedDrawingApp : public TestApp
 
         SimplePipeline instanced_base;
         instanced_base.init_color_state(get_backbuffer_format());
-        instanced_base.init_vshader(device, module.get(), "vsmain");
-        instanced_base.init_fshader(device, module.get(), "fsmain");
-        instanced_base.init_playout(device, reflection.get());
+        instanced_base.init_vshader(device, module->get(), "vsmain");
+        instanced_base.init_fshader(device, module->get(), "fsmain");
+        instanced_base.init_playout(device, reflection->get());
 
         // Multi-buffer layouts:
         // Slot 0: Per-vertex base geometry

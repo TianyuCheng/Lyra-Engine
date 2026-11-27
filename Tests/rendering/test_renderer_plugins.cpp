@@ -274,19 +274,19 @@ TEST_CASE("rendering::renderer_plugins" * doctest::description("Renderer plugin 
         CHECK_FALSE(rm.has_active_renderer());
         CHECK_FALSE(rm.get_active_backend().has_value());
 
-        CHECK(rm.load_renderer(context, RendererBackend::FORWARD));
+        CHECK(rm.load_renderer(context, RendererBackend::FORWARD).has_value());
         CHECK(rm.has_active_renderer());
         CHECK_EQ(rm.get_active_name(), "lyra-forward");
         REQUIRE(rm.get_active_backend().has_value());
         CHECK_EQ(*rm.get_active_backend(), RendererBackend::FORWARD);
 
-        CHECK(rm.switch_renderer(context, RendererBackend::DEFERRED));
+        CHECK(rm.switch_renderer(context, RendererBackend::DEFERRED).has_value());
         CHECK(rm.has_active_renderer());
         CHECK_EQ(rm.get_active_name(), "lyra-deferred");
         REQUIRE(rm.get_active_backend().has_value());
         CHECK_EQ(*rm.get_active_backend(), RendererBackend::DEFERRED);
 
-        CHECK(rm.switch_renderer(context, "lyra-forward"));
+        CHECK(rm.switch_renderer(context, "lyra-forward").has_value());
         CHECK(rm.has_active_renderer());
         CHECK_EQ(rm.get_active_name(), "lyra-forward");
         REQUIRE(rm.get_active_backend().has_value());

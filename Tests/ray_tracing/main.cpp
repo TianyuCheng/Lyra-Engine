@@ -178,9 +178,9 @@ struct RayTracingApp : public TestApp
 
         auto reflection = compiler->reflect({{*module, "csmain"}});
 
-        pipeline.init_cshader(device, module.get(), "csmain");
-        pipeline.init_playout(device, reflection.get());
-        pipeline.init_pipeline(device, reflection.get());
+        pipeline.init_cshader(device, module->get(), "csmain");
+        pipeline.init_playout(device, reflection->get());
+        pipeline.init_pipeline(device, reflection->get());
     }
 
     void setup_output()

@@ -52,12 +52,17 @@ TestApp::TestApp(const TestAppDescriptor& app_desc) : desc(app_desc)
         win_desc.title  = "Lyra Engine :: Test";
         win_desc.width  = app_desc.width;
         win_desc.height = app_desc.height;
-        win             = Window::init(win_desc);
+        auto win        = Window::init(win_desc);
+        if (!win) {
+            spdlog::error("Window::init failed: {}", win.error());
+            return;
+        }
+        this->win = std::move(*win);
 
         auto rhi_desc    = RHIDescriptor{};
         rhi_desc.backend = app_desc.backend;
         rhi_desc.flags   = app_desc.rhi_flags;
-        rhi_desc.window  = *win;
+        rhi_desc.window  = *this->win;
         rhi              = RHI::init(rhi_desc);
 
         auto adapter_desc = GPUAdapterDescriptor{};
@@ -79,12 +84,12 @@ TestApp::TestApp(const TestAppDescriptor& app_desc) : desc(app_desc)
 
         auto srf_desc         = GPUSurfaceDescriptor{};
         srf_desc.label        = "main_surface";
-        srf_desc.window       = *win;
+        srf_desc.window       = *this->win;
         srf_desc.present_mode = GPUPresentMode::Fifo;
         swp                   = rhi->request_surface(srf_desc);
 
         owned_loader = make_own<FileLoader>(FSLoader::NATIVE);
-        owned_loader->mount("sys://", engine_assets_str.c_str(), 0);
+        (void)owned_loader->mount("sys://", engine_assets_str.c_str(), 0);
         loader = owned_loader.get();
     } else {
         auto& ctx = TestContext::get();

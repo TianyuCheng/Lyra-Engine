@@ -81,7 +81,8 @@ void SimplePipeline::init_depth_stencil_state(GPUTextureFormat format)
 
 void SimplePipeline::init_vshader(GPUDevice& device, ShaderModule* module, CString entry)
 {
-    auto code     = module->get_shader_blob(entry);
+    auto code = module->get_shader_blob(entry);
+    if (!code) return;
     auto desc     = GPUShaderModuleDescriptor{};
     desc.label    = "vertex_shader";
     desc.data     = code->data;
@@ -92,7 +93,8 @@ void SimplePipeline::init_vshader(GPUDevice& device, ShaderModule* module, CStri
 
 void SimplePipeline::init_fshader(GPUDevice& device, ShaderModule* module, CString entry)
 {
-    auto code     = module->get_shader_blob(entry);
+    auto code = module->get_shader_blob(entry);
+    if (!code) return;
     auto desc     = GPUShaderModuleDescriptor{};
     desc.label    = "fragment_shader";
     desc.data     = code->data;
@@ -103,7 +105,8 @@ void SimplePipeline::init_fshader(GPUDevice& device, ShaderModule* module, CStri
 
 void SimplePipeline::init_cshader(GPUDevice& device, ShaderModule* module, CString entry)
 {
-    auto code     = module->get_shader_blob(entry);
+    auto code = module->get_shader_blob(entry);
+    if (!code) return;
     auto desc     = GPUShaderModuleDescriptor{};
     desc.label    = "compute_shader";
     desc.data     = code->data;
@@ -114,14 +117,16 @@ void SimplePipeline::init_cshader(GPUDevice& device, ShaderModule* module, CStri
 
 void SimplePipeline::init_playout(GPUDevice& device, ShaderReflection* reflection)
 {
-    for (auto& desc : reflection->get_bind_group_layouts()) {
-        auto blayout = device.create_bind_group_layout(desc);
-        blayouts.push_back(blayout);
+    if (auto bg_layouts = reflection->get_bind_group_layouts()) {
+        for (auto& desc : *bg_layouts) {
+            auto blayout = device.create_bind_group_layout(desc);
+            blayouts.push_back(blayout);
+        }
     }
 
     auto desc               = GPUPipelineLayoutDescriptor{};
     desc.bind_group_layouts = blayouts;
-    desc.immediate_size     = reflection->get_immediate_size();
+    desc.immediate_size     = reflection->get_immediate_size().value_or(0);
     playout                 = device.create_pipeline_layout(desc);
 }
 
@@ -138,9 +143,11 @@ void SimpleComputePipeline::init_pipeline(GPUDevice& device, ShaderReflection* r
 void SimpleRenderPipeline::init_pipeline(GPUDevice& device, ShaderReflection* reflection)
 {
     // vertex buffer layout
-    auto attribs        = reflection->get_vertex_attributes(this->attributes);
-    auto layout         = GPUVertexBufferLayout{};
-    layout.attributes   = attribs;
+    auto attribs = reflection->get_vertex_attributes(this->attributes);
+    auto layout  = GPUVertexBufferLayout{};
+    if (attribs) {
+        layout.attributes = *attribs;
+    }
     layout.array_stride = vstride;
     layout.step_mode    = GPUVertexStepMode::VERTEX;
 

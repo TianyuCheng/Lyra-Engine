@@ -6,6 +6,7 @@
 #include <Lyra/Utilities/Math.h>
 #include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Utilities/String.h>
+#include <Lyra/Utilities/Result.h>
 #include <Lyra/Utilities/Collections.h>
 #include <Lyra/Physics/PhysicsEnums.h>
 
@@ -190,8 +191,8 @@ namespace lyra
      */
     struct Physics
     {
-        static bool init(PhysicsBackend backend = PhysicsBackend::Jolt);
-        static bool init(StringView custom_backend);
+        static auto init(PhysicsBackend backend = PhysicsBackend::Jolt) -> Result<void>;
+        static auto init(StringView custom_backend) -> Result<void>;
         static void shutdown();
 
         static auto api() -> PhysicsAPI*;

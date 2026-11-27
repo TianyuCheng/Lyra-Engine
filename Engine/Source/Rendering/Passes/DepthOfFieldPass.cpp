@@ -21,21 +21,20 @@ bool DepthOfFieldPass::init(GPUDevice dev, Compiler compiler)
     shader_desc.module        = "sys://Shaders/PostProcess/DepthOfField.slang";
     shader_desc.compute_entry = "cs_dof_bokeh";
 
-    auto layout_res = pipeline_manager.reflect_compute_layout(shader_desc);
-    if (!layout_res) {
+    auto layout = pipeline_manager.reflect_compute_layout(shader_desc);
+    if (!layout) {
         return false;
     }
-    const auto& layout_info = *layout_res;
-    blayouts.assign(layout_info.bind_group_layouts.begin(), layout_info.bind_group_layouts.end());
+    blayouts.assign(layout->bind_group_layouts.begin(), layout->bind_group_layouts.end());
 
-    auto pipe_res = pipeline_manager.compute_pipeline_builder()
-                        .with_shader(shader_desc)
-                        .with_label("dof_pipeline")
-                        .build();
-    if (!pipe_res) {
+    auto pipe = pipeline_manager.compute_pipeline_builder()
+                    .with_shader(shader_desc)
+                    .with_label("dof_pipeline")
+                    .build();
+    if (!pipe) {
         return false;
     }
-    pipeline = *pipe_res;
+    pipeline = *pipe;
 
     // 2. create linear clamp sampler
     linear_sampler = execute([&]() {

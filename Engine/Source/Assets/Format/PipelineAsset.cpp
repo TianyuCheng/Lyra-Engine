@@ -303,14 +303,14 @@ GPUComputePipelineDescriptor PipelineAsset::to_compute_descriptor() const
 static void* load_pipeline_asset(FileLoader* loader, FSPath path)
 {
     auto content = loader->read<char>(path);
-    if (content.empty()) {
+    if (!content || content->empty()) {
         return new PipelineAsset{};
     }
-    usize size = content.size();
-    if (content.back() == '\0') {
+    usize size = content->size();
+    if (content->back() == '\0') {
         size--;
     }
-    auto view = StringView(content.data(), size);
+    auto view = StringView(content->data(), size);
     return new PipelineAsset(PipelineAsset::deserialize_toml(view));
 }
 

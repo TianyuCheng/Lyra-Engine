@@ -99,11 +99,12 @@ usize FileLoader::size(FSPath vpath) const
     return api_->sizeof_file(loader, vpath);
 }
 
-FileHandle FileLoader::open(FSPath vpath) const
+Result<FileHandle> FileLoader::open(FSPath vpath) const
 {
-    FileHandle            file;
-    [[maybe_unused]] bool ok = api_->open_file(loader, file, vpath);
-    assert(ok);
+    FileHandle file;
+    if (!api_->open_file(loader, file, vpath)) {
+        return make_unexpected("Failed to open file: " + String(vpath ? vpath : ""));
+    }
     return file;
 }
 
@@ -112,31 +113,34 @@ void FileLoader::close(FileHandle file) const
     api_->close_file(loader, file);
 }
 
-usize FileLoader::read(FileHandle file, void* buffer, usize size) const
+Result<usize> FileLoader::read(FileHandle file, void* buffer, usize size) const
 {
-    usize                 read = 0;
-    [[maybe_unused]] bool ok   = api_->read_file(loader, file, buffer, size, read);
-    assert(ok);
+    usize read = 0;
+    if (!api_->read_file(loader, file, buffer, size, read)) {
+        return make_unexpected("Failed to read file handle");
+    }
     return read;
 }
 
-void FileLoader::seek(FileHandle file, int64_t offset) const
+Result<void> FileLoader::seek(FileHandle file, int64_t offset) const
 {
-    [[maybe_unused]] bool ok = api_->seek_file(loader, file, offset);
-    assert(ok);
+    if (!api_->seek_file(loader, file, offset)) {
+        return make_unexpected("Failed to seek file handle");
+    }
+    return {};
 }
 
-MountHandle FileLoader::mount(FSPath vpath, const Path& path, uint priority) const
+Result<MountHandle> FileLoader::mount(FSPath vpath, const Path& path, uint priority) const
 {
-    MountHandle mount;
-    api_->mount(loader, mount, vpath, path.c_str(), priority);
-    return mount;
+    return mount(vpath, path.c_str(), priority);
 }
 
-MountHandle FileLoader::mount(FSPath vpath, OSPath path, uint priority) const
+Result<MountHandle> FileLoader::mount(FSPath vpath, OSPath path, uint priority) const
 {
     MountHandle mount;
-    api_->mount(loader, mount, vpath, path, priority);
+    if (!api_->mount(loader, mount, vpath, path, priority) || !mount.valid()) {
+        return make_unexpected("Failed to mount '" + String(path ? path : "") + "' to '" + String(vpath ? vpath : "") + "'");
+    }
     return mount;
 }
 
@@ -166,12 +170,15 @@ void FilePacker::destroy()
     api_ = nullptr;
 }
 
-void FilePacker::write(FSPath vpath, void* buffer, usize size) const
+Result<void> FilePacker::write(FSPath vpath, void* buffer, usize size) const
 {
-    api_->write(packer, vpath, buffer, size);
+    if (!api_->write(packer, vpath, buffer, size)) {
+        return make_unexpected("Failed to write to archive for path: " + String(vpath ? vpath : ""));
+    }
+    return {};
 }
 
-void FilePacker::write(FSPath vpath, const Path& path) const
+Result<void> FilePacker::write(FSPath vpath, const Path& path) const
 {
     // 1024B = 1kb
     // x1024 = 1Mb
@@ -182,7 +189,7 @@ void FilePacker::write(FSPath vpath, const Path& path) const
     std::ifstream ifs(path, std::ios::in | std::ios::binary);
     if (!ifs.good()) {
         spdlog::error("File {} does not exist!", path.string());
-        return;
+        return make_unexpected("File does not exist: " + path.string());
     }
 
     // get file size
@@ -194,8 +201,7 @@ void FilePacker::write(FSPath vpath, const Path& path) const
     if (file_size < chunk) {
         Vector<char> buffer(file_size);
         ifs.read(buffer.data(), buffer.size());
-        write(vpath, buffer.data(), buffer.size());
-        return;
+        return write(vpath, buffer.data(), buffer.size());
     }
 
     // buffered writes
@@ -203,8 +209,13 @@ void FilePacker::write(FSPath vpath, const Path& path) const
     while (ifs) {
         ifs.read(buffer.data(), buffer.size());
         std::streamsize read_bytes = ifs.gcount();
-        if (read_bytes > 0)
-            write(vpath, buffer.data(), static_cast<usize>(read_bytes));
+        if (read_bytes > 0) {
+            auto res = write(vpath, buffer.data(), static_cast<usize>(read_bytes));
+            if (!res) {
+                return res;
+            }
+        }
     }
+    return {};
 }
 #pragma endregion FilePacker

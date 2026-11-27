@@ -9,7 +9,10 @@ using namespace lyra;
 static void* load_json_asset(FileLoader* loader, FSPath path)
 {
     auto content = loader->read<char>(path);
-    return new JsonAsset{JSON::parse(content.begin(), content.end())};
+    if (!content) {
+        return nullptr;
+    }
+    return new JsonAsset{JSON::parse(content->begin(), content->end())};
 }
 
 static uint get_json_extensions(CString* extensions)

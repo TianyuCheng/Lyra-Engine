@@ -59,13 +59,12 @@ bool OceanPass::init(
     shader_desc.vertex_entry   = "vsmain";
     shader_desc.fragment_entry = "fsmain";
 
-    auto layout_res = pipeline_manager.reflect_render_layout(shader_desc);
-    if (!layout_res) {
-        spdlog::error("[OceanPass] failed to reflect ocean pass shaders: {}", layout_res.error());
+    auto layout = pipeline_manager.reflect_render_layout(shader_desc);
+    if (!layout) {
+        spdlog::error("[OceanPass] failed to reflect ocean pass shaders: {}", layout.error());
         return false;
     }
-    const auto& layout_info = *layout_res;
-    blayouts.assign(layout_info.bind_group_layouts.begin(), layout_info.bind_group_layouts.end());
+    blayouts.assign(layout->bind_group_layouts.begin(), layout->bind_group_layouts.end());
 
     // generate ocean planar tessellation grid
     Vector<GridVertex> vertices;
@@ -159,7 +158,7 @@ bool OceanPass::init(
     Vector<GPUColorTargetState> rstates;
     rstates.push_back(color_state);
 
-    auto pipe_res = pipeline_manager.render_pipeline_builder()
+    auto pipe = pipeline_manager.render_pipeline_builder()
                         .with_shader(shader_desc)
                         .with_vertex_layouts(vlayouts)
                         .with_cull_mode(GPUCullMode::NONE)
@@ -169,11 +168,11 @@ bool OceanPass::init(
                         .with_depth_stencil(depth_format, true, GPUCompareFunction::LESS_EQUAL)
                         .with_label("ocean_pipeline")
                         .build();
-    if (!pipe_res) {
-        spdlog::error("[OceanPass] failed to create ocean render pipeline: {}", pipe_res.error());
+    if (!pipe) {
+        spdlog::error("[OceanPass] failed to create ocean render pipeline: {}", pipe.error());
         return false;
     }
-    pipeline = *pipe_res;
+    pipeline = *pipe;
 
     initialized = pipeline.valid();
     return initialized;

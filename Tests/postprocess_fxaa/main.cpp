@@ -132,10 +132,10 @@ struct PostprocessFXAAApp : public TestApp
         REQUIRE(reflection != nullptr);
 
         scene_pipeline.init_color_state(GPUTextureFormat::RGBA8UNORM);
-        scene_pipeline.init_vshader(device, module.get(), "vsmain");
-        scene_pipeline.init_fshader(device, module.get(), "fsmain");
-        scene_pipeline.init_playout(device, reflection.get());
-        scene_pipeline.init_pipeline(device, reflection.get());
+        scene_pipeline.init_vshader(device, module->get(), "vsmain");
+        scene_pipeline.init_fshader(device, module->get(), "fsmain");
+        scene_pipeline.init_playout(device, reflection->get());
+        scene_pipeline.init_pipeline(device, reflection->get());
         REQUIRE(scene_pipeline.pipeline.valid());
 
         // 2. Initialize FXAA pass

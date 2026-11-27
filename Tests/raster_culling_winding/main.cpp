@@ -254,10 +254,10 @@ struct CullingWindingApp : public TestApp
             prim.cull_mode  = cull_mode;
             pipe.primitive  = prim;
 
-            pipe.init_vshader(device, module.get(), "vsmain");
-            pipe.init_fshader(device, module.get(), "fsmain");
-            pipe.init_playout(device, reflection.get());
-            pipe.init_pipeline(device, reflection.get());
+            pipe.init_vshader(device, module->get(), "vsmain");
+            pipe.init_fshader(device, module->get(), "fsmain");
+            pipe.init_playout(device, reflection->get());
+            pipe.init_pipeline(device, reflection->get());
         };
 
         // 1. Base pipeline: no culling

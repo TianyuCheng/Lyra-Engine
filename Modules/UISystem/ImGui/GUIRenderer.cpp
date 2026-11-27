@@ -1053,7 +1053,8 @@ void GUIRenderer::init_pipeline_data(const GUIDescriptor& descriptor)
 
     // vertex shader
     pipeline_data->vshader = execute([&]() {
-        auto code  = module->get_shader_blob("vsmain");
+        auto code = (*module)->get_shader_blob("vsmain");
+        if (!code) return GPUShaderModule{};
         auto desc  = GPUShaderModuleDescriptor{};
         desc.label = "imgui_vertex_shader";
         desc.data  = code->data;
@@ -1063,7 +1064,8 @@ void GUIRenderer::init_pipeline_data(const GUIDescriptor& descriptor)
 
     // fragment shader
     pipeline_data->fshader = execute([&]() {
-        auto code  = module->get_shader_blob("fsmain");
+        auto code = (*module)->get_shader_blob("fsmain");
+        if (!code) return GPUShaderModule{};
         auto desc  = GPUShaderModuleDescriptor{};
         desc.label = "imgui_fragment_shader";
         desc.data  = code->data;
@@ -1072,9 +1074,11 @@ void GUIRenderer::init_pipeline_data(const GUIDescriptor& descriptor)
     });
 
     // bind group layouts
-    for (auto& layout : refl->get_bind_group_layouts()) {
-        auto blayout = device.create_bind_group_layout(layout);
-        pipeline_data->blayouts.push_back(blayout.handle);
+    if (auto bg_layouts = (*refl)->get_bind_group_layouts()) {
+        for (auto& layout : *bg_layouts) {
+            auto blayout = device.create_bind_group_layout(layout);
+            pipeline_data->blayouts.push_back(blayout.handle);
+        }
     }
 
     // pipeline layout
@@ -1082,24 +1086,25 @@ void GUIRenderer::init_pipeline_data(const GUIDescriptor& descriptor)
         auto desc               = GPUPipelineLayoutDescriptor{};
         desc.label              = "imgui_pipeline_layout";
         desc.bind_group_layouts = pipeline_data->blayouts;
-        desc.immediate_size     = refl->get_immediate_size();
+        desc.immediate_size     = (*refl)->get_immediate_size().value_or(0);
         return device.create_pipeline_layout(desc);
     });
 
     // pipeline state
     pipeline_data->pipeline = execute([&]() {
-        auto attributes = refl->get_vertex_attributes({
+        auto attributes = (*refl)->get_vertex_attributes({
             {"pos", offsetof(ImDrawVert, pos)},
             {"uv", offsetof(ImDrawVert, uv)},
             {"color", offsetof(ImDrawVert, col)},
         });
+        if (!attributes) return GPURenderPipeline{};
 
         // slight modification to color vertex attribute (use unorm8x4 instead of f32x4)
-        attributes.at(2).format = GPUVertexFormat::UNORM8x4;
+        attributes->at(2).format = GPUVertexFormat::UNORM8x4;
 
         // vertex buffer layout
         GPUVertexBufferLayout buffer{};
-        buffer.attributes   = attributes;
+        buffer.attributes   = *attributes;
         buffer.array_stride = sizeof(ImDrawVert);
         buffer.step_mode    = GPUVertexStepMode::VERTEX;
 

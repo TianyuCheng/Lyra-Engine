@@ -8,6 +8,7 @@
 
 // library headers
 #include <Lyra/Utilities/String.h>
+#include <Lyra/Utilities/Result.h>
 #include <Lyra/Utilities/Logger.h>
 #include <Lyra/Utilities/Msgbox.h>
 
@@ -59,8 +60,8 @@ namespace lyra
         using CleanupFn = void (*)();
 
         Plugin() = default;
-        explicit Plugin(const char* name) { load(name); }
-        explicit Plugin(StringView name) { load(name); }
+        explicit Plugin(const char* name) { (void)load(name); }
+        explicit Plugin(StringView name) { (void)load(name); }
         Plugin(const Plugin& other) = delete;
         Plugin(Plugin&& other) noexcept
         {
@@ -103,14 +104,14 @@ namespace lyra
         virtual ~Plugin() { unload(); }
 
         // load plugin and function
-        bool load(StringView name) { return load(String(name).c_str()); }
-        bool load(const char* name)
+        auto load(StringView name) -> Result<void> { return load(String(name).c_str()); }
+        auto load(const char* name) -> Result<void>
         {
             auto new_plugin = load_dll(name);
             if (!new_plugin) {
                 String err = get_error();
                 spdlog::error("Load Plugin: {} failed: {}", name, err);
-                return false;
+                return make_unexpected("Load Plugin: " + String(name) + " failed: " + err);
             }
 
             CreateFn  new_create  = nullptr;
@@ -120,7 +121,7 @@ namespace lyra
                 String err = get_error();
                 spdlog::error("Load API: {}::Create failed: {}", name, err);
                 unload_dll(new_plugin);
-                return false;
+                return make_unexpected("Load API: " + String(name) + "::create failed: " + err);
             }
 
             unload();
@@ -136,7 +137,7 @@ namespace lyra
             }
 
             api = create();
-            return true;
+            return {};
         }
 
         // unload plugin if necessary

@@ -16,30 +16,23 @@
 
 using namespace lyra;
 
-static AssetServer* G_ASSET_SERVER = nullptr;
-
 static Logger get_logger()
 {
     static Logger logger = create_logger("Material", LogLevel::trace);
     return logger;
 }
 
-static void configure_material_loader(const AssetConfigContext& context)
-{
-    G_ASSET_SERVER = context.server;
-}
-
 static void* load_material_asset(FileLoader* loader, FSPath path)
 {
     auto content = loader->read<char>(path);
-    if (content.empty()) {
+    if (!content || content->empty()) {
         get_logger()->error("failed to read material file: {}", path);
         return nullptr;
     }
 
     tinyusdz::StreamReader sr(
-        reinterpret_cast<const uint8_t*>(content.data()),
-        content.size(),
+        reinterpret_cast<const uint8_t*>(content->data()),
+        content->size(),
         /* swap_endian = */ false);
 
     tinyusdz::usda::USDAReader reader(&sr);
@@ -117,8 +110,7 @@ static void* load_material_asset(FileLoader* loader, FSPath path)
                         std::string s;
                         if (attr.get_value(&s) && !s.empty()) {
                             try {
-                                AssetID id        = std::stoull(s);
-                                asset->albedo_map = G_ASSET_SERVER ? G_ASSET_SERVER->load_asset<TextureAsset>(id) : TextureAssetHandle(id);
+                                asset->albedo_map = TextureAssetHandle(std::stoull(s));
                             } catch (...) {
                             }
                         }
@@ -126,8 +118,7 @@ static void* load_material_asset(FileLoader* loader, FSPath path)
                         std::string s;
                         if (attr.get_value(&s) && !s.empty()) {
                             try {
-                                AssetID id        = std::stoull(s);
-                                asset->normal_map = G_ASSET_SERVER ? G_ASSET_SERVER->load_asset<TextureAsset>(id) : TextureAssetHandle(id);
+                                asset->normal_map = TextureAssetHandle(std::stoull(s));
                             } catch (...) {
                             }
                         }
@@ -135,8 +126,7 @@ static void* load_material_asset(FileLoader* loader, FSPath path)
                         std::string s;
                         if (attr.get_value(&s) && !s.empty()) {
                             try {
-                                AssetID id                    = std::stoull(s);
-                                asset->metallic_roughness_map = G_ASSET_SERVER ? G_ASSET_SERVER->load_asset<TextureAsset>(id) : TextureAssetHandle(id);
+                                asset->metallic_roughness_map = TextureAssetHandle(std::stoull(s));
                             } catch (...) {
                             }
                         }
@@ -144,8 +134,7 @@ static void* load_material_asset(FileLoader* loader, FSPath path)
                         std::string s;
                         if (attr.get_value(&s) && !s.empty()) {
                             try {
-                                AssetID id          = std::stoull(s);
-                                asset->emissive_map = G_ASSET_SERVER ? G_ASSET_SERVER->load_asset<TextureAsset>(id) : TextureAssetHandle(id);
+                                asset->emissive_map = TextureAssetHandle(std::stoull(s));
                             } catch (...) {
                             }
                         }
@@ -153,8 +142,7 @@ static void* load_material_asset(FileLoader* loader, FSPath path)
                         std::string s;
                         if (attr.get_value(&s) && !s.empty()) {
                             try {
-                                AssetID id           = std::stoull(s);
-                                asset->occlusion_map = G_ASSET_SERVER ? G_ASSET_SERVER->load_asset<TextureAsset>(id) : TextureAssetHandle(id);
+                                asset->occlusion_map = TextureAssetHandle(std::stoull(s));
                             } catch (...) {
                             }
                         }
@@ -279,7 +267,7 @@ namespace lyra::material::loader
     auto create() -> AssetLoaderAPI
     {
         auto api                     = AssetLoaderAPI{};
-        api.configure                = configure_material_loader;
+        api.configure                = nullptr;
         api.load                     = load_material_asset;
         api.unload                   = unload_material_asset;
         api.get_supported_extensions = get_material_extensions;

@@ -40,12 +40,11 @@ bool TonemappingPass::init(
     shader_desc.vertex_entry   = "vsmain";
     shader_desc.fragment_entry = "fsmain";
 
-    auto layout_res = pipeline_manager.reflect_render_layout(shader_desc);
-    if (!layout_res) {
+    auto layout = pipeline_manager.reflect_render_layout(shader_desc);
+    if (!layout) {
         return false;
     }
-    const auto& layout_info = *layout_res;
-    blayouts.assign(layout_info.bind_group_layouts.begin(), layout_info.bind_group_layouts.end());
+    blayouts.assign(layout->bind_group_layouts.begin(), layout->bind_group_layouts.end());
 
     sampler = execute([&]() {
         auto desc           = GPUSamplerDescriptor{};
@@ -59,7 +58,7 @@ bool TonemappingPass::init(
         return device.create_sampler(desc);
     });
 
-    auto pipe_res = pipeline_manager.render_pipeline_builder()
+    auto pipe = pipeline_manager.render_pipeline_builder()
                         .with_shader(shader_desc)
                         .with_cull_mode(GPUCullMode::NONE)
                         .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
@@ -68,10 +67,10 @@ bool TonemappingPass::init(
                         .with_target(cached_output_format)
                         .with_label("tonemap_pipeline")
                         .build();
-    if (!pipe_res) {
+    if (!pipe) {
         return false;
     }
-    pipeline = *pipe_res;
+    pipeline = *pipe;
 
     // 2. default 1x1 black bloom fallback
     default_bloom_tex  = execute([&]() {

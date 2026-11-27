@@ -224,8 +224,8 @@ bool CompilerWrapper::compile(const CompileDescriptor& desc, CompileResultIntern
     } else if (desc.path && std::strlen(desc.path) > 0) {
         if (fs_loader && VFSPath::has_protocol(desc.path)) {
             auto data = fs_loader->read<char>(desc.path);
-            if (!data.empty()) {
-                source_text = String(data.data(), data.size());
+            if (data && !data->empty()) {
+                source_text = String(data->data(), data->size());
             }
         } else {
             std::filesystem::path p(desc.path);
@@ -246,8 +246,8 @@ bool CompilerWrapper::compile(const CompileDescriptor& desc, CompileResultIntern
                         vpath += desc.path;
                         if (fs_loader->exists(vpath.c_str())) {
                             auto data = fs_loader->read<char>(vpath.c_str());
-                            if (!data.empty()) {
-                                source_text = String(data.data(), data.size());
+                            if (data && !data->empty()) {
+                                source_text = String(data->data(), data->size());
                                 break;
                             }
                         }

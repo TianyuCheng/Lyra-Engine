@@ -8,6 +8,7 @@
 #include <Lyra/Utilities/Collections.h>
 #include <Lyra/Utilities/Path.h>
 #include <Lyra/Utilities/Config.h>
+#include <Lyra/Utilities/Result.h>
 #include <Lyra/Assets/AMSUtils.h>
 #include <Lyra/FileSystem/VFSAPI.h>
 
@@ -47,23 +48,23 @@ namespace lyra
         /**
          * @brief Load the registry from a file (detects format by extension: .bin or .toml).
          * @param path Full path to the registry file.
-         * @return True if loading was successful.
+         * @return Result<void> indicating success or error.
          */
-        bool load(const OSPath& path);
+        auto load(const OSPath& path) -> Result<void>;
 
         /**
          * @brief Save the registry to a file (detects format by extension: .bin or .toml).
          * @param path Full path to the target file.
-         * @return True if saving was successful.
+         * @return Result<void> indicating success or error.
          */
-        bool save(const OSPath& path);
+        auto save(const OSPath& path) -> Result<void>;
 
         /**
          * @brief Check if the registry is dirty and save it to the specified path if it is.
          * @param path Full path to the target file.
-         * @return True if saving was successful or if the registry was not dirty.
+         * @return Result<void> indicating success or error.
          */
-        bool flush(const OSPath& path);
+        auto flush(const OSPath& path) -> Result<void>;
 
         /**
          * @brief Scan the OS filesystem for existing *.import files to rebuild the registry.

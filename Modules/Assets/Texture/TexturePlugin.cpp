@@ -51,13 +51,13 @@ static void* load_texture_asset(FileLoader* loader, FSPath path)
 {
     auto content = loader->read<uint8_t>(path);
 
-    if (content.empty()) {
+    if (!content || content->empty()) {
         get_logger()->error("failed to read texture file: {}", path);
         return nullptr;
     }
 
     ktxTexture2*   ktx_texture;
-    KTX_error_code result = ktxTexture2_CreateFromMemory(content.data(), content.size(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktx_texture);
+    KTX_error_code result = ktxTexture2_CreateFromMemory(content->data(), content->size(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktx_texture);
     if (result != KTX_SUCCESS) {
         get_logger()->error("failed to create KTX texture from memory ({}): {}", path, ktxErrorString(result));
         return nullptr;

@@ -27,7 +27,7 @@ static void* dummy_load(FileLoader* loader, FSPath path)
     std::this_thread::sleep_for(std::chrono::milliseconds(50)); // simulate slow load
     auto asset   = new DummyAsset();
     auto content = loader->read<char>(path);
-    if (!content.empty()) {
+    if (content && !content->empty()) {
         asset->value = 100;
     } else {
         asset->value = 42;
@@ -105,7 +105,7 @@ TEST_CASE("ams::asset_server")
 
     // initialize fileloader
     FileLoader loader(FSLoader::NATIVE);
-    loader.mount("app://", temp_dir.string().c_str(), 0);
+    (void)loader.mount("app://", temp_dir.string().c_str(), 0);
 
     // initialize assetserver
     AMSDescriptor desc   = {};
@@ -145,7 +145,8 @@ TEST_CASE("ams::asset_server")
 
         auto future = import_ams.import_asset("app://new_test.dummy");
         auto guid   = future.get();
-        CHECK_NE(guid, 0);
+        REQUIRE(guid.has_value());
+        CHECK_NE(*guid, 0);
 
         // metadata should be created next to the source asset
         expected_metadata = source_dir / "new_test.dummy.import";
@@ -195,8 +196,8 @@ TEST_CASE("ams::asset_server")
         REQUIRE(fs::exists(asset_file));
         REQUIRE(fs::exists(import_file));
 
-        bool deleted = del_ams.delete_asset("app://del_test.dummy");
-        CHECK(deleted);
+        auto deleted = del_ams.delete_asset("app://del_test.dummy");
+        CHECK(deleted.has_value());
         CHECK(!fs::exists(asset_file));
         CHECK(!fs::exists(import_file));
     }
@@ -231,8 +232,8 @@ TEST_CASE("ams::asset_server")
         REQUIRE(fs::exists(import_file));
 
         // test rename in same folder
-        bool moved = move_ams.move_asset("app://orig.dummy", "app://renamed.dummy");
-        CHECK(moved);
+        auto moved = move_ams.move_asset("app://orig.dummy", "app://renamed.dummy");
+        CHECK(moved.has_value());
         CHECK(!fs::exists(asset_file));
         CHECK(!fs::exists(import_file));
 
@@ -246,8 +247,8 @@ TEST_CASE("ams::asset_server")
         auto sub_dir = source_dir / "Sub";
         fs::create_directories(sub_dir);
 
-        bool moved_sub = move_ams.move_asset("app://renamed.dummy", "app://Sub");
-        CHECK(moved_sub);
+        auto moved_sub = move_ams.move_asset("app://renamed.dummy", "app://Sub");
+        CHECK(moved_sub.has_value());
         CHECK(!fs::exists(moved_asset));
         CHECK(!fs::exists(moved_import));
 
@@ -260,20 +261,21 @@ TEST_CASE("ams::asset_server")
     SUBCASE("Basic Asynchronous Loading")
     {
         auto handle = ams.load_asset<DummyAsset>("app://test.dummy");
-        CHECK(handle.valid());
+        REQUIRE(handle.has_value());
+        CHECK(handle->valid());
 
         // should be loading (data is null)
-        auto asset = ams.get_asset(handle);
+        auto asset = ams.get_asset(*handle);
         // it might be loaded already if the thread is fast, but usually it's null here
         // because we added a sleep in dummy_load.
 
         // wait for it to load
         int timeout = 100; // 1 second
-        while (ams.get_asset(handle) == nullptr && timeout-- > 0) {
+        while (ams.get_asset(*handle) == nullptr && timeout-- > 0) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
 
-        asset = ams.get_asset(handle);
+        asset = ams.get_asset(*handle);
         REQUIRE_NE(asset, nullptr);
         CHECK_EQ(asset->value, 100);
     }
@@ -282,24 +284,26 @@ TEST_CASE("ams::asset_server")
     {
         auto handle1 = ams.load_asset<DummyAsset>("app://test.dummy");
         auto handle2 = ams.load_asset<DummyAsset>("app://test.dummy");
+        REQUIRE(handle1.has_value());
+        REQUIRE(handle2.has_value());
 
-        CHECK_EQ(handle1.guid, handle2.guid);
+        CHECK_EQ(handle1->guid, handle2->guid);
 
         // wait for load
-        while (ams.get_asset(handle1) == nullptr) {
+        while (ams.get_asset(*handle1) == nullptr) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
 
-        ams.unload_asset(handle1);
-        CHECK_NE(ams.get_asset(handle2), nullptr); // still in memory
+        ams.unload_asset(*handle1);
+        CHECK_NE(ams.get_asset(*handle2), nullptr); // still in memory
 
-        ams.unload_asset(handle2);
+        ams.unload_asset(*handle2);
         // still in memory until purge
-        CHECK_NE(ams.get_asset(handle2), nullptr);
+        CHECK_NE(ams.get_asset(*handle2), nullptr);
 
         ams.purge();
         // should be gone
-        CHECK_EQ(ams.get_asset(handle1), nullptr);
+        CHECK_EQ(ams.get_asset(*handle1), nullptr);
     }
 
     SUBCASE("Concurrent Loading")
@@ -310,7 +314,8 @@ TEST_CASE("ams::asset_server")
 
         for (int i = 0; i < num_threads; ++i) {
             threads.emplace_back([&ams, &handles, i]() {
-                handles[i] = ams.load_asset<DummyAsset>("app://test.dummy");
+                auto h = ams.load_asset<DummyAsset>("app://test.dummy");
+                if (h) handles[i] = *h;
             });
         }
 
@@ -358,10 +363,10 @@ TEST_CASE("ams::registry_dependencies")
         reg.update(dep2_guid, "dep2", 100);
 
         auto bin_path = temp_dir / "reg_test.bin";
-        CHECK(reg.save(bin_path.c_str()));
+        CHECK(reg.save(bin_path.c_str()).has_value());
 
         AssetRegistry reg2;
-        CHECK(reg2.load(bin_path.c_str()));
+        CHECK(reg2.load(bin_path.c_str()).has_value());
 
         auto loaded_deps = reg2.get_dependencies(parent_guid);
         CHECK_EQ(loaded_deps.size(), 2);
@@ -375,10 +380,10 @@ TEST_CASE("ams::registry_dependencies")
         reg.update(parent_guid, "parent", 100, deps);
 
         auto toml_path = temp_dir / "reg_test.toml";
-        CHECK(reg.save(toml_path.c_str()));
+        CHECK(reg.save(toml_path.c_str()).has_value());
 
         AssetRegistry reg2;
-        CHECK(reg2.load(toml_path.c_str()));
+        CHECK(reg2.load(toml_path.c_str()).has_value());
 
         auto loaded_deps = reg2.get_dependencies(parent_guid);
         CHECK_EQ(loaded_deps.size(), 2);
@@ -427,7 +432,7 @@ TEST_CASE("ams::asset_dependencies")
     }
 
     FileLoader loader(FSLoader::NATIVE);
-    loader.mount("app://", temp_dir.string().c_str(), 0);
+    (void)loader.mount("app://", temp_dir.string().c_str(), 0);
 
     AMSDescriptor desc   = {};
     desc.registry        = registry.c_str();
@@ -440,39 +445,41 @@ TEST_CASE("ams::asset_dependencies")
     SUBCASE("Recursive Loading")
     {
         auto parent_handle = ams.load_asset<DummyAsset>("app://parent.dummy");
-        CHECK(parent_handle.valid());
+        REQUIRE(parent_handle.has_value());
+        CHECK(parent_handle->valid());
 
         // child should also be loading automatically
         AssetHandle<DummyAsset> child_handle{2001};
 
         // wait for both to load
         int timeout = 100;
-        while ((ams.get_asset(parent_handle) == nullptr || ams.get_asset(child_handle) == nullptr) && timeout-- > 0) {
+        while ((ams.get_asset(*parent_handle) == nullptr || ams.get_asset(child_handle) == nullptr) && timeout-- > 0) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
 
-        REQUIRE_NE(ams.get_asset(parent_handle), nullptr);
+        REQUIRE_NE(ams.get_asset(*parent_handle), nullptr);
         REQUIRE_NE(ams.get_asset(child_handle), nullptr);
     }
 
     SUBCASE("Recursive Unloading")
     {
         auto                    parent_handle = ams.load_asset<DummyAsset>("app://parent.dummy");
+        REQUIRE(parent_handle.has_value());
         AssetHandle<DummyAsset> child_handle{2001};
 
         // wait for load
-        while (ams.get_asset(parent_handle) == nullptr || ams.get_asset(child_handle) == nullptr) {
+        while (ams.get_asset(*parent_handle) == nullptr || ams.get_asset(child_handle) == nullptr) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
 
         // unload parent
-        ams.unload_asset(parent_handle);
+        ams.unload_asset(*parent_handle);
 
         // purge
         ams.purge();
 
         // both should be gone if child refcnt dropped to 0
-        CHECK_EQ(ams.get_asset(parent_handle), nullptr);
+        CHECK_EQ(ams.get_asset(*parent_handle), nullptr);
         CHECK_EQ(ams.get_asset(child_handle), nullptr);
     }
 
@@ -554,24 +561,55 @@ TEST_CASE("vfs::domain_isolation")
         f << "{\"asset\":{}}";
     }
 
+    {
+        std::ofstream f(app_dir / "empty.txt");
+    }
+
     FileLoader loader(FSLoader::NATIVE);
 
     // mounting without scheme should fail
-    CHECK_FALSE(loader.mount("/bare", sys_dir.c_str(), 0).valid());
+    CHECK_FALSE(loader.mount("/bare", sys_dir.c_str(), 0).has_value());
 
     // mount domains
-    CHECK(loader.mount("sys://", sys_dir.c_str(), 0).valid());
-    CHECK(loader.mount("app://", app_dir.c_str(), 0).valid());
+    CHECK(loader.mount("sys://", sys_dir.c_str(), 0).has_value());
+    CHECK(loader.mount("app://", app_dir.c_str(), 0).has_value());
 
     // 1. Files are visible in their respective domains
     CHECK(loader.exists("sys://engine_shader.hlsl"));
     CHECK(loader.exists("app://game_model.gltf"));
 
-    // 2. Cross-domain queries are rejected / not found (app:// does not fall back to sys:// and vice-versa)
+    // 2. Read with Result<Vector<T>> - differentiated empty vs non-existent
+    auto shader_content = loader.read<char>("sys://engine_shader.hlsl");
+    CHECK(shader_content.has_value());
+    CHECK_FALSE(shader_content->empty());
+
+    auto empty_content = loader.read<char>("app://empty.txt");
+    CHECK(empty_content.has_value());
+    CHECK(empty_content->empty());
+
+    auto missing_content = loader.read<char>("sys://missing.txt");
+    CHECK_FALSE(missing_content.has_value());
+
+    // 3. Open, seek, read with Result
+    auto file_res = loader.open("sys://engine_shader.hlsl");
+    CHECK(file_res.has_value());
+    if (file_res) {
+        CHECK(loader.seek(*file_res, 0).has_value());
+        char buf[8] = {};
+        auto read_bytes = loader.read(*file_res, buf, sizeof(buf));
+        CHECK(read_bytes.has_value());
+        CHECK(*read_bytes == sizeof(buf));
+        loader.close(*file_res);
+    }
+
+    auto bad_open = loader.open("sys://non_existent_file.hlsl");
+    CHECK_FALSE(bad_open.has_value());
+
+    // 4. Cross-domain queries are rejected / not found (app:// does not fall back to sys:// and vice-versa)
     CHECK_FALSE(loader.exists("sys://game_model.gltf"));
     CHECK_FALSE(loader.exists("app://engine_shader.hlsl"));
 
-    // 3. Bare relative paths without scheme are rejected
+    // 5. Bare relative paths without scheme are rejected
     CHECK_FALSE(loader.exists("engine_shader.hlsl"));
     CHECK_FALSE(loader.exists("game_model.gltf"));
     CHECK_FALSE(loader.exists("/game_model.gltf"));
@@ -683,8 +721,8 @@ TEST_CASE("ams::batched_preview_api")
         fs::copy_file(sample_glb, assets_dir / "ABeautifulGame.glb", fs::copy_options::overwrite_existing);
 
         FileLoader loader(FSLoader::NATIVE);
-        loader.mount("app://", caches_dir.c_str(), 1);
-        loader.mount("app://", assets_dir.c_str(), 0);
+        (void)loader.mount("app://", caches_dir.c_str(), 1);
+        (void)loader.mount("app://", assets_dir.c_str(), 0);
 
         AMSDescriptor desc;
         desc.app.assets_path = assets_dir.c_str();
@@ -700,7 +738,8 @@ TEST_CASE("ams::batched_preview_api")
 
         auto glb_fut  = server.import_asset("app://ABeautifulGame.glb", true);
         auto glb_guid = glb_fut.get();
-        CHECK_NE(glb_guid, 0);
+        REQUIRE(glb_guid.has_value());
+        CHECK_NE(*glb_guid, 0);
 
         server.flush();
 

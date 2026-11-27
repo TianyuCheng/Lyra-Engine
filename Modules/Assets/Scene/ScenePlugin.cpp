@@ -97,14 +97,14 @@ static uint extract_scene_nodes(SceneAsset& scene, const tinyusdz::Prim& prim)
 static void* load_scene_asset(FileLoader* loader, FSPath path)
 {
     auto content = loader->read<char>(path);
-    if (content.empty()) {
+    if (!content || content->empty()) {
         get_logger()->error("failed to read scene file: {}", path);
         return nullptr;
     }
 
     tinyusdz::StreamReader sr(
-        reinterpret_cast<const uint8_t*>(content.data()),
-        content.size(),
+        reinterpret_cast<const uint8_t*>(content->data()),
+        content->size(),
         false);
 
     tinyusdz::usda::USDAReader reader(&sr);

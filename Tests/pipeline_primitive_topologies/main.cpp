@@ -239,10 +239,10 @@ struct PrimitiveTopologiesApp : public TestApp
             pipe.primitive = prim;
 
             pipe.init_color_state(get_backbuffer_format());
-            pipe.init_vshader(device, module.get(), "vsmain");
-            pipe.init_fshader(device, module.get(), "fsmain");
-            pipe.init_playout(device, reflection.get());
-            pipe.init_pipeline(device, reflection.get());
+            pipe.init_vshader(device, module->get(), "vsmain");
+            pipe.init_fshader(device, module->get(), "fsmain");
+            pipe.init_playout(device, reflection->get());
+            pipe.init_pipeline(device, reflection->get());
         };
 
         init_pipe(pipeline_tri_list, GPUPrimitiveTopology::TRIANGLE_LIST);

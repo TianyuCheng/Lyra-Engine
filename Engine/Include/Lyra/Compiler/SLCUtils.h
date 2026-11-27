@@ -4,6 +4,7 @@
 #define LYRA_ENGINE_COMPILER_SLCUTILS_H
 
 #include <Lyra/Utilities/String.h>
+#include <Lyra/Utilities/Result.h>
 #include <Lyra/Utilities/Handle.h>
 #include <Lyra/Utilities/Pointer.h>
 #include <Lyra/Utilities/BitFlags.h>
@@ -51,6 +52,15 @@ namespace lyra
     {
         ShaderModuleHandle module;
         CString            entry;
+
+#ifdef __cplusplus
+        ShaderEntryPoint() = default;
+        ShaderEntryPoint(ShaderModuleHandle mod, CString ent) : module(mod), entry(ent) {}
+        ShaderEntryPoint(const ShaderModule& mod, CString ent);
+        ShaderEntryPoint(const Own<ShaderModule>& mod, CString ent);
+        ShaderEntryPoint(const ShaderModule* mod, CString ent);
+        ShaderEntryPoint(const Result<Own<ShaderModule>>& mod, CString ent);
+#endif
     };
 
     extern "C" struct ShaderAttribute

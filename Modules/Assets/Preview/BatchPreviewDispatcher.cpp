@@ -305,17 +305,22 @@ auto BatchPreviewDispatcher::init_gpu_resources() -> bool
         }
 
         // 3. bind group layout & pipeline layout
-        auto                             blayout_descs = reflection->get_bind_group_layouts();
+        auto blayout_descs = (*reflection)->get_bind_group_layouts();
+        if (!blayout_descs) {
+            get_logger()->warn("Failed to get bind group layouts: {}", blayout_descs.error());
+            gpu_failed = true;
+            return false;
+        }
         Vector<GPUBindGroupLayoutHandle> blayouts;
-        if (!blayout_descs.empty()) {
-            bind_group_layout = device.create_bind_group_layout(blayout_descs[0]);
+        if (!blayout_descs->empty()) {
+            bind_group_layout = device.create_bind_group_layout((*blayout_descs)[0]);
             blayouts.push_back(bind_group_layout.handle);
         }
 
         GPUPipelineLayoutDescriptor playout_desc{};
         playout_desc.label              = "preview_pipeline_layout";
         playout_desc.bind_group_layouts = Span<GPUBindGroupLayoutHandle>(blayouts);
-        playout_desc.immediate_size     = reflection->get_immediate_size();
+        playout_desc.immediate_size     = (*reflection)->get_immediate_size().value_or(0);
         pipeline_layout                 = device.create_pipeline_layout(playout_desc);
 
         // 4. bind group heap, sampler, and default white texture
@@ -386,14 +391,24 @@ auto BatchPreviewDispatcher::init_gpu_resources() -> bool
         default_white_bind_group = device.create_bind_group(bg_desc);
 
         // 5. shader modules
-        auto                      vcode = module->get_shader_blob("vsmain");
+        auto vcode = (*module)->get_shader_blob("vsmain");
+        if (!vcode) {
+            get_logger()->warn("Failed to get vsmain blob: {}", vcode.error());
+            gpu_failed = true;
+            return false;
+        }
         GPUShaderModuleDescriptor vdesc{};
         vdesc.label  = "preview_vshader";
         vdesc.data   = vcode->data;
         vdesc.size   = vcode->size;
         auto vshader = device.create_shader_module(vdesc);
 
-        auto                      fcode = module->get_shader_blob("fsmain");
+        auto fcode = (*module)->get_shader_blob("fsmain");
+        if (!fcode) {
+            get_logger()->warn("Failed to get fsmain blob: {}", fcode.error());
+            gpu_failed = true;
+            return false;
+        }
         GPUShaderModuleDescriptor fdesc{};
         fdesc.label  = "preview_fshader";
         fdesc.data   = fcode->data;

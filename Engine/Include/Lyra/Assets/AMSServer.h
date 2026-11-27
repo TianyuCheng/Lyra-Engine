@@ -18,6 +18,7 @@
 #include <Lyra/Utilities/Logger.h>
 #include <Lyra/Utilities/Promise.h>
 #include <Lyra/Utilities/Collections.h>
+#include <Lyra/Utilities/Result.h>
 #include <Lyra/FileSystem/VFSEnums.h>
 #include <Lyra/FileSystem/VFSUtils.h>
 #include <Lyra/Utilities/Sync.h>
@@ -246,20 +247,26 @@ namespace lyra
          * @brief Load an asset and increment its handle reference count.
          */
         template <typename AssetType>
-        auto load_asset(FSPath path) -> AssetHandle<AssetType>
+        auto load_asset(FSPath path) -> Result<AssetHandle<AssetType>>
         {
             auto handle = load_asset(AssetType::type, path);
-            return AssetHandle<AssetType>{handle.guid};
+            if (!handle) {
+                return make_unexpected(handle.error());
+            }
+            return AssetHandle<AssetType>{handle->guid};
         }
 
         /**
          * @brief Load an asset by its GUID and increment its handle reference count.
          */
         template <typename AssetType>
-        auto load_asset(AssetID guid) -> AssetHandle<AssetType>
+        auto load_asset(AssetID guid) -> Result<AssetHandle<AssetType>>
         {
             auto handle = load_asset(AssetType::type, guid);
-            return AssetHandle<AssetType>{handle.guid};
+            if (!handle) {
+                return make_unexpected(handle.error());
+            }
+            return AssetHandle<AssetType>{handle->guid};
         }
 
         /**
@@ -285,12 +292,12 @@ namespace lyra
          * @brief Save a loaded asset by its handle to an OS filesystem path.
          */
         template <typename AssetType>
-        bool save_asset(AssetHandle<AssetType> handle, OSPath path)
+        auto save_asset(AssetHandle<AssetType> handle, OSPath path) -> Result<void>
         {
             auto* asset = get_asset(handle);
             if (!asset) {
                 spdlog::error("Cannot save asset: handle not loaded or invalid");
-                return false;
+                return make_unexpected("Cannot save asset: handle not loaded or invalid");
             }
             return save_asset(AssetType::type, asset, path);
         }
@@ -299,7 +306,7 @@ namespace lyra
          * @brief Save an in-memory asset to an OS filesystem path.
          */
         template <typename AssetType>
-        bool save_asset(const AssetType& asset, OSPath path)
+        auto save_asset(const AssetType& asset, OSPath path) -> Result<void>
         {
             return save_asset(AssetType::type, &asset, path);
         }
@@ -322,37 +329,37 @@ namespace lyra
         /**
          * @brief Preprocess asset into engine compatible format.
          */
-        Future<AssetID> import_asset(const Path& path, bool force = false);
+        Future<Result<AssetID>> import_asset(const Path& path, bool force = false);
 
         /**
          * @brief Delete an asset (source file, .import metadata, cache) and unregister it.
          * @param path Asset path (can be relative to assets root or absolute).
-         * @return True if deletion was successful.
+         * @return Result<void> indicating success or error.
          */
-        bool delete_asset(const Path& path);
+        auto delete_asset(const Path& path) -> Result<void>;
 
         /**
          * @brief Delete an asset by its GUID (source file, .import metadata, cache) and unregister it.
          * @param guid Asset GUID.
-         * @return True if deletion was successful.
+         * @return Result<void> indicating success or error.
          */
-        bool delete_asset(AssetID guid);
+        auto delete_asset(AssetID guid) -> Result<void>;
 
         /**
          * @brief Move or rename an asset (including source file and .import metadata) and update registry.
          * @param source_path Path to source asset (relative to assets root or absolute).
          * @param destination_path Path to destination asset or target directory.
-         * @return True if move was successful.
+         * @return Result<void> indicating success or error.
          */
-        bool move_asset(const Path& source_path, const Path& destination_path);
+        auto move_asset(const Path& source_path, const Path& destination_path) -> Result<void>;
 
         /**
          * @brief Move or rename an asset by GUID (including source file and .import metadata) and update registry.
          * @param guid GUID of the asset to move.
          * @param destination_path Destination path (file or directory).
-         * @return True if move was successful.
+         * @return Result<void> indicating success or error.
          */
-        bool move_asset(AssetID guid, const Path& destination_path);
+        auto move_asset(AssetID guid, const Path& destination_path) -> Result<void>;
 
         /**
          * @brief Hot-reload an asset that is currently loaded in memory.
@@ -440,11 +447,11 @@ namespace lyra
         };
 
         auto get_asset(AssetTypeID type_id, RawAssetHandle handle) -> void*;
-        auto load_asset(AssetTypeID type_id, FSPath path) -> RawAssetHandle;
-        auto load_asset(AssetTypeID type_id, AssetID guid) -> RawAssetHandle;
+        auto load_asset(AssetTypeID type_id, FSPath path) -> Result<RawAssetHandle>;
+        auto load_asset(AssetTypeID type_id, AssetID guid) -> Result<RawAssetHandle>;
         void unload_asset(AssetTypeID type_id, RawAssetHandle handle);
         void clone_asset(AssetTypeID type_id, RawAssetHandle handle);
-        bool save_asset(AssetTypeID type_id, const void* asset, OSPath path);
+        auto save_asset(AssetTypeID type_id, const void* asset, OSPath path) -> Result<void>;
         void handle_watch_events(const Vector<AssetWatchEvent>& events);
         void handle_watch_rename(const AssetWatchEvent& evt);
 

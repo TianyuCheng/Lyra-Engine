@@ -4,6 +4,7 @@
 #define LYRA_ENGINE_FILESYSTEM_VFSTYPES_H
 
 #include <Lyra/Utilities/Path.h>
+#include <Lyra/Utilities/Result.h>
 #include <Lyra/Utilities/Plugin.h>
 #include <Lyra/Utilities/Macros.h>
 #include <Lyra/Utilities/Stdint.h>
@@ -26,29 +27,34 @@ namespace lyra
 
         auto size(FSPath vpath) const -> usize;
 
-        auto open(FSPath vpath) const -> FileHandle;
+        auto open(FSPath vpath) const -> Result<FileHandle>;
 
         void close(FileHandle file) const;
 
         template <typename T>
-        auto read(FSPath vpath) const -> Vector<T>
+        auto read(FSPath vpath) const -> Result<Vector<T>>
         {
+            if (!exists(vpath)) {
+                return make_unexpected("File does not exist: " + String(vpath ? vpath : ""));
+            }
             auto sz = size(vpath);
-            if (sz == 0) return {};
+            if (sz == 0) {
+                return Vector<T>{};
+            }
             Vector<T> data(sz / sizeof(T), 0);
             if (!api_->read_whole_file(loader, vpath, reinterpret_cast<void*>(data.data()))) {
-                return {};
+                return make_unexpected("Failed to read whole file: " + String(vpath ? vpath : ""));
             }
             return data;
         }
 
-        auto read(FileHandle file, void* buffer, usize size) const -> usize;
+        auto read(FileHandle file, void* buffer, usize size) const -> Result<usize>;
 
-        void seek(FileHandle file, int64_t offset) const;
+        auto seek(FileHandle file, int64_t offset) const -> Result<void>;
 
-        auto mount(FSPath vpath, const Path& path, uint priority) const -> MountHandle;
+        auto mount(FSPath vpath, const Path& path, uint priority) const -> Result<MountHandle>;
 
-        auto mount(FSPath vpath, OSPath path, uint priority) const -> MountHandle;
+        auto mount(FSPath vpath, OSPath path, uint priority) const -> Result<MountHandle>;
 
         void unmount(MountHandle mount) const;
 
@@ -73,9 +79,9 @@ namespace lyra
 
         void destroy();
 
-        void write(FSPath vpath, void* buffer, usize size) const;
+        auto write(FSPath vpath, void* buffer, usize size) const -> Result<void>;
 
-        void write(FSPath vpath, const Path& path) const;
+        auto write(FSPath vpath, const Path& path) const -> Result<void>;
 
         FORCE_INLINE FilePackerAPI* api() { return api_; }
 

@@ -7,7 +7,10 @@ using namespace lyra;
 static void* load_text_asset(FileLoader* loader, FSPath path)
 {
     auto content = loader->read<char>(path);
-    return new TextAsset{String(content.begin(), content.end())};
+    if (!content) {
+        return nullptr;
+    }
+    return new TextAsset{String(content->begin(), content->end())};
 }
 
 static uint get_text_extensions(CString* extensions)

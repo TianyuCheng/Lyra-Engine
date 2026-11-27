@@ -103,19 +103,20 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
     };
 
     // reflect vertex attributes
-    auto attributes = reflection->get_vertex_attributes({
+    auto attributes = (*reflection)->get_vertex_attributes({
         {"position", offsetof(Vertex, position)},
         {"texcoord", offsetof(Vertex, uv)},
     });
+    REQUIRE(attributes.has_value());
 
-    CHECK_EQ(attributes.size(), 2);
+    CHECK_EQ(attributes->size(), 2);
 
     // attribute: position
-    auto pos_attrib_it = std::find_if(attributes.begin(), attributes.end(), [](const auto& a) {
+    auto pos_attrib_it = std::find_if(attributes->begin(), attributes->end(), [](const auto& a) {
         return strcmp(a.shader_semantic, "POSITION") == 0;
     });
-    CHECK(pos_attrib_it != attributes.end());
-    if (pos_attrib_it != attributes.end()) {
+    CHECK(pos_attrib_it != attributes->end());
+    if (pos_attrib_it != attributes->end()) {
         switch (target) {
             case CompileTarget::DXIL:
                 CHECK_EQ(String(pos_attrib_it->shader_semantic), "POSITION");
@@ -129,11 +130,11 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
     }
 
     // attribute: texcoord
-    auto tex_attrib_it = std::find_if(attributes.begin(), attributes.end(), [](const auto& a) {
+    auto tex_attrib_it = std::find_if(attributes->begin(), attributes->end(), [](const auto& a) {
         return strcmp(a.shader_semantic, "TEXCOORD") == 0;
     });
-    CHECK(tex_attrib_it != attributes.end());
-    if (tex_attrib_it != attributes.end()) {
+    CHECK(tex_attrib_it != attributes->end());
+    if (tex_attrib_it != attributes->end()) {
         switch (target) {
             case CompileTarget::DXIL:
                 CHECK_EQ(String(tex_attrib_it->shader_semantic), "TEXCOORD");
@@ -163,15 +164,16 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
         }
     };
 
-    auto bindgroups = reflection->get_bind_group_layouts();
-    CHECK_EQ(bindgroups.size(), 2);
+    auto bindgroups = (*reflection)->get_bind_group_layouts();
+    REQUIRE(bindgroups.has_value());
+    CHECK_EQ(bindgroups->size(), 2);
 
     // haha
-    auto haha_bindgroup_it = std::find_if(bindgroups.begin(), bindgroups.end(), [](const auto& a) {
+    auto haha_bindgroup_it = std::find_if(bindgroups->begin(), bindgroups->end(), [](const auto& a) {
         return strcmp(a.label, "haha") == 0;
     });
-    CHECK(haha_bindgroup_it != bindgroups.end());
-    if (haha_bindgroup_it != bindgroups.end()) {
+    CHECK(haha_bindgroup_it != bindgroups->end());
+    if (haha_bindgroup_it != bindgroups->end()) {
         CHECK_EQ(haha_bindgroup_it->entries.size(), 4);
 
         // cam (used in vertex)
@@ -221,11 +223,11 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
     }
 
     // hihi
-    auto hihi_bindgroup_it = std::find_if(bindgroups.begin(), bindgroups.end(), [](const auto& a) {
+    auto hihi_bindgroup_it = std::find_if(bindgroups->begin(), bindgroups->end(), [](const auto& a) {
         return strcmp(a.label, "hihi") == 0;
     });
-    CHECK(hihi_bindgroup_it != bindgroups.end());
-    if (hihi_bindgroup_it != bindgroups.end()) {
+    CHECK(hihi_bindgroup_it != bindgroups->end());
+    if (hihi_bindgroup_it != bindgroups->end()) {
         CHECK_EQ(hihi_bindgroup_it->entries.size(), 4);
 
         // cam (used in vertex)
@@ -274,8 +276,9 @@ void test_shader_vertex_attribute_reflection(CompileTarget target, CompileFlags 
         }
     }
 
-    auto immediate_size = reflection->get_immediate_size();
-    CHECK_EQ(immediate_size, 80);
+    auto immediate_size = (*reflection)->get_immediate_size();
+    REQUIRE(immediate_size.has_value());
+    CHECK_EQ(*immediate_size, 80);
 }
 
 void test_shader_explicit_group_and_binding_reflection(CompileTarget target, CompileFlags flags)
@@ -361,21 +364,24 @@ void test_shader_explicit_group_and_binding_reflection(CompileTarget target, Com
         {*module, "fsmain"},
     });
 
-    uint material_group = reflection->get_bind_group_location("material");
-    CHECK_EQ(material_group, 2);
+    auto material_group = (*reflection)->get_bind_group_location("material");
+    REQUIRE(material_group.has_value());
+    CHECK_EQ(*material_group, 2);
 
-    uint scene_group = reflection->get_bind_group_location("scene");
-    CHECK_EQ(scene_group, 0);
+    auto scene_group = (*reflection)->get_bind_group_location("scene");
+    REQUIRE(scene_group.has_value());
+    CHECK_EQ(*scene_group, 0);
 
-    auto bindgroups = reflection->get_bind_group_layouts();
-    CHECK_EQ(bindgroups.size(), 2);
+    auto bindgroups = (*reflection)->get_bind_group_layouts();
+    REQUIRE(bindgroups.has_value());
+    CHECK_EQ(bindgroups->size(), 2);
 
     // verify material group (group 2) and its explicit bindings
-    auto mat_bg_it = std::find_if(bindgroups.begin(), bindgroups.end(), [](const auto& bg) {
+    auto mat_bg_it = std::find_if(bindgroups->begin(), bindgroups->end(), [](const auto& bg) {
         return bg.label && strcmp(bg.label, "material") == 0;
     });
-    CHECK(mat_bg_it != bindgroups.end());
-    if (mat_bg_it != bindgroups.end()) {
+    CHECK(mat_bg_it != bindgroups->end());
+    if (mat_bg_it != bindgroups->end()) {
         CHECK_EQ(mat_bg_it->entries.size(), 2);
 
         auto tex_it = std::find_if(mat_bg_it->entries.begin(), mat_bg_it->entries.end(), [](const auto& e) {
@@ -395,8 +401,9 @@ void test_shader_explicit_group_and_binding_reflection(CompileTarget target, Com
         }
     }
 
-    auto immediate_size = reflection->get_immediate_size();
-    CHECK_EQ(immediate_size, 64);
+    auto immediate_size = (*reflection)->get_immediate_size();
+    REQUIRE(immediate_size.has_value());
+    CHECK_EQ(*immediate_size, 64);
 }
 
 void test_shader_explicit_two_arg_binding_reflection(CompileTarget target, CompileFlags flags)
@@ -456,10 +463,11 @@ void test_shader_explicit_two_arg_binding_reflection(CompileTarget target, Compi
         {*module, "fsmain"},
     });
 
-    auto bindgroups = reflection->get_bind_group_layouts();
-    CHECK_EQ(bindgroups.size(), 1);
-    if (!bindgroups.empty()) {
-        auto& bg = bindgroups.at(0);
+    auto bindgroups = (*reflection)->get_bind_group_layouts();
+    REQUIRE(bindgroups.has_value());
+    CHECK_EQ(bindgroups->size(), 1);
+    if (!bindgroups->empty()) {
+        auto& bg = bindgroups->at(0);
         CHECK_EQ(bg.entries.size(), 2);
 
         auto lut_it = std::find_if(bg.entries.begin(), bg.entries.end(), [](const auto& e) {
@@ -560,7 +568,7 @@ TEST_CASE("utilities::plugin::load_error_retention" * doctest::description("plug
     CHECK(plugin.get_api()->create_compiler != nullptr);
 
     // Attempt to load a non-existent plugin; should return false without exiting
-    bool loaded = plugin.load("non_existent_plugin_12345");
+    bool loaded = static_cast<bool>(plugin.load("non_existent_plugin_12345"));
     CHECK(!loaded);
 
     // The previously loaded module must remain valid and intact
@@ -861,13 +869,13 @@ TEST_CASE("shader_library::modules_compilation")
         return compiler->compile(desc);
     });
 
-    CHECK(module != nullptr);
-    CHECK(module->handle.valid());
+    CHECK(module.has_value());
+    CHECK((*module)->handle.valid());
 
     auto reflection = compiler->reflect({
         {*module, "fsmain"},
     });
-    CHECK(reflection != nullptr);
+    CHECK(reflection.has_value());
 
     auto ies_module = execute([&]() {
         auto desc   = CompileDescriptor{};
@@ -875,14 +883,16 @@ TEST_CASE("shader_library::modules_compilation")
         desc.path   = "Engine/Assets/Shaders/LUT/IESProfiles.slang";
         return compiler->compile(desc);
     });
-    CHECK(ies_module != nullptr);
-    CHECK(ies_module->handle.valid());
+    CHECK(ies_module.has_value());
+    CHECK((*ies_module)->handle.valid());
 
     auto ies_reflection = compiler->reflect({
         {*ies_module, "csmain"},
     });
-    CHECK(ies_reflection != nullptr);
-    CHECK_EQ(ies_reflection->get_bind_group_layouts().size(), 1);
+    CHECK(ies_reflection.has_value());
+    auto ies_bindgroups = (*ies_reflection)->get_bind_group_layouts();
+    REQUIRE(ies_bindgroups.has_value());
+    CHECK_EQ(ies_bindgroups->size(), 1);
 
     auto culling_module = execute([&]() {
         auto desc   = CompileDescriptor{};
@@ -890,14 +900,16 @@ TEST_CASE("shader_library::modules_compilation")
         desc.path   = "Engine/Assets/Shaders/GPUDriven/Culling.slang";
         return compiler->compile(desc);
     });
-    CHECK(culling_module != nullptr);
-    CHECK(culling_module->handle.valid());
+    CHECK(culling_module.has_value());
+    CHECK((*culling_module)->handle.valid());
 
     auto culling_reflection = compiler->reflect({
         {*culling_module, "csmain"},
     });
-    CHECK(culling_reflection != nullptr);
-    CHECK_EQ(culling_reflection->get_bind_group_layouts().size(), 1);
+    CHECK(culling_reflection.has_value());
+    auto culling_bindgroups = (*culling_reflection)->get_bind_group_layouts();
+    REQUIRE(culling_bindgroups.has_value());
+    CHECK_EQ(culling_bindgroups->size(), 1);
 
     // post-processing shaders: AutoExposure, Bloom, DepthOfField, FXAA
     auto exposure_module = execute([&]() {
@@ -906,8 +918,8 @@ TEST_CASE("shader_library::modules_compilation")
         desc.path   = "Engine/Assets/Shaders/PostProcess/AutoExposure.slang";
         return compiler->compile(desc);
     });
-    CHECK(exposure_module != nullptr);
-    CHECK(exposure_module->handle.valid());
+    CHECK(exposure_module.has_value());
+    CHECK((*exposure_module)->handle.valid());
 
     auto bloom_module = execute([&]() {
         auto desc   = CompileDescriptor{};
@@ -915,8 +927,8 @@ TEST_CASE("shader_library::modules_compilation")
         desc.path   = "Engine/Assets/Shaders/PostProcess/Bloom.slang";
         return compiler->compile(desc);
     });
-    CHECK(bloom_module != nullptr);
-    CHECK(bloom_module->handle.valid());
+    CHECK(bloom_module.has_value());
+    CHECK((*bloom_module)->handle.valid());
 
     auto dof_module = execute([&]() {
         auto desc   = CompileDescriptor{};
@@ -924,8 +936,8 @@ TEST_CASE("shader_library::modules_compilation")
         desc.path   = "Engine/Assets/Shaders/PostProcess/DepthOfField.slang";
         return compiler->compile(desc);
     });
-    CHECK(dof_module != nullptr);
-    CHECK(dof_module->handle.valid());
+    CHECK(dof_module.has_value());
+    CHECK((*dof_module)->handle.valid());
 
     auto fxaa_module = execute([&]() {
         auto desc   = CompileDescriptor{};
@@ -933,8 +945,8 @@ TEST_CASE("shader_library::modules_compilation")
         desc.path   = "Engine/Assets/Shaders/PostProcess/FXAA.slang";
         return compiler->compile(desc);
     });
-    CHECK(fxaa_module != nullptr);
-    CHECK(fxaa_module->handle.valid());
+    CHECK(fxaa_module.has_value());
+    CHECK((*fxaa_module)->handle.valid());
 }
 
 TEST_CASE("shader_compiler::protocol_include_handling" * doctest::description("quoted protocol URI includes and VFS resolution"))
@@ -959,7 +971,7 @@ TEST_CASE("shader_compiler::protocol_include_handling" * doctest::description("q
     // 1. With FileLoader: protocol-based include handling enabled
     {
         FileLoader loader(FSLoader::NATIVE);
-        loader.mount("sys://test_shaders", temp_dir, 0);
+        (void)loader.mount("sys://test_shaders", temp_dir, 0);
 
         auto compiler = execute([&]() {
             auto desc      = CompilerDescriptor{};
@@ -987,8 +999,8 @@ TEST_CASE("shader_compiler::protocol_include_handling" * doctest::description("q
             desc.source = code1.c_str();
             return compiler->compile(desc);
         });
-        CHECK(module1 != nullptr);
-        CHECK(module1->handle.valid());
+        CHECK(module1.has_value());
+        CHECK((*module1)->handle.valid());
 
         // test nested include with relative navigation inside VFS
         String code2 = R"""(
@@ -1008,13 +1020,13 @@ TEST_CASE("shader_compiler::protocol_include_handling" * doctest::description("q
             desc.source = code2.c_str();
             return compiler->compile(desc);
         });
-        CHECK(module2 != nullptr);
-        CHECK(module2->handle.valid());
+        CHECK(module2.has_value());
+        CHECK((*module2)->handle.valid());
 
         // test compiling direct VFS path
         auto module3 = compiler->compile(Path("sys://test_shaders/sub/nested.slang"));
-        CHECK(module3 != nullptr);
-        CHECK(module3->handle.valid());
+        CHECK(module3.has_value());
+        CHECK((*module3)->handle.valid());
     }
 
     // 2. Without FileLoader (fs_loader == nullptr): protocol-based include handling disabled
@@ -1034,10 +1046,8 @@ TEST_CASE("shader_compiler::protocol_include_handling" * doctest::description("q
             void csmain() {}
         )""";
 
-        // Without fs_loader, protocol includes cannot be resolved and compilation throws
-        CHECK_THROWS_AS(
-            compiler->compile(CompileDescriptor{"vfs_fail", nullptr, code_fail.c_str()}),
-            std::runtime_error);
+        // Without fs_loader, protocol includes cannot be resolved and compilation fails
+        CHECK(!compiler->compile(CompileDescriptor{"vfs_fail", nullptr, code_fail.c_str()}).has_value());
     }
 
     std::filesystem::remove_all(temp_dir);

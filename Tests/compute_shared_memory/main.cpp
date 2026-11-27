@@ -150,9 +150,9 @@ struct ComputeSharedMemoryApp : public TestApp
             {*module, "csmain"},
         });
 
-        pipeline.init_cshader(device, module.get(), "csmain");
-        pipeline.init_playout(device, reflection.get());
-        pipeline.init_pipeline(device, reflection.get());
+        pipeline.init_cshader(device, module->get(), "csmain");
+        pipeline.init_playout(device, reflection->get());
+        pipeline.init_pipeline(device, reflection->get());
 
         auto heap_desc      = GPUBindGroupHeapDescriptor{};
         heap_desc.page_size = 64;

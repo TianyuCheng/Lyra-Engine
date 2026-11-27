@@ -31,7 +31,7 @@ void Compiler::destroy()
     Compiler::api()->delete_compiler(handle);
 }
 
-Own<ShaderModule> Compiler::compile(const Path& path)
+Result<Own<ShaderModule>> Compiler::compile(const Path& path)
 {
     auto path_str     = path.generic_string();
     auto stem_str     = path.stem().string();
@@ -44,7 +44,9 @@ Own<ShaderModule> Compiler::compile(const Path& path)
         descriptor.source = nullptr;
     } else {
         std::ifstream file(path);
-        assert(file.good());
+        if (!file.good()) {
+            return make_unexpected("Failed to open shader file: " + path.string());
+        }
 
         std::stringstream buffer;
         buffer << file.rdbuf();
@@ -54,24 +56,27 @@ Own<ShaderModule> Compiler::compile(const Path& path)
     return compile(descriptor);
 }
 
-Own<ShaderModule> Compiler::compile(const CompileDescriptor& descriptor)
+Result<Own<ShaderModule>> Compiler::compile(const CompileDescriptor& descriptor)
 {
     auto result  = std::make_unique<ShaderModule>();
     bool success = Compiler::api()->create_module(handle, descriptor, result->handle);
-    if (!success)
-        throw std::runtime_error("Failed to compile shader!");
+    if (!success) {
+        return make_unexpected("Failed to compile shader module: " + String(descriptor.module ? descriptor.module : "unknown"));
+    }
     return result;
 }
 
-Own<ShaderReflection> Compiler::reflect(ShaderEntryPoints entry_points)
+Result<Own<ShaderReflection>> Compiler::reflect(ShaderEntryPoints entry_points)
 {
     auto result  = std::make_unique<ShaderReflection>();
     bool success = Compiler::api()->create_reflection(handle, entry_points, result->handle);
-    if (!success) throw std::runtime_error("Failed to reflect shader!");
+    if (!success) {
+        return make_unexpected("Failed to reflect shader!");
+    }
     return result;
 }
 
-Own<ShaderReflection> Compiler::reflect(InitList<ShaderEntryPoint> entry_points)
+Result<Own<ShaderReflection>> Compiler::reflect(InitList<ShaderEntryPoint> entry_points)
 {
     Vector<ShaderEntryPoint> entries = entry_points;
     return reflect(entries);
@@ -84,13 +89,14 @@ ShaderModule::~ShaderModule()
     Compiler::api()->delete_module(handle);
 }
 
-OwnedShaderBlob ShaderModule::get_shader_blob(CString entry) const
+Result<ShaderBlob> ShaderModule::get_shader_blob(CString entry) const
 {
-    OwnedShaderBlob  blob;
+    ShaderBlob blob{};
     ShaderEntryPoint entry_point{handle, entry};
-    blob.reset(new ShaderBlob{});
-    bool success = Compiler::api()->get_shader_blob(entry_point, *blob.get());
-    if (!success) throw std::runtime_error("Failed to reflect shader!");
+    bool success = Compiler::api()->get_shader_blob(entry_point, blob);
+    if (!success) {
+        return make_unexpected("Failed to get shader blob for entry: " + String(entry ? entry : "null"));
+    }
     return blob;
 }
 #pragma endregion ShaderModule
@@ -101,44 +107,52 @@ ShaderReflection::~ShaderReflection()
     Compiler::api()->delete_reflection(handle);
 }
 
-uint ShaderReflection::get_bind_group_location(CString name) const
+Result<uint> ShaderReflection::get_bind_group_location(CString name) const
 {
-    uint group;
+    uint group = 0;
     bool success = Compiler::api()->get_bind_group_location(handle, name, group);
-    if (!success) throw std::runtime_error("Failed to reflect bind group location via name!");
+    if (!success) {
+        return make_unexpected("Failed to reflect bind group location via name: " + String(name ? name : "null"));
+    }
     return group;
 }
 
-GPUBindGroupLayoutDescriptors ShaderReflection::get_bind_group_layouts()
+Result<GPUBindGroupLayoutDescriptors> ShaderReflection::get_bind_group_layouts()
 {
-    uint count;
+    uint count = 0;
     Compiler::api()->get_bind_group_layouts(handle, count, nullptr);
 
     bind_group_layouts.resize(count);
     bool success = Compiler::api()->get_bind_group_layouts(handle, count, bind_group_layouts.data());
-    if (!success) throw std::runtime_error("Failed to reflect bind group layout descriptors!");
+    if (!success) {
+        return make_unexpected("Failed to reflect bind group layout descriptors!");
+    }
     return bind_group_layouts;
 }
 
-uint ShaderReflection::get_immediate_size()
+Result<uint> ShaderReflection::get_immediate_size()
 {
     bool success = Compiler::api()->get_immediate_size(handle, immediate_size);
-    if (!success) throw std::runtime_error("Failed to reflect immediate size!");
+    if (!success) {
+        return make_unexpected("Failed to reflect immediate size!");
+    }
     return immediate_size;
 }
 
-GPUVertexAttributes ShaderReflection::get_vertex_attributes(ShaderAttributes attrs)
+Result<GPUVertexAttributes> ShaderReflection::get_vertex_attributes(ShaderAttributes attrs)
 {
     vertex_attributes.push_front({});
     auto& attributes = vertex_attributes.front();
     attributes.resize(attrs.size());
 
     bool success = Compiler::api()->get_vertex_attributes(handle, attrs, attributes.data());
-    if (!success) throw std::runtime_error("Failed to reflect vertex attributes!");
+    if (!success) {
+        return make_unexpected("Failed to reflect vertex attributes!");
+    }
     return attributes;
 }
 
-GPUVertexAttributes ShaderReflection::get_vertex_attributes(InitList<ShaderAttribute> attrs)
+Result<GPUVertexAttributes> ShaderReflection::get_vertex_attributes(InitList<ShaderAttribute> attrs)
 {
     Vector<ShaderAttribute> copied = attrs;
     return get_vertex_attributes(copied);

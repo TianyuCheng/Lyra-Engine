@@ -228,12 +228,12 @@ void AudioBus::destroy()
 
 #pragma region Audio Subsystem Coordinator
 
-bool Audio::init(AudioBackend backend)
+Result<void> Audio::init(AudioBackend backend)
 {
     LockGuard<Mutex> lock(get_slot_mutex());
 
     if (g_slot.active && g_slot.backend_type == backend && g_slot.api) {
-        return true;
+        return {};
     }
 
     g_slot.builtin_plugin.reset();
@@ -268,29 +268,29 @@ bool Audio::init(AudioBackend backend)
         case AudioBackend::Custom:
         {
             get_logger()->error("Use Audio::init(StringView custom_backend) for custom plugins");
-            return false;
+            return make_unexpected("Use Audio::init(StringView custom_backend) for custom plugins");
         }
     }
 
     if (!g_slot.api) {
         get_logger()->error("Failed to initialize audio backend");
-        return false;
+        return make_unexpected("Failed to initialize audio backend");
     }
 
     // create primary output device
     AudioDeviceDescriptor device_desc{};
     if (g_slot.api->create_device && !g_slot.api->create_device(device_desc)) {
         get_logger()->error("Audio device creation failed on active backend");
-        return false;
+        return make_unexpected("Audio device creation failed on active backend");
     }
 
     g_slot.active    = true;
     g_active_backend = backend;
     get_logger()->info("Audio subsystem initialized with backend: {}", g_slot.api->get_api_name ? g_slot.api->get_api_name() : "unknown");
-    return true;
+    return {};
 }
 
-bool Audio::init(StringView custom_backend)
+Result<void> Audio::init(StringView custom_backend)
 {
     LockGuard<Mutex> lock(get_slot_mutex());
 
@@ -300,24 +300,30 @@ bool Audio::init(StringView custom_backend)
     g_slot.active       = false;
     g_slot.backend_type = AudioBackend::Custom;
 
-    g_slot.plugin = make_own<AudioPlugin>(to_string(String(custom_backend)).c_str());
-    g_slot.api    = g_slot.plugin->get_api();
+    g_slot.plugin = make_own<AudioPlugin>();
+    String plugin_name(custom_backend);
+    auto loaded = g_slot.plugin->load(plugin_name.c_str());
+    if (!loaded) {
+        get_logger()->error("Failed to load custom audio plugin: {}: {}", custom_backend, loaded.error());
+        return make_unexpected("Failed to load custom audio plugin '" + plugin_name + "': " + loaded.error());
+    }
+    g_slot.api = g_slot.plugin->get_api();
 
     if (!g_slot.api) {
-        get_logger()->error("Failed to load custom audio plugin: {}", custom_backend);
-        return false;
+        get_logger()->error("Failed to get API from custom audio plugin: {}", custom_backend);
+        return make_unexpected("Failed to get API from custom audio plugin: " + plugin_name);
     }
 
     AudioDeviceDescriptor device_desc{};
     if (g_slot.api->create_device && !g_slot.api->create_device(device_desc)) {
         get_logger()->error("Audio device creation failed on custom backend");
-        return false;
+        return make_unexpected("Audio device creation failed on custom backend");
     }
 
     g_slot.active    = true;
     g_active_backend = AudioBackend::Custom;
     get_logger()->info("Audio subsystem initialized with custom backend: {}", custom_backend);
-    return true;
+    return {};
 }
 
 void Audio::shutdown()

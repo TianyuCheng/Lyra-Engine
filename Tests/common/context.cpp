@@ -40,7 +40,7 @@ bool TestContext::acquire(RHIBackend backend, RHIFlags flags, const Vector<GPUFe
         String engine_assets_str = (repo_root / "Engine" / "Assets").lexically_normal().string();
 
         loader = make_own<FileLoader>(FSLoader::NATIVE);
-        loader->mount("sys://", engine_assets_str.c_str(), 0);
+        (void)loader->mount("sys://", engine_assets_str.c_str(), 0);
     }
 
     auto rhi_desc    = RHIDescriptor{};

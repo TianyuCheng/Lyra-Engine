@@ -317,7 +317,7 @@ void SceneView::handle_picking(AppContext& context)
             } else if (ams) {
                 asset = ams->get_asset(mesh_comp.mesh);
                 if (!asset && mesh_comp.mesh.valid()) {
-                    ams->load_asset<MeshAsset>(mesh_comp.mesh.guid);
+                    (void)ams->load_asset<MeshAsset>(mesh_comp.mesh.guid);
                     asset = ams->get_asset(mesh_comp.mesh);
                 }
             }
@@ -395,22 +395,22 @@ void SceneView::update(AppContext& context)
             if (ams && scene_mgr) {
                 Path model_path(path_cstr);
                 auto model_handle = ams->load_asset<ModelAsset>(path_cstr);
-                if (!model_handle.valid()) {
+                if (!model_handle) {
                     model_handle = ams->load_asset<ModelAsset>(model_path.filename().generic_string().c_str());
                 }
-                if (!model_handle.valid() && ams->has_cooker_for(model_path)) {
+                if (!model_handle && ams->has_cooker_for(model_path)) {
                     auto [full_path, rel_path] = ams->resolve_asset_path(model_path);
                     auto    fut                = ams->import_asset(rel_path, false);
-                    AssetID cooked_guid        = fut.get();
-                    if (cooked_guid != 0) {
-                        model_handle = ams->load_asset<ModelAsset>(cooked_guid);
+                    auto    cooked_guid        = fut.get();
+                    if (cooked_guid && *cooked_guid != 0) {
+                        model_handle = ams->load_asset<ModelAsset>(*cooked_guid);
                     }
                 }
                 bool spawned = false;
-                if (model_handle.valid()) {
+                if (model_handle && model_handle->valid()) {
                     SpawnParams params;
                     params.name = model_path.stem().string();
-                    auto node   = scene_mgr->spawn(model_handle, params);
+                    auto node   = scene_mgr->spawn(*model_handle, params);
                     if (node.entity != entt::null) {
                         scene_mgr->set_dirty(true);
                         spawned = true;
@@ -432,8 +432,8 @@ void SceneView::update(AppContext& context)
                     }
                 }
                 auto res = scene_mgr->load(Path(path_cstr), LoadMode::SINGLE);
-                if (res == INVALID_SCENE_INSTANCE) {
-                    ui::dialog::alert("Load Failed", "Failed to load scene:\n" + Path(path_cstr).filename().string() + "\n\nSee console log for error details.", ui::StatusRole::Error);
+                if (!res) {
+                    ui::dialog::alert("Load Failed", "Failed to load scene:\n" + Path(path_cstr).filename().string() + "\n\n" + res.error(), ui::StatusRole::Error);
                 }
             }
         });

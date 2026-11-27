@@ -9,8 +9,8 @@ using namespace lyra;
 TEST_CASE("Audio Subsystem - Mock Backend Lifecycle and Playback")
 {
     // 1. Subsystem initialization
-    bool init_ok = Audio::init(AudioBackend::Mock);
-    CHECK(init_ok);
+    auto init_ok = Audio::init(AudioBackend::Mock);
+    CHECK(init_ok.has_value());
     CHECK(Audio::api() != nullptr);
     CHECK(Audio::get_active_backend() == AudioBackend::Mock);
 
@@ -20,10 +20,10 @@ TEST_CASE("Audio Subsystem - Mock Backend Lifecycle and Playback")
 
     // 3. Audio Bus creation and properties
     AudioBusDescriptor bus_desc{};
-    bus_desc.name    = "SFX_Bus";
-    bus_desc.volume  = 0.8f;
-    bus_desc.muted   = false;
-    AudioBus sfx_bus = Audio::create_bus(bus_desc);
+    bus_desc.name   = "SFX_Bus";
+    bus_desc.volume = 0.8f;
+    bus_desc.muted  = false;
+    auto sfx_bus    = Audio::create_bus(bus_desc);
     CHECK(sfx_bus.valid());
     CHECK(sfx_bus.get_volume() == doctest::Approx(0.8f));
     CHECK(!sfx_bus.is_muted());
@@ -34,7 +34,7 @@ TEST_CASE("Audio Subsystem - Mock Backend Lifecycle and Playback")
     // 4. Clip creation
     AudioClipDescriptor clip_desc{};
     clip_desc.source_format = "wav";
-    AudioClip clip          = Audio::create_clip(clip_desc);
+    auto clip               = Audio::create_clip(clip_desc);
     CHECK(clip.valid());
     CHECK(clip.get_duration() == doctest::Approx(5.0f));
 
@@ -48,7 +48,7 @@ TEST_CASE("Audio Subsystem - Mock Backend Lifecycle and Playback")
     sound_desc.spatialized = true;
     sound_desc.position    = Vector3(10.0f, 0.0f, 5.0f);
 
-    Sound sound = Audio::create_sound(sound_desc);
+    auto sound = Audio::create_sound(sound_desc);
     CHECK(sound.valid());
     CHECK(sound.get_state() == AudioPlayState::Stopped);
     CHECK(sound.get_cursor() == doctest::Approx(0.0f));
@@ -101,7 +101,7 @@ TEST_CASE("Audio Subsystem - Mock Backend Lifecycle and Playback")
 
 TEST_CASE("Audio Subsystem - Miniaudio Backend Lifecycle")
 {
-    bool init_ok = Audio::init(AudioBackend::Miniaudio);
+    auto init_ok = Audio::init(AudioBackend::Miniaudio);
     if (!init_ok) {
         MESSAGE("Miniaudio backend init skipped (no audio device available)");
         return;
@@ -114,10 +114,10 @@ TEST_CASE("Audio Subsystem - Miniaudio Backend Lifecycle")
     CHECK(Audio::get_master_volume() == doctest::Approx(0.6f));
 
     AudioBusDescriptor bus_desc{};
-    bus_desc.name      = "MusicBus";
-    bus_desc.volume    = 0.5f;
-    bus_desc.muted     = false;
-    AudioBus music_bus = Audio::create_bus(bus_desc);
+    bus_desc.name   = "MusicBus";
+    bus_desc.volume = 0.5f;
+    bus_desc.muted  = false;
+    auto music_bus  = Audio::create_bus(bus_desc);
     CHECK(music_bus.valid());
     CHECK(music_bus.get_volume() == doctest::Approx(0.5f));
     CHECK(!music_bus.is_muted());

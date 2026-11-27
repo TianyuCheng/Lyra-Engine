@@ -8,17 +8,31 @@ using WindowPlugin = Plugin<WindowAPI>;
 
 static Own<WindowPlugin> WINDOW_PLUGIN;
 
-OwnedResource<Window> Window::init(const WindowDescriptor& descriptor)
+Result<OwnedResource<Window>> Window::init(const WindowDescriptor& descriptor)
 {
     if (WINDOW_PLUGIN.get()) {
-        show_error("WSI", "Call Window::init() exactly once!");
-        exit(1);
+        return make_unexpected("Call Window::init() exactly once!");
     }
 
-    WINDOW_PLUGIN = std::make_unique<WindowPlugin>("lyra-glfw");
+    WINDOW_PLUGIN = std::make_unique<WindowPlugin>();
+    auto loaded   = WINDOW_PLUGIN->load("lyra-glfw");
+    if (!loaded) {
+        WINDOW_PLUGIN.reset();
+        return make_unexpected("Failed to load WSI plugin 'lyra-glfw': " + loaded.error());
+    }
+
+    auto api = Window::api();
+    if (!api || !api->create_window) {
+        WINDOW_PLUGIN.reset();
+        return make_unexpected("WSI plugin 'lyra-glfw' missing create_window entry point");
+    }
 
     OwnedResource<Window> window(new Window());
-    Window::api()->create_window(descriptor, window->handle);
+    if (!api->create_window(descriptor, window->handle)) {
+        WINDOW_PLUGIN.reset();
+        return make_unexpected("Failed to create WSI window");
+    }
+
     return window;
 }
 

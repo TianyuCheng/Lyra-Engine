@@ -218,10 +218,10 @@ struct DepthCompareOpsApp : public TestApp
             pipe.init_color_state(get_backbuffer_format());
             pipe.init_depth_state(GPUTextureFormat::DEPTH16UNORM, depth_comp, depth_write);
 
-            pipe.init_vshader(device, module.get(), "vsmain");
-            pipe.init_fshader(device, module.get(), "fsmain");
-            pipe.init_playout(device, reflection.get());
-            pipe.init_pipeline(device, reflection.get());
+            pipe.init_vshader(device, module->get(), "vsmain");
+            pipe.init_fshader(device, module->get(), "fsmain");
+            pipe.init_playout(device, reflection->get());
+            pipe.init_pipeline(device, reflection->get());
         };
 
         init_pipe(pipeline_base_card, GPUCompareFunction::ALWAYS, true);

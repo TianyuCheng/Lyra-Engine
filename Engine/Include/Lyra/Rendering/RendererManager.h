@@ -5,6 +5,7 @@
 
 #include <Lyra/Utilities/String.h>
 #include <Lyra/Utilities/Pointer.h>
+#include <Lyra/Utilities/Result.h>
 #include <Lyra/Graphics/RHITypes.h>
 #include <Lyra/Runtime/AppTypes.h>
 #include <Lyra/Rendering/FrameArena.h>
@@ -34,7 +35,7 @@ namespace lyra
         /**
          * @brief initialize renderer manager with graphics device and compiler.
          */
-        bool init(AppContext& context, const RendererDescriptor& desc);
+        void init(AppContext& context, const RendererDescriptor& desc);
 
         /**
          * @brief safely shut down the active renderer and unload plugins.
@@ -44,24 +45,24 @@ namespace lyra
         /**
          * @brief load a renderer plugin by module name (e.g. "lyra-forward").
          */
-        bool load_renderer(AppContext& context, StringView plugin_name);
+        Result<void> load_renderer(AppContext& context, StringView plugin_name);
 
         /**
          * @brief load a renderer plugin by backend enum.
          */
-        bool load_renderer(AppContext& context, RendererBackend backend);
+        Result<void> load_renderer(AppContext& context, RendererBackend backend);
 
         /**
          * @brief dynamically swap the active renderer at runtime.
          *        Drains in-flight GPU frames, shuts down previous renderer,
          *        and instantiates the new renderer with the current viewport size.
          */
-        bool switch_renderer(AppContext& context, StringView plugin_name);
+        Result<void> switch_renderer(AppContext& context, StringView plugin_name);
 
         /**
          * @brief dynamically swap the active renderer at runtime by backend enum.
          */
-        bool switch_renderer(AppContext& context, RendererBackend backend);
+        Result<void> switch_renderer(AppContext& context, RendererBackend backend);
 
         /**
          * @brief notify the active renderer of viewport resize.

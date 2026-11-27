@@ -143,10 +143,10 @@ struct IndirectDrawingApp : public TestApp
         card_pipeline.primitive = prim;
 
         card_pipeline.init_color_state(get_backbuffer_format());
-        card_pipeline.init_vshader(device, module.get(), "vsmain");
-        card_pipeline.init_fshader(device, module.get(), "fsmain");
-        card_pipeline.init_playout(device, reflection.get());
-        card_pipeline.init_pipeline(device, reflection.get());
+        card_pipeline.init_vshader(device, module->get(), "vsmain");
+        card_pipeline.init_fshader(device, module->get(), "fsmain");
+        card_pipeline.init_playout(device, reflection->get());
+        card_pipeline.init_pipeline(device, reflection->get());
     }
 
     void setup_geometry_and_indirect_buffers()
@@ -294,10 +294,10 @@ struct IndirectDrawingApp : public TestApp
         badge_pipeline.primitive = prim;
 
         badge_pipeline.init_color_state(get_backbuffer_format());
-        badge_pipeline.init_vshader(device, module.get(), "vsmain");
-        badge_pipeline.init_fshader(device, module.get(), "fsmain");
-        badge_pipeline.init_playout(device, reflection.get());
-        badge_pipeline.init_pipeline(device, reflection.get());
+        badge_pipeline.init_vshader(device, module->get(), "vsmain");
+        badge_pipeline.init_fshader(device, module->get(), "fsmain");
+        badge_pipeline.init_playout(device, reflection->get());
+        badge_pipeline.init_pipeline(device, reflection->get());
     }
 
     void render(const GPUSurfaceTexture& backbuffer) override

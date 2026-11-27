@@ -156,10 +156,10 @@ struct FrameGraphApp : public TestApp
         pipeline1.attributes.push_back({"position", offsetof(Vertex, position)});
         pipeline1.attributes.push_back({"color", offsetof(Vertex, color)});
         pipeline1.init_color_state(GPUTextureFormat::RGBA8UNORM);
-        pipeline1.init_vshader(device, module.get(), "vsmain");
-        pipeline1.init_fshader(device, module.get(), "fsmain");
-        pipeline1.init_playout(device, reflection.get());
-        pipeline1.init_pipeline(device, reflection.get());
+        pipeline1.init_vshader(device, module->get(), "vsmain");
+        pipeline1.init_fshader(device, module->get(), "fsmain");
+        pipeline1.init_playout(device, reflection->get());
+        pipeline1.init_pipeline(device, reflection->get());
     }
 
     void setup_pipeline2()
@@ -183,10 +183,10 @@ struct FrameGraphApp : public TestApp
         pipeline2.attributes.push_back({"position", offsetof(Vertex, position)});
         pipeline2.attributes.push_back({"uv", offsetof(Vertex, uv)});
         pipeline2.init_color_state(get_backbuffer_format());
-        pipeline2.init_vshader(device, module.get(), "vsmain");
-        pipeline2.init_fshader(device, module.get(), "fsmain");
-        pipeline2.init_playout(device, reflection.get());
-        pipeline2.init_pipeline(device, reflection.get());
+        pipeline2.init_vshader(device, module->get(), "vsmain");
+        pipeline2.init_fshader(device, module->get(), "fsmain");
+        pipeline2.init_playout(device, reflection->get());
+        pipeline2.init_pipeline(device, reflection->get());
     }
 
     void pass1(GPUCommandBuffer& command, GPUTextureView view)

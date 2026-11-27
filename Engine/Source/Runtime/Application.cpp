@@ -147,7 +147,10 @@ void Application::init_filesystem()
     if (!descriptor.vfs.mounts.empty()) {
         loader = make_own<FileLoader>(descriptor.vfs.backend);
         for (const auto& m : descriptor.vfs.mounts) {
-            loader->mount(m.scheme.c_str(), m.physical, m.priority);
+            auto res = loader->mount(m.scheme.c_str(), m.physical, m.priority);
+            if (!res) {
+                spdlog::warn("failed to mount {} -> {}: {}", m.scheme, m.physical.generic_string(), res.error());
+            }
         }
     }
 }
@@ -166,7 +169,12 @@ void Application::init_logger()
 void Application::init_window()
 {
     // initialize WSI (window system integration)
-    wsi = Window::init(descriptor.wsi);
+    auto win = Window::init(descriptor.wsi);
+    if (!win) {
+        spdlog::critical("Failed to initialize window: {}", win.error());
+        exit(1);
+    }
+    wsi = std::move(*win);
 }
 
 /**

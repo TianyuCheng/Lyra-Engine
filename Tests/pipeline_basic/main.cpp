@@ -83,10 +83,10 @@ struct GraphicsPipelineApp : public TestApp
         pipeline.attributes.push_back({"position", offsetof(Vertex, position)});
         pipeline.attributes.push_back({"color", offsetof(Vertex, color)});
         pipeline.init_color_state(get_backbuffer_format());
-        pipeline.init_vshader(device, module.get(), "vsmain");
-        pipeline.init_fshader(device, module.get(), "fsmain");
-        pipeline.init_playout(device, reflection.get());
-        pipeline.init_pipeline(device, reflection.get());
+        pipeline.init_vshader(device, module->get(), "vsmain");
+        pipeline.init_fshader(device, module->get(), "fsmain");
+        pipeline.init_playout(device, reflection->get());
+        pipeline.init_pipeline(device, reflection->get());
 
         test_vertex_attribute_semantics(device);
     }
@@ -131,8 +131,10 @@ float4 fs_complex(ComplexVertexOutput input) : SV_Target
             return compiler->compile(desc);
         });
 
-        auto vs_code = module->get_shader_blob("vs_complex");
-        auto fs_code = module->get_shader_blob("fs_complex");
+        auto vs_code = (*module)->get_shader_blob("vs_complex");
+        auto fs_code = (*module)->get_shader_blob("fs_complex");
+        REQUIRE(vs_code);
+        REQUIRE(fs_code);
 
         GPUShaderModuleDescriptor vs_desc{};
         vs_desc.label = "vs_complex";
@@ -248,9 +250,10 @@ float4 fs_heap() : SV_Target { return float4(1, 1, 1, 1); }
             {*module, "fs_heap"},
         });
 
-        auto blayouts = reflection->get_bind_group_layouts();
-        REQUIRE(!blayouts.empty());
-        auto blayout = device.create_bind_group_layout(blayouts[0]);
+        auto blayouts = (*reflection)->get_bind_group_layouts();
+        REQUIRE(blayouts);
+        REQUIRE(!blayouts->empty());
+        auto blayout = device.create_bind_group_layout((*blayouts)[0]);
         REQUIRE(blayout.valid());
 
         // create heap with small page size of 4 to force multi-pool allocations

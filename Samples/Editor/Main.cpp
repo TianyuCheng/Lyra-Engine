@@ -114,7 +114,7 @@ int main(int argc, const char* argv[])
 
     auto registry = root / "Assets.toml";
 
-    auto engine_root        = git_root() / "Engine";
+    auto engine_root        = git_root().value_or(Path(".")) / "Engine";
     auto engine_assets_root = engine_root / "Assets";
     if (!fs::exists(engine_assets_root))
         fs::create_directories(engine_assets_root);

@@ -8,14 +8,14 @@ using namespace lyra;
 static void* load_toml_asset(FileLoader* loader, FSPath path)
 {
     auto content = loader->read<char>(path);
-    if (content.empty()) {
+    if (!content || content->empty()) {
         return new TomlAsset{};
     }
-    usize size = content.size();
-    if (content.back() == '\0') {
+    usize size = content->size();
+    if (content->back() == '\0') {
         size--;
     }
-    auto view = StringView(content.data(), size);
+    auto view = StringView(content->data(), size);
     return new TomlAsset{toml::parse(view)};
 }
 

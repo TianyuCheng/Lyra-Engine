@@ -88,8 +88,8 @@ void lyra::setup_editor_commands(AppContext& context)
                     return;
                 }
                 auto res = scene_mgr->load(Path(*vpath), LoadMode::SINGLE);
-                if (res == INVALID_SCENE_INSTANCE) {
-                    ui::dialog::alert("Load Failed", "Failed to load scene:\n" + *vpath + "\n\nSee console log for error details.", ui::StatusRole::Error);
+                if (!res) {
+                    ui::dialog::alert("Load Failed", "Failed to load scene:\n" + *vpath + "\n\n" + res.error(), ui::StatusRole::Error);
                 }
             }
         },
@@ -109,8 +109,8 @@ void lyra::setup_editor_commands(AppContext& context)
             auto scene_mgr = context.services.try_get<SceneManager>();
             if (!scene_mgr) return;
             if (!scene_mgr->get_active_path().empty()) {
-                if (!scene_mgr->save_active()) {
-                    ui::dialog::alert("Save Failed", "Failed to save active scene:\n" + scene_mgr->get_active_path().string(), ui::StatusRole::Error);
+                if (auto res = scene_mgr->save_active(); !res) {
+                    ui::dialog::alert("Save Failed", "Failed to save active scene:\n" + scene_mgr->get_active_path().string() + "\n\n" + res.error(), ui::StatusRole::Error);
                 }
                 reset_input_states();
             } else {
@@ -147,8 +147,8 @@ void lyra::setup_editor_commands(AppContext& context)
                     ui::dialog::alert("Save Failed", "Scenes must be saved inside the project assets folder:\n" + p.string(), ui::StatusRole::Error);
                     return;
                 }
-                if (!scene_mgr->save(Path(*vpath))) {
-                    ui::dialog::alert("Save Failed", "Failed to save scene to:\n" + *vpath, ui::StatusRole::Error);
+                if (auto res = scene_mgr->save(Path(*vpath)); !res) {
+                    ui::dialog::alert("Save Failed", "Failed to save scene to:\n" + *vpath + "\n\n" + res.error(), ui::StatusRole::Error);
                 }
             }
         },
@@ -177,8 +177,8 @@ void lyra::setup_editor_commands(AppContext& context)
                     return;
                 }
                 auto res = scene_mgr->load(Path(*vpath), LoadMode::ADDITIVE);
-                if (res == INVALID_SCENE_INSTANCE) {
-                    ui::dialog::alert("Load Failed", "Failed to load scene additively:\n" + *vpath + "\n\nSee console log for error details.", ui::StatusRole::Error);
+                if (!res) {
+                    ui::dialog::alert("Load Failed", "Failed to load scene additively:\n" + *vpath + "\n\n" + res.error(), ui::StatusRole::Error);
                 }
             }
         },

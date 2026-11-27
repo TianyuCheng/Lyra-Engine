@@ -136,7 +136,7 @@ TEST_CASE("rendering::mesh_pass_pipeline_resolver" * doctest::description("Verif
 TEST_CASE("rendering::shading_model_variant_compilation" * doctest::description("Verify compilation and reflection across specialized shading model variants without module collisions"))
 {
     FileLoader loader(FSLoader::NATIVE);
-    loader.mount("sys://", "Engine/Assets", 0);
+    (void)loader.mount("sys://", "Engine/Assets", 0);
 
     static CString     includes[] = {"Engine/Assets/Shaders"};
     CompilerDescriptor cdesc{};
@@ -151,59 +151,60 @@ TEST_CASE("rendering::shading_model_variant_compilation" * doctest::description(
     desc.module = "Forward";
     desc.path   = "sys://Shaders/Forward/Forward.slang";
     auto mod    = compiler->compile(desc);
-    REQUIRE(mod != nullptr);
+    REQUIRE(mod.has_value());
 
     // 2. Reflect specialized Standard variant
     auto refl_standard = compiler->reflect({
         {*mod, "vsmain"},
         {*mod, "fs_standard"},
     });
-    REQUIRE(refl_standard != nullptr);
-    CHECK_EQ(refl_standard->get_immediate_size(), sizeof(MeshDrawInstance));
+    REQUIRE(refl_standard.has_value());
+    CHECK_EQ(*(*refl_standard)->get_immediate_size(), sizeof(MeshDrawInstance));
     CHECK_EQ(sizeof(MeshDrawInstance), 112);
-    auto layouts = refl_standard->get_bind_group_layouts();
-    REQUIRE_EQ(layouts.size(), 2);
-    CHECK_EQ(layouts[0].entries.size(), 9); // Camera, shadow map, shadow sampler, cluster grid, light index, lights, env_map, brdf_lut, env_sampler in set 0
-    CHECK_EQ(layouts[1].entries.size(), 1); // Vertex buffer in set 1
+    auto layouts = (*refl_standard)->get_bind_group_layouts();
+    REQUIRE(layouts.has_value());
+    REQUIRE_EQ(layouts->size(), 2);
+    CHECK_EQ((*layouts)[0].entries.size(), 9); // Camera, shadow map, shadow sampler, cluster grid, light index, lights, env_map, brdf_lut, env_sampler in set 0
+    CHECK_EQ((*layouts)[1].entries.size(), 1); // Vertex buffer in set 1
 
     // 3. Reflect specialized Clearcoat variant
     auto refl_clearcoat = compiler->reflect({
         {*mod, "vsmain"},
         {*mod, "fs_clearcoat"},
     });
-    REQUIRE(refl_clearcoat != nullptr);
+    REQUIRE(refl_clearcoat.has_value());
 
     // 4. Reflect specialized Subsurface variant
     auto refl_subsurface = compiler->reflect({
         {*mod, "vsmain"},
         {*mod, "fs_subsurface"},
     });
-    REQUIRE(refl_subsurface != nullptr);
+    REQUIRE(refl_subsurface.has_value());
 
     // 5. Reflect specialized Unlit variant
     auto refl_unlit = compiler->reflect({
         {*mod, "vsmain"},
         {*mod, "fs_unlit"},
     });
-    REQUIRE(refl_unlit != nullptr);
+    REQUIRE(refl_unlit.has_value());
 
     // 5. Compile and reflect Skybox shader
     CompileDescriptor sky_desc{};
     sky_desc.module = "Skybox";
     sky_desc.path   = "sys://Shaders/Sky/Skybox.slang";
     auto sky_mod    = compiler->compile(sky_desc);
-    REQUIRE(sky_mod != nullptr);
+    REQUIRE(sky_mod.has_value());
 
     auto refl_sky = compiler->reflect({
         {*sky_mod, "vsmain"},
         {*sky_mod, "fsmain"},
     });
-    REQUIRE(refl_sky != nullptr);
+    REQUIRE(refl_sky.has_value());
 
     // 6. Compile Clouds shader module
     CompileDescriptor cloud_desc{};
     cloud_desc.module = "Clouds";
     cloud_desc.path   = "sys://Shaders/Sky/Clouds.slang";
     auto cloud_mod    = compiler->compile(cloud_desc);
-    REQUIRE(cloud_mod != nullptr);
+    REQUIRE(cloud_mod.has_value());
 }

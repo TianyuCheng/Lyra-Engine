@@ -18,11 +18,10 @@ RendererManager::~RendererManager()
     }
 }
 
-bool RendererManager::init(AppContext& context, const RendererDescriptor& desc)
+void RendererManager::init(AppContext& context, const RendererDescriptor& desc)
 {
     descriptor  = desc;
     initialized = true;
-    return true;
 }
 
 void RendererManager::shutdown(AppContext& context)
@@ -48,7 +47,7 @@ void RendererManager::shutdown(AppContext& context)
     initialized = false;
 }
 
-bool RendererManager::load_renderer(AppContext& context, StringView plugin_name)
+Result<void> RendererManager::load_renderer(AppContext& context, StringView plugin_name)
 {
     if (has_active_renderer()) {
         current_plugin.get_api()->delete_renderer(active_handle);
@@ -59,22 +58,23 @@ bool RendererManager::load_renderer(AppContext& context, StringView plugin_name)
     }
 
     String name_str(plugin_name);
-    if (!current_plugin.load(name_str.c_str())) {
-        spdlog::error("failed to load renderer plugin '{}'", name_str);
-        return false;
+    auto loaded = current_plugin.load(name_str.c_str());
+    if (!loaded) {
+        spdlog::error("failed to load renderer plugin '{}': {}", name_str, loaded.error());
+        return make_unexpected("failed to load renderer plugin '" + name_str + "': " + loaded.error());
     }
 
     auto api = current_plugin.get_api();
     if (!api || !api->create_renderer) {
         spdlog::error("renderer plugin '{}' missing create_renderer entry point", name_str);
         current_plugin.unload();
-        return false;
+        return make_unexpected("renderer plugin '" + name_str + "' missing create_renderer entry point");
     }
 
     if (!api->create_renderer(active_handle, descriptor)) {
         spdlog::error("failed to create renderer instance from plugin '{}'", name_str);
         current_plugin.unload();
-        return false;
+        return make_unexpected("failed to create renderer instance from plugin '" + name_str + "'");
     }
 
     active_name    = name_str;
@@ -89,20 +89,20 @@ bool RendererManager::load_renderer(AppContext& context, StringView plugin_name)
     }
 
     spdlog::info("successfully loaded renderer '{}' ({})", api->get_name ? api->get_name() : name_str.c_str(), name_str.c_str());
-    return true;
+    return {};
 }
 
-bool RendererManager::load_renderer(AppContext& context, RendererBackend backend)
+Result<void> RendererManager::load_renderer(AppContext& context, RendererBackend backend)
 {
     auto plugin_name = get_renderer_plugin_name(backend);
-    bool ok          = load_renderer(context, plugin_name);
-    if (ok) {
+    auto res         = load_renderer(context, plugin_name);
+    if (res) {
         active_backend = backend;
     }
-    return ok;
+    return res;
 }
 
-bool RendererManager::switch_renderer(AppContext& context, StringView plugin_name)
+Result<void> RendererManager::switch_renderer(AppContext& context, StringView plugin_name)
 {
     // synchronize gpu device before dismantling active pipelines
     if (auto dev = context.services.try_get<GPUDevice*>()) {
@@ -118,7 +118,7 @@ bool RendererManager::switch_renderer(AppContext& context, StringView plugin_nam
     return load_renderer(context, plugin_name);
 }
 
-bool RendererManager::switch_renderer(AppContext& context, RendererBackend backend)
+Result<void> RendererManager::switch_renderer(AppContext& context, RendererBackend backend)
 {
     auto plugin_name = get_renderer_plugin_name(backend);
     return switch_renderer(context, plugin_name);

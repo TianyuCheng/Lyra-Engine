@@ -219,7 +219,7 @@ struct SceneSuiteEnv
 
         auto reg_file = temp_dir / "Assets.toml";
         loader        = std::make_unique<lyra::FileLoader>(lyra::FSLoader::NATIVE);
-        loader->mount("app://", temp_dir.c_str(), 0);
+        (void)loader->mount("app://", temp_dir.c_str(), 0);
 
         lyra::AMSDescriptor desc = {};
         desc.registry            = reg_file.c_str();
@@ -259,18 +259,19 @@ TEST_CASE("scn::scene_manager" * doctest::description("Scene Manager Lifecycle a
     SUBCASE("spawn model asset handle")
     {
         auto model_handle = env.ams->load_asset<lyra::ModelAsset>("app://car.model");
-        REQUIRE(model_handle.valid());
+        REQUIRE(model_handle.has_value());
+        REQUIRE(model_handle->valid());
 
         int timeout = 100;
-        while (env.ams->get_asset(model_handle) == nullptr && timeout-- > 0) {
+        while (env.ams->get_asset(*model_handle) == nullptr && timeout-- > 0) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
-        REQUIRE_NE(env.ams->get_asset(model_handle), nullptr);
+        REQUIRE_NE(env.ams->get_asset(*model_handle), nullptr);
 
         lyra::SpawnParams params;
         params.position = lyra::Vector3(10.0f, 0.0f, 0.0f);
 
-        auto root = scene_manager.spawn(model_handle, params);
+        auto root = scene_manager.spawn(*model_handle, params);
 
         CHECK(world.registry.valid(root.entity));
         CHECK_EQ(world.registry.get<lyra::NodeName>(root.entity).name, "CarRoot");
@@ -307,26 +308,27 @@ TEST_CASE("scn::scene_manager" * doctest::description("Scene Manager Lifecycle a
         scene_manager.clear();
 
         auto model_handle = env.ams->load_asset<lyra::ModelAsset>("app://car.model");
-        REQUIRE(model_handle.valid());
+        REQUIRE(model_handle.has_value());
+        REQUIRE(model_handle->valid());
 
         // 1. spawn with custom name
         lyra::SpawnParams p1;
         p1.name    = "CustomModel";
-        auto root1 = scene_manager.spawn(model_handle, p1);
+        auto root1 = scene_manager.spawn(*model_handle, p1);
         CHECK(world.registry.valid(root1.entity));
         CHECK_EQ(world.registry.get<lyra::NodeName>(root1.entity).name, "CustomModel");
 
         // 2. spawn second instance with identical name -> should append (1)
         lyra::SpawnParams p2;
         p2.name    = "CustomModel";
-        auto root2 = scene_manager.spawn(model_handle, p2);
+        auto root2 = scene_manager.spawn(*model_handle, p2);
         CHECK(world.registry.valid(root2.entity));
         CHECK_EQ(world.registry.get<lyra::NodeName>(root2.entity).name, "CustomModel (1)");
 
         // 3. spawn third instance with identical name -> should append (2)
         lyra::SpawnParams p3;
         p3.name    = "CustomModel";
-        auto root3 = scene_manager.spawn(model_handle, p3);
+        auto root3 = scene_manager.spawn(*model_handle, p3);
         CHECK(world.registry.valid(root3.entity));
         CHECK_EQ(world.registry.get<lyra::NodeName>(root3.entity).name, "CustomModel (2)");
 
@@ -338,10 +340,10 @@ TEST_CASE("scn::scene_manager" * doctest::description("Scene Manager Lifecycle a
         lyra::SpawnParams p_child;
         p_child.parent   = root1;
         p_child.name     = "CustomModel";
-        auto child_inst1 = scene_manager.spawn(model_handle, p_child);
+        auto child_inst1 = scene_manager.spawn(*model_handle, p_child);
         CHECK_EQ(world.registry.get<lyra::NodeName>(child_inst1.entity).name, "CustomModel");
 
-        auto child_inst2 = scene_manager.spawn(model_handle, p_child);
+        auto child_inst2 = scene_manager.spawn(*model_handle, p_child);
         CHECK_EQ(world.registry.get<lyra::NodeName>(child_inst2.entity).name, "CustomModel (1)");
     }
 
@@ -349,36 +351,38 @@ TEST_CASE("scn::scene_manager" * doctest::description("Scene Manager Lifecycle a
     {
         auto handle_a = env.ams->load_asset<lyra::SceneAsset>("app://scene_a.scene");
         auto handle_b = env.ams->load_asset<lyra::SceneAsset>("app://scene_b.scene");
-        REQUIRE(handle_a.valid());
-        REQUIRE(handle_b.valid());
+        REQUIRE(handle_a.has_value());
+        REQUIRE(handle_b.has_value());
+        REQUIRE(handle_a->valid());
+        REQUIRE(handle_b->valid());
 
         int timeout = 100;
-        while ((env.ams->get_asset(handle_a) == nullptr || env.ams->get_asset(handle_b) == nullptr) && timeout-- > 0) {
+        while ((env.ams->get_asset(*handle_a) == nullptr || env.ams->get_asset(*handle_b) == nullptr) && timeout-- > 0) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
-        REQUIRE_NE(env.ams->get_asset(handle_a), nullptr);
-        REQUIRE_NE(env.ams->get_asset(handle_b), nullptr);
+        REQUIRE_NE(env.ams->get_asset(*handle_a), nullptr);
+        REQUIRE_NE(env.ams->get_asset(*handle_b), nullptr);
 
-        auto id_a = scene_manager.load(handle_a, lyra::LoadMode::SINGLE);
-        CHECK_NE(id_a, lyra::INVALID_SCENE_INSTANCE);
-        CHECK_EQ(scene_manager.get_active()->id, id_a);
+        auto id_a = scene_manager.load(*handle_a, lyra::LoadMode::SINGLE);
+        REQUIRE(id_a.has_value());
+        CHECK_EQ(scene_manager.get_active()->id, *id_a);
 
-        auto id_b = scene_manager.load(handle_b, lyra::LoadMode::ADDITIVE);
-        CHECK_NE(id_b, lyra::INVALID_SCENE_INSTANCE);
+        auto id_b = scene_manager.load(*handle_b, lyra::LoadMode::ADDITIVE);
+        REQUIRE(id_b.has_value());
 
         // both instances should exist in the world
-        CHECK_NE(scene_manager.get_instance(id_a), nullptr);
-        CHECK_NE(scene_manager.get_instance(id_b), nullptr);
+        CHECK_NE(scene_manager.get_instance(*id_a), nullptr);
+        CHECK_NE(scene_manager.get_instance(*id_b), nullptr);
 
-        auto root_a = scene_manager.get_instance(id_a)->root;
-        auto root_b = scene_manager.get_instance(id_b)->root;
+        auto root_a = scene_manager.get_instance(*id_a)->root;
+        auto root_b = scene_manager.get_instance(*id_b)->root;
         CHECK(world.registry.valid(root_a.entity));
         CHECK(world.registry.valid(root_b.entity));
 
         // unload scene_b
-        bool unloaded = scene_manager.unload(id_b);
-        CHECK(unloaded);
-        CHECK_EQ(scene_manager.get_instance(id_b), nullptr);
+        auto unloaded = scene_manager.unload(*id_b);
+        CHECK(unloaded.has_value());
+        CHECK_EQ(scene_manager.get_instance(*id_b), nullptr);
         CHECK(!world.registry.valid(root_b.entity));
         CHECK(world.registry.valid(root_a.entity));
     }
@@ -443,8 +447,8 @@ TEST_CASE("scn::scene_manager" * doctest::description("Scene Manager Lifecycle a
 
         // save to virtual path
         auto save_path = Path("app://level_alpha.scene");
-        bool saved     = scene_manager.save(save_path);
-        CHECK(saved);
+        auto saved     = scene_manager.save(save_path);
+        CHECK(saved.has_value());
         CHECK(!scene_manager.is_dirty());
         CHECK_EQ(scene_manager.get_active_path(), save_path);
         CHECK(std::filesystem::exists(env.temp_dir / "level_alpha.scene"));
@@ -452,7 +456,7 @@ TEST_CASE("scn::scene_manager" * doctest::description("Scene Manager Lifecycle a
 
         // save_active should also succeed now that it has a path
         scene_manager.set_dirty(true);
-        CHECK(scene_manager.save_active());
+        CHECK(scene_manager.save_active().has_value());
         CHECK(!scene_manager.is_dirty());
 
         // clear and reload by virtual path
@@ -460,8 +464,8 @@ TEST_CASE("scn::scene_manager" * doctest::description("Scene Manager Lifecycle a
         CHECK_EQ(scene_manager.get_active(), nullptr);
 
         auto loaded_id = scene_manager.load(save_path, lyra::LoadMode::SINGLE);
-        CHECK_NE(loaded_id, lyra::INVALID_SCENE_INSTANCE);
-        CHECK_EQ(scene_manager.get_active()->id, loaded_id);
+        REQUIRE(loaded_id.has_value());
+        CHECK_EQ(scene_manager.get_active()->id, *loaded_id);
         CHECK(!scene_manager.is_dirty());
     }
 

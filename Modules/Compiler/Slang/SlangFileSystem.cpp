@@ -87,8 +87,8 @@ SlangResult SlangVFSFileSystem::loadFile(const char* path, ISlangBlob** outBlob)
     // 1. check if it uses protocol based path
     if (loader_ && VFSPath::has_protocol(path)) {
         auto data = loader_->read<char>(path);
-        if (!data.empty()) {
-            String str(data.data(), data.size());
+        if (data && !data->empty()) {
+            String str(data->data(), data->size());
             str      = preprocess_lyra_shader_source(str, target_);
             *outBlob = make_blob(str.data(), str.size()).detach();
             return SLANG_OK;

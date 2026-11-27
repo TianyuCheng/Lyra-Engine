@@ -46,12 +46,12 @@ namespace
 
 #pragma region Physics Subsystem Manager
 
-bool Physics::init(PhysicsBackend backend)
+Result<void> Physics::init(PhysicsBackend backend)
 {
     LockGuard<Mutex> lock(get_slot_mutex());
 
     if (g_slot.active && g_slot.backend_type == backend && g_slot.api) {
-        return true;
+        return {};
     }
 
     g_slot.builtin_plugin.reset();
@@ -85,22 +85,22 @@ bool Physics::init(PhysicsBackend backend)
         case PhysicsBackend::Custom:
         {
             get_logger()->error("Use Physics::init(StringView custom_backend) for custom plugins");
-            return false;
+            return make_unexpected("Use Physics::init(StringView custom_backend) for custom plugins");
         }
     }
 
     if (!g_slot.api) {
         get_logger()->error("Failed to initialize physics backend");
-        return false;
+        return make_unexpected("Failed to initialize physics backend");
     }
 
     g_slot.active    = true;
     g_active_backend = backend;
     get_logger()->info("Physics subsystem initialized with backend: {}", g_slot.api->get_api_name ? g_slot.api->get_api_name() : "unknown");
-    return true;
+    return {};
 }
 
-bool Physics::init(StringView custom_backend)
+Result<void> Physics::init(StringView custom_backend)
 {
     LockGuard<Mutex> lock(get_slot_mutex());
 
@@ -110,18 +110,24 @@ bool Physics::init(StringView custom_backend)
     g_slot.active       = false;
     g_slot.backend_type = PhysicsBackend::Custom;
 
-    g_slot.plugin = make_own<PhysicsPlugin>(to_string(String(custom_backend)).c_str());
-    g_slot.api    = g_slot.plugin->get_api();
+    g_slot.plugin = make_own<PhysicsPlugin>();
+    String plugin_name(custom_backend);
+    auto loaded = g_slot.plugin->load(plugin_name.c_str());
+    if (!loaded) {
+        get_logger()->error("Failed to load custom physics plugin: {}: {}", custom_backend, loaded.error());
+        return make_unexpected("Failed to load custom physics plugin '" + plugin_name + "': " + loaded.error());
+    }
+    g_slot.api = g_slot.plugin->get_api();
 
     if (!g_slot.api) {
-        get_logger()->error("Failed to load custom physics plugin: {}", custom_backend);
-        return false;
+        get_logger()->error("Failed to get API from custom physics plugin: {}", custom_backend);
+        return make_unexpected("Failed to get API from custom physics plugin: " + plugin_name);
     }
 
     g_slot.active    = true;
     g_active_backend = PhysicsBackend::Custom;
     get_logger()->info("Physics subsystem initialized with custom backend: {}", custom_backend);
-    return true;
+    return {};
 }
 
 void Physics::shutdown()
@@ -426,7 +432,7 @@ PhysicsWorld PhysicsWorld::create()
 PhysicsWorld PhysicsWorld::create(const PhysicsWorldDescriptor& desc)
 {
     PhysicsWorld w{};
-    if (Physics::api()) {
+    if (Physics::api() && Physics::api()->create_world) {
         Physics::api()->create_world(desc, w.handle);
     }
     return w;
@@ -451,7 +457,7 @@ PhysicsBody PhysicsWorld::create_body(const RigidBodyDescriptor& desc)
 {
     PhysicsBody b{};
     b.world = handle;
-    if (valid() && Physics::api()) {
+    if (valid() && Physics::api() && Physics::api()->create_body) {
         Physics::api()->create_body(handle, desc, b.handle);
     }
     return b;
@@ -461,7 +467,7 @@ PhysicsMaterial PhysicsWorld::create_material(const PhysicsMaterialDescriptor& d
 {
     PhysicsMaterial m{};
     m.world = handle;
-    if (valid() && Physics::api()) {
+    if (valid() && Physics::api() && Physics::api()->create_material) {
         Physics::api()->create_material(handle, desc, m.handle);
     }
     return m;
@@ -471,7 +477,7 @@ PhysicsCharacter PhysicsWorld::create_character(const CharacterDescriptor& desc)
 {
     PhysicsCharacter c{};
     c.world = handle;
-    if (valid() && Physics::api()) {
+    if (valid() && Physics::api() && Physics::api()->create_character) {
         Physics::api()->create_character(handle, desc, c.handle);
     }
     return c;

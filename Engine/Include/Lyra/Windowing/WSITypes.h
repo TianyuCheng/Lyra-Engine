@@ -4,6 +4,7 @@
 #define LYRA_ENGINE_WINDOWING_WSITYPES_H
 
 #include <Lyra/Utilities/Enums.h>
+#include <Lyra/Utilities/Result.h>
 #include <Lyra/Utilities/Pointer.h>
 #include <Lyra/Utilities/Function.h>
 #include <Lyra/Windowing/WSIEnums.h>
@@ -28,7 +29,7 @@ namespace lyra
     {
         friend struct EventLoop;
 
-        static auto init(const WindowDescriptor& descriptor) -> OwnedResource<Window>;
+        static auto init(const WindowDescriptor& descriptor) -> Result<OwnedResource<Window>>;
 
         static auto api() -> WindowAPI*;
 

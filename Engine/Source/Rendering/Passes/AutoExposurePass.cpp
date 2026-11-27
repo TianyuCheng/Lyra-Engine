@@ -19,42 +19,40 @@ bool AutoExposurePass::init(GPUDevice dev, Compiler compiler)
     hist_desc.module        = "sys://Shaders/PostProcess/AutoExposure.slang";
     hist_desc.compute_entry = "cs_build_histogram";
 
-    auto hist_layout_res = pipeline_manager.reflect_compute_layout(hist_desc);
-    if (!hist_layout_res) {
+    auto hist_layout = pipeline_manager.reflect_compute_layout(hist_desc);
+    if (!hist_layout) {
         return false;
     }
-    const auto& hist_layout = *hist_layout_res;
-    histogram_blayouts.assign(hist_layout.bind_group_layouts.begin(), hist_layout.bind_group_layouts.end());
+    histogram_blayouts.assign(hist_layout->bind_group_layouts.begin(), hist_layout->bind_group_layouts.end());
 
     // 2. reflect and create pipeline for cs_adapt_exposure
     PipelineShaderDescriptor adapt_desc{};
     adapt_desc.module        = "sys://Shaders/PostProcess/AutoExposure.slang";
     adapt_desc.compute_entry = "cs_adapt_exposure";
 
-    auto adapt_layout_res = pipeline_manager.reflect_compute_layout(adapt_desc);
-    if (!adapt_layout_res) {
+    auto adapt_layout = pipeline_manager.reflect_compute_layout(adapt_desc);
+    if (!adapt_layout) {
         return false;
     }
-    const auto& adapt_layout = *adapt_layout_res;
-    adapt_blayouts.assign(adapt_layout.bind_group_layouts.begin(), adapt_layout.bind_group_layouts.end());
+    adapt_blayouts.assign(adapt_layout->bind_group_layouts.begin(), adapt_layout->bind_group_layouts.end());
 
-    auto hist_pipe_res = pipeline_manager.compute_pipeline_builder()
-                             .with_shader(hist_desc)
-                             .with_label("auto_exposure_histogram_pipeline")
-                             .build();
-    if (!hist_pipe_res) {
+    auto hist_pipe = pipeline_manager.compute_pipeline_builder()
+                         .with_shader(hist_desc)
+                         .with_label("auto_exposure_histogram_pipeline")
+                         .build();
+    if (!hist_pipe) {
         return false;
     }
-    histogram_pipeline = *hist_pipe_res;
+    histogram_pipeline = *hist_pipe;
 
-    auto adapt_pipe_res = pipeline_manager.compute_pipeline_builder()
-                              .with_shader(adapt_desc)
-                              .with_label("auto_exposure_adapt_pipeline")
-                              .build();
-    if (!adapt_pipe_res) {
+    auto adapt_pipe = pipeline_manager.compute_pipeline_builder()
+                          .with_shader(adapt_desc)
+                          .with_label("auto_exposure_adapt_pipeline")
+                          .build();
+    if (!adapt_pipe) {
         return false;
     }
-    adapt_pipeline = *adapt_pipe_res;
+    adapt_pipeline = *adapt_pipe;
 
     // 3. allocate persistent 64-bin histogram buffer (256 bytes)
     histogram_buffer = execute([&]() {

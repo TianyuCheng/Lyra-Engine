@@ -48,7 +48,7 @@ TEST_CASE("mat::material_usd_serialization")
 
     // load via FileLoader and MaterialAsset::loader()
     FileLoader loader(FSLoader::NATIVE);
-    loader.mount("app://", temp_dir.c_str(), 0);
+    (void)loader.mount("app://", temp_dir.c_str(), 0);
 
     auto loader_api = MaterialAsset::loader();
     auto loaded     = static_cast<MaterialAsset*>(loader_api.load(&loader, "app://test.material"));
@@ -105,7 +105,7 @@ TEST_CASE("model::model_usd_serialization")
     REQUIRE(model_save_ok);
 
     FileLoader loader(FSLoader::NATIVE);
-    loader.mount("app://", temp_dir.c_str(), 0);
+    (void)loader.mount("app://", temp_dir.c_str(), 0);
 
     auto loader_api = ModelAsset::loader();
     auto loaded     = static_cast<ModelAsset*>(loader_api.load(&loader, "app://test.model"));
@@ -146,7 +146,7 @@ TEST_CASE("scene::scene_usd_serialization")
     REQUIRE(scene_save_ok);
 
     FileLoader loader(FSLoader::NATIVE);
-    loader.mount("app://", temp_dir.c_str(), 0);
+    (void)loader.mount("app://", temp_dir.c_str(), 0);
 
     auto loader_api = SceneAsset::loader();
     auto loaded     = static_cast<SceneAsset*>(loader_api.load(&loader, "app://test.scene"));
@@ -197,8 +197,8 @@ TEST_CASE("ams::asset_saver_api")
     server.register_asset<MeshAsset>();
 
     auto server_save_file = temp_dir / "server_saved.material";
-    bool save_ok2         = server.save_asset(mat, server_save_file.c_str());
-    REQUIRE(save_ok2);
+    auto save_ok2         = server.save_asset(mat, server_save_file.c_str());
+    REQUIRE(save_ok2.has_value());
     REQUIRE(fs::exists(server_save_file));
 }
 
@@ -223,7 +223,7 @@ TEST_CASE("ams::text_based_assets_saver")
         REQUIRE(fs::exists(text_file));
 
         FileLoader loader(FSLoader::NATIVE);
-        loader.mount("app://", temp_dir.c_str(), 0);
+        (void)loader.mount("app://", temp_dir.c_str(), 0);
         auto loaded = static_cast<TextAsset*>(TextAsset::loader().load(&loader, "app://test.txt"));
         REQUIRE_NE(loaded, nullptr);
         CHECK_EQ(loaded->content, "Hello, Lyra Engine!");
@@ -240,7 +240,7 @@ TEST_CASE("ams::text_based_assets_saver")
         REQUIRE(fs::exists(json_file));
 
         FileLoader loader(FSLoader::NATIVE);
-        loader.mount("app://", temp_dir.c_str(), 0);
+        (void)loader.mount("app://", temp_dir.c_str(), 0);
         auto loaded = static_cast<JsonAsset*>(JsonAsset::loader().load(&loader, "app://test.json"));
         REQUIRE_NE(loaded, nullptr);
         CHECK_EQ(loaded->content["name"].get<std::string>(), "Lyra");
@@ -259,7 +259,7 @@ TEST_CASE("ams::text_based_assets_saver")
         REQUIRE(fs::exists(toml_file));
 
         FileLoader loader(FSLoader::NATIVE);
-        loader.mount("app://", temp_dir.c_str(), 0);
+        (void)loader.mount("app://", temp_dir.c_str(), 0);
         auto loaded = static_cast<TomlAsset*>(TomlAsset::loader().load(&loader, "app://test.toml"));
         REQUIRE_NE(loaded, nullptr);
         CHECK_EQ(loaded->content["engine"].value_exact<std::string_view>(), "Lyra");
@@ -285,8 +285,8 @@ TEST_CASE("ams::text_based_assets_saver")
         TextAsset text;
         text.content          = "Server saved text";
         auto server_text_file = temp_dir / "server_text.txt";
-        bool ok               = server.save_asset(text, server_text_file.c_str());
-        REQUIRE(ok);
+        auto ok               = server.save_asset(text, server_text_file.c_str());
+        REQUIRE(ok.has_value());
         REQUIRE(fs::exists(server_text_file));
     }
 }
@@ -303,8 +303,8 @@ TEST_CASE("ams::model_import_and_reimport")
     auto registry_file = temp_dir / "Assets.toml";
 
     FileLoader loader(FSLoader::NATIVE);
-    loader.mount("app://", caches_dir.c_str(), 1);
-    loader.mount("app://", assets_dir.c_str(), 0);
+    (void)loader.mount("app://", caches_dir.c_str(), 1);
+    (void)loader.mount("app://", assets_dir.c_str(), 0);
 
     AMSDescriptor desc;
     desc.app.assets_path = assets_dir.c_str();
@@ -335,13 +335,15 @@ TEST_CASE("ams::model_import_and_reimport")
     // first import
     auto fut1  = server.import_asset("app://cube.obj", false);
     auto guid1 = fut1.get();
-    CHECK_NE(guid1, 0);
+    REQUIRE(guid1.has_value());
+    CHECK_NE(*guid1, 0);
 
     // re-import (force = true)
     auto fut2  = server.import_asset("app://cube.obj", true);
     auto guid2 = fut2.get();
-    CHECK_NE(guid2, 0);
-    CHECK_EQ(guid1, guid2);
+    REQUIRE(guid2.has_value());
+    CHECK_NE(*guid2, 0);
+    CHECK_EQ(*guid1, *guid2);
 
     // stl import test
     auto stl_file = assets_dir / "cube.stl";
@@ -367,23 +369,26 @@ TEST_CASE("ams::model_import_and_reimport")
 
     auto stl_fut1  = server.import_asset("app://cube.stl", false);
     auto stl_guid1 = stl_fut1.get();
-    CHECK_NE(stl_guid1, 0);
+    REQUIRE(stl_guid1.has_value());
+    CHECK_NE(*stl_guid1, 0);
 
     auto stl_fut2  = server.import_asset("app://cube.stl", true);
     auto stl_guid2 = stl_fut2.get();
-    CHECK_NE(stl_guid2, 0);
-    CHECK_EQ(stl_guid1, stl_guid2);
+    REQUIRE(stl_guid2.has_value());
+    CHECK_NE(*stl_guid2, 0);
+    CHECK_EQ(*stl_guid1, *stl_guid2);
 
-    auto thumb_file = caches_dir / "thumbnails" / (std::to_string(stl_guid1) + ".thumb.png");
+    auto thumb_file = caches_dir / "thumbnails" / (std::to_string(*stl_guid1) + ".thumb.png");
     CHECK(fs::exists(thumb_file));
 
     // test loading the cooked model asset using virtual path
     auto obj_handle = server.load_asset<ModelAsset>("app://cube.obj");
-    CHECK(obj_handle.valid());
-    CHECK_EQ(obj_handle.guid, guid1);
+    REQUIRE(obj_handle.has_value());
+    CHECK(obj_handle->valid());
+    CHECK_EQ(obj_handle->guid, *guid1);
 
     JobScheduler::wait_idle();
-    auto* obj_asset = server.get_asset(obj_handle);
+    auto* obj_asset = server.get_asset(*obj_handle);
     CHECK_NE(obj_asset, nullptr);
     if (obj_asset) {
         CHECK_FALSE(obj_asset->nodes.empty());
@@ -391,18 +396,19 @@ TEST_CASE("ams::model_import_and_reimport")
 
     // test loading the cooked STL model asset using virtual path
     auto stl_handle = server.load_asset<ModelAsset>("app://cube.stl");
-    CHECK(stl_handle.valid());
-    CHECK_EQ(stl_handle.guid, stl_guid1);
+    REQUIRE(stl_handle.has_value());
+    CHECK(stl_handle->valid());
+    CHECK_EQ(stl_handle->guid, *stl_guid1);
 
     JobScheduler::wait_idle();
-    auto* stl_asset = server.get_asset(stl_handle);
+    auto* stl_asset = server.get_asset(*stl_handle);
     CHECK_NE(stl_asset, nullptr);
     if (stl_asset) {
         CHECK_FALSE(stl_asset->nodes.empty());
     }
 
     // test resolve_load_path resolution directly
-    auto resolved_path = server.resolve_load_path(ModelAsset::type, stl_guid1);
+    auto resolved_path = server.resolve_load_path(ModelAsset::type, *stl_guid1);
     CHECK_FALSE(resolved_path.empty());
     CHECK(resolved_path.ends_with(".model"));
 

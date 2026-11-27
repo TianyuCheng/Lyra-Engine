@@ -615,15 +615,15 @@ void AssetBrowserView::show_item(AppContext& context, StringView name, bool is_f
                     return;
 
             auto res = scene_mgr->load(Path(vpath), LoadMode::SINGLE);
-            if (res == INVALID_SCENE_INSTANCE) {
-                ui::dialog::alert("Load Failed", "Failed to load scene:\n" + vpath + "\n\nSee console log for error details.", ui::StatusRole::Error);
+            if (!res) {
+                ui::dialog::alert("Load Failed", "Failed to load scene:\n" + vpath + "\n\n" + res.error(), ui::StatusRole::Error);
             }
         } else if ((ext == ".model" || ext == ".gltf" || ext == ".glb" || ext == ".obj" || ext == ".stl") && scene_mgr) {
             if (auto ams = get_asset_server()) {
                 auto model_handle = ams->load_asset<ModelAsset>(vpath.c_str());
                 bool spawned      = false;
-                if (model_handle.valid()) {
-                    auto node = scene_mgr->spawn(model_handle);
+                if (model_handle && model_handle->valid()) {
+                    auto node = scene_mgr->spawn(*model_handle);
                     if (node.entity != entt::null) {
                         scene_mgr->set_dirty(true);
                         spawned = true;
@@ -688,14 +688,14 @@ void AssetBrowserView::show_item(AppContext& context, StringView name, bool is_f
                         }
                     }
                     auto res = scene_mgr->load(Path(vpath), LoadMode::SINGLE);
-                    if (res == INVALID_SCENE_INSTANCE) {
-                        ui::dialog::alert("Load Failed", "Failed to load scene:\n" + vpath + "\n\nSee console log for error details.", ui::StatusRole::Error);
+                    if (!res) {
+                        ui::dialog::alert("Load Failed", "Failed to load scene:\n" + vpath + "\n\n" + res.error(), ui::StatusRole::Error);
                     }
                 });
                 ui::menu_item(LYRA_ICON_SCENE " Load Additive", [&]() {
                     auto res = scene_mgr->load(Path(vpath), LoadMode::ADDITIVE);
-                    if (res == INVALID_SCENE_INSTANCE) {
-                        ui::dialog::alert("Load Failed", "Failed to load scene additively:\n" + vpath + "\n\nSee console log for error details.", ui::StatusRole::Error);
+                    if (!res) {
+                        ui::dialog::alert("Load Failed", "Failed to load scene additively:\n" + vpath + "\n\n" + res.error(), ui::StatusRole::Error);
                     }
                 });
                 ui::separator();
@@ -705,8 +705,8 @@ void AssetBrowserView::show_item(AppContext& context, StringView name, bool is_f
                     if (ams) {
                         auto model_handle = ams->load_asset<ModelAsset>(vpath.c_str());
                         bool spawned      = false;
-                        if (model_handle.valid()) {
-                            auto node = scene_mgr->spawn(model_handle);
+                        if (model_handle && model_handle->valid()) {
+                            auto node = scene_mgr->spawn(*model_handle);
                             if (node.entity != entt::null) {
                                 scene_mgr->set_dirty(true);
                                 spawned = true;
@@ -794,7 +794,7 @@ void AssetBrowserView::action_delete_selected()
         Path rel     = std::filesystem::relative(p, root);
         bool deleted = false;
         if (ams) {
-            deleted = ams->delete_asset(rel);
+            deleted = ams->delete_asset(rel).has_value();
         }
         if (!deleted || std::filesystem::exists(p)) {
             Path import_p = p;
@@ -901,7 +901,7 @@ void AssetBrowserView::action_create_scene(StringView name)
 
         auto ams = get_asset_server();
         if (ams) {
-            ams->save_asset(new_scene, new_scene_path.c_str());
+            (void)ams->save_asset(new_scene, new_scene_path.c_str());
             Path    import_p = new_scene_path.string() + ".import";
             JSON    meta;
             AssetID guid = random_guid();
@@ -1372,13 +1372,13 @@ void AssetBrowserView::load_thumbnails(AppContext& context)
             continue;
         }
         auto content = loader->read<uint8_t>(path.c_str());
-        if (content.empty()) {
+        if (!content || content->empty()) {
             thumbnails[name] = {{}, {}, false};
             continue;
         }
 
         int      w = 0, h = 0, c = 0;
-        stbi_uc* data = stbi_load_from_memory(content.data(), static_cast<int>(content.size()), &w, &h, &c, STBI_rgb_alpha);
+        stbi_uc* data = stbi_load_from_memory(content->data(), static_cast<int>(content->size()), &w, &h, &c, STBI_rgb_alpha);
         if (!data || w <= 0 || h <= 0) {
             if (data) stbi_image_free(data);
             thumbnails[name] = {{}, {}, false};

@@ -35,13 +35,12 @@ bool ForwardPass::init(
     shader_desc.vertex_entry   = "vsmain";
     shader_desc.fragment_entry = "fsmain";
 
-    auto layout_res = pipeline_manager.reflect_render_layout(shader_desc);
-    if (!layout_res) {
+    auto layout = pipeline_manager.reflect_render_layout(shader_desc);
+    if (!layout) {
         return false;
     }
-    const auto& layout_info = *layout_res;
-    blayouts.assign(layout_info.bind_group_layouts.begin(), layout_info.bind_group_layouts.end());
-    playout = layout_info.layout;
+    blayouts.assign(layout->bind_group_layouts.begin(), layout->bind_group_layouts.end());
+    playout = layout->layout;
 
     // initialize MeshPass with vertex bind group layout (Bind Group 1)
     if (blayouts.size() > 1) {
@@ -284,16 +283,14 @@ GPURenderPipeline ForwardPass::get_or_create_pipeline(ShadingModelID shading_mod
     desc.path            = shader_path_str.c_str();
     desc.source          = nullptr;
 
-    auto compiled_module = execute([&]() {
-        return compiler.compile(desc);
-    });
-
+    auto compiled_module = compiler.compile(desc);
     if (!compiled_module) {
         return {};
     }
 
-    auto vshader = execute([&]() {
-        auto code   = compiled_module->get_shader_blob("vsmain");
+    auto vshader = execute([&]() -> GPUShaderModule {
+        auto code = (*compiled_module)->get_shader_blob("vsmain");
+        if (!code) return {};
         auto sdesc  = GPUShaderModuleDescriptor{};
         sdesc.label = "forward_vertex_shader";
         sdesc.data  = code->data;
@@ -301,8 +298,9 @@ GPURenderPipeline ForwardPass::get_or_create_pipeline(ShadingModelID shading_mod
         return device.create_shader_module(sdesc);
     });
 
-    auto fshader = execute([&]() {
-        auto code   = compiled_module->get_shader_blob(entry_point.c_str());
+    auto fshader = execute([&]() -> GPUShaderModule {
+        auto code = (*compiled_module)->get_shader_blob(entry_point.c_str());
+        if (!code) return {};
         auto sdesc  = GPUShaderModuleDescriptor{};
         sdesc.label = "forward_fragment_shader";
         sdesc.data  = code->data;
@@ -319,9 +317,10 @@ GPURenderPipeline ForwardPass::get_or_create_pipeline(ShadingModelID shading_mod
 
     auto pipeline = execute([&]() {
         Vector<GPUColorTargetState> targets;
-        auto                        color_target = GPUColorTargetState{};
-        color_target.format                      = cached_color_format;
-        color_target.blend_enable                = false;
+
+        auto color_target         = GPUColorTargetState{};
+        color_target.format       = cached_color_format;
+        color_target.blend_enable = false;
         targets.push_back(color_target);
 
         auto pdesc                              = GPURenderPipelineDescriptor{};

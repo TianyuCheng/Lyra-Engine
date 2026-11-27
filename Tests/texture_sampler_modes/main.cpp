@@ -275,10 +275,10 @@ struct SamplerModesApp : public TestApp
         pipeline.primitive = prim;
 
         pipeline.init_color_state(get_backbuffer_format());
-        pipeline.init_vshader(device, module.get(), "vsmain");
-        pipeline.init_fshader(device, module.get(), "fsmain");
-        pipeline.init_playout(device, reflection.get());
-        pipeline.init_pipeline(device, reflection.get());
+        pipeline.init_vshader(device, module->get(), "vsmain");
+        pipeline.init_fshader(device, module->get(), "fsmain");
+        pipeline.init_playout(device, reflection->get());
+        pipeline.init_pipeline(device, reflection->get());
     }
 
     void setup_descriptors()

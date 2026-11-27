@@ -250,24 +250,18 @@ bool SystemTextures::dispatch_compute_lut(
     desc.path   = shader_path;
     desc.source = nullptr;
 
-    Own<ShaderModule> shader_module;
-    try {
-        shader_module = compiler.compile(desc);
-    } catch (const std::exception& e) {
-        spdlog::warn("failed to compile compute shader for {}: {}", module_name, e.what());
-        return false;
-    }
-
+    auto shader_module = compiler.compile(desc);
     if (!shader_module) {
+        spdlog::warn("failed to compile compute shader for {}: {}", module_name, shader_module.error());
         return false;
     }
 
-    auto reflection = compiler.reflect({{*shader_module, "csmain"}});
+    auto reflection = compiler.reflect({{**shader_module, "csmain"}});
     if (!reflection) {
         return false;
     }
 
-    auto blob = shader_module->get_shader_blob("csmain");
+    auto blob = (*shader_module)->get_shader_blob("csmain");
     if (!blob) {
         return false;
     }
@@ -279,13 +273,17 @@ bool SystemTextures::dispatch_compute_lut(
     auto gpu_module = device.create_shader_module(sm_desc);
 
     Vector<GPUBindGroupLayoutHandle> blayouts;
-    for (auto& bl_desc : reflection->get_bind_group_layouts()) {
+    auto bg_layouts = (*reflection)->get_bind_group_layouts();
+    if (!bg_layouts) {
+        return false;
+    }
+    for (auto& bl_desc : *bg_layouts) {
         blayouts.push_back(device.create_bind_group_layout(bl_desc));
     }
 
     auto playout_desc               = GPUPipelineLayoutDescriptor{};
     playout_desc.bind_group_layouts = blayouts;
-    playout_desc.immediate_size     = reflection->get_immediate_size();
+    playout_desc.immediate_size     = (*reflection)->get_immediate_size().value_or(0);
     auto playout                    = device.create_pipeline_layout(playout_desc);
 
     auto cp_desc                = GPUComputePipelineDescriptor{};

@@ -31,19 +31,18 @@ bool DepthPrepass::init(
     shader_desc.vertex_entry   = "vsmain";
     shader_desc.fragment_entry = "fsmain";
 
-    auto layout_res = pipeline_manager.reflect_render_layout(shader_desc);
-    if (!layout_res) {
+    auto layout = pipeline_manager.reflect_render_layout(shader_desc);
+    if (!layout) {
         return false;
     }
-    const auto& layout_info = *layout_res;
-    blayouts.assign(layout_info.bind_group_layouts.begin(), layout_info.bind_group_layouts.end());
+    blayouts.assign(layout->bind_group_layouts.begin(), layout->bind_group_layouts.end());
 
     GPUDepthStencilState ds{};
     ds.depth_compare       = GPUCompareFunction::LESS_EQUAL;
     ds.depth_write_enabled = true;
     ds.format              = cached_depth_format;
 
-    auto pipe_res = pipeline_manager.render_pipeline_builder()
+    auto pipe = pipeline_manager.render_pipeline_builder()
                         .with_shader(shader_desc)
                         .with_cull_mode(GPUCullMode::BACK)
                         .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
@@ -51,10 +50,10 @@ bool DepthPrepass::init(
                         .with_depth_stencil(ds)
                         .with_label("depth_prepass_pipeline")
                         .build();
-    if (!pipe_res) {
+    if (!pipe) {
         return false;
     }
-    pipeline = *pipe_res;
+    pipeline = *pipe;
 
     if (cache) {
         geometry_cache = cache;

@@ -131,7 +131,8 @@ struct DeferredRendererInstance
         }
 
         vshader = execute([&]() {
-            auto code  = module->get_shader_blob("vsmain");
+            auto code = (*module)->get_shader_blob("vsmain");
+            if (!code) return GPUShaderModule{};
             auto desc  = GPUShaderModuleDescriptor{};
             desc.label = "deferred_lighting_vs";
             desc.data  = code->data;
@@ -140,7 +141,8 @@ struct DeferredRendererInstance
         });
 
         fshader = execute([&]() {
-            auto code  = module->get_shader_blob("fsmain");
+            auto code = (*module)->get_shader_blob("fsmain");
+            if (!code) return GPUShaderModule{};
             auto desc  = GPUShaderModuleDescriptor{};
             desc.label = "deferred_lighting_fs";
             desc.data  = code->data;
@@ -149,14 +151,16 @@ struct DeferredRendererInstance
         });
 
         blayouts.clear();
-        for (auto& bdesc : reflection->get_bind_group_layouts()) {
-            blayouts.push_back(device.create_bind_group_layout(bdesc));
+        if (auto bg_layouts = (*reflection)->get_bind_group_layouts()) {
+            for (auto& bdesc : *bg_layouts) {
+                blayouts.push_back(device.create_bind_group_layout(bdesc));
+            }
         }
 
         lighting_playout = execute([&]() {
             auto pdesc               = GPUPipelineLayoutDescriptor{};
             pdesc.bind_group_layouts = blayouts;
-            pdesc.immediate_size     = reflection->get_immediate_size();
+            pdesc.immediate_size     = (*reflection)->get_immediate_size().value_or(0);
             return device.create_pipeline_layout(pdesc);
         });
 

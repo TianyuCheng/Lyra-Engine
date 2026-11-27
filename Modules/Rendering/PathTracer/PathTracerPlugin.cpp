@@ -241,20 +241,20 @@ auto PathTracerRendererInstance::init(GPUDevice dev, Compiler comp) -> bool
 
     // 3. create bind group layouts and pipeline layout
     blayouts.clear();
-    auto blayout_descs = reflection->get_bind_group_layouts();
-    for (const auto& bg_desc : blayout_descs) {
-        blayouts.push_back(device.create_bind_group_layout(bg_desc));
+    if (auto blayout_descs = (*reflection)->get_bind_group_layouts()) {
+        for (const auto& bg_desc : *blayout_descs) {
+            blayouts.push_back(device.create_bind_group_layout(bg_desc));
+        }
     }
 
     GPUPipelineLayoutDescriptor playout_desc{};
     playout_desc.label              = "path_tracer_playout";
     playout_desc.bind_group_layouts = blayouts;
-    playout_desc.immediate_size     = reflection->get_immediate_size();
+    playout_desc.immediate_size     = (*reflection)->get_immediate_size().value_or(0);
     rt_layout                       = device.create_pipeline_layout(playout_desc);
 
     // 4. create compute pipeline
-    auto code = module->get_shader_blob("csmain");
-    if (code) {
+    if (auto code = (*module)->get_shader_blob("csmain")) {
         GPUShaderModuleDescriptor sm_desc{};
         sm_desc.label = "path_tracer_cs_module";
         sm_desc.data  = code->data;
@@ -294,18 +294,19 @@ auto PathTracerRendererInstance::init(GPUDevice dev, Compiler comp) -> bool
         });
         if (atrous_reflection) {
             atrous_blayouts.clear();
-            for (const auto& bg_desc : atrous_reflection->get_bind_group_layouts()) {
-                atrous_blayouts.push_back(device.create_bind_group_layout(bg_desc));
+            if (auto atrous_bg = (*atrous_reflection)->get_bind_group_layouts()) {
+                for (const auto& bg_desc : *atrous_bg) {
+                    atrous_blayouts.push_back(device.create_bind_group_layout(bg_desc));
+                }
             }
 
             GPUPipelineLayoutDescriptor playout_desc{};
             playout_desc.label              = "atrous_playout";
             playout_desc.bind_group_layouts = atrous_blayouts;
-            playout_desc.immediate_size     = atrous_reflection->get_immediate_size();
+            playout_desc.immediate_size     = (*atrous_reflection)->get_immediate_size().value_or(0);
             atrous_layout                   = device.create_pipeline_layout(playout_desc);
 
-            auto atrous_code = atrous_module->get_shader_blob("cs_atrous");
-            if (atrous_code) {
+            if (auto atrous_code = (*atrous_module)->get_shader_blob("cs_atrous")) {
                 GPUShaderModuleDescriptor sm_desc{};
                 sm_desc.label = "atrous_cs_module";
                 sm_desc.data  = atrous_code->data;

@@ -81,14 +81,14 @@ static uint extract_model_nodes(
 static void* load_model_asset(FileLoader* loader, FSPath path)
 {
     auto content = loader->read<char>(path);
-    if (content.empty()) {
+    if (!content || content->empty()) {
         get_logger()->error("failed to read model file: {}", path);
         return nullptr;
     }
 
     tinyusdz::StreamReader sr(
-        reinterpret_cast<const uint8_t*>(content.data()),
-        content.size(),
+        reinterpret_cast<const uint8_t*>(content->data()),
+        content->size(),
         false);
 
     tinyusdz::usda::USDAReader reader(&sr);

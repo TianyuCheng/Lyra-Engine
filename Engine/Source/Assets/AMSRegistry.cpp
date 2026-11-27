@@ -32,53 +32,66 @@ using namespace lyra;
 static constexpr uint    REGISTRY_VERSION = 1;
 static constexpr CString REGISTRY_MAGIC   = "LYRA";
 
-bool AssetRegistry::load(const OSPath& path)
+Result<void> AssetRegistry::load(const OSPath& path)
 {
     if (!path) {
         spdlog::error("registry file is not specified!");
-        return false;
+        return make_unexpected("Registry file path is not specified");
     }
-    auto ext = Path(path).extension().string();
     if (!fs::exists(path)) {
-        return false;
-    }
-    if (ext == ".bin") {
-        return load_binary(path);
-    }
-    if (ext == ".toml") {
-        return load_toml(path);
-    }
-    spdlog::error("Unsupported registry file: {}", Path(path).string());
-    return false;
-}
-
-bool AssetRegistry::save(const OSPath& path)
-{
-    if (!path) {
-        spdlog::error("registry file is not specified!");
-        return false;
+        return make_unexpected("Registry file does not exist: " + Path(path).string());
     }
     auto ext = Path(path).extension().string();
     if (ext == ".bin") {
-        return save_binary(path);
+        if (!load_binary(path)) {
+            return make_unexpected("Failed to load binary registry: " + Path(path).string());
+        }
+        return {};
     }
     if (ext == ".toml") {
-        return save_toml(path);
+        if (!load_toml(path)) {
+            return make_unexpected("Failed to load TOML registry: " + Path(path).string());
+        }
+        return {};
     }
     spdlog::error("Unsupported registry file: {}", Path(path).string());
-    return false;
+    return make_unexpected("Unsupported registry file: " + Path(path).string());
 }
 
-bool AssetRegistry::flush(const OSPath& path)
+Result<void> AssetRegistry::save(const OSPath& path)
+{
+    if (!path) {
+        spdlog::error("registry file is not specified!");
+        return make_unexpected("Registry file path is not specified");
+    }
+    auto ext = Path(path).extension().string();
+    if (ext == ".bin") {
+        if (!save_binary(path)) {
+            return make_unexpected("Failed to save binary registry: " + Path(path).string());
+        }
+        return {};
+    }
+    if (ext == ".toml") {
+        if (!save_toml(path)) {
+            return make_unexpected("Failed to save TOML registry: " + Path(path).string());
+        }
+        return {};
+    }
+    spdlog::error("Unsupported registry file: {}", Path(path).string());
+    return make_unexpected("Unsupported registry file: " + Path(path).string());
+}
+
+Result<void> AssetRegistry::flush(const OSPath& path)
 {
     if (!dirty) {
-        return false;
+        return {};
     }
-    if (save(path)) {
-        dirty = false;
-        return true;
+    auto res = save(path);
+    if (!res) {
+        return res;
     }
-    return false;
+    dirty = false;
+    return {};
 }
 
 bool AssetRegistry::read_binary_entry(const char*& ptr, const char* end, uint version)

@@ -15,7 +15,7 @@ namespace
     {
         if (loader && VFSPath::has_protocol(path_str)) {
             auto data = loader->read<char>(path_str.c_str());
-            return data.empty() ? String{} : String(data.data(), data.size());
+            return (!data || data->empty()) ? String{} : String(data->data(), data->size());
         }
 
         if (!fs::exists(path_str)) {
@@ -203,9 +203,9 @@ auto PipelineManager::compile_module(
 
     auto module = compiler.compile(desc);
     if (!module) {
-        return make_unexpected("PipelineManager: compiler failed for module: " + path_str);
+        return make_unexpected("PipelineManager: compiler failed for module " + path_str + ": " + module.error());
     }
-    return module;
+    return std::move(*module);
 }
 
 auto PipelineManager::get_or_compile_shader_module(
@@ -219,12 +219,12 @@ auto PipelineManager::get_or_compile_shader_module(
         return it->second;
     }
 
-    auto module_res = compile_module(module_path, macros);
-    if (!module_res) {
-        return make_unexpected("PipelineManager: failed to compile shader module '" + String(module_path) + "': " + module_res.error());
+    auto compiled_module = compile_module(module_path, macros);
+    if (!compiled_module) {
+        return make_unexpected("PipelineManager: failed to compile shader module '" + String(module_path) + "': " + compiled_module.error());
     }
 
-    auto blob = (*module_res)->get_shader_blob(String(entry_point).c_str());
+    auto blob = (*compiled_module)->get_shader_blob(String(entry_point).c_str());
     if (!blob || !blob->data || blob->size == 0) {
         return make_unexpected("PipelineManager: failed to get shader blob for entry: " + String(entry_point));
     }
@@ -259,20 +259,19 @@ auto PipelineManager::reflect_layout(
     }
 
     // compile shader module for reflection
-    auto module_res = compile_module(shader_desc.module, shader_desc.macros);
-    if (!module_res) {
-        return make_unexpected("PipelineManager: reflection failed, cannot compile module '" + shader_desc.module + "': " + module_res.error());
+    auto module = compile_module(shader_desc.module, shader_desc.macros);
+    if (!module) {
+        return make_unexpected("PipelineManager: reflection failed, cannot compile module '" + shader_desc.module + "': " + module.error());
     }
-    auto& module = *module_res;
 
     Vector<ShaderEntryPoint> entries;
     if (!shader_desc.vertex_entry.empty() && !shader_desc.fragment_entry.empty()) {
-        entries.push_back({*module, shader_desc.vertex_entry.c_str()});
-        entries.push_back({*module, shader_desc.fragment_entry.c_str()});
+        entries.push_back({**module, shader_desc.vertex_entry.c_str()});
+        entries.push_back({**module, shader_desc.fragment_entry.c_str()});
     } else if (!shader_desc.compute_entry.empty()) {
-        entries.push_back({*module, shader_desc.compute_entry.c_str()});
+        entries.push_back({**module, shader_desc.compute_entry.c_str()});
     } else if (!shader_desc.vertex_entry.empty()) {
-        entries.push_back({*module, shader_desc.vertex_entry.c_str()});
+        entries.push_back({**module, shader_desc.vertex_entry.c_str()});
     }
     for (const auto& extra : extra_entries) {
         entries.push_back(extra);
@@ -280,14 +279,17 @@ auto PipelineManager::reflect_layout(
 
     auto reflection = compiler.reflect(entries);
     if (!reflection) {
-        return make_unexpected("PipelineManager: compiler reflection query returned null for " + shader_desc.module);
+        return make_unexpected("PipelineManager: compiler reflection query failed for " + shader_desc.module + ": " + reflection.error());
     }
 
     ReflectedPipelineLayout result{};
 
-    auto bg_layouts = reflection->get_bind_group_layouts();
-    result.bind_group_descriptors.assign(bg_layouts.begin(), bg_layouts.end());
-    result.immediate_size = reflection->get_immediate_size();
+    auto bg_layouts = (*reflection)->get_bind_group_layouts();
+    if (!bg_layouts) {
+        return make_unexpected("PipelineManager: failed to get bind group layouts: " + bg_layouts.error());
+    }
+    result.bind_group_descriptors.assign(bg_layouts->begin(), bg_layouts->end());
+    result.immediate_size = (*reflection)->get_immediate_size().value_or(0);
 
     result.bind_group_layouts.reserve(result.bind_group_descriptors.size());
     Vector<GPUBindGroupLayoutHandle> bgl_handles;
@@ -349,32 +351,31 @@ auto PipelineManager::create_render_pipeline(
     CString                           label) -> Result<GPURenderPipeline>
 {
     // 1. synthesize pipeline layout directly from Slang reflection
-    auto layout_res = reflect_render_layout(asset.shader);
-    if (!layout_res) {
-        return make_unexpected("PipelineManager: render layout reflection failed: " + layout_res.error());
+    auto layout = reflect_render_layout(asset.shader);
+    if (!layout) {
+        return make_unexpected("PipelineManager: render layout reflection failed: " + layout.error());
     }
-    const auto& layout_info = *layout_res;
 
     // 2. retrieve or compile shader modules for vertex and fragment stages
-    auto vshader_res = get_or_compile_shader_module(asset.shader.module, asset.shader.vertex_entry, asset.shader.macros);
-    if (!vshader_res) {
-        return make_unexpected("PipelineManager: failed vertex shader: " + vshader_res.error());
+    auto vshader = get_or_compile_shader_module(asset.shader.module, asset.shader.vertex_entry, asset.shader.macros);
+    if (!vshader) {
+        return make_unexpected("PipelineManager: failed vertex shader: " + vshader.error());
     }
 
-    auto fshader_res = get_or_compile_shader_module(asset.shader.module, asset.shader.fragment_entry, asset.shader.macros);
-    if (!fshader_res) {
-        return make_unexpected("PipelineManager: failed fragment shader: " + fshader_res.error());
+    auto fshader = get_or_compile_shader_module(asset.shader.module, asset.shader.fragment_entry, asset.shader.macros);
+    if (!fshader) {
+        return make_unexpected("PipelineManager: failed fragment shader: " + fshader.error());
     }
 
     // 3. construct GPURenderPipelineDescriptor
     Vector<GPUColorTargetState> target_storage;
     auto                        pdesc = asset.to_render_descriptor(target_storage);
 
-    pdesc.layout               = layout_info.layout.handle;
-    pdesc.vertex.module        = vshader_res->handle;
+    pdesc.layout               = layout->layout.handle;
+    pdesc.vertex.module        = vshader->handle;
     pdesc.vertex.entry_point   = asset.shader.vertex_entry.c_str();
     pdesc.vertex.buffers       = vertex_layouts;
-    pdesc.fragment.module      = fshader_res->handle;
+    pdesc.fragment.module      = fshader->handle;
     pdesc.fragment.entry_point = asset.shader.fragment_entry.c_str();
     pdesc.label                = label ? label : asset.shader.module.c_str();
 
@@ -392,22 +393,21 @@ auto PipelineManager::create_compute_pipeline(
     CString              label) -> Result<GPUComputePipeline>
 {
     // 1. synthesize pipeline layout directly from Slang compute reflection
-    auto layout_res = reflect_compute_layout(asset.shader);
-    if (!layout_res) {
-        return make_unexpected("PipelineManager: compute layout reflection failed: " + layout_res.error());
+    auto layout = reflect_compute_layout(asset.shader);
+    if (!layout) {
+        return make_unexpected("PipelineManager: compute layout reflection failed: " + layout.error());
     }
-    const auto& layout_info = *layout_res;
 
     // 2. retrieve or compile compute shader module
-    auto cshader_res = get_or_compile_shader_module(asset.shader.module, asset.shader.compute_entry, asset.shader.macros);
-    if (!cshader_res) {
-        return make_unexpected("PipelineManager: failed compute shader: " + cshader_res.error());
+    auto cshader = get_or_compile_shader_module(asset.shader.module, asset.shader.compute_entry, asset.shader.macros);
+    if (!cshader) {
+        return make_unexpected("PipelineManager: failed compute shader: " + cshader.error());
     }
 
     // 3. construct GPUComputePipelineDescriptor
     auto pdesc                = asset.to_compute_descriptor();
-    pdesc.layout              = layout_info.layout.handle;
-    pdesc.compute.module      = cshader_res->handle;
+    pdesc.layout              = layout->layout.handle;
+    pdesc.compute.module      = cshader->handle;
     pdesc.compute.entry_point = asset.shader.compute_entry.c_str();
     pdesc.label               = label ? label : asset.shader.module.c_str();
 
@@ -449,22 +449,22 @@ auto PipelineManager::load_render_pipeline(
     Span<const GPUVertexBufferLayout> vertex_layouts,
     CString                           label) -> Result<GPURenderPipeline>
 {
-    auto asset_res = load_pipeline_asset(virtual_path);
-    if (!asset_res) {
-        return make_unexpected(asset_res.error());
+    auto asset = load_pipeline_asset(virtual_path);
+    if (!asset) {
+        return make_unexpected(asset.error());
     }
-    return create_render_pipeline(*asset_res, vertex_layouts, label ? label : String(virtual_path).c_str());
+    return create_render_pipeline(*asset, vertex_layouts, label ? label : String(virtual_path).c_str());
 }
 
 auto PipelineManager::load_compute_pipeline(
     StringView virtual_path,
     CString    label) -> Result<GPUComputePipeline>
 {
-    auto asset_res = load_pipeline_asset(virtual_path);
-    if (!asset_res) {
-        return make_unexpected(asset_res.error());
+    auto asset = load_pipeline_asset(virtual_path);
+    if (!asset) {
+        return make_unexpected(asset.error());
     }
-    return create_compute_pipeline(*asset_res, label ? label : String(virtual_path).c_str());
+    return create_compute_pipeline(*asset, label ? label : String(virtual_path).c_str());
 }
 
 RenderPipelineBuilder PipelineManager::render_pipeline_builder()
@@ -496,12 +496,12 @@ RenderPipelineBuilder& RenderPipelineBuilder::from_asset(const PipelineAsset& a)
 
 RenderPipelineBuilder& RenderPipelineBuilder::from_asset(StringView virtual_path)
 {
-    auto asset_res = manager.load_pipeline_asset(virtual_path);
-    if (!asset_res) {
-        error_message = asset_res.error();
+    auto loaded = manager.load_pipeline_asset(virtual_path);
+    if (!loaded) {
+        error_message = loaded.error();
         return *this;
     }
-    asset          = std::move(*asset_res);
+    asset          = std::move(*loaded);
     custom_targets = !asset.targets.empty();
     return *this;
 }
@@ -665,12 +665,12 @@ ComputePipelineBuilder& ComputePipelineBuilder::from_asset(const PipelineAsset& 
 
 ComputePipelineBuilder& ComputePipelineBuilder::from_asset(StringView virtual_path)
 {
-    auto asset_res = manager.load_pipeline_asset(virtual_path);
-    if (!asset_res) {
-        error_message = asset_res.error();
+    auto loaded = manager.load_pipeline_asset(virtual_path);
+    if (!loaded) {
+        error_message = loaded.error();
         return *this;
     }
-    asset = std::move(*asset_res);
+    asset = std::move(*loaded);
     return *this;
 }
 

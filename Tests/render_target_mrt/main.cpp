@@ -323,10 +323,10 @@ struct MultiRenderTargetsApp : public TestApp
         for (int i = 0; i < 4; ++i) {
             pipeline_mrt.init_color_state(GPUTextureFormat::RGBA8UNORM);
         }
-        pipeline_mrt.init_vshader(device, module_mrt.get(), "vs_mrt");
-        pipeline_mrt.init_fshader(device, module_mrt.get(), "fs_mrt");
-        pipeline_mrt.init_playout(device, refl_mrt.get());
-        pipeline_mrt.init_pipeline(device, refl_mrt.get());
+        pipeline_mrt.init_vshader(device, module_mrt->get(), "vs_mrt");
+        pipeline_mrt.init_fshader(device, module_mrt->get(), "fs_mrt");
+        pipeline_mrt.init_playout(device, refl_mrt->get());
+        pipeline_mrt.init_pipeline(device, refl_mrt->get());
 
         // Pipeline 2: Composite Pipeline
         auto module_comp = execute([&] {
@@ -347,10 +347,10 @@ struct MultiRenderTargetsApp : public TestApp
         pipeline_comp.attributes.push_back({"texcoord", offsetof(CompVertex, texcoord)});
 
         pipeline_comp.init_color_state(get_backbuffer_format());
-        pipeline_comp.init_vshader(device, module_comp.get(), "vs_comp");
-        pipeline_comp.init_fshader(device, module_comp.get(), "fs_comp");
-        pipeline_comp.init_playout(device, refl_comp.get());
-        pipeline_comp.init_pipeline(device, refl_comp.get());
+        pipeline_comp.init_vshader(device, module_comp->get(), "vs_comp");
+        pipeline_comp.init_fshader(device, module_comp->get(), "fs_comp");
+        pipeline_comp.init_playout(device, refl_comp->get());
+        pipeline_comp.init_pipeline(device, refl_comp->get());
     }
 
     void setup_descriptors()

@@ -138,10 +138,10 @@ static void initialize_registry(AssetRegistry& registry, const AMSDescriptor& de
         return;
     }
 
-    if (!registry.load(desc.registry)) {
+    if (auto res = registry.load(desc.registry); !res) {
         spdlog::info("AssetRegistry {} not found or failed to load. Rebuilding from source...", Path(desc.registry).string());
         registry.rebuild(rebuild_desc);
-        registry.save(desc.registry);
+        (void)registry.save(desc.registry);
         return;
     }
 
@@ -152,7 +152,7 @@ static void initialize_registry(AssetRegistry& registry, const AMSDescriptor& de
     if (desc.app.assets_path && has_missing_cooked_paths(registry)) {
         spdlog::info("AssetRegistry {} contains entries without cooked paths. Rebuilding from source...", Path(desc.registry).string());
         registry.rebuild(rebuild_desc);
-        registry.save(desc.registry);
+        (void)registry.save(desc.registry);
     }
 }
 
@@ -424,7 +424,7 @@ void AssetServer::flush()
     if (preview_api().flush) {
         preview_api().flush();
     }
-    registry.flush(descriptor.registry);
+    (void)registry.flush(descriptor.registry);
 }
 
 AssetID AssetServer::get_guid(FSPath path) const
@@ -470,19 +470,20 @@ void* AssetServer::get_asset(AssetTypeID type_id, RawAssetHandle handle)
     });
 }
 
-RawAssetHandle AssetServer::load_asset(AssetTypeID type_id, FSPath path)
+Result<RawAssetHandle> AssetServer::load_asset(AssetTypeID type_id, FSPath path)
 {
-    if (!path || path[0] == '\0') return RawAssetHandle();
+    if (!path || path[0] == '\0') return make_unexpected("Asset path is empty");
     AssetID guid = get_guid(path);
-    if (guid == 0) return RawAssetHandle();
+    if (guid == 0) return make_unexpected("Asset not registered in registry: " + String(path));
 
     return load_asset(type_id, guid);
 }
 
-RawAssetHandle AssetServer::load_asset(AssetTypeID type_id, AssetID guid)
+Result<RawAssetHandle> AssetServer::load_asset(AssetTypeID type_id, AssetID guid)
 {
+    if (guid == 0) return make_unexpected("Cannot load asset with null GUID");
     auto it = processors.find(type_id);
-    if (it == processors.end()) return RawAssetHandle();
+    if (it == processors.end()) return make_unexpected("No processor registered for asset type: " + to_string(type_id));
     AssetProcessor* processor_ptr = it->second.get();
 
     bool should_load_deps = false;
@@ -527,7 +528,7 @@ void AssetServer::load_dependencies(AssetID guid)
     for (auto dep_guid : deps) {
         AssetTypeID dep_type = registry.get_type(dep_guid);
         if (dep_type != 0) {
-            load_asset(dep_type, dep_guid);
+            (void)load_asset(dep_type, dep_guid);
         }
     }
 }
@@ -724,22 +725,22 @@ auto AssetServer::cook_asset_task(AssetCookerAPI* cooker, const Path& source_pat
     }
 }
 
-Future<AssetID> AssetServer::import_asset(const Path& path, bool force)
+Future<Result<AssetID>> AssetServer::import_asset(const Path& path, bool force)
 {
     auto ext = absl::AsciiStrToLower(path.extension().string());
     auto it  = cooker_extensions.find(ext);
     if (it == cooker_extensions.end()) {
         spdlog::error("No cooker found for extension: {}", ext);
-        Promise<AssetID> p;
-        p.set_value(0);
+        Promise<Result<AssetID>> p;
+        p.set_value(make_unexpected("No cooker found for extension: " + ext));
         return p.get_future();
     }
 
     auto [source_path, rel_path] = resolve_asset_path(path);
     if (source_path.empty() || rel_path.empty()) {
         spdlog::error("Cannot import asset with invalid path: {}", path.string());
-        Promise<AssetID> p;
-        p.set_value(0);
+        Promise<Result<AssetID>> p;
+        p.set_value(make_unexpected("Cannot import asset with invalid path: " + path.string()));
         return p.get_future();
     }
 
@@ -747,22 +748,26 @@ Future<AssetID> AssetServer::import_asset(const Path& path, bool force)
     AssetID guid        = resolve_or_create_guid(rel_path, import_path);
 
     if (!force && is_cook_up_to_date(source_path, import_path)) {
-        Promise<AssetID> p;
+        Promise<Result<AssetID>> p;
         p.set_value(guid);
         return p.get_future();
     }
 
     pending_cooks++;
 
-    auto promise = make_ref<Promise<AssetID>>();
+    auto promise = make_ref<Promise<Result<AssetID>>>();
     auto future  = promise->get_future();
 
     JobScheduler::schedule(JobPriority::BACKGROUND, [this, cooker = it->second, source_path, import_path, rel_path, guid, promise]() {
         try {
             AssetID result = cook_asset_task(cooker, source_path, import_path, rel_path, guid);
-            promise->set_value(result);
+            if (result == 0) {
+                promise->set_value(make_unexpected("Failed to cook asset: " + rel_path.string()));
+            } else {
+                promise->set_value(result);
+            }
         } catch (...) {
-            promise->set_exception(std::current_exception());
+            promise->set_value(make_unexpected("Exception occurred while cooking: " + rel_path.string()));
         }
     });
 
@@ -930,12 +935,12 @@ bool AssetServer::delete_single_asset(const Path& full_path, const Path& rel_pat
     return true;
 }
 
-bool AssetServer::delete_asset(const Path& path)
+Result<void> AssetServer::delete_asset(const Path& path)
 {
     auto [full_path, rel_path] = resolve_asset_path(path);
     if (full_path.empty() || rel_path.empty()) {
         spdlog::error("AssetServer: Cannot delete asset with invalid path: {}", path.string());
-        return false;
+        return make_unexpected("AssetServer: Cannot delete asset with invalid path: " + path.string());
     }
 
     std::error_code ec;
@@ -951,10 +956,13 @@ bool AssetServer::delete_asset(const Path& path)
     }
 
     flush();
-    return success;
+    if (!success) {
+        return make_unexpected("Failed to delete asset: " + path.string());
+    }
+    return {};
 }
 
-bool AssetServer::delete_asset(AssetID guid)
+Result<void> AssetServer::delete_asset(AssetID guid)
 {
     StringView p = registry.get_path(guid);
     if (!p.empty()) {
@@ -969,7 +977,7 @@ bool AssetServer::delete_asset(AssetID guid)
     });
 
     flush();
-    return true;
+    return {};
 }
 
 auto AssetServer::resolve_destination_path(const Path& src_full, const Path& destination) const -> std::pair<Path, Path>
@@ -1075,33 +1083,33 @@ bool AssetServer::move_single_asset(const Path& src_full, const Path& src_rel, c
     return true;
 }
 
-bool AssetServer::move_asset(const Path& source_path, const Path& destination_path)
+Result<void> AssetServer::move_asset(const Path& source_path, const Path& destination_path)
 {
     auto [src_full, src_rel] = resolve_asset_path(source_path);
     if (src_full.empty() || src_rel.empty()) {
         spdlog::error("AssetServer: Cannot move asset with invalid source path: {}", source_path.string());
-        return false;
+        return make_unexpected("AssetServer: Cannot move asset with invalid source path: " + source_path.string());
     }
 
     std::error_code ec;
     if (!fs::exists(src_full, ec)) {
         spdlog::error("AssetServer: Cannot move asset {}: source does not exist", src_full.string());
-        return false;
+        return make_unexpected("AssetServer: Cannot move asset " + src_full.string() + ": source does not exist");
     }
 
     auto [dst_full, dst_rel] = resolve_destination_path(src_full, destination_path);
     if (dst_full.empty() || dst_rel.empty()) {
         spdlog::error("AssetServer: Cannot move asset to invalid destination path: {}", destination_path.string());
-        return false;
+        return make_unexpected("AssetServer: Cannot move asset to invalid destination path: " + destination_path.string());
     }
 
     if (src_full == dst_full) {
-        return true;
+        return {};
     }
 
     if (fs::exists(dst_full, ec)) {
         spdlog::error("AssetServer: Cannot move asset to {}: destination already exists", dst_full.string());
-        return false;
+        return make_unexpected("AssetServer: Cannot move asset to " + dst_full.string() + ": destination already exists");
     }
 
     if (dst_full.has_parent_path()) {
@@ -1117,16 +1125,17 @@ bool AssetServer::move_asset(const Path& source_path, const Path& destination_pa
 
     if (success) {
         flush();
+        return {};
     }
-    return success;
+    return make_unexpected("Failed to move asset from " + src_full.string() + " to " + dst_full.string());
 }
 
-bool AssetServer::move_asset(AssetID guid, const Path& destination_path)
+Result<void> AssetServer::move_asset(AssetID guid, const Path& destination_path)
 {
     StringView p = registry.get_path(guid);
     if (p.empty()) {
         spdlog::error("AssetServer: Cannot move asset with GUID {:#x}: not found in registry", guid);
-        return false;
+        return make_unexpected("AssetServer: Cannot move asset with GUID " + std::to_string(guid) + ": not found in registry");
     }
     return move_asset(Path(String(p)), destination_path);
 }
@@ -1217,7 +1226,7 @@ void AssetServer::reimport_all(bool force)
         Path rel_to_app = fs::relative(entry.path(), assets_dir, ec);
         if (ec || rel_to_app.empty()) continue;
         if (has_cooker_for(entry.path())) {
-            import_asset(Path(VFSPath(vfs::SchemeApp, rel_to_app.generic_string()).to_string()), force);
+            (void)import_asset(Path(VFSPath(vfs::SchemeApp, rel_to_app.generic_string()).to_string()), force);
         }
     }
 }
@@ -1354,7 +1363,7 @@ void AssetServer::handle_watch_events(const Vector<AssetWatchEvent>& events)
                 spdlog::info("AssetServer: Watcher detected {} file {}, queuing cook...",
                     evt.action == AssetWatchAction::Added ? "added" : "modified",
                     vpath);
-                import_asset(Path(vpath), false);
+                (void)import_asset(Path(vpath), false);
             }
             fs_changed = true;
         } else if (evt.action == AssetWatchAction::Renamed) {
@@ -1375,19 +1384,28 @@ void AssetServer::handle_watch_events(const Vector<AssetWatchEvent>& events)
     }
 }
 
-bool AssetServer::save_asset(AssetTypeID type_id, const void* asset, OSPath path)
+Result<void> AssetServer::save_asset(AssetTypeID type_id, const void* asset, OSPath path)
 {
+    if (!asset) {
+        return make_unexpected("Cannot save null asset");
+    }
+    if (!path || path[0] == '\0') {
+        return make_unexpected("Target save path is empty");
+    }
     auto it = processors.find(type_id);
     if (it == processors.end() || !it->second->saver.has_value()) {
         spdlog::error("No saver registered for asset type ID: {}", to_string(type_id));
-        return false;
+        return make_unexpected("No saver registered for asset type ID: " + to_string(type_id));
     }
 
     const auto& saver = it->second->saver.value();
     if (!saver.save) {
         spdlog::error("Saver for asset type ID {} has no save function defined", to_string(type_id));
-        return false;
+        return make_unexpected("Saver for asset type ID " + to_string(type_id) + " has no save function defined");
     }
 
-    return saver.save(asset, path);
+    if (!saver.save(asset, path)) {
+        return make_unexpected("Failed to save asset to " + String(path));
+    }
+    return {};
 }

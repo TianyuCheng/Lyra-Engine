@@ -7,6 +7,7 @@
 #include <Lyra/Utilities/String.h>
 #include <Lyra/Utilities/Function.h>
 #include <Lyra/Utilities/Collections.h>
+#include <Lyra/Utilities/Result.h>
 #include <Lyra/Components/Mesh.h>
 #include <Lyra/Scene/World.h>
 #include <Lyra/Scene/SceneTree.h>
@@ -99,21 +100,21 @@ namespace lyra
         /**
          * @brief load and activate a scene (SINGLE or ADDITIVE).
          */
-        SceneInstanceID load(SceneAssetHandle handle, LoadMode mode = LoadMode::SINGLE);
-        SceneInstanceID load(SceneAssetHandle handle, const SpawnParams& params, LoadMode mode = LoadMode::SINGLE);
-        SceneInstanceID load(const Path& path, LoadMode mode = LoadMode::SINGLE);
+        auto load(SceneAssetHandle handle, LoadMode mode = LoadMode::SINGLE) -> Result<SceneInstanceID>;
+        auto load(SceneAssetHandle handle, const SpawnParams& params, LoadMode mode = LoadMode::SINGLE) -> Result<SceneInstanceID>;
+        auto load(const Path& path, LoadMode mode = LoadMode::SINGLE) -> Result<SceneInstanceID>;
 
         /**
          * @brief unload/clear the current scene
          */
-        bool unload(SceneInstanceID instance_id);
+        auto unload(SceneInstanceID instance_id) -> Result<void>;
         void clear();
 
         // --- serialization & persistence ---
 
         auto serialize() const -> SceneAsset;
-        bool save(const Path& path);
-        bool save_active();
+        auto save(const Path& path) -> Result<void>;
+        auto save_active() -> Result<void>;
 
         // --- queries & updates ---
 

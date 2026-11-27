@@ -364,15 +364,15 @@ SceneInstanceID SceneManager::create(const String& name, SceneTemplate templ)
     return id;
 }
 
-SceneInstanceID SceneManager::load(SceneAssetHandle handle, LoadMode mode)
+Result<SceneInstanceID> SceneManager::load(SceneAssetHandle handle, LoadMode mode)
 {
     return load(handle, SpawnParams{}, mode);
 }
 
-SceneInstanceID SceneManager::load(SceneAssetHandle handle, const SpawnParams& params, LoadMode mode)
+Result<SceneInstanceID> SceneManager::load(SceneAssetHandle handle, const SpawnParams& params, LoadMode mode)
 {
     if (!handle.valid()) {
-        return INVALID_SCENE_INSTANCE;
+        return make_unexpected("Invalid scene asset handle");
     }
 
     auto asset = ams.get_asset(handle);
@@ -381,7 +381,7 @@ SceneInstanceID SceneManager::load(SceneAssetHandle handle, const SpawnParams& p
         asset = ams.get_asset(handle);
     }
     if (!asset) {
-        return INVALID_SCENE_INSTANCE;
+        return make_unexpected("Scene asset not loaded or unavailable for handle " + std::to_string(handle.guid));
     }
 
     if (mode == LoadMode::SINGLE) {
@@ -390,7 +390,7 @@ SceneInstanceID SceneManager::load(SceneAssetHandle handle, const SpawnParams& p
 
     SceneNode root = spawn_scene_internal(*asset, params);
     if (root.entity == entt::null) {
-        return INVALID_SCENE_INSTANCE;
+        return make_unexpected("Failed to spawn scene hierarchy");
     }
 
     SceneInstanceID id = next_instance_id++;
@@ -421,11 +421,11 @@ SceneInstanceID SceneManager::load(SceneAssetHandle handle, const SpawnParams& p
     return id;
 }
 
-SceneInstanceID SceneManager::load(const Path& path, LoadMode mode)
+Result<SceneInstanceID> SceneManager::load(const Path& path, LoadMode mode)
 {
     auto [full_path, vpath] = ams.resolve_asset_path(path);
     if (full_path.empty() || !fs::exists(full_path)) {
-        return INVALID_SCENE_INSTANCE;
+        return make_unexpected("Scene path does not exist: " + path.string());
     }
 
     // check for .import file to read GUID
@@ -464,10 +464,11 @@ SceneInstanceID SceneManager::load(const Path& path, LoadMode mode)
 
     ams.register_asset_entry(guid, vpath, SceneAsset::type);
 
-    SceneAssetHandle handle = ams.load_asset<SceneAsset>(guid);
-    if (!handle.valid()) {
-        return INVALID_SCENE_INSTANCE;
+    auto handle_res = ams.load_asset<SceneAsset>(guid);
+    if (!handle_res) {
+        return make_unexpected("Failed to load scene asset: " + handle_res.error());
     }
+    SceneAssetHandle handle = *handle_res;
 
     JobScheduler::wait_idle();
 
@@ -476,26 +477,29 @@ SceneInstanceID SceneManager::load(const Path& path, LoadMode mode)
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
 
-    SceneInstanceID id = load(handle, mode);
-    if (id != INVALID_SCENE_INSTANCE) {
-        auto it = instances.find(id);
-        if (it != instances.end()) {
-            it->second.path = vpath;
-            it->second.name = vpath.stem().string();
-        }
-        if (mode == LoadMode::SINGLE) {
-            dirty = false;
-        }
+    auto id_res = load(handle, mode);
+    if (!id_res) {
+        return id_res;
+    }
+    SceneInstanceID id = *id_res;
+
+    auto it = instances.find(id);
+    if (it != instances.end()) {
+        it->second.path = vpath;
+        it->second.name = vpath.stem().string();
+    }
+    if (mode == LoadMode::SINGLE) {
+        dirty = false;
     }
 
     return id;
 }
 
-bool SceneManager::unload(SceneInstanceID instance_id)
+Result<void> SceneManager::unload(SceneInstanceID instance_id)
 {
     auto it = instances.find(instance_id);
     if (it == instances.end()) {
-        return false;
+        return make_unexpected("Scene instance " + std::to_string(instance_id) + " not found");
     }
 
     // destroy the root node and all its descendants
@@ -510,7 +514,7 @@ bool SceneManager::unload(SceneInstanceID instance_id)
     }
 
     instances.erase(it);
-    return true;
+    return {};
 }
 
 void SceneManager::clear()
@@ -618,11 +622,11 @@ SceneAsset SceneManager::serialize() const
     return scene;
 }
 
-bool SceneManager::save(const Path& path)
+Result<void> SceneManager::save(const Path& path)
 {
     auto [full_path, vpath] = ams.resolve_asset_path(path);
     if (full_path.empty()) {
-        return false;
+        return make_unexpected("Cannot save scene to empty or invalid path: " + path.string());
     }
 
     SceneAsset scene = serialize();
@@ -632,8 +636,9 @@ bool SceneManager::save(const Path& path)
         fs::create_directories(full_path.parent_path(), ec);
     }
 
-    if (!ams.save_asset(scene, full_path.c_str())) {
-        return false;
+    auto save_res = ams.save_asset(scene, full_path.c_str());
+    if (!save_res) {
+        return make_unexpected("Failed to save scene asset: " + save_res.error());
     }
 
     // write or verify .import metadata next to the scene file
@@ -677,14 +682,14 @@ bool SceneManager::save(const Path& path)
     }
 
     dirty = false;
-    return true;
+    return {};
 }
 
-bool SceneManager::save_active()
+Result<void> SceneManager::save_active()
 {
     const auto active = get_active();
     if (!active || active->path.empty()) {
-        return false;
+        return make_unexpected("No active scene or active scene has no path");
     }
     return save(active->path);
 }

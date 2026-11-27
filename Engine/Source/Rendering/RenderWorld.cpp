@@ -232,7 +232,7 @@ void RenderWorld::extract_meshes(const World& ecs_world, const RendererCapabilit
             else if (ams) {
                 auto mesh_asset = ams->get_asset(mesh_comp.mesh);
                 if (!mesh_asset) {
-                    ams->load_asset<MeshAsset>(mesh_comp.mesh.guid);
+                    (void)ams->load_asset<MeshAsset>(mesh_comp.mesh.guid);
                     mesh_asset = ams->get_asset(mesh_comp.mesh);
                 }
                 if (mesh_asset) {
@@ -276,7 +276,7 @@ void RenderWorld::extract_meshes(const World& ecs_world, const RendererCapabilit
                 } else if (ams) {
                     mat_ptr = ams->get_asset(handle);
                     if (!mat_ptr) {
-                        ams->load_asset<MaterialAsset>(handle.guid);
+                        (void)ams->load_asset<MaterialAsset>(handle.guid);
                         mat_ptr = ams->get_asset(handle);
                     }
                 }
@@ -405,7 +405,7 @@ void RenderWorld::extract_sdfs(const World& ecs_world)
         if (sdf_comp.material.valid() && ams) {
             auto mat_ptr = ams->get_asset(sdf_comp.material);
             if (!mat_ptr) {
-                ams->load_asset<MaterialAsset>(sdf_comp.material.guid);
+                (void)ams->load_asset<MaterialAsset>(sdf_comp.material.guid);
                 mat_ptr = ams->get_asset(sdf_comp.material);
             }
             if (mat_ptr) {

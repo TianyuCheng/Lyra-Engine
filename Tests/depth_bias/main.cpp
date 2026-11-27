@@ -227,10 +227,10 @@ struct DepthBiasApp : public TestApp
             pipe.dsstate->depth_write_enabled    = true;
             pipe.dsstate->depth_bias             = depth_bias;
             pipe.dsstate->depth_bias_slope_scale = depth_bias_slope;
-            pipe.init_vshader(device, module.get(), "vsmain");
-            pipe.init_fshader(device, module.get(), "fsmain");
-            pipe.init_playout(device, reflection.get());
-            pipe.init_pipeline(device, reflection.get());
+            pipe.init_vshader(device, module->get(), "vsmain");
+            pipe.init_fshader(device, module->get(), "fsmain");
+            pipe.init_playout(device, reflection->get());
+            pipe.init_pipeline(device, reflection->get());
         };
 
         // 1. Base pipeline: always writes depth, zero bias

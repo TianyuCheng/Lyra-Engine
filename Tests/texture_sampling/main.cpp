@@ -128,10 +128,10 @@ struct TextureSamplingApp : public TestApp
         pipeline.attributes.push_back({"position", offsetof(Vertex, position)});
         pipeline.attributes.push_back({"texcoord", offsetof(Vertex, uv)});
         pipeline.init_color_state(get_backbuffer_format());
-        pipeline.init_vshader(device, module.get(), "vsmain");
-        pipeline.init_fshader(device, module.get(), "fsmain");
-        pipeline.init_playout(device, reflection.get());
-        pipeline.init_pipeline(device, reflection.get());
+        pipeline.init_vshader(device, module->get(), "vsmain");
+        pipeline.init_fshader(device, module->get(), "fsmain");
+        pipeline.init_playout(device, reflection->get());
+        pipeline.init_pipeline(device, reflection->get());
     }
 
     void setup_descriptors()

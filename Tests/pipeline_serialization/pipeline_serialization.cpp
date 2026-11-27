@@ -214,7 +214,7 @@ TEST_CASE("pipeline_serde::file_io_saver_and_loader")
 
     // load back using fileloader and assetloaderapi
     FileLoader loader(FSLoader::NATIVE);
-    loader.mount("app://", temp_dir.c_str(), 0);
+    (void)loader.mount("app://", temp_dir.c_str(), 0);
 
     auto loader_api = PipelineAsset::loader();
     auto loaded     = static_cast<PipelineAsset*>(loader_api.load(&loader, "app://test_fxaa.pipeline"));
@@ -233,7 +233,7 @@ TEST_CASE("pipeline_serde::file_io_saver_and_loader")
 TEST_CASE("pipeline_manager::automated_reflection_and_layout_synthesis")
 {
     FileLoader loader(FSLoader::NATIVE);
-    loader.mount("sys://", "Engine/Assets", 0);
+    (void)loader.mount("sys://", "Engine/Assets", 0);
 
     static CString     includes[] = {"Engine/Assets/Shaders"};
     CompilerDescriptor cdesc{};
@@ -318,7 +318,7 @@ TEST_CASE("pipeline_manager::automated_reflection_and_layout_synthesis")
     {
         auto temp_dir = fs::temp_directory_path() / "lyra_pm_test";
         fs::create_directories(temp_dir);
-        loader.mount("app://", temp_dir.c_str(), 0);
+        (void)loader.mount("app://", temp_dir.c_str(), 0);
 
         PipelineAsset asset{};
         asset.shader.module         = "sys://Shaders/PostProcess/FXAA.slang";

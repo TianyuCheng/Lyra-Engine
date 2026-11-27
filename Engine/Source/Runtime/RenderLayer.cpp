@@ -1,4 +1,5 @@
 #include <Lyra/Runtime/RenderLayer.h>
+#include <Lyra/Utilities/Logger.h>
 #include <Lyra/Utilities/Math.h>
 #include <Lyra/Scene/World.h>
 #include <Lyra/Components/Camera.h>
@@ -10,6 +11,15 @@
 #include <Lyra/Rendering/ProceduralMesh.h>
 
 using namespace lyra;
+
+namespace
+{
+    auto get_logger() -> Logger
+    {
+        static Logger LOGGER = create_logger("RenderLayer", LogLevel::info);
+        return LOGGER;
+    }
+} // namespace
 
 static void update_camera_projection(Camera& camera)
 {

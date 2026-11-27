@@ -120,16 +120,15 @@ static bool read_lods_chunk(MeshReader& reader, MeshAsset* asset)
 
 static void* load_mesh_asset(FileLoader* loader, FSPath path)
 {
-    auto asset = new MeshAsset();
-
     auto content = loader->read<uint8_t>(path);
-    if (content.empty()) {
-        delete asset;
+    if (!content || content->empty()) {
         return nullptr;
     }
 
+    auto asset = new MeshAsset();
+
     usize      offset = 0;
-    MeshReader reader{content, offset};
+    MeshReader reader{*content, offset};
 
     // header: magic + version
     uint magic   = 0;
@@ -148,7 +147,7 @@ static void* load_mesh_asset(FileLoader* loader, FSPath path)
     }
 
     // chunk-based parsing
-    while (offset < content.size()) {
+    while (offset < content->size()) {
         ChunkHeader chunk;
         if (!reader.read(chunk)) break;
 
