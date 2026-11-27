@@ -11,6 +11,7 @@
 #include <Lyra/Rendering/FrameGraph.h>
 #include <Lyra/Rendering/RenderView.h>
 #include <Lyra/Rendering/RenderScene.h>
+#include <Lyra/Rendering/PipelineManager.h>
 
 namespace lyra::passes
 {
@@ -77,10 +78,8 @@ namespace lyra::passes
 
     private:
         GPUDevice                        device;
+        PipelineManager                  pipeline_manager;
         GPURenderPipeline                pipeline;
-        GPUPipelineLayout                playout;
-        GPUShaderModule                  vshader;
-        GPUShaderModule                  fshader;
         GPUBindGroupHeap                 heap;
         Vector<GPUBindGroupLayoutHandle> blayouts;
 
@@ -89,26 +88,17 @@ namespace lyra::passes
         GPUTexture                       transmittance_lut_tex;
         GPUTextureView                   transmittance_lut_view;
         GPURenderPipeline                transmittance_pipeline;
-        GPUPipelineLayout                transmittance_playout;
-        GPUShaderModule                  transmittance_vshader;
-        GPUShaderModule                  transmittance_fshader;
         Vector<GPUBindGroupLayoutHandle> transmittance_blayouts;
 
         // 2. Multi-Scattering LUT (32x32)
         GPUTexture                       multiscatter_lut_tex;
         GPUTextureView                   multiscatter_lut_view;
         GPURenderPipeline                multiscatter_pipeline;
-        GPUPipelineLayout                multiscatter_playout;
-        GPUShaderModule                  multiscatter_vshader;
-        GPUShaderModule                  multiscatter_fshader;
         Vector<GPUBindGroupLayoutHandle> multiscatter_blayouts;
         GPUBindGroup                     multiscatter_bind_group;
 
         // 3. Sky-View LUT (192x108)
         GPURenderPipeline                sky_view_pipeline;
-        GPUPipelineLayout                sky_view_playout;
-        GPUShaderModule                  sky_view_vshader;
-        GPUShaderModule                  sky_view_fshader;
         Vector<GPUBindGroupLayoutHandle> sky_view_blayouts;
 
         GPUSampler linear_sampler;

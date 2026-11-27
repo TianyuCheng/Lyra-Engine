@@ -9,6 +9,7 @@
 #include <Lyra/Compiler/SLCTypes.h>
 #include <Lyra/Rendering/FrameGraph.h>
 #include <Lyra/Rendering/RendererTypes.h>
+#include <Lyra/Rendering/PipelineManager.h>
 
 namespace lyra::passes
 {
@@ -83,16 +84,10 @@ namespace lyra::passes
 
         static_assert(sizeof(AutoExposurePushConstants) == 48, "AutoExposurePushConstants must be 48 bytes");
 
-        GPUDevice device;
-
-        // compute shaders & pipelines
-        GPUShaderModule    histogram_shader;
-        GPUShaderModule    adapt_shader;
-        GPUComputePipeline histogram_pipeline;
-        GPUComputePipeline adapt_pipeline;
-        GPUPipelineLayout  histogram_playout;
-        GPUPipelineLayout  adapt_playout;
-
+        GPUDevice                        device;
+        PipelineManager                  pipeline_manager;
+        GPUComputePipeline               histogram_pipeline;
+        GPUComputePipeline               adapt_pipeline;
         Vector<GPUBindGroupLayoutHandle> histogram_blayouts;
         Vector<GPUBindGroupLayoutHandle> adapt_blayouts;
 

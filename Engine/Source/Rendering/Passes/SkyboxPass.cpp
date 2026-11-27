@@ -39,81 +39,42 @@ bool SkyboxPass::init(
     this->cached_color_format = color_format;
     this->cached_depth_format = depth_format;
 
-    auto compile_shader = [&](CString module_name, CString path,
-                              GPUShaderModule& out_vs, GPUShaderModule& out_fs,
-                              Vector<GPUBindGroupLayoutHandle>& out_blayouts,
-                              GPUPipelineLayout&                out_playout) -> bool {
-        auto desc   = CompileDescriptor{};
-        desc.module = module_name;
-        desc.path   = path;
-        desc.source = nullptr;
-        auto module = compiler.compile(desc);
-        if (!module) return false;
+    pipeline_manager.init(device, compiler);
 
-        auto reflection = compiler.reflect({
-            {*module, "vsmain"},
-            {*module, "fsmain"},
-        });
-        if (!reflection) return false;
+    auto make_pipeline = [&](CString module_path, CString label,
+                             Vector<GPUBindGroupLayoutHandle>& out_blayouts,
+                             GPUTextureFormat                  color_fmt,
+                             bool                              depth_test = false) -> GPURenderPipeline {
+        PipelineShaderDescriptor shader_desc{};
+        shader_desc.module         = module_path;
+        shader_desc.vertex_entry   = "vsmain";
+        shader_desc.fragment_entry = "fsmain";
 
-        auto vcode = module->get_shader_blob("vsmain");
-        auto fcode = module->get_shader_blob("fsmain");
-        if (!vcode || !fcode) return false;
-
-        auto vs_desc  = GPUShaderModuleDescriptor{};
-        vs_desc.label = module_name;
-        vs_desc.data  = vcode->data;
-        vs_desc.size  = vcode->size;
-        out_vs        = device.create_shader_module(vs_desc);
-
-        auto fs_desc  = GPUShaderModuleDescriptor{};
-        fs_desc.label = module_name;
-        fs_desc.data  = fcode->data;
-        fs_desc.size  = fcode->size;
-        out_fs        = device.create_shader_module(fs_desc);
-
-        out_blayouts.clear();
-        for (auto& bdesc : reflection->get_bind_group_layouts()) {
-            out_blayouts.push_back(device.create_bind_group_layout(bdesc));
+        auto layout_info = pipeline_manager.reflect_render_layout(shader_desc);
+        if (!layout_info.valid()) {
+            return {};
         }
+        out_blayouts.assign(layout_info.bind_group_layouts.begin(), layout_info.bind_group_layouts.end());
 
-        auto pdesc               = GPUPipelineLayoutDescriptor{};
-        pdesc.bind_group_layouts = out_blayouts;
-        pdesc.immediate_size     = reflection->get_immediate_size();
-        out_playout              = device.create_pipeline_layout(pdesc);
-        return true;
-    };
+        auto builder = pipeline_manager.render_pipeline_builder()
+                           .with_shader(shader_desc)
+                           .with_cull_mode(GPUCullMode::NONE)
+                           .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
+                           .with_front_face(GPUFrontFace::CCW)
+                           .with_target(color_fmt)
+                           .with_label(label);
 
-    auto create_pipeline = [&](CString label, GPUPipelineLayout layout,
-                               GPUShaderModule vs, GPUShaderModule fs,
-                               GPUTextureFormat color_fmt,
-                               GPUTextureFormat depth_fmt  = GPUTextureFormat::DEPTH32FLOAT,
-                               bool             depth_test = false) -> GPURenderPipeline {
-        Vector<GPUColorTargetState> rstates;
-        auto                        color_state = GPUColorTargetState{};
-        color_state.format                      = color_fmt;
-        color_state.blend_enable                = false;
-        rstates.push_back(color_state);
-
-        auto desc                         = GPURenderPipelineDescriptor{};
-        desc.label                        = label;
-        desc.layout                       = layout;
-        desc.primitive.cull_mode          = GPUCullMode::NONE;
-        desc.primitive.topology           = GPUPrimitiveTopology::TRIANGLE_LIST;
-        desc.primitive.front_face         = GPUFrontFace::CCW;
-        desc.primitive.strip_index_format = GPUIndexFormat::UINT32;
         if (depth_test) {
-            desc.depth_stencil.depth_compare       = GPUCompareFunction::LESS_EQUAL;
-            desc.depth_stencil.depth_write_enabled = false;
-            desc.depth_stencil.format              = depth_fmt;
+            builder.with_depth_stencil(cached_depth_format, false, GPUCompareFunction::LESS_EQUAL);
+        } else {
+            builder.without_depth_stencil();
         }
-        desc.multisample.count    = 1;
-        desc.vertex.module        = vs;
-        desc.vertex.entry_point   = "vsmain";
-        desc.fragment.module      = fs;
-        desc.fragment.targets     = rstates;
-        desc.fragment.entry_point = "fsmain";
-        return device.create_render_pipeline(desc);
+
+        try {
+            return builder.build();
+        } catch (const std::exception&) {
+            return {};
+        }
     };
 
     auto create_lut_texture = [&](uint width, uint height, GPUTextureFormat format, CString label) -> GPUTexture {
@@ -128,41 +89,37 @@ bool SkyboxPass::init(
         return device.create_texture(desc);
     };
 
-    // 1. compile and build 3-LUT pipelines
-    if (!compile_shader("atmo_transmittance", "sys://Shaders/Sky/AtmosphereTransmittanceLUT.slang",
-            transmittance_vshader, transmittance_fshader,
-            transmittance_blayouts, transmittance_playout)) {
-        return false;
-    }
-    transmittance_pipeline = create_pipeline("atmo_transmittance_pipeline", transmittance_playout,
-        transmittance_vshader, transmittance_fshader,
+    // 1. build 3-LUT pipelines
+    transmittance_pipeline = make_pipeline(
+        "sys://Shaders/Sky/AtmosphereTransmittanceLUT.slang",
+        "atmo_transmittance_pipeline",
+        transmittance_blayouts,
         GPUTextureFormat::RGBA16FLOAT);
 
-    if (!compile_shader("atmo_multiscatter", "sys://Shaders/Sky/AtmosphereMultiScatterLUT.slang",
-            multiscatter_vshader, multiscatter_fshader,
-            multiscatter_blayouts, multiscatter_playout)) {
-        return false;
-    }
-    multiscatter_pipeline = create_pipeline("atmo_multiscatter_pipeline", multiscatter_playout,
-        multiscatter_vshader, multiscatter_fshader,
+    multiscatter_pipeline = make_pipeline(
+        "sys://Shaders/Sky/AtmosphereMultiScatterLUT.slang",
+        "atmo_multiscatter_pipeline",
+        multiscatter_blayouts,
         GPUTextureFormat::RGBA16FLOAT);
 
-    if (!compile_shader("atmo_sky_view", "sys://Shaders/Sky/AtmosphereSkyViewLUT.slang",
-            sky_view_vshader, sky_view_fshader,
-            sky_view_blayouts, sky_view_playout)) {
-        return false;
-    }
-    sky_view_pipeline = create_pipeline("atmo_sky_view_pipeline", sky_view_playout,
-        sky_view_vshader, sky_view_fshader,
+    sky_view_pipeline = make_pipeline(
+        "sys://Shaders/Sky/AtmosphereSkyViewLUT.slang",
+        "atmo_sky_view_pipeline",
+        sky_view_blayouts,
         GPUTextureFormat::RGBA16FLOAT);
 
-    // 2. compile and build screen Skybox pipeline
-    if (!compile_shader("skybox", "sys://Shaders/Sky/Skybox.slang",
-            vshader, fshader, blayouts, playout)) {
+    // 2. build screen Skybox pipeline
+    pipeline = make_pipeline(
+        "sys://Shaders/Sky/Skybox.slang",
+        "skybox_render_pipeline",
+        blayouts,
+        cached_color_format,
+        true);
+
+    if (!transmittance_pipeline.valid() || !multiscatter_pipeline.valid() ||
+        !sky_view_pipeline.valid() || !pipeline.valid()) {
         return false;
     }
-    pipeline = create_pipeline("skybox_render_pipeline", playout, vshader, fshader,
-        cached_color_format, cached_depth_format, true);
 
     // 3. create static textures and views
     transmittance_lut_tex  = create_lut_texture(256, 64, GPUTextureFormat::RGBA16FLOAT, "transmittance_lut");
@@ -306,28 +263,14 @@ void SkyboxPass::destroy()
     transmittance_lut_tex  = {};
     transmittance_lut_view = {};
 
-    if (pipeline.valid()) pipeline.destroy();
-    if (playout.valid()) playout.destroy();
-    if (fshader.valid()) fshader.destroy();
-    if (vshader.valid()) vshader.destroy();
+    pipeline_manager.destroy();
+    pipeline               = {};
+    sky_view_pipeline      = {};
+    multiscatter_pipeline  = {};
+    transmittance_pipeline = {};
     blayouts.clear();
-
-    if (sky_view_pipeline.valid()) sky_view_pipeline.destroy();
-    if (sky_view_playout.valid()) sky_view_playout.destroy();
-    if (sky_view_fshader.valid()) sky_view_fshader.destroy();
-    if (sky_view_vshader.valid()) sky_view_vshader.destroy();
     sky_view_blayouts.clear();
-
-    if (multiscatter_pipeline.valid()) multiscatter_pipeline.destroy();
-    if (multiscatter_playout.valid()) multiscatter_playout.destroy();
-    if (multiscatter_fshader.valid()) multiscatter_fshader.destroy();
-    if (multiscatter_vshader.valid()) multiscatter_vshader.destroy();
     multiscatter_blayouts.clear();
-
-    if (transmittance_pipeline.valid()) transmittance_pipeline.destroy();
-    if (transmittance_playout.valid()) transmittance_playout.destroy();
-    if (transmittance_fshader.valid()) transmittance_fshader.destroy();
-    if (transmittance_vshader.valid()) transmittance_vshader.destroy();
     transmittance_blayouts.clear();
 
     initialized = false;

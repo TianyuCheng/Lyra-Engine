@@ -24,95 +24,36 @@ bool EditorGridPass::init(
     this->cached_color_format = color_format;
     this->cached_depth_format = depth_format;
 
+    pipeline_manager.init(device, compiler);
+
     // compile shader program from engine shader asset
-    auto module = execute([&]() {
-        auto desc   = CompileDescriptor{};
-        desc.module = "grid";
-        desc.path   = "sys://Shaders/Editor/Grid.slang";
-        desc.source = nullptr;
-        return compiler.compile(desc);
-    });
+    PipelineShaderDescriptor shader_desc{};
+    shader_desc.module         = "sys://Shaders/Editor/Grid.slang";
+    shader_desc.vertex_entry   = "vsmain";
+    shader_desc.fragment_entry = "fsmain";
 
-    if (!module) {
+    auto layout_info = pipeline_manager.reflect_render_layout(shader_desc);
+    if (!layout_info.valid()) {
+        return false;
+    }
+    blayouts.assign(layout_info.bind_group_layouts.begin(), layout_info.bind_group_layouts.end());
+
+    try {
+        pipeline = pipeline_manager.render_pipeline_builder()
+                       .with_shader(shader_desc)
+                       .with_cull_mode(GPUCullMode::NONE)
+                       .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
+                       .with_front_face(GPUFrontFace::CCW)
+                       .with_target(cached_color_format, BlendPreset::ALPHA)
+                       .with_depth_stencil(cached_depth_format, false, GPUCompareFunction::LESS_EQUAL)
+                       .with_label("editor_grid_pipeline")
+                       .build();
+    } catch (const std::exception&) {
         return false;
     }
 
-    auto reflection = compiler.reflect({
-        {*module, "vsmain"},
-        {*module, "fsmain"},
-    });
-
-    if (!reflection) {
-        return false;
-    }
-
-    vshader = execute([&]() {
-        auto code  = module->get_shader_blob("vsmain");
-        auto desc  = GPUShaderModuleDescriptor{};
-        desc.label = "grid_vertex_shader";
-        desc.data  = code->data;
-        desc.size  = code->size;
-        return device.create_shader_module(desc);
-    });
-
-    fshader = execute([&]() {
-        auto code  = module->get_shader_blob("fsmain");
-        auto desc  = GPUShaderModuleDescriptor{};
-        desc.label = "grid_fragment_shader";
-        desc.data  = code->data;
-        desc.size  = code->size;
-        return device.create_shader_module(desc);
-    });
-
-    blayouts.clear();
-    for (auto& desc : reflection->get_bind_group_layouts()) {
-        auto blayout = device.create_bind_group_layout(desc);
-        blayouts.push_back(blayout);
-    }
-
-    playout = execute([&]() {
-        auto desc               = GPUPipelineLayoutDescriptor{};
-        desc.bind_group_layouts = blayouts;
-        desc.immediate_size     = reflection->get_immediate_size();
-        return device.create_pipeline_layout(desc);
-    });
-
-    pipeline = execute([&]() {
-        // color targets with standard premultiplied / alpha blending
-        Vector<GPUColorTargetState> rstates;
-        auto                        color_state = GPUColorTargetState{};
-        color_state.format                      = cached_color_format;
-        color_state.blend_enable                = true;
-        color_state.blend.color.operation       = GPUBlendOperation::ADD;
-        color_state.blend.color.src_factor      = GPUBlendFactor::SRC_ALPHA;
-        color_state.blend.color.dst_factor      = GPUBlendFactor::ONE_MINUS_SRC_ALPHA;
-        color_state.blend.alpha.operation       = GPUBlendOperation::ADD;
-        color_state.blend.alpha.src_factor      = GPUBlendFactor::ONE;
-        color_state.blend.alpha.dst_factor      = GPUBlendFactor::ONE_MINUS_SRC_ALPHA;
-        rstates.push_back(color_state);
-
-        auto desc                                  = GPURenderPipelineDescriptor{};
-        desc.layout                                = playout;
-        desc.primitive.cull_mode                   = GPUCullMode::NONE;
-        desc.primitive.topology                    = GPUPrimitiveTopology::TRIANGLE_LIST;
-        desc.primitive.front_face                  = GPUFrontFace::CCW;
-        desc.primitive.strip_index_format          = GPUIndexFormat::UINT32;
-        desc.depth_stencil.depth_compare           = GPUCompareFunction::LESS_EQUAL;
-        desc.depth_stencil.depth_write_enabled     = false;
-        desc.depth_stencil.format                  = cached_depth_format;
-        desc.multisample.alpha_to_coverage_enabled = false;
-        desc.multisample.count                     = 1;
-        desc.vertex.module                         = vshader;
-        desc.vertex.buffers                        = {};
-        desc.vertex.entry_point                    = "vsmain";
-        desc.fragment.module                       = fshader;
-        desc.fragment.targets                      = rstates;
-        desc.fragment.entry_point                  = "fsmain";
-        return device.create_render_pipeline(desc);
-    });
-
-    initialized = true;
-    return true;
+    initialized = pipeline.valid();
+    return initialized;
 }
 
 void EditorGridPass::destroy()
@@ -123,11 +64,8 @@ void EditorGridPass::destroy()
 
     device.wait();
 
-    if (pipeline.valid()) pipeline.destroy();
-    if (playout.valid()) playout.destroy();
-    if (fshader.valid()) fshader.destroy();
-    if (vshader.valid()) vshader.destroy();
-
+    pipeline_manager.destroy();
+    pipeline = {};
     blayouts.clear();
     initialized = false;
 }

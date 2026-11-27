@@ -9,6 +9,7 @@
 #include <Lyra/Compiler/SLCTypes.h>
 #include <Lyra/Rendering/FrameGraph.h>
 #include <Lyra/Rendering/RendererTypes.h>
+#include <Lyra/Rendering/PipelineManager.h>
 
 namespace lyra::passes
 {
@@ -81,9 +82,8 @@ namespace lyra::passes
         static_assert(sizeof(DOFPushConstants) == 48, "DOFPushConstants must be 48 bytes");
 
         GPUDevice                        device;
-        GPUShaderModule                  cshader;
+        PipelineManager                  pipeline_manager;
         GPUComputePipeline               pipeline;
-        GPUPipelineLayout                playout;
         Vector<GPUBindGroupLayoutHandle> blayouts;
         GPUSampler                       linear_sampler;
 

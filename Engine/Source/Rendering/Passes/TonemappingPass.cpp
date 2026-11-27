@@ -32,46 +32,19 @@ bool TonemappingPass::init(
 
     device               = dev;
     cached_output_format = output_format;
+    pipeline_manager.init(device, compiler);
 
-    // 1. compile tonemapping shader asset
-    auto module = execute([&]() {
-        auto desc   = CompileDescriptor{};
-        desc.module = "tonemap";
-        desc.path   = "sys://Shaders/PostProcess/Tonemap.slang";
-        desc.source = nullptr;
-        return compiler.compile(desc);
-    });
+    // 1. reflect render layout from tonemapping shader
+    PipelineShaderDescriptor shader_desc{};
+    shader_desc.module         = "sys://Shaders/PostProcess/Tonemap.slang";
+    shader_desc.vertex_entry   = "vsmain";
+    shader_desc.fragment_entry = "fsmain";
 
-    if (!module) {
+    auto layout_info = pipeline_manager.reflect_render_layout(shader_desc);
+    if (!layout_info.valid()) {
         return false;
     }
-
-    auto reflection = compiler.reflect({
-        {*module, "vsmain"},
-        {*module, "fsmain"},
-    });
-
-    if (!reflection) {
-        return false;
-    }
-
-    vshader = execute([&]() {
-        auto code  = module->get_shader_blob("vsmain");
-        auto desc  = GPUShaderModuleDescriptor{};
-        desc.label = "tonemap_vertex_shader";
-        desc.data  = code->data;
-        desc.size  = code->size;
-        return device.create_shader_module(desc);
-    });
-
-    fshader = execute([&]() {
-        auto code  = module->get_shader_blob("fsmain");
-        auto desc  = GPUShaderModuleDescriptor{};
-        desc.label = "tonemap_fragment_shader";
-        desc.data  = code->data;
-        desc.size  = code->size;
-        return device.create_shader_module(desc);
-    });
+    blayouts.assign(layout_info.bind_group_layouts.begin(), layout_info.bind_group_layouts.end());
 
     sampler = execute([&]() {
         auto desc           = GPUSamplerDescriptor{};
@@ -85,41 +58,19 @@ bool TonemappingPass::init(
         return device.create_sampler(desc);
     });
 
-    blayouts.clear();
-    for (auto& desc : reflection->get_bind_group_layouts()) {
-        auto blayout = device.create_bind_group_layout(desc);
-        blayouts.push_back(blayout);
+    try {
+        pipeline = pipeline_manager.render_pipeline_builder()
+                       .with_shader(shader_desc)
+                       .with_cull_mode(GPUCullMode::NONE)
+                       .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
+                       .with_front_face(GPUFrontFace::CCW)
+                       .without_depth_stencil()
+                       .with_target(cached_output_format)
+                       .with_label("tonemap_pipeline")
+                       .build();
+    } catch (const std::exception&) {
+        return false;
     }
-
-    playout = execute([&]() {
-        auto desc               = GPUPipelineLayoutDescriptor{};
-        desc.bind_group_layouts = blayouts;
-        desc.immediate_size     = reflection->get_immediate_size();
-        return device.create_pipeline_layout(desc);
-    });
-
-    pipeline = execute([&]() {
-        Vector<GPUColorTargetState> rstates;
-        auto                        color_state = GPUColorTargetState{};
-        color_state.format                      = cached_output_format;
-        color_state.blend_enable                = false;
-        rstates.push_back(color_state);
-
-        auto desc                         = GPURenderPipelineDescriptor{};
-        desc.layout                       = playout;
-        desc.primitive.cull_mode          = GPUCullMode::NONE;
-        desc.primitive.topology           = GPUPrimitiveTopology::TRIANGLE_LIST;
-        desc.primitive.front_face         = GPUFrontFace::CCW;
-        desc.primitive.strip_index_format = GPUIndexFormat::UINT32;
-        desc.multisample.count            = 1;
-        desc.vertex.module                = vshader;
-        desc.vertex.buffers               = {};
-        desc.vertex.entry_point           = "vsmain";
-        desc.fragment.module              = fshader;
-        desc.fragment.targets             = rstates;
-        desc.fragment.entry_point         = "fsmain";
-        return device.create_render_pipeline(desc);
-    });
 
     // 2. default 1x1 black bloom fallback
     default_bloom_tex  = execute([&]() {
@@ -175,10 +126,8 @@ void TonemappingPass::destroy()
     default_bloom_view.destroy();
     default_bloom_tex.destroy();
     sampler.destroy();
-    pipeline.destroy();
-    playout.destroy();
-    fshader.destroy();
-    vshader.destroy();
+    pipeline_manager.destroy();
+    pipeline = {};
     blayouts.clear();
 
     initialized = false;

@@ -12,6 +12,7 @@
 #include <Lyra/Rendering/RenderView.h>
 #include <Lyra/Rendering/RenderScene.h>
 #include <Lyra/Rendering/RendererTypes.h>
+#include <Lyra/Rendering/PipelineManager.h>
 
 namespace lyra::passes
 {
@@ -69,10 +70,8 @@ namespace lyra::passes
 
     private:
         GPUDevice                        device;
+        PipelineManager                  pipeline_manager;
         GPURenderPipeline                pipeline;
-        GPUPipelineLayout                playout;
-        GPUShaderModule                  vshader;
-        GPUShaderModule                  fshader;
         Vector<GPUBindGroupLayoutHandle> blayouts;
 
         GPUTextureFormat cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;

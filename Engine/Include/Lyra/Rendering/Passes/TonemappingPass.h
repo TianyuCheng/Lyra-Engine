@@ -10,6 +10,7 @@
 #include <Lyra/Compiler/SLCTypes.h>
 #include <Lyra/Rendering/FrameGraph.h>
 #include <Lyra/Rendering/RendererTypes.h>
+#include <Lyra/Rendering/PipelineManager.h>
 
 namespace lyra::passes
 {
@@ -82,10 +83,8 @@ namespace lyra::passes
 
     private:
         GPUDevice                        device;
+        PipelineManager                  pipeline_manager;
         GPURenderPipeline                pipeline;
-        GPUPipelineLayout                playout;
-        GPUShaderModule                  vshader;
-        GPUShaderModule                  fshader;
         GPUSampler                       sampler;
         Vector<GPUBindGroupLayoutHandle> blayouts;
 

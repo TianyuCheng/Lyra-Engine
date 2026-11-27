@@ -71,140 +71,96 @@ bool GBufferPass::init(
     this->device              = device;
     this->cached_depth_format = depth_format;
 
-    // compile G-Buffer shader asset
-    auto module = execute([&]() {
-        auto desc   = CompileDescriptor{};
-        desc.module = "gbuffer";
-        desc.path   = "sys://Shaders/Deferred/GBuffer.slang";
-        desc.source = nullptr;
-        return compiler.compile(desc);
-    });
+    pipeline_manager.init(device, compiler);
 
-    if (!module) {
+    // compile and reflect G-Buffer shader asset
+    PipelineShaderDescriptor shader_desc{};
+    shader_desc.module         = "sys://Shaders/Deferred/GBuffer.slang";
+    shader_desc.vertex_entry   = "vsmain";
+    shader_desc.fragment_entry = "fsmain";
+
+    auto layout_info = pipeline_manager.reflect_render_layout(shader_desc);
+    if (!layout_info.valid()) {
+        return false;
+    }
+    blayouts.assign(layout_info.bind_group_layouts.begin(), layout_info.bind_group_layouts.end());
+
+    Vector<GPUVertexBufferLayout> vlayouts;
+
+    // slot 0: position stream (float3, stride 12)
+    auto pos_attr            = GPUVertexAttribute{};
+    pos_attr.format          = GPUVertexFormat::FLOAT32x3;
+    pos_attr.offset          = 0;
+    pos_attr.shader_location = 0;
+    pos_attr.shader_semantic = "POSITION";
+
+    Vector<GPUVertexAttribute> pos_attribs{pos_attr};
+    auto                       pos_layout = GPUVertexBufferLayout{};
+    pos_layout.array_stride               = sizeof(Vector3);
+    pos_layout.step_mode                  = GPUVertexStepMode::VERTEX;
+    pos_layout.attributes                 = pos_attribs;
+    vlayouts.push_back(pos_layout);
+
+    // slot 1: normal stream (float3, stride 12)
+    auto norm_attr            = GPUVertexAttribute{};
+    norm_attr.format          = GPUVertexFormat::FLOAT32x3;
+    norm_attr.offset          = 0;
+    norm_attr.shader_location = 1;
+    norm_attr.shader_semantic = "NORMAL";
+
+    Vector<GPUVertexAttribute> norm_attribs{norm_attr};
+    auto                       norm_layout = GPUVertexBufferLayout{};
+    norm_layout.array_stride               = sizeof(Vector3);
+    norm_layout.step_mode                  = GPUVertexStepMode::VERTEX;
+    norm_layout.attributes                 = norm_attribs;
+    vlayouts.push_back(norm_layout);
+
+    // slot 2: texcoord0 stream (float2, stride 8)
+    auto uv_attr            = GPUVertexAttribute{};
+    uv_attr.format          = GPUVertexFormat::FLOAT32x2;
+    uv_attr.offset          = 0;
+    uv_attr.shader_location = 2;
+    uv_attr.shader_semantic = "TEXCOORD";
+
+    Vector<GPUVertexAttribute> uv_attribs{uv_attr};
+    auto                       uv_layout = GPUVertexBufferLayout{};
+    uv_layout.array_stride               = sizeof(Vector2);
+    uv_layout.step_mode                  = GPUVertexStepMode::VERTEX;
+    uv_layout.attributes                 = uv_attribs;
+    vlayouts.push_back(uv_layout);
+
+    // MRT color target states
+    Vector<GPUColorTargetState> rstates(4);
+    // 0: BaseColor / AO
+    rstates[0].format       = GPUTextureFormat::RGBA16UNORM;
+    rstates[0].blend_enable = false;
+    // 1: Normal / Roughness / Metallic
+    rstates[1].format       = GPUTextureFormat::RGBA16SNORM;
+    rstates[1].blend_enable = false;
+    // 2: Emissive Radiance
+    rstates[2].format       = GPUTextureFormat::RG11B10UFLOAT;
+    rstates[2].blend_enable = false;
+    // 3: Shading Model ID / Clearcoat
+    rstates[3].format       = GPUTextureFormat::RG8UINT;
+    rstates[3].blend_enable = false;
+
+    try {
+        pipeline = pipeline_manager.render_pipeline_builder()
+                       .with_shader(shader_desc)
+                       .with_vertex_layouts(vlayouts)
+                       .with_cull_mode(GPUCullMode::BACK)
+                       .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
+                       .with_front_face(GPUFrontFace::CCW)
+                       .with_targets(rstates)
+                       .with_depth_stencil(cached_depth_format, true, GPUCompareFunction::LESS_EQUAL)
+                       .with_label("gbuffer_pipeline")
+                       .build();
+    } catch (const std::exception&) {
         return false;
     }
 
-    auto reflection = compiler.reflect({
-        {*module, "vsmain"},
-        {*module, "fsmain"},
-    });
-
-    if (!reflection) {
-        return false;
-    }
-
-    vshader = execute([&]() {
-        auto code  = module->get_shader_blob("vsmain");
-        auto desc  = GPUShaderModuleDescriptor{};
-        desc.label = "gbuffer_vertex_shader";
-        desc.data  = code->data;
-        desc.size  = code->size;
-        return device.create_shader_module(desc);
-    });
-
-    fshader = execute([&]() {
-        auto code  = module->get_shader_blob("fsmain");
-        auto desc  = GPUShaderModuleDescriptor{};
-        desc.label = "gbuffer_fragment_shader";
-        desc.data  = code->data;
-        desc.size  = code->size;
-        return device.create_shader_module(desc);
-    });
-
-    blayouts.clear();
-    for (auto& desc : reflection->get_bind_group_layouts()) {
-        auto blayout = device.create_bind_group_layout(desc);
-        blayouts.push_back(blayout);
-    }
-
-    playout = execute([&]() {
-        auto desc               = GPUPipelineLayoutDescriptor{};
-        desc.bind_group_layouts = blayouts;
-        desc.immediate_size     = reflection->get_immediate_size();
-        return device.create_pipeline_layout(desc);
-    });
-
-    pipeline = execute([&]() {
-        Vector<GPUVertexBufferLayout> vlayouts;
-
-        // slot 0: position stream (float3, stride 12)
-        auto pos_attr            = GPUVertexAttribute{};
-        pos_attr.format          = GPUVertexFormat::FLOAT32x3;
-        pos_attr.offset          = 0;
-        pos_attr.shader_location = 0;
-        pos_attr.shader_semantic = "POSITION";
-
-        Vector<GPUVertexAttribute> pos_attribs{pos_attr};
-        auto                       pos_layout = GPUVertexBufferLayout{};
-        pos_layout.array_stride               = sizeof(Vector3);
-        pos_layout.step_mode                  = GPUVertexStepMode::VERTEX;
-        pos_layout.attributes                 = pos_attribs;
-        vlayouts.push_back(pos_layout);
-
-        // slot 1: normal stream (float3, stride 12)
-        auto norm_attr            = GPUVertexAttribute{};
-        norm_attr.format          = GPUVertexFormat::FLOAT32x3;
-        norm_attr.offset          = 0;
-        norm_attr.shader_location = 1;
-        norm_attr.shader_semantic = "NORMAL";
-
-        Vector<GPUVertexAttribute> norm_attribs{norm_attr};
-        auto                       norm_layout = GPUVertexBufferLayout{};
-        norm_layout.array_stride               = sizeof(Vector3);
-        norm_layout.step_mode                  = GPUVertexStepMode::VERTEX;
-        norm_layout.attributes                 = norm_attribs;
-        vlayouts.push_back(norm_layout);
-
-        // slot 2: texcoord0 stream (float2, stride 8)
-        auto uv_attr            = GPUVertexAttribute{};
-        uv_attr.format          = GPUVertexFormat::FLOAT32x2;
-        uv_attr.offset          = 0;
-        uv_attr.shader_location = 2;
-        uv_attr.shader_semantic = "TEXCOORD";
-
-        Vector<GPUVertexAttribute> uv_attribs{uv_attr};
-        auto                       uv_layout = GPUVertexBufferLayout{};
-        uv_layout.array_stride               = sizeof(Vector2);
-        uv_layout.step_mode                  = GPUVertexStepMode::VERTEX;
-        uv_layout.attributes                 = uv_attribs;
-        vlayouts.push_back(uv_layout);
-
-        // MRT color target states
-        Vector<GPUColorTargetState> rstates(4);
-        // 0: BaseColor / AO
-        rstates[0].format       = GPUTextureFormat::RGBA16UNORM;
-        rstates[0].blend_enable = false;
-        // 1: Normal / Roughness / Metallic
-        rstates[1].format       = GPUTextureFormat::RGBA16SNORM;
-        rstates[1].blend_enable = false;
-        // 2: Emissive Radiance
-        rstates[2].format       = GPUTextureFormat::RG11B10UFLOAT;
-        rstates[2].blend_enable = false;
-        // 3: Shading Model ID / Clearcoat
-        rstates[3].format       = GPUTextureFormat::RG8UINT;
-        rstates[3].blend_enable = false;
-
-        auto desc                              = GPURenderPipelineDescriptor{};
-        desc.layout                            = playout;
-        desc.primitive.cull_mode               = GPUCullMode::BACK;
-        desc.primitive.topology                = GPUPrimitiveTopology::TRIANGLE_LIST;
-        desc.primitive.front_face              = GPUFrontFace::CCW;
-        desc.primitive.strip_index_format      = GPUIndexFormat::UINT32;
-        desc.depth_stencil.depth_compare       = GPUCompareFunction::LESS_EQUAL;
-        desc.depth_stencil.depth_write_enabled = true;
-        desc.depth_stencil.format              = cached_depth_format;
-        desc.multisample.count                 = 1;
-        desc.vertex.module                     = vshader;
-        desc.vertex.buffers                    = vlayouts;
-        desc.vertex.entry_point                = "vsmain";
-        desc.fragment.module                   = fshader;
-        desc.fragment.targets                  = rstates;
-        desc.fragment.entry_point              = "fsmain";
-        return device.create_render_pipeline(desc);
-    });
-
-    initialized = true;
-    return true;
+    initialized = pipeline.valid();
+    return initialized;
 }
 
 void GBufferPass::destroy()
@@ -215,10 +171,8 @@ void GBufferPass::destroy()
 
     device.wait();
 
-    if (pipeline.valid()) pipeline.destroy();
-    if (playout.valid()) playout.destroy();
-    if (fshader.valid()) fshader.destroy();
-    if (vshader.valid()) vshader.destroy();
+    pipeline_manager.destroy();
+    pipeline = {};
     blayouts.clear();
 
     initialized = false;

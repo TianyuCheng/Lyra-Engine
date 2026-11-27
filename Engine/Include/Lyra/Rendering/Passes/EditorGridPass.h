@@ -10,6 +10,7 @@
 #include <Lyra/Compiler/SLCTypes.h>
 #include <Lyra/Rendering/FrameGraph.h>
 #include <Lyra/Rendering/RenderView.h>
+#include <Lyra/Rendering/PipelineManager.h>
 
 namespace lyra::passes
 {
@@ -85,10 +86,8 @@ namespace lyra::passes
 
     private:
         GPUDevice                        device;
+        PipelineManager                  pipeline_manager;
         GPURenderPipeline                pipeline;
-        GPUPipelineLayout                playout;
-        GPUShaderModule                  vshader;
-        GPUShaderModule                  fshader;
         Vector<GPUBindGroupLayoutHandle> blayouts;
 
         GPUTextureFormat cached_color_format = GPUTextureFormat::RGBA8UNORM;

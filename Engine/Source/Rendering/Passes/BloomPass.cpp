@@ -14,105 +14,45 @@ bool BloomPass::init(GPUDevice dev, Compiler compiler)
     }
 
     device = dev;
+    pipeline_manager.init(device, compiler);
 
-    // 1. compile compute shader module from sys://Shaders/PostProcess/Bloom.slang
-    auto module = execute([&]() {
-        auto desc   = CompileDescriptor{};
-        desc.module = "bloom";
-        desc.path   = "sys://Shaders/PostProcess/Bloom.slang";
-        desc.source = nullptr;
-        return compiler.compile(desc);
-    });
+    // 1. downsample compute pipeline (cs_downsample)
+    PipelineShaderDescriptor down_desc{};
+    down_desc.module        = "sys://Shaders/PostProcess/Bloom.slang";
+    down_desc.compute_entry = "cs_downsample";
 
-    if (!module) {
+    auto down_layout = pipeline_manager.reflect_compute_layout(down_desc);
+    if (!down_layout.valid()) {
+        return false;
+    }
+    downsample_blayouts.assign(down_layout.bind_group_layouts.begin(), down_layout.bind_group_layouts.end());
+
+    // 2. upsample compute pipeline (cs_upsample)
+    PipelineShaderDescriptor up_desc{};
+    up_desc.module        = "sys://Shaders/PostProcess/Bloom.slang";
+    up_desc.compute_entry = "cs_upsample";
+
+    auto up_layout = pipeline_manager.reflect_compute_layout(up_desc);
+    if (!up_layout.valid()) {
+        return false;
+    }
+    upsample_blayouts.assign(up_layout.bind_group_layouts.begin(), up_layout.bind_group_layouts.end());
+
+    try {
+        downsample_pipeline = pipeline_manager.compute_pipeline_builder()
+                                  .with_shader(down_desc)
+                                  .with_label("bloom_downsample_pipeline")
+                                  .build();
+
+        upsample_pipeline = pipeline_manager.compute_pipeline_builder()
+                                .with_shader(up_desc)
+                                .with_label("bloom_upsample_pipeline")
+                                .build();
+    } catch (const std::exception&) {
         return false;
     }
 
-    // 2. reflect downsample compute pipeline (cs_downsample)
-    auto downsample_reflection = compiler.reflect({
-        {*module, "cs_downsample"},
-    });
-    if (!downsample_reflection) {
-        return false;
-    }
-
-    downsample_shader = execute([&]() {
-        auto code  = module->get_shader_blob("cs_downsample");
-        auto desc  = GPUShaderModuleDescriptor{};
-        desc.label = "bloom_downsample_shader";
-        desc.data  = code->data;
-        desc.size  = code->size;
-        return device.create_shader_module(desc);
-    });
-    if (!downsample_shader.valid()) {
-        return false;
-    }
-
-    downsample_blayouts.clear();
-    for (auto& desc : downsample_reflection->get_bind_group_layouts()) {
-        auto blayout = device.create_bind_group_layout(desc);
-        downsample_blayouts.push_back(blayout);
-    }
-
-    downsample_playout = execute([&]() {
-        auto desc               = GPUPipelineLayoutDescriptor{};
-        desc.bind_group_layouts = downsample_blayouts;
-        desc.immediate_size     = downsample_reflection->get_immediate_size();
-        return device.create_pipeline_layout(desc);
-    });
-
-    downsample_pipeline = execute([&]() {
-        auto cp_desc                = GPUComputePipelineDescriptor{};
-        cp_desc.label               = "bloom_downsample_pipeline";
-        cp_desc.layout              = downsample_playout;
-        cp_desc.compute.module      = downsample_shader;
-        cp_desc.compute.entry_point = "cs_downsample";
-        return device.create_compute_pipeline(cp_desc);
-    });
-
-    // 3. reflect upsample compute pipeline (cs_upsample)
-    auto upsample_reflection = compiler.reflect({
-        {*module, "cs_upsample"},
-    });
-    if (!upsample_reflection) {
-        return false;
-    }
-
-    upsample_shader = execute([&]() {
-        auto code  = module->get_shader_blob("cs_upsample");
-        auto desc  = GPUShaderModuleDescriptor{};
-        desc.label = "bloom_upsample_shader";
-        desc.data  = code->data;
-        desc.size  = code->size;
-        return device.create_shader_module(desc);
-    });
-    if (!upsample_shader.valid()) {
-        return false;
-    }
-
-    upsample_blayouts.clear();
-    for (auto& desc : upsample_reflection->get_bind_group_layouts()) {
-        auto blayout = device.create_bind_group_layout(desc);
-        upsample_blayouts.push_back(blayout);
-    }
-
-    upsample_playout = execute([&]() {
-        auto desc               = GPUPipelineLayoutDescriptor{};
-        desc.bind_group_layouts = upsample_blayouts;
-        desc.immediate_size     = upsample_reflection->get_immediate_size();
-        return device.create_pipeline_layout(desc);
-    });
-
-    upsample_pipeline = execute([&]() {
-        auto cp_desc                = GPUComputePipelineDescriptor{};
-        cp_desc.label               = "bloom_upsample_pipeline";
-        cp_desc.layout              = upsample_playout;
-        cp_desc.compute.module      = upsample_shader;
-        cp_desc.compute.entry_point = "cs_upsample";
-        return device.create_compute_pipeline(cp_desc);
-    });
-
-    // 4. create bilinear clamp-to-edge sampler
+    // 3. create bilinear clamp-to-edge sampler
     linear_sampler = execute([&]() {
         auto desc           = GPUSamplerDescriptor{};
         desc.label          = "bloom_linear_sampler";
@@ -138,12 +78,9 @@ void BloomPass::destroy()
     device.wait();
 
     linear_sampler.destroy();
-    upsample_pipeline.destroy();
-    upsample_playout.destroy();
-    upsample_shader.destroy();
-    downsample_pipeline.destroy();
-    downsample_playout.destroy();
-    downsample_shader.destroy();
+    pipeline_manager.destroy();
+    downsample_pipeline = {};
+    upsample_pipeline   = {};
 
     downsample_blayouts.clear();
     upsample_blayouts.clear();

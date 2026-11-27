@@ -8,6 +8,7 @@
 #include <Lyra/Rendering/FrameGraph.h>
 #include <Lyra/Compiler/SLCTypes.h>
 #include <Lyra/Utilities/Path.h>
+#include <Lyra/Rendering/PipelineManager.h>
 
 namespace lyra::passes
 {
@@ -58,9 +59,8 @@ namespace lyra::passes
         };
 
         GPUDevice                        device;
+        PipelineManager                  pipeline_manager;
         GPUComputePipeline               pipeline;
-        GPUPipelineLayout                playout;
-        GPUShaderModule                  cshader;
         Vector<GPUBindGroupLayoutHandle> blayouts;
         bool                             initialized = false;
     };

@@ -51,53 +51,20 @@ bool OceanPass::init(
     this->cached_color_format = color_format;
     this->cached_depth_format = depth_format;
 
-    // compile ocean pass shaders
-    auto desc   = CompileDescriptor{};
-    desc.module = "ocean_pass";
-    desc.path   = "sys://Shaders/Water/OceanPass.slang";
-    desc.source = nullptr;
-    auto module = compiler.compile(desc);
-    if (!module) {
-        spdlog::error("[OceanPass] failed to compile sys://Shaders/Water/OceanPass.slang");
-        return false;
-    }
+    pipeline_manager.init(device, compiler);
 
-    auto reflection = compiler.reflect({
-        {*module, "vsmain"},
-        {*module, "fsmain"},
-    });
-    if (!reflection) {
+    // compile and reflect ocean pass shaders
+    PipelineShaderDescriptor shader_desc{};
+    shader_desc.module         = "sys://Shaders/Water/OceanPass.slang";
+    shader_desc.vertex_entry   = "vsmain";
+    shader_desc.fragment_entry = "fsmain";
+
+    auto layout_info = pipeline_manager.reflect_render_layout(shader_desc);
+    if (!layout_info.valid()) {
         spdlog::error("[OceanPass] failed to reflect ocean pass shaders");
         return false;
     }
-
-    auto vcode = module->get_shader_blob("vsmain");
-    auto fcode = module->get_shader_blob("fsmain");
-    if (!vcode || !fcode) {
-        return false;
-    }
-
-    auto vs_desc  = GPUShaderModuleDescriptor{};
-    vs_desc.label = "ocean_vs";
-    vs_desc.data  = vcode->data;
-    vs_desc.size  = vcode->size;
-    vshader       = device.create_shader_module(vs_desc);
-
-    auto fs_desc  = GPUShaderModuleDescriptor{};
-    fs_desc.label = "ocean_fs";
-    fs_desc.data  = fcode->data;
-    fs_desc.size  = fcode->size;
-    fshader       = device.create_shader_module(fs_desc);
-
-    blayouts.clear();
-    for (const auto& bdesc : reflection->get_bind_group_layouts()) {
-        blayouts.push_back(device.create_bind_group_layout(bdesc));
-    }
-
-    auto pdesc               = GPUPipelineLayoutDescriptor{};
-    pdesc.bind_group_layouts = blayouts;
-    pdesc.immediate_size     = reflection->get_immediate_size();
-    playout                  = device.create_pipeline_layout(pdesc);
+    blayouts.assign(layout_info.bind_group_layouts.begin(), layout_info.bind_group_layouts.end());
 
     // generate ocean planar tessellation grid
     Vector<GridVertex> vertices;
@@ -191,32 +158,24 @@ bool OceanPass::init(
     Vector<GPUColorTargetState> rstates;
     rstates.push_back(color_state);
 
-    auto pipe_desc                              = GPURenderPipelineDescriptor{};
-    pipe_desc.label                             = "ocean_pipeline";
-    pipe_desc.layout                            = playout;
-    pipe_desc.primitive.cull_mode               = GPUCullMode::NONE;
-    pipe_desc.primitive.topology                = GPUPrimitiveTopology::TRIANGLE_LIST;
-    pipe_desc.primitive.front_face              = GPUFrontFace::CCW;
-    pipe_desc.primitive.strip_index_format      = GPUIndexFormat::UINT32;
-    pipe_desc.depth_stencil.depth_compare       = GPUCompareFunction::LESS_EQUAL;
-    pipe_desc.depth_stencil.depth_write_enabled = true;
-    pipe_desc.depth_stencil.format              = depth_format;
-    pipe_desc.multisample.count                 = 1;
-    pipe_desc.vertex.module                     = vshader;
-    pipe_desc.vertex.entry_point                = "vsmain";
-    pipe_desc.vertex.buffers                    = vlayouts;
-    pipe_desc.fragment.module                   = fshader;
-    pipe_desc.fragment.entry_point              = "fsmain";
-    pipe_desc.fragment.targets                  = rstates;
-
-    pipeline = device.create_render_pipeline(pipe_desc);
-    if (!pipeline.valid()) {
-        spdlog::error("[OceanPass] failed to create ocean render pipeline");
+    try {
+        pipeline = pipeline_manager.render_pipeline_builder()
+                       .with_shader(shader_desc)
+                       .with_vertex_layouts(vlayouts)
+                       .with_cull_mode(GPUCullMode::NONE)
+                       .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
+                       .with_front_face(GPUFrontFace::CCW)
+                       .with_target(color_format)
+                       .with_depth_stencil(depth_format, true, GPUCompareFunction::LESS_EQUAL)
+                       .with_label("ocean_pipeline")
+                       .build();
+    } catch (const std::exception& e) {
+        spdlog::error("[OceanPass] failed to create ocean render pipeline: {}", e.what());
         return false;
     }
 
-    initialized = true;
-    return true;
+    initialized = pipeline.valid();
+    return initialized;
 }
 
 void OceanPass::destroy()
@@ -229,10 +188,8 @@ void OceanPass::destroy()
 
     if (grid_vbuffer.valid()) grid_vbuffer.destroy();
     if (grid_ibuffer.valid()) grid_ibuffer.destroy();
-    if (pipeline.valid()) pipeline.destroy();
-    if (playout.valid()) playout.destroy();
-    if (fshader.valid()) fshader.destroy();
-    if (vshader.valid()) vshader.destroy();
+    pipeline_manager.destroy();
+    pipeline = {};
 
     blayouts.clear();
     initialized = false;

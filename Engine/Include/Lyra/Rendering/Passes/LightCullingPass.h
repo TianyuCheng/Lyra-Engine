@@ -11,6 +11,7 @@
 #include <Lyra/Rendering/SceneLighting.h>
 #include <Lyra/Compiler/SLCTypes.h>
 #include <Lyra/Utilities/Path.h>
+#include <Lyra/Rendering/PipelineManager.h>
 
 namespace lyra::passes
 {
@@ -78,9 +79,8 @@ namespace lyra::passes
         static_assert(alignof(LightCullingPushConstants) == 16, "LightCullingPushConstants must be 16-byte aligned");
 
         GPUDevice                        device;
+        PipelineManager                  pipeline_manager;
         GPUComputePipeline               pipeline;
-        GPUPipelineLayout                playout;
-        GPUShaderModule                  cshader;
         Vector<GPUBindGroupLayoutHandle> blayouts;
         GPUBufferSlice                   lights_slice{};
         bool                             initialized = false;

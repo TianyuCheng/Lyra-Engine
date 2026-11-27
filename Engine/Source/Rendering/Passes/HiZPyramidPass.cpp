@@ -11,60 +11,27 @@ bool HiZPyramidPass::init(GPUDevice dev, Compiler compiler)
     }
 
     device = dev;
+    pipeline_manager.init(device, compiler);
 
-    // compile compute shader from sys://Shaders/GPUDriven/HiZ.slang
-    auto module = execute([&]() {
-        auto desc   = CompileDescriptor{};
-        desc.module = "hiz";
-        desc.path   = "sys://Shaders/GPUDriven/HiZ.slang";
-        desc.source = nullptr;
-        return compiler.compile(desc);
-    });
+    // compile and reflect compute shader from sys://Shaders/GPUDriven/HiZ.slang
+    PipelineShaderDescriptor shader_desc{};
+    shader_desc.module        = "sys://Shaders/GPUDriven/HiZ.slang";
+    shader_desc.compute_entry = "csmain";
 
-    if (!module) {
+    auto layout_info = pipeline_manager.reflect_compute_layout(shader_desc);
+    if (!layout_info.valid()) {
         return false;
     }
+    blayouts.assign(layout_info.bind_group_layouts.begin(), layout_info.bind_group_layouts.end());
 
-    auto reflection = compiler.reflect({
-        {*module, "csmain"},
-    });
-
-    if (!reflection) {
+    try {
+        pipeline = pipeline_manager.compute_pipeline_builder()
+                       .with_shader(shader_desc)
+                       .with_label("hiz_pyramid_pipeline")
+                       .build();
+    } catch (const std::exception&) {
         return false;
     }
-
-    cshader = execute([&]() {
-        auto code  = module->get_shader_blob("csmain");
-        auto desc  = GPUShaderModuleDescriptor{};
-        desc.label = "hiz_compute_shader";
-        desc.data  = code->data;
-        desc.size  = code->size;
-        return device.create_shader_module(desc);
-    });
-
-    if (!cshader.valid()) {
-        return false;
-    }
-
-    blayouts.clear();
-    for (auto& desc : reflection->get_bind_group_layouts()) {
-        auto blayout = device.create_bind_group_layout(desc);
-        blayouts.push_back(blayout);
-    }
-
-    playout = execute([&]() {
-        auto desc               = GPUPipelineLayoutDescriptor{};
-        desc.bind_group_layouts = blayouts;
-        desc.immediate_size     = reflection->get_immediate_size();
-        return device.create_pipeline_layout(desc);
-    });
-
-    auto cp_desc                = GPUComputePipelineDescriptor{};
-    cp_desc.label               = "hiz_pyramid_pipeline";
-    cp_desc.layout              = playout;
-    cp_desc.compute.module      = cshader;
-    cp_desc.compute.entry_point = "csmain";
-    pipeline                    = device.create_compute_pipeline(cp_desc);
 
     initialized = pipeline.valid();
     return initialized;
@@ -78,15 +45,8 @@ void HiZPyramidPass::destroy()
 
     device.wait();
 
-    if (pipeline.valid()) {
-        pipeline.destroy();
-    }
-    if (playout.valid()) {
-        playout.destroy();
-    }
-    if (cshader.valid()) {
-        cshader.destroy();
-    }
+    pipeline_manager.destroy();
+    pipeline = {};
     blayouts.clear();
     initialized = false;
 }

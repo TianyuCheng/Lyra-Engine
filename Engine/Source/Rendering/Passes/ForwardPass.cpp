@@ -27,42 +27,20 @@ bool ForwardPass::init(
     cached_color_format = color_format;
     cached_depth_format = depth_format;
 
+    pipeline_manager.init(device, compiler);
+
     // reflect pass shell to get canonical bind group layouts and immediate size
-    auto module = execute([&]() {
-        auto desc   = CompileDescriptor{};
-        desc.module = "Forward";
-        desc.path   = "sys://Shaders/Forward/Forward.slang";
-        desc.source = nullptr;
-        return compiler.compile(desc);
-    });
+    PipelineShaderDescriptor shader_desc{};
+    shader_desc.module         = "sys://Shaders/Forward/Forward.slang";
+    shader_desc.vertex_entry   = "vsmain";
+    shader_desc.fragment_entry = "fsmain";
 
-    if (!module) {
+    auto layout_info = pipeline_manager.reflect_render_layout(shader_desc);
+    if (!layout_info.valid()) {
         return false;
     }
-
-    auto reflection = compiler.reflect({
-        {*module, "vsmain"},
-        {*module, "fsmain"},
-    });
-
-    if (!reflection) {
-        return false;
-    }
-
-    // bind group layouts
-    blayouts.clear();
-    auto refl_layouts = reflection->get_bind_group_layouts();
-    for (usize g = 0; g < refl_layouts.size(); ++g) {
-        auto blayout = device.create_bind_group_layout(refl_layouts[g]);
-        blayouts.push_back(blayout);
-    }
-
-    playout = execute([&]() {
-        auto desc               = GPUPipelineLayoutDescriptor{};
-        desc.bind_group_layouts = blayouts;
-        desc.immediate_size     = reflection->get_immediate_size();
-        return device.create_pipeline_layout(desc);
-    });
+    blayouts.assign(layout_info.bind_group_layouts.begin(), layout_info.bind_group_layouts.end());
+    playout = layout_info.layout;
 
     // initialize MeshPass with vertex bind group layout (Bind Group 1)
     if (blayouts.size() > 1) {
@@ -220,9 +198,10 @@ void ForwardPass::destroy()
         default_shadow_map.destroy();
     }
 
-    if (playout.valid()) {
-        playout.destroy();
-    }
+    pipeline_manager.destroy();
+    playout = {};
+    variant_pipelines.clear();
+    variant_shader_modules.clear();
     blayouts.clear();
     initialized = false;
 }

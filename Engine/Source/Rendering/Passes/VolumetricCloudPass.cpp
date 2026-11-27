@@ -47,53 +47,20 @@ bool VolumetricCloudPass::init(
     this->device              = device;
     this->cached_color_format = color_format;
 
-    // 1. compile volumetric cloud pass shaders
-    auto desc   = CompileDescriptor{};
-    desc.module = "volumetric_cloud_pass";
-    desc.path   = "sys://Shaders/Sky/VolumetricCloudPass.slang";
-    desc.source = nullptr;
-    auto module = compiler.compile(desc);
-    if (!module) {
-        spdlog::error("[VolumetricCloudPass] failed to compile sys://Shaders/Sky/VolumetricCloudPass.slang");
-        return false;
-    }
+    pipeline_manager.init(device, compiler);
 
-    auto reflection = compiler.reflect({
-        {*module, "vsmain"},
-        {*module, "fsmain"},
-    });
-    if (!reflection) {
+    // 1. compile and reflect volumetric cloud pass shaders
+    PipelineShaderDescriptor shader_desc{};
+    shader_desc.module         = "sys://Shaders/Sky/VolumetricCloudPass.slang";
+    shader_desc.vertex_entry   = "vsmain";
+    shader_desc.fragment_entry = "fsmain";
+
+    auto layout_info = pipeline_manager.reflect_render_layout(shader_desc);
+    if (!layout_info.valid()) {
         spdlog::error("[VolumetricCloudPass] failed to reflect volumetric cloud pass shaders");
         return false;
     }
-
-    auto vcode = module->get_shader_blob("vsmain");
-    auto fcode = module->get_shader_blob("fsmain");
-    if (!vcode || !fcode) {
-        return false;
-    }
-
-    auto vs_desc  = GPUShaderModuleDescriptor{};
-    vs_desc.label = "volumetric_cloud_vs";
-    vs_desc.data  = vcode->data;
-    vs_desc.size  = vcode->size;
-    vshader       = device.create_shader_module(vs_desc);
-
-    auto fs_desc  = GPUShaderModuleDescriptor{};
-    fs_desc.label = "volumetric_cloud_fs";
-    fs_desc.data  = fcode->data;
-    fs_desc.size  = fcode->size;
-    fshader       = device.create_shader_module(fs_desc);
-
-    blayouts.clear();
-    for (const auto& bdesc : reflection->get_bind_group_layouts()) {
-        blayouts.push_back(device.create_bind_group_layout(bdesc));
-    }
-
-    auto pdesc               = GPUPipelineLayoutDescriptor{};
-    pdesc.bind_group_layouts = blayouts;
-    pdesc.immediate_size     = reflection->get_immediate_size();
-    playout                  = device.create_pipeline_layout(pdesc);
+    blayouts.assign(layout_info.bind_group_layouts.begin(), layout_info.bind_group_layouts.end());
 
     // 2. linear clamp sampler
     auto sdesc           = GPUSamplerDescriptor{};
@@ -146,31 +113,23 @@ bool VolumetricCloudPass::init(
     color_state.blend.alpha.dst_factor      = GPUBlendFactor::ONE_MINUS_SRC_ALPHA;
     rstates.push_back(color_state);
 
-    auto pipe_desc                              = GPURenderPipelineDescriptor{};
-    pipe_desc.label                             = "volumetric_cloud_pipeline";
-    pipe_desc.layout                            = playout;
-    pipe_desc.primitive.cull_mode               = GPUCullMode::NONE;
-    pipe_desc.primitive.topology                = GPUPrimitiveTopology::TRIANGLE_LIST;
-    pipe_desc.primitive.front_face              = GPUFrontFace::CCW;
-    pipe_desc.primitive.strip_index_format      = GPUIndexFormat::UINT32;
-    pipe_desc.depth_stencil.depth_compare       = GPUCompareFunction::ALWAYS;
-    pipe_desc.depth_stencil.depth_write_enabled = false;
-    pipe_desc.multisample.count                 = 1;
-    pipe_desc.vertex.module                     = vshader;
-    pipe_desc.vertex.entry_point                = "vsmain";
-    pipe_desc.vertex.buffers                    = {};
-    pipe_desc.fragment.module                   = fshader;
-    pipe_desc.fragment.entry_point              = "fsmain";
-    pipe_desc.fragment.targets                  = rstates;
-
-    pipeline = device.create_render_pipeline(pipe_desc);
-    if (!pipeline.valid()) {
-        spdlog::error("[VolumetricCloudPass] failed to create volumetric cloud render pipeline");
+    try {
+        pipeline = pipeline_manager.render_pipeline_builder()
+                       .with_shader(shader_desc)
+                       .with_cull_mode(GPUCullMode::NONE)
+                       .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
+                       .with_front_face(GPUFrontFace::CCW)
+                       .with_target(color_state)
+                       .without_depth_stencil()
+                       .with_label("volumetric_cloud_pipeline")
+                       .build();
+    } catch (const std::exception& e) {
+        spdlog::error("[VolumetricCloudPass] failed to create volumetric cloud render pipeline: {}", e.what());
         return false;
     }
 
-    initialized = true;
-    return true;
+    initialized = pipeline.valid();
+    return initialized;
 }
 
 void VolumetricCloudPass::destroy()
@@ -184,10 +143,8 @@ void VolumetricCloudPass::destroy()
     if (default_depth_view.valid()) default_depth_view.destroy();
     if (default_depth_tex.valid()) default_depth_tex.destroy();
     if (linear_sampler.valid()) linear_sampler.destroy();
-    if (pipeline.valid()) pipeline.destroy();
-    if (playout.valid()) playout.destroy();
-    if (fshader.valid()) fshader.destroy();
-    if (vshader.valid()) vshader.destroy();
+    pipeline_manager.destroy();
+    pipeline = {};
 
     blayouts.clear();
     initialized = false;

@@ -9,6 +9,7 @@
 #include <Lyra/Compiler/SLCTypes.h>
 #include <Lyra/Rendering/FrameGraph.h>
 #include <Lyra/Rendering/RendererTypes.h>
+#include <Lyra/Rendering/PipelineManager.h>
 
 namespace lyra::passes
 {
@@ -78,10 +79,8 @@ namespace lyra::passes
         static_assert(sizeof(FXAAPushConstants) == 32, "FXAAPushConstants must be 32 bytes");
 
         GPUDevice                        device;
-        GPUShaderModule                  vshader;
-        GPUShaderModule                  fshader;
+        PipelineManager                  pipeline_manager;
         GPURenderPipeline                pipeline;
-        GPUPipelineLayout                playout;
         Vector<GPUBindGroupLayoutHandle> blayouts;
         GPUSampler                       linear_sampler;
         GPUTextureFormat                 cached_output_format = GPUTextureFormat::RGBA8UNORM;

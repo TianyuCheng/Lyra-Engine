@@ -14,63 +14,29 @@ bool DepthOfFieldPass::init(GPUDevice dev, Compiler compiler)
     }
 
     device = dev;
+    pipeline_manager.init(device, compiler);
 
-    // 1. compile compute shader module from sys://Shaders/PostProcess/DepthOfField.slang
-    auto module = execute([&]() {
-        auto desc   = CompileDescriptor{};
-        desc.module = "depth_of_field";
-        desc.path   = "sys://Shaders/PostProcess/DepthOfField.slang";
-        desc.source = nullptr;
-        return compiler.compile(desc);
-    });
+    // 1. reflect and create compute pipeline
+    PipelineShaderDescriptor shader_desc{};
+    shader_desc.module        = "sys://Shaders/PostProcess/DepthOfField.slang";
+    shader_desc.compute_entry = "cs_dof_bokeh";
 
-    if (!module) {
+    auto layout_info = pipeline_manager.reflect_compute_layout(shader_desc);
+    if (!layout_info.valid()) {
+        return false;
+    }
+    blayouts.assign(layout_info.bind_group_layouts.begin(), layout_info.bind_group_layouts.end());
+
+    try {
+        pipeline = pipeline_manager.compute_pipeline_builder()
+                       .with_shader(shader_desc)
+                       .with_label("dof_pipeline")
+                       .build();
+    } catch (const std::exception&) {
         return false;
     }
 
-    // 2. reflect and create compute pipeline
-    auto reflection = compiler.reflect({
-        {*module, "cs_dof_bokeh"},
-    });
-    if (!reflection) {
-        return false;
-    }
-
-    cshader = execute([&]() {
-        auto code  = module->get_shader_blob("cs_dof_bokeh");
-        auto desc  = GPUShaderModuleDescriptor{};
-        desc.label = "dof_compute_shader";
-        desc.data  = code->data;
-        desc.size  = code->size;
-        return device.create_shader_module(desc);
-    });
-    if (!cshader.valid()) {
-        return false;
-    }
-
-    blayouts.clear();
-    for (auto& desc : reflection->get_bind_group_layouts()) {
-        auto blayout = device.create_bind_group_layout(desc);
-        blayouts.push_back(blayout);
-    }
-
-    playout = execute([&]() {
-        auto desc               = GPUPipelineLayoutDescriptor{};
-        desc.bind_group_layouts = blayouts;
-        desc.immediate_size     = reflection->get_immediate_size();
-        return device.create_pipeline_layout(desc);
-    });
-
-    pipeline = execute([&]() {
-        auto cp_desc                = GPUComputePipelineDescriptor{};
-        cp_desc.label               = "dof_pipeline";
-        cp_desc.layout              = playout;
-        cp_desc.compute.module      = cshader;
-        cp_desc.compute.entry_point = "cs_dof_bokeh";
-        return device.create_compute_pipeline(cp_desc);
-    });
-
-    // 3. create linear clamp sampler
+    // 2. create linear clamp sampler
     linear_sampler = execute([&]() {
         auto desc           = GPUSamplerDescriptor{};
         desc.label          = "dof_linear_sampler";
@@ -96,10 +62,8 @@ void DepthOfFieldPass::destroy()
     device.wait();
 
     linear_sampler.destroy();
-    pipeline.destroy();
-    playout.destroy();
-    cshader.destroy();
-
+    pipeline_manager.destroy();
+    pipeline = {};
     blayouts.clear();
     initialized = false;
 }

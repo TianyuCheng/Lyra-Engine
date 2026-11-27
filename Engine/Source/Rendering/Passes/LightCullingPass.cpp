@@ -11,62 +11,27 @@ bool LightCullingPass::init(GPUDevice dev, Compiler compiler)
     }
 
     device = dev;
+    pipeline_manager.init(device, compiler);
 
-    // 1. compile compute shader from sys://Shaders/Forward/LightCulling.slang
-    auto module = execute([&]() {
-        auto desc   = CompileDescriptor{};
-        desc.module = "light_culling";
-        desc.path   = "sys://Shaders/Forward/LightCulling.slang";
-        desc.source = nullptr;
-        return compiler.compile(desc);
-    });
+    // 1. reflect compute layout from sys://Shaders/Forward/LightCulling.slang
+    PipelineShaderDescriptor shader_desc{};
+    shader_desc.module        = "sys://Shaders/Forward/LightCulling.slang";
+    shader_desc.compute_entry = "csmain";
 
-    if (!module) {
+    auto layout_info = pipeline_manager.reflect_compute_layout(shader_desc);
+    if (!layout_info.valid()) {
         return false;
     }
+    blayouts.assign(layout_info.bind_group_layouts.begin(), layout_info.bind_group_layouts.end());
 
-    auto reflection = compiler.reflect({
-        {*module, "csmain"},
-    });
-
-    if (!reflection) {
+    try {
+        pipeline = pipeline_manager.compute_pipeline_builder()
+                       .with_shader(shader_desc)
+                       .with_label("light_culling_pipeline")
+                       .build();
+    } catch (const std::exception&) {
         return false;
     }
-
-    cshader = execute([&]() {
-        auto code  = module->get_shader_blob("csmain");
-        auto desc  = GPUShaderModuleDescriptor{};
-        desc.label = "light_culling_compute_shader";
-        desc.data  = code->data;
-        desc.size  = code->size;
-        return device.create_shader_module(desc);
-    });
-
-    if (!cshader.valid()) {
-        return false;
-    }
-
-    // 2. bind group layouts and pipeline layout from reflection
-    blayouts.clear();
-    for (auto& desc : reflection->get_bind_group_layouts()) {
-        auto blayout = device.create_bind_group_layout(desc);
-        blayouts.push_back(blayout);
-    }
-
-    playout = execute([&]() {
-        auto desc               = GPUPipelineLayoutDescriptor{};
-        desc.bind_group_layouts = blayouts;
-        desc.immediate_size     = reflection->get_immediate_size();
-        return device.create_pipeline_layout(desc);
-    });
-
-    // 3. compute pipeline
-    auto cp_desc                = GPUComputePipelineDescriptor{};
-    cp_desc.label               = "light_culling_pipeline";
-    cp_desc.layout              = playout;
-    cp_desc.compute.module      = cshader;
-    cp_desc.compute.entry_point = "csmain";
-    pipeline                    = device.create_compute_pipeline(cp_desc);
 
     initialized = pipeline.valid();
     return initialized;
@@ -80,15 +45,8 @@ void LightCullingPass::destroy()
 
     device.wait();
 
-    if (pipeline.valid()) {
-        pipeline.destroy();
-    }
-    if (playout.valid()) {
-        playout.destroy();
-    }
-    if (cshader.valid()) {
-        cshader.destroy();
-    }
+    pipeline_manager.destroy();
+    pipeline = {};
     blayouts.clear();
     lights_slice = {};
     initialized  = false;

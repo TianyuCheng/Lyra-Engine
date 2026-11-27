@@ -12,105 +12,45 @@ bool AutoExposurePass::init(GPUDevice dev, Compiler compiler)
     }
 
     device = dev;
+    pipeline_manager.init(device, compiler);
 
-    // 1. compile compute shader module from sys://Shaders/PostProcess/AutoExposure.slang
-    auto module = execute([&]() {
-        auto desc   = CompileDescriptor{};
-        desc.module = "auto_exposure";
-        desc.path   = "sys://Shaders/PostProcess/AutoExposure.slang";
-        desc.source = nullptr;
-        return compiler.compile(desc);
-    });
+    // 1. reflect and create pipeline for cs_build_histogram
+    PipelineShaderDescriptor hist_desc{};
+    hist_desc.module        = "sys://Shaders/PostProcess/AutoExposure.slang";
+    hist_desc.compute_entry = "cs_build_histogram";
 
-    if (!module) {
+    auto hist_layout = pipeline_manager.reflect_compute_layout(hist_desc);
+    if (!hist_layout.valid()) {
+        return false;
+    }
+    histogram_blayouts.assign(hist_layout.bind_group_layouts.begin(), hist_layout.bind_group_layouts.end());
+
+    // 2. reflect and create pipeline for cs_adapt_exposure
+    PipelineShaderDescriptor adapt_desc{};
+    adapt_desc.module        = "sys://Shaders/PostProcess/AutoExposure.slang";
+    adapt_desc.compute_entry = "cs_adapt_exposure";
+
+    auto adapt_layout = pipeline_manager.reflect_compute_layout(adapt_desc);
+    if (!adapt_layout.valid()) {
+        return false;
+    }
+    adapt_blayouts.assign(adapt_layout.bind_group_layouts.begin(), adapt_layout.bind_group_layouts.end());
+
+    try {
+        histogram_pipeline = pipeline_manager.compute_pipeline_builder()
+                                 .with_shader(hist_desc)
+                                 .with_label("auto_exposure_histogram_pipeline")
+                                 .build();
+
+        adapt_pipeline = pipeline_manager.compute_pipeline_builder()
+                             .with_shader(adapt_desc)
+                             .with_label("auto_exposure_adapt_pipeline")
+                             .build();
+    } catch (const std::exception&) {
         return false;
     }
 
-    // 2. reflect and create pipeline for cs_build_histogram
-    auto hist_reflection = compiler.reflect({
-        {*module, "cs_build_histogram"},
-    });
-    if (!hist_reflection) {
-        return false;
-    }
-
-    histogram_shader = execute([&]() {
-        auto code  = module->get_shader_blob("cs_build_histogram");
-        auto desc  = GPUShaderModuleDescriptor{};
-        desc.label = "auto_exposure_histogram_shader";
-        desc.data  = code->data;
-        desc.size  = code->size;
-        return device.create_shader_module(desc);
-    });
-    if (!histogram_shader.valid()) {
-        return false;
-    }
-
-    histogram_blayouts.clear();
-    for (auto& desc : hist_reflection->get_bind_group_layouts()) {
-        auto blayout = device.create_bind_group_layout(desc);
-        histogram_blayouts.push_back(blayout);
-    }
-
-    histogram_playout = execute([&]() {
-        auto desc               = GPUPipelineLayoutDescriptor{};
-        desc.bind_group_layouts = histogram_blayouts;
-        desc.immediate_size     = hist_reflection->get_immediate_size();
-        return device.create_pipeline_layout(desc);
-    });
-
-    histogram_pipeline = execute([&]() {
-        auto cp_desc                = GPUComputePipelineDescriptor{};
-        cp_desc.label               = "auto_exposure_histogram_pipeline";
-        cp_desc.layout              = histogram_playout;
-        cp_desc.compute.module      = histogram_shader;
-        cp_desc.compute.entry_point = "cs_build_histogram";
-        return device.create_compute_pipeline(cp_desc);
-    });
-
-    // 3. reflect and create pipeline for cs_adapt_exposure
-    auto adapt_reflection = compiler.reflect({
-        {*module, "cs_adapt_exposure"},
-    });
-    if (!adapt_reflection) {
-        return false;
-    }
-
-    adapt_shader = execute([&]() {
-        auto code  = module->get_shader_blob("cs_adapt_exposure");
-        auto desc  = GPUShaderModuleDescriptor{};
-        desc.label = "auto_exposure_adapt_shader";
-        desc.data  = code->data;
-        desc.size  = code->size;
-        return device.create_shader_module(desc);
-    });
-    if (!adapt_shader.valid()) {
-        return false;
-    }
-
-    adapt_blayouts.clear();
-    for (auto& desc : adapt_reflection->get_bind_group_layouts()) {
-        auto blayout = device.create_bind_group_layout(desc);
-        adapt_blayouts.push_back(blayout);
-    }
-
-    adapt_playout = execute([&]() {
-        auto desc               = GPUPipelineLayoutDescriptor{};
-        desc.bind_group_layouts = adapt_blayouts;
-        desc.immediate_size     = adapt_reflection->get_immediate_size();
-        return device.create_pipeline_layout(desc);
-    });
-
-    adapt_pipeline = execute([&]() {
-        auto cp_desc                = GPUComputePipelineDescriptor{};
-        cp_desc.label               = "auto_exposure_adapt_pipeline";
-        cp_desc.layout              = adapt_playout;
-        cp_desc.compute.module      = adapt_shader;
-        cp_desc.compute.entry_point = "cs_adapt_exposure";
-        return device.create_compute_pipeline(cp_desc);
-    });
-
-    // 4. allocate persistent 64-bin histogram buffer (256 bytes)
+    // 3. allocate persistent 64-bin histogram buffer (256 bytes)
     histogram_buffer = execute([&]() {
         auto bdesc  = GPUBufferDescriptor{};
         bdesc.label = "auto_exposure_histogram_buffer";
@@ -158,12 +98,9 @@ void AutoExposurePass::destroy()
     exposure_view.destroy();
     exposure_texture.destroy();
     histogram_buffer.destroy();
-    adapt_pipeline.destroy();
-    adapt_playout.destroy();
-    adapt_shader.destroy();
-    histogram_pipeline.destroy();
-    histogram_playout.destroy();
-    histogram_shader.destroy();
+    pipeline_manager.destroy();
+    histogram_pipeline = {};
+    adapt_pipeline     = {};
 
     histogram_blayouts.clear();
     adapt_blayouts.clear();

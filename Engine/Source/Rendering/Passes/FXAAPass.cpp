@@ -1,5 +1,3 @@
-#include <algorithm>
-#include <cmath>
 #include <Lyra/Utilities/Math.h>
 #include <Lyra/Graphics/RHIAPI.h>
 #include <Lyra/Rendering/Passes/FXAAPass.h>
@@ -18,65 +16,21 @@ bool FXAAPass::init(GPUDevice dev, Compiler compiler, GPUTextureFormat output_fo
 
     device               = dev;
     cached_output_format = output_format;
+    pipeline_manager.init(device, compiler);
 
-    // 1. compile vertex and fragment shaders from sys://Shaders/PostProcess/FXAA.slang
-    auto module = execute([&]() {
-        auto desc   = CompileDescriptor{};
-        desc.module = "fxaa";
-        desc.path   = "sys://Shaders/PostProcess/FXAA.slang";
-        desc.source = nullptr;
-        return compiler.compile(desc);
-    });
+    // 1. reflect render layout from slang shader
+    PipelineShaderDescriptor shader_desc{};
+    shader_desc.module         = "sys://Shaders/PostProcess/FXAA.slang";
+    shader_desc.vertex_entry   = "vsmain";
+    shader_desc.fragment_entry = "fsmain";
 
-    if (!module) {
+    auto layout_info = pipeline_manager.reflect_render_layout(shader_desc);
+    if (!layout_info.valid()) {
         return false;
     }
+    blayouts.assign(layout_info.bind_group_layouts.begin(), layout_info.bind_group_layouts.end());
 
-    // 2. reflect and create render pipeline
-    auto reflection = compiler.reflect({
-        {*module, "vsmain"},
-        {*module, "fsmain"},
-    });
-    if (!reflection) {
-        return false;
-    }
-
-    vshader = execute([&]() {
-        auto code  = module->get_shader_blob("vsmain");
-        auto desc  = GPUShaderModuleDescriptor{};
-        desc.label = "fxaa_vertex_shader";
-        desc.data  = code->data;
-        desc.size  = code->size;
-        return device.create_shader_module(desc);
-    });
-
-    fshader = execute([&]() {
-        auto code  = module->get_shader_blob("fsmain");
-        auto desc  = GPUShaderModuleDescriptor{};
-        desc.label = "fxaa_fragment_shader";
-        desc.data  = code->data;
-        desc.size  = code->size;
-        return device.create_shader_module(desc);
-    });
-
-    if (!vshader.valid() || !fshader.valid()) {
-        return false;
-    }
-
-    blayouts.clear();
-    for (auto& desc : reflection->get_bind_group_layouts()) {
-        auto blayout = device.create_bind_group_layout(desc);
-        blayouts.push_back(blayout);
-    }
-
-    playout = execute([&]() {
-        auto desc               = GPUPipelineLayoutDescriptor{};
-        desc.bind_group_layouts = blayouts;
-        desc.immediate_size     = reflection->get_immediate_size();
-        return device.create_pipeline_layout(desc);
-    });
-
-    // 3. create bilinear clamp sampler
+    // 2. create bilinear clamp sampler
     linear_sampler = execute([&]() {
         auto desc           = GPUSamplerDescriptor{};
         desc.label          = "fxaa_linear_sampler";
@@ -89,28 +43,21 @@ bool FXAAPass::init(GPUDevice dev, Compiler compiler, GPUTextureFormat output_fo
         return device.create_sampler(desc);
     });
 
-    pipeline = execute([&]() {
-        Vector<GPUColorTargetState> rstates;
-        auto                        color_state = GPUColorTargetState{};
-        color_state.format                      = cached_output_format;
-        color_state.blend_enable                = false;
-        rstates.push_back(color_state);
-
-        auto desc                         = GPURenderPipelineDescriptor{};
-        desc.layout                       = playout;
-        desc.primitive.cull_mode          = GPUCullMode::NONE;
-        desc.primitive.topology           = GPUPrimitiveTopology::TRIANGLE_LIST;
-        desc.primitive.front_face         = GPUFrontFace::CCW;
-        desc.primitive.strip_index_format = GPUIndexFormat::UINT32;
-        desc.multisample.count            = 1;
-        desc.vertex.module                = vshader;
-        desc.vertex.buffers               = {};
-        desc.vertex.entry_point           = "vsmain";
-        desc.fragment.module              = fshader;
-        desc.fragment.targets             = rstates;
-        desc.fragment.entry_point         = "fsmain";
-        return device.create_render_pipeline(desc);
-    });
+    // 3. construct render pipeline via fluent builder
+    try {
+        pipeline = pipeline_manager
+                       .render_pipeline_builder()
+                       .with_shader(shader_desc)
+                       .with_cull_mode(GPUCullMode::NONE)
+                       .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
+                       .with_front_face(GPUFrontFace::CCW)
+                       .without_depth_stencil()
+                       .with_target(cached_output_format)
+                       .with_label("fxaa_pipeline")
+                       .build();
+    } catch (const std::exception&) {
+        return false;
+    }
 
     initialized = pipeline.valid();
     return initialized;
@@ -125,11 +72,8 @@ void FXAAPass::destroy()
     device.wait();
 
     linear_sampler.destroy();
-    pipeline.destroy();
-    playout.destroy();
-    fshader.destroy();
-    vshader.destroy();
-
+    pipeline_manager.destroy();
+    pipeline = {};
     blayouts.clear();
     initialized = false;
 }

@@ -22,90 +22,37 @@ bool ShadowMapPass::init(
     device              = dev;
     cached_depth_format = depth_format;
 
-    // 1. compile vertex and fragment shaders from sys://Shaders/Forward/ShadowDepth.slang
-    auto shader_path = (shaders_root / "Forward/ShadowDepth.slang").string();
-    auto module      = execute([&]() {
-        auto desc   = CompileDescriptor{};
-        desc.module = "shadow_depth";
-        desc.path   = shader_path.c_str();
-        desc.source = nullptr;
-        return compiler.compile(desc);
-    });
+    pipeline_manager.init(device, compiler);
 
-    if (!module) {
+    // 1. compile and reflect vertex and fragment shaders from sys://Shaders/Forward/ShadowDepth.slang
+    PipelineShaderDescriptor shader_desc{};
+    shader_desc.module         = (shaders_root / "Forward/ShadowDepth.slang").string();
+    shader_desc.vertex_entry   = "vsmain";
+    shader_desc.fragment_entry = "fsmain";
+
+    auto layout_info = pipeline_manager.reflect_render_layout(shader_desc);
+    if (!layout_info.valid()) {
         return false;
     }
+    blayouts.assign(layout_info.bind_group_layouts.begin(), layout_info.bind_group_layouts.end());
 
-    auto reflection = compiler.reflect({
-        {*module, "vsmain"},
-        {*module, "fsmain"},
-    });
+    GPUDepthStencilState ds{};
+    ds.depth_compare          = GPUCompareFunction::LESS_EQUAL;
+    ds.depth_write_enabled    = true;
+    ds.format                 = cached_depth_format;
+    ds.depth_bias             = 2;
+    ds.depth_bias_slope_scale = 1.75f;
 
-    if (!reflection) {
-        return false;
-    }
-
-    vshader = execute([&]() {
-        auto code  = module->get_shader_blob("vsmain");
-        auto desc  = GPUShaderModuleDescriptor{};
-        desc.label = "shadow_depth_vertex_shader";
-        desc.data  = code->data;
-        desc.size  = code->size;
-        return device.create_shader_module(desc);
-    });
-
-    fshader = execute([&]() {
-        auto code  = module->get_shader_blob("fsmain");
-        auto desc  = GPUShaderModuleDescriptor{};
-        desc.label = "shadow_depth_fragment_shader";
-        desc.data  = code->data;
-        desc.size  = code->size;
-        return device.create_shader_module(desc);
-    });
-
-    if (!vshader.valid() || !fshader.valid()) {
-        return false;
-    }
-
-    // 2. create bind group layouts and pipeline layout
-    blayouts.clear();
-    for (auto& desc : reflection->get_bind_group_layouts()) {
-        auto blayout = device.create_bind_group_layout(desc);
-        blayouts.push_back(blayout);
-    }
-
-    playout = execute([&]() {
-        auto desc               = GPUPipelineLayoutDescriptor{};
-        desc.bind_group_layouts = blayouts;
-        desc.immediate_size     = reflection->get_immediate_size();
-        return device.create_pipeline_layout(desc);
-    });
-
-    // 3. create render pipeline
-    pipeline = execute([&]() {
-        auto desc                                 = GPURenderPipelineDescriptor{};
-        desc.layout                               = playout;
-        desc.primitive.cull_mode                  = GPUCullMode::BACK;
-        desc.primitive.topology                   = GPUPrimitiveTopology::TRIANGLE_LIST;
-        desc.primitive.front_face                 = GPUFrontFace::CCW;
-        desc.primitive.strip_index_format         = GPUIndexFormat::UINT32;
-        desc.depth_stencil.depth_compare          = GPUCompareFunction::LESS_EQUAL;
-        desc.depth_stencil.depth_write_enabled    = true;
-        desc.depth_stencil.format                 = cached_depth_format;
-        desc.depth_stencil.depth_bias             = 2;
-        desc.depth_stencil.depth_bias_slope_scale = 1.75f;
-        desc.multisample.count                    = 1;
-        desc.vertex.module                        = vshader;
-        desc.vertex.buffers                       = {}; // vertex pulling: no input assembler buffers
-        desc.vertex.entry_point                   = "vsmain";
-        desc.fragment.module                      = fshader;
-        desc.fragment.entry_point                 = "fsmain";
-        desc.fragment.targets                     = {}; // depth only pass
-
-        return device.create_render_pipeline(desc);
-    });
-
-    if (!pipeline.valid()) {
+    try {
+        pipeline = pipeline_manager.render_pipeline_builder()
+                       .with_shader(shader_desc)
+                       .with_cull_mode(GPUCullMode::BACK)
+                       .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
+                       .with_front_face(GPUFrontFace::CCW)
+                       .with_depth_stencil(ds)
+                       .with_label("shadow_depth_pipeline")
+                       .build();
+    } catch (const std::exception&) {
         return false;
     }
 
@@ -131,18 +78,8 @@ void ShadowMapPass::destroy()
 
     device.wait();
 
-    if (pipeline.valid()) {
-        pipeline.destroy();
-    }
-    if (playout.valid()) {
-        playout.destroy();
-    }
-    if (fshader.valid()) {
-        fshader.destroy();
-    }
-    if (vshader.valid()) {
-        vshader.destroy();
-    }
+    pipeline_manager.destroy();
+    pipeline = {};
     blayouts.clear();
     geometry_cache.reset();
     initialized = false;

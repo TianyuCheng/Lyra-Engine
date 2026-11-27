@@ -9,6 +9,7 @@
 #include <Lyra/Rendering/RenderView.h>
 #include <Lyra/Rendering/RenderScene.h>
 #include <Lyra/Rendering/GeometryBindGroupCache.h>
+#include <Lyra/Rendering/PipelineManager.h>
 #include <Lyra/Compiler/SLCTypes.h>
 #include <Lyra/Utilities/Path.h>
 
@@ -85,10 +86,8 @@ namespace lyra::passes
         static_assert(offsetof(InstanceData, position_offset) == 64);
 
         GPUDevice                        device;
+        PipelineManager                  pipeline_manager;
         GPURenderPipeline                pipeline;
-        GPUPipelineLayout                playout;
-        GPUShaderModule                  vshader;
-        GPUShaderModule                  fshader;
         Vector<GPUBindGroupLayoutHandle> blayouts;
         Ref<GeometryBindGroupCache>      geometry_cache;
         GPUTextureFormat                 cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;

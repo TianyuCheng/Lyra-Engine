@@ -9,6 +9,7 @@
 #include <Lyra/Compiler/SLCTypes.h>
 #include <Lyra/Rendering/FrameGraph.h>
 #include <Lyra/Rendering/RendererTypes.h>
+#include <Lyra/Rendering/PipelineManager.h>
 
 namespace lyra::passes
 {
@@ -77,21 +78,13 @@ namespace lyra::passes
 
         static_assert(sizeof(BloomPushConstants) == 48, "BloomPushConstants must be 48 bytes");
 
-        GPUDevice device;
-
-        GPUShaderModule downsample_shader;
-        GPUShaderModule upsample_shader;
-
-        GPUComputePipeline downsample_pipeline;
-        GPUComputePipeline upsample_pipeline;
-
-        GPUPipelineLayout downsample_playout;
-        GPUPipelineLayout upsample_playout;
-
+        GPUDevice                        device;
+        PipelineManager                  pipeline_manager;
+        GPUComputePipeline               downsample_pipeline;
+        GPUComputePipeline               upsample_pipeline;
         Vector<GPUBindGroupLayoutHandle> downsample_blayouts;
         Vector<GPUBindGroupLayoutHandle> upsample_blayouts;
-
-        GPUSampler linear_sampler;
+        GPUSampler                       linear_sampler;
 
         bool initialized = false;
     };

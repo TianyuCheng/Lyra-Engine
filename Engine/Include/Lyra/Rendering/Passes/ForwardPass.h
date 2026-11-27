@@ -10,6 +10,7 @@
 #include <Lyra/Rendering/RenderScene.h>
 #include <Lyra/Rendering/MeshPass.h>
 #include <Lyra/Rendering/ShadingModelRegistry.h>
+#include <Lyra/Rendering/PipelineManager.h>
 #include <Lyra/Compiler/SLCTypes.h>
 #include <Lyra/Utilities/Path.h>
 #include <Lyra/Utilities/GUID.h>
@@ -140,6 +141,7 @@ namespace lyra::passes
 
         GPUDevice                                  device;
         Compiler                                   compiler;
+        PipelineManager                            pipeline_manager;
         MeshPass                                   mesh_pass;
         HashMap<ShadingModelID, GPURenderPipeline> variant_pipelines;
         Vector<GPUShaderModule>                    variant_shader_modules;
