@@ -590,7 +590,7 @@ namespace lyra
             auto handle = allocator->allocate(descriptor);
             texture     = handle.texture;
             view        = handle.view;
-            state       = undefined_texture_state();
+            state       = descriptor.memory_hint.is_aliased() ? aliased_undefined_texture_state() : undefined_texture_state();
             format      = descriptor.format;
             layers      = descriptor.array_layers;
             levels      = descriptor.mip_level_count;
@@ -626,7 +626,7 @@ namespace lyra
             assert(allocator && "FrameGraphBuffer::create requires a valid allocator");
             buffer = allocator->allocate(descriptor);
             size   = descriptor.size;
-            state  = undefined_buffer_state();
+            state  = descriptor.memory_hint.is_aliased() ? aliased_undefined_buffer_state() : undefined_buffer_state();
         }
 
         void destroy(FrameGraphAllocator* allocator, const Descriptor& descriptor)

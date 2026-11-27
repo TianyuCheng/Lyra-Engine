@@ -135,7 +135,7 @@
   - Analyze pass dependency DAG and calculate disjoint lifetime intervals $[t_{\text{start}}, t_{\text{end}}]$ for all transient textures and buffers in the frame.
   - Group non-overlapping resources into shared memory blocks backed by placed allocations on `VkDeviceMemory` / `ID3D12Heap` / `MTLHeap`.
   - Handle alignment requirements (e.g. 64KB for standard textures, 4MB for MSAA / depth-stencil targets).
-- [ ] **1.9.2 Aliasing Hazard Tracking & Barrier Insertion**
+- [x] **1.9.2 Aliasing Hazard Tracking & Barrier Insertion**
   - Ensure memory aliasing transitions between previous owner and new owner insert proper execution barriers (`VK_IMAGE_LAYOUT_UNDEFINED`, discard flags, aliasing barriers in D3D12).
   - Reduces total FrameGraph transient VRAM footprint by 40–60% without visual or functional degradation.
 

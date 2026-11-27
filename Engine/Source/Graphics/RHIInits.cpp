@@ -11,6 +11,15 @@ TextureTransitionState lyra::undefined_texture_state()
     return state;
 }
 
+TextureTransitionState lyra::aliased_undefined_texture_state()
+{
+    TextureTransitionState state{};
+    state.layout = GPUBarrierLayout::UNDEFINED;
+    state.sync   = GPUBarrierSync::ALL;
+    state.access = GPUBarrierAccess::NO_ACCESS;
+    return state;
+}
+
 TextureTransitionState lyra::shader_resource_texture_state(GPUBarrierSync sync)
 {
     TextureTransitionState state{};
@@ -129,6 +138,14 @@ BufferTransitionState lyra::undefined_buffer_state()
 {
     BufferTransitionState state{};
     state.sync   = GPUBarrierSync::NONE;
+    state.access = GPUBarrierAccess::NO_ACCESS;
+    return state;
+}
+
+BufferTransitionState lyra::aliased_undefined_buffer_state()
+{
+    BufferTransitionState state{};
+    state.sync   = GPUBarrierSync::ALL;
     state.access = GPUBarrierAccess::NO_ACCESS;
     return state;
 }

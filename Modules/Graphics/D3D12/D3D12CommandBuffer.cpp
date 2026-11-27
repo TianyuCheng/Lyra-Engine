@@ -879,6 +879,9 @@ void cmd::texture_barrier(GPUCommandEncoderHandle cmdbuffer, GPUTextureBarriers 
         d3d12_barrier.Subresources.NumMipLevels         = barrier.subresources.mip_level_count;
         d3d12_barrier.Subresources.FirstPlane           = 0;
         d3d12_barrier.Subresources.NumPlanes            = 1;
+        if (barrier.src_layout == GPUBarrierLayout::UNDEFINED) {
+            d3d12_barrier.Flags |= D3D12_TEXTURE_BARRIER_FLAG_DISCARD;
+        }
     }
 
     D3D12_BARRIER_GROUP barrier_group = {};

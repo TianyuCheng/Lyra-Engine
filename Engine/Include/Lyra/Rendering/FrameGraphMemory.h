@@ -19,7 +19,9 @@ namespace lyra
 
     struct MemoryAliasingPlan
     {
-        Vector<GPUMemoryHint> resource_hints; // indexed by physical_id
+        Vector<GPUMemoryHint> resource_hints;          // indexed by physical_id
+        Vector<bool>          has_aliased_predecessor; // true if this resource replaces a previous occupant on its slot
+        Vector<uint>          predecessor_physical_id; // physical_id of previous occupant, or ~0u
         uint                  max_color_slots = 0;
     };
 

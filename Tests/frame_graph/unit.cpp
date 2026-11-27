@@ -718,3 +718,127 @@ TEST_CASE("fg::transient_memory_aliasing_integration" * doctest::description("Fr
     // Execute the graph with allocator
     graph->execute(nullptr, &allocator);
 }
+
+TEST_CASE("fg::aliased_barrier_transitions" * doctest::description("Aliasing Barrier Transitions for Transient Resources"))
+{
+    // Verify aliased undefined transition states
+    auto tex_aliased_state = aliased_undefined_texture_state();
+    CHECK_EQ(tex_aliased_state.layout, GPUBarrierLayout::UNDEFINED);
+    CHECK_EQ(tex_aliased_state.sync, GPUBarrierSync::ALL);
+    CHECK_EQ(tex_aliased_state.access, GPUBarrierAccess::NO_ACCESS);
+
+    auto buf_aliased_state = aliased_undefined_buffer_state();
+    CHECK_EQ(buf_aliased_state.sync, GPUBarrierSync::ALL);
+    CHECK_EQ(buf_aliased_state.access, GPUBarrierAccess::NO_ACCESS);
+
+    // Verify dedicated undefined transition states
+    auto tex_dedicated_state = undefined_texture_state();
+    CHECK_EQ(tex_dedicated_state.layout, GPUBarrierLayout::UNDEFINED);
+    CHECK_EQ(tex_dedicated_state.sync, GPUBarrierSync::NONE);
+    CHECK_EQ(tex_dedicated_state.access, GPUBarrierAccess::NO_ACCESS);
+
+    FrameGraphAllocator allocator;
+
+    // Test 1: Dedicated texture initial transition
+    {
+        GPUTextureDescriptor desc{};
+        desc.label       = "dedicated_tex";
+        desc.size        = GPUExtent3D{32, 32, 1};
+        desc.format      = GPUTextureFormat::RGBA8UNORM;
+        desc.usage       = GPUTextureUsage::RENDER_ATTACHMENT;
+        desc.memory_hint = GPUMemoryHint::dedicated();
+
+        FrameGraphTexture tex;
+        tex.create(&allocator, desc);
+        CHECK_EQ(tex.state.sync, GPUBarrierSync::NONE);
+
+        FrameGraphBarrierBatch barriers;
+        tex.pre_write(nullptr, nullptr, FrameGraphWriteOp::RENDER, &barriers);
+
+        REQUIRE_EQ(barriers.texture_barriers.size(), 1);
+        const auto& b = barriers.texture_barriers[0];
+        CHECK_EQ(b.src_layout, GPUBarrierLayout::UNDEFINED);
+        CHECK_EQ(b.src_sync, GPUBarrierSync::NONE);
+        CHECK_EQ(b.dst_layout, GPUBarrierLayout::RENDER_TARGET);
+        CHECK_EQ(b.dst_sync, GPUBarrierSync::RENDER_TARGET);
+
+        tex.destroy(&allocator, desc);
+    }
+
+    // Test 2: Aliased texture initial transition must emit an execution barrier (ALL -> target)
+    {
+        GPUTextureDescriptor desc{};
+        desc.label       = "aliased_tex";
+        desc.size        = GPUExtent3D{32, 32, 1};
+        desc.format      = GPUTextureFormat::RGBA8UNORM;
+        desc.usage       = GPUTextureUsage::RENDER_ATTACHMENT;
+        desc.memory_hint = GPUMemoryHint::aliased(1);
+
+        FrameGraphTexture tex;
+        tex.create(&allocator, desc);
+        // Aliased texture starts with ALL sync to synchronize against previous memory owner
+        CHECK_EQ(tex.state.sync, GPUBarrierSync::ALL);
+
+        FrameGraphBarrierBatch barriers;
+        tex.pre_write(nullptr, nullptr, FrameGraphWriteOp::RENDER, &barriers);
+
+        REQUIRE_EQ(barriers.texture_barriers.size(), 1);
+        const auto& b = barriers.texture_barriers[0];
+        CHECK_EQ(b.src_layout, GPUBarrierLayout::UNDEFINED);
+        CHECK_EQ(b.src_sync, GPUBarrierSync::ALL);
+        CHECK_EQ(b.dst_layout, GPUBarrierLayout::RENDER_TARGET);
+        CHECK_EQ(b.dst_sync, GPUBarrierSync::RENDER_TARGET);
+
+        tex.destroy(&allocator, desc);
+    }
+
+    // Test 3: Aliased buffer initial transition
+    {
+        GPUBufferDescriptor desc{};
+        desc.label       = "aliased_buf";
+        desc.size        = 1024;
+        desc.usage       = GPUBufferUsage::STORAGE;
+        desc.memory_hint = GPUMemoryHint::aliased(2);
+
+        FrameGraphBuffer buf;
+        buf.create(&allocator, desc);
+        CHECK_EQ(buf.state.sync, GPUBarrierSync::ALL);
+
+        FrameGraphBarrierBatch barriers;
+        buf.pre_write(nullptr, nullptr, FrameGraphWriteOp::WRITE, &barriers);
+
+        REQUIRE_EQ(barriers.buffer_barriers.size(), 1);
+        const auto& b = barriers.buffer_barriers[0];
+        CHECK_EQ(b.src_sync, GPUBarrierSync::ALL);
+        CHECK_EQ(b.dst_sync, GPUBarrierSync::ALL);
+
+        buf.destroy(&allocator, desc);
+    }
+}
+
+TEST_CASE("fg::aliased_hazard_tracking" * doctest::description("Aliasing Hazard Tracking & Predecessor Identification"))
+{
+    // A:[0, 1], B:[1, 2], C:[2, 3]
+    Vector<ResourceLifetimeInterval> intervals(3);
+    intervals[0] = {10, 0, 1, true}; // pid 10
+    intervals[1] = {20, 1, 2, true}; // pid 20
+    intervals[2] = {30, 2, 3, true}; // pid 30
+
+    auto plan = FrameGraphMemoryPlanner::compute_plan(intervals);
+    REQUIRE_EQ(plan.resource_hints.size(), 3);
+    REQUIRE_EQ(plan.has_aliased_predecessor.size(), 3);
+    REQUIRE_EQ(plan.predecessor_physical_id.size(), 3);
+
+    // Resource 0 (A) is the first occupant of slot 1 -> no predecessor
+    CHECK_FALSE(plan.has_aliased_predecessor[0]);
+    CHECK_EQ(plan.predecessor_physical_id[0], ~0u);
+
+    // Resource 1 (B) is the first occupant of slot 2 -> no predecessor
+    CHECK_FALSE(plan.has_aliased_predecessor[1]);
+    CHECK_EQ(plan.predecessor_physical_id[1], ~0u);
+
+    // Resource 2 (C) reuses slot 1 from Resource 0 (A) -> aliased predecessor is pid 10!
+    CHECK(plan.has_aliased_predecessor[2]);
+    CHECK_EQ(plan.predecessor_physical_id[2], 10);
+    CHECK_EQ(plan.resource_hints[2].slot, plan.resource_hints[0].slot);
+}

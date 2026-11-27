@@ -24,6 +24,7 @@ namespace lyra
     };
 
     TextureTransitionState undefined_texture_state();
+    TextureTransitionState aliased_undefined_texture_state();
     TextureTransitionState shader_resource_texture_state(GPUBarrierSync sync);
     TextureTransitionState unordered_access_texture_state(GPUBarrierSync sync);
     TextureTransitionState present_src_texture_state();
@@ -58,6 +59,7 @@ namespace lyra
     };
 
     BufferTransitionState undefined_buffer_state();
+    BufferTransitionState aliased_undefined_buffer_state();
     BufferTransitionState shader_resource_buffer_state(GPUBarrierSync sync);
     BufferTransitionState unordered_access_buffer_state(GPUBarrierSync sync);
     BufferTransitionState copy_src_buffer_state();

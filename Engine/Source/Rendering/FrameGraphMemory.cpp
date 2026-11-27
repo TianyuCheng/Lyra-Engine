@@ -7,6 +7,8 @@ MemoryAliasingPlan FrameGraphMemoryPlanner::compute_plan(Span<const ResourceLife
 {
     MemoryAliasingPlan plan;
     plan.resource_hints.resize(intervals.size(), GPUMemoryHint::dedicated());
+    plan.has_aliased_predecessor.resize(intervals.size(), false);
+    plan.predecessor_physical_id.resize(intervals.size(), ~0u);
 
     // gather indices of active transient resources
     Vector<uint> active_indices;
@@ -33,8 +35,9 @@ MemoryAliasingPlan FrameGraphMemoryPlanner::compute_plan(Span<const ResourceLife
     using ActiveSlot = std::pair<uint, uint>;
     PriorityQueue<ActiveSlot, Vector<ActiveSlot>, std::greater<>> active_slots;
 
-    Vector<uint> free_slots;
-    uint         next_slot = 1;
+    Vector<uint>        free_slots;
+    HashMap<uint, uint> slot_last_owner;
+    uint                next_slot = 1;
 
     for (uint idx : active_indices) {
         const auto& item = intervals[idx];
@@ -49,11 +52,17 @@ MemoryAliasingPlan FrameGraphMemoryPlanner::compute_plan(Span<const ResourceLife
         if (!free_slots.empty()) {
             assigned_slot = free_slots.back();
             free_slots.pop_back();
+
+            plan.has_aliased_predecessor[idx] = true;
+            if (auto it = slot_last_owner.find(assigned_slot); it != slot_last_owner.end()) {
+                plan.predecessor_physical_id[idx] = it->second;
+            }
         } else {
             assigned_slot = next_slot++;
         }
 
-        plan.resource_hints[idx] = GPUMemoryHint::aliased(assigned_slot);
+        slot_last_owner[assigned_slot] = item.physical_id != ~0u ? item.physical_id : idx;
+        plan.resource_hints[idx]       = GPUMemoryHint::aliased(assigned_slot);
         active_slots.push({item.end_pass, assigned_slot});
     }
 
