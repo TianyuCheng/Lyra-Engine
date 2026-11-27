@@ -6,6 +6,7 @@
 #include <Lyra/Utilities/String.h>
 #include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Utilities/Compatibility.h>
+#include <Lyra/Utilities/Enums.h>
 
 namespace lyra
 {

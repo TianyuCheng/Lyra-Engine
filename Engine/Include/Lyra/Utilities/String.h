@@ -103,6 +103,26 @@ namespace lyra
         return s.substr(first, (last - first + 1));
     }
 
+    inline String to_lower(StringView s)
+    {
+        String result;
+        result.reserve(s.size());
+        for (char c : s) {
+            result.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+        }
+        return result;
+    }
+
+    inline String to_upper(StringView s)
+    {
+        String result;
+        result.reserve(s.size());
+        for (char c : s) {
+            result.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(c))));
+        }
+        return result;
+    }
+
     /**
      * @brief Fixed-capacity, null-terminated inline string buffer with strict C-ABI layout.
      *

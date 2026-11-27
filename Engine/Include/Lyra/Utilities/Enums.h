@@ -56,6 +56,13 @@ namespace lyra
 
     // lyra string & parsing helpers
     template <typename E>
+    requires std::is_enum_v<E>
+    inline constexpr auto to_string(E value) noexcept -> StringView
+    {
+        return magic_enum::enum_name(value);
+    }
+
+    template <typename E>
     inline auto enum_to_string(E value) -> String
     {
         return String(magic_enum::enum_name(value));
@@ -65,6 +72,28 @@ namespace lyra
     FORCE_INLINE constexpr auto enum_from_name(StringView name) noexcept -> Optional<E>
     {
         return magic_enum::enum_cast<E>(name);
+    }
+
+    /**
+     * @brief parse an enum from string with case-insensitivity and underscore tolerance.
+     */
+    template <typename E>
+    inline auto parse_enum(StringView str) -> Optional<E>
+    {
+        if (str.empty()) return std::nullopt;
+
+        // 1. direct case-insensitive match (e.g. "triangle_list" -> TRIANGLE_LIST, "back" -> BACK)
+        if (auto val = magic_enum::enum_cast<E>(str, magic_enum::case_insensitive)) {
+            return val;
+        }
+
+        // 2. normalized match stripping underscores (e.g. "rgba8_unorm" -> "rgba8unorm" -> RGBA8UNORM)
+        String normalized;
+        normalized.reserve(str.size());
+        for (char c : str) {
+            if (c != '_') normalized.push_back(c);
+        }
+        return magic_enum::enum_cast<E>(normalized, magic_enum::case_insensitive);
     }
 
     template <typename E>

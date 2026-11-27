@@ -96,6 +96,7 @@ target_sources(lyra-engine PRIVATE
   Assets/Format/MaterialAsset.cpp
   Assets/Format/ModelAsset.cpp
   Assets/Format/SceneAsset.cpp
+  Assets/Format/PipelineAsset.cpp
 
   # compiler
   Compiler/SLCTypes.cpp

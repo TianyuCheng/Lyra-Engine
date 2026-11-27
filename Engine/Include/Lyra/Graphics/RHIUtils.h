@@ -73,6 +73,19 @@ namespace lyra
     using GPUBVHGeometryFlags      = BitFlags<GPUBVHGeometryFlag>;
     using GPUTextureAspectFlags    = BitFlags<GPUTextureAspect>;
 
+    inline String to_string(GPUColorWriteFlags mask)
+    {
+        if (mask == GPUColorWrite::ALL) return "all";
+        if (mask.value == 0) return "none";
+
+        String s;
+        if (mask.contains(GPUColorWrite::RED)) s += "r";
+        if (mask.contains(GPUColorWrite::GREEN)) s += "g";
+        if (mask.contains(GPUColorWrite::BLUE)) s += "b";
+        if (mask.contains(GPUColorWrite::ALPHA)) s += "a";
+        return s;
+    }
+
     template <GPUObjectType E>
     struct GPUHandle : public TypedEnumHandle<GPUObjectType, E, GPUIndex64>
     {

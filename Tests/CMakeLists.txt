@@ -124,6 +124,7 @@ add_subdirectory(job_system)
 add_subdirectory(scripting)
 add_subdirectory(graphics)
 add_subdirectory(rendering)
+add_subdirectory(pipeline_serialization)
 
 # ==============================================================================
 # Execution Targets
