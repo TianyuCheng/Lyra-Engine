@@ -95,7 +95,7 @@
 #include <Lyra/Graphics/RHIDescs.h>
 #include <Lyra/Graphics/RHITypes.h>
 #include <Lyra/Graphics/RHIInits.h>
-#include <Lyra/Graphics/GPURetireQueue.h>
+#include <Lyra/Graphics/RHIDiagnostics.h>
 
 // Shader Language Compiler (SLC)
 #include <Lyra/Compiler/SLCAPI.h>

@@ -3,6 +3,7 @@
 #include <Lyra/Utilities/Sync.h>
 #include <Lyra/Graphics/RHIAPI.h>
 #include <Lyra/Graphics/RHITypes.h>
+#include "RHIDiagnosticOverlay.h"
 
 using namespace lyra;
 
@@ -92,6 +93,10 @@ OwnedResource<RHI> RHI::init(const RHIDescriptor& descriptor)
             break;
     }
 
+    if (descriptor.flags.contains(RHIFlag::CRASH_DIAGNOSTICS)) {
+        slot.api = RHIDiagnosticOverlay::init(slot.api, to_string(descriptor.backend));
+    }
+
     ACTIVE_BACKEND_ID.store(static_cast<ubyte>(slot_id), memory_order_release);
 
     OwnedResource<RHI> rhi(new RHI());
@@ -145,6 +150,9 @@ void RHI::destroy() const
             }
             slot.api->delete_adapter();
             slot.api->delete_instance();
+        }
+        if (flags.contains(RHIFlag::CRASH_DIAGNOSTICS) && RHIDiagnosticOverlay::is_enabled()) {
+            RHIDiagnosticOverlay::shutdown();
         }
         slot.builtin_plugin.reset();
         slot.plugin.reset();

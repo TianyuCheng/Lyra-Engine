@@ -153,12 +153,12 @@
 ---
 
 ## 1.11 GPU Crash Diagnostics & Breadcrumb Tracking (DRED / Aftermath)
-- [ ] **1.11.1 Device-Loss Breadcrumb Ring Buffer**
+- [x] **1.11.1 Device-Loss Breadcrumb Ring Buffer**
   - Files: `Engine/Include/Lyra/Graphics/GPUBreadcrumb.h`, `Modules/Graphics/Vulkan/VkBreadcrumb.cpp`, `Modules/Graphics/D3D12/D3D12Breadcrumb.cpp`
   - Allocate a persistent host-visible GPU ring buffer to record execution markers:
     - Pass begin / end tokens with pass name hash.
     - Draw call / compute dispatch sequence index.
     - Active pipeline and shader virtual path.
-- [ ] **1.11.2 Crash Dump & Automatic Root-Cause Analyzer**
+- [x] **1.11.2 Crash Dump & Automatic Root-Cause Analyzer**
   - On `VK_ERROR_DEVICE_LOST` or `DXGI_ERROR_DEVICE_REMOVED`, read back breadcrumb buffer to identify the exact pass, draw/dispatch call, and Slang shader module that caused the GPU hang or TDR.
   - Log detailed crash diagnostics to `crash_gpu_<timestamp>.log` and trigger graceful debugger break.

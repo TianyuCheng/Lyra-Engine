@@ -49,7 +49,6 @@ target_sources(lyra-headers INTERFACE
     Lyra/Windowing/WSIUtils.h
 
     # graphics
-    Lyra/Graphics/GPURetireQueue.h
     Lyra/Graphics/RHIAPI.h
     Lyra/Graphics/RHIDescs.h
     Lyra/Graphics/RHIEnums.h
@@ -58,6 +57,7 @@ target_sources(lyra-headers INTERFACE
     Lyra/Graphics/RHIInits.h
     Lyra/Graphics/RHITypes.h
     Lyra/Graphics/RHIUtils.h
+    Lyra/Graphics/RHIDiagnostics.h
 
     # rendering
     Lyra/Rendering/FrameArena.h

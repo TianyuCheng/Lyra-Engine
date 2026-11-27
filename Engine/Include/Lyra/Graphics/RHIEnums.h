@@ -11,8 +11,9 @@ namespace lyra
 {
     enum struct RHIFlag : uint
     {
-        DEBUG      = 0x1,
-        VALIDATION = 0x2,
+        DEBUG             = 0x1,
+        VALIDATION        = 0x2,
+        CRASH_DIAGNOSTICS = 0x4,
     };
 
     enum struct RHIBackend : uint
@@ -768,6 +769,24 @@ namespace lyra
             default:
                 return 0;
         }
+    }
+
+    /**
+     * @brief Convert a RHIBackend enum value to its string representation.
+     */
+    inline constexpr CString to_string(RHIBackend backend)
+    {
+        // clang-format off
+        switch (backend) {
+            case RHIBackend::METAL:   return "Metal";
+            case RHIBackend::D3D12:   return "D3D12";
+            case RHIBackend::VULKAN:  return "Vulkan";
+            case RHIBackend::SOFTGPU: return "SoftGPU";
+            case RHIBackend::MOCKGPU: return "MockGPU";
+            case RHIBackend::CUSTOM:  return "Custom";
+            default:                  return "Unknown";
+        }
+        // clang-format on
     }
 
     /**

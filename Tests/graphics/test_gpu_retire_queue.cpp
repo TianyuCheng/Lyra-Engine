@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 #include <Lyra/Utilities/Pointer.h>
-#include <Lyra/Graphics/GPURetireQueue.h>
+#include <Lyra/Rendering/ResourceRetire.h>
 #include <Lyra/Graphics/RHITypes.h>
 
 using namespace lyra;
@@ -27,13 +27,13 @@ namespace
     };
 } // namespace
 
-TEST_CASE("graphics::gpu_retire_queue" * doctest::description("GPURetireQueue lifecycle, aging, and drain"))
+TEST_CASE("graphics::gpu_retire_queue" * doctest::description("ResourceRetireQueue lifecycle, aging, and drain"))
 {
     auto destroy_counter = make_ref<int>(0);
 
     SUBCASE("Uninitialized queue destroys immediately")
     {
-        GPURetireQueue<MockRetireResource> queue;
+        ResourceRetireQueue<MockRetireResource> queue;
         CHECK(queue.empty());
         CHECK(queue.size() == 0);
         CHECK(queue.get_frames_in_flight() == 0);
@@ -48,7 +48,7 @@ TEST_CASE("graphics::gpu_retire_queue" * doctest::description("GPURetireQueue li
 
     SUBCASE("Invalid resources are discarded without retirement")
     {
-        GPURetireQueue<MockRetireResource> queue;
+        ResourceRetireQueue<MockRetireResource> queue;
         queue.init(3);
 
         MockRetireResource invalid_res{2, destroy_counter, false};
@@ -61,8 +61,8 @@ TEST_CASE("graphics::gpu_retire_queue" * doctest::description("GPURetireQueue li
 
     SUBCASE("Deferred retirement across multi-frame lifecycle")
     {
-        GPURetireQueue<MockRetireResource> queue;
-        constexpr uint                     FRAMES_IN_FLIGHT = 3;
+        ResourceRetireQueue<MockRetireResource> queue;
+        constexpr uint                          FRAMES_IN_FLIGHT = 3;
         queue.init(FRAMES_IN_FLIGHT);
         CHECK(queue.get_frames_in_flight() == 3);
 
@@ -98,7 +98,7 @@ TEST_CASE("graphics::gpu_retire_queue" * doctest::description("GPURetireQueue li
 
     SUBCASE("Drain flushes all in-flight resources immediately")
     {
-        GPURetireQueue<MockRetireResource> queue;
+        ResourceRetireQueue<MockRetireResource> queue;
         queue.init(3);
 
         queue.retire(MockRetireResource{1, destroy_counter, true});
@@ -125,7 +125,7 @@ TEST_CASE("graphics::gpu_retire_queue" * doctest::description("GPURetireQueue li
         auto buffer = device.create_buffer(desc);
         CHECK(buffer.valid());
 
-        GPURetireQueue<GPUBuffer> queue;
+        ResourceRetireQueue<GPUBuffer> queue;
         queue.init(2);
 
         queue.retire(buffer);

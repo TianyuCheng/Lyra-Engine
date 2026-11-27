@@ -101,6 +101,8 @@ target_sources(lyra-engine PRIVATE
   Compiler/SLCTypes.cpp
 
   # graphics
+  Graphics/RHIDiagnosticOverlay.cpp
+  Graphics/RHIDiagnostics.cpp
   Graphics/RHIInits.cpp
   Graphics/RHITypes.cpp
 
