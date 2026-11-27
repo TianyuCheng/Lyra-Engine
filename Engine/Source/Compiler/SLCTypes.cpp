@@ -63,15 +63,18 @@ Own<ShaderModule> Compiler::compile(const CompileDescriptor& descriptor)
     return result;
 }
 
-Own<ShaderReflection> Compiler::reflect(InitList<ShaderEntryPoint> entry_points)
+Own<ShaderReflection> Compiler::reflect(ShaderEntryPoints entry_points)
 {
-    // make a copy of the entry points
-    Vector<ShaderEntryPoint> entries = entry_points;
-
     auto result  = std::make_unique<ShaderReflection>();
-    bool success = Compiler::api()->create_reflection(handle, entries, result->handle);
+    bool success = Compiler::api()->create_reflection(handle, entry_points, result->handle);
     if (!success) throw std::runtime_error("Failed to reflect shader!");
     return result;
+}
+
+Own<ShaderReflection> Compiler::reflect(InitList<ShaderEntryPoint> entry_points)
+{
+    Vector<ShaderEntryPoint> entries = entry_points;
+    return reflect(entries);
 }
 #pragma endregion Compiler
 

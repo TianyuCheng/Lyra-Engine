@@ -2,6 +2,7 @@
 #include <filesystem>
 #include <Lyra/Assets/Format/PipelineAsset.h>
 #include <Lyra/FileSystem/VFSAPI.h>
+#include <Lyra/Rendering/PipelineManager.h>
 
 namespace fs = std::filesystem;
 using namespace lyra;
@@ -227,4 +228,116 @@ TEST_CASE("pipeline_serde::file_io_saver_and_loader")
 
     loader_api.unload(loaded);
     fs::remove_all(temp_dir);
+}
+
+TEST_CASE("pipeline_manager::automated_reflection_and_layout_synthesis")
+{
+    FileLoader loader(FSLoader::NATIVE);
+    loader.mount("sys://", "Engine/Assets", 0);
+
+    static CString     includes[] = {"Engine/Assets/Shaders"};
+    CompilerDescriptor cdesc{};
+    cdesc.target    = CompileTarget::SPIRV;
+    cdesc.includes  = includes;
+    cdesc.fs_loader = &loader;
+    auto compiler   = Compiler::init(cdesc);
+    REQUIRE(compiler != nullptr);
+
+    auto device = RHI::get_current_device();
+    REQUIRE(device.valid());
+
+    PipelineManager pipeline_manager(device, *compiler, &loader);
+
+    SUBCASE("Reflect GBuffer render layout and verify push constant size & bind groups")
+    {
+        PipelineShaderDescriptor shader{};
+        shader.module         = "sys://Shaders/Deferred/GBuffer.slang";
+        shader.vertex_entry   = "vsmain";
+        shader.fragment_entry = "fsmain";
+
+        auto layout_info = pipeline_manager.reflect_render_layout(shader);
+        REQUIRE(layout_info.valid());
+        CHECK_EQ(layout_info.immediate_size, 128u);
+        CHECK_FALSE(layout_info.bind_group_layouts.empty());
+        for (const auto& bgl : layout_info.bind_group_layouts) {
+            CHECK(bgl.valid());
+        }
+
+        // Layout deduplication test: second reflect call returns identical cached layout
+        auto layout_cached = pipeline_manager.reflect_render_layout(shader);
+        CHECK_EQ(layout_cached.layout.handle, layout_info.layout.handle);
+    }
+
+    SUBCASE("Reflect compute layout for light culling")
+    {
+        PipelineShaderDescriptor shader{};
+        shader.module        = "sys://Shaders/Forward/LightCulling.slang";
+        shader.compute_entry = "csmain";
+
+        auto layout_info = pipeline_manager.reflect_compute_layout(shader);
+        REQUIRE(layout_info.valid());
+        CHECK_FALSE(layout_info.bind_group_layouts.empty());
+    }
+
+    SUBCASE("Declarative render pipeline creation from PipelineAsset")
+    {
+        PipelineAsset asset{};
+        asset.pipeline_type         = PipelineType::RENDER;
+        asset.shader.module         = "sys://Shaders/PostProcess/FXAA.slang";
+        asset.shader.vertex_entry   = "vsmain";
+        asset.shader.fragment_entry = "fsmain";
+        asset.primitive.cull_mode   = GPUCullMode::NONE;
+        asset.depth_stencil         = std::nullopt;
+
+        GPUColorTargetState target{};
+        target.format       = GPUTextureFormat::RGBA8UNORM;
+        target.blend_enable = false;
+        asset.targets.push_back(target);
+
+        auto pipeline = pipeline_manager.create_render_pipeline(asset);
+        CHECK(pipeline.valid());
+    }
+
+    SUBCASE("Declarative compute pipeline creation from PipelineAsset")
+    {
+        PipelineAsset asset{};
+        asset.pipeline_type        = PipelineType::COMPUTE;
+        asset.shader.module        = "sys://Shaders/Forward/LightCulling.slang";
+        asset.shader.compute_entry = "csmain";
+
+        auto pipeline = pipeline_manager.create_compute_pipeline(asset);
+        CHECK(pipeline.valid());
+    }
+
+    SUBCASE("Fluent RenderPipelineBuilder and VFS loading")
+    {
+        auto temp_dir = fs::temp_directory_path() / "lyra_pm_test";
+        fs::create_directories(temp_dir);
+        loader.mount("app://", temp_dir.c_str(), 0);
+
+        PipelineAsset asset{};
+        asset.shader.module         = "sys://Shaders/PostProcess/FXAA.slang";
+        asset.shader.vertex_entry   = "vsmain";
+        asset.shader.fragment_entry = "fsmain";
+        asset.primitive.cull_mode   = GPUCullMode::NONE;
+        GPUColorTargetState target{};
+        target.format = GPUTextureFormat::RGBA8UNORM;
+        asset.targets.push_back(target);
+
+        auto file_path = temp_dir / "fxaa.pipeline";
+        REQUIRE(PipelineAsset::saver().save(&asset, file_path.c_str()));
+
+        // load declaratively via builder
+        auto pipeline = pipeline_manager.render_pipeline_builder()
+                            .from_asset("app://fxaa.pipeline")
+                            .with_target(GPUTextureFormat::RGBA16FLOAT, BlendPreset::ALPHA)
+                            .with_label("DeclarativeFXAA")
+                            .build();
+
+        CHECK(pipeline.valid());
+
+        fs::remove_all(temp_dir);
+    }
+
+    pipeline_manager.destroy();
 }

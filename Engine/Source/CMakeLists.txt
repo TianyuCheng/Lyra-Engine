@@ -124,6 +124,7 @@ target_sources(lyra-engine PRIVATE
   Rendering/GeometryCache.cpp
   Rendering/ResourceRetire.cpp
   Rendering/RendererManager.cpp
+  Rendering/PipelineManager.cpp
   Rendering/SystemTextures.cpp
   Rendering/ProceduralMesh.cpp
   Rendering/RenderWorld.cpp

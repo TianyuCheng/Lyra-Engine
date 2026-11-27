@@ -72,6 +72,7 @@ namespace lyra
         auto compile(const CompileDescriptor& descriptor) -> Own<ShaderModule>;
 
         auto reflect(InitList<ShaderEntryPoint> entry_points) -> Own<ShaderReflection>;
+        auto reflect(ShaderEntryPoints entry_points) -> Own<ShaderReflection>;
     };
 
 } // namespace lyra
