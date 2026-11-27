@@ -27,7 +27,7 @@ namespace lyra::ui
         Translate = TranslateX | TranslateY | TranslateZ,
         Rotate    = RotateX | RotateY | RotateZ | RotateScreen,
         Scale     = ScaleX | ScaleY | ScaleZ,
-        Universal = Translate | Rotate | Scale
+        Universal = Translate | Rotate | Scale,
     };
 } // namespace lyra::ui
 
@@ -41,7 +41,7 @@ namespace lyra::ui::gizmo
     enum struct Mode : uint32_t
     {
         Local = 0,
-        World = 1
+        World = 1,
     };
 
     struct SnapSettings

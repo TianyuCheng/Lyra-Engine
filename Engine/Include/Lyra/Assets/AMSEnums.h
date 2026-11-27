@@ -22,7 +22,7 @@ namespace lyra
         Added,
         Modified,
         Removed,
-        Renamed
+        Renamed,
     };
 
     enum struct AssetCookStatus : uint8_t
@@ -32,7 +32,7 @@ namespace lyra
         Cooking,
         Succeeded,
         Failed,
-        Skipped
+        Skipped,
     };
 
 } // namespace lyra

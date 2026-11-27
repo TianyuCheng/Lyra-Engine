@@ -50,7 +50,7 @@ namespace lyra
         CUSTOM_4,
         CUSTOM_5,
         CUSTOM_6,
-        CUSTOM_7
+        CUSTOM_7,
     };
 
     /**
@@ -67,7 +67,7 @@ namespace lyra
         CUSTOM_0,
         CUSTOM_1,
         CUSTOM_2,
-        CUSTOM_3
+        CUSTOM_3,
     };
 
     /**
@@ -82,7 +82,7 @@ namespace lyra
         CUSTOM_0,
         CUSTOM_1,
         CUSTOM_2,
-        CUSTOM_3
+        CUSTOM_3,
     };
 
     inline constexpr usize CUSTOM_ACTION_COUNT  = 8;

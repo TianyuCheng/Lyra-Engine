@@ -37,6 +37,20 @@ TEST_CASE("utilities::enums" * doctest::description("Enum utilities and magic_en
 
         lyra::String red_str = lyra::enum_to_string(SampleColor::RED);
         CHECK(red_str == "RED");
+
+        CHECK(lyra::to_string(SampleColor::RED) == "RED");
+        CHECK(lyra::to_string(SampleColor::GREEN) == "GREEN");
+        CHECK(lyra::to_string(SampleColor::BLUE) == "BLUE");
+    }
+
+    SUBCASE("parse_enum")
+    {
+        CHECK(lyra::parse_enum<SampleColor>("RED") == SampleColor::RED);
+        CHECK(lyra::parse_enum<SampleColor>("red") == SampleColor::RED);
+        CHECK(lyra::parse_enum<SampleColor>("Green") == SampleColor::GREEN);
+        CHECK(lyra::parse_enum<SampleColor>("b_l_u_e") == SampleColor::BLUE);
+        CHECK(lyra::parse_enum<SampleColor>("blue") == SampleColor::BLUE);
+        CHECK_FALSE(lyra::parse_enum<SampleColor>("invalid").has_value());
     }
 
     SUBCASE("enum_from_name and enum_is_valid")

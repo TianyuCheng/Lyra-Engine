@@ -33,7 +33,7 @@ namespace lyra::ui
         Success, // Positive / Play action (e.g. Play, Run)
         Warning, // Cautionary action (e.g. Pause)
         Danger,  // Destructive action (e.g. Delete, Purge)
-        Ghost    // Borderless / Minimal (e.g. toolbars, breadcrumbs)
+        Ghost,   // Borderless / Minimal (e.g. toolbars, breadcrumbs)
     };
 
     // semantic status roles for text, badges, and filters
@@ -47,7 +47,7 @@ namespace lyra::ui
         Success,
         Warning,
         Error,
-        Critical
+        Critical,
     };
 
     // directional alignment along layout axes
@@ -55,7 +55,7 @@ namespace lyra::ui
     {
         Start,
         Center,
-        End
+        End,
     };
 
     // vertical alignment along cross-layout axes
@@ -64,7 +64,7 @@ namespace lyra::ui
         Top,
         Center,
         Bottom,
-        Baseline
+        Baseline,
     };
 
     // docking workspace areas
@@ -74,7 +74,7 @@ namespace lyra::ui
         Left,
         Right,
         Top,
-        Bottom
+        Bottom,
     };
 
 } // namespace lyra::ui

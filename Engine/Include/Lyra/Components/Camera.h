@@ -16,7 +16,7 @@ namespace lyra
     enum struct ProjectionType : uint
     {
         PERSPECTIVE,
-        ORTHOGRAPHIC
+        ORTHOGRAPHIC,
     };
 
     /**
@@ -26,7 +26,7 @@ namespace lyra
     {
         MANUAL,          ///< photographic parameters: aperture, shutter speed, ISO
         EV_COMPENSATION, ///< direct EV100 slider + exposure compensation
-        AUTO_HISTOGRAM   ///< dynamic GPU eye adaptation via luminance histogram
+        AUTO_HISTOGRAM,  ///< dynamic GPU eye adaptation via luminance histogram
     };
 
     /**

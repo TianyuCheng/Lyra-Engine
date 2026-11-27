@@ -37,7 +37,7 @@ namespace lyra
     struct DeviceButton
     {
         // clang-format off
-        enum struct Type : uint8_t { NONE = 0, KEY, MOUSE } type = Type::NONE;
+        enum struct Type : uint8_t { NONE = 0, KEY, MOUSE, } type = Type::NONE;
         // clang-format on
 
         uint16_t code = 0;

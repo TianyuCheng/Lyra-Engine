@@ -21,8 +21,8 @@ namespace lyra
      */
     enum struct LoadMode : uint
     {
-        SINGLE,  ///< clears current world entities (except DontDestroyOnLoad) and sets new scene as active.
-        ADDITIVE ///< loads and spawns scene alongside existing entities without clearing.
+        SINGLE,   ///< clears current world entities (except DontDestroyOnLoad) and sets new scene as active.
+        ADDITIVE, ///< loads and spawns scene alongside existing entities without clearing.
     };
 
     /**
@@ -44,7 +44,7 @@ namespace lyra
     {
         EMPTY,      ///< Completely empty root node.
         DEFAULT_3D, ///< Root node + Main Camera (with FlyCamera) + Sun.
-        DEFAULT = DEFAULT_3D
+        DEFAULT = DEFAULT_3D,
     };
 
     /**

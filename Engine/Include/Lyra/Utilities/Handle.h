@@ -7,6 +7,7 @@
 #include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Utilities/String.h>
 #include <Lyra/Utilities/Conversion.h>
+#include <Lyra/Utilities/Enums.h>
 
 // for conversion conversion betwen slot_map_handle and our handles
 #include <apus/slot_map.hpp>
@@ -43,7 +44,7 @@ namespace lyra
             return as_type<apus::slot_map_handle<SlotType>>(value);
         }
 
-        constexpr static auto type_name() -> CString
+        constexpr static auto type_name() -> StringView
         {
             return to_string(TYPE);
         }

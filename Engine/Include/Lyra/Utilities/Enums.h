@@ -75,25 +75,48 @@ namespace lyra
     }
 
     /**
-     * @brief parse an enum from string with case-insensitivity and underscore tolerance.
+     * @brief parse an enum from string with case-insensitivity and separator tolerance.
      */
     template <typename E>
     inline auto parse_enum(StringView str) -> Optional<E>
     {
         if (str.empty()) return std::nullopt;
 
-        // 1. direct case-insensitive match (e.g. "triangle_list" -> TRIANGLE_LIST, "back" -> BACK)
+        // 1. fast path: direct case-insensitive match (e.g. "triangle_list" -> TRIANGLE_LIST, "back" -> BACK)
         if (auto val = magic_enum::enum_cast<E>(str, magic_enum::case_insensitive)) {
             return val;
         }
 
-        // 2. normalized match stripping underscores (e.g. "rgba8_unorm" -> "rgba8unorm" -> RGBA8UNORM)
-        String normalized;
-        normalized.reserve(str.size());
-        for (char c : str) {
-            if (c != '_') normalized.push_back(c);
+        // 2. fuzzy match ignoring case, underscores, and hyphens (e.g. "gpudriven" -> GPU_DRIVEN)
+        auto equals_ignore_separators = [](StringView a, StringView b) -> bool {
+            auto it_a  = a.begin();
+            auto end_a = a.end();
+            auto it_b  = b.begin();
+            auto end_b = b.end();
+            while (it_a != end_a || it_b != end_b) {
+                while (it_a != end_a && (*it_a == '_' || *it_a == '-'))
+                    ++it_a;
+                while (it_b != end_b && (*it_b == '_' || *it_b == '-'))
+                    ++it_b;
+                if (it_a == end_a || it_b == end_b) {
+                    return it_a == end_a && it_b == end_b;
+                }
+                char ca = static_cast<char>(std::tolower(static_cast<unsigned char>(*it_a)));
+                char cb = static_cast<char>(std::tolower(static_cast<unsigned char>(*it_b)));
+                if (ca != cb) return false;
+                ++it_a;
+                ++it_b;
+            }
+            return true;
+        };
+
+        for (const auto& [val, name] : magic_enum::enum_entries<E>()) {
+            if (equals_ignore_separators(str, name)) {
+                return val;
+            }
         }
-        return magic_enum::enum_cast<E>(normalized, magic_enum::case_insensitive);
+
+        return std::nullopt;
     }
 
     template <typename E>

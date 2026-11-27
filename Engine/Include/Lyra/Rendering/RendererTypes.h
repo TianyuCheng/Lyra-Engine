@@ -6,6 +6,7 @@
 #include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Utilities/String.h>
 #include <Lyra/Utilities/Collections.h>
+#include <Lyra/Utilities/Enums.h>
 #include <Lyra/Utilities/Handle.h>
 #include <Lyra/Utilities/BitFlags.h>
 #include <Lyra/Graphics/RHITypes.h>
@@ -58,19 +59,10 @@ namespace lyra
 
     inline auto to_renderer_backend(StringView name) -> Optional<RendererBackend>
     {
-        if (name == "lyra-forward" || name == "forward" || name == "Forward" || name == "FORWARD") {
-            return RendererBackend::FORWARD;
+        if (name.starts_with("lyra-")) {
+            name.remove_prefix(5);
         }
-        if (name == "lyra-deferred" || name == "deferred" || name == "Deferred" || name == "DEFERRED") {
-            return RendererBackend::DEFERRED;
-        }
-        if (name == "lyra-gpudriven" || name == "gpudriven" || name == "GPUDriven" || name == "gpu_driven" || name == "GPU_DRIVEN") {
-            return RendererBackend::GPU_DRIVEN;
-        }
-        if (name == "lyra-pathtracer" || name == "pathtracer" || name == "PathTracer" || name == "path_tracer" || name == "PATH_TRACER") {
-            return RendererBackend::PATH_TRACER;
-        }
-        return std::nullopt;
+        return parse_enum<RendererBackend>(name);
     }
 
     /**

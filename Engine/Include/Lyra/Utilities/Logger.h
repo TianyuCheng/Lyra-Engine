@@ -15,6 +15,7 @@
 #include <Lyra/Utilities/Pointer.h>
 #include <Lyra/Utilities/Collections.h>
 #include <Lyra/Utilities/Compatibility.h>
+#include <Lyra/Utilities/Enums.h>
 
 namespace lyra
 {
@@ -22,22 +23,14 @@ namespace lyra
     using LogView  = fmt::string_view;
     using LogLevel = spdlog::level::level_enum;
 
-    inline LogLevel parse_log_level(const std::string& level)
+    inline LogLevel parse_log_level(StringView level)
     {
-        if (level == "trace")
-            return LogLevel::trace;
-        if (level == "debug")
-            return LogLevel::debug;
-        if (level == "info")
-            return LogLevel::info;
-        if (level == "warn")
-            return LogLevel::warn;
-        if (level == "error")
+        if (auto parsed = parse_enum<LogLevel>(level)) {
+            return *parsed;
+        }
+        if (level == "error") {
             return LogLevel::err;
-        if (level == "critical")
-            return LogLevel::critical;
-        if (level == "off")
-            return LogLevel::off;
+        }
         return LogLevel::info; // default to info if no match
     }
 

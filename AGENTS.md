@@ -20,12 +20,15 @@ Views & Container Access:
 Prefer exposing lightweight views / slices rather than raw pointers for containers and GPU buffers (e.g. `GPUBufferSlice`, `lyra::Span<T>`, `lyra::StringView`). Never expose raw pointers to internal containers or buffers (e.g. `const GPUBuffer*` or `const Vector<T>*`), as container reallocations lead to dangling pointers. Views provide copyable value semantics and support sub-allocations.
 
 Enums:
-Enum values declaration should all end with `,` (even for the last one).
+- Enum values declaration should all end with `,` (even for the last one).
+- Prefer scoped enums (`enum struct` or `enum class`) with explicit underlying types (e.g. `enum struct PrimitiveType : uint`, `enum class MotionType : ubyte`).
+- Never write manual `switch-case` boilerplate or custom `parse_*` / `to_string` functions for enums. Always use the reflection helpers from `<Lyra/Utilities/Enums.h>` (`to_string(E)`, `parse_enum<E>()`).
 
 ## 0.5 HARD RULES
 
 1. Don't do any hack just to make test pass (for example, relax pass criteria for softgpu, implement skybox in softgpu).
 2. Prefer views (`GPUBufferSlice`, `Span`, `StringView`) instead of exposing raw pointers (`T*` or `const T*`) for containers and GPU buffers.
+3. Never hand-roll custom `switch-case` string converters or `parse_*` / `to_string` functions for enums. Use `lyra::to_string(E)` and `lyra::parse_enum<E>()` from `<Lyra/Utilities/Enums.h>`.
 
 ## 1. Lyra Common Type & Name Aliases (`Include/Lyra/Common/`)
 
@@ -194,6 +197,24 @@ Lyra wraps GLM with Depth $[0, 1]$ and Radians enabled:
 
 ---
 
+### 1.12 Enum Utilities & Reflection ([`Enums.h`](file:///C:/Users/tcheng/source/repos/Lyra-Engine/Engine/Include/Lyra/Utilities/Enums.h))
+Lyra provides unified compile-time enum reflection, serialization, and string conversion helpers via `magic_enum` integration in `<Lyra/Utilities/Enums.h>`:
+
+| Helper / Template | Signature / Underlying Type | Description |
+| :--- | :--- | :--- |
+| `lyra::to_string(E)` | `(E value) -> StringView` | Returns non-owning string view of enum value name |
+| `lyra::enum_to_string(E)` | `(E value) -> String` | Returns dynamic string of enum value name |
+| `lyra::parse_enum<E>(str)` | `(StringView str) -> Optional<E>` | Case-insensitive and separator-tolerant parsing (matches `"gpu_driven"`, `"gpudriven"`, etc.) |
+| `lyra::enum_from_name<E>(name)` | `(StringView name) -> Optional<E>` | Exact case-sensitive enum name lookup |
+| `lyra::enum_values_v<E>` | `std::array<E, N>` | Compile-time array of all enum values |
+| `lyra::enum_names_v<E>` | `std::array<std::string_view, N>` | Compile-time array of all enum names |
+| `lyra::enum_entries_v<E>` | `std::array<std::pair<E, std::string_view>, N>` | Compile-time array of enum value-name pairs |
+| `lyra::enum_size_v<E>` / `enum_count_v<E>` | `usize` | Number of enum elements at compile time |
+| `lyra::enum_is_valid(value)` | `(E value) -> bool` | Validates whether value corresponds to a defined enum constant |
+| `lyra::enum_for_each<E>(fn)` | `(F&& func) -> void` | Inlines compile-time iteration over all enum values |
+
+---
+
 ## 2. Asset Management System (AMS) Conventions
 
 - **Asset IDs & Handles**:
@@ -243,7 +264,10 @@ Lyra wraps GLM with Depth $[0, 1]$ and Radians enabled:
   - Prefer lowercase comments (e.g. `// resolve stable id across re-imports` rather than `// Resolve stable id across re-imports`).
 
 - **Enums**:
-  - Enum values declaration should all end with `,` (even for the last one).
+  - **Trailing Comma**: All enum value declarations should end with `,` (even for the last one).
+  - **Scoped & Typed**: Prefer scoped enums (`enum struct` or `enum class`) with an explicit fixed underlying storage type (e.g. `: uint`, `: ubyte`, `: uint16_t`).
+  - **Bit Flags**: For bitmasks, use `ENABLE_BIT_FLAGS(lyra::EnumType)` and `using EnumTypeFlags = BitFlags<EnumType>;` from `<Lyra/Utilities/BitFlags.h>`.
+  - **String Conversion & Parsing**: Rely on `lyra::to_string(E)` and `lyra::parse_enum<E>()` from `<Lyra/Utilities/Enums.h>`. Do not write manual `switch-case` mappings or ad-hoc string comparisons.
 
 - **`auto` & Code Alignment**:
   - `auto` can be used for variable declarations, as well as `auto` with trailing return types for function declarations (`auto func(...) -> ReturnType`).

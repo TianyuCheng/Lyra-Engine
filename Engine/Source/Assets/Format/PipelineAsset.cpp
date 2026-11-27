@@ -8,22 +8,13 @@ using namespace lyra;
 
 static GPUCompareFunction parse_compare_function(StringView str)
 {
-    if (str == ">=" || str == "greater_equal") return GPUCompareFunction::GREATER_EQUAL;
-    if (str == "<=" || str == "less_equal") return GPUCompareFunction::LESS_EQUAL;
-    if (str == "<" || str == "less") return GPUCompareFunction::LESS;
-    if (str == ">" || str == "greater") return GPUCompareFunction::GREATER;
-    if (str == "==" || str == "equal") return GPUCompareFunction::EQUAL;
-    if (str == "!=" || str == "not_equal") return GPUCompareFunction::NOT_EQUAL;
+    if (str == ">=") return GPUCompareFunction::GREATER_EQUAL;
+    if (str == "<=") return GPUCompareFunction::LESS_EQUAL;
+    if (str == "<") return GPUCompareFunction::LESS;
+    if (str == ">") return GPUCompareFunction::GREATER;
+    if (str == "==") return GPUCompareFunction::EQUAL;
+    if (str == "!=") return GPUCompareFunction::NOT_EQUAL;
     return parse_enum<GPUCompareFunction>(str).value_or(GPUCompareFunction::GREATER_EQUAL);
-}
-
-static Optional<GPUTextureFormat> parse_texture_format(StringView str)
-{
-    auto s = to_lower(str);
-    if (s.empty() || s == "none" || s == "undefined") return std::nullopt;
-    if (s == "d32_float" || s == "depth32_float") return GPUTextureFormat::DEPTH32FLOAT;
-    if (s == "d16_unorm" || s == "depth16_unorm") return GPUTextureFormat::DEPTH16UNORM;
-    return parse_enum<GPUTextureFormat>(str);
 }
 
 static GPUColorWriteFlags parse_write_mask(StringView str)
@@ -128,7 +119,7 @@ PipelineAsset PipelineAsset::from_toml(const TOML& table)
         ds.depth_compare = parse_compare_function((*ds_tbl)["depth_compare"].value_or("greater_equal"));
         ds.depth_write_enabled =
             (*ds_tbl)["depth_write"].value_or((*ds_tbl)["depth_test"].value_or(true));
-        ds.format     = parse_texture_format((*ds_tbl)["format"].value_or(""))
+        ds.format     = parse_enum<GPUTextureFormat>((*ds_tbl)["format"].value_or(""))
                             .value_or(GPUTextureFormat::DEPTH32FLOAT);
         ds.depth_bias = (*ds_tbl)["depth_bias"].value_or(0);
         ds.depth_bias_constant =
@@ -157,7 +148,7 @@ PipelineAsset PipelineAsset::from_toml(const TOML& table)
         for (const auto& elem : *targets_arr) {
             if (const auto target_tbl = elem.as_table()) {
                 GPUColorTargetState target{};
-                target.format     = parse_texture_format((*target_tbl)["format"].value_or("rgba8_unorm"))
+                target.format     = parse_enum<GPUTextureFormat>((*target_tbl)["format"].value_or("rgba8_unorm"))
                                         .value_or(GPUTextureFormat::RGBA8UNORM);
                 target.write_mask = parse_write_mask((*target_tbl)["write_mask"].value_or("all"));
 

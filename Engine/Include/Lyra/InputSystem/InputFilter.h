@@ -17,7 +17,7 @@ namespace lyra
     {
         EDITOR   = 0, ///< layer 1: application chrome, menus, modals, text fields.
         OVERLAY  = 1, ///< layer 2: in-scene tools, gizmos (ImGuizmo), viewport HUD.
-        VIEWPORT = 2  ///< layer 3: viewport canvas navigation, picking, camera control.
+        VIEWPORT = 2, ///< layer 3: viewport canvas navigation, picking, camera control.
     };
 
     /**

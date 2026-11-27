@@ -62,22 +62,12 @@ static void* load_material_asset(FileLoader* loader, FSPath path)
             if (prop_name == "lyra:blendMode") {
                 std::string s;
                 if (attr.get_value(&s)) {
-                    if (s == "mask")
-                        asset->blend_mode = MaterialBlendMode::MASK;
-                    else if (s == "blend")
-                        asset->blend_mode = MaterialBlendMode::BLEND;
-                    else
-                        asset->blend_mode = MaterialBlendMode::OPAQUE;
+                    asset->blend_mode = parse_enum<MaterialBlendMode>(s).value_or(MaterialBlendMode::OPAQUE);
                 }
             } else if (prop_name == "lyra:cullMode") {
                 std::string s;
                 if (attr.get_value(&s)) {
-                    if (s == "none")
-                        asset->cull_mode = GPUCullMode::NONE;
-                    else if (s == "front")
-                        asset->cull_mode = GPUCullMode::FRONT;
-                    else
-                        asset->cull_mode = GPUCullMode::BACK;
+                    asset->cull_mode = parse_enum<GPUCullMode>(s).value_or(GPUCullMode::BACK);
                 }
             } else if (prop_name == "lyra:depthWrite") {
                 bool b = true;
@@ -219,32 +209,6 @@ static uint get_material_extensions(CString* extensions)
     return 1;
 }
 
-static const char* blend_mode_to_string(MaterialBlendMode mode)
-{
-    switch (mode) {
-        case MaterialBlendMode::OPAQUE:
-            return "opaque";
-        case MaterialBlendMode::MASK:
-            return "mask";
-        case MaterialBlendMode::BLEND:
-            return "blend";
-    }
-    return "opaque";
-}
-
-static const char* cull_mode_to_string(GPUCullMode mode)
-{
-    switch (mode) {
-        case GPUCullMode::NONE:
-            return "none";
-        case GPUCullMode::FRONT:
-            return "front";
-        case GPUCullMode::BACK:
-            return "back";
-    }
-    return "back";
-}
-
 static bool save_material_asset(const void* raw_asset, OSPath path)
 {
     const auto* asset = reinterpret_cast<const MaterialAsset*>(raw_asset);
@@ -260,8 +224,8 @@ static bool save_material_asset(const void* raw_asset, OSPath path)
          << "def Material \"Material\"\n"
          << "{\n"
          << "    token outputs:surface.connect = </Material/SurfaceShader.outputs:surface>\n"
-         << "    custom string lyra:blendMode = \"" << blend_mode_to_string(asset->blend_mode) << "\"\n"
-         << "    custom string lyra:cullMode = \"" << cull_mode_to_string(asset->cull_mode) << "\"\n"
+         << "    custom string lyra:blendMode = \"" << to_lower(to_string(asset->blend_mode)) << "\"\n"
+         << "    custom string lyra:cullMode = \"" << to_lower(to_string(asset->cull_mode)) << "\"\n"
          << "    custom bool lyra:depthWrite = " << (asset->depth_write ? "true" : "false") << "\n"
          << "    custom bool lyra:depthTest = " << (asset->depth_test ? "true" : "false") << "\n\n"
          << "    def Shader \"SurfaceShader\"\n"

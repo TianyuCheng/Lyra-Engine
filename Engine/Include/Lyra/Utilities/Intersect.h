@@ -20,7 +20,7 @@ namespace lyra
     {
         DISJOINT   = 0, ///< geometry is entirely outside
         INTERSECTS = 1, ///< geometry intersects the boundary
-        CONTAINS   = 2  ///< geometry is entirely inside
+        CONTAINS   = 2, ///< geometry is entirely inside
     };
 
     struct RayHit2D

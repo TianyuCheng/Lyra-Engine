@@ -118,7 +118,7 @@ namespace lyra
             BOTTOM,
             TOP,
             NEAR_PLANE,
-            FAR_PLANE
+            FAR_PLANE,
         };
 
         Array<Plane, enum_count_v<PlaneIndex>> planes;

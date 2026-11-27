@@ -23,7 +23,7 @@ namespace lyra
     {
         OPAQUE,
         MASK,
-        BLEND
+        BLEND,
     };
 
     /**

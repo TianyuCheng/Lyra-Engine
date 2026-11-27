@@ -7,6 +7,7 @@
 #include <Lyra/Utilities/String.h>
 #include <Lyra/Utilities/Collections.h>
 #include <Lyra/Utilities/Path.h>
+#include <Lyra/Utilities/Enums.h>
 
 namespace lyra
 {
@@ -107,28 +108,6 @@ namespace lyra
          */
         static auto reset_frame() -> void;
     };
-
-    /**
-     * @brief Convert a RHIBreadcrumbOp enum value to its string representation.
-     */
-    inline constexpr CString to_string(RHIBreadcrumbOp op)
-    {
-        // clang-format off
-        switch (op) {
-            case RHIBreadcrumbOp::PASS_BEGIN:            return "PASS_BEGIN";
-            case RHIBreadcrumbOp::PASS_END:              return "PASS_END";
-            case RHIBreadcrumbOp::DRAW:                  return "DRAW";
-            case RHIBreadcrumbOp::DRAW_INDEXED:          return "DRAW_INDEXED";
-            case RHIBreadcrumbOp::DRAW_INDIRECT:         return "DRAW_INDIRECT";
-            case RHIBreadcrumbOp::DRAW_INDEXED_INDIRECT: return "DRAW_INDEXED_INDIRECT";
-            case RHIBreadcrumbOp::DISPATCH:              return "DISPATCH";
-            case RHIBreadcrumbOp::DISPATCH_INDIRECT:     return "DISPATCH_INDIRECT";
-            case RHIBreadcrumbOp::PIPELINE_BIND:         return "PIPELINE_BIND";
-            case RHIBreadcrumbOp::DEBUG_MARKER:          return "DEBUG_MARKER";
-            default:                                     return "UNKNOWN";
-        }
-        // clang-format on
-    }
 
 } // namespace lyra
 

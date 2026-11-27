@@ -123,6 +123,22 @@ namespace lyra
         return result;
     }
 
+    inline String operator+(const String& lhs, StringView rhs)
+    {
+        String result = lhs;
+        result.append(rhs.data(), rhs.size());
+        return result;
+    }
+
+    inline String operator+(StringView lhs, const String& rhs)
+    {
+        String result;
+        result.reserve(lhs.size() + rhs.size());
+        result.append(lhs.data(), lhs.size());
+        result.append(rhs);
+        return result;
+    }
+
     /**
      * @brief Fixed-capacity, null-terminated inline string buffer with strict C-ABI layout.
      *
