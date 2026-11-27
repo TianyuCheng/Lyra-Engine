@@ -859,15 +859,7 @@ TEST_CASE("fg::async_compute_pass_declaration" * doctest::description("Async Com
         [](const PassData&, FrameGraphResources&, FrameGraphContext*) {
         });
 
-    auto p2 = builder.add_compute_pass<PassData>(
-        "ComputePass",
-        [](PassData&, FrameGraphPassBuilder& pb) {
-            CHECK_EQ(pb.get_queue(), GPUQueueType::COMPUTE);
-        },
-        [](const PassData&, FrameGraphResources&, FrameGraphContext*) {
-        });
-
-    auto p3 = builder.add_pass<PassData>(
+    auto p2 = builder.add_pass<PassData>(
         "ExplicitComputePass",
         [](PassData&, FrameGraphPassBuilder& pb) {
             pb.set_queue(GPUQueueType::COMPUTE);
@@ -961,9 +953,10 @@ TEST_CASE("fg::async_compute_cross_queue_sync" * doctest::description("Async Com
         });
 
     // Pass B: Async Compute queue reads depth, produces light grid buffer
-    auto pass_b = builder.add_compute_pass<PassBData>(
+    auto pass_b = builder.add_pass<PassBData>(
         "ClusteredLightCulling",
         [&](PassBData& d, FrameGraphPassBuilder& pb) {
+            pb.set_queue(GPUQueueType::COMPUTE);
             d.depth = pb.read(pass_a.depth);
             d.grid  = pb.create<FrameGraphBuffer>(buf_desc);
             d.grid  = pb.write(d.grid);

@@ -963,38 +963,6 @@ namespace lyra
             });
         }
 
-        // modern idiomatic async compute pass declaration with PassData
-        template <typename Data, typename Setup, typename Exec>
-        Data add_compute_pass(StringView name, Setup&& setup, Exec&& exec)
-        {
-            auto& pass_entry = create_pass(name);
-            pass_entry.set_queue(GPUQueueType::COMPUTE);
-            Data data{};
-
-            FrameGraphPassBuilder pass_builder(*graph, this->pass);
-            setup(data, pass_builder);
-
-            pass_entry.execute([data, exec = std::forward<Exec>(exec)](FrameGraphResources& resources, FrameGraphContext* ctx) {
-                exec(data, resources, ctx);
-            });
-            return data;
-        }
-
-        // modern idiomatic async compute pass declaration without PassData
-        template <typename Setup, typename Exec>
-        void add_compute_pass(StringView name, Setup&& setup, Exec&& exec)
-        {
-            auto& pass_entry = create_pass(name);
-            pass_entry.set_queue(GPUQueueType::COMPUTE);
-
-            FrameGraphPassBuilder pass_builder(*graph, this->pass);
-            setup(pass_builder);
-
-            pass_entry.execute([exec = std::forward<Exec>(exec)](FrameGraphResources& resources, FrameGraphContext* ctx) {
-                exec(resources, ctx);
-            });
-        }
-
         [[nodiscard]] FrameGraphPass& create_pass(StringView name);
 
         template <typename T>
