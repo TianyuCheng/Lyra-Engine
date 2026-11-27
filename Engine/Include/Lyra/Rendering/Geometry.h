@@ -22,7 +22,7 @@ namespace lyra
         GPUSize64       size    = 0; ///< Sub-allocated byte size.
         uint            slab_id = 0; ///< Internal pool slab identifier.
 
-        [[nodiscard]] bool valid() const { return size > 0 && (buffer.valid() || slab_id > 0); }
+        bool valid() const { return size > 0 && (buffer.valid() || slab_id > 0); }
     };
 
     /**
@@ -99,7 +99,7 @@ namespace lyra
         VertexStreamOffsets stream_offsets;
         GPUBindGroup        vertex_bind_group{};
 
-        [[nodiscard]] bool valid() const { return vertex_slice.valid() && index_slice.valid(); }
+        bool valid() const { return vertex_slice.valid() && index_slice.valid(); }
     };
 
     /**
@@ -130,7 +130,7 @@ namespace lyra
         BufferSlice vertex_storage_slice;   ///< Storage buffer view of vertex attributes.
         uint        meshlet_count = 0;
 
-        [[nodiscard]] bool valid() const { return meshlet_slice.valid() && meshlet_count > 0; }
+        bool valid() const { return meshlet_slice.valid() && meshlet_count > 0; }
     };
 
     /**
@@ -141,7 +141,7 @@ namespace lyra
         GPUBlas blas;
         bool    is_built = false;
 
-        [[nodiscard]] bool valid() const { return blas.valid(); }
+        bool valid() const { return blas.valid(); }
     };
 
     /**

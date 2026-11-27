@@ -71,7 +71,7 @@ namespace lyra::passes
             GPULoadOp                           depth_load_op = GPULoadOp::LOAD,
             GPULoadOp                           color_load_op = GPULoadOp::LOAD) -> SkyboxData;
 
-        [[nodiscard]] bool valid() const { return initialized && pipeline.valid(); }
+        bool valid() const { return initialized && pipeline.valid(); }
 
     private:
         void precompute_static_luts();

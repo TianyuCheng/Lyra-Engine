@@ -52,9 +52,10 @@ namespace lyra::passes
             GPUDevice        device,
             Compiler         compiler,
             GPUTextureFormat output_format = GPUTextureFormat::RGBA8UNORM);
+
         void destroy();
 
-        [[nodiscard]] bool valid() const { return initialized && pipeline.valid(); }
+        bool valid() const { return initialized && pipeline.valid(); }
 
         auto add(
             FrameGraphBuilder&                  builder,

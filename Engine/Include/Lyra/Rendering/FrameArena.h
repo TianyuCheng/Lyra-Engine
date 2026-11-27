@@ -19,7 +19,7 @@ namespace lyra
         GPUSize64       size        = 0;
         void*           mapped_data = nullptr;
 
-        [[nodiscard]] auto valid() const -> bool
+        auto valid() const -> bool
         {
             return buffer.valid() && mapped_data != nullptr;
         }

@@ -54,7 +54,7 @@ namespace lyra::passes
         bool init(GPUDevice device, Compiler compiler);
         void destroy();
 
-        [[nodiscard]] bool valid() const { return initialized && histogram_pipeline.valid() && adapt_pipeline.valid(); }
+        bool valid() const { return initialized && histogram_pipeline.valid() && adapt_pipeline.valid(); }
 
         AutoExposureData add(
             FrameGraphBuilder&                  builder,

@@ -41,8 +41,8 @@ namespace lyra
         constexpr AudioHandle() = default;
         constexpr explicit AudioHandle(uint val) : value(val) {}
 
-        [[nodiscard]] constexpr bool valid() const { return value != 0; }
-        constexpr void               reset() { value = 0; }
+        constexpr bool valid() const { return value != 0; }
+        constexpr void reset() { value = 0; }
 
         constexpr bool operator==(const AudioHandle& other) const = default;
         constexpr bool operator!=(const AudioHandle& other) const = default;

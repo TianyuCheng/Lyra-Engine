@@ -69,7 +69,7 @@ namespace lyra::passes
             const RenderScene& scene,
             GPUExtent2D        extent) -> DepthPrepassData;
 
-        [[nodiscard]] bool valid() const { return initialized && pipeline.valid(); }
+        bool valid() const { return initialized && pipeline.valid(); }
 
     private:
         /**

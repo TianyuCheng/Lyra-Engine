@@ -82,7 +82,7 @@ namespace lyra::passes
             const RenderView&                   view,
             const EditorGridSettings&           settings = {}) -> EditorGridData;
 
-        [[nodiscard]] bool valid() const { return initialized && pipeline.valid(); }
+        bool valid() const { return initialized && pipeline.valid(); }
 
     private:
         GPUDevice                        device;

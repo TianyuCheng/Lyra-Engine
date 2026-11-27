@@ -116,7 +116,7 @@ namespace lyra
             bind_groups.clear();
         }
 
-        [[nodiscard]] bool valid() const { return initialized && heap.valid() && layout.valid(); }
+        bool               valid() const { return initialized && heap.valid() && layout.valid(); }
         [[nodiscard]] auto get_layout() const -> GPUBindGroupLayoutHandle { return layout; }
 
     private:

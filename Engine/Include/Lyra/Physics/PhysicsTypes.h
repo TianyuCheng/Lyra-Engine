@@ -46,7 +46,7 @@ namespace lyra
         constexpr PhysicsHandle() = default;
         constexpr explicit PhysicsHandle(uint val) : value(val) {}
 
-        [[nodiscard]] constexpr bool valid() const { return value != 0; }
+        constexpr bool valid() const { return value != 0; }
 
         constexpr void reset() { value = 0; }
 

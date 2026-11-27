@@ -74,7 +74,7 @@ namespace lyra
             total_light_count       = 0;
         }
 
-        [[nodiscard]] auto valid() const -> bool
+        auto valid() const -> bool
         {
             return lights_slice.valid();
         }

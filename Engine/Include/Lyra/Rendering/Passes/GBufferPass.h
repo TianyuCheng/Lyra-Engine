@@ -66,7 +66,7 @@ namespace lyra::passes
             const RenderScene& scene,
             GPUExtent2D        extent) -> GBufferData;
 
-        [[nodiscard]] bool valid() const { return initialized && pipeline.valid(); }
+        bool valid() const { return initialized && pipeline.valid(); }
 
     private:
         GPUDevice                        device;

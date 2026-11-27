@@ -98,7 +98,7 @@ namespace lyra::passes
             FrameGraphBuilder&       builder,
             const ForwardPassParams& params) -> ForwardPassData;
 
-        [[nodiscard]] bool valid() const { return initialized; }
+        bool               valid() const { return initialized; }
         [[nodiscard]] auto get_vertex_layout() const -> GPUBindGroupLayoutHandle { return blayouts.size() > 1 ? blayouts[1] : GPUBindGroupLayoutHandle{}; }
         [[nodiscard]] auto get_geometry_cache() const -> Ref<GeometryBindGroupCache> { return mesh_pass.get_geometry_cache(); }
 

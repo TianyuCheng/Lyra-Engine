@@ -56,7 +56,7 @@ namespace lyra::passes
         bool init(GPUDevice device, Compiler compiler);
         void destroy();
 
-        [[nodiscard]] bool valid() const { return initialized && downsample_pipeline.valid() && upsample_pipeline.valid(); }
+        bool valid() const { return initialized && downsample_pipeline.valid() && upsample_pipeline.valid(); }
 
         auto add(
             FrameGraphBuilder&                  builder,

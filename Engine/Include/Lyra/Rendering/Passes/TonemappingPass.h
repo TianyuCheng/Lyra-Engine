@@ -79,7 +79,7 @@ namespace lyra::passes
             GPUTextureFormat                    output_format  = GPUTextureFormat::RGBA8UNORM,
             FrameGraphHandle<FrameGraphTexture> output_target  = {}) -> TonemappingData;
 
-        [[nodiscard]] bool valid() const { return initialized && pipeline.valid(); }
+        bool valid() const { return initialized && pipeline.valid(); }
 
     private:
         GPUDevice                        device;

@@ -96,7 +96,7 @@ namespace lyra::passes
 
         auto add(FrameGraphBuilder& builder, const VolumetricCloudPassParams& params) -> VolumetricCloudPassData;
 
-        [[nodiscard]] bool valid() const { return initialized && pipeline.valid(); }
+        bool valid() const { return initialized && pipeline.valid(); }
 
     private:
         GPUDevice                        device;

@@ -46,7 +46,7 @@ namespace lyra::passes
         bool init(GPUDevice device, Compiler compiler);
         void destroy();
 
-        [[nodiscard]] bool valid() const { return initialized && pipeline.valid(); }
+        bool valid() const { return initialized && pipeline.valid(); }
 
         [[nodiscard]] auto get_lights_slice() const -> GPUBufferSlice { return lights_slice; }
 

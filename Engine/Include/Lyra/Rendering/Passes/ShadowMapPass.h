@@ -52,7 +52,7 @@ namespace lyra::passes
         [[nodiscard]] auto get_geometry_cache() const -> Ref<GeometryBindGroupCache> { return geometry_cache; }
         [[nodiscard]] auto get_vertex_layout() const -> GPUBindGroupLayoutHandle { return blayouts.size() > 1 ? blayouts[1] : GPUBindGroupLayoutHandle{}; }
 
-        [[nodiscard]] bool valid() const { return initialized && pipeline.valid(); }
+        bool               valid() const { return initialized && pipeline.valid(); }
         [[nodiscard]] auto get_light_view_proj() const -> const Matrix4x4& { return light_vp; }
 
         auto add(
