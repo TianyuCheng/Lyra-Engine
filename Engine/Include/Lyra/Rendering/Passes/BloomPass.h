@@ -78,13 +78,10 @@ namespace lyra::passes
 
         static_assert(sizeof(BloomPushConstants) == 48, "BloomPushConstants must be 48 bytes");
 
-        GPUDevice                        device;
-        PipelineManager                  pipeline_manager;
-        GPUComputePipeline               downsample_pipeline;
-        GPUComputePipeline               upsample_pipeline;
-        Vector<GPUBindGroupLayoutHandle> downsample_blayouts;
-        Vector<GPUBindGroupLayoutHandle> upsample_blayouts;
-        GPUSampler                       linear_sampler;
+        GPUDevice             device;
+        ComputePipelineBundle downsample_pipeline;
+        ComputePipelineBundle upsample_pipeline;
+        GPUSampler            linear_sampler;
 
         bool initialized = false;
     };

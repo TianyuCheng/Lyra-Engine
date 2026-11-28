@@ -85,10 +85,8 @@ namespace lyra::passes
         bool valid() const { return initialized && pipeline.valid(); }
 
     private:
-        GPUDevice                        device;
-        PipelineManager                  pipeline_manager;
-        GPURenderPipeline                pipeline;
-        Vector<GPUBindGroupLayoutHandle> blayouts;
+        GPUDevice        device;
+        PipelineBundle   pipeline;
 
         GPUTextureFormat cached_color_format = GPUTextureFormat::RGBA8UNORM;
         GPUTextureFormat cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;

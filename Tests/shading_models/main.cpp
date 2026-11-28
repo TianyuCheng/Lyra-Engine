@@ -1,10 +1,14 @@
 #include "helper.h"
 #include <Lyra/Utilities/Logger.h>
-#include <Lyra/Rendering/RendererAPI.h>
 #include <Lyra/Rendering/RenderWorld.h>
 #include <Lyra/Rendering/ProceduralMesh.h>
 #include <Lyra/Rendering/ResourceRetire.h>
 #include <Lyra/Rendering/ShadingBuffers.h>
+#include <Lyra/Rendering/Passes/ForwardPass.h>
+#include <Lyra/Rendering/Passes/ShadowMapPass.h>
+#include <Lyra/Rendering/Passes/LightCullingPass.h>
+#include <Lyra/Rendering/Passes/SkyboxPass.h>
+#include <Lyra/Rendering/GeometryBindGroupCache.h>
 #include <Lyra/Components/Camera.h>
 #include <Lyra/Components/Light.h>
 #include <Lyra/Components/Sun.h>
@@ -13,36 +17,29 @@
 
 struct ShadingModelsApp : public TestApp
 {
-    RendererPlugin        plugin;
-    RendererHandle        renderer_handle;
-    ResourceRetire        retire;
-    Own<GeometryCache>    geo_cache;
-    Own<RenderWorld>      render_world;
-    World                 ecs_world;
-    FrameGraph::Allocator fg_allocator;
-    FrameArena            arena;
+    passes::ShadowMapPass       shadow_pass;
+    passes::LightCullingPass    light_culling_pass;
+    passes::SkyboxPass          skybox_pass;
+    passes::ForwardPass         forward_pass;
+    Ref<GeometryBindGroupCache> geometry_bind_group_cache;
+    ResourceRetire              retire;
+    Own<GeometryCache>          geo_cache;
+    Own<RenderWorld>            render_world;
+    World                       ecs_world;
+    FrameGraph::Allocator       fg_allocator;
+    FrameArena                  arena;
 
     explicit ShadingModelsApp(const TestAppDescriptor& desc) : TestApp(desc)
     {
+        if (skipped) return;
+
         auto& device = RHI::get_current_device();
 
-        REQUIRE(plugin.load("lyra-forward"));
-        auto api = plugin.get_api();
-        REQUIRE(api != nullptr);
-
-        RendererDescriptor rdesc{};
-        rdesc.device         = device;
-        rdesc.compiler       = *compiler;
-        rdesc.initial_extent = {desc.width, desc.height};
-        rdesc.color_format   = get_backbuffer_format();
-        rdesc.depth_format   = GPUTextureFormat::DEPTH32FLOAT;
-        REQUIRE(api->create_renderer(renderer_handle, rdesc));
-        REQUIRE(renderer_handle.valid());
-
-        RendererSettings settings{};
-        api->get_settings(renderer_handle, settings);
-        settings.enable_shadows = true;
-        api->set_settings(renderer_handle, settings);
+        geometry_bind_group_cache = make_ref<GeometryBindGroupCache>();
+        REQUIRE(forward_pass.init(device, *compiler, get_backbuffer_format(), GPUTextureFormat::DEPTH32FLOAT, "sys://Shaders", geometry_bind_group_cache));
+        REQUIRE(shadow_pass.init(device, *compiler, GPUTextureFormat::DEPTH32FLOAT, "sys://Shaders", geometry_bind_group_cache));
+        REQUIRE(light_culling_pass.init(device, *compiler));
+        REQUIRE(skybox_pass.init(device, *compiler, get_backbuffer_format(), GPUTextureFormat::DEPTH32FLOAT));
 
         geo_cache = make_own<GeometryCache>(retire);
         init_procedural_meshes(*geo_cache);
@@ -52,12 +49,19 @@ struct ShadingModelsApp : public TestApp
         setup_scene();
     }
 
-    ~ShadingModelsApp()
+    ~ShadingModelsApp() override
     {
+        if (skipped) return;
+
         auto& device = RHI::get_current_device();
         device.wait();
-        if (renderer_handle.valid()) {
-            plugin.get_api()->delete_renderer(renderer_handle);
+        skybox_pass.destroy();
+        forward_pass.destroy();
+        shadow_pass.destroy();
+        light_culling_pass.destroy();
+        if (geometry_bind_group_cache) {
+            geometry_bind_group_cache->destroy();
+            geometry_bind_group_cache.reset();
         }
     }
 
@@ -162,6 +166,8 @@ struct ShadingModelsApp : public TestApp
 
     void render(const GPUSurfaceTexture& backbuffer) override
     {
+        if (skipped) return;
+
         auto& device = RHI::get_current_device();
 
         auto command = execute([&]() {
@@ -174,8 +180,6 @@ struct ShadingModelsApp : public TestApp
             command.wait(backbuffer.available, GPUBarrierSync::PIXEL_SHADING);
             command.signal(backbuffer.complete, GPUBarrierSync::RENDER_TARGET);
         }
-
-        auto api = plugin.get_api();
 
         // update world transforms
         auto update_xform = [&](Entity e) {
@@ -190,7 +194,14 @@ struct ShadingModelsApp : public TestApp
             update_xform(entity);
         }
 
-        render_world->extract(ecs_world, api->get_capabilities());
+        RendererCapabilities caps{};
+        caps.features               = RendererFeature::RASTERIZATION | RendererFeature::POST_PROCESSING | RendererFeature::DEBUG_VISUALIZATION;
+        caps.supported_primitives   = PrimitiveSupport::MESH;
+        caps.max_directional_lights = 4;
+        caps.max_local_lights       = 4096;
+        caps.max_samples_per_pixel  = 1;
+        caps.supports_hdr           = true;
+        render_world->extract(ecs_world, caps);
 
         // 2. Build frame graph
         FrameGraphBuilder builder;
@@ -202,30 +213,73 @@ struct ShadingModelsApp : public TestApp
         backbuffer_tex.state   = undefined_texture_state();
         auto color_target      = builder.import(backbuffer_tex);
 
+        struct DepthPassData
+        {
+            FrameGraphHandle<FrameGraphTexture> depth;
+        };
+        auto depth_alloc = builder.add_pass<DepthPassData>(
+            "DepthAllocPass",
+            [&](DepthPassData& data, FrameGraphPassBuilder& pass_builder) {
+                auto depth_desc   = GPUTextureDescriptor{};
+                depth_desc.label  = "shading_models_depth_buffer";
+                depth_desc.size   = {desc.width, desc.height, 1};
+                depth_desc.format = GPUTextureFormat::DEPTH32FLOAT;
+                depth_desc.usage  = GPUTextureUsage::RENDER_ATTACHMENT | GPUTextureUsage::TEXTURE_BINDING;
+                data.depth        = pass_builder.create<FrameGraphTexture>(depth_desc);
+            },
+            [](const DepthPassData&, FrameGraphResources&, FrameGraphContext*) {
+            });
+        auto depth_target = depth_alloc.depth;
+
         RenderView view    = render_world->get_view();
         view.render_extent = {desc.width, desc.height};
 
         ViewUniforms view_uniforms;
         view_uniforms.init(view, arena);
 
-        RenderFrameOutputs outputs{};
-        RenderFrameContext ctx{
-            .builder        = builder,
-            .view           = view,
-            .scene          = render_world->get_scene(),
-            .view_uniforms  = &view_uniforms,
-            .color_target   = color_target,
-            .depth_target   = {},
-            .color_format   = get_backbuffer_format(),
-            .depth_format   = GPUTextureFormat::DEPTH32FLOAT,
-            .render_extent  = {desc.width, desc.height},
-            .display_extent = {desc.width, desc.height},
-            .outputs        = &outputs,
+        const auto& scene = render_world->get_scene();
+
+        // 1. Cascaded shadow mapping pass
+        FrameGraphHandle<FrameGraphTexture> shadow_map_h{};
+        if (!scene.directional_lights.empty() && shadow_pass.valid()) {
+            auto s_data  = shadow_pass.add(builder, view, scene);
+            shadow_map_h = s_data.shadow_map_array;
+        }
+
+        // 2. Light culling pass
+        auto           culling_data = light_culling_pass.add(builder, view, scene, {});
+        GPUBufferSlice lights_slice = light_culling_pass.get_lights_slice();
+
+        // 3. Skybox pass (clears color and depth)
+        auto sky_data      = skybox_pass.add(builder, color_target, depth_target, view, scene, GPULoadOp::CLEAR, GPULoadOp::CLEAR);
+        auto current_color = sky_data.color_output;
+
+        // 4. Forward base pass
+        passes::ForwardPassParams params{
+            .color_target         = current_color,
+            .depth_target         = depth_target,
+            .shadow_map           = shadow_map_h,
+            .cluster_grid_buffer  = culling_data.cluster_grid_buffer,
+            .light_index_list     = culling_data.light_index_list,
+            .lights_slice         = lights_slice,
+            .cluster_grid_x       = culling_data.cluster_grid_x,
+            .cluster_grid_y       = culling_data.cluster_grid_y,
+            .cluster_grid_z       = culling_data.cluster_grid_z,
+            .num_lights           = static_cast<uint>(scene.directional_lights.size() + scene.local_lights.size()),
+            .light_view_proj      = shadow_pass.get_light_view_proj(),
+            .view                 = view,
+            .scene                = scene,
+            .extent               = {desc.width, desc.height},
+            .color_format         = get_backbuffer_format(),
+            .depth_format         = GPUTextureFormat::DEPTH32FLOAT,
+            .depth_prepass_active = false,
+            .color_load_op        = GPULoadOp::LOAD,
+            .depth_load_op        = GPULoadOp::LOAD,
         };
+        auto fp_data     = forward_pass.add(builder, params);
+        auto final_color = fp_data.color_target;
 
-        auto final_color = api->render(renderer_handle, ctx);
-
-        // 3. Final present / postprocessing pass
+        // 5. Final present / postprocessing pass
         builder.add_pass(
             "present_pass",
             [&](FrameGraph::PassBuilder& pass) {

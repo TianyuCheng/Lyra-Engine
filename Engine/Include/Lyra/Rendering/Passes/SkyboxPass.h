@@ -77,29 +77,22 @@ namespace lyra::passes
         void precompute_static_luts();
 
     private:
-        GPUDevice                        device;
-        PipelineManager                  pipeline_manager;
-        GPURenderPipeline                pipeline;
-        GPUBindGroupHeap                 heap;
-        Vector<GPUBindGroupLayoutHandle> blayouts;
+        GPUDevice        device;
+        PipelineBundle   pipeline;
+        PipelineBundle   transmittance_pipeline;
+        PipelineBundle   multiscatter_pipeline;
+        PipelineBundle   sky_view_pipeline;
+        GPUBindGroupHeap heap;
 
         // 3-LUT Atmospheric Scattering Pipeline (Milestone 3, Task 3.1.1)
         // 1. Transmittance LUT (256x64)
-        GPUTexture                       transmittance_lut_tex;
-        GPUTextureView                   transmittance_lut_view;
-        GPURenderPipeline                transmittance_pipeline;
-        Vector<GPUBindGroupLayoutHandle> transmittance_blayouts;
+        GPUTexture     transmittance_lut_tex;
+        GPUTextureView transmittance_lut_view;
 
         // 2. Multi-Scattering LUT (32x32)
-        GPUTexture                       multiscatter_lut_tex;
-        GPUTextureView                   multiscatter_lut_view;
-        GPURenderPipeline                multiscatter_pipeline;
-        Vector<GPUBindGroupLayoutHandle> multiscatter_blayouts;
-        GPUBindGroup                     multiscatter_bind_group;
-
-        // 3. Sky-View LUT (192x108)
-        GPURenderPipeline                sky_view_pipeline;
-        Vector<GPUBindGroupLayoutHandle> sky_view_blayouts;
+        GPUTexture   multiscatter_lut_tex;
+        GPUTextureView multiscatter_lut_view;
+        GPUBindGroup multiscatter_bind_group;
 
         GPUSampler linear_sampler;
 

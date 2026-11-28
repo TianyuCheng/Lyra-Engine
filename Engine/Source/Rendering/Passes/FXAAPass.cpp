@@ -16,19 +16,12 @@ bool FXAAPass::init(GPUDevice dev, Compiler compiler, GPUTextureFormat output_fo
 
     device               = dev;
     cached_output_format = output_format;
-    pipeline_manager.init(device, compiler);
 
     // 1. reflect render layout from slang shader
     PipelineShaderDescriptor shader_desc{};
     shader_desc.module         = "sys://Shaders/PostProcess/FXAA.slang";
     shader_desc.vertex_entry   = "vsmain";
     shader_desc.fragment_entry = "fsmain";
-
-    auto layout = pipeline_manager.reflect_render_layout(shader_desc);
-    if (!layout) {
-        return false;
-    }
-    blayouts.assign(layout->bind_group_layouts.begin(), layout->bind_group_layouts.end());
 
     // 2. create bilinear clamp sampler
     linear_sampler = execute([&]() {
@@ -44,20 +37,18 @@ bool FXAAPass::init(GPUDevice dev, Compiler compiler, GPUTextureFormat output_fo
     });
 
     // 3. construct render pipeline via fluent builder
-    auto pipe = pipeline_manager
-                    .render_pipeline_builder()
-                    .with_shader(shader_desc)
-                    .with_cull_mode(GPUCullMode::NONE)
-                    .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
-                    .with_front_face(GPUFrontFace::CCW)
-                    .without_depth_stencil()
-                    .with_target(cached_output_format)
-                    .with_label("fxaa_pipeline")
-                    .build();
-    if (!pipe) {
+    pipeline = RenderPipelineBuilder(device, compiler)
+                   .with_shader(shader_desc)
+                   .with_cull_mode(GPUCullMode::NONE)
+                   .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
+                   .with_front_face(GPUFrontFace::CCW)
+                   .without_depth_stencil()
+                   .with_target(cached_output_format)
+                   .with_label("fxaa_pipeline")
+                   .build();
+    if (!pipeline.valid()) {
         return false;
     }
-    pipeline = *pipe;
 
     initialized = pipeline.valid();
     return initialized;
@@ -72,9 +63,7 @@ void FXAAPass::destroy()
     device.wait();
 
     linear_sampler.destroy();
-    pipeline_manager.destroy();
-    pipeline = {};
-    blayouts.clear();
+    pipeline.destroy();
     initialized = false;
 }
 
@@ -129,7 +118,7 @@ FXAAData FXAAPass::add(
             entries[1].sampler = linear_sampler;
 
             auto bg_desc    = GPUBindGroupDescriptor{};
-            bg_desc.layout  = blayouts[0];
+            bg_desc.layout  = pipeline.layout.get_bind_group_layout(0);
             bg_desc.entries = entries;
             auto bg         = ctx->allocate(bg_desc);
 

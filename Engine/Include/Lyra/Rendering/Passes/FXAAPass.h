@@ -79,12 +79,10 @@ namespace lyra::passes
 
         static_assert(sizeof(FXAAPushConstants) == 32, "FXAAPushConstants must be 32 bytes");
 
-        GPUDevice                        device;
-        PipelineManager                  pipeline_manager;
-        GPURenderPipeline                pipeline;
-        Vector<GPUBindGroupLayoutHandle> blayouts;
-        GPUSampler                       linear_sampler;
-        GPUTextureFormat                 cached_output_format = GPUTextureFormat::RGBA8UNORM;
+        GPUDevice        device;
+        PipelineBundle   pipeline;
+        GPUSampler       linear_sampler;
+        GPUTextureFormat cached_output_format = GPUTextureFormat::RGBA8UNORM;
 
         bool initialized = false;
     };

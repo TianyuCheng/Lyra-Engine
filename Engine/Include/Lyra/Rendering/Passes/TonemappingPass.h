@@ -82,11 +82,9 @@ namespace lyra::passes
         bool valid() const { return initialized && pipeline.valid(); }
 
     private:
-        GPUDevice                        device;
-        PipelineManager                  pipeline_manager;
-        GPURenderPipeline                pipeline;
-        GPUSampler                       sampler;
-        Vector<GPUBindGroupLayoutHandle> blayouts;
+        GPUDevice      device;
+        PipelineBundle pipeline;
+        GPUSampler     sampler;
 
         // fallback 1x1 textures when bloom or auto-exposure are not supplied
         GPUTexture     default_bloom_tex;
@@ -95,7 +93,8 @@ namespace lyra::passes
         GPUTextureView default_exposure_view;
 
         GPUTextureFormat cached_output_format = GPUTextureFormat::RGBA8UNORM;
-        bool             initialized          = false;
+
+        bool initialized = false;
     };
 
 } // namespace lyra::passes

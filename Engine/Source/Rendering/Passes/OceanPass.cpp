@@ -51,20 +51,13 @@ bool OceanPass::init(
     this->cached_color_format = color_format;
     this->cached_depth_format = depth_format;
 
-    pipeline_manager.init(device, compiler);
-
     // compile and reflect ocean pass shaders
     PipelineShaderDescriptor shader_desc{};
     shader_desc.module         = "sys://Shaders/Water/OceanPass.slang";
     shader_desc.vertex_entry   = "vsmain";
     shader_desc.fragment_entry = "fsmain";
 
-    auto layout = pipeline_manager.reflect_render_layout(shader_desc);
-    if (!layout) {
-        spdlog::error("[OceanPass] failed to reflect ocean pass shaders: {}", layout.error());
-        return false;
-    }
-    blayouts.assign(layout->bind_group_layouts.begin(), layout->bind_group_layouts.end());
+
 
     // generate ocean planar tessellation grid
     Vector<GridVertex> vertices;
@@ -158,21 +151,19 @@ bool OceanPass::init(
     Vector<GPUColorTargetState> rstates;
     rstates.push_back(color_state);
 
-    auto pipe = pipeline_manager.render_pipeline_builder()
-                        .with_shader(shader_desc)
-                        .with_vertex_layouts(vlayouts)
-                        .with_cull_mode(GPUCullMode::NONE)
-                        .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
-                        .with_front_face(GPUFrontFace::CCW)
-                        .with_target(color_format)
-                        .with_depth_stencil(depth_format, true, GPUCompareFunction::LESS_EQUAL)
-                        .with_label("ocean_pipeline")
-                        .build();
-    if (!pipe) {
-        spdlog::error("[OceanPass] failed to create ocean render pipeline: {}", pipe.error());
+    pipeline = RenderPipelineBuilder(device, compiler)
+                   .with_shader(shader_desc)
+                   .with_vertex_layouts(vlayouts)
+                   .with_cull_mode(GPUCullMode::NONE)
+                   .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
+                   .with_front_face(GPUFrontFace::CCW)
+                   .with_target(color_format)
+                   .with_depth_stencil(depth_format, true, GPUCompareFunction::LESS_EQUAL)
+                   .with_label("ocean_pipeline")
+                   .build();
+    if (!pipeline.valid()) {
         return false;
     }
-    pipeline = *pipe;
 
     initialized = pipeline.valid();
     return initialized;
@@ -188,10 +179,8 @@ void OceanPass::destroy()
 
     if (grid_vbuffer.valid()) grid_vbuffer.destroy();
     if (grid_ibuffer.valid()) grid_ibuffer.destroy();
-    pipeline_manager.destroy();
-    pipeline = {};
+    pipeline.destroy();
 
-    blayouts.clear();
     initialized = false;
 }
 
@@ -205,8 +194,8 @@ auto OceanPass::add(FrameGraphBuilder& builder, const OceanPassParams& params) -
         },
         [this, params, extent = params.view.render_extent](
             const OceanPassData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
-            if (!ctx || !ctx->cmdlist.handle.valid() || !pipeline.valid() || blayouts.empty()) {
-                spdlog::warn("[OceanPass] SKIPPED in execute! ctx={} valid={} blayouts={}", (void*)ctx, pipeline.valid(), blayouts.size());
+            if (!ctx || !ctx->cmdlist.handle.valid() || !pipeline.valid() || pipeline.layout.bind_group_layouts.empty()) {
+                spdlog::warn("[OceanPass] SKIPPED in execute! ctx={} valid={} blayouts={}", (void*)ctx, pipeline.valid(), pipeline.layout.bind_group_layouts.size());
                 return;
             }
 
@@ -257,7 +246,7 @@ auto OceanPass::add(FrameGraphBuilder& builder, const OceanPassParams& params) -
             entries.at(0).buffer  = u_slice;
 
             auto bg_desc    = GPUBindGroupDescriptor{};
-            bg_desc.layout  = blayouts.at(0);
+            bg_desc.layout  = pipeline.layout.get_bind_group_layout(0);
             bg_desc.entries = entries;
             auto bg         = ctx->allocate(bg_desc);
 

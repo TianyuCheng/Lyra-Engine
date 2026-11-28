@@ -58,11 +58,9 @@ namespace lyra::passes
             uint padding[3];
         };
 
-        GPUDevice                        device;
-        PipelineManager                  pipeline_manager;
-        GPUComputePipeline               pipeline;
-        Vector<GPUBindGroupLayoutHandle> blayouts;
-        bool                             initialized = false;
+        GPUDevice             device;
+        ComputePipelineBundle pipeline;
+        bool                  initialized = false;
     };
 
 } // namespace lyra::passes

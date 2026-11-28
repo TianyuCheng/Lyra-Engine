@@ -11,27 +11,21 @@ bool HiZPyramidPass::init(GPUDevice dev, Compiler compiler)
     }
 
     device = dev;
-    pipeline_manager.init(device, compiler);
 
     // compile and reflect compute shader from sys://Shaders/GPUDriven/HiZ.slang
     PipelineShaderDescriptor shader_desc{};
     shader_desc.module        = "sys://Shaders/GPUDriven/HiZ.slang";
     shader_desc.compute_entry = "csmain";
 
-    auto layout = pipeline_manager.reflect_compute_layout(shader_desc);
-    if (!layout) {
-        return false;
-    }
-    blayouts.assign(layout->bind_group_layouts.begin(), layout->bind_group_layouts.end());
 
-    auto pipe = pipeline_manager.compute_pipeline_builder()
-                        .with_shader(shader_desc)
-                        .with_label("hiz_pyramid_pipeline")
-                        .build();
-    if (!pipe) {
+
+    pipeline = ComputePipelineBuilder(device, compiler)
+                   .with_shader(shader_desc)
+                   .with_label("hiz_pyramid_pipeline")
+                   .build();
+    if (!pipeline.valid()) {
         return false;
     }
-    pipeline = *pipe;
 
     initialized = pipeline.valid();
     return initialized;
@@ -45,9 +39,7 @@ void HiZPyramidPass::destroy()
 
     device.wait();
 
-    pipeline_manager.destroy();
-    pipeline = {};
-    blayouts.clear();
+    pipeline.destroy();
     initialized = false;
 }
 
@@ -80,7 +72,7 @@ HiZPyramidData HiZPyramidPass::add(
             data.hiz_texture = pass_builder.write(data.hiz_texture);
         },
         [this, depth_extent](const HiZPyramidData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
-            if (!ctx || !ctx->cmdlist.handle.valid() || !pipeline.valid() || blayouts.empty()) {
+            if (!ctx || !ctx->cmdlist.handle.valid() || !pipeline.valid() || pipeline.layout.bind_group_layouts.empty()) {
                 return;
             }
 
@@ -103,7 +95,7 @@ HiZPyramidData HiZPyramidPass::add(
             entries[1].texture = hiz_tex->view;
 
             auto bg_desc    = GPUBindGroupDescriptor{};
-            bg_desc.layout  = blayouts[0];
+            bg_desc.layout  = pipeline.layout.get_bind_group_layout(0);
             bg_desc.entries = entries;
             auto bg         = ctx->allocate(bg_desc);
 

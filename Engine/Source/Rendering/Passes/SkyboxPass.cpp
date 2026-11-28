@@ -39,24 +39,17 @@ bool SkyboxPass::init(
     this->cached_color_format = color_format;
     this->cached_depth_format = depth_format;
 
-    pipeline_manager.init(device, compiler);
+    
 
-    auto make_pipeline = [&](CString module_path, CString label,
-                             Vector<GPUBindGroupLayoutHandle>& out_blayouts,
-                             GPUTextureFormat                  color_fmt,
-                             bool                              depth_test = false) -> GPURenderPipeline {
+    auto make_bundle = [&](CString module_path, CString label,
+                           GPUTextureFormat color_fmt,
+                           bool             depth_test = false) -> PipelineBundle {
         PipelineShaderDescriptor shader_desc{};
         shader_desc.module         = module_path;
         shader_desc.vertex_entry   = "vsmain";
         shader_desc.fragment_entry = "fsmain";
 
-        auto layout = pipeline_manager.reflect_render_layout(shader_desc);
-        if (!layout) {
-            return {};
-        }
-        out_blayouts.assign(layout->bind_group_layouts.begin(), layout->bind_group_layouts.end());
-
-        auto builder = pipeline_manager.render_pipeline_builder()
+        auto builder = RenderPipelineBuilder(device, compiler)
                            .with_shader(shader_desc)
                            .with_cull_mode(GPUCullMode::NONE)
                            .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
@@ -70,7 +63,7 @@ bool SkyboxPass::init(
             builder.without_depth_stencil();
         }
 
-        return builder.build().value_or(GPURenderPipeline{});
+        return builder.build();
     };
 
     auto create_lut_texture = [&](uint width, uint height, GPUTextureFormat format, CString label) -> GPUTexture {
@@ -86,29 +79,25 @@ bool SkyboxPass::init(
     };
 
     // 1. build 3-LUT pipelines
-    transmittance_pipeline = make_pipeline(
+    transmittance_pipeline = make_bundle(
         "sys://Shaders/Sky/AtmosphereTransmittanceLUT.slang",
         "atmo_transmittance_pipeline",
-        transmittance_blayouts,
         GPUTextureFormat::RGBA16FLOAT);
 
-    multiscatter_pipeline = make_pipeline(
+    multiscatter_pipeline = make_bundle(
         "sys://Shaders/Sky/AtmosphereMultiScatterLUT.slang",
         "atmo_multiscatter_pipeline",
-        multiscatter_blayouts,
         GPUTextureFormat::RGBA16FLOAT);
 
-    sky_view_pipeline = make_pipeline(
+    sky_view_pipeline = make_bundle(
         "sys://Shaders/Sky/AtmosphereSkyViewLUT.slang",
         "atmo_sky_view_pipeline",
-        sky_view_blayouts,
         GPUTextureFormat::RGBA16FLOAT);
 
     // 2. build screen Skybox pipeline
-    pipeline = make_pipeline(
+    pipeline = make_bundle(
         "sys://Shaders/Sky/Skybox.slang",
         "skybox_render_pipeline",
-        blayouts,
         cached_color_format,
         true);
 
@@ -140,7 +129,7 @@ bool SkyboxPass::init(
     heap             = device.create_bind_group_heap(h_desc);
 
     // 6. create static bind groups
-    if (!multiscatter_blayouts.empty()) {
+    if (!multiscatter_pipeline.layout.bind_group_layouts.empty()) {
         Array<GPUBindGroupEntry, 2> entries{};
         entries.at(0).type    = GPUResourceType::TEXTURE;
         entries.at(0).binding = 0;
@@ -152,7 +141,7 @@ bool SkyboxPass::init(
 
         auto bg_desc            = GPUBindGroupDescriptor{};
         bg_desc.heap            = heap;
-        bg_desc.layout          = multiscatter_blayouts.at(0);
+        bg_desc.layout          = multiscatter_pipeline.layout.get_bind_group_layout(0);
         bg_desc.entries         = entries;
         multiscatter_bind_group = device.create_bind_group(bg_desc);
     }
@@ -259,15 +248,10 @@ void SkyboxPass::destroy()
     transmittance_lut_tex  = {};
     transmittance_lut_view = {};
 
-    pipeline_manager.destroy();
-    pipeline               = {};
-    sky_view_pipeline      = {};
-    multiscatter_pipeline  = {};
-    transmittance_pipeline = {};
-    blayouts.clear();
-    sky_view_blayouts.clear();
-    multiscatter_blayouts.clear();
-    transmittance_blayouts.clear();
+    pipeline.destroy();
+    transmittance_pipeline.destroy();
+    multiscatter_pipeline.destroy();
+    sky_view_pipeline.destroy();
 
     initialized = false;
 }
@@ -341,7 +325,7 @@ SkyboxData SkyboxPass::add(
             data.lut_target      = pass_builder.render(data.lut_target);
         },
         [this, skybox_uniform](const SkyViewData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
-            if (!ctx || !ctx->cmdlist.handle.valid() || !sky_view_pipeline.valid() || sky_view_blayouts.empty()) {
+            if (!ctx || !ctx->cmdlist.handle.valid() || !sky_view_pipeline.valid() || sky_view_pipeline.layout.bind_group_layouts.empty()) {
                 return;
             }
             auto lut_tex = resources.get<FrameGraphTexture>(data.lut_target);
@@ -367,7 +351,7 @@ SkyboxData SkyboxPass::add(
             entries.at(3).sampler = linear_sampler;
 
             auto bg_desc    = GPUBindGroupDescriptor{};
-            bg_desc.layout  = sky_view_blayouts.at(0);
+            bg_desc.layout  = sky_view_pipeline.layout.get_bind_group_layout(0);
             bg_desc.entries = entries;
             auto bg         = ctx->allocate(bg_desc);
 
@@ -401,7 +385,7 @@ SkyboxData SkyboxPass::add(
             data.sky_view_input = pass_builder.sample(sky_view_data.lut_target);
         },
         [this, skybox_uniform, depth_load_op, color_load_op, clear_color = scene.clear_color, extent = view.render_extent](const SkyboxData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
-            if (!ctx || !ctx->cmdlist.handle.valid() || !pipeline.valid() || blayouts.empty()) {
+            if (!ctx || !ctx->cmdlist.handle.valid() || !pipeline.valid() || pipeline.layout.bind_group_layouts.empty()) {
                 return;
             }
 
@@ -432,7 +416,7 @@ SkyboxData SkyboxPass::add(
             entries.at(3).sampler = linear_sampler;
 
             auto bg_desc    = GPUBindGroupDescriptor{};
-            bg_desc.layout  = blayouts.at(0);
+            bg_desc.layout  = pipeline.layout.get_bind_group_layout(0);
             bg_desc.entries = entries;
             auto bg         = ctx->allocate(bg_desc);
 

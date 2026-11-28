@@ -99,13 +99,11 @@ namespace lyra::passes
         bool valid() const { return initialized && pipeline.valid(); }
 
     private:
-        GPUDevice                        device;
-        PipelineManager                  pipeline_manager;
-        GPURenderPipeline                pipeline;
-        Vector<GPUBindGroupLayoutHandle> blayouts;
-        GPUSampler                       linear_sampler;
-        GPUTexture                       default_depth_tex;
-        GPUTextureView                   default_depth_view;
+        GPUDevice        device;
+        PipelineBundle   pipeline;
+        GPUSampler       linear_sampler;
+        GPUTexture       default_depth_tex;
+        GPUTextureView   default_depth_view;
 
         GPUTextureFormat cached_color_format = GPUTextureFormat::RGBA8UNORM;
         bool             initialized         = false;

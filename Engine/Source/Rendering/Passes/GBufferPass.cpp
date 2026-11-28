@@ -71,19 +71,13 @@ bool GBufferPass::init(
     this->device              = device;
     this->cached_depth_format = depth_format;
 
-    pipeline_manager.init(device, compiler);
-
     // compile and reflect G-Buffer shader asset
     PipelineShaderDescriptor shader_desc{};
     shader_desc.module         = "sys://Shaders/Deferred/GBuffer.slang";
     shader_desc.vertex_entry   = "vsmain";
     shader_desc.fragment_entry = "fsmain";
 
-    auto layout = pipeline_manager.reflect_render_layout(shader_desc);
-    if (!layout) {
-        return false;
-    }
-    blayouts.assign(layout->bind_group_layouts.begin(), layout->bind_group_layouts.end());
+
 
     Vector<GPUVertexBufferLayout> vlayouts;
 
@@ -144,20 +138,19 @@ bool GBufferPass::init(
     rstates[3].format       = GPUTextureFormat::RG8UINT;
     rstates[3].blend_enable = false;
 
-    auto pipe = pipeline_manager.render_pipeline_builder()
-                        .with_shader(shader_desc)
-                        .with_vertex_layouts(vlayouts)
-                        .with_cull_mode(GPUCullMode::BACK)
-                        .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
-                        .with_front_face(GPUFrontFace::CCW)
-                        .with_targets(rstates)
-                        .with_depth_stencil(cached_depth_format, true, GPUCompareFunction::LESS_EQUAL)
-                        .with_label("gbuffer_pipeline")
-                        .build();
-    if (!pipe) {
+    pipeline = RenderPipelineBuilder(device, compiler)
+                   .with_shader(shader_desc)
+                   .with_vertex_layouts(vlayouts)
+                   .with_cull_mode(GPUCullMode::BACK)
+                   .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
+                   .with_front_face(GPUFrontFace::CCW)
+                   .with_targets(rstates)
+                   .with_depth_stencil(cached_depth_format, true, GPUCompareFunction::LESS_EQUAL)
+                   .with_label("gbuffer_pipeline")
+                   .build();
+    if (!pipeline.valid()) {
         return false;
     }
-    pipeline = *pipe;
 
     initialized = pipeline.valid();
     return initialized;
@@ -171,10 +164,7 @@ void GBufferPass::destroy()
 
     device.wait();
 
-    pipeline_manager.destroy();
-    pipeline = {};
-    blayouts.clear();
-
+    pipeline.destroy();
     initialized = false;
 }
 
@@ -295,6 +285,7 @@ GBufferData GBufferPass::add(
             command.set_viewport(0.0f, 0.0f, static_cast<float>(extent.width), static_cast<float>(extent.height));
             command.set_scissor_rect(0, 0, extent.width, extent.height);
             command.set_pipeline(pipeline);
+            const auto& blayouts = pipeline.layout.bind_group_layouts;
             if (ctx->view_uniforms && ctx->arena && !blayouts.empty()) {
                 auto camera_bg = ctx->view_uniforms->bind_group(blayouts[0], *ctx->arena, ctx->device);
                 if (camera_bg.valid()) {

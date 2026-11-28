@@ -84,12 +84,9 @@ namespace lyra::passes
 
         static_assert(sizeof(AutoExposurePushConstants) == 48, "AutoExposurePushConstants must be 48 bytes");
 
-        GPUDevice                        device;
-        PipelineManager                  pipeline_manager;
-        GPUComputePipeline               histogram_pipeline;
-        GPUComputePipeline               adapt_pipeline;
-        Vector<GPUBindGroupLayoutHandle> histogram_blayouts;
-        Vector<GPUBindGroupLayoutHandle> adapt_blayouts;
+        GPUDevice             device;
+        ComputePipelineBundle histogram_pipeline;
+        ComputePipelineBundle adapt_pipeline;
 
         // persistent state across frames
         GPUBuffer      histogram_buffer; // 64 uints (256 bytes)

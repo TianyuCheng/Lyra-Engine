@@ -11,27 +11,21 @@ bool LightCullingPass::init(GPUDevice dev, Compiler compiler)
     }
 
     device = dev;
-    pipeline_manager.init(device, compiler);
 
     // 1. reflect compute layout from sys://Shaders/Forward/LightCulling.slang
     PipelineShaderDescriptor shader_desc{};
     shader_desc.module        = "sys://Shaders/Forward/LightCulling.slang";
     shader_desc.compute_entry = "csmain";
 
-    auto layout = pipeline_manager.reflect_compute_layout(shader_desc);
-    if (!layout) {
-        return false;
-    }
-    blayouts.assign(layout->bind_group_layouts.begin(), layout->bind_group_layouts.end());
 
-    auto pipe = pipeline_manager.compute_pipeline_builder()
-                        .with_shader(shader_desc)
-                        .with_label("light_culling_pipeline")
-                        .build();
-    if (!pipe) {
+
+    pipeline = ComputePipelineBuilder(device, compiler)
+                   .with_shader(shader_desc)
+                   .with_label("light_culling_pipeline")
+                   .build();
+    if (!pipeline.valid()) {
         return false;
     }
-    pipeline = *pipe;
 
     initialized = pipeline.valid();
     return initialized;
@@ -45,9 +39,7 @@ void LightCullingPass::destroy()
 
     device.wait();
 
-    pipeline_manager.destroy();
-    pipeline = {};
-    blayouts.clear();
+    pipeline.destroy();
     lights_slice = {};
     initialized  = false;
 }
@@ -87,7 +79,7 @@ LightCullingData LightCullingPass::add(
             data.light_index_list    = pass_builder.write(data.light_index_list);
         },
         [this, view, &scene, cluster_grid_x, cluster_grid_y, cluster_grid_z](const LightCullingData& data, FrameGraphResources& resources, FrameGraphContext* ctx) {
-            if (!ctx || !ctx->cmdlist.handle.valid() || !pipeline.valid() || blayouts.empty()) {
+            if (!ctx || !ctx->cmdlist.handle.valid() || !pipeline.valid() || pipeline.layout.bind_group_layouts.empty()) {
                 return;
             }
 
@@ -127,7 +119,7 @@ LightCullingData LightCullingPass::add(
             entries[2].buffer.size   = 0;
 
             auto bg_desc    = GPUBindGroupDescriptor{};
-            bg_desc.layout  = blayouts[0];
+            bg_desc.layout  = pipeline.layout.get_bind_group_layout(0);
             bg_desc.entries = entries;
             auto bg         = ctx->allocate(bg_desc);
 

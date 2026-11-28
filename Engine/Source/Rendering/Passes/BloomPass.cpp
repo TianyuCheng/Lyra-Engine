@@ -14,47 +14,33 @@ bool BloomPass::init(GPUDevice dev, Compiler compiler)
     }
 
     device = dev;
-    pipeline_manager.init(device, compiler);
+    
 
     // 1. downsample compute pipeline (cs_downsample)
     PipelineShaderDescriptor down_desc{};
     down_desc.module        = "sys://Shaders/PostProcess/Bloom.slang";
     down_desc.compute_entry = "cs_downsample";
 
-    auto down_layout = pipeline_manager.reflect_compute_layout(down_desc);
-    if (!down_layout) {
+    downsample_pipeline = ComputePipelineBuilder(device, compiler)
+                              .with_shader(down_desc)
+                              .with_label("bloom_downsample_pipeline")
+                              .build();
+    if (!downsample_pipeline.valid()) {
         return false;
     }
-    downsample_blayouts.assign(down_layout->bind_group_layouts.begin(), down_layout->bind_group_layouts.end());
 
     // 2. upsample compute pipeline (cs_upsample)
     PipelineShaderDescriptor up_desc{};
     up_desc.module        = "sys://Shaders/PostProcess/Bloom.slang";
     up_desc.compute_entry = "cs_upsample";
 
-    auto up_layout = pipeline_manager.reflect_compute_layout(up_desc);
-    if (!up_layout) {
+    upsample_pipeline = ComputePipelineBuilder(device, compiler)
+                            .with_shader(up_desc)
+                            .with_label("bloom_upsample_pipeline")
+                            .build();
+    if (!upsample_pipeline.valid()) {
         return false;
     }
-    upsample_blayouts.assign(up_layout->bind_group_layouts.begin(), up_layout->bind_group_layouts.end());
-
-    auto down_pipe = pipeline_manager.compute_pipeline_builder()
-                         .with_shader(down_desc)
-                         .with_label("bloom_downsample_pipeline")
-                         .build();
-    if (!down_pipe) {
-        return false;
-    }
-    downsample_pipeline = *down_pipe;
-
-    auto up_pipe = pipeline_manager.compute_pipeline_builder()
-                       .with_shader(up_desc)
-                       .with_label("bloom_upsample_pipeline")
-                       .build();
-    if (!up_pipe) {
-        return false;
-    }
-    upsample_pipeline = *up_pipe;
 
     // 3. create bilinear clamp-to-edge sampler
     linear_sampler = execute([&]() {
@@ -82,12 +68,8 @@ void BloomPass::destroy()
     device.wait();
 
     linear_sampler.destroy();
-    pipeline_manager.destroy();
-    downsample_pipeline = {};
-    upsample_pipeline   = {};
-
-    downsample_blayouts.clear();
-    upsample_blayouts.clear();
+    downsample_pipeline.destroy();
+    upsample_pipeline.destroy();
     initialized = false;
 }
 
@@ -193,7 +175,7 @@ BloomData BloomPass::add(
                 ds_entries[2].texture = dst_tex->view;
 
                 auto bg_desc    = GPUBindGroupDescriptor{};
-                bg_desc.layout  = downsample_blayouts[0];
+                bg_desc.layout  = downsample_pipeline.layout.get_bind_group_layout(0);
                 bg_desc.entries = ds_entries;
                 auto bg         = ctx->allocate(bg_desc);
 
@@ -277,7 +259,7 @@ BloomData BloomPass::add(
                 us_entries[3].texture = curr_tex->view;
 
                 auto bg_desc    = GPUBindGroupDescriptor{};
-                bg_desc.layout  = upsample_blayouts[0];
+                bg_desc.layout  = upsample_pipeline.layout.get_bind_group_layout(0);
                 bg_desc.entries = us_entries;
                 auto bg         = ctx->allocate(bg_desc);
 

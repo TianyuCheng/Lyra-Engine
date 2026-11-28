@@ -99,7 +99,7 @@ namespace lyra::passes
             const ForwardPassParams& params) -> ForwardPassData;
 
         bool               valid() const { return initialized; }
-        [[nodiscard]] auto get_vertex_layout() const -> GPUBindGroupLayoutHandle { return blayouts.size() > 1 ? blayouts[1] : GPUBindGroupLayoutHandle{}; }
+        [[nodiscard]] auto get_vertex_layout() const -> GPUBindGroupLayoutHandle { return pipeline_layout.bind_group_layouts.size() > 1 ? pipeline_layout.bind_group_layouts[1].handle : GPUBindGroupLayoutHandle{}; }
         [[nodiscard]] auto get_geometry_cache() const -> Ref<GeometryBindGroupCache> { return mesh_pass.get_geometry_cache(); }
 
     private:
@@ -141,12 +141,9 @@ namespace lyra::passes
 
         GPUDevice                                  device;
         Compiler                                   compiler;
-        PipelineManager                            pipeline_manager;
+        ReflectedPipelineLayout                    pipeline_layout;
         MeshPass                                   mesh_pass;
-        HashMap<ShadingModelID, GPURenderPipeline> variant_pipelines;
-        Vector<GPUShaderModule>                    variant_shader_modules;
-        GPUPipelineLayout                          playout;
-        Vector<GPUBindGroupLayoutHandle>           blayouts;
+        HashMap<ShadingModelID, PipelineBundle>    variant_pipelines;
         GPUBuffer                                  default_cluster_grid_buffer;
         GPUBuffer                                  default_light_index_buffer;
         GPUSampler                                 shadow_sampler;

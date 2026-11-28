@@ -23,38 +23,30 @@ bool DepthPrepass::init(
     this->device              = device;
     this->cached_depth_format = depth_format;
 
-    pipeline_manager.init(device, compiler);
-
     // compile and reflect depth-only shader asset
     PipelineShaderDescriptor shader_desc{};
     shader_desc.module         = (shaders_root / "Forward/DepthPrepass.slang").string();
     shader_desc.vertex_entry   = "vsmain";
     shader_desc.fragment_entry = "fsmain";
 
-    auto layout = pipeline_manager.reflect_render_layout(shader_desc);
-    if (!layout) {
-        return false;
-    }
-    blayouts.assign(layout->bind_group_layouts.begin(), layout->bind_group_layouts.end());
-
     GPUDepthStencilState ds{};
     ds.depth_compare       = GPUCompareFunction::LESS_EQUAL;
     ds.depth_write_enabled = true;
     ds.format              = cached_depth_format;
 
-    auto pipe = pipeline_manager.render_pipeline_builder()
-                        .with_shader(shader_desc)
-                        .with_cull_mode(GPUCullMode::BACK)
-                        .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
-                        .with_front_face(GPUFrontFace::CCW)
-                        .with_depth_stencil(ds)
-                        .with_label("depth_prepass_pipeline")
-                        .build();
-    if (!pipe) {
+    pipeline = RenderPipelineBuilder(device, compiler)
+                   .with_shader(shader_desc)
+                   .with_cull_mode(GPUCullMode::BACK)
+                   .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
+                   .with_front_face(GPUFrontFace::CCW)
+                   .with_depth_stencil(ds)
+                   .with_label("depth_prepass_pipeline")
+                   .build();
+    if (!pipeline.valid()) {
         return false;
     }
-    pipeline = *pipe;
 
+    const auto& blayouts = pipeline.layout.bind_group_layouts;
     if (cache) {
         geometry_cache = cache;
         if (blayouts.size() > 1 && (!geometry_cache->get_layout().valid() || !geometry_cache->valid())) {
@@ -62,7 +54,7 @@ bool DepthPrepass::init(
         }
     } else {
         geometry_cache = make_ref<GeometryBindGroupCache>();
-        geometry_cache->init(device, blayouts.size() > 1 ? blayouts[1] : GPUBindGroupLayoutHandle{});
+        geometry_cache->init(device, blayouts.size() > 1 ? blayouts[1].handle : GPUBindGroupLayoutHandle{});
     }
 
     initialized = pipeline.valid() && geometry_cache && geometry_cache->valid();
@@ -77,9 +69,7 @@ void DepthPrepass::destroy()
 
     device.wait();
 
-    pipeline_manager.destroy();
-    pipeline = {};
-    blayouts.clear();
+    pipeline.destroy();
     geometry_cache.reset();
 
     initialized = false;
@@ -132,6 +122,7 @@ DepthPrepassData DepthPrepass::add(
             command.set_viewport(0.0f, 0.0f, static_cast<float>(extent.width), static_cast<float>(extent.height));
             command.set_scissor_rect(0, 0, extent.width, extent.height);
             command.set_pipeline(pipeline);
+            const auto& blayouts = pipeline.layout.bind_group_layouts;
             if (ctx->view_uniforms && ctx->arena && !blayouts.empty()) {
                 auto camera_bg = ctx->view_uniforms->bind_group(blayouts[0], *ctx->arena, ctx->device);
                 if (camera_bg.valid()) {

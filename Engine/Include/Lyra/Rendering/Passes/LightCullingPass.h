@@ -78,12 +78,10 @@ namespace lyra::passes
         static_assert(sizeof(LightCullingPushConstants) == 224, "LightCullingPushConstants must be 224 bytes");
         static_assert(alignof(LightCullingPushConstants) == 16, "LightCullingPushConstants must be 16-byte aligned");
 
-        GPUDevice                        device;
-        PipelineManager                  pipeline_manager;
-        GPUComputePipeline               pipeline;
-        Vector<GPUBindGroupLayoutHandle> blayouts;
-        GPUBufferSlice                   lights_slice{};
-        bool                             initialized = false;
+        GPUDevice             device;
+        ComputePipelineBundle pipeline;
+        GPUBufferSlice        lights_slice{};
+        bool                  initialized = false;
     };
 
 } // namespace lyra::passes

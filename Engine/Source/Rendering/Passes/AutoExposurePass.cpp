@@ -12,47 +12,33 @@ bool AutoExposurePass::init(GPUDevice dev, Compiler compiler)
     }
 
     device = dev;
-    pipeline_manager.init(device, compiler);
+    
 
-    // 1. reflect and create pipeline for cs_build_histogram
+    // 1. create compute pipeline for cs_build_histogram
     PipelineShaderDescriptor hist_desc{};
     hist_desc.module        = "sys://Shaders/PostProcess/AutoExposure.slang";
     hist_desc.compute_entry = "cs_build_histogram";
 
-    auto hist_layout = pipeline_manager.reflect_compute_layout(hist_desc);
-    if (!hist_layout) {
+    histogram_pipeline = ComputePipelineBuilder(device, compiler)
+                             .with_shader(hist_desc)
+                             .with_label("auto_exposure_histogram_pipeline")
+                             .build();
+    if (!histogram_pipeline.valid()) {
         return false;
     }
-    histogram_blayouts.assign(hist_layout->bind_group_layouts.begin(), hist_layout->bind_group_layouts.end());
 
-    // 2. reflect and create pipeline for cs_adapt_exposure
+    // 2. create compute pipeline for cs_adapt_exposure
     PipelineShaderDescriptor adapt_desc{};
     adapt_desc.module        = "sys://Shaders/PostProcess/AutoExposure.slang";
     adapt_desc.compute_entry = "cs_adapt_exposure";
 
-    auto adapt_layout = pipeline_manager.reflect_compute_layout(adapt_desc);
-    if (!adapt_layout) {
-        return false;
-    }
-    adapt_blayouts.assign(adapt_layout->bind_group_layouts.begin(), adapt_layout->bind_group_layouts.end());
-
-    auto hist_pipe = pipeline_manager.compute_pipeline_builder()
-                         .with_shader(hist_desc)
-                         .with_label("auto_exposure_histogram_pipeline")
+    adapt_pipeline = ComputePipelineBuilder(device, compiler)
+                         .with_shader(adapt_desc)
+                         .with_label("auto_exposure_adapt_pipeline")
                          .build();
-    if (!hist_pipe) {
+    if (!adapt_pipeline.valid()) {
         return false;
     }
-    histogram_pipeline = *hist_pipe;
-
-    auto adapt_pipe = pipeline_manager.compute_pipeline_builder()
-                          .with_shader(adapt_desc)
-                          .with_label("auto_exposure_adapt_pipeline")
-                          .build();
-    if (!adapt_pipe) {
-        return false;
-    }
-    adapt_pipeline = *adapt_pipe;
 
     // 3. allocate persistent 64-bin histogram buffer (256 bytes)
     histogram_buffer = execute([&]() {
@@ -102,12 +88,8 @@ void AutoExposurePass::destroy()
     exposure_view.destroy();
     exposure_texture.destroy();
     histogram_buffer.destroy();
-    pipeline_manager.destroy();
-    histogram_pipeline = {};
-    adapt_pipeline     = {};
-
-    histogram_blayouts.clear();
-    adapt_blayouts.clear();
+    histogram_pipeline.destroy();
+    adapt_pipeline.destroy();
     initialized = false;
 }
 
@@ -172,7 +154,7 @@ AutoExposureData AutoExposurePass::add(
             hist_entries[1].buffer.size   = 64 * sizeof(uint);
 
             auto hist_bg_desc    = GPUBindGroupDescriptor{};
-            hist_bg_desc.layout  = histogram_blayouts[0];
+            hist_bg_desc.layout  = histogram_pipeline.layout.get_bind_group_layout(0);
             hist_bg_desc.entries = hist_entries;
             auto hist_bg         = ctx->allocate(hist_bg_desc);
 
@@ -197,7 +179,7 @@ AutoExposureData AutoExposurePass::add(
             adapt_entries[1].texture = exp_tex->view;
 
             auto adapt_bg_desc    = GPUBindGroupDescriptor{};
-            adapt_bg_desc.layout  = adapt_blayouts[0];
+            adapt_bg_desc.layout  = adapt_pipeline.layout.get_bind_group_layout(0);
             adapt_bg_desc.entries = adapt_entries;
             auto adapt_bg         = ctx->allocate(adapt_bg_desc);
 

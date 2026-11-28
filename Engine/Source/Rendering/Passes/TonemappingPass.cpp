@@ -32,19 +32,24 @@ bool TonemappingPass::init(
 
     device               = dev;
     cached_output_format = output_format;
-    pipeline_manager.init(device, compiler);
-
-    // 1. reflect render layout from tonemapping shader
+    // 1. build tonemapping pipeline via standalone builder
     PipelineShaderDescriptor shader_desc{};
     shader_desc.module         = "sys://Shaders/PostProcess/Tonemap.slang";
     shader_desc.vertex_entry   = "vsmain";
     shader_desc.fragment_entry = "fsmain";
 
-    auto layout = pipeline_manager.reflect_render_layout(shader_desc);
-    if (!layout) {
+    pipeline = RenderPipelineBuilder(device, compiler)
+                   .with_shader(shader_desc)
+                   .with_cull_mode(GPUCullMode::NONE)
+                   .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
+                   .with_front_face(GPUFrontFace::CCW)
+                   .without_depth_stencil()
+                   .with_target(cached_output_format)
+                   .with_label("tonemap_pipeline")
+                   .build();
+    if (!pipeline.valid()) {
         return false;
     }
-    blayouts.assign(layout->bind_group_layouts.begin(), layout->bind_group_layouts.end());
 
     sampler = execute([&]() {
         auto desc           = GPUSamplerDescriptor{};
@@ -57,20 +62,6 @@ bool TonemappingPass::init(
         desc.address_mode_w = GPUAddressMode::CLAMP_TO_EDGE;
         return device.create_sampler(desc);
     });
-
-    auto pipe = pipeline_manager.render_pipeline_builder()
-                        .with_shader(shader_desc)
-                        .with_cull_mode(GPUCullMode::NONE)
-                        .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
-                        .with_front_face(GPUFrontFace::CCW)
-                        .without_depth_stencil()
-                        .with_target(cached_output_format)
-                        .with_label("tonemap_pipeline")
-                        .build();
-    if (!pipe) {
-        return false;
-    }
-    pipeline = *pipe;
 
     // 2. default 1x1 black bloom fallback
     default_bloom_tex  = execute([&]() {
@@ -126,9 +117,7 @@ void TonemappingPass::destroy()
     default_bloom_view.destroy();
     default_bloom_tex.destroy();
     sampler.destroy();
-    pipeline_manager.destroy();
-    pipeline = {};
-    blayouts.clear();
+    pipeline.destroy();
 
     initialized = false;
 }
@@ -212,7 +201,7 @@ TonemappingData TonemappingPass::add(
             entries[3].texture = exposure_v;
 
             auto bg_desc    = GPUBindGroupDescriptor{};
-            bg_desc.layout  = blayouts[0];
+            bg_desc.layout  = pipeline.layout.get_bind_group_layout(0);
             bg_desc.entries = entries;
             auto bg         = ctx->allocate(bg_desc);
 

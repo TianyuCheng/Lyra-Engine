@@ -27,7 +27,7 @@ bool ForwardPass::init(
     cached_color_format = color_format;
     cached_depth_format = depth_format;
 
-    pipeline_manager.init(device, compiler);
+    
 
     // reflect pass shell to get canonical bind group layouts and immediate size
     PipelineShaderDescriptor shader_desc{};
@@ -35,16 +35,15 @@ bool ForwardPass::init(
     shader_desc.vertex_entry   = "vsmain";
     shader_desc.fragment_entry = "fsmain";
 
-    auto layout = pipeline_manager.reflect_render_layout(shader_desc);
+    auto layout = PipelineReflection::reflect_render_layout(device, compiler, nullptr, shader_desc);
     if (!layout) {
         return false;
     }
-    blayouts.assign(layout->bind_group_layouts.begin(), layout->bind_group_layouts.end());
-    playout = layout->layout;
+    pipeline_layout = std::move(*layout);
 
     // initialize MeshPass with vertex bind group layout (Bind Group 1)
-    if (blayouts.size() > 1) {
-        mesh_pass.init(device, blayouts[1], cache);
+    if (pipeline_layout.bind_group_layouts.size() > 1) {
+        mesh_pass.init(device, pipeline_layout.bind_group_layouts[1], cache);
     }
 
     shadow_sampler = execute([&]() {
@@ -153,19 +152,10 @@ void ForwardPass::destroy()
 
     mesh_pass.destroy();
 
-    for (auto& [_, pipe] : variant_pipelines) {
-        if (pipe.valid()) {
-            pipe.destroy();
-        }
+    for (auto& [_, bundle] : variant_pipelines) {
+        bundle.destroy();
     }
     variant_pipelines.clear();
-
-    for (auto& sm : variant_shader_modules) {
-        if (sm.valid()) {
-            sm.destroy();
-        }
-    }
-    variant_shader_modules.clear();
 
     if (shadow_sampler.valid()) {
         shadow_sampler.destroy();
@@ -198,11 +188,7 @@ void ForwardPass::destroy()
         default_shadow_map.destroy();
     }
 
-    pipeline_manager.destroy();
-    playout = {};
-    variant_pipelines.clear();
-    variant_shader_modules.clear();
-    blayouts.clear();
+    pipeline_layout.destroy();
     initialized = false;
 }
 
@@ -312,10 +298,11 @@ GPURenderPipeline ForwardPass::get_or_create_pipeline(ShadingModelID shading_mod
         return {};
     }
 
-    variant_shader_modules.push_back(vshader);
-    variant_shader_modules.push_back(fshader);
+    PipelineBundle bundle{};
+    bundle.shader_modules.push_back(vshader);
+    bundle.shader_modules.push_back(fshader);
 
-    auto pipeline = execute([&]() {
+    bundle.pipeline = execute([&]() {
         Vector<GPUColorTargetState> targets;
 
         auto color_target         = GPUColorTargetState{};
@@ -324,7 +311,7 @@ GPURenderPipeline ForwardPass::get_or_create_pipeline(ShadingModelID shading_mod
         targets.push_back(color_target);
 
         auto pdesc                              = GPURenderPipelineDescriptor{};
-        pdesc.layout                            = playout;
+        pdesc.layout                            = pipeline_layout.layout;
         pdesc.primitive.cull_mode               = GPUCullMode::BACK;
         pdesc.primitive.topology                = GPUPrimitiveTopology::TRIANGLE_LIST;
         pdesc.primitive.front_face              = GPUFrontFace::CCW;
@@ -342,11 +329,14 @@ GPURenderPipeline ForwardPass::get_or_create_pipeline(ShadingModelID shading_mod
         return device.create_render_pipeline(pdesc);
     });
 
-    if (pipeline.valid()) {
-        variant_pipelines[shading_model_id] = pipeline;
+    if (bundle.pipeline.valid()) {
+        auto pipe = bundle.pipeline;
+        variant_pipelines[shading_model_id] = std::move(bundle);
+        return pipe;
     }
 
-    return pipeline;
+    bundle.destroy();
+    return {};
 }
 
 ForwardPassData ForwardPass::add(
@@ -508,8 +498,8 @@ ForwardPassData ForwardPass::add(
             entries[8].sampler = environment_sampler.handle;
 
             auto bg_desc = GPUBindGroupDescriptor{};
-            if (!blayouts.empty()) {
-                bg_desc.layout = blayouts[0];
+            if (!pipeline_layout.bind_group_layouts.empty()) {
+                bg_desc.layout = pipeline_layout.bind_group_layouts[0];
             }
             bg_desc.entries = entries;
             auto pass_bg    = ctx->allocate(bg_desc);

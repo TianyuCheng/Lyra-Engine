@@ -14,27 +14,21 @@ bool DepthOfFieldPass::init(GPUDevice dev, Compiler compiler)
     }
 
     device = dev;
-    pipeline_manager.init(device, compiler);
 
     // 1. reflect and create compute pipeline
     PipelineShaderDescriptor shader_desc{};
     shader_desc.module        = "sys://Shaders/PostProcess/DepthOfField.slang";
     shader_desc.compute_entry = "cs_dof_bokeh";
 
-    auto layout = pipeline_manager.reflect_compute_layout(shader_desc);
-    if (!layout) {
-        return false;
-    }
-    blayouts.assign(layout->bind_group_layouts.begin(), layout->bind_group_layouts.end());
 
-    auto pipe = pipeline_manager.compute_pipeline_builder()
-                    .with_shader(shader_desc)
-                    .with_label("dof_pipeline")
-                    .build();
-    if (!pipe) {
+
+    pipeline = ComputePipelineBuilder(device, compiler)
+                   .with_shader(shader_desc)
+                   .with_label("dof_pipeline")
+                   .build();
+    if (!pipeline.valid()) {
         return false;
     }
-    pipeline = *pipe;
 
     // 2. create linear clamp sampler
     linear_sampler = execute([&]() {
@@ -62,9 +56,7 @@ void DepthOfFieldPass::destroy()
     device.wait();
 
     linear_sampler.destroy();
-    pipeline_manager.destroy();
-    pipeline = {};
-    blayouts.clear();
+    pipeline.destroy();
     initialized = false;
 }
 
@@ -141,7 +133,7 @@ DOFData DepthOfFieldPass::add(
             entries[3].texture = out_tex->view;
 
             auto bg_desc    = GPUBindGroupDescriptor{};
-            bg_desc.layout  = blayouts[0];
+            bg_desc.layout  = pipeline.layout.get_bind_group_layout(0);
             bg_desc.entries = entries;
             auto bg         = ctx->allocate(bg_desc);
 

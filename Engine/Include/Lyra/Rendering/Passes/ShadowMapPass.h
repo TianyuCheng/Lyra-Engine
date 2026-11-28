@@ -50,7 +50,7 @@ namespace lyra::passes
 
         void               set_geometry_cache(Ref<GeometryBindGroupCache> cache) { geometry_cache = cache; }
         [[nodiscard]] auto get_geometry_cache() const -> Ref<GeometryBindGroupCache> { return geometry_cache; }
-        [[nodiscard]] auto get_vertex_layout() const -> GPUBindGroupLayoutHandle { return blayouts.size() > 1 ? blayouts[1] : GPUBindGroupLayoutHandle{}; }
+        [[nodiscard]] auto get_vertex_layout() const -> GPUBindGroupLayoutHandle { return pipeline.layout.bind_group_layouts.size() > 1 ? pipeline.layout.bind_group_layouts[1].handle : GPUBindGroupLayoutHandle{}; }
 
         bool               valid() const { return initialized && pipeline.valid(); }
         [[nodiscard]] auto get_light_view_proj() const -> const Matrix4x4& { return light_vp; }
@@ -85,11 +85,9 @@ namespace lyra::passes
         static_assert(sizeof(InstanceData) == 80);
         static_assert(offsetof(InstanceData, position_offset) == 64);
 
-        GPUDevice                        device;
-        PipelineManager                  pipeline_manager;
-        GPURenderPipeline                pipeline;
-        Vector<GPUBindGroupLayoutHandle> blayouts;
-        Ref<GeometryBindGroupCache>      geometry_cache;
+        GPUDevice                   device;
+        PipelineBundle              pipeline;
+        Ref<GeometryBindGroupCache> geometry_cache;
         GPUTextureFormat                 cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;
         Matrix4x4                        light_vp{1.0f};
         bool                             initialized = false;

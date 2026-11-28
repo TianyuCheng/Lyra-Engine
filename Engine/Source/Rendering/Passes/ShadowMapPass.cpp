@@ -22,19 +22,13 @@ bool ShadowMapPass::init(
     device              = dev;
     cached_depth_format = depth_format;
 
-    pipeline_manager.init(device, compiler);
-
     // 1. compile and reflect vertex and fragment shaders from sys://Shaders/Forward/ShadowDepth.slang
     PipelineShaderDescriptor shader_desc{};
     shader_desc.module         = (shaders_root / "Forward/ShadowDepth.slang").string();
     shader_desc.vertex_entry   = "vsmain";
     shader_desc.fragment_entry = "fsmain";
 
-    auto layout = pipeline_manager.reflect_render_layout(shader_desc);
-    if (!layout) {
-        return false;
-    }
-    blayouts.assign(layout->bind_group_layouts.begin(), layout->bind_group_layouts.end());
+
 
     GPUDepthStencilState ds{};
     ds.depth_compare          = GPUCompareFunction::LESS_EQUAL;
@@ -43,19 +37,19 @@ bool ShadowMapPass::init(
     ds.depth_bias             = 2;
     ds.depth_bias_slope_scale = 1.75f;
 
-    auto pipe = pipeline_manager.render_pipeline_builder()
-                    .with_shader(shader_desc)
-                    .with_cull_mode(GPUCullMode::BACK)
-                    .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
-                    .with_front_face(GPUFrontFace::CCW)
-                    .with_depth_stencil(ds)
-                    .with_label("shadow_depth_pipeline")
-                    .build();
-    if (!pipe) {
+    pipeline = RenderPipelineBuilder(device, compiler)
+                   .with_shader(shader_desc)
+                   .with_cull_mode(GPUCullMode::BACK)
+                   .with_topology(GPUPrimitiveTopology::TRIANGLE_LIST)
+                   .with_front_face(GPUFrontFace::CCW)
+                   .with_depth_stencil(ds)
+                   .with_label("shadow_depth_pipeline")
+                   .build();
+    if (!pipeline.valid()) {
         return false;
     }
-    pipeline = *pipe;
 
+    const auto& blayouts = pipeline.layout.bind_group_layouts;
     if (cache) {
         geometry_cache = cache;
         if (blayouts.size() > 1 && (!geometry_cache->get_layout().valid() || !geometry_cache->valid())) {
@@ -63,7 +57,7 @@ bool ShadowMapPass::init(
         }
     } else {
         geometry_cache = make_ref<GeometryBindGroupCache>();
-        geometry_cache->init(device, blayouts.size() > 1 ? blayouts[1] : GPUBindGroupLayoutHandle{});
+        geometry_cache->init(device, blayouts.size() > 1 ? blayouts[1].handle : GPUBindGroupLayoutHandle{});
     }
 
     initialized = pipeline.valid() && geometry_cache && geometry_cache->valid();
@@ -78,9 +72,7 @@ void ShadowMapPass::destroy()
 
     device.wait();
 
-    pipeline_manager.destroy();
-    pipeline = {};
-    blayouts.clear();
+    pipeline.destroy();
     geometry_cache.reset();
     initialized = false;
 }
@@ -146,6 +138,7 @@ ShadowMapData ShadowMapPass::add(
             command.set_scissor_rect(0, 0, resolution, resolution);
             command.set_pipeline(pipeline);
 
+            const auto& blayouts = pipeline.layout.bind_group_layouts;
             if (!blayouts.empty()) {
                 auto u_slice = ctx->create_uniform(cascade_data);
 

@@ -297,9 +297,9 @@ TEST_CASE("pipeline_manager::automated_reflection_and_layout_synthesis")
         target.blend_enable = false;
         asset.targets.push_back(target);
 
-        auto pipeline = pipeline_manager.create_render_pipeline(asset);
-        REQUIRE(pipeline.has_value());
-        CHECK(pipeline->valid());
+        auto bundle = pipeline_manager.create_render_pipeline(asset);
+        CHECK(bundle.valid());
+        bundle.destroy();
     }
 
     SUBCASE("Declarative compute pipeline creation from PipelineAsset")
@@ -309,9 +309,9 @@ TEST_CASE("pipeline_manager::automated_reflection_and_layout_synthesis")
         asset.shader.module        = "sys://Shaders/Forward/LightCulling.slang";
         asset.shader.compute_entry = "csmain";
 
-        auto pipeline = pipeline_manager.create_compute_pipeline(asset);
-        REQUIRE(pipeline.has_value());
-        CHECK(pipeline->valid());
+        auto bundle = pipeline_manager.create_compute_pipeline(asset);
+        CHECK(bundle.valid());
+        bundle.destroy();
     }
 
     SUBCASE("Fluent RenderPipelineBuilder and VFS loading")
@@ -333,14 +333,14 @@ TEST_CASE("pipeline_manager::automated_reflection_and_layout_synthesis")
         REQUIRE(PipelineAsset::saver().save(&asset, file_path.c_str()));
 
         // load declaratively via builder
-        auto pipeline = pipeline_manager.render_pipeline_builder()
+        auto bundle = RenderPipelineBuilder(device, *compiler, &loader)
                             .from_asset("app://fxaa.pipeline")
                             .with_target(GPUTextureFormat::RGBA16FLOAT, BlendPreset::ALPHA)
                             .with_label("DeclarativeFXAA")
                             .build();
 
-        REQUIRE(pipeline.has_value());
-        CHECK(pipeline->valid());
+        CHECK(bundle.valid());
+        bundle.destroy();
 
         fs::remove_all(temp_dir);
     }

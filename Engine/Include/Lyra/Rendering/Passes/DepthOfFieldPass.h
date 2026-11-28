@@ -81,11 +81,9 @@ namespace lyra::passes
 
         static_assert(sizeof(DOFPushConstants) == 48, "DOFPushConstants must be 48 bytes");
 
-        GPUDevice                        device;
-        PipelineManager                  pipeline_manager;
-        GPUComputePipeline               pipeline;
-        Vector<GPUBindGroupLayoutHandle> blayouts;
-        GPUSampler                       linear_sampler;
+        GPUDevice             device;
+        ComputePipelineBundle pipeline;
+        GPUSampler            linear_sampler;
 
         bool initialized = false;
     };

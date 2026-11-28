@@ -49,145 +49,119 @@ namespace lyra
         }
 
         bool valid() const { return layout.valid(); }
+
+        void destroy()
+        {
+            if (layout.valid()) {
+                layout.destroy();
+                layout = {};
+            }
+            for (auto& bgl : bind_group_layouts) {
+                if (bgl.valid()) {
+                    bgl.destroy();
+                }
+            }
+            bind_group_layouts.clear();
+            bind_group_descriptors.clear();
+            bind_group_locations.clear();
+            immediate_size = 0;
+        }
+
+        void destroy(GPUDevice) { destroy(); }
     };
 
     /**
-     * @brief Manages declarative pipeline loading, automated Slang shader reflection,
-     * layout synthesis, binary caching, and resource lifecycle.
+     * @brief Complete GPU render pipeline package containing the pipeline and its reflected layout hierarchy.
      */
-    class PipelineManager
+    struct PipelineBundle
     {
-    public:
-        explicit PipelineManager() = default;
-        explicit PipelineManager(GPUDevice device, Compiler compiler, FileLoader* loader = nullptr);
-        virtual ~PipelineManager();
+        GPURenderPipeline       pipeline;
+        ReflectedPipelineLayout layout;
+        Vector<GPUShaderModule> shader_modules;
 
-        PipelineManager(const PipelineManager&)            = delete;
-        PipelineManager& operator=(const PipelineManager&) = delete;
+        bool valid() const { return pipeline.valid(); }
+        operator GPURenderPipeline() const { return pipeline; }
 
-        PipelineManager(PipelineManager&& other) noexcept;
-        PipelineManager& operator=(PipelineManager&& other) noexcept;
+        void destroy()
+        {
+            if (pipeline.valid()) {
+                pipeline.destroy();
+                pipeline = {};
+            }
+            for (auto& sm : shader_modules) {
+                if (sm.valid()) {
+                    sm.destroy();
+                }
+            }
+            shader_modules.clear();
+            layout.destroy();
+        }
 
-        /**
-         * @brief Initialize manager with GPU device, compiler, and optional virtual file loader.
-         */
-        bool init(GPUDevice device, Compiler compiler, FileLoader* loader = nullptr);
+        void destroy(GPUDevice) { destroy(); }
+    };
 
-        /**
-         * @brief Destroy all cached GPU layouts, shader modules, and pipelines.
-         */
-        void destroy();
+    /**
+     * @brief Complete GPU compute pipeline package containing the compute pipeline and its reflected layout hierarchy.
+     */
+    struct ComputePipelineBundle
+    {
+        GPUComputePipeline      pipeline;
+        ReflectedPipelineLayout layout;
+        Vector<GPUShaderModule> shader_modules;
 
-        /**
-         * @brief Synthesize GPUPipelineLayout and GPUBindGroupLayouts directly from Slang reflection.
-         */
+        bool valid() const { return pipeline.valid(); }
+        operator GPUComputePipeline() const { return pipeline; }
+
+        void destroy()
+        {
+            if (pipeline.valid()) {
+                pipeline.destroy();
+                pipeline = {};
+            }
+            for (auto& sm : shader_modules) {
+                if (sm.valid()) {
+                    sm.destroy();
+                }
+            }
+            shader_modules.clear();
+            layout.destroy();
+        }
+
+        void destroy(GPUDevice) { destroy(); }
+    };
+
+    /**
+     * @brief Stateless reflection and shader synthesis helpers.
+     */
+    namespace PipelineReflection
+    {
         auto reflect_layout(
+            GPUDevice                       device,
+            Compiler                        compiler,
+            FileLoader*                     loader,
             const PipelineShaderDescriptor& shader_desc,
             Span<const ShaderEntryPoint>    extra_entries = {}) -> Result<ReflectedPipelineLayout>;
 
-        /**
-         * @brief Derive layout for render pipeline stages (vertex + fragment).
-         */
-        auto reflect_render_layout(const PipelineShaderDescriptor& shader_desc) -> Result<ReflectedPipelineLayout>;
+        auto reflect_render_layout(
+            GPUDevice                       device,
+            Compiler                        compiler,
+            FileLoader*                     loader,
+            const PipelineShaderDescriptor& shader_desc) -> Result<ReflectedPipelineLayout>;
 
-        /**
-         * @brief Derive layout for compute pipeline stage (compute).
-         */
-        auto reflect_compute_layout(const PipelineShaderDescriptor& shader_desc) -> Result<ReflectedPipelineLayout>;
-
-        /**
-         * @brief Retrieve or compile a GPUShaderModule from virtual path and entry point.
-         */
-        auto get_or_compile_shader_module(
-            StringView                     module_path,
-            StringView                     entry_point,
-            const HashMap<String, String>& macros = {}) -> Result<GPUShaderModule>;
-
-        /**
-         * @brief Create render pipeline from in-memory PipelineAsset using automated layout derivation.
-         */
-        auto create_render_pipeline(
-            const PipelineAsset&              asset,
-            Span<const GPUVertexBufferLayout> vertex_layouts = {},
-            CString                           label          = nullptr) -> Result<GPURenderPipeline>;
-
-        /**
-         * @brief Create compute pipeline from in-memory PipelineAsset using automated layout derivation.
-         */
-        auto create_compute_pipeline(
-            const PipelineAsset& asset,
-            CString              label = nullptr) -> Result<GPUComputePipeline>;
-
-        /**
-         * @brief Load declarative .pipeline file from VFS/disk and instantiate GPURenderPipeline.
-         */
-        auto load_render_pipeline(
-            StringView                        virtual_path,
-            Span<const GPUVertexBufferLayout> vertex_layouts = {},
-            CString                           label          = nullptr) -> Result<GPURenderPipeline>;
-
-        /**
-         * @brief Load declarative .pipeline file from VFS/disk and instantiate GPUComputePipeline.
-         */
-        auto load_compute_pipeline(
-            StringView virtual_path,
-            CString    label = nullptr) -> Result<GPUComputePipeline>;
-
-        /**
-         * @brief Fluent builder for constructing render pipelines declaratively.
-         */
-        auto render_pipeline_builder() -> RenderPipelineBuilder;
-
-        /**
-         * @brief Fluent builder for constructing compute pipelines declaratively.
-         */
-        auto compute_pipeline_builder() -> ComputePipelineBuilder;
-
-        /**
-         * @brief Read a pipeline asset from file without instantiating GPU resources.
-         */
-        auto load_pipeline_asset(StringView virtual_path) const -> Result<PipelineAsset>;
-
-        /**
-         * @brief Accessors.
-         */
-        auto get_device() const -> GPUDevice { return device; }
-        auto get_compiler() const -> Compiler { return compiler; }
-        auto get_file_loader() const -> FileLoader* { return loader; }
-
-    private:
-        auto compile_module(
-            StringView                     module_path,
-            const HashMap<String, String>& macros = {}) -> Result<Own<ShaderModule>>;
-
-        auto make_cache_key(
-            StringView                     module_path,
-            StringView                     entry,
-            const HashMap<String, String>& macros) const -> String;
-
-        auto make_layout_cache_key(
-            const PipelineShaderDescriptor& shader_desc,
-            Span<const ShaderEntryPoint>    extra_entries) const -> String;
-
-        GPUDevice   device;
-        Compiler    compiler;
-        FileLoader* loader = nullptr;
-
-        // Caches for deduplication
-        HashMap<String, ReflectedPipelineLayout> cached_layouts;
-        HashMap<String, GPUShaderModule>         cached_shader_modules;
-        Vector<GPURenderPipeline>                created_render_pipelines;
-        Vector<GPUComputePipeline>               created_compute_pipelines;
-        Vector<GPUPipelineLayout>                managed_layouts;
-        Vector<GPUBindGroupLayout>               managed_bind_group_layouts;
-    };
+        auto reflect_compute_layout(
+            GPUDevice                       device,
+            Compiler                        compiler,
+            FileLoader*                     loader,
+            const PipelineShaderDescriptor& shader_desc) -> Result<ReflectedPipelineLayout>;
+    }
 
     /**
-     * @brief Fluent builder for constructing GPURenderPipeline instances declaratively.
+     * @brief Fluent standalone builder for constructing GPURenderPipeline instances declaratively.
      */
     class RenderPipelineBuilder
     {
     public:
+        explicit RenderPipelineBuilder(GPUDevice device, Compiler compiler, FileLoader* loader = nullptr);
         explicit RenderPipelineBuilder(PipelineManager& manager);
 
         auto from_asset(const PipelineAsset& asset) -> RenderPipelineBuilder&;
@@ -225,10 +199,16 @@ namespace lyra
 
         auto with_label(CString label) -> RenderPipelineBuilder&;
 
-        auto build() -> Result<GPURenderPipeline>;
+        /**
+         * @brief Builds pipeline and reflected layout into a self-contained PipelineBundle.
+         * Logs errors directly via spdlog on failure and returns an invalid bundle.
+         */
+        auto build() -> PipelineBundle;
 
     private:
-        PipelineManager&              manager;
+        GPUDevice                     device;
+        Compiler                      compiler;
+        FileLoader*                   loader         = nullptr;
         PipelineAsset                 asset;
         Vector<GPUVertexBufferLayout> vertex_layouts;
         CString                       label          = nullptr;
@@ -237,11 +217,12 @@ namespace lyra
     };
 
     /**
-     * @brief Fluent builder for constructing GPUComputePipeline instances declaratively.
+     * @brief Fluent standalone builder for constructing GPUComputePipeline instances declaratively.
      */
     class ComputePipelineBuilder
     {
     public:
+        explicit ComputePipelineBuilder(GPUDevice device, Compiler compiler, FileLoader* loader = nullptr);
         explicit ComputePipelineBuilder(PipelineManager& manager);
 
         auto from_asset(const PipelineAsset& asset) -> ComputePipelineBuilder&;
@@ -254,13 +235,107 @@ namespace lyra
 
         auto with_label(CString label) -> ComputePipelineBuilder&;
 
-        auto build() -> Result<GPUComputePipeline>;
+        /**
+         * @brief Builds compute pipeline and reflected layout into a ComputePipelineBundle.
+         * Logs errors directly via spdlog on failure and returns an invalid bundle.
+         */
+        auto build() -> ComputePipelineBundle;
 
     private:
-        PipelineManager& manager;
+        GPUDevice        device;
+        Compiler         compiler;
+        FileLoader*      loader = nullptr;
         PipelineAsset    asset;
-        CString          label = nullptr;
+        CString          label  = nullptr;
         Optional<String> error_message;
+    };
+
+    /**
+     * @brief Utility coordinator for shader reflection, pipeline builders, and asset loading.
+     */
+    class PipelineManager
+    {
+    public:
+        explicit PipelineManager() = default;
+        explicit PipelineManager(GPUDevice device, Compiler compiler, FileLoader* loader = nullptr);
+        virtual ~PipelineManager();
+
+        PipelineManager(const PipelineManager&)            = delete;
+        PipelineManager& operator=(const PipelineManager&) = delete;
+
+        PipelineManager(PipelineManager&& other) noexcept;
+        PipelineManager& operator=(PipelineManager&& other) noexcept;
+
+        /**
+         * @brief Initialize manager with GPU device, compiler, and optional virtual file loader.
+         */
+        bool init(GPUDevice device, Compiler compiler, FileLoader* loader = nullptr);
+
+        /**
+         * @brief Clear cached reflection layouts and shader modules.
+         */
+        void destroy();
+
+        /**
+         * @brief Synthesize GPUPipelineLayout and GPUBindGroupLayouts directly from Slang reflection.
+         */
+        auto reflect_layout(
+            const PipelineShaderDescriptor& shader_desc,
+            Span<const ShaderEntryPoint>    extra_entries = {}) -> Result<ReflectedPipelineLayout>;
+
+        /**
+         * @brief Derive layout for render pipeline stages (vertex + fragment).
+         */
+        auto reflect_render_layout(const PipelineShaderDescriptor& shader_desc) -> Result<ReflectedPipelineLayout>;
+
+        /**
+         * @brief Derive layout for compute pipeline stage (compute).
+         */
+        auto reflect_compute_layout(const PipelineShaderDescriptor& shader_desc) -> Result<ReflectedPipelineLayout>;
+
+        /**
+         * @brief Create render pipeline bundle from in-memory PipelineAsset using automated layout derivation.
+         */
+        auto create_render_pipeline(
+            const PipelineAsset&              asset,
+            Span<const GPUVertexBufferLayout> vertex_layouts = {},
+            CString                           label          = nullptr) -> PipelineBundle;
+
+        /**
+         * @brief Create compute pipeline bundle from in-memory PipelineAsset using automated layout derivation.
+         */
+        auto create_compute_pipeline(
+            const PipelineAsset& asset,
+            CString              label = nullptr) -> ComputePipelineBundle;
+
+        /**
+         * @brief Fluent builder for constructing render pipelines declaratively.
+         */
+        auto render_pipeline_builder() -> RenderPipelineBuilder;
+
+        /**
+         * @brief Fluent builder for constructing compute pipelines declaratively.
+         */
+        auto compute_pipeline_builder() -> ComputePipelineBuilder;
+
+        /**
+         * @brief Read a pipeline asset from file without instantiating GPU resources.
+         */
+        auto load_pipeline_asset(StringView virtual_path) const -> Result<PipelineAsset>;
+
+        /**
+         * @brief Accessors.
+         */
+        auto get_device() const -> GPUDevice { return device; }
+        auto get_compiler() const -> Compiler { return compiler; }
+        auto get_file_loader() const -> FileLoader* { return loader; }
+
+    private:
+        GPUDevice   device;
+        Compiler    compiler;
+        FileLoader* loader = nullptr;
+
+        HashMap<String, ReflectedPipelineLayout> cached_layouts;
     };
 
 } // namespace lyra
