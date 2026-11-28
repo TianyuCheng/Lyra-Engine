@@ -1,118 +1,22 @@
-#include <fstream>
-#include <sstream>
-#include <filesystem>
-#include <Lyra/Rendering/PipelineManager.h>
+#include <Lyra/Rendering/Pipeline.h>
 #include <Lyra/FileSystem/VFSPath.h>
 #include <Lyra/Utilities/Logger.h>
-#include <spdlog/spdlog.h>
 
-namespace fs = std::filesystem;
 using namespace lyra;
 
-namespace
-{
-    // reads text file content from either virtual file loader or local filesystem
-    String read_source_text(FileLoader* loader, const String& path_str)
-    {
-        if (loader && VFSPath::has_protocol(path_str)) {
-            auto data = loader->read<char>(path_str.c_str());
-            return (!data || data->empty()) ? String{} : String(data->data(), data->size());
-        }
-
-        if (!fs::exists(path_str)) {
-            return {};
-        }
-
-        std::ifstream file(path_str, std::ios::binary);
-        if (!file.is_open()) {
-            return {};
-        }
-
-        std::stringstream ss;
-        ss << file.rdbuf();
-        return ss.str();
-    }
-
-    auto compile_shader_module(
-        Compiler                       compiler,
-        FileLoader*                    loader,
-        StringView                     module_path,
-        const HashMap<String, String>& macros) -> Result<Own<ShaderModule>>
-    {
-        auto path_str = String(module_path);
-        auto stem_str = fs::path(path_str).stem().string();
-
-        CompileDescriptor desc{};
-        desc.path   = path_str.c_str();
-        desc.module = stem_str.c_str();
-
-        String source_buffer;
-        if (!macros.empty()) {
-            String original = read_source_text(loader, path_str);
-            if (!original.empty()) {
-                for (const auto& [k, v] : macros) {
-                    source_buffer += "#define " + k + " " + v + "\n";
-                }
-                source_buffer += original;
-                desc.source = source_buffer.c_str();
-            }
-        } else if (!VFSPath::has_protocol(path_str)) {
-            source_buffer = read_source_text(nullptr, path_str);
-            if (!source_buffer.empty()) {
-                desc.source = source_buffer.c_str();
-            }
-        }
-
-        auto module = compiler.compile(desc);
-        if (!module) {
-            return tl::make_unexpected("PipelineManager: compiler failed for module " + path_str + ": " + module.error());
-        }
-        return std::move(*module);
-    }
-
-    auto create_gpu_shader_module(
-        GPUDevice                      device,
-        Compiler                       compiler,
-        FileLoader*                    loader,
-        StringView                     module_path,
-        StringView                     entry_point,
-        const HashMap<String, String>& macros) -> Result<GPUShaderModule>
-    {
-        auto compiled_module = compile_shader_module(compiler, loader, module_path, macros);
-        if (!compiled_module) {
-            return tl::make_unexpected("failed to compile shader module '" + String(module_path) + "': " + compiled_module.error());
-        }
-
-        auto blob = (*compiled_module)->get_shader_blob(String(entry_point).c_str());
-        if (!blob || !blob->data || blob->size == 0) {
-            return tl::make_unexpected("failed to get shader blob for entry: " + String(entry_point));
-        }
-
-        GPUShaderModuleDescriptor sm_desc{};
-        auto                      label_str = String(module_path) + ":" + String(entry_point);
-        sm_desc.label                       = label_str.c_str();
-        sm_desc.data                        = blob->data;
-        sm_desc.size                        = blob->size;
-
-        auto sm = device.create_shader_module(sm_desc);
-        if (!sm.valid()) {
-            return tl::make_unexpected("device failed to create shader module: " + label_str);
-        }
-
-        return sm;
-    }
-} // namespace
-
 #pragma region PipelineReflection
-
-auto PipelineReflection::reflect_layout(
+Result<ReflectedPipelineLayout> PipelineReflection::reflect_layout(
     GPUDevice                       device,
     Compiler                        compiler,
     FileLoader*                     loader,
     const PipelineShaderDescriptor& shader_desc,
-    Span<const ShaderEntryPoint>    extra_entries) -> Result<ReflectedPipelineLayout>
+    View<ShaderEntryPoint>          extra_entries)
 {
-    auto module = compile_shader_module(compiler, loader, shader_desc.module, shader_desc.macros);
+    CompileDescriptor desc{};
+    desc.path    = shader_desc.module.c_str();
+    desc.defines = shader_desc.defines;
+
+    auto module = compiler.compile(desc);
     if (!module) {
         return tl::make_unexpected("reflection failed, cannot compile module '" + shader_desc.module + "': " + module.error());
     }
@@ -174,41 +78,33 @@ auto PipelineReflection::reflect_layout(
     return result;
 }
 
-auto PipelineReflection::reflect_render_layout(
+Result<ReflectedPipelineLayout> PipelineReflection::reflect_render_layout(
     GPUDevice                       device,
     Compiler                        compiler,
     FileLoader*                     loader,
-    const PipelineShaderDescriptor& shader_desc) -> Result<ReflectedPipelineLayout>
+    const PipelineShaderDescriptor& shader_desc)
 {
     PipelineShaderDescriptor render_shader = shader_desc;
     render_shader.compute_entry.clear();
     return reflect_layout(device, compiler, loader, render_shader);
 }
 
-auto PipelineReflection::reflect_compute_layout(
+Result<ReflectedPipelineLayout> PipelineReflection::reflect_compute_layout(
     GPUDevice                       device,
     Compiler                        compiler,
     FileLoader*                     loader,
-    const PipelineShaderDescriptor& shader_desc) -> Result<ReflectedPipelineLayout>
+    const PipelineShaderDescriptor& shader_desc)
 {
     PipelineShaderDescriptor compute_shader = shader_desc;
     compute_shader.vertex_entry.clear();
     compute_shader.fragment_entry.clear();
     return reflect_layout(device, compiler, loader, compute_shader);
 }
-
 #pragma endregion PipelineReflection
 
 #pragma region RenderPipelineBuilder
-
 RenderPipelineBuilder::RenderPipelineBuilder(GPUDevice dev, Compiler comp, FileLoader* loader)
     : device(dev), compiler(comp), loader(loader)
-{
-    asset.pipeline_type = PipelineType::RENDER;
-}
-
-RenderPipelineBuilder::RenderPipelineBuilder(PipelineManager& manager)
-    : device(manager.get_device()), compiler(manager.get_compiler()), loader(manager.get_file_loader())
 {
     asset.pipeline_type = PipelineType::RENDER;
 }
@@ -222,12 +118,16 @@ RenderPipelineBuilder& RenderPipelineBuilder::from_asset(const PipelineAsset& a)
 
 RenderPipelineBuilder& RenderPipelineBuilder::from_asset(StringView virtual_path)
 {
-    auto path_str = String(virtual_path);
-    auto text     = read_source_text(loader, path_str);
-    if (text.empty()) {
-        error_message = "failed to read pipeline asset file: " + path_str;
+    if (!loader) {
+        error_message = "no FileLoader available to read pipeline asset: " + String(virtual_path);
         return *this;
     }
+    auto data = loader->read<char>(String(virtual_path).c_str());
+    if (!data || data->empty()) {
+        error_message = "failed to read pipeline asset file: " + String(virtual_path);
+        return *this;
+    }
+    String text(data->data(), data->size());
     asset          = PipelineAsset::deserialize_toml(text);
     custom_targets = !asset.targets.empty();
     return *this;
@@ -259,11 +159,30 @@ RenderPipelineBuilder& RenderPipelineBuilder::with_fragment_entry(StringView ent
 
 RenderPipelineBuilder& RenderPipelineBuilder::with_macro(StringView key, StringView value)
 {
-    asset.shader.macros[String(key)] = String(value);
+    return with_define(key, value);
+}
+
+RenderPipelineBuilder& RenderPipelineBuilder::with_define(StringView key, StringView value)
+{
+    for (auto& def : asset.shader.defines) {
+        if (def.key == key) {
+            def.value = String(value);
+            return *this;
+        }
+    }
+    asset.shader.defines.push_back(ShaderDefine{String(key), String(value)});
     return *this;
 }
 
-RenderPipelineBuilder& RenderPipelineBuilder::with_vertex_layouts(Span<const GPUVertexBufferLayout> layouts)
+RenderPipelineBuilder& RenderPipelineBuilder::with_defines(View<ShaderDefine> defs)
+{
+    for (const auto& def : defs) {
+        with_define(def.key, def.value);
+    }
+    return *this;
+}
+
+RenderPipelineBuilder& RenderPipelineBuilder::with_vertex_layouts(View<GPUVertexBufferLayout> layouts)
 {
     vertex_layouts.assign(layouts.begin(), layouts.end());
     return *this;
@@ -330,7 +249,7 @@ RenderPipelineBuilder& RenderPipelineBuilder::with_multisample(const GPUMultisam
     return *this;
 }
 
-RenderPipelineBuilder& RenderPipelineBuilder::with_targets(Span<const GPUColorTargetState> targets)
+RenderPipelineBuilder& RenderPipelineBuilder::with_targets(View<GPUColorTargetState> targets)
 {
     asset.targets.assign(targets.begin(), targets.end());
     custom_targets = true;
@@ -366,7 +285,7 @@ RenderPipelineBuilder& RenderPipelineBuilder::with_label(CString l)
     return *this;
 }
 
-auto RenderPipelineBuilder::build() -> PipelineBundle
+PipelineBundle RenderPipelineBuilder::build()
 {
     if (error_message) {
         spdlog::error("RenderPipelineBuilder: {}", *error_message);
@@ -380,19 +299,55 @@ auto RenderPipelineBuilder::build() -> PipelineBundle
         return {};
     }
 
-    // 2. retrieve or compile shader modules for vertex and fragment stages
-    auto vshader = create_gpu_shader_module(device, compiler, loader, asset.shader.module, asset.shader.vertex_entry, asset.shader.macros);
-    if (!vshader) {
+    // 2. compile shader module once
+    CompileDescriptor cdesc{};
+    cdesc.path    = asset.shader.module.c_str();
+    cdesc.defines = asset.shader.defines;
+
+    auto compiled_module = compiler.compile(cdesc);
+    if (!compiled_module) {
         layout->destroy();
-        spdlog::error("RenderPipelineBuilder: failed vertex shader '{}': {}", asset.shader.vertex_entry, vshader.error());
+        spdlog::error("RenderPipelineBuilder: failed to compile shader module '{}': {}", asset.shader.module, compiled_module.error());
         return {};
     }
 
-    auto fshader = create_gpu_shader_module(device, compiler, loader, asset.shader.module, asset.shader.fragment_entry, asset.shader.macros);
-    if (!fshader) {
-        vshader->destroy();
+    auto vblob = (*compiled_module)->get_shader_blob(asset.shader.vertex_entry.c_str());
+    if (!vblob || !vblob->data || vblob->size == 0) {
         layout->destroy();
-        spdlog::error("RenderPipelineBuilder: failed fragment shader '{}': {}", asset.shader.fragment_entry, fshader.error());
+        spdlog::error("RenderPipelineBuilder: failed to get shader blob for vertex entry '{}'", asset.shader.vertex_entry);
+        return {};
+    }
+
+    GPUShaderModuleDescriptor vsm_desc{};
+    auto                      vlabel = asset.shader.module + ":" + asset.shader.vertex_entry;
+    vsm_desc.label                   = vlabel.c_str();
+    vsm_desc.data                    = vblob->data;
+    vsm_desc.size                    = vblob->size;
+    auto vshader                     = device.create_shader_module(vsm_desc);
+    if (!vshader.valid()) {
+        layout->destroy();
+        spdlog::error("RenderPipelineBuilder: device failed to create vertex shader module: {}", vlabel);
+        return {};
+    }
+
+    auto fblob = (*compiled_module)->get_shader_blob(asset.shader.fragment_entry.c_str());
+    if (!fblob || !fblob->data || fblob->size == 0) {
+        vshader.destroy();
+        layout->destroy();
+        spdlog::error("RenderPipelineBuilder: failed to get shader blob for fragment entry '{}'", asset.shader.fragment_entry);
+        return {};
+    }
+
+    GPUShaderModuleDescriptor fsm_desc{};
+    auto                      flabel = asset.shader.module + ":" + asset.shader.fragment_entry;
+    fsm_desc.label                   = flabel.c_str();
+    fsm_desc.data                    = fblob->data;
+    fsm_desc.size                    = fblob->size;
+    auto fshader                     = device.create_shader_module(fsm_desc);
+    if (!fshader.valid()) {
+        vshader.destroy();
+        layout->destroy();
+        spdlog::error("RenderPipelineBuilder: device failed to create fragment shader module: {}", flabel);
         return {};
     }
 
@@ -401,26 +356,26 @@ auto RenderPipelineBuilder::build() -> PipelineBundle
     auto                        pdesc = asset.to_render_descriptor(target_storage);
 
     pdesc.layout               = layout->layout.handle;
-    pdesc.vertex.module        = vshader->handle;
+    pdesc.vertex.module        = vshader.handle;
     pdesc.vertex.entry_point   = asset.shader.vertex_entry.c_str();
     pdesc.vertex.buffers       = vertex_layouts;
-    pdesc.fragment.module      = fshader->handle;
+    pdesc.fragment.module      = fshader.handle;
     pdesc.fragment.entry_point = asset.shader.fragment_entry.c_str();
     pdesc.label                = label ? label : asset.shader.module.c_str();
 
     auto pipeline = device.create_render_pipeline(pdesc);
 
     if (!pipeline.valid()) {
-        vshader->destroy();
-        fshader->destroy();
+        vshader.destroy();
+        fshader.destroy();
         layout->destroy();
         spdlog::error("RenderPipelineBuilder: device failed to create render pipeline: {}", pdesc.label ? pdesc.label : "(unlabeled)");
         return {};
     }
 
     Vector<GPUShaderModule> sms;
-    sms.push_back(*vshader);
-    sms.push_back(*fshader);
+    sms.push_back(vshader);
+    sms.push_back(fshader);
 
     return PipelineBundle{
         .pipeline       = pipeline,
@@ -428,19 +383,12 @@ auto RenderPipelineBuilder::build() -> PipelineBundle
         .shader_modules = std::move(sms),
     };
 }
-
 #pragma endregion RenderPipelineBuilder
 
 #pragma region ComputePipelineBuilder
 
 ComputePipelineBuilder::ComputePipelineBuilder(GPUDevice dev, Compiler comp, FileLoader* loader)
     : device(dev), compiler(comp), loader(loader)
-{
-    asset.pipeline_type = PipelineType::COMPUTE;
-}
-
-ComputePipelineBuilder::ComputePipelineBuilder(PipelineManager& manager)
-    : device(manager.get_device()), compiler(manager.get_compiler()), loader(manager.get_file_loader())
 {
     asset.pipeline_type = PipelineType::COMPUTE;
 }
@@ -453,12 +401,16 @@ ComputePipelineBuilder& ComputePipelineBuilder::from_asset(const PipelineAsset& 
 
 ComputePipelineBuilder& ComputePipelineBuilder::from_asset(StringView virtual_path)
 {
-    auto path_str = String(virtual_path);
-    auto text     = read_source_text(loader, path_str);
-    if (text.empty()) {
-        error_message = "failed to read pipeline asset file: " + path_str;
+    if (!loader) {
+        error_message = "no FileLoader available to read pipeline asset: " + String(virtual_path);
         return *this;
     }
+    auto data = loader->read<char>(String(virtual_path).c_str());
+    if (!data || data->empty()) {
+        error_message = "failed to read pipeline asset file: " + String(virtual_path);
+        return *this;
+    }
+    String text(data->data(), data->size());
     asset = PipelineAsset::deserialize_toml(text);
     return *this;
 }
@@ -483,7 +435,26 @@ ComputePipelineBuilder& ComputePipelineBuilder::with_compute_entry(StringView en
 
 ComputePipelineBuilder& ComputePipelineBuilder::with_macro(StringView key, StringView value)
 {
-    asset.shader.macros[String(key)] = String(value);
+    return with_define(key, value);
+}
+
+ComputePipelineBuilder& ComputePipelineBuilder::with_define(StringView key, StringView value)
+{
+    for (auto& def : asset.shader.defines) {
+        if (def.key == key) {
+            def.value = String(value);
+            return *this;
+        }
+    }
+    asset.shader.defines.push_back(ShaderDefine{String(key), String(value)});
+    return *this;
+}
+
+ComputePipelineBuilder& ComputePipelineBuilder::with_defines(View<ShaderDefine> defs)
+{
+    for (const auto& def : defs) {
+        with_define(def.key, def.value);
+    }
     return *this;
 }
 
@@ -493,7 +464,7 @@ ComputePipelineBuilder& ComputePipelineBuilder::with_label(CString l)
     return *this;
 }
 
-auto ComputePipelineBuilder::build() -> ComputePipelineBundle
+ComputePipelineBundle ComputePipelineBuilder::build()
 {
     if (error_message) {
         spdlog::error("ComputePipelineBuilder: {}", *error_message);
@@ -507,32 +478,56 @@ auto ComputePipelineBuilder::build() -> ComputePipelineBundle
         return {};
     }
 
-    // 2. retrieve or compile compute shader module
-    auto cshader = create_gpu_shader_module(device, compiler, loader, asset.shader.module, asset.shader.compute_entry, asset.shader.macros);
-    if (!cshader) {
+    // 2. compile compute shader module once
+    CompileDescriptor cdesc{};
+    cdesc.path    = asset.shader.module.c_str();
+    cdesc.defines = asset.shader.defines;
+
+    auto compiled_module = compiler.compile(cdesc);
+    if (!compiled_module) {
         layout->destroy();
-        spdlog::error("ComputePipelineBuilder: failed compute shader '{}': {}", asset.shader.compute_entry, cshader.error());
+        spdlog::error("ComputePipelineBuilder: failed to compile compute shader '{}': {}", asset.shader.module, compiled_module.error());
+        return {};
+    }
+
+    auto cblob = (*compiled_module)->get_shader_blob(asset.shader.compute_entry.c_str());
+    if (!cblob || !cblob->data || cblob->size == 0) {
+        layout->destroy();
+        spdlog::error("ComputePipelineBuilder: failed to get shader blob for compute entry '{}'", asset.shader.compute_entry);
+        return {};
+    }
+
+    GPUShaderModuleDescriptor csm_desc{};
+
+    auto clabel    = asset.shader.module + ":" + asset.shader.compute_entry;
+    csm_desc.label = clabel.c_str();
+    csm_desc.data  = cblob->data;
+    csm_desc.size  = cblob->size;
+    auto cshader   = device.create_shader_module(csm_desc);
+    if (!cshader.valid()) {
+        layout->destroy();
+        spdlog::error("ComputePipelineBuilder: device failed to create compute shader module: {}", clabel);
         return {};
     }
 
     // 3. construct GPUComputePipelineDescriptor
     auto pdesc                = asset.to_compute_descriptor();
     pdesc.layout              = layout->layout.handle;
-    pdesc.compute.module      = cshader->handle;
+    pdesc.compute.module      = cshader.handle;
     pdesc.compute.entry_point = asset.shader.compute_entry.c_str();
     pdesc.label               = label ? label : asset.shader.module.c_str();
 
     auto pipeline = device.create_compute_pipeline(pdesc);
 
     if (!pipeline.valid()) {
-        cshader->destroy();
+        cshader.destroy();
         layout->destroy();
         spdlog::error("ComputePipelineBuilder: device failed to create compute pipeline: {}", pdesc.label ? pdesc.label : "(unlabeled)");
         return {};
     }
 
     Vector<GPUShaderModule> sms;
-    sms.push_back(*cshader);
+    sms.push_back(cshader);
 
     return ComputePipelineBundle{
         .pipeline       = pipeline,
@@ -542,141 +537,3 @@ auto ComputePipelineBuilder::build() -> ComputePipelineBundle
 }
 
 #pragma endregion ComputePipelineBuilder
-
-#pragma region PipelineManager
-
-PipelineManager::PipelineManager(GPUDevice device, Compiler compiler, FileLoader* loader)
-    : device(device), compiler(compiler), loader(loader)
-{
-}
-
-PipelineManager::~PipelineManager()
-{
-    destroy();
-}
-
-PipelineManager::PipelineManager(PipelineManager&& other) noexcept
-    : device(other.device),
-      compiler(other.compiler),
-      loader(other.loader),
-      cached_layouts(std::move(other.cached_layouts))
-{
-    other.device   = GPUDevice{};
-    other.compiler = Compiler{};
-    other.loader   = nullptr;
-}
-
-PipelineManager& PipelineManager::operator=(PipelineManager&& other) noexcept
-{
-    if (this == &other) {
-        return *this;
-    }
-
-    destroy();
-    device         = other.device;
-    compiler       = other.compiler;
-    loader         = other.loader;
-    cached_layouts = std::move(other.cached_layouts);
-
-    other.device   = GPUDevice{};
-    other.compiler = Compiler{};
-    other.loader   = nullptr;
-    return *this;
-}
-
-bool PipelineManager::init(GPUDevice dev, Compiler comp, FileLoader* file_loader)
-{
-    destroy();
-    device   = dev;
-    compiler = comp;
-    loader   = file_loader;
-    return device.valid();
-}
-
-void PipelineManager::destroy()
-{
-    for (auto& [key, layout] : cached_layouts) {
-        layout.destroy();
-    }
-    cached_layouts.clear();
-}
-
-auto PipelineManager::reflect_layout(
-    const PipelineShaderDescriptor& shader_desc,
-    Span<const ShaderEntryPoint>    extra_entries) -> Result<ReflectedPipelineLayout>
-{
-    String key = shader_desc.module + ":" + shader_desc.vertex_entry + ":" + shader_desc.fragment_entry + ":" + shader_desc.compute_entry;
-    for (const auto& extra : extra_entries) {
-        key += "+extra:" + String(extra.entry ? extra.entry : "");
-    }
-    auto it = cached_layouts.find(key);
-    if (it != cached_layouts.end()) {
-        return it->second;
-    }
-
-    auto layout = PipelineReflection::reflect_layout(device, compiler, loader, shader_desc, extra_entries);
-    if (!layout) {
-        return layout;
-    }
-    cached_layouts[key] = *layout;
-    return layout;
-}
-
-auto PipelineManager::reflect_render_layout(const PipelineShaderDescriptor& shader_desc) -> Result<ReflectedPipelineLayout>
-{
-    PipelineShaderDescriptor render_shader = shader_desc;
-    render_shader.compute_entry.clear();
-    return reflect_layout(render_shader);
-}
-
-auto PipelineManager::reflect_compute_layout(const PipelineShaderDescriptor& shader_desc) -> Result<ReflectedPipelineLayout>
-{
-    PipelineShaderDescriptor compute_shader = shader_desc;
-    compute_shader.vertex_entry.clear();
-    compute_shader.fragment_entry.clear();
-    return reflect_layout(compute_shader);
-}
-
-auto PipelineManager::create_render_pipeline(
-    const PipelineAsset&              asset,
-    Span<const GPUVertexBufferLayout> vertex_layouts,
-    CString                           label) -> PipelineBundle
-{
-    return RenderPipelineBuilder(*this)
-        .from_asset(asset)
-        .with_vertex_layouts(vertex_layouts)
-        .with_label(label)
-        .build();
-}
-
-auto PipelineManager::create_compute_pipeline(
-    const PipelineAsset& asset,
-    CString              label) -> ComputePipelineBundle
-{
-    return ComputePipelineBuilder(*this)
-        .from_asset(asset)
-        .with_label(label)
-        .build();
-}
-
-RenderPipelineBuilder PipelineManager::render_pipeline_builder()
-{
-    return RenderPipelineBuilder(*this);
-}
-
-ComputePipelineBuilder PipelineManager::compute_pipeline_builder()
-{
-    return ComputePipelineBuilder(*this);
-}
-
-auto PipelineManager::load_pipeline_asset(StringView virtual_path) const -> Result<PipelineAsset>
-{
-    auto path_str = String(virtual_path);
-    auto text     = read_source_text(loader, path_str);
-    if (text.empty()) {
-        return tl::make_unexpected("PipelineManager: failed to load pipeline asset file from path: " + path_str);
-    }
-    return PipelineAsset::deserialize_toml(text);
-}
-
-#pragma endregion PipelineManager

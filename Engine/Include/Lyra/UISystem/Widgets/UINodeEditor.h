@@ -16,7 +16,7 @@ namespace lyra::ui::node
     /**
      * @brief opaque editor context supporting multiple independent graph canvases (e.g. tabs).
      */
-    class NodeEditorContext
+    struct NodeEditorContext
     {
     public:
         NodeEditorContext();

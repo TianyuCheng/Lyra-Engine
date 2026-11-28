@@ -15,7 +15,7 @@ namespace lyra
      * and procedural GPU-computed lookup tables (e.g. split-sum BRDF LUT, Rayleigh skymap).
      * Industry standard nomenclature: Unreal Engine (FSystemTextures), Frostbite (SystemTextures).
      */
-    class SystemTextures
+    struct SystemTextures
     {
     public:
         explicit SystemTextures();

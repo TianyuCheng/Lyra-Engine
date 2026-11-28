@@ -3,7 +3,7 @@
 
 using namespace lyra;
 
-MemoryAliasingPlan FrameGraphMemoryPlanner::compute_plan(Span<const ResourceLifetimeInterval> intervals)
+MemoryAliasingPlan FrameGraphMemoryPlanner::compute_plan(View<ResourceLifetimeInterval> intervals)
 {
     MemoryAliasingPlan plan;
     plan.resource_hints.resize(intervals.size(), GPUMemoryHint::dedicated());

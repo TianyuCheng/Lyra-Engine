@@ -16,7 +16,7 @@ namespace lyra::detail
      * This allocator is designed for fast, sequential allocations. It allocates memory in pages and can grow by adding new pages as needed.
      * It is not thread-safe.
      */
-    class MemoryArena
+    struct MemoryArena
     {
     public:
         /**

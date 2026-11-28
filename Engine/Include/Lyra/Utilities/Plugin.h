@@ -52,7 +52,7 @@
 namespace lyra
 {
     template <typename APIType>
-    class Plugin
+    struct Plugin
     {
     public:
         using CreateFn  = APIType (*)();
@@ -184,7 +184,7 @@ namespace lyra
     };
 
     template <typename APIType>
-    class BuiltinPlugin
+    struct BuiltinPlugin
     {
     public:
         using CreateFn  = APIType (*)();

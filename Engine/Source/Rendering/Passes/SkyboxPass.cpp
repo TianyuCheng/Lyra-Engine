@@ -39,8 +39,6 @@ bool SkyboxPass::init(
     this->cached_color_format = color_format;
     this->cached_depth_format = depth_format;
 
-    
-
     auto make_bundle = [&](CString module_path, CString label,
                            GPUTextureFormat color_fmt,
                            bool             depth_test = false) -> PipelineBundle {

@@ -24,7 +24,7 @@ namespace lyra
      * tracks element locations via a hash map for o(1) removals and fast updates.
      */
     template <typename T = Entity>
-    class QuadTree
+    struct QuadTree
     {
     public:
         using NodeIndex                         = uint;

@@ -21,7 +21,7 @@ namespace lyra
     // Priority levels & POD Job
     // -------------------------------------------------------------------------
 
-    enum class JobPriority : uint8_t
+    enum struct JobPriority : uint8_t
     {
         HIGH       = 0, // frame-critical work (culling, render prep, scene update)
         NORMAL     = 1, // general engine and gameplay computation (default)

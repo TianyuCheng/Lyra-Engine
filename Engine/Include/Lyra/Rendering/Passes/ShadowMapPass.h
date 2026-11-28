@@ -9,7 +9,7 @@
 #include <Lyra/Rendering/RenderView.h>
 #include <Lyra/Rendering/RenderScene.h>
 #include <Lyra/Rendering/GeometryBindGroupCache.h>
-#include <Lyra/Rendering/PipelineManager.h>
+#include <Lyra/Rendering/Pipeline.h>
 #include <Lyra/Compiler/SLCTypes.h>
 #include <Lyra/Utilities/Path.h>
 
@@ -88,9 +88,9 @@ namespace lyra::passes
         GPUDevice                   device;
         PipelineBundle              pipeline;
         Ref<GeometryBindGroupCache> geometry_cache;
-        GPUTextureFormat                 cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;
-        Matrix4x4                        light_vp{1.0f};
-        bool                             initialized = false;
+        GPUTextureFormat            cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;
+        Matrix4x4                   light_vp{1.0f};
+        bool                        initialized = false;
     };
 
 } // namespace lyra::passes

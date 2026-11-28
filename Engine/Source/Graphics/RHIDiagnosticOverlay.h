@@ -18,7 +18,7 @@ namespace lyra
      * Functions like a Vulkan loader layer: intercepts draw/dispatch/pass calls to populate
      * a persistent ring buffer of execution markers without invading backend implementations.
      */
-    class RHIDiagnosticOverlay
+    struct RHIDiagnosticOverlay
     {
     public:
         static constexpr uint DEFAULT_RING_CAPACITY = 4096;
@@ -27,7 +27,7 @@ namespace lyra
         static auto shutdown() -> void;
         static auto is_enabled() -> bool;
 
-        static auto get_entries() -> Span<const RHIBreadcrumbEntry>;
+        static auto get_entries() -> View<RHIBreadcrumbEntry>;
         static auto get_total_recorded() -> uint;
 
         static auto record_pass_begin(StringView pass_name, ulong pass_hash = 0) -> uint;

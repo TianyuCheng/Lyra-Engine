@@ -10,7 +10,7 @@
 #include <Lyra/Compiler/SLCTypes.h>
 #include <Lyra/Rendering/FrameGraph.h>
 #include <Lyra/Rendering/RenderView.h>
-#include <Lyra/Rendering/PipelineManager.h>
+#include <Lyra/Rendering/Pipeline.h>
 
 namespace lyra::passes
 {
@@ -85,8 +85,8 @@ namespace lyra::passes
         bool valid() const { return initialized && pipeline.valid(); }
 
     private:
-        GPUDevice        device;
-        PipelineBundle   pipeline;
+        GPUDevice      device;
+        PipelineBundle pipeline;
 
         GPUTextureFormat cached_color_format = GPUTextureFormat::RGBA8UNORM;
         GPUTextureFormat cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;

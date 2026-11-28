@@ -57,8 +57,6 @@ bool OceanPass::init(
     shader_desc.vertex_entry   = "vsmain";
     shader_desc.fragment_entry = "fsmain";
 
-
-
     // generate ocean planar tessellation grid
     Vector<GridVertex> vertices;
     Vector<uint32_t>   indices;

@@ -12,7 +12,7 @@ namespace lyra
     /**
      * @brief 32-channel collision and trigger interaction matrix.
      */
-    class CollisionMatrix
+    struct CollisionMatrix
     {
     public:
         static constexpr uint LAYER_COUNT = 32;

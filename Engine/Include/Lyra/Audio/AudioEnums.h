@@ -10,7 +10,7 @@ namespace lyra
     /**
      * @brief Runtime playback state of an audio sound instance.
      */
-    enum class AudioPlayState : ubyte
+    enum struct AudioPlayState : ubyte
     {
         Playing,
         Paused,
@@ -20,7 +20,7 @@ namespace lyra
     /**
      * @brief 3D distance attenuation falloff model.
      */
-    enum class AttenuationModel : ubyte
+    enum struct AttenuationModel : ubyte
     {
         Inverse,     ///< 1.0 / (1.0 + rolloff * (d - min_d) / (max_d - min_d))
         Linear,      ///< 1.0 - rolloff * (d - min_d) / (max_d - min_d)
@@ -31,7 +31,7 @@ namespace lyra
     /**
      * @brief Audio mixing bus channels for grouping and master volume control.
      */
-    enum class AudioBusType : ubyte
+    enum struct AudioBusType : ubyte
     {
         Master,
         SFX,
@@ -45,7 +45,7 @@ namespace lyra
     /**
      * @brief Raw PCM sample encoding format.
      */
-    enum class AudioSampleFormat : ubyte
+    enum struct AudioSampleFormat : ubyte
     {
         Int16,
         Int24,
@@ -56,7 +56,7 @@ namespace lyra
     /**
      * @brief Supported audio subsystem plugin backends.
      */
-    enum class AudioBackend : ubyte
+    enum struct AudioBackend : ubyte
     {
         Mock,
         Miniaudio,

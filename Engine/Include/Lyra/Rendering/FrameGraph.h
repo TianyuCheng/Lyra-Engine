@@ -70,7 +70,7 @@ namespace lyra
     struct FrameGraphContext;
     struct FrameGraphAllocator;
     struct FrameGraphBarrierBatch;
-    class FrameArena;
+    struct FrameArena;
     struct ViewUniforms;
     struct SceneLighting;
 
@@ -725,8 +725,8 @@ namespace lyra
             return physical_resources.size();
         }
 
-        auto get_queue_batches() const -> Span<const FrameGraphQueueBatch> { return batches; }
-        auto get_sync_points() const -> Span<const FrameGraphSyncPoint> { return sync_points; }
+        auto get_queue_batches() const -> View<FrameGraphQueueBatch> { return batches; }
+        auto get_sync_points() const -> View<FrameGraphSyncPoint> { return sync_points; }
         bool has_async_compute() const { return has_compute_queue; }
 
     private:

@@ -11,7 +11,7 @@
 #include <Lyra/Rendering/FrameGraph.h>
 #include <Lyra/Rendering/RenderView.h>
 #include <Lyra/Rendering/RenderScene.h>
-#include <Lyra/Rendering/PipelineManager.h>
+#include <Lyra/Rendering/Pipeline.h>
 
 namespace lyra::passes
 {

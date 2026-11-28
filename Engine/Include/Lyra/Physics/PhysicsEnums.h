@@ -10,7 +10,7 @@ namespace lyra
     /**
      * @brief Motion behavior of a rigid body during simulation.
      */
-    enum class MotionType : ubyte
+    enum struct MotionType : ubyte
     {
         Static,    ///< immovable object with infinite mass; zero per-frame integration cost.
         Dynamic,   ///< fully simulated by forces, impulses, gravity, and contact constraints.
@@ -20,7 +20,7 @@ namespace lyra
     /**
      * @brief Supported collision geometry primitive and cooked mesh shapes.
      */
-    enum class ShapeType : ubyte
+    enum struct ShapeType : ubyte
     {
         Box,
         Sphere,
@@ -34,7 +34,7 @@ namespace lyra
     /**
      * @brief Standard collision filtering layer identifiers.
      */
-    enum class CollisionLayer : ushort
+    enum struct CollisionLayer : ushort
     {
         NonMoving   = 0, ///< static scenery (walls, floors, terrain).
         Moving      = 1, ///< dynamic rigid bodies (crates, barrels, props).
@@ -47,7 +47,7 @@ namespace lyra
     /**
      * @brief Physics constraint and joint connection types.
      */
-    enum class JointType : ubyte
+    enum struct JointType : ubyte
     {
         Fixed,
         Point,
@@ -60,7 +60,7 @@ namespace lyra
     /**
      * @brief Combine mode for friction and restitution calculations at contact points.
      */
-    enum class CombineMode : ubyte
+    enum struct CombineMode : ubyte
     {
         Average,
         Min,
@@ -71,7 +71,7 @@ namespace lyra
     /**
      * @brief Lifecycle phase of a contact constraint.
      */
-    enum class ContactEventType : ubyte
+    enum struct ContactEventType : ubyte
     {
         Begin,
         Persist,
@@ -81,7 +81,7 @@ namespace lyra
     /**
      * @brief Lifecycle phase of a trigger volume overlap.
      */
-    enum class TriggerEventType : ubyte
+    enum struct TriggerEventType : ubyte
     {
         Enter,
         Exit,
@@ -90,7 +90,7 @@ namespace lyra
     /**
      * @brief Supported physics simulation backends.
      */
-    enum class PhysicsBackend : ubyte
+    enum struct PhysicsBackend : ubyte
     {
         Jolt,
         Mock,

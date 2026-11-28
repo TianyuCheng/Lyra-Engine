@@ -89,7 +89,7 @@ PipelineAsset PipelineAsset::from_toml(const TOML& table)
 
         if (auto macros_tbl = (*shader_tbl)["macros"].as_table()) {
             for (const auto& [k, v] : *macros_tbl) {
-                asset.shader.macros[String(k.str())] = v.value_or("");
+                asset.shader.defines.push_back(ShaderDefine{String(k.str()), v.value_or("")});
             }
         }
     } else if (auto compute_tbl = table["compute"].as_table()) {
@@ -202,10 +202,10 @@ TOML PipelineAsset::to_toml() const
     } else {
         shader_tbl.insert("compute_entry", shader.compute_entry);
     }
-    if (!shader.macros.empty()) {
+    if (!shader.defines.empty()) {
         TOML macros_tbl;
-        for (const auto& [k, v] : shader.macros) {
-            macros_tbl.insert(k, v);
+        for (const auto& def : shader.defines) {
+            macros_tbl.insert(def.key, def.value);
         }
         shader_tbl.insert("macros", macros_tbl);
     }

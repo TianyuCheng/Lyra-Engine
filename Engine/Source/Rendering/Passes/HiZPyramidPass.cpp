@@ -17,8 +17,6 @@ bool HiZPyramidPass::init(GPUDevice dev, Compiler compiler)
     shader_desc.module        = "sys://Shaders/GPUDriven/HiZ.slang";
     shader_desc.compute_entry = "csmain";
 
-
-
     pipeline = ComputePipelineBuilder(device, compiler)
                    .with_shader(shader_desc)
                    .with_label("hiz_pyramid_pipeline")

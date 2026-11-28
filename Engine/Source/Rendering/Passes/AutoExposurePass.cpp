@@ -12,7 +12,6 @@ bool AutoExposurePass::init(GPUDevice dev, Compiler compiler)
     }
 
     device = dev;
-    
 
     // 1. create compute pipeline for cs_build_histogram
     PipelineShaderDescriptor hist_desc{};

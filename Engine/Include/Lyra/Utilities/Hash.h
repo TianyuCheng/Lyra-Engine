@@ -9,7 +9,7 @@
 namespace lyra
 {
 
-    template <class T>
+    template <typename T>
     constexpr void hash_combine(std::size_t& seed, const T& v)
     {
         if constexpr (std::is_integral_v<T>) {

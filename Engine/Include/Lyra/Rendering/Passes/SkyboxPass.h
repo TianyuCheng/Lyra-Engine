@@ -11,7 +11,7 @@
 #include <Lyra/Rendering/FrameGraph.h>
 #include <Lyra/Rendering/RenderView.h>
 #include <Lyra/Rendering/RenderScene.h>
-#include <Lyra/Rendering/PipelineManager.h>
+#include <Lyra/Rendering/Pipeline.h>
 
 namespace lyra::passes
 {
@@ -90,9 +90,9 @@ namespace lyra::passes
         GPUTextureView transmittance_lut_view;
 
         // 2. Multi-Scattering LUT (32x32)
-        GPUTexture   multiscatter_lut_tex;
+        GPUTexture     multiscatter_lut_tex;
         GPUTextureView multiscatter_lut_view;
-        GPUBindGroup multiscatter_bind_group;
+        GPUBindGroup   multiscatter_bind_group;
 
         GPUSampler linear_sampler;
 

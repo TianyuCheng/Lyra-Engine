@@ -273,7 +273,7 @@ bool SystemTextures::dispatch_compute_lut(
     auto gpu_module = device.create_shader_module(sm_desc);
 
     Vector<GPUBindGroupLayoutHandle> blayouts;
-    auto bg_layouts = (*reflection)->get_bind_group_layouts();
+    auto                             bg_layouts = (*reflection)->get_bind_group_layouts();
     if (!bg_layouts) {
         return false;
     }

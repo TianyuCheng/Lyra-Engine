@@ -14,7 +14,7 @@
 
 namespace lyra
 {
-    class SystemTextures;
+    struct SystemTextures;
 
     /**
      * @brief available renderer backend implementations.

@@ -17,8 +17,6 @@ bool LightCullingPass::init(GPUDevice dev, Compiler compiler)
     shader_desc.module        = "sys://Shaders/Forward/LightCulling.slang";
     shader_desc.compute_entry = "csmain";
 
-
-
     pipeline = ComputePipelineBuilder(device, compiler)
                    .with_shader(shader_desc)
                    .with_label("light_culling_pipeline")

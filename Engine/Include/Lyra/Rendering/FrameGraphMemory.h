@@ -25,11 +25,11 @@ namespace lyra
         uint                  max_color_slots = 0;
     };
 
-    class FrameGraphMemoryPlanner
+    struct FrameGraphMemoryPlanner
     {
     public:
         // calculate disjoint lifetime intervals and assign optimal alias slots
-        static auto compute_plan(Span<const ResourceLifetimeInterval> intervals) -> MemoryAliasingPlan;
+        static auto compute_plan(View<ResourceLifetimeInterval> intervals) -> MemoryAliasingPlan;
     };
 } // namespace lyra
 

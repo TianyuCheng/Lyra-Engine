@@ -27,8 +27,6 @@ bool ForwardPass::init(
     cached_color_format = color_format;
     cached_depth_format = depth_format;
 
-    
-
     // reflect pass shell to get canonical bind group layouts and immediate size
     PipelineShaderDescriptor shader_desc{};
     shader_desc.module         = "sys://Shaders/Forward/Forward.slang";
@@ -262,12 +260,9 @@ GPURenderPipeline ForwardPass::get_or_create_pipeline(ShadingModelID shading_mod
     Path   shader_path = model_info ? model_info->shader_module_path : Path("sys://Shaders/Forward/Forward.slang");
     String entry_point = model_info ? model_info->entry_point_name : String("fs_standard");
 
-    auto shader_stem     = shader_path.stem().string();
     auto shader_path_str = shader_path.string();
     auto desc            = CompileDescriptor{};
-    desc.module          = shader_stem.c_str();
     desc.path            = shader_path_str.c_str();
-    desc.source          = nullptr;
 
     auto compiled_module = compiler.compile(desc);
     if (!compiled_module) {
@@ -330,7 +325,7 @@ GPURenderPipeline ForwardPass::get_or_create_pipeline(ShadingModelID shading_mod
     });
 
     if (bundle.pipeline.valid()) {
-        auto pipe = bundle.pipeline;
+        auto pipe                           = bundle.pipeline;
         variant_pipelines[shading_model_id] = std::move(bundle);
         return pipe;
     }

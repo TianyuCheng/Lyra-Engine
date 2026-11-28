@@ -248,10 +248,10 @@ bool RHIDiagnosticOverlay::is_enabled()
     return s_enabled;
 }
 
-Span<const RHIBreadcrumbEntry> RHIDiagnosticOverlay::get_entries()
+View<RHIBreadcrumbEntry> RHIDiagnosticOverlay::get_entries()
 {
     LockGuard lock(s_mutex);
-    return Span<const RHIBreadcrumbEntry>(s_entries.data(), s_capacity);
+    return View<RHIBreadcrumbEntry>(s_entries.data(), s_capacity);
 }
 
 uint RHIDiagnosticOverlay::get_total_recorded()

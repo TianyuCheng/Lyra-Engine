@@ -10,12 +10,12 @@
 
 namespace lyra
 {
-    class ResourceRetire;
+    struct ResourceRetire;
 
     /**
      * @brief Manages large pooled GPU buffer slabs and sub-allocates aligned BufferSlice ranges.
      */
-    class GeometryBufferPool
+    struct GeometryBufferPool
     {
     public:
         static constexpr GPUSize64 DEFAULT_SLAB_SIZE = 32 * 1024 * 1024; // 32 MB

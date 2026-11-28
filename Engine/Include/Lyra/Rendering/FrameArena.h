@@ -39,7 +39,7 @@ namespace lyra
     /**
      * @brief Manages transient GPU allocations (bind groups, uniform staging) reset every frame.
      */
-    class FrameArena
+    struct FrameArena
     {
     public:
         explicit FrameArena(uint frames_in_flight = 3, uint default_heap_page_size = 4096, uint default_uniform_page_size = 65536);

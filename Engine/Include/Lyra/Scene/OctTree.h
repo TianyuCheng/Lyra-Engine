@@ -26,7 +26,7 @@ namespace lyra
      * tracks element locations via a hash map for o(1) removals and fast in-place updates.
      */
     template <typename T = Entity>
-    class OctTree
+    struct OctTree
     {
     public:
         using NodeIndex                         = uint;

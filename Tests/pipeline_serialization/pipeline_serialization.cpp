@@ -2,7 +2,7 @@
 #include <filesystem>
 #include <Lyra/Assets/Format/PipelineAsset.h>
 #include <Lyra/FileSystem/VFSAPI.h>
-#include <Lyra/Rendering/PipelineManager.h>
+#include <Lyra/Rendering/Pipeline.h>
 
 namespace fs = std::filesystem;
 using namespace lyra;
@@ -23,7 +23,7 @@ module = "sys://Shaders/PostProcess/FXAA.slang"
     CHECK_EQ(asset.shader.vertex_entry, "vsmain");
     CHECK_EQ(asset.shader.fragment_entry, "fsmain");
     CHECK_EQ(asset.shader.compute_entry, "csmain");
-    CHECK(asset.shader.macros.empty());
+    CHECK(asset.shader.defines.empty());
 
     // primitive defaults
     CHECK_EQ(asset.primitive.topology, GPUPrimitiveTopology::TRIANGLE_LIST);
@@ -59,12 +59,13 @@ module = "sys://Shaders/PostProcess/FXAA.slang"
 TEST_CASE("pipeline_serde::roundtrip_render_pipeline")
 {
     PipelineAsset original{};
-    original.pipeline_type                   = PipelineType::RENDER;
-    original.shader.module                   = "sys://Shaders/Deferred/GBuffer.slang";
-    original.shader.vertex_entry             = "vs_main";
-    original.shader.fragment_entry           = "fs_main";
-    original.shader.macros["HAS_NORMAL_MAP"] = "1";
-    original.shader.macros["SHADOW_PCF"]     = "16";
+    original.pipeline_type         = PipelineType::RENDER;
+    original.shader.module         = "sys://Shaders/Deferred/GBuffer.slang";
+    original.shader.vertex_entry   = "vs_main";
+    original.shader.fragment_entry = "fs_main";
+    original.shader.defines        = {
+        ShaderDefine{"HAS_NORMAL_MAP", "1"},
+        ShaderDefine{"SHADOW_PCF", "16"}};
 
     original.primitive.topology        = GPUPrimitiveTopology::TRIANGLE_LIST;
     original.primitive.cull_mode       = GPUCullMode::FRONT;
@@ -111,9 +112,11 @@ TEST_CASE("pipeline_serde::roundtrip_render_pipeline")
     CHECK_EQ(loaded.shader.module, original.shader.module);
     CHECK_EQ(loaded.shader.vertex_entry, "vs_main");
     CHECK_EQ(loaded.shader.fragment_entry, "fs_main");
-    CHECK_EQ(loaded.shader.macros.size(), 2u);
-    CHECK_EQ(loaded.shader.macros.at("HAS_NORMAL_MAP"), "1");
-    CHECK_EQ(loaded.shader.macros.at("SHADOW_PCF"), "16");
+    CHECK_EQ(loaded.shader.defines.size(), 2u);
+    CHECK_EQ(loaded.shader.defines[0].key, "HAS_NORMAL_MAP");
+    CHECK_EQ(loaded.shader.defines[0].value, "1");
+    CHECK_EQ(loaded.shader.defines[1].key, "SHADOW_PCF");
+    CHECK_EQ(loaded.shader.defines[1].value, "16");
 
     CHECK_EQ(loaded.primitive.topology, GPUPrimitiveTopology::TRIANGLE_LIST);
     CHECK_EQ(loaded.primitive.cull_mode, GPUCullMode::FRONT);
@@ -246,8 +249,6 @@ TEST_CASE("pipeline_manager::automated_reflection_and_layout_synthesis")
     auto device = RHI::get_current_device();
     REQUIRE(device.valid());
 
-    PipelineManager pipeline_manager(device, *compiler, &loader);
-
     SUBCASE("Reflect GBuffer render layout and verify push constant size & bind groups")
     {
         PipelineShaderDescriptor shader{};
@@ -255,7 +256,7 @@ TEST_CASE("pipeline_manager::automated_reflection_and_layout_synthesis")
         shader.vertex_entry   = "vsmain";
         shader.fragment_entry = "fsmain";
 
-        auto layout_info = pipeline_manager.reflect_render_layout(shader);
+        auto layout_info = PipelineReflection::reflect_render_layout(device, *compiler, &loader, shader);
         REQUIRE(layout_info.has_value());
         REQUIRE(layout_info->valid());
         CHECK_EQ(layout_info->immediate_size, 128u);
@@ -263,11 +264,7 @@ TEST_CASE("pipeline_manager::automated_reflection_and_layout_synthesis")
         for (const auto& bgl : layout_info->bind_group_layouts) {
             CHECK(bgl.valid());
         }
-
-        // Layout deduplication test: second reflect call returns identical cached layout
-        auto layout_cached = pipeline_manager.reflect_render_layout(shader);
-        REQUIRE(layout_cached.has_value());
-        CHECK_EQ(layout_cached->layout.handle, layout_info->layout.handle);
+        layout_info->destroy();
     }
 
     SUBCASE("Reflect compute layout for light culling")
@@ -276,10 +273,11 @@ TEST_CASE("pipeline_manager::automated_reflection_and_layout_synthesis")
         shader.module        = "sys://Shaders/Forward/LightCulling.slang";
         shader.compute_entry = "csmain";
 
-        auto layout_info = pipeline_manager.reflect_compute_layout(shader);
+        auto layout_info = PipelineReflection::reflect_compute_layout(device, *compiler, &loader, shader);
         REQUIRE(layout_info.has_value());
         REQUIRE(layout_info->valid());
         CHECK_FALSE(layout_info->bind_group_layouts.empty());
+        layout_info->destroy();
     }
 
     SUBCASE("Declarative render pipeline creation from PipelineAsset")
@@ -297,7 +295,7 @@ TEST_CASE("pipeline_manager::automated_reflection_and_layout_synthesis")
         target.blend_enable = false;
         asset.targets.push_back(target);
 
-        auto bundle = pipeline_manager.create_render_pipeline(asset);
+        auto bundle = RenderPipelineBuilder(device, *compiler, &loader).from_asset(asset).build();
         CHECK(bundle.valid());
         bundle.destroy();
     }
@@ -309,7 +307,7 @@ TEST_CASE("pipeline_manager::automated_reflection_and_layout_synthesis")
         asset.shader.module        = "sys://Shaders/Forward/LightCulling.slang";
         asset.shader.compute_entry = "csmain";
 
-        auto bundle = pipeline_manager.create_compute_pipeline(asset);
+        auto bundle = ComputePipelineBuilder(device, *compiler, &loader).from_asset(asset).build();
         CHECK(bundle.valid());
         bundle.destroy();
     }
@@ -334,16 +332,14 @@ TEST_CASE("pipeline_manager::automated_reflection_and_layout_synthesis")
 
         // load declaratively via builder
         auto bundle = RenderPipelineBuilder(device, *compiler, &loader)
-                            .from_asset("app://fxaa.pipeline")
-                            .with_target(GPUTextureFormat::RGBA16FLOAT, BlendPreset::ALPHA)
-                            .with_label("DeclarativeFXAA")
-                            .build();
+                          .from_asset("app://fxaa.pipeline")
+                          .with_target(GPUTextureFormat::RGBA16FLOAT, BlendPreset::ALPHA)
+                          .with_label("DeclarativeFXAA")
+                          .build();
 
         CHECK(bundle.valid());
         bundle.destroy();
 
         fs::remove_all(temp_dir);
     }
-
-    pipeline_manager.destroy();
 }

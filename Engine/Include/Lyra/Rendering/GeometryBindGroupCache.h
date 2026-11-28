@@ -14,7 +14,7 @@ namespace lyra
     /**
      * @brief Shared cache for geometry vertex pulling bind groups and heaps across passes.
      */
-    class GeometryBindGroupCache
+    struct GeometryBindGroupCache
     {
     public:
         GeometryBindGroupCache() = default;

@@ -10,7 +10,7 @@
 #include <Lyra/Rendering/RenderScene.h>
 #include <Lyra/Rendering/MeshPass.h>
 #include <Lyra/Rendering/ShadingModelRegistry.h>
-#include <Lyra/Rendering/PipelineManager.h>
+#include <Lyra/Rendering/Pipeline.h>
 #include <Lyra/Compiler/SLCTypes.h>
 #include <Lyra/Utilities/Path.h>
 #include <Lyra/Utilities/GUID.h>
@@ -139,21 +139,21 @@ namespace lyra::passes
     private:
         GPURenderPipeline get_or_create_pipeline(ShadingModelID shading_model_id);
 
-        GPUDevice                                  device;
-        Compiler                                   compiler;
-        ReflectedPipelineLayout                    pipeline_layout;
-        MeshPass                                   mesh_pass;
-        HashMap<ShadingModelID, PipelineBundle>    variant_pipelines;
-        GPUBuffer                                  default_cluster_grid_buffer;
-        GPUBuffer                                  default_light_index_buffer;
-        GPUSampler                                 shadow_sampler;
-        GPUTexture                                 default_shadow_map;
-        GPUTextureView                             default_shadow_view;
-        GPUSampler                                 environment_sampler;
-        GPUTexture                                 default_env_map;
-        GPUTextureView                             default_env_view;
-        GPUTexture                                 default_brdf_lut;
-        GPUTextureView                             default_brdf_lut_view;
+        GPUDevice                               device;
+        Compiler                                compiler;
+        ReflectedPipelineLayout                 pipeline_layout;
+        MeshPass                                mesh_pass;
+        HashMap<ShadingModelID, PipelineBundle> variant_pipelines;
+        GPUBuffer                               default_cluster_grid_buffer;
+        GPUBuffer                               default_light_index_buffer;
+        GPUSampler                              shadow_sampler;
+        GPUTexture                              default_shadow_map;
+        GPUTextureView                          default_shadow_view;
+        GPUSampler                              environment_sampler;
+        GPUTexture                              default_env_map;
+        GPUTextureView                          default_env_view;
+        GPUTexture                              default_brdf_lut;
+        GPUTextureView                          default_brdf_lut_view;
 
         GPUTextureFormat cached_color_format = GPUTextureFormat::RGBA8UNORM;
         GPUTextureFormat cached_depth_format = GPUTextureFormat::DEPTH32FLOAT;

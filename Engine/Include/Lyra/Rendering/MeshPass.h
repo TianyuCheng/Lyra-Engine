@@ -83,7 +83,7 @@ namespace lyra
     /**
      * @brief pass execution coordinator for filtering, sorting, and dispatching mesh draw batches.
      */
-    class MeshPass
+    struct MeshPass
     {
     public:
         using PipelineResolver = FunctionRef<GPURenderPipeline(const MeshPrimitive&)>;

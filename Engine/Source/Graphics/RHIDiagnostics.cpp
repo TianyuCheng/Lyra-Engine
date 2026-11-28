@@ -8,7 +8,7 @@ bool RHIDiagnostics::is_enabled()
     return RHIDiagnosticOverlay::is_enabled();
 }
 
-Span<const RHIBreadcrumbEntry> RHIDiagnostics::get_entries()
+View<RHIBreadcrumbEntry> RHIDiagnostics::get_entries()
 {
     return RHIDiagnosticOverlay::get_entries();
 }

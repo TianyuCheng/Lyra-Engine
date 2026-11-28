@@ -14,7 +14,6 @@ bool BloomPass::init(GPUDevice dev, Compiler compiler)
     }
 
     device = dev;
-    
 
     // 1. downsample compute pipeline (cs_downsample)
     PipelineShaderDescriptor down_desc{};

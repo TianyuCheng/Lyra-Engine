@@ -41,6 +41,14 @@ struct CompilerWrapper
     ComPtr<ISlangFileSystemExt> file_system;
     CompileTarget               target;
 
+    struct CachedModule
+    {
+        ComPtr<slang::IModule> module;
+        String                 source_text;
+    };
+
+    HashMap<String, CachedModule> module_cache;
+
     static void init();
 
     explicit CompilerWrapper(const CompilerDescriptor& descriptor);

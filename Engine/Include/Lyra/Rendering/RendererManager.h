@@ -20,7 +20,7 @@ namespace lyra
     /**
      * @brief manages the lifecycle, dynamic swapping, and execution of renderer plugins.
      */
-    class RendererManager
+    struct RendererManager
     {
     public:
         explicit RendererManager();

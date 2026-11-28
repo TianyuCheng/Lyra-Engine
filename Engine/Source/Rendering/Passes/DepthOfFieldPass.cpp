@@ -20,8 +20,6 @@ bool DepthOfFieldPass::init(GPUDevice dev, Compiler compiler)
     shader_desc.module        = "sys://Shaders/PostProcess/DepthOfField.slang";
     shader_desc.compute_entry = "cs_dof_bokeh";
 
-
-
     pipeline = ComputePipelineBuilder(device, compiler)
                    .with_shader(shader_desc)
                    .with_label("dof_pipeline")

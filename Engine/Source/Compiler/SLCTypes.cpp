@@ -91,9 +91,9 @@ ShaderModule::~ShaderModule()
 
 Result<ShaderBlob> ShaderModule::get_shader_blob(CString entry) const
 {
-    ShaderBlob blob{};
+    ShaderBlob       blob{};
     ShaderEntryPoint entry_point{handle, entry};
-    bool success = Compiler::api()->get_shader_blob(entry_point, blob);
+    bool             success = Compiler::api()->get_shader_blob(entry_point, blob);
     if (!success) {
         return make_unexpected("Failed to get shader blob for entry: " + String(entry ? entry : "null"));
     }
@@ -109,7 +109,7 @@ ShaderReflection::~ShaderReflection()
 
 Result<uint> ShaderReflection::get_bind_group_location(CString name) const
 {
-    uint group = 0;
+    uint group   = 0;
     bool success = Compiler::api()->get_bind_group_location(handle, name, group);
     if (!success) {
         return make_unexpected("Failed to reflect bind group location via name: " + String(name ? name : "null"));

@@ -123,7 +123,7 @@ namespace lyra
      * Owns typed ResourceRetireQueue instances for all destroyable GPU resource types,
      * safe-guarding resources until in-flight GPU frames have finished.
      */
-    class ResourceRetire
+    struct ResourceRetire
     {
     public:
         explicit ResourceRetire() = default;

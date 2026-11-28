@@ -28,8 +28,6 @@ bool ShadowMapPass::init(
     shader_desc.vertex_entry   = "vsmain";
     shader_desc.fragment_entry = "fsmain";
 
-
-
     GPUDepthStencilState ds{};
     ds.depth_compare          = GPUCompareFunction::LESS_EQUAL;
     ds.depth_write_enabled    = true;

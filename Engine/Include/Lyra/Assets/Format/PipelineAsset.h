@@ -7,6 +7,7 @@
 #include <Lyra/Utilities/Config.h>
 #include <Lyra/Utilities/String.h>
 #include <Lyra/Utilities/Collections.h>
+#include <Lyra/Compiler/SLCUtils.h>
 #include <Lyra/Assets/AMSAPI.h>
 #include <Lyra/Graphics/RHIEnums.h>
 #include <Lyra/Graphics/RHIUtils.h>
@@ -50,7 +51,7 @@ namespace lyra
         String fragment_entry = "fsmain";
         String compute_entry  = "csmain";
 
-        HashMap<String, String> macros = {};
+        Vector<ShaderDefine> defines = {};
     };
 
     /**

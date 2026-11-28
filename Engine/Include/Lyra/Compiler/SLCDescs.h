@@ -25,9 +25,10 @@ namespace lyra
 
     struct CompileDescriptor
     {
-        CString module;
-        CString path;
-        CString source;
+        CString       module  = nullptr;
+        CString       path    = nullptr;
+        CString       source  = nullptr;
+        ShaderDefines defines = {};
     };
 
 } // namespace lyra

@@ -19,7 +19,7 @@ namespace lyra
      * GPU buffer residency for requested presentations (Trimesh, Meshlet, BVH),
      * and prepares cullable RenderScene packets for renderers.
      */
-    class RenderWorld
+    struct RenderWorld
     {
     public:
         RenderWorld(GeometryCache& geometry_cache, AssetServer* ams = nullptr);

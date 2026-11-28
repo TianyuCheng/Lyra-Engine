@@ -41,7 +41,7 @@ namespace lyra
     /**
      * @brief centralized registry treating built-in and user custom shading models equally.
      */
-    class ShadingModelRegistry
+    struct ShadingModelRegistry
     {
     public:
         static void register_model(const ShadingModelInfo& info);

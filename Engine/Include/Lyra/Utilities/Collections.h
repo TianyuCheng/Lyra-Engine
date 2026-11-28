@@ -115,6 +115,9 @@ namespace lyra
         }
     };
 
+    template <typename T, usize Extent = std::dynamic_extent>
+    using View = std::span<const T, Extent>;
+
     using Blackboard = lyra::detail::Blackboard;
     using Services   = lyra::detail::Services;
 

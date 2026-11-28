@@ -8,7 +8,7 @@
 #include <Lyra/Rendering/FrameGraph.h>
 #include <Lyra/Compiler/SLCTypes.h>
 #include <Lyra/Utilities/Path.h>
-#include <Lyra/Rendering/PipelineManager.h>
+#include <Lyra/Rendering/Pipeline.h>
 
 namespace lyra::passes
 {

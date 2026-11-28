@@ -181,8 +181,8 @@ bool WindowInput::has_dropped_files() const
     return !current_state().files.entries.empty();
 }
 
-Span<const String> WindowInput::get_dropped_files() const
+View<String> WindowInput::get_dropped_files() const
 {
     const auto& entries = current_state().files.entries;
-    return Span<const String>(entries.data(), entries.size());
+    return View<String>(entries.data(), entries.size());
 }

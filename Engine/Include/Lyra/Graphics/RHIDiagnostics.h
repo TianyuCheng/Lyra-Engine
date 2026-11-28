@@ -14,7 +14,7 @@ namespace lyra
     /**
      * @brief Low-level RHI command operations recorded by the diagnostic overlay.
      */
-    enum class RHIBreadcrumbOp : uint
+    enum struct RHIBreadcrumbOp : uint
     {
         PASS_BEGIN = 0,
         PASS_END,
@@ -62,7 +62,7 @@ namespace lyra
     /**
      * @brief RHI Diagnostic and crash root-cause analysis services.
      */
-    class RHIDiagnostics
+    struct RHIDiagnostics
     {
     public:
         static constexpr uint DEFAULT_RING_CAPACITY = 4096;
@@ -75,7 +75,7 @@ namespace lyra
         /**
          * @brief Get immutable span of recorded breadcrumb entries in the ring buffer.
          */
-        static auto get_entries() -> Span<const RHIBreadcrumbEntry>;
+        static auto get_entries() -> View<RHIBreadcrumbEntry>;
 
         /**
          * @brief Total number of RHI commands recorded since initialization.

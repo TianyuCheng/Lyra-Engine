@@ -58,7 +58,7 @@ Result<void> RendererManager::load_renderer(AppContext& context, StringView plug
     }
 
     String name_str(plugin_name);
-    auto loaded = current_plugin.load(name_str.c_str());
+    auto   loaded = current_plugin.load(name_str.c_str());
     if (!loaded) {
         spdlog::error("failed to load renderer plugin '{}': {}", name_str, loaded.error());
         return make_unexpected("failed to load renderer plugin '" + name_str + "': " + loaded.error());

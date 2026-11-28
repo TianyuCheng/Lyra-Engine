@@ -77,8 +77,6 @@ bool GBufferPass::init(
     shader_desc.vertex_entry   = "vsmain";
     shader_desc.fragment_entry = "fsmain";
 
-
-
     Vector<GPUVertexBufferLayout> vlayouts;
 
     // slot 0: position stream (float3, stride 12)

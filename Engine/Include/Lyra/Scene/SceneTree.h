@@ -19,7 +19,7 @@ namespace lyra
      * this class maintains a tree representation of the scene graph and a cached traversal order.
      * it uses entt signals to stay in sync with the world ecs incrementally.
      */
-    class SceneTree
+    struct SceneTree
     {
     public:
         using NodeIndex = uint;

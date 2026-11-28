@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef LYRA_ENGINE_RENDERING_PIPELINEMANAGER_H
-#define LYRA_ENGINE_RENDERING_PIPELINEMANAGER_H
+#ifndef LYRA_ENGINE_RENDERING_PIPELINE_H
+#define LYRA_ENGINE_RENDERING_PIPELINE_H
 
 #include <Lyra/Utilities/Stdint.h>
 #include <Lyra/Utilities/String.h>
@@ -16,9 +16,8 @@
 
 namespace lyra
 {
-    class PipelineManager;
-    class RenderPipelineBuilder;
-    class ComputePipelineBuilder;
+    struct RenderPipelineBuilder;
+    struct ComputePipelineBuilder;
 
     /**
      * @brief Synthesized layout reflection data derived directly from Slang metadata.
@@ -80,7 +79,7 @@ namespace lyra
         Vector<GPUShaderModule> shader_modules;
 
         bool valid() const { return pipeline.valid(); }
-        operator GPURenderPipeline() const { return pipeline; }
+             operator GPURenderPipeline() const { return pipeline; }
 
         void destroy()
         {
@@ -110,7 +109,7 @@ namespace lyra
         Vector<GPUShaderModule> shader_modules;
 
         bool valid() const { return pipeline.valid(); }
-        operator GPUComputePipeline() const { return pipeline; }
+             operator GPUComputePipeline() const { return pipeline; }
 
         void destroy()
         {
@@ -140,7 +139,7 @@ namespace lyra
             Compiler                        compiler,
             FileLoader*                     loader,
             const PipelineShaderDescriptor& shader_desc,
-            Span<const ShaderEntryPoint>    extra_entries = {}) -> Result<ReflectedPipelineLayout>;
+            View<ShaderEntryPoint>          extra_entries = {}) -> Result<ReflectedPipelineLayout>;
 
         auto reflect_render_layout(
             GPUDevice                       device,
@@ -153,16 +152,15 @@ namespace lyra
             Compiler                        compiler,
             FileLoader*                     loader,
             const PipelineShaderDescriptor& shader_desc) -> Result<ReflectedPipelineLayout>;
-    }
+    } // namespace PipelineReflection
 
     /**
      * @brief Fluent standalone builder for constructing GPURenderPipeline instances declaratively.
      */
-    class RenderPipelineBuilder
+    struct RenderPipelineBuilder
     {
     public:
         explicit RenderPipelineBuilder(GPUDevice device, Compiler compiler, FileLoader* loader = nullptr);
-        explicit RenderPipelineBuilder(PipelineManager& manager);
 
         auto from_asset(const PipelineAsset& asset) -> RenderPipelineBuilder&;
         auto from_asset(StringView virtual_path) -> RenderPipelineBuilder&;
@@ -172,8 +170,10 @@ namespace lyra
         auto with_vertex_entry(StringView entry) -> RenderPipelineBuilder&;
         auto with_fragment_entry(StringView entry) -> RenderPipelineBuilder&;
         auto with_macro(StringView key, StringView value) -> RenderPipelineBuilder&;
+        auto with_define(StringView key, StringView value) -> RenderPipelineBuilder&;
+        auto with_defines(View<ShaderDefine> defines) -> RenderPipelineBuilder&;
 
-        auto with_vertex_layouts(Span<const GPUVertexBufferLayout> layouts) -> RenderPipelineBuilder&;
+        auto with_vertex_layouts(View<GPUVertexBufferLayout> layouts) -> RenderPipelineBuilder&;
         auto with_vertex_layout(const GPUVertexBufferLayout& layout) -> RenderPipelineBuilder&;
 
         auto with_primitive(const GPUPrimitiveState& primitive) -> RenderPipelineBuilder&;
@@ -190,7 +190,7 @@ namespace lyra
 
         auto with_multisample(const GPUMultisampleState& ms) -> RenderPipelineBuilder&;
 
-        auto with_targets(Span<const GPUColorTargetState> targets) -> RenderPipelineBuilder&;
+        auto with_targets(View<GPUColorTargetState> targets) -> RenderPipelineBuilder&;
         auto with_target(const GPUColorTargetState& target) -> RenderPipelineBuilder&;
         auto with_target(
             GPUTextureFormat   format,
@@ -208,7 +208,7 @@ namespace lyra
     private:
         GPUDevice                     device;
         Compiler                      compiler;
-        FileLoader*                   loader         = nullptr;
+        FileLoader*                   loader = nullptr;
         PipelineAsset                 asset;
         Vector<GPUVertexBufferLayout> vertex_layouts;
         CString                       label          = nullptr;
@@ -219,11 +219,10 @@ namespace lyra
     /**
      * @brief Fluent standalone builder for constructing GPUComputePipeline instances declaratively.
      */
-    class ComputePipelineBuilder
+    struct ComputePipelineBuilder
     {
     public:
         explicit ComputePipelineBuilder(GPUDevice device, Compiler compiler, FileLoader* loader = nullptr);
-        explicit ComputePipelineBuilder(PipelineManager& manager);
 
         auto from_asset(const PipelineAsset& asset) -> ComputePipelineBuilder&;
         auto from_asset(StringView virtual_path) -> ComputePipelineBuilder&;
@@ -232,6 +231,8 @@ namespace lyra
         auto with_shader_module(StringView module_path) -> ComputePipelineBuilder&;
         auto with_compute_entry(StringView entry) -> ComputePipelineBuilder&;
         auto with_macro(StringView key, StringView value) -> ComputePipelineBuilder&;
+        auto with_define(StringView key, StringView value) -> ComputePipelineBuilder&;
+        auto with_defines(View<ShaderDefine> defines) -> ComputePipelineBuilder&;
 
         auto with_label(CString label) -> ComputePipelineBuilder&;
 
@@ -246,98 +247,10 @@ namespace lyra
         Compiler         compiler;
         FileLoader*      loader = nullptr;
         PipelineAsset    asset;
-        CString          label  = nullptr;
+        CString          label = nullptr;
         Optional<String> error_message;
-    };
-
-    /**
-     * @brief Utility coordinator for shader reflection, pipeline builders, and asset loading.
-     */
-    class PipelineManager
-    {
-    public:
-        explicit PipelineManager() = default;
-        explicit PipelineManager(GPUDevice device, Compiler compiler, FileLoader* loader = nullptr);
-        virtual ~PipelineManager();
-
-        PipelineManager(const PipelineManager&)            = delete;
-        PipelineManager& operator=(const PipelineManager&) = delete;
-
-        PipelineManager(PipelineManager&& other) noexcept;
-        PipelineManager& operator=(PipelineManager&& other) noexcept;
-
-        /**
-         * @brief Initialize manager with GPU device, compiler, and optional virtual file loader.
-         */
-        bool init(GPUDevice device, Compiler compiler, FileLoader* loader = nullptr);
-
-        /**
-         * @brief Clear cached reflection layouts and shader modules.
-         */
-        void destroy();
-
-        /**
-         * @brief Synthesize GPUPipelineLayout and GPUBindGroupLayouts directly from Slang reflection.
-         */
-        auto reflect_layout(
-            const PipelineShaderDescriptor& shader_desc,
-            Span<const ShaderEntryPoint>    extra_entries = {}) -> Result<ReflectedPipelineLayout>;
-
-        /**
-         * @brief Derive layout for render pipeline stages (vertex + fragment).
-         */
-        auto reflect_render_layout(const PipelineShaderDescriptor& shader_desc) -> Result<ReflectedPipelineLayout>;
-
-        /**
-         * @brief Derive layout for compute pipeline stage (compute).
-         */
-        auto reflect_compute_layout(const PipelineShaderDescriptor& shader_desc) -> Result<ReflectedPipelineLayout>;
-
-        /**
-         * @brief Create render pipeline bundle from in-memory PipelineAsset using automated layout derivation.
-         */
-        auto create_render_pipeline(
-            const PipelineAsset&              asset,
-            Span<const GPUVertexBufferLayout> vertex_layouts = {},
-            CString                           label          = nullptr) -> PipelineBundle;
-
-        /**
-         * @brief Create compute pipeline bundle from in-memory PipelineAsset using automated layout derivation.
-         */
-        auto create_compute_pipeline(
-            const PipelineAsset& asset,
-            CString              label = nullptr) -> ComputePipelineBundle;
-
-        /**
-         * @brief Fluent builder for constructing render pipelines declaratively.
-         */
-        auto render_pipeline_builder() -> RenderPipelineBuilder;
-
-        /**
-         * @brief Fluent builder for constructing compute pipelines declaratively.
-         */
-        auto compute_pipeline_builder() -> ComputePipelineBuilder;
-
-        /**
-         * @brief Read a pipeline asset from file without instantiating GPU resources.
-         */
-        auto load_pipeline_asset(StringView virtual_path) const -> Result<PipelineAsset>;
-
-        /**
-         * @brief Accessors.
-         */
-        auto get_device() const -> GPUDevice { return device; }
-        auto get_compiler() const -> Compiler { return compiler; }
-        auto get_file_loader() const -> FileLoader* { return loader; }
-
-    private:
-        GPUDevice   device;
-        Compiler    compiler;
-        FileLoader* loader = nullptr;
-
-        HashMap<String, ReflectedPipelineLayout> cached_layouts;
     };
 
 } // namespace lyra
 
-#endif // LYRA_ENGINE_RENDERING_PIPELINEMANAGER_H
+#endif // LYRA_ENGINE_RENDERING_PIPELINE_H

@@ -13,7 +13,7 @@
 #include <Lyra/Rendering/RenderScene.h>
 #include <Lyra/Rendering/RendererTypes.h>
 #include <Lyra/Rendering/GeometryBindGroupCache.h>
-#include <Lyra/Rendering/PipelineManager.h>
+#include <Lyra/Rendering/Pipeline.h>
 
 namespace lyra::passes
 {

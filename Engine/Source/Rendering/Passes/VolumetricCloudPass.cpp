@@ -53,8 +53,6 @@ bool VolumetricCloudPass::init(
     shader_desc.vertex_entry   = "vsmain";
     shader_desc.fragment_entry = "fsmain";
 
-
-
     // 2. linear clamp sampler
     auto sdesc           = GPUSamplerDescriptor{};
     sdesc.label          = "volumetric_cloud_linear_sampler";

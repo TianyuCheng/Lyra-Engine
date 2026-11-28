@@ -11,7 +11,7 @@
 
 namespace lyra
 {
-    class ResourceRetire;
+    struct ResourceRetire;
 
     /**
      * @brief Staging copy descriptor for geometry uploads.
@@ -28,7 +28,7 @@ namespace lyra
      * @brief GeometryCache manages GPU memory residency, sub-allocation, multi-presentation,
      * and two-tier LRU caching for MeshAssets.
      */
-    class GeometryCache
+    struct GeometryCache
     {
     public:
         static constexpr usize DEFAULT_VRAM_BUDGET = 512 * 1024 * 1024; // 512 MB

@@ -41,7 +41,7 @@ namespace lyra
     /**
      * @brief Standard scene templates for initial scene authoring.
      */
-    enum class SceneTemplate
+    enum struct SceneTemplate
     {
         EMPTY,      ///< Completely empty root node.
         DEFAULT_3D, ///< Root node + Main Camera (with FlyCamera) + Sun.
@@ -64,7 +64,7 @@ namespace lyra
     /**
      * @brief manages scene lifecycle, spawning, and hierarchy serialization.
      */
-    class SceneManager
+    struct SceneManager
     {
     public:
         using LoadedCallback   = Function<void(SceneInstanceID)>;

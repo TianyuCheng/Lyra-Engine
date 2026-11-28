@@ -109,8 +109,8 @@ CompilerWrapper::CompilerWrapper(const CompilerDescriptor& descriptor)
         auto entry               = slang::CompilerOptionEntry{};
         entry.name               = slang::CompilerOptionName::MacroDefine;
         entry.value.kind         = slang::CompilerOptionValueKind::String;
-        entry.value.stringValue0 = macro.key;
-        entry.value.stringValue1 = macro.value;
+        entry.value.stringValue0 = macro.key.c_str();
+        entry.value.stringValue1 = macro.value.c_str();
         options.push_back(entry);
     }
 
@@ -218,6 +218,62 @@ bool CompilerWrapper::compile(const CompileDescriptor& desc, CompileResultIntern
     result.target      = target;
     result.module_name = desc.module ? desc.module : (desc.path ? desc.path : "");
 
+    String def_str;
+    if (!desc.defines.empty()) {
+        for (const auto& def : desc.defines) {
+            def_str += def.key;
+            def_str += "=";
+            def_str += def.value;
+            def_str += ";";
+        }
+    }
+
+    auto check_cache = [&](const String& key) -> bool {
+        if (key.empty()) return false;
+        auto it = module_cache.find(key + "#" + def_str);
+        if (it != module_cache.end() && it->second.module != nullptr) {
+            result.module      = it->second.module;
+            result.source_text = it->second.source_text;
+            return true;
+        }
+        return false;
+    };
+
+    if (desc.path) {
+        if (check_cache(desc.path)) return true;
+        std::filesystem::path p(desc.path);
+        if (check_cache(p.stem().string())) return true;
+        if (check_cache(p.filename().string())) return true;
+    }
+    if (desc.module) {
+        if (check_cache(desc.module)) return true;
+    }
+
+    // Check if module was already loaded in session (e.g. via Slang import or previously)
+    if (desc.defines.empty()) {
+        ComPtr<slang::IModule> existing_module;
+        if (desc.module) {
+            existing_module = session->loadModule(desc.module, nullptr);
+        }
+        if (!existing_module && desc.path) {
+            std::filesystem::path p(desc.path);
+            existing_module = session->loadModule(p.stem().string().c_str(), nullptr);
+        }
+        if (existing_module) {
+            result.module = existing_module;
+            CachedModule cached{existing_module, ""};
+            if (desc.path) {
+                module_cache[String(desc.path) + "#" + def_str] = cached;
+                std::filesystem::path p(desc.path);
+                module_cache[p.stem().string() + "#" + def_str] = cached;
+            }
+            if (desc.module) {
+                module_cache[String(desc.module) + "#" + def_str] = cached;
+            }
+            return true;
+        }
+    }
+
     String source_text;
     if (desc.source && std::strlen(desc.source) > 0) {
         source_text = desc.source;
@@ -268,6 +324,14 @@ bool CompilerWrapper::compile(const CompileDescriptor& desc, CompileResultIntern
         }
     }
 
+    if (!desc.defines.empty()) {
+        String defines_prefix;
+        for (const auto& def : desc.defines) {
+            defines_prefix += "#define " + def.key + " " + def.value + "\n";
+        }
+        source_text = defines_prefix + source_text;
+    }
+
     // create shader module
     ComPtr<slang::IBlob> diagnostics;
     if (!source_text.empty()) {
@@ -284,6 +348,22 @@ bool CompilerWrapper::compile(const CompileDescriptor& desc, CompileResultIntern
             diagnostics.writeRef());
     }
     diagnose_if_needed(diagnostics, result.module != nullptr ? SLANG_OK : SLANG_FAIL);
+
+    if (result.module != nullptr) {
+        CachedModule cached{result.module, result.source_text};
+        if (desc.path) {
+            module_cache[String(desc.path) + "#" + def_str] = cached;
+            std::filesystem::path p(desc.path);
+            module_cache[p.stem().string() + "#" + def_str]     = cached;
+            module_cache[p.filename().string() + "#" + def_str] = cached;
+        }
+        if (desc.module) {
+            module_cache[String(desc.module) + "#" + def_str] = cached;
+        }
+        if (const char* name = result.module->getName()) {
+            module_cache[String(name) + "#" + def_str] = cached;
+        }
+    }
 
     return result.module != nullptr;
 }

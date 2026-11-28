@@ -12,7 +12,7 @@
 #include <Lyra/Rendering/RenderView.h>
 #include <Lyra/Rendering/RenderScene.h>
 #include <Lyra/Components/Cloudscape.h>
-#include <Lyra/Rendering/PipelineManager.h>
+#include <Lyra/Rendering/Pipeline.h>
 
 namespace lyra::passes
 {
@@ -99,11 +99,11 @@ namespace lyra::passes
         bool valid() const { return initialized && pipeline.valid(); }
 
     private:
-        GPUDevice        device;
-        PipelineBundle   pipeline;
-        GPUSampler       linear_sampler;
-        GPUTexture       default_depth_tex;
-        GPUTextureView   default_depth_view;
+        GPUDevice      device;
+        PipelineBundle pipeline;
+        GPUSampler     linear_sampler;
+        GPUTexture     default_depth_tex;
+        GPUTextureView default_depth_view;
 
         GPUTextureFormat cached_color_format = GPUTextureFormat::RGBA8UNORM;
         bool             initialized         = false;

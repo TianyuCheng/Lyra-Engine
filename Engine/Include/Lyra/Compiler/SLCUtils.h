@@ -25,7 +25,7 @@ namespace lyra
 
     using ShaderError            = CString;
     using ShaderInclude          = CString;
-    using ShaderDefines          = Span<ShaderDefine>;
+    using ShaderDefines          = View<ShaderDefine>;
     using ShaderIncludes         = Span<ShaderInclude>;
     using CompilerHandle         = TypedPointerHandle<Compiler>;
     using ShaderModuleHandle     = TypedPointerHandle<ShaderModule>;
@@ -36,10 +36,10 @@ namespace lyra
 
     constexpr uint32_t HOST_MAGIC = 0x534C4843; // 'SLHC'
 
-    extern "C" struct ShaderDefine
+    struct ShaderDefine
     {
-        CString key;
-        CString value;
+        String key;
+        String value;
     };
 
     extern "C" struct ShaderBlob

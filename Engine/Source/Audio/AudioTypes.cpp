@@ -302,7 +302,7 @@ Result<void> Audio::init(StringView custom_backend)
 
     g_slot.plugin = make_own<AudioPlugin>();
     String plugin_name(custom_backend);
-    auto loaded = g_slot.plugin->load(plugin_name.c_str());
+    auto   loaded = g_slot.plugin->load(plugin_name.c_str());
     if (!loaded) {
         get_logger()->error("Failed to load custom audio plugin: {}: {}", custom_backend, loaded.error());
         return make_unexpected("Failed to load custom audio plugin '" + plugin_name + "': " + loaded.error());
